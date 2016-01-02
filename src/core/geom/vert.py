@@ -1,0 +1,375 @@
+from ..base import *
+
+
+class VertexManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(
+            self, "vert", self.__create_vertex, "sub", pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("vert")
+        Mgr.accept("create_merged_vert", self.__create_merged_vertex)
+
+    def __create_vertex(self, geom_data_obj, pos):
+
+        vert_id = self.get_next_id()
+        picking_col_id = self.get_next_picking_color_id()
+        vertex = Vertex(vert_id, picking_col_id, geom_data_obj, pos)
+
+        return vertex, picking_col_id
+
+    def __create_merged_vertex(self, geom_data_obj, vert_id=None):
+
+        vertex = MergedVertex(geom_data_obj, vert_id)
+
+        return vertex
+
+
+class Vertex(BaseObject):
+
+    def __getstate__(self):
+
+        d = self.__dict__.copy()
+        d["_geom_data_obj"] = None
+        d["_data"] = data = self._data.copy()
+        data["row_offset"] = 0
+
+        return d
+
+    def __init__(self, vert_id, picking_col_id, geom_data_obj, pos):
+
+        self._type = "vert"
+        self._full_type = "single_vert"
+        self._id = vert_id
+        self._picking_col_id = picking_col_id
+        self._geom_data_obj = geom_data_obj
+        self._creation_time = None
+        self._prev_prop_time = {"transform": None, "uvs": None, "normal": None}
+        self._pos = Point3(*pos)  # in local space
+        self._edge_ids = []
+        self._poly_id = None
+        self._data = {
+            "row": 0, "row_offset": 0,
+                      "uvs": {}, "normal": None,
+                      "tangent_space": (Vec3(), Vec3())
+        }
+
+    def get_type(self):
+
+        return self._type
+
+    def get_full_type(self):
+
+        return self._full_type
+
+    def get_id(self):
+
+        return self._id
+
+    def get_picking_color_id(self):
+
+        return self._picking_col_id
+
+    def set_geom_data_object(self, geom_data_obj):
+
+        self._geom_data_obj = geom_data_obj
+
+    def get_geom_data_object(self):
+
+        return self._geom_data_obj
+
+    def get_toplevel_object(self):
+
+        return self._geom_data_obj.get_toplevel_object()
+
+    def get_merged_object(self):
+
+        return self._geom_data_obj.get_merged_vertex(self._id)
+
+    def get_merged_vertex(self):
+
+        return self._geom_data_obj.get_merged_vertex(self._id)
+
+    def set_creation_time(self, time_id):
+
+        self._creation_time = time_id
+
+    def get_creation_time(self):
+
+        return self._creation_time
+
+    def set_previous_property_time(self, prop_id, time_id):
+
+        self._prev_prop_time[prop_id] = time_id
+
+    def get_previous_property_time(self, prop_id):
+
+        return self._prev_prop_time[prop_id]
+
+    def set_pos(self, pos, ref_node=None):
+
+        if ref_node:
+            origin = self._geom_data_obj.get_origin()
+            self._pos = origin.get_relative_point(ref_node, pos)
+        else:
+            self._pos = pos
+
+    def get_pos(self, ref_node=None):
+
+        if ref_node:
+            origin = self._geom_data_obj.get_origin()
+            return ref_node.get_relative_point(origin, self._pos)
+
+        return self._pos
+
+    def get_center_pos(self, ref_node=None):
+
+        if ref_node:
+            origin = self._geom_data_obj.get_origin()
+            return ref_node.get_relative_point(origin, self._pos)
+
+        return self._pos
+
+    def add_edge_id(self, edge_id):
+
+        self._edge_ids.append(edge_id)
+
+    def get_edge_ids(self):
+
+        return self._edge_ids
+
+    def set_polygon_id(self, poly_id):
+
+        self._poly_id = poly_id
+
+    def get_polygon_id(self):
+
+        return self._poly_id
+
+    def get_special_selection(self):
+
+        return [self]
+
+    def set_row_index(self, index):
+
+        self._data["row"] = index
+
+    def offset_row_index(self, offset):
+
+        self._data["row_offset"] += offset
+
+    def get_row_index(self):
+
+        data = self._data
+
+        return data["row"] + data["row_offset"]
+
+    def set_uvs(self, uvs, uv_set_id=None):
+
+        if uv_set_id is None:
+            uv_data = dict((k, v) for k, v in uvs.iteritems() if v != (0., 0.))
+            self._data["uvs"] = uv_data
+        elif uvs != (0., 0.):
+            self._data["uvs"][uv_set_id] = uvs
+        elif uv_set_id in self._data["uvs"]:
+            del self._data["uvs"][uv_set_id]
+
+    def get_uvs(self, uv_set_id=None):
+
+        if uv_set_id is None:
+            return self._data["uvs"]
+
+        return self._data["uvs"].get(uv_set_id, (0., 0.))
+
+    def set_normal(self, normal):
+
+        self._data["normal"] = normal
+
+    def get_normal(self):
+
+        return self._data["normal"]
+
+    def get_polygon_normal(self):
+
+        poly = Mgr.get("poly", self._poly_id)
+
+        return poly.get_normal() if poly else None
+
+    def set_tangent_space(self, tangent_space):
+
+        self._data["tangent_space"] = tangent_space
+
+    def get_tangent_space(self):
+
+        return self._data["tangent_space"]
+
+    def get_point_at_screen_pos(self, screen_pos):
+
+        far_point_local = Point3()
+        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
+        far_point = self.world.get_relative_point(self.cam, far_point_local)
+        cam_pos = self.cam.get_pos(self.world)
+
+        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+        plane = Plane(normal, self.get_pos(self.world))
+        intersection_point = Point3()
+        plane.intersects_line(intersection_point, cam_pos, far_point)
+
+        return intersection_point
+
+
+class MergedVertex(object):
+
+    def __getstate__(self):
+
+        # When pickling a MergedVertex, it should not have a GeomDataObject, since
+        # this will be pickled separately.
+
+        d = self.__dict__.copy()
+        d["_geom_data_obj"] = None
+
+        return d
+
+    def __init__(self, geom_data_obj, vert_id=None):
+
+        self._type = "vert"
+        self._full_type = "merged_vert"
+        self._geom_data_obj = geom_data_obj
+        self._ids = [] if vert_id is None else [vert_id]
+
+    def __getitem__(self, index):
+
+        try:
+            return self._ids[index]
+        except IndexError:
+            raise IndexError("Index out of range.")
+        except TypeError:
+            raise TypeError("Index must be an integer value.")
+
+    def __len__(self):
+
+        return len(self._ids)
+
+    def append(self, vert_id):
+
+        self._ids.append(vert_id)
+
+    def remove(self, vert_id):
+
+        self._ids.remove(vert_id)
+
+    def get_type(self):
+
+        return self._type
+
+    def get_full_type(self):
+
+        return self._full_type
+
+    def get_id(self):
+
+        vert = self._geom_data_obj.get_subobject("vert", self._ids[0])
+
+        return vert.get_id() if vert else None
+
+    def get_picking_color_id(self):
+
+        vert = self._geom_data_obj.get_subobject("vert", self._ids[0])
+
+        return vert.get_picking_color_id() if vert else None
+
+    def is_border_vertex(self):
+
+        geom_data_obj = self._geom_data_obj
+        verts = geom_data_obj.get_subobjects("vert")
+
+        for vert_id in self._ids:
+            for edge_id in verts[vert_id].get_edge_ids():
+                if len(geom_data_obj.get_merged_edge(edge_id)) == 1:
+                    return True
+
+        return False
+
+    def get_polygon_ids(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+
+        return [verts[v_id].get_polygon_id() for v_id in self._ids]
+
+    def get_special_selection(self):
+
+        return [self]
+
+    def get_row_indices(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+
+        return [verts[v_id].get_row_index() for v_id in self._ids]
+
+    def set_geom_data_object(self, geom_data_obj):
+
+        self._geom_data_obj = geom_data_obj
+
+    def get_geom_data_object(self):
+
+        return self._geom_data_obj
+
+    def get_toplevel_object(self):
+
+        return self._geom_data_obj.get_toplevel_object()
+
+    def set_previous_property_time(self, prop_id, time_id):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+
+        for vert_id in self._ids:
+            verts[vert_id].set_previous_property_time(prop_id, time_id)
+
+    def get_previous_property_time(self, prop_id):
+
+        vert = self._geom_data_obj.get_subobject("vert", self._ids[0])
+
+        return vert.get_previous_property_time(prop_id)
+
+    def set_pos(self, pos, ref_node=None):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+
+        for vert_id in self._ids:
+            verts[vert_id].set_pos(pos, ref_node)
+
+    def get_pos(self, ref_node=None):
+
+        vert = self._geom_data_obj.get_subobject("vert", self._ids[0])
+
+        return vert.get_pos(ref_node)
+
+    def get_center_pos(self, ref_node=None):
+
+        vert = self._geom_data_obj.get_subobject("vert", self._ids[0])
+
+        return vert.get_center_pos(ref_node)
+
+    def get_point_at_screen_pos(self, screen_pos):
+
+        vert = self._geom_data_obj.get_subobject("vert", self._ids[0])
+
+        return vert.get_point_at_screen_pos(screen_pos)
+
+    def is_facing_camera(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+
+        for vert_id in self._ids:
+
+            poly = self._geom_data_obj.get_subobject(
+                "poly", verts[vert_id].get_polygon_id())
+
+            if poly.is_facing_camera():
+                return True
+
+        return False
+
+
+MainObjects.add_class(VertexManager)
