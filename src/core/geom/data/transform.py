@@ -16,8 +16,6 @@ class GeomTransformBase(BaseObject):
         self._verts_to_transf[subobj_lvl] = verts_to_transf = {}
         self._rows_to_transf[
             subobj_lvl] = rows_to_transf = SparseArray.allOff()
-##    rows_to_transf = self._rows_to_transf[subobj_lvl]
-# rows_to_transf.clear()
 
         merged_verts = self._merged_verts
         merged_verts_to_transf = set()
@@ -70,7 +68,7 @@ class GeomTransformBase(BaseObject):
 
         geom_node_top = self._geoms["top"]["shaded"].node()
         vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
-        pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
+        tmp_vertex_data = GeomVertexData(vertex_data_top)
 
         if transf_type == "translate":
 
@@ -78,9 +76,9 @@ class GeomTransformBase(BaseObject):
             vec = self._origin.get_relative_vector(grid_origin, value)
             rows = self._rows_to_transf[subobj_lvl]
             start_data = self._transf_start_data
-            vertex_data_top.set_array(0, start_data["pos_array"])
+            tmp_vertex_data.set_array(0, start_data["pos_array"])
             mat = Mat4.translate_mat(vec)
-            vertex_data_top.transform_vertices(mat, rows)
+            tmp_vertex_data.transform_vertices(mat, rows)
 
         elif transf_type == "rotate":
 
@@ -90,13 +88,16 @@ class GeomTransformBase(BaseObject):
             quat = self._origin.get_quat(
                 grid_origin) * value * grid_origin.get_quat(self._origin)
 
-            for vert, indices in self._verts_to_transf[subobj_lvl].iteritems():
-
-                pos = quat.xform(vert.get_pos() - tc_pos) + tc_pos
-
-                for index in indices:
-                    pos_writer.set_row(index)
-                    pos_writer.set_data3f(pos)
+            rows = self._rows_to_transf[subobj_lvl]
+            start_data = self._transf_start_data
+            tmp_vertex_data.set_array(0, start_data["pos_array"])
+            quat_mat = Mat4()
+            quat.extract_to_matrix(quat_mat)
+            offset_mat = Mat4.translate_mat(-tc_pos)
+            mat = offset_mat * quat_mat
+            offset_mat = Mat4.translate_mat(tc_pos)
+            mat *= offset_mat
+            tmp_vertex_data.transform_vertices(mat, rows)
 
         elif transf_type == "scale":
 
@@ -106,16 +107,20 @@ class GeomTransformBase(BaseObject):
             scale_mat = Mat4.scale_mat(value)
             mat = self._origin.get_mat(
                 grid_origin) * scale_mat * grid_origin.get_mat(self._origin)
+            # remove translation component
+            mat.set_row(3, VBase3())
 
-            for vert, indices in self._verts_to_transf[subobj_lvl].iteritems():
+            rows = self._rows_to_transf[subobj_lvl]
+            start_data = self._transf_start_data
+            tmp_vertex_data.set_array(0, start_data["pos_array"])
+            offset_mat = Mat4.translate_mat(-tc_pos)
+            mat = offset_mat * mat
+            offset_mat = Mat4.translate_mat(tc_pos)
+            mat *= offset_mat
+            tmp_vertex_data.transform_vertices(mat, rows)
 
-                pos = mat.xform_vec(vert.get_pos() - tc_pos) + tc_pos
-
-                for index in indices:
-                    pos_writer.set_row(index)
-                    pos_writer.set_data3f(pos)
-
-        array = vertex_data_top.get_array(0)
+        array = tmp_vertex_data.get_array(0)
+        vertex_data_top.set_array(0, array)
 
         for subobj_type in ("vert", "poly"):
             vertex_data = self._vertex_data[subobj_type]
