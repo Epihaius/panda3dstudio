@@ -73,54 +73,47 @@ class UVDataTransformBase(BaseObject):
 
         geom = self._geoms["hidden"]
         vertex_data_top = geom.node().modify_geom(0).modify_vertex_data()
-        pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
+        tmp_vertex_data = GeomVertexData(vertex_data_top)
 
         if transf_type == "translate":
 
             rows = self._rows_to_transf[subobj_lvl]
             start_data = self._transf_start_data
-            vertex_data_top.set_array(0, start_data["pos_array"])
+            tmp_vertex_data.set_array(0, start_data["pos_array"])
             mat = Mat4.translate_mat(value)
-            vertex_data_top.transform_vertices(mat, rows)
-##      start_data = self._transf_start_data
-##      vertex_data.set_array(0, start_data["pos_array"])
-##      mat = Mat4.translate_mat(value)
-##      vertex_data.transform_vertices(mat, 20, 50)
-
-# for vert, indices in self._verts_to_transf[subobj_lvl].iteritems():
-##
-##        pos = vert.get_pos() + value
-##
-# for index in indices:
-# pos_writer.set_row(index)
-# pos_writer.set_data3f(pos)
+            tmp_vertex_data.transform_vertices(mat, rows)
 
         elif transf_type == "rotate":
 
             tc_pos = UVMgr.get("selection_center")
 
-            for vert, indices in self._verts_to_transf[subobj_lvl].iteritems():
-
-                pos = value.xform(vert.get_pos() - tc_pos) + tc_pos
-
-                for index in indices:
-                    pos_writer.set_row(index)
-                    pos_writer.set_data3f(pos)
+            rows = self._rows_to_transf[subobj_lvl]
+            start_data = self._transf_start_data
+            tmp_vertex_data.set_array(0, start_data["pos_array"])
+            quat_mat = Mat4()
+            value.extract_to_matrix(quat_mat)
+            offset_mat = Mat4.translate_mat(-tc_pos)
+            mat = offset_mat * quat_mat
+            offset_mat = Mat4.translate_mat(tc_pos)
+            mat *= offset_mat
+            tmp_vertex_data.transform_vertices(mat, rows)
 
         elif transf_type == "scale":
 
             tc_pos = UVMgr.get("selection_center")
+
             mat = Mat4.scale_mat(value)
+            rows = self._rows_to_transf[subobj_lvl]
+            start_data = self._transf_start_data
+            tmp_vertex_data.set_array(0, start_data["pos_array"])
+            offset_mat = Mat4.translate_mat(-tc_pos)
+            mat = offset_mat * mat
+            offset_mat = Mat4.translate_mat(tc_pos)
+            mat *= offset_mat
+            tmp_vertex_data.transform_vertices(mat, rows)
 
-            for vert, indices in self._verts_to_transf[subobj_lvl].iteritems():
-
-                pos = mat.xform_vec(vert.get_pos() - tc_pos) + tc_pos
-
-                for index in indices:
-                    pos_writer.set_row(index)
-                    pos_writer.set_data3f(pos)
-
-        array = vertex_data_top.get_array(0)
+        array = tmp_vertex_data.get_array(0)
+        vertex_data_top.set_array(0, array)
 
         for subobj_type in ("vert", "poly"):
             vertex_data = self._vertex_data[subobj_type]
