@@ -26,13 +26,6 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
 
         self.__class__._indices_removed.append(self._id)
         self.__class__._indices_removed.sort()
-##
-# for btn in self._btns:
-##
-# if btn.is_cut():
-# self._panel.releaseCutButton(btn)
-
-# print "Shelf", self._id, "(", self.get_label(), ") garbage-collected."
 
     def __init__(self, button, parent):
 
@@ -55,43 +48,41 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
 
         self._proxy = weakref.proxy(self)
 
-        self._button.setShelf(self._proxy)
-# parent.set_button_type("shelf")
+        self._button.set_shelf(self._proxy)
 
     def get_object(self):
 
         return self
 
-    def getProxy(self):
+    def get_proxy(self):
 
         return self._proxy
 
-    def setParent(self, parent):
+    def set_parent(self, parent):
 
         self._parent = parent
-# parent.set_button_type("shelf")
         self._ancestors = parent.get_ancestors() + [parent]
 
         for child in self._children:
-            child.updateAncestors()
+            child.update_ancestors()
 
     def get_parent(self):
 
         return self._parent
 
-    def updateAncestors(self):
+    def update_ancestors(self):
 
         self._ancestors = []
 
-        def getAncestor(shelf):
+        def get_ancestor(shelf):
 
             parent = shelf.get_parent()
 
             if parent:
-                getAncestor(parent)
+                get_ancestor(parent)
                 self._ancestors.append(parent)
 
-        getAncestor(self._proxy)
+        get_ancestor(self._proxy)
 
     def get_ancestors(self):
 
@@ -113,42 +104,42 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
 
         return self._button.get_label()
 
-    def getLabelWidth(self):
+    def get_label_width(self):
 
-        return self._button.getLabelWidth()
+        return self._button.get_label_width()
 
-    def getLabelData(self):
+    def get_label_data(self):
 
-        return (self.get_label(), self.getLabelWidth())
+        return (self.get_label(), self.get_label_width())
 
-    def getPathLabelData(self):
+    def get_path_label_data(self):
 
-        label_data = [shelf.getLabelData() for shelf in self._ancestors[1:]]
-        label_data += [self.getLabelData()]
+        label_data = [shelf.get_label_data() for shelf in self._ancestors[1:]]
+        label_data += [self.get_label_data()]
 
         return label_data
 
-    def getPathButtons(self):
+    def get_path_buttons(self):
 
         buttons = [shelf.get_button()
                    for shelf in self._ancestors[1:]] + [self._button]
 
         return buttons
 
-    def getRootIcon(self):
+    def get_root_icon(self):
 
-        return self._ancestors[0].getIcon()
+        return self._ancestors[0].get_icon()
 
-    def updateButton(self, btn_x, btn_width):
+    def update_button(self, btn_x, btn_width):
 
-        self._button.setWidthScaled(btn_width)
+        self._button.set_width_scaled(btn_width)
         self._button.set_x(btn_x)
 
     def get_panel(self):
 
         return self._panel
 
-    def getScreenPos(self):
+    def get_screen_pos(self):
 
         return self._panel.GetScreenPosition()
 
@@ -158,7 +149,7 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
 
     def drop_children(self, x, buttons, single_source=True):
 
-        btns_were_dropped = self.dropShelfButtons(x, buttons)
+        btns_were_dropped = self.drop_shelf_buttons(x, buttons)
 
         if btns_were_dropped == "not":
             return False
@@ -171,13 +162,13 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
         del self._children[:]
 
         for shelf in children:
-            self._panel.removeShelfData(shelf.get_id(), self._id)
+            self._panel.remove_shelf_data(shelf.get_id(), self._id)
 
         for btn in self._btns[::-1]:
             shelf = btn.get_shelf()
             self._child_proxies.insert(0, shelf)
             self._children.insert(0, shelf.get_object())
-            self._panel.insertShelfData(shelf.get_id(), self._id, 0)
+            self._panel.insert_shelf_data(shelf.get_id(), self._id, 0)
 
         if btns_were_dropped == "from_outside":
 
@@ -187,34 +178,34 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
 
                 source_shelf = shelves[0].get_parent()
                 source_shelf_id = source_shelf.get_id()
-                source_shelf.removeChildren(shelves)
+                source_shelf.remove_children(shelves)
 
                 for shelf in shelves:
-                    self._panel.removeShelfData(
+                    self._panel.remove_shelf_data(
                         shelf.get_id(), source_shelf_id)
 
             for shelf in shelves:
-                shelf.setParent(self._proxy)
+                shelf.set_parent(self._proxy)
 
         return True
 
-    def createChildren(self, label_data):
+    def create_children(self, label_data):
 
         if not label_data:
             return []
 
         proxies = []
 
-        for button in self.insertShelfButtons(len(self._btns), label_data=label_data):
+        for button in self.insert_shelf_buttons(len(self._btns), label_data=label_data):
             shelf = Shelf(button, self._proxy)
-            proxy = shelf.getProxy()
+            proxy = shelf.get_proxy()
             proxies.append(proxy)
             self._child_proxies.append(proxy)
             self._children.append(shelf)
 
         return proxies
 
-    def removeChildren(self, shelves):
+    def remove_children(self, shelves):
 
         buttons = []
 
@@ -227,9 +218,9 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
             self._child_proxies.remove(shelf)
             self._children.remove(shelf.get_object())
 
-        self.removeShelfButtons(buttons)
+        self.remove_shelf_buttons(buttons)
 
-    def fillChildren(self, buttons, btn_type):
+    def fill_children(self, buttons, btn_type):
 
         if not btn_type:
             return
@@ -290,17 +281,17 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
 
             if new_btns:
 
-                external_source_shelf.removeChildren(new_shelves)
+                external_source_shelf.remove_children(new_shelves)
 
                 for shelf in new_shelves:
-                    self._panel.removeShelfData(
+                    self._panel.remove_shelf_data(
                         shelf.get_id(), external_source_id)
 
     def has_password(self):
 
         return self._password != ""
 
-    def getPassword(self):
+    def get_password(self):
 
         return self._password
 
@@ -312,7 +303,7 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
 
             if self._password:
 
-                self._panel.notifyDialogOpen()
+                self._panel.notify_dialog_open()
                 answer = wx.GetPasswordFromUser("This shelf is password-protected;\n"
                                                 + "please provide the correct password to\n"
                                                 + "access its contents.",
@@ -331,7 +322,7 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
 
         else:
 
-            self._panel.notifyDialogOpen()
+            self._panel.notify_dialog_open()
             password = wx.GetPasswordFromUser("Please enter a password if you"
                                               + " want to\nprotect the contents"
                                               + " of this shelf.",
@@ -342,21 +333,21 @@ class Shelf(ShelfButtonContainer, ToolButtonContainer):
         self._is_accessible = accessible
 
         if not from_save:
-            self._panel.setShelfDataValue(
+            self._panel.set_shelf_data_value(
                 self._id, "contents_hidden", not accessible)
-            self._panel.setShelfDataValue(self._id, "password", self._password)
+            self._panel.set_shelf_data_value(self._id, "password", self._password)
             self._panel.save_shelf_data()
 
         if accessible:
 
             self.destroy_access_button()
-            self._panel.restoreShelfContents(self._proxy)
+            self._panel.restore_shelf_contents(self._proxy)
 
         else:
 
             if self._button_type == "shelf":
 
-                self.removeChildren(self.get_children()[:])
+                self.remove_children(self.get_children()[:])
 
             elif self._button_type == "tool":
 

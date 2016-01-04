@@ -39,17 +39,17 @@ class ShelfButton(object):
         cls._y = panel_height - cls._height - 2
 
     @classmethod
-    def getSideWidth(cls):
+    def get_side_width(cls):
 
         return cls._side_width
 
     @classmethod
-    def getMinimumWidth(cls):
+    def get_minimum_width(cls):
 
         return cls._min_width
 
     @classmethod
-    def getHeight(cls):
+    def get_height(cls):
 
         return cls._height
 
@@ -78,7 +78,7 @@ class ShelfButton(object):
         self._is_selected = False
         self._is_cut = False
 
-        self.createBitmaps()
+        self.create_bitmaps()
         self._rect = wx.Rect(0, self._y, self._width_scaled, self._height)
         self._path_rect = wx.Rect(0, self._y, self._width_scaled, self._height)
         self._in_path = False
@@ -86,12 +86,12 @@ class ShelfButton(object):
     def copy(self):
 
         copy = ShelfButton(self._label, self._label_color)
-        copy.setShelf(self._shelf, self._shelf_data)
+        copy.set_shelf(self._shelf, self._shelf_data)
         copy.set_selected(self._is_selected)
 
         return copy
 
-    def createBitmaps(self):
+    def create_bitmaps(self):
 
         mem_dc = wx.MemoryDC()
         font = wx.Font(14, wx.FONTFAMILY_DEFAULT,
@@ -156,13 +156,13 @@ class ShelfButton(object):
             w * .5, h * .5, wx.IMAGE_QUALITY_HIGH).ConvertToBitmap()
         self._label_changed = False
 
-    def setWidthScaled(self, width_scaled):
+    def set_width_scaled(self, width_scaled):
 
         if self._width_scaled == width_scaled and not self._label_changed:
             return
 
         self._width_scaled = width_scaled
-        self.createBitmaps()
+        self.create_bitmaps()
         self._rect.SetWidth(width_scaled)
         self._path_rect.SetWidth(width_scaled)
 
@@ -200,7 +200,7 @@ class ShelfButton(object):
 
         return self._label
 
-    def getLabelWidth(self):
+    def get_label_width(self):
 
         return self._label_width
 
@@ -208,7 +208,7 @@ class ShelfButton(object):
 
         return self._bitmap
 
-    def setShelf(self, shelf, data=None):
+    def set_shelf(self, shelf, data=None):
 
         self._shelf = shelf
 
@@ -219,19 +219,19 @@ class ShelfButton(object):
 
         return self._shelf
 
-    def setShelfData(self, data):
+    def set_shelf_data(self, data):
 
         self._shelf_data = data
 
-    def getShelfData(self):
+    def get_shelf_data(self):
 
         return self._shelf_data
 
-    def getRect(self):
+    def get_rect(self):
 
         return self._rect
 
-    def getPathRect(self):
+    def get_path_rect(self):
 
         return self._path_rect
 
@@ -243,12 +243,12 @@ class ShelfButton(object):
 
         return self._rect.GetX()
 
-    def moveToPath(self, x):
+    def move_to_path(self, x):
 
         self._path_rect.SetX(x)
         self._in_path = True
 
-    def moveFromPath(self):
+    def move_from_path(self):
 
         self._in_path = False
         self._has_mouse = False
@@ -265,7 +265,7 @@ class ShelfButton(object):
 
             if has_mouse:
 
-                self.__showTooltip()
+                self.__show_tooltip()
 
             else:
 
@@ -316,7 +316,7 @@ class ShelfButton(object):
             self._panel.Refresh()
 
             if not disabled:
-                self._panel.setCurrentShelf(self._shelf)
+                self._panel.set_current_shelf(self._shelf)
                 return True
             else:
                 return False
@@ -366,7 +366,7 @@ class ShelfButton(object):
 
         dc.DrawBitmap(self._bitmaps[state], x, self._y if y is None else y)
 
-    def __showTooltip(self):
+    def __show_tooltip(self):
 
         sides_width = self._side_width * 2
 

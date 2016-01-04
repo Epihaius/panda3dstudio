@@ -21,7 +21,7 @@ class Button(object):
         self._is_down = False
         self._is_hidden = True
 
-    def setShelf(self, shelf):
+    def set_shelf(self, shelf):
 
         self._shelf = shelf
 
@@ -29,7 +29,7 @@ class Button(object):
 
         return self._rect.GetSize()
 
-    def getRect(self):
+    def get_rect(self):
 
         return self._rect
 
@@ -37,7 +37,7 @@ class Button(object):
 
         return self._has_mouse
 
-    def isReady(self):
+    def is_ready(self):
 
         return self._is_ready
 
@@ -184,22 +184,22 @@ class ScrollButton(Button):
         self._items = []
         self._direction = direction
 
-    def hasItems(self):
+    def has_items(self):
 
         return True if self._items else False
 
-    def clearItems(self):
+    def clear_items(self):
 
         self._items = []
 
-    def addItems(self, items):
+    def add_items(self, items):
 
         if self._direction == "left":
             self._items += items
         else:
             self._items[:0] = items
 
-    def getItem(self):
+    def get_item(self):
 
         return self._items.pop(-1 if self._direction == "left" else 0) if self._items else None
 
@@ -287,13 +287,13 @@ class ShelfPath(object):
                                          panel_width - border_width * 2 - 15 - w, h)
 
     @classmethod
-    def setRootShelves(cls, root_shelves):
+    def set_root_shelves(cls, root_shelves):
 
         for root_shelf in ("fav", "hist", "home"):
-            cls._main_btns[root_shelf].setShelf(root_shelves[root_shelf])
+            cls._main_btns[root_shelf].set_shelf(root_shelves[root_shelf])
 
     @classmethod
-    def getButtonSize(cls):
+    def get_button_size(cls):
 
         return cls._main_btns["path"].get_size()
 
@@ -303,22 +303,22 @@ class ShelfPath(object):
         return cls._has_mouse
 
     @classmethod
-    def isReady(cls):
+    def is_ready(cls):
 
         return cls._is_ready
 
     @classmethod
-    def isParentShown(cls):
+    def is_parent_shown(cls):
 
-        return cls._main_btns["parent"].isReady()
+        return cls._main_btns["parent"].is_ready()
 
     @classmethod
-    def __setShelfButtons(cls, buttons, from_right=False):
+    def __set_shelf_buttons(cls, buttons, from_right=False):
 
         scroll_left_btn = cls._main_btns["scroll_left"]
         scroll_right_btn = cls._main_btns["scroll_right"]
-        x1 = scroll_left_btn.getRect().GetRight() + cls._separator_width
-        x2 = scroll_right_btn.getRect().GetLeft() - cls._separator_width
+        x1 = scroll_left_btn.get_rect().GetRight() + cls._separator_width
+        x2 = scroll_right_btn.get_rect().GetLeft() - cls._separator_width
         path_width = 0
         total_btn_width = 0
 
@@ -334,7 +334,7 @@ class ShelfPath(object):
                     total_btn_width += btn_width
                 else:
                     index = buttons.index(btn)
-                    scroll_left_btn.addItems(buttons[:index + 1])
+                    scroll_left_btn.add_items(buttons[:index + 1])
                     del buttons[:index + 1]
                     scroll_left_btn.show()
                     scroll_right_btn.show()
@@ -352,48 +352,48 @@ class ShelfPath(object):
                     total_btn_width += btn_width
                 else:
                     index = buttons.index(btn)
-                    scroll_right_btn.addItems(buttons[index:])
+                    scroll_right_btn.add_items(buttons[index:])
                     del buttons[index:]
                     scroll_left_btn.show()
                     scroll_right_btn.show()
                     break
 
         cls._shelf_btns = buttons
-        scrollable = scroll_left_btn.hasItems() or scroll_right_btn.hasItems()
+        scrollable = scroll_left_btn.has_items() or scroll_right_btn.has_items()
         con_width = (x2 - x1 - total_btn_width) // max(1, len(buttons) - 1) \
             if scrollable else cls._connector_width
         cls._connector_offset = (con_width - cls._connector_width) // 2
         btn_name = "scroll_left" if scrollable else "home"
-        rect = cls._main_btns[btn_name].getRect()
+        rect = cls._main_btns[btn_name].get_rect()
         x = rect.GetRight() + (cls._separator_width if scrollable
                                else cls._connector_width)
 
         for btn in buttons:
-            btn.moveToPath(x)
+            btn.move_to_path(x)
             x += btn.get_width() + con_width
 
     @classmethod
-    def __clearShelfButtons(cls):
+    def __clear_shelf_buttons(cls):
 
         for btn in cls._shelf_btns:
-            btn.moveFromPath()
+            btn.move_from_path()
 
         cls._shelf_btns = []
 
-        cls._main_btns["scroll_left"].clearItems()
-        cls._main_btns["scroll_right"].clearItems()
+        cls._main_btns["scroll_left"].clear_items()
+        cls._main_btns["scroll_right"].clear_items()
         cls._main_btns["scroll_left"].hide()
         cls._main_btns["scroll_right"].hide()
 
     @classmethod
-    def __getButtonData(cls):
+    def __get_button_data(cls):
 
         data = [
-            (cls._main_btns["fav"].getRect().GetRight(), cls._separator),
-            (cls._main_btns["hist"].getRect().GetRight(), cls._separator)
+            (cls._main_btns["fav"].get_rect().GetRight(), cls._separator),
+            (cls._main_btns["hist"].get_rect().GetRight(), cls._separator)
         ]
 
-        x = cls._main_btns["home"].getRect().GetRight()
+        x = cls._main_btns["home"].get_rect().GetRight()
 
         if cls._shelf_btns:
 
@@ -401,7 +401,7 @@ class ShelfPath(object):
                 data.append((x, cls._connector))
 
             for btn in cls._shelf_btns[:-1]:
-                x = btn.getPathRect().GetRight()
+                x = btn.get_path_rect().GetRight()
                 data.append((x + cls._connector_offset, cls._connector))
 
         return data
@@ -409,8 +409,8 @@ class ShelfPath(object):
     @classmethod
     def draw(cls, dc):
 
-        path_btn_is_ready = cls._main_btns["path"].isReady()
-        parent_btn_is_ready = cls._main_btns["parent"].isReady()
+        path_btn_is_ready = cls._main_btns["path"].is_ready()
+        parent_btn_is_ready = cls._main_btns["parent"].is_ready()
         is_ready = path_btn_is_ready or parent_btn_is_ready
 
         if path_btn_is_ready or parent_btn_is_ready:
@@ -430,13 +430,13 @@ class ShelfPath(object):
             btn.draw(dc, 44, flat=is_ready,
                      in_path=False if parent_btn_is_ready else True)
 
-        if not (cls._panel.getCandidateShelf() or cls._is_ready):
+        if not (cls._panel.get_candidate_shelf() or cls._is_ready):
 
             gc = wx.GraphicsContext.Create(dc)
             gc.SetFont(cls._font, wx.NamedColour("white"))
-            path_label_data = cls._panel.get_current_shelf().getPathLabelData()
+            path_label_data = cls._panel.get_current_shelf().get_path_label_data()
 
-            if cls._main_btns["parent"].isReady():
+            if cls._main_btns["parent"].is_ready():
                 path_label_data = path_label_data[:-1]
 
             path_width = 0
@@ -459,7 +459,7 @@ class ShelfPath(object):
             x = (cls._panel_width - path_width) // 2
             y = 2 + (28 - path_height) // 2
             dc.DrawBitmap(cls._panel.get_current_shelf(
-            ).getRootIcon(), x - 29 // 2, 2)
+            ).get_root_icon(), x - 29 // 2, 2)
             x += 29 // 2
 
             if draw_ellipsis:
@@ -479,7 +479,7 @@ class ShelfPath(object):
 
             gc = wx.GraphicsContext.Create(dc)
             gc.SetFont(cls._font, wx.NamedColour("cyan"))
-            path_btn_data = cls.__getButtonData()
+            path_btn_data = cls.__get_button_data()
             w, path_height = gc.GetTextExtent("fg")
             y = 44 + (28 - path_height) // 2
 
@@ -495,7 +495,7 @@ class ShelfPath(object):
         cls._main_btns["fav"].hide()
         cls._main_btns["hist"].hide()
         cls._main_btns["home"].hide()
-        cls.__clearShelfButtons()
+        cls.__clear_shelf_buttons()
         cls._hilited_btn = None
         cls._parent_shown = False
         cls._panel.set_candidate_shelf(None)
@@ -512,7 +512,7 @@ class ShelfPath(object):
                     cls.reset()
                     cls._panel.get_current_shelf().check_dragged_contents()
 
-        if cls._main_btns["parent"].isReady():
+        if cls._main_btns["parent"].is_ready():
 
             if not cls._main_btns["parent"].check_has_mouse(mouse_pos):
 
@@ -521,7 +521,7 @@ class ShelfPath(object):
                     parent_shelf = cls._panel.get_current_shelf().get_parent()
 
                     if parent_shelf:
-                        cls._panel.setCurrentShelf(parent_shelf)
+                        cls._panel.set_current_shelf(parent_shelf)
 
                 cls._shelf_btns = []
 
@@ -556,7 +556,7 @@ class ShelfPath(object):
         return has_mouse
 
     @classmethod
-    def __activateButton(cls, button, execute=False):
+    def __activate_button(cls, button, execute=False):
 
         if execute and button not in (cls._main_btns["scroll_left"],
                                       cls._main_btns["scroll_right"]):
@@ -573,9 +573,9 @@ class ShelfPath(object):
             cls._main_btns["hist"].show()
             cls._main_btns["home"].show()
             cls._main_btns["parent"].hide()
-            cls.__clearShelfButtons()
-            cls.__setShelfButtons(
-                cls._panel.get_current_shelf().getPathButtons())
+            cls.__clear_shelf_buttons()
+            cls.__set_shelf_buttons(
+                cls._panel.get_current_shelf().get_path_buttons())
             cls._panel.set_candidate_shelf(None)
 
             return True
@@ -585,7 +585,7 @@ class ShelfPath(object):
             parent_shelf = cls._panel.get_current_shelf().get_parent()
 
             if execute:
-                cls._panel.setCurrentShelf(parent_shelf)
+                cls._panel.set_current_shelf(parent_shelf)
                 cls.reset()
             else:
                 cls._shelf_btns = parent_shelf.get_buttons()[:]
@@ -597,7 +597,7 @@ class ShelfPath(object):
         elif button is cls._main_btns["fav"]:
 
             if execute:
-                cls._panel.setCurrentShelf(cls._panel.get_favorites_shelf())
+                cls._panel.set_current_shelf(cls._panel.get_favorites_shelf())
                 cls.reset()
             else:
                 cls._panel.set_candidate_shelf(
@@ -608,7 +608,7 @@ class ShelfPath(object):
         elif button is cls._main_btns["hist"]:
 
             if execute:
-                cls._panel.setCurrentShelf(cls._panel.get_history_shelf())
+                cls._panel.set_current_shelf(cls._panel.get_history_shelf())
                 cls.reset()
             else:
                 cls._panel.set_candidate_shelf(cls._panel.get_history_shelf())
@@ -618,38 +618,38 @@ class ShelfPath(object):
         elif button is cls._main_btns["home"]:
 
             if execute:
-                cls._panel.setCurrentShelf(cls._panel.getHomeShelf())
+                cls._panel.set_current_shelf(cls._panel.get_home_shelf())
                 cls.reset()
             else:
-                cls._panel.set_candidate_shelf(cls._panel.getHomeShelf())
+                cls._panel.set_candidate_shelf(cls._panel.get_home_shelf())
 
             return True
 
         elif button is cls._main_btns["scroll_left"]:
 
-            shelf_btn = button.getItem()
+            shelf_btn = button.get_item()
 
             if shelf_btn:
 
                 for btn in cls._shelf_btns:
-                    btn.moveFromPath()
+                    btn.move_from_path()
 
                 cls._shelf_btns.insert(0, shelf_btn)
-                cls.__setShelfButtons(cls._shelf_btns)
+                cls.__set_shelf_buttons(cls._shelf_btns)
 
             return True
 
         elif button is cls._main_btns["scroll_right"]:
 
-            shelf_btn = button.getItem()
+            shelf_btn = button.get_item()
 
             if shelf_btn:
 
                 for btn in cls._shelf_btns:
-                    btn.moveFromPath()
+                    btn.move_from_path()
 
                 cls._shelf_btns.append(shelf_btn)
-                cls.__setShelfButtons(cls._shelf_btns, from_right=True)
+                cls.__set_shelf_buttons(cls._shelf_btns, from_right=True)
 
             return True
 
@@ -671,7 +671,7 @@ class ShelfPath(object):
         for btn in main_btns.itervalues():
 
             if btn.notify_mouse_hover():
-                refresh_needed = cls.__activateButton(btn)
+                refresh_needed = cls.__activate_button(btn)
 
         if cls._hilited_btn in cls._shelf_btns:
             cls._hilited_btn.notify_mouse_hover()
@@ -682,7 +682,7 @@ class ShelfPath(object):
     @classmethod
     def notify_mouse_leave(cls):
 
-        if cls._main_btns["parent"].isReady():
+        if cls._main_btns["parent"].is_ready():
             cls._shelf_btns = []
 
         for btn in cls._main_btns.itervalues():
@@ -715,6 +715,6 @@ class ShelfPath(object):
                 cls.reset()
                 return True
         elif cls._hilited_btn and cls._hilited_btn.release():
-            if cls.__activateButton(cls._hilited_btn, execute=True):
+            if cls.__activate_button(cls._hilited_btn, execute=True):
                 cls._panel.Refresh()
                 return True

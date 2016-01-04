@@ -19,20 +19,20 @@ class ShelfButtonContainer(ButtonContainer):
         ButtonContainer._width, height = rect.GetSize()
         ShelfButton.init(panel, btn_bitmap_name, height)
         cls._max_btn_count["shelf"] = ((cls._width - btn_gutter)
-                                       // (btn_gutter + ShelfButton.getMinimumWidth()))
+                                       // (btn_gutter + ShelfButton.get_minimum_width()))
 
-    def getUnusedShelfButtonRoom(self):
+    def get_unused_shelf_button_room(self):
 
-        min_btn_width = ShelfButton.getMinimumWidth()
+        min_btn_width = ShelfButton.get_minimum_width()
         btn_room = self._width - self._btn_gutter - (min_btn_width
                                                      + self._btn_gutter) * len(self._btns)
 
         return btn_room
 
-    def rescaleShelfButtons(self, btns_to_scale=None, label_widths=None):
+    def rescale_shelf_buttons(self, btns_to_scale=None, label_widths=None):
 
-        btn_sides_width = ShelfButton.getSideWidth() * 2 + 2
-        min_btn_width = ShelfButton.getMinimumWidth()
+        btn_sides_width = ShelfButton.get_side_width() * 2 + 2
+        min_btn_width = ShelfButton.get_minimum_width()
 
         total_scaled_label_width = self._width - self._btn_gutter - (btn_sides_width
                                                                      + self._btn_gutter) * len(self._btns)
@@ -58,7 +58,6 @@ class ShelfButtonContainer(ButtonContainer):
         total_label_width = sum(label_widths)
         label_scale_factor = min(
             1., total_scaled_label_width / total_label_width)
-# print "label_scale_factor:", label_scale_factor
 
         for label_width, btn in zip(label_widths, btns_to_scale):
 
@@ -71,7 +70,7 @@ class ShelfButtonContainer(ButtonContainer):
                 btns_with_min_width.append(btn)
 
         if btns_with_min_width:
-            self.rescaleShelfButtons(btns_to_scale, label_widths)
+            self.rescale_shelf_buttons(btns_to_scale, label_widths)
             return
 
         x = self._rect.GetX() + self._btn_gutter
@@ -86,12 +85,12 @@ class ShelfButtonContainer(ButtonContainer):
             else:
                 width_scaled = min_btn_width
 
-            btn.setWidthScaled(width_scaled)
+            btn.set_width_scaled(width_scaled)
             btn.set_x(x)
             x += width_scaled + self._btn_gutter
             self._btn_positions.append(x)
 
-    def insertShelfButtons(self, index, buttons=None, label_data=None, force_rescale=False):
+    def insert_shelf_buttons(self, index, buttons=None, label_data=None, force_rescale=False):
 
         if not buttons and not label_data:
             return []
@@ -106,7 +105,7 @@ class ShelfButtonContainer(ButtonContainer):
         for btn in btns:
 
             btn.set_cut(False)
-            self._panel.releaseCutButton(btn)
+            self._panel.release_cut_button(btn)
             btn_width = btn.get_width(original=True)
             btn_x = self._btn_positions[index]
             self._btn_positions.insert(index, btn_x)
@@ -127,7 +126,7 @@ class ShelfButtonContainer(ButtonContainer):
             self._btns[i].set_x(self._btn_positions[i])
 
         if shelf_width_exceeded or force_rescale:
-            self.rescaleShelfButtons()
+            self.rescale_shelf_buttons()
 
         self._button_type = "shelf"
 
@@ -136,7 +135,7 @@ class ShelfButtonContainer(ButtonContainer):
 
         return btns
 
-    def removeShelfButtons(self, buttons):
+    def remove_shelf_buttons(self, buttons):
 
         if self._btn_with_mouse in buttons:
             self._btn_with_mouse = None
@@ -145,12 +144,12 @@ class ShelfButtonContainer(ButtonContainer):
 
             if btn.is_cut():
                 btn.set_cut(False)
-                self._panel.releaseCutButton(btn)
+                self._panel.release_cut_button(btn)
 
             self._btns.remove(btn)
 
         if self._btns:
-            self.rescaleShelfButtons()
+            self.rescale_shelf_buttons()
         else:
             self._btn_positions = [self._rect.GetX() + self._btn_gutter]
             self._button_type = ""
@@ -160,7 +159,7 @@ class ShelfButtonContainer(ButtonContainer):
 
         return True
 
-    def dropShelfButtons(self, x, buttons):
+    def drop_shelf_buttons(self, x, buttons):
 
         if self._button_type == "tool":
             return "not"
@@ -170,7 +169,7 @@ class ShelfButtonContainer(ButtonContainer):
             btns_to_left, btns_to_right = self.get_buttons_split_at_pos(x)
             buttons = (btns_to_left, buttons + btns_to_right)
 
-            if self._panel.relocateShelfContents(buttons, "shelf"):
+            if self._panel.relocate_shelf_contents(buttons, "shelf"):
                 return "deeper"
             else:
                 return "not"
@@ -185,7 +184,7 @@ class ShelfButtonContainer(ButtonContainer):
             index = self._btns.index(btn_at_x)
 
             if x not in self._btn_positions:
-                btn_rect = btn_at_x.getRect()
+                btn_rect = btn_at_x.get_rect()
                 btn_rect_center = btn_rect.GetX() + btn_rect.GetWidth() // 2
                 index = index if x < btn_rect_center else index + 1
 
@@ -203,7 +202,7 @@ class ShelfButtonContainer(ButtonContainer):
 
             for btn in buttons:
                 btn.set_cut(False)
-                self._panel.releaseCutButton(btn)
+                self._panel.release_cut_button(btn)
                 self._btns.remove(btn)
 
             index = self._btns.index(
@@ -224,19 +223,19 @@ class ShelfButtonContainer(ButtonContainer):
 
             return "from_within"
 
-        if self.insertShelfButtons(index, buttons, force_rescale=True):
+        if self.insert_shelf_buttons(index, buttons, force_rescale=True):
             return "from_outside"
         else:
             return "not"
 
-    def setShelfButtonLabel(self, button, label, color=None):
+    def set_shelf_button_label(self, button, label, color=None):
 
         button.set_label(label, color)
-        self.rescaleShelfButtons()
+        self.rescale_shelf_buttons()
 
-    def setShelfButtonLabels(self, button_label_data):
+    def set_shelf_button_labels(self, button_label_data):
 
         for button, label, color in button_label_data:
             button.set_label(label, color)
 
-        self.rescaleShelfButtons()
+        self.rescale_shelf_buttons()

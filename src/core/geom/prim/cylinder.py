@@ -567,7 +567,6 @@ class Cylinder(Primitive):
                     PendingTasks.add(task, "restore_pos_data",
                                      "object", sort, id_prefix=obj_id)
                 else:
-                    print "\n", self.get_model().get_name(), "will be rebuilt with", value, "segments.\n"
                     task = self.clear_geometry
                     task_id = "clear_geom_data"
                     PendingTasks.add(task, task_id, "object", id_prefix=obj_id)

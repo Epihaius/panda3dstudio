@@ -23,11 +23,11 @@ class RootShelf(Shelf):
 
         self._proxy = weakref.proxy(self)
 
-    def setParent(self, parent): pass
+    def set_parent(self, parent): pass
 
     def get_parent(self): return
 
-    def updateAncestors(self): pass
+    def update_ancestors(self): pass
 
     def get_ancestors(self):
 
@@ -37,27 +37,27 @@ class RootShelf(Shelf):
 
         return ""
 
-    def getLabelWidth(self):
+    def get_label_width(self):
 
         return 0
 
-    def getPathLabelData(self):
+    def get_path_label_data(self):
 
         return []
 
-    def getPathButtons(self):
+    def get_path_buttons(self):
 
         return []
 
-    def getIcon(self):
+    def get_icon(self):
 
         return self._icon
 
-    def getRootIcon(self):
+    def get_root_icon(self):
 
         return self._icon
 
-    def updateButton(self, btn_x, btn_width): pass
+    def update_button(self, btn_x, btn_width): pass
 
     def get_button(self): return
 
@@ -105,11 +105,6 @@ class RootShelf(Shelf):
 
 
 class HomeShelf(RootShelf):
-    ##
-    # def __del__(self):
-    ##
-    # print "HomeShelf garbage-collected."
-    # pass
 
     def __init__(self, icon_name):
 
@@ -126,11 +121,6 @@ class HomeShelf(RootShelf):
 
 
 class FavoritesShelf(RootShelf):
-    ##
-    # def __del__(self):
-    ##
-    # print "FavoritesShelf garbage-collected."
-    # pass
 
     def __init__(self, icon_name):
 
@@ -160,14 +150,14 @@ class FavoritesShelf(RootShelf):
         if not buttons:
             return False
 
-        btns_were_dropped = self.dropShelfButtons(x, buttons)
+        btns_were_dropped = self.drop_shelf_buttons(x, buttons)
 
         if btns_were_dropped == "not":
             return False
 
         for i, btn in enumerate(self._btns):
 
-            shelf_data = btn.getShelfData()
+            shelf_data = btn.get_shelf_data()
 
             if shelf_data["favorite"]:
                 shelf_data["favorite"][1] = i
@@ -178,11 +168,6 @@ class FavoritesShelf(RootShelf):
 
 
 class HistoryShelf(RootShelf):
-    ##
-    # def __del__(self):
-    ##
-    # print "HistoryShelf garbage-collected."
-    # pass
 
     def __init__(self, icon_name):
 
@@ -190,7 +175,7 @@ class HistoryShelf(RootShelf):
 
         self._id = -3
 
-    def addShelf(self, shelf):
+    def add_shelf(self, shelf):
 
         shelves = [btn.get_shelf() for btn in self._btns]
 
@@ -200,16 +185,16 @@ class HistoryShelf(RootShelf):
 
             if index > 0:
                 btn_to_move = self._btns[index]
-                self.dropShelfButtons(0, [btn_to_move])
+                self.drop_shelf_buttons(0, [btn_to_move])
 
             return
 
         if len(self._btns) == self._max_btn_count["shelf"]:
-            self.removeShelfButtons([self._btns[-1]])
+            self.remove_shelf_buttons([self._btns[-1]])
 
-        label = "<Home>" if shelf is self._panel.getHomeShelf() else shelf.get_label()
-        btn = self.insertShelfButtons(0, label_data=[(label, None)])[0]
-        btn.setShelf(shelf)
+        label = "<Home>" if shelf is self._panel.get_home_shelf() else shelf.get_label()
+        btn = self.insert_shelf_buttons(0, label_data=[(label, None)])[0]
+        btn.set_shelf(shelf)
 
     def notify_left_down(self):
 

@@ -25,7 +25,7 @@ class ToolButtonPropertiesDialog(DeepShelfObject, wx.Dialog):
 
         self._btn_data = self._mgr.do("get_tool_button_data")
         hotkey_string = defaults["hotkey"]
-        self._hotkey_old = self._hotkey_new = ToolButton.getHotkeyFromString(
+        self._hotkey_old = self._hotkey_new = ToolButton.get_hotkey_from_string(
             hotkey_string)
 
         self._f_keys = {
@@ -69,10 +69,10 @@ class ToolButtonPropertiesDialog(DeepShelfObject, wx.Dialog):
         self._field_id = wx.ComboBox(self, -1, btn_id,
                                      choices=self._btn_data.keys(),
                                      style=wx.CB_READONLY)
-        self.Bind(wx.EVT_COMBOBOX, self.__onChooseID, self._field_id)
+        self.Bind(wx.EVT_COMBOBOX, self.__on_choose_id, self._field_id)
         self._field_descr = wx.TextCtrl(self, -1, "")
         self._field_hotkey = wx.TextCtrl(self, -1, "", style=wx.TE_READONLY)
-        wx.EVT_KEY_DOWN(self._field_hotkey, self.__onHotkeyDown)
+        wx.EVT_KEY_DOWN(self._field_hotkey, self.__on_hotkey_down)
 
         field_sizer = wx.BoxSizer(wx.VERTICAL)
         field_sizer.AddMany([
@@ -95,12 +95,12 @@ class ToolButtonPropertiesDialog(DeepShelfObject, wx.Dialog):
         self._field_hotkey.SetValue(hotkey_string)
 
         btn_load_icon = wx.Button(self, -1, "Load icon")
-        btn_load_icon.Bind(wx.EVT_BUTTON, self.__loadIcon)
+        btn_load_icon.Bind(wx.EVT_BUTTON, self.__load_icon)
         icon_sub_sizer.AddStretchSpacer()
         icon_sub_sizer.Add(btn_load_icon, 0, wx.ALL | wx.ALIGN_RIGHT, 4)
         icon_sizer.Add(icon_sub_sizer, 0, wx.EXPAND)
 
-    def __loadIcon(self, event):
+    def __load_icon(self, event):
 
         wildcard = "Icon image 32x32 (*.png)|*.png|All files (*.*)|*.*"
         dlg = wx.FileDialog(
@@ -113,7 +113,7 @@ class ToolButtonPropertiesDialog(DeepShelfObject, wx.Dialog):
             self._icon_path_new = dlg.GetPath()
             self._icon.SetBitmap(wx.Bitmap(self._icon_path_new))
 
-    def __onChooseID(self, event):
+    def __on_choose_id(self, event):
 
         btn_id = self._field_id.GetValue()
         label, icon_path = self._btn_data[btn_id]
@@ -124,13 +124,11 @@ class ToolButtonPropertiesDialog(DeepShelfObject, wx.Dialog):
             self._icon.SetBitmap(icon_bitmap)
             self._icon_path_new = icon_path
 
-    def __onHotkeyDown(self, event):
+    def __on_hotkey_down(self, event):
 
         key = event.GetKeyCode()
-        # "Alt+Ctrl+Shift+F6"
 
         if key in xrange(48, 91) or key in self._f_keys:
-            # print "Key is '" + chr(key) + "'"
 
             hotkey_string = ""
             mods = 0
@@ -152,7 +150,7 @@ class ToolButtonPropertiesDialog(DeepShelfObject, wx.Dialog):
             hotkey = (key, mods)
 
             if hotkey_string in ("Ctrl+A", "Ctrl+I", "Ctrl+X", "Ctrl+V", "Ctrl+H") \
-                    or (hotkey != self._hotkey_old and ToolButton.isHotkeyInUse(hotkey)):
+                    or (hotkey != self._hotkey_old and ToolButton.is_hotkey_in_use(hotkey)):
                 self._field_hotkey.SetValue("")
                 self._hotkey_new = None
             else:
@@ -169,9 +167,9 @@ class ToolButtonEditingDialog(ToolButtonPropertiesDialog):
 
     def __init__(self, button):
 
-        btn_props = button.getProps()
+        btn_props = button.get_props()
 
-        icon_bitmap = button.getIcon()
+        icon_bitmap = button.get_icon()
         icon_path = Icons.get_path(icon_bitmap)
 
         defaults = {
@@ -186,7 +184,7 @@ class ToolButtonEditingDialog(ToolButtonPropertiesDialog):
 
         self._btn = button
 
-    def saveChanges(self):
+    def save_changes(self):
 
         label = self._field_descr.GetValue()
 
@@ -194,7 +192,7 @@ class ToolButtonEditingDialog(ToolButtonPropertiesDialog):
             return
 
         self._btn.set_label(label)
-        btn_props = self._btn.getProps()
+        btn_props = self._btn.get_props()
         btn_id = self._field_id.GetValue()
         btn_props["id"] = encode_string(btn_id)
 
@@ -210,7 +208,7 @@ class ToolButtonEditingDialog(ToolButtonPropertiesDialog):
             icon_bitmap = self._icon.GetBitmap()
             Icons.add(icon_bitmap, self._icon_path_new)
             btn_props["icon"] = encode_string(self._icon_path_new)
-            self._btn.setIcon(icon_bitmap)
+            self._btn.set_icon(icon_bitmap)
 
 
 class ToolButtonCreationDialog(ToolButtonPropertiesDialog):
@@ -248,4 +246,4 @@ class ToolButtonCreationDialog(ToolButtonPropertiesDialog):
             "hotkey": encode_string(self._field_hotkey.GetValue())
         }
 
-        return self._shelf.insertToolButton(self._x, props=btn_props)
+        return self._shelf.insert_tool_button(self._x, props=btn_props)

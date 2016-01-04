@@ -60,7 +60,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         self._size = (width, h)
         ShelfPath.init(self, bitmap_names, w_b, width, h, self._font)
-        btn_w, btn_h = ShelfPath.getButtonSize()
+        btn_w, btn_h = ShelfPath.get_button_size()
         btn_space = btn_w + 7
         self._preview_rect = wx.Rect(
             w_b + btn_space, 0, width - 2 * (w_b + btn_space), h - btn_h - 3)
@@ -70,16 +70,16 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         self._shelf_icon_y = 2 + (btn_h - text_height) // 2
 
         self._home_shelf_obj = HomeShelf(bitmap_names["home_icon"])
-        self._home_shelf = self._home_shelf_obj.getProxy()
+        self._home_shelf = self._home_shelf_obj.get_proxy()
         self._fav_shelf_obj = FavoritesShelf(bitmap_names["fav_icon"])
-        self._fav_shelf = self._fav_shelf_obj.getProxy()
+        self._fav_shelf = self._fav_shelf_obj.get_proxy()
         self._hist_shelf_obj = HistoryShelf(bitmap_names["hist_icon"])
-        self._hist_shelf = self._hist_shelf_obj.getProxy()
+        self._hist_shelf = self._hist_shelf_obj.get_proxy()
         self._current_shelf = self._home_shelf
         self._candidate_shelf = None
 
-        ShelfPath.setRootShelves({"fav": self._fav_shelf, "hist": self._hist_shelf,
-                                  "home": self._home_shelf})
+        ShelfPath.set_root_shelves({"fav": self._fav_shelf, "hist": self._hist_shelf,
+                                   "home": self._home_shelf})
 
         wx.Panel.__init__(self, parent, size=self._size)
 
@@ -104,34 +104,34 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         self._menu_items["shelf_contents"]["menu"] = item
         item = self._contents_menu.Append(-1, "New")
         self._menu_items["shelf_contents"]["new"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__createShelfContents(), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__create_shelf_contents(), item)
         self._contents_menu.AppendSeparator()
         item = self._contents_menu.Append(-1, "Move to new shelf")
         self._menu_items["shelf_contents"]["move"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.relocateShelfContents(
+        self.Bind(wx.EVT_MENU, lambda evt: self.relocate_shelf_contents(
             show_message=False), item)
         self._contents_menu.AppendSeparator()
         item = self._contents_menu.Append(-1, "Select none\tCTRL+BACKSPACE")
-        self.Bind(wx.EVT_MENU, lambda evt: self.__selectShelfContents("none"), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__select_shelf_contents("none"), item)
         item = self._contents_menu.Append(-1, "Select all\tCTRL+A")
-        self.Bind(wx.EVT_MENU, lambda evt: self.__selectShelfContents("all"), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__select_shelf_contents("all"), item)
         item = self._contents_menu.Append(-1, "Invert selection\tCTRL+I")
         self.Bind(
-            wx.EVT_MENU, lambda evt: self.__selectShelfContents("invert"), item)
+            wx.EVT_MENU, lambda evt: self.__select_shelf_contents("invert"), item)
         self._contents_menu.AppendSeparator()
         item = self._contents_menu.Append(-1, "Delete selection\tDEL")
         self._menu_items["shelf_contents"]["remove_selection"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__removeShelfContents(), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__remove_shelf_contents(), item)
         item = self._contents_menu.Append(-1, "Cut selection\tCTRL+X")
         self._menu_items["shelf_contents"]["cut_selection"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__cutShelfContents(), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__cut_shelf_contents(), item)
         item = self._contents_menu.Append(-1, "Paste\tCTRL+V")
         self._menu_items["shelf_contents"]["paste"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__pasteShelfContents(), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__paste_shelf_contents(), item)
         self._contents_menu.AppendSeparator()
         item = self._contents_menu.Append(-1, "Hide\tCTRL+H")
         self._menu_items["shelf_contents"]["access"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__hideShelfContents(), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__hide_shelf_contents(), item)
 
         self._main_menu.AppendSeparator()
         self._layout_menu = wx.Menu()
@@ -150,29 +150,28 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         item = self._btn_menu.Append(-1, "Edit properties")
         self._menu_items["button"]["edit"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__editToolButton(), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__edit_tool_button(), item)
         self._btn_menu.AppendSeparator()
         item = self._btn_menu.Append(-1, "Rename")
         self._menu_items["button"]["rename"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__renameShelfContents(), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__rename_shelf_contents(), item)
         item = self._btn_menu.Append(-1, "Delete")
         self._menu_items["button"]["remove"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__removeShelfContents(False), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__remove_shelf_contents(False), item)
         item = self._btn_menu.Append(-1, "Cut")
         self._menu_items["button"]["cut"] = item
-        self.Bind(wx.EVT_MENU, lambda evt: self.__cutShelfContents(False), item)
+        self.Bind(wx.EVT_MENU, lambda evt: self.__cut_shelf_contents(False), item)
         self._btn_menu.AppendSeparator()
         item = self._btn_menu.Append(-1, "(De)select\tCTRL")
         self._menu_items["button"]["select"] = item
         self.Bind(
-            wx.EVT_MENU, lambda evt: self.__toggleShelfContentsSelection(), item)
+            wx.EVT_MENU, lambda evt: self.__toggle_shelf_contents_selection(), item)
 
         self._menu_open = False
         self._menu_x = 0
         self._dialog_open = False
 
-        def notifyMenuClosed(event):
-            # print "notifyMenuClosed() called."
+        def notify_menu_closed(event):
 
             self._menu_open = False
             self.Refresh()
@@ -180,19 +179,18 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             self._has_mouse = self._rect.Contains(mouse_pos)
             self._timer.Start(500, oneShot=True)
             self._delay_timer.Start(200, oneShot=True)
-            self.__checkMouse()
+            self.__check_mouse()
 
         self._menu_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, notifyMenuClosed, self._menu_timer)
+        self.Bind(wx.EVT_TIMER, notify_menu_closed, self._menu_timer)
 
         self._delay_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.__onDelayTimer, self._delay_timer)
+        self.Bind(wx.EVT_TIMER, self.__on_delay_timer, self._delay_timer)
 
         self._has_mouse = False
         self._left_down = False
 
-        def toggleVisibility(event):
-            # print "pullFrame(event) called *********"
+        def toggle_visibility(event):
 
             if self._has_mouse:
                 self._on_show()
@@ -205,24 +203,22 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
                 self._dialog_open = False
 
         self._timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, toggleVisibility, self._timer)
+        self.Bind(wx.EVT_TIMER, toggle_visibility, self._timer)
 
-        def onMotion(event=None):
-            # print "Mouse moved."
+        def on_motion(event=None):
 
             if DraggedContents.get_candidate():
                 DraggedContents.on_drag()
 
             self._delay_timer.Start(200, oneShot=True)
-            self.__checkMouse()
+            self.__check_mouse()
 
-        wx.EVT_MOTION(self, onMotion)
+        wx.EVT_MOTION(self, on_motion)
 
         wx.EVT_ENTER_WINDOW(self, self.on_enter_window)
         wx.EVT_LEAVE_WINDOW(self, self.on_leave_window)
 
-        def finalizeDrag(event):
-            # print "Finalizing drag (panel)"
+        def finalize_drag(event):
 
             DraggedContents.clear()
 
@@ -230,8 +226,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             self.on_enter_window() if self._rect.Contains(
                 mouse_pos) else self.on_leave_window()
 
-        wx.EVT_MOUSE_CAPTURE_CHANGED(self, finalizeDrag)
-##    self._is_dragging = False
+        wx.EVT_MOUSE_CAPTURE_CHANGED(self, finalize_drag)
 
         def on_left_down(event):
 
@@ -247,7 +242,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         wx.EVT_LEFT_DOWN(self, on_left_down)
 
-        def onLeftUp(event):
+        def on_left_up(event):
 
             if not self._left_down:
                 return
@@ -260,47 +255,41 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             self._current_shelf.notify_left_up()
 
             if ShelfPath.notify_left_up():
-                self.__checkMouse()
+                self.__check_mouse()
 
             if self.HasCapture():
-                # print "Releasing mouse on left-up."
                 self.ReleaseMouse()
 
-        wx.EVT_LEFT_UP(self, onLeftUp)
+        wx.EVT_LEFT_UP(self, on_left_up)
 
-        def onRightUp(event):
+        def on_right_up(event):
 
             self._left_down = False
 
             if DraggedContents.get_items():
 
                 if self.HasCapture():
-                    # print "Releasing mouse on right-up."
                     self.ReleaseMouse()
 
                 return
 
             self._menu_x = event.GetX()
-            self.__showMenu()
+            self.__show_menu()
 
-        wx.EVT_RIGHT_UP(self, onRightUp)
-##
-##    self._ctrl_pressed = False
+        wx.EVT_RIGHT_UP(self, on_right_up)
 
         self._cut_btns = {}  # {"buttons":[], "type":"shelf"|"tool", "shelf":Shelf}
 
         self._shelves = {}
 
-        def onGainFocus(event):
+        def on_gain_focus(event):
 
-            # print "DeepShelfPanel gained focus."
             self._parent.SetFocus()
-# self._mgr.sendRequest("handle_deepshelf_gains_focus")
 
-        wx.EVT_SET_FOCUS(self, onGainFocus)
+        wx.EVT_SET_FOCUS(self, on_gain_focus)
 
         if os.path.isfile("deepshelf_data"):
-            self.__loadShelfData()
+            self.__load_shelf_data()
         else:
             self._shelf_data = {
                 "label": "", "children": [], "tools": [], "favorite": [],
@@ -320,17 +309,13 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         self._timer.Start(500, oneShot=True)
 
     def on_leave_window(self, event=None):
-        # print "on_leave_window(event=None)"
 
         if DraggedContents.get_candidate():
-            # print "DraggedContents.get_candidate()"
             return
 
         if self._menu_open:
-            # print "self._menu_open"
             return
 
-# if not self._is_dragging and not self._frame.isPressed():
         self._has_mouse = False
         self._current_shelf.notify_mouse_leave()
         ShelfPath.notify_mouse_leave()
@@ -351,11 +336,11 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         return self._hist_shelf
 
-    def getHomeShelf(self):
+    def get_home_shelf(self):
 
         return self._home_shelf
 
-    def setCurrentShelf(self, shelf):
+    def set_current_shelf(self, shelf):
 
         if shelf:
             self._current_shelf.notify_mouse_leave()
@@ -379,77 +364,59 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         self.Refresh()
 
-    def getCandidateShelf(self):
+    def get_candidate_shelf(self):
 
         return self._candidate_shelf
 
-    def setShelfDataValue(self, shelf_id, data_type, value):
+    def set_shelf_data_value(self, shelf_id, data_type, value):
 
         self._shelves[shelf_id][data_type] = value
 
-    def getShelfDataValue(self, shelf_id, data_type):
+    def get_shelf_data_value(self, shelf_id, data_type):
 
         return self._shelves[shelf_id][data_type]
 
-    def insertShelfData(self, shelf_id, parent_id, index):
+    def insert_shelf_data(self, shelf_id, parent_id, index):
 
         self._shelves[parent_id]["children"].insert(
             index, self._shelves[shelf_id])
 
-    def removeShelfData(self, shelf_id, parent_id):
+    def remove_shelf_data(self, shelf_id, parent_id):
 
         self._shelves[parent_id]["children"].remove(self._shelves[shelf_id])
 
     def is_shelf_path_ready(self):
 
-        return ShelfPath.isReady()
-##
-##
-# def notify_ctrl_down(self):
-##
-# if self._menu_open or DraggedContents.get_items():
-# return
-##
-# if not self._ctrl_pressed:
-##
-##      self._ctrl_pressed = True
-##
-# if self._current_shelf.has_mouse():
-# self._current_shelf.notify_ctrl_down()
-##
-##
-# def notifyCtrlUp(self):
-##
-##    self._ctrl_pressed = False
+        return ShelfPath.is_ready()
 
     def edit_subobjects(self, char):
 
-        if ShelfPath.isReady() or self._current_shelf is self._hist_shelf:
+        if ShelfPath.is_ready() or self._current_shelf is self._hist_shelf:
             return
 
         if char == "BACKSPACE":
-            self.__selectShelfContents("none")
+            self.__select_shelf_contents("none")
         elif char == "A":
-            self.__selectShelfContents("all")
+            self.__select_shelf_contents("all")
         elif char == "I":
-            self.__selectShelfContents("invert")
+            self.__select_shelf_contents("invert")
         elif char == "DEL":
-            self.__removeShelfContents()
+            self.__remove_shelf_contents()
         elif char == "X":
-            self.__cutShelfContents()
+            self.__cut_shelf_contents()
         elif char == "V":
             self._menu_x = 100000
-            self.__pasteShelfContents()
+            self.__paste_shelf_contents()
         elif char == "H":
-            self.__hideShelfContents()
+            self.__hide_shelf_contents()
 
-    def __checkMouse(self):
+    def __check_mouse(self):
 
         mouse_pos = self.ScreenToClient(wx.GetMousePosition())
 
         has_mouse = ShelfPath.check_has_mouse(mouse_pos)
 
-        if not has_mouse and not ShelfPath.isReady():
+        if not has_mouse and not ShelfPath.is_ready():
 
             has_mouse = self._current_shelf.check_has_mouse(mouse_pos)
 
@@ -458,25 +425,25 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             rect = wx.Rect(*self._preview_rect).Inflate(0, 1)
 
             if self._candidate_shelf and rect.Contains(mouse_pos) and not DraggedContents.is_in_favs():
-                self.setCurrentShelf(self._candidate_shelf)
+                self.set_current_shelf(self._candidate_shelf)
                 self.set_candidate_shelf(None)
                 ShelfPath.reset()
 
-    def __onDelayTimer(self, event):
+    def __on_delay_timer(self, event):
 
         if self._menu_open:
             return
 
         ShelfPath.notify_mouse_hover()
 
-        if not ShelfPath.isReady():
+        if not ShelfPath.is_ready():
             self._current_shelf.notify_mouse_hover()
 
     def has_mouse(self):
 
         return self._has_mouse
 
-    def mouseInPreviewArea(self, mouse_pos):
+    def mouse_in_preview_area(self, mouse_pos):
 
         rect = wx.Rect(*self._preview_rect).Inflate(0, 1)
 
@@ -496,10 +463,10 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             y = 2 if self._candidate_shelf.get_button_type() == "tool" else 8
             self._candidate_shelf.draw(dc, y, flat=True)
 
-            if not ShelfPath.isReady():
+            if not ShelfPath.is_ready():
                 self._current_shelf.draw(dc, self._size[1] - 30)
 
-        elif not (ShelfPath.isReady() or ShelfPath.isParentShown()):
+        elif not (ShelfPath.is_ready() or ShelfPath.is_parent_shown()):
 
             y = self._size[
                 1] - (42 if self._current_shelf.get_button_type() == "tool" else 30)
@@ -507,7 +474,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         ShelfPath.draw(dc)
 
-    def __showMenu(self):
+    def __show_menu(self):
 
         self.set_candidate_shelf(None)
         button_type = self._current_shelf.get_button_type()
@@ -532,7 +499,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         else:
 
-            if self._current_shelf.is_accessible() and not ShelfPath.isReady() and not is_hist_shelf:
+            if self._current_shelf.is_accessible() and not ShelfPath.is_ready() and not is_hist_shelf:
 
                 self._menu_items["shelf_contents"]["menu"].Enable(True)
 
@@ -573,7 +540,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         self._menu_timer.Start(1, oneShot=True)
 
-    def __createChildShelves(self, parent_shelf, labels):
+    def __create_child_shelves(self, parent_shelf, labels):
 
         parent_id = parent_shelf.get_id()
         child_data = self._shelves[parent_id]["children"]
@@ -581,7 +548,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         if len(labels) == 1 and not labels[0]:
             return
 
-        for shelf in parent_shelf.createChildren([(label, None) for label in labels]):
+        for shelf in parent_shelf.create_children([(label, None) for label in labels]):
             shelf_id = shelf.get_id()
             shelf_data = {
                 "label": encode_string(shelf.get_label()), "children": [], "tools": [],
@@ -589,41 +556,39 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             }
             child_data.append(shelf_data)
             self._shelves[shelf_id] = shelf_data
-            shelf.get_button().setShelfData(shelf_data)
+            shelf.get_button().set_shelf_data(shelf_data)
 
-    def notifyDialogOpen(self):
+    def notify_dialog_open(self):
 
         self._dialog_open = True
 
-    def __createShelfContents(self):
+    def __create_shelf_contents(self):
 
         button_type = self._current_shelf.get_button_type()
 
         if button_type == "shelf":
 
-            self.__createShelves()
+            self.__create_shelves()
 
         elif button_type == "tool":
 
-            self.__createToolButton()
+            self.__create_tool_button()
 
         else:
 
             self._dialog_open = True
             dlg = ShelfContentsCreationDialog()
             answer = dlg.ShowModal()
-            contents_type = dlg.getContentsType()
+            contents_type = dlg.get_contents_type()
             dlg.Destroy()
 
             if answer == wx.ID_OK:
                 if contents_type == 0:
-                    self.__createShelves()
+                    self.__create_shelves()
                 else:
-                    self.__createToolButton()
-##
-# self.SetFocus()
+                    self.__create_tool_button()
 
-    def __createShelves(self):
+    def __create_shelves(self):
 
         self.Refresh()
 
@@ -632,13 +597,13 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         answer = dlg.ShowModal()
 
         if answer == wx.ID_OK:
-            self.__createChildShelves(self._current_shelf, dlg.getLabels())
+            self.__create_child_shelves(self._current_shelf, dlg.get_labels())
             self.save_shelf_data()
             self.Refresh()
 
         dlg.Destroy()
 
-    def relocateShelfContents(self, buttons=None, btn_type="", show_message=True):
+    def relocate_shelf_contents(self, buttons=None, btn_type="", show_message=True):
 
         self.Refresh()
 
@@ -671,10 +636,8 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         dlg = ShelfCreationDialog(self._current_shelf, btn_count, max_btn_count,
                                   ignore_existing=True)
         answer = dlg.ShowModal()
-        labels = dlg.getLabels()
+        labels = dlg.get_labels()
         dlg.Destroy()
-##
-# self.SetFocus()
 
         if len(labels) == 1 and not labels[0]:
             return False
@@ -684,14 +647,14 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             if btn_type == "tool":
 
                 for btn in buttons[0] + buttons[1]:
-                    self._current_shelf.removeToolButton(btn, destroy=False)
+                    self._current_shelf.remove_tool_button(btn, destroy=False)
 
             elif btn_type == "shelf":
 
                 shelves = self._current_shelf.get_children()[:]
                 shelf_refs = [shelf.get_object()
                               for shelf in shelves]  # keep shelves alive
-                self._current_shelf.removeChildren(shelves)
+                self._current_shelf.remove_children(shelves)
                 parent_id = self._current_shelf.get_id()
 
                 for shelf in shelves:
@@ -699,8 +662,8 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
                     self._shelves[parent_id]["children"].remove(
                         self._shelves[shelf_id])
 
-            self.__createChildShelves(self._current_shelf, labels)
-            self._current_shelf.fillChildren(buttons, btn_type)
+            self.__create_child_shelves(self._current_shelf, labels)
+            self._current_shelf.fill_children(buttons, btn_type)
 
             self.save_shelf_data()
 
@@ -712,22 +675,20 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
             return False
 
-    def __removeShelfContents(self, selected=True):
+    def __remove_shelf_contents(self, selected=True):
 
         if selected and not self._current_shelf.get_selected_buttons():
             return
 
         if self._current_shelf.get_button_type() == "tool":
-            self.__removeToolButtons(selected)
+            self.__remove_tool_buttons(selected)
         else:
             if self._current_shelf is self._fav_shelf:
-                self.__removeFavorites(selected)
+                self.__remove_favorites(selected)
             else:
-                self.__removeShelves(selected)
-##
-# self.SetFocus()
+                self.__remove_shelves(selected)
 
-    def __removeFavorites(self, selected=True):
+    def __remove_favorites(self, selected=True):
 
         self.Refresh()
 
@@ -759,7 +720,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
                 shelf_id = btn.get_shelf().get_id()
                 self._shelves[shelf_id]["favorite"] = []
 
-            self._fav_shelf.removeShelfButtons(buttons)
+            self._fav_shelf.remove_shelf_buttons(buttons)
 
             if not self._fav_shelf.get_button_type():
                 self._fav_shelf.set_button_type("shelf")
@@ -768,7 +729,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
             self.save_shelf_data()
 
-    def __removeShelves(self, selected=True):
+    def __remove_shelves(self, selected=True):
 
         self.Refresh()
 
@@ -805,31 +766,31 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             hist_shelves = [btn.get_shelf() for btn in hist_btns]
             hist_btns_to_remove = []
 
-            def activateHotkeys(shelf_data):
+            def activate_hotkeys(shelf_data):
 
                 for child_data in shelf_data["children"]:
-                    activateHotkeys(child_data)
+                    activate_hotkeys(child_data)
 
                 for btn_props in shelf_data["tools"]:
                     hotkey_string = decode_string(btn_props["hotkey"])
-                    hotkey = ToolButton.getHotkeyFromString(hotkey_string)
-                    ToolButton.activateHotkey(hotkey)
+                    hotkey = ToolButton.get_hotkey_from_string(hotkey_string)
+                    ToolButton.activate_hotkey(hotkey)
 
             for shelf in shelves:
-                activateHotkeys(self._shelves[shelf.get_id()])
+                activate_hotkeys(self._shelves[shelf.get_id()])
 
-            def deleteShelfData(shelf):
+            def delete_shelf_data(shelf):
 
                 for child_shelf in shelf.get_children():
-                    deleteShelfData(child_shelf)
+                    delete_shelf_data(child_shelf)
 
                 for btn in shelf.get_cut_buttons():
-                    self.releaseCutButton(btn)
+                    self.release_cut_button(btn)
 
                 if shelf.get_button_type() == "tool":
                     for btn in shelf.get_buttons():
-                        ToolButton.set_hotkey(hotkey_old=btn.getHotkey())
-                        Shelf.removeToggleButton(btn)
+                        ToolButton.set_hotkey(hotkey_old=btn.get_hotkey())
+                        Shelf.remove_toggle_button(btn)
 
                 if shelf in fav_shelves:
                     fav_btns_to_remove.append(
@@ -847,34 +808,32 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
                 shelf_id = shelf.get_id()
                 self._shelves[parent_id]["children"].remove(
                     self._shelves[shelf_id])
-                deleteShelfData(shelf)
+                delete_shelf_data(shelf)
 
             if fav_btns_to_remove:
 
-                self._fav_shelf.removeShelfButtons(fav_btns_to_remove)
+                self._fav_shelf.remove_shelf_buttons(fav_btns_to_remove)
 
                 if not self._fav_shelf.get_button_type():
                     self._fav_shelf.set_button_type("shelf")
 
             if hist_btns_to_remove:
-                self._hist_shelf.removeShelfButtons(hist_btns_to_remove)
+                self._hist_shelf.remove_shelf_buttons(hist_btns_to_remove)
 
-            self._current_shelf.removeChildren(shelves)
+            self._current_shelf.remove_children(shelves)
 
             self.Refresh()
 
             self.save_shelf_data()
 
-    def __renameShelfContents(self):
+    def __rename_shelf_contents(self):
 
         if self._current_shelf.get_button_type() == "tool":
-            self.__renameToolButton()
+            self.__rename_tool_button()
         else:
-            self.__renameChildShelf()
-##
-# self.SetFocus()
+            self.__rename_child_shelf()
 
-    def __renameChildShelf(self):
+    def __rename_child_shelf(self):
 
         self.Refresh()
 
@@ -888,7 +847,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         if label:
 
-            self._current_shelf.setShelfButtonLabel(button, label, False)
+            self._current_shelf.set_shelf_button_label(button, label, False)
             shelf = button.get_shelf()
             shelf_id = shelf.get_id()
 
@@ -901,14 +860,14 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             hist_shelves = [btn.get_shelf() for btn in hist_btns]
 
             if shelf in hist_shelves:
-                self._hist_shelf.setShelfButtonLabel(
+                self._hist_shelf.set_shelf_button_label(
                     hist_btns[hist_shelves.index(shelf)], label, False)
 
             self.Refresh()
 
             self.save_shelf_data()
 
-    def restoreShelfContents(self, shelf):
+    def restore_shelf_contents(self, shelf):
 
         btn_data = self._shelves[shelf.get_id()]["tools"]
 
@@ -919,17 +878,17 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
             for btn_props in btn_data:
                 hotkey_string = decode_string(btn_props["hotkey"])
-                hotkey = ToolButton.getHotkeyFromString(hotkey_string)
-                ToolButton.activateHotkey(hotkey)
+                hotkey = ToolButton.get_hotkey_from_string(hotkey_string)
+                ToolButton.activate_hotkey(hotkey)
 
-            shelf.insertToolButtons(btn_data)
+            shelf.insert_tool_buttons(btn_data)
 
         else:
 
             shelf_data = self._shelves[shelf.get_id()]["children"]
             favs = {}
 
-            self.__createShelvesFromData(shelf, shelf_data, favs)
+            self.__create_shelves_from_data(shelf, shelf_data, favs)
 
             for fav_index in sorted(favs.iterkeys()):
 
@@ -937,7 +896,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
                 if fav_shelf:
                     btn = fav_btns[fav_index]
-                    btn.setShelf(fav_shelf)
+                    btn.set_shelf(fav_shelf)
                     col = None if fav_shelf.is_accessible() else (128, 128, 128)
                     fav_btn_label_data.append(
                         (btn, decode_string(data["favorite"][0]), col))
@@ -949,22 +908,22 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             fav_btn_label_data.append((btn, btn.get_label(), None))
 
         if fav_btn_label_data:
-            self._fav_shelf.setShelfButtonLabels(fav_btn_label_data)
+            self._fav_shelf.set_shelf_button_labels(fav_btn_label_data)
 
         hist_btns = self._hist_shelf.get_buttons()
         hist_shelves = [btn.get_shelf() for btn in hist_btns]
 
         if shelf in hist_shelves:
             btn = hist_btns[hist_shelves.index(shelf)]
-            self._hist_shelf.setShelfButtonLabel(btn, btn.get_label(), None)
+            self._hist_shelf.set_shelf_button_label(btn, btn.get_label(), None)
 
         if shelf is not self._home_shelf:
             btn = shelf.get_button()
-            shelf.get_parent().setShelfButtonLabel(btn, btn.get_label())
+            shelf.get_parent().set_shelf_button_label(btn, btn.get_label())
 
         self.Refresh()
 
-    def __hideShelfContents(self):
+    def __hide_shelf_contents(self):
 
         if not self._current_shelf.is_accessible() or self._current_shelf is self._fav_shelf:
             return
@@ -977,7 +936,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         fav_shelves = [btn.get_shelf() for btn in fav_btns]
         fav_btn_label_data = []
 
-        def updateHistAndFavs(shelf):
+        def update_hist_and_favs(shelf):
 
             for child in shelf.get_children():
 
@@ -987,38 +946,38 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
                 if child in fav_shelves:
                     btn = fav_btns[fav_shelves.index(child)]
-                    btn.setShelf(None)
+                    btn.set_shelf(None)
                     fav_btn_label_data.append(
                         (btn, "<hidden>", (128, 128, 128)))
 
                 if child.is_accessible():
-                    updateHistAndFavs(child)
+                    update_hist_and_favs(child)
 
             for btn in shelf.get_cut_buttons():
-                self.releaseCutButton(btn)
+                self.release_cut_button(btn)
 
-        updateHistAndFavs(self._current_shelf)
+        update_hist_and_favs(self._current_shelf)
 
-        def deactivateHotkeys(shelf):
+        def deactivate_hotkeys(shelf):
 
             for child_shelf in shelf.get_children():
-                deactivateHotkeys(child_shelf)
+                deactivate_hotkeys(child_shelf)
 
             if shelf.get_button_type() == "tool":
                 for btn in shelf.get_buttons():
-                    hotkey = btn.getHotkey()
-                    ToolButton.deactivateHotkey(hotkey)
+                    hotkey = btn.get_hotkey()
+                    ToolButton.deactivate_hotkey(hotkey)
                     ToolButton.set_hotkey(hotkey_old=hotkey)
-                    Shelf.removeToggleButton(btn)
+                    Shelf.remove_toggle_button(btn)
 
-        deactivateHotkeys(self._current_shelf)
+        deactivate_hotkeys(self._current_shelf)
 
         if hist_btns_to_remove:
-            self._hist_shelf.removeShelfButtons(hist_btns_to_remove)
+            self._hist_shelf.remove_shelf_buttons(hist_btns_to_remove)
 
         if self._current_shelf in hist_shelves:
             btn = hist_btns[hist_shelves.index(self._current_shelf)]
-            self._hist_shelf.setShelfButtonLabel(
+            self._hist_shelf.set_shelf_button_label(
                 btn, btn.get_label(), (128, 128, 128))
 
         if self._current_shelf in fav_shelves:
@@ -1026,21 +985,19 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             fav_btn_label_data.append((btn, btn.get_label(), (128, 128, 128)))
 
         if fav_btn_label_data:
-            self._fav_shelf.setShelfButtonLabels(fav_btn_label_data)
+            self._fav_shelf.set_shelf_button_labels(fav_btn_label_data)
 
         shelf = self._current_shelf
 
         if shelf is not self._home_shelf:
             btn = shelf.get_button()
-            shelf.get_parent().setShelfButtonLabel(btn, btn.get_label(), (128, 128, 128))
+            shelf.get_parent().set_shelf_button_label(btn, btn.get_label(), (128, 128, 128))
 
         self._current_shelf.set_access(False)
 
         self.Refresh()
-##
-# self.SetFocus()
 
-    def __createToolButton(self):
+    def __create_tool_button(self):
 
         self.Refresh()
 
@@ -1055,16 +1012,16 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
             if button in btns:
                 index = btns.index(button)
-                btn_data = self.getShelfDataValue(
+                btn_data = self.get_shelf_data_value(
                     self._current_shelf.get_id(), "tools")
-                btn_data.insert(index, button.getProps())
+                btn_data.insert(index, button.get_props())
 
             self.Refresh()
             self.save_shelf_data()
 
         btn_dlg.Destroy()
 
-    def __editToolButton(self):
+    def __edit_tool_button(self):
 
         self.Refresh()
 
@@ -1074,15 +1031,13 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         answer = btn_dlg.ShowModal()
 
         if answer == wx.ID_OK:
-            btn_dlg.saveChanges()
+            btn_dlg.save_changes()
             self.Refresh()
             self.save_shelf_data()
 
         btn_dlg.Destroy()
-##
-# self.SetFocus()
 
-    def __renameToolButton(self):
+    def __rename_tool_button(self):
 
         self.Refresh()
 
@@ -1098,7 +1053,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             button.set_label(label)
             self.save_shelf_data()
 
-    def __removeToolButtons(self, selected=True):
+    def __remove_tool_buttons(self, selected=True):
 
         self.Refresh()
 
@@ -1131,29 +1086,28 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         )
 
         if answer == wx.OK:
-            # print "Removing button:", label
 
             for btn in btns:
-                self._current_shelf.removeToolButton(btn)
-                ToolButton.set_hotkey(hotkey_old=btn.getHotkey())
+                self._current_shelf.remove_tool_button(btn)
+                ToolButton.set_hotkey(hotkey_old=btn.get_hotkey())
 
             self.Refresh()
 
             self.save_shelf_data()
 
-    def __toggleShelfContentsSelection(self):
+    def __toggle_shelf_contents_selection(self):
 
         self._current_shelf.toggle_button_selection()
 
         self.Refresh()
 
-    def __selectShelfContents(self, mode):
+    def __select_shelf_contents(self, mode):
 
         self._current_shelf.select_buttons(mode)
 
         self.Refresh()
 
-    def __cutShelfContents(self, selected=True):
+    def __cut_shelf_contents(self, selected=True):
 
         if selected and not self._current_shelf.get_selected_buttons():
             return
@@ -1175,7 +1129,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         self.Refresh()
 
-    def releaseCutButton(self, button):
+    def release_cut_button(self, button):
 
         if self._cut_btns and button in self._cut_btns["buttons"]:
 
@@ -1184,7 +1138,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
             if not self._cut_btns["buttons"]:
                 self._cut_btns = {}
 
-    def __pasteShelfContents(self):
+    def __paste_shelf_contents(self):
 
         if not self._cut_btns:
             return
@@ -1241,8 +1195,6 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
                     )
 
                     paste_ok = False
-##
-# self.SetFocus()
 
             if paste_ok:
                 paste_ok = shelf.drop_children(100000, buttons)
@@ -1264,8 +1216,8 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         self._hist_shelf.clear()
         ShelfPath.reset()
         self._cut_btns = {}
-        ToolButton.clearHotkeys()
-        Shelf.clearToggleButtons()
+        ToolButton.clear_hotkeys()
+        Shelf.clear_toggle_buttons()
         Icons.clear()
 
     def __clear(self):
@@ -1294,8 +1246,6 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         self._shelves = {self._home_shelf.get_id(): self._shelf_data}
         self.save_shelf_data()
         self.Refresh()
-##
-# self.SetFocus()
 
     def __save(self):
 
@@ -1313,8 +1263,6 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
             with open(filename, "wb") as shelf_data_file:
                 cPickle.dump(self._shelf_data, shelf_data_file, -1)
-##
-# self.SetFocus()
 
     def __load(self):
 
@@ -1353,17 +1301,15 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
             self.__reset()
 
-            self.__loadShelfData()
+            self.__load_shelf_data()
             self.Refresh()
-##
-# self.SetFocus()
 
     def save_shelf_data(self):
 
         with open("deepshelf_data", "wb") as shelf_data_file:
             cPickle.dump(self._shelf_data, shelf_data_file, -1)
 
-    def __loadShelfData(self):
+    def __load_shelf_data(self):
 
         if not os.path.isfile("deepshelf_data"):
             return
@@ -1383,14 +1329,14 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
         if self._shelf_data["tools"]:
 
             if not root_contents_hidden:
-                self._home_shelf.insertToolButtons(self._shelf_data["tools"])
+                self._home_shelf.insert_tool_buttons(self._shelf_data["tools"])
 
             return
 
         favs = {}
 
-        self.__createShelvesFromData(self._home_shelf, self._shelf_data["children"],
-                                     favs, root_contents_hidden)
+        self.__create_shelves_from_data(self._home_shelf, self._shelf_data["children"],
+                                        favs, root_contents_hidden)
 
         fav_label_data = []
         fav_shelves = []
@@ -1408,15 +1354,15 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
 
         if fav_label_data:
 
-            fav_btns = self._fav_shelf.insertShelfButtons(
+            fav_btns = self._fav_shelf.insert_shelf_buttons(
                 0, label_data=fav_label_data)
 
             for btn, shelf, data in zip(fav_btns, fav_shelves, fav_shelf_data):
-                btn.setShelf(shelf, data)
+                btn.set_shelf(shelf, data)
 
-    def __createShelvesFromData(self, root_shelf, data, favs, root_contents_hidden=False):
+    def __create_shelves_from_data(self, root_shelf, data, favs, root_contents_hidden=False):
 
-        def loadShelf(parent_shelf, shelf_data, parent_contents_hidden):
+        def load_shelf(parent_shelf, shelf_data, parent_contents_hidden):
 
             if parent_contents_hidden:
                 shelves = [None] * len(shelf_data)
@@ -1424,7 +1370,7 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
                 label_data = [(decode_string(shelf_props["label"]),
                                (128, 128, 128) if shelf_props["contents_hidden"] else None)
                               for shelf_props in shelf_data]
-                shelves = parent_shelf.createChildren(label_data=label_data)
+                shelves = parent_shelf.create_children(label_data=label_data)
 
             for shelf, shelf_props in zip(shelves, shelf_data):
 
@@ -1436,32 +1382,32 @@ class DeepShelfPanel(DeepShelfObject, wx.Panel):
                 if not parent_contents_hidden:
                     shelf_id = shelf.get_id()
                     self._shelves[shelf_id] = shelf_props
-                    shelf.get_button().setShelfData(shelf_props)
+                    shelf.get_button().set_shelf_data(shelf_props)
 
                 if fav_data:
                     fav_label, fav_index = fav_data
                     favs[fav_index] = ("<hidden>" if parent_contents_hidden
                                        else decode_string(fav_label), shelf, shelf_props)
 
-                activateHotkey = ToolButton.deactivateHotkey if (parent_contents_hidden
-                                                                 or contents_hidden) else ToolButton.activateHotkey
+                activate_hotkey = ToolButton.deactivate_hotkey if (parent_contents_hidden
+                                                                 or contents_hidden) else ToolButton.activate_hotkey
 
                 for btn_props in btn_data:
                     hotkey_string = decode_string(btn_props["hotkey"])
-                    hotkey = ToolButton.getHotkeyFromString(hotkey_string)
-                    activateHotkey(hotkey)
+                    hotkey = ToolButton.get_hotkey_from_string(hotkey_string)
+                    activate_hotkey(hotkey)
 
                 if btn_data and not (parent_contents_hidden or contents_hidden):
-                    shelf.insertToolButtons(btn_data)
+                    shelf.insert_tool_buttons(btn_data)
 
-                loadShelf(shelf, child_data,
-                          parent_contents_hidden or contents_hidden)
+                load_shelf(shelf, child_data,
+                           parent_contents_hidden or contents_hidden)
 
                 if contents_hidden and not parent_contents_hidden:
                     shelf.set_access(False, True, shelf_props["password"])
 
-        loadShelf(root_shelf, data, root_contents_hidden)
+        load_shelf(root_shelf, data, root_contents_hidden)
 
-    def addShelfToHistory(self, shelf):
+    def add_shelf_to_history(self, shelf):
 
-        self._hist_shelf.addShelf(shelf)
+        self._hist_shelf.add_shelf(shelf)

@@ -25,11 +25,11 @@ class ToolButton(DeepShelfObject):
         cls._size = cls._bitmaps["hilited"].GetHeight()
 
         cls._mgr.set_hotkey_manager(cls)
-        cls._mgr.accept("set_btn_down_handler", cls.__setOnBtnDownHandler)
-        cls._mgr.accept("set_btn_up_handler", cls.__setOnBtnUpHandler)
+        cls._mgr.accept("set_btn_down_handler", cls.__set_btn_down_handler)
+        cls._mgr.accept("set_btn_up_handler", cls.__set_btn_up_handler)
 
     @staticmethod
-    def getHotkeyFromString(hotkey_string):
+    def get_hotkey_from_string(hotkey_string):
 
         if not hotkey_string:
             return None
@@ -75,7 +75,7 @@ class ToolButton(DeepShelfObject):
         return True
 
     @classmethod
-    def isHotkeyInUse(cls, hotkey):
+    def is_hotkey_in_use(cls, hotkey):
 
         if hotkey in cls._ids or hotkey in cls._inactive_hotkeys:
             return True
@@ -83,41 +83,34 @@ class ToolButton(DeepShelfObject):
         return False
 
     @classmethod
-    def clearHotkeys(cls):
+    def clear_hotkeys(cls):
 
         cls._ids = {}
         cls._inactive_hotkeys = []
 
     @classmethod
-    def activateHotkey(cls, hotkey):
-        # print "__activateHotkey(self, hotkey)"
+    def activate_hotkey(cls, hotkey):
 
         if not hotkey:
             return False
 
         if hotkey not in cls._inactive_hotkeys:
-            # print "return False: hotkey", hotkey, "not in
-            # self._inactive_hotkeys"
             return False
 
         cls._inactive_hotkeys.remove(hotkey)
-# print "Hotkey", hotkey, "activated!"
 
         return True
 
     @classmethod
-    def deactivateHotkey(cls, hotkey):
-        # print "__deactivateHotkey(self, hotkey)"
+    def deactivate_hotkey(cls, hotkey):
 
         if not hotkey:
             return False
 
         if hotkey in cls._inactive_hotkeys:
-            # print "return False: hotkey", hotkey, "in self._inactive_hotkeys"
             return False
 
         cls._inactive_hotkeys.append(hotkey)
-# print "Hotkey", hotkey, "deactivated!"
 
         return True
 
@@ -136,12 +129,12 @@ class ToolButton(DeepShelfObject):
         return False
 
     @classmethod
-    def __setOnBtnDownHandler(cls, handler=None):
+    def __set_btn_down_handler(cls, handler=None):
 
         cls._on_btn["down"] = handler if handler else lambda: None
 
     @classmethod
-    def __setOnBtnUpHandler(cls, handler=None):
+    def __set_btn_up_handler(cls, handler=None):
 
         cls._on_btn["up"] = handler if handler else lambda: None
 
@@ -153,7 +146,6 @@ class ToolButton(DeepShelfObject):
     def __del__(self):
 
         Icons.remove(bitmap=self._icon)
-# print "Button", self._label, "was garbage-collected."
 
     def __init__(self, shelf, x, props):
 
@@ -169,7 +161,7 @@ class ToolButton(DeepShelfObject):
         self._is_cut = False
         self._is_toggled_on = False
 
-    def setShelf(self, shelf):
+    def set_shelf(self, shelf):
 
         self._shelf = shelf
 
@@ -177,11 +169,11 @@ class ToolButton(DeepShelfObject):
 
         return self._shelf
 
-    def setIcon(self, icon):
+    def set_icon(self, icon):
 
         self._icon = icon
 
-    def getIcon(self):
+    def get_icon(self):
 
         return self._icon
 
@@ -209,17 +201,17 @@ class ToolButton(DeepShelfObject):
 
         return decode_string(self._props["id"])
 
-    def getHotkeyString(self):
+    def get_hotkey_string(self):
 
         return decode_string(self._props["hotkey"])
 
-    def getHotkey(self):
+    def get_hotkey(self):
 
         hotkey_string = decode_string(self._props["hotkey"])
 
-        return self.getHotkeyFromString(hotkey_string)
+        return self.get_hotkey_from_string(hotkey_string)
 
-    def getProps(self):
+    def get_props(self):
 
         return self._props
 
@@ -292,7 +284,6 @@ class ToolButton(DeepShelfObject):
         ToolTip.hide()
 
     def press(self):
-        # print "Pressed button."
 
         self._is_down = True
         self._shelf.get_panel().Refresh()
@@ -303,13 +294,12 @@ class ToolButton(DeepShelfObject):
 
         if self._is_down:
 
-            # print "Released button."
             self._is_down = False
             panel = self._shelf.get_panel()
             panel.Refresh()
 
             if not disabled:
-                panel.addShelfToHistory(self._shelf)
+                panel.add_shelf_to_history(self._shelf)
                 btn_id = decode_string(self._props["id"])
                 self._mgr.do_remotely("deepshelf_task %s" % btn_id)
                 self._on_btn["up"]()
@@ -318,8 +308,7 @@ class ToolButton(DeepShelfObject):
 
         self._is_toggled_on = not self._is_toggled_on
         self._shelf.get_panel().Refresh()
-# print "self._is_toggled_on:", self._is_toggled_on
 
-    def isToggledOn(self):
+    def is_toggled_on(self):
 
         return self._is_toggled_on

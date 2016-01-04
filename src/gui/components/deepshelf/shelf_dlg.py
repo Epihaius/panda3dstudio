@@ -25,18 +25,18 @@ class ShelfContentsCreationDialog(wx.Dialog):
             ],
             style=wx.RA_VERTICAL
         )
-        self.Bind(wx.EVT_RADIOBOX, self.__onSelectPlacement, radiobox)
+        self.Bind(wx.EVT_RADIOBOX, self.__on_select_placement, radiobox)
         main_sizer.Add(radiobox, 0, wx.ALL | wx.EXPAND, 8)
         main_btn_sizer = self.CreateButtonSizer(wx.OK | wx.CANCEL)
         main_sizer.AddStretchSpacer()
         main_sizer.Add(main_btn_sizer, 0, wx.ALL | wx.EXPAND, 8)
         self.SetSizer(main_sizer)
 
-    def __onSelectPlacement(self, event):
+    def __on_select_placement(self, event):
 
         self._contents_type = event.GetInt()
 
-    def getContentsType(self):
+    def get_contents_type(self):
 
         return self._contents_type
 
@@ -66,7 +66,7 @@ class ShelfCreationDialog(wx.Dialog):
         self._spinner = wx.SpinCtrl(self, -1)
         self._spinner.SetRange(min_shelf_count, max_shelf_count)
         self._spinner.SetValue(min_shelf_count)
-        self.Bind(wx.EVT_SPINCTRL, self.__onSetSpinner, self._spinner)
+        self.Bind(wx.EVT_SPINCTRL, self.__on_set_spinner, self._spinner)
 
         name_staticbox = wx.StaticBox(self, -1, "Shelf name")
 
@@ -133,7 +133,7 @@ class ShelfCreationDialog(wx.Dialog):
         self.SetSizer(main_sizer)
         self._name_global_field.SetFocus()
 
-    def __onSetSpinner(self, event):
+    def __on_set_spinner(self, event):
 
         for label, field in self._name_specific_fields:
             label.Disable()
@@ -158,7 +158,7 @@ class ShelfCreationDialog(wx.Dialog):
 
         self._name_global_prompt.SetLabel(prompt_txt)
 
-    def getLabels(self):
+    def get_labels(self):
 
         count = self._spinner.GetValue()
         global_name = self._name_global_field.GetValue()
