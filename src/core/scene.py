@@ -146,23 +146,30 @@ class SceneManager(BaseObject):
 
     def __export(self, filename):
 
-        root = NodePath("scene_root")
+        root = NodePath("p3ds_scene_root")
         tmp_node = NodePath("tmp_node")
         objs = [obj for obj in Mgr.get(
             "selection", "top") if obj.get_type() == "model"]
 
         for obj in objs:
-            print "Exporting object:", obj.get_name()
+
             geom_data_obj = obj.get_geom_object().get_geom_data_object()
             origin = obj.get_origin()
             geom_top = geom_data_obj._geoms["top"]["shaded"].copy_to(tmp_node)
+            geom_top.set_name(obj.get_name())
             geom_top.set_state(origin.get_state())
             geom_top.set_transform(origin.get_transform())
             geom_top.wrt_reparent_to(root)
-
-            # TODO: retrieve texture filenames and make them relative
-# texture.set_filename(rgb_fname.get_basename())
-# texture.set_fullpath(rgb_fname.get_basename())
+            
+            tex_stages = geom_top.find_all_texture_stages()
+            
+            # make texture filenames relative
+            for tex_stage in tex_stages:
+                texture = geom_top.get_texture(tex_stage).make_copy()
+                rel_tex_filename = texture.get_filename().get_basename()
+                texture.set_filename(rel_tex_filename)
+                texture.set_fullpath(rel_tex_filename)
+                geom_top.set_texture(tex_stage, texture)
 
         root.write_bam_file(Filename.from_os_specific(filename))
 
