@@ -32,3 +32,8 @@ There is no manual yet, but to test the program, you can:
 * access the DeepShelf toolbar by hovering the mouse over the down arrow at the top of the GUI; its contents is completely customizable (rightclick for context menus);
 
 * save (Ctrl-S) and load (Ctrl-O) a scene and export selected models (using DeepShelf -> File -> Export).
+
+
+
+
+Feel free to discuss this project in [this topic](https://www.panda3d.org/forums/viewtopic.php?f=6&t=18500) on the Panda3D forums.
