@@ -29,9 +29,7 @@ There is no manual yet, but to test the program, you can:
 
 * undo (Ctrl-Z), redo (Ctrl-Shift-Z) and edit the entire non-linear, branching history;
 
-* access the DeepShelf toolbar by hovering the mouse over the down arrow at the top of the GUI; its contents is completely customizable (rightclick for context menus);
-
-* save (Ctrl-S) and load (Ctrl-O) a scene and export selected models (using DeepShelf -> File -> Export).
+* save (Ctrl-S) and load (Ctrl-O) a scene and export selected models (using menu bar -> File -> Export).
 
 
 
