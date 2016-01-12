@@ -2,41 +2,32 @@ from ..base import *
 from .props.base import ObjectTypes
 
 
-class CreationButtons(BaseObject):
+class CreationManager(object):
 
     def __init__(self):
 
-        self._btns = []
-        self._active_btn = ""
+        self._data = {}
 
-        def get_handler(object_type_id):
+        def get_handler(object_type):
 
             def handler():
 
-                if self._active_btn == "create_%s" % object_type_id:
-                    Mgr.enter_state("selection_mode")
-                elif self._active_btn:
-                    Mgr.update_app("creation", "changed")
-                    Mgr.set_global("active_creation_type", object_type_id)
-                    Mgr.update_app("selected_obj_type", object_type_id)
-                    Mgr.update_app("creation", "started")
-                    Mgr.update_app("status", "create", object_type_id, "idle")
-                else:
-                    Mgr.set_global("active_creation_type", object_type_id)
+                if not Mgr.get_global("active_creation_type"):
+                    Mgr.set_global("active_creation_type", object_type)
                     Mgr.enter_state("creation_mode")
+                elif Mgr.get_global("active_creation_type") != object_type:
+                    Mgr.update_app("creation", "changed")
+                    Mgr.set_global("active_creation_type", object_type)
+                    Mgr.enter_state("creation_mode")
+                    Mgr.update_app("selected_obj_type", object_type)
+                    Mgr.update_app("creation", "started")
+                    Mgr.update_app("status", "create", object_type, "idle")
 
             return handler
 
-        for object_type_id, object_type_name in ObjectTypes.get_types().iteritems():
-            btn_id = "create_%s" % object_type_id
-            label = "Create %s" % object_type_name
-            icon_path = os.path.join(
-                GFX_PATH, "icon_" + object_type_id + ".png")
-            btn_props = (label, icon_path)
-            Mgr.do("add_deepshelf_btn", btn_id,
-                   btn_props, get_handler(object_type_id))
-
-        Mgr.add_app_updater("creation", self.__update_creation)
+        for object_type, object_type_name in ObjectTypes.get_types().iteritems():
+            handler = get_handler(object_type)
+            self._data[object_type] = {"name":object_type_name, "handler":handler}
 
     def setup(self):
 
@@ -53,17 +44,6 @@ class CreationButtons(BaseObject):
         add_state("checking_creation_start", -11, lambda prev_state_id, is_active:
                   Mgr.do("disable_components", show=False))
 
-    def __update_creation(self, creation_status):
+    def get_data(self):
 
-        self.deactivate()
-
-        if creation_status == "started":
-            creation_type = Mgr.get_global("active_creation_type")
-            self._active_btn = "create_%s" % creation_type
-            Mgr.do("toggle_deepshelf_btn", self._active_btn)
-
-    def deactivate(self):
-
-        if self._active_btn:
-            Mgr.do("toggle_deepshelf_btn", self._active_btn)
-            self._active_btn = ""
+        return self._data

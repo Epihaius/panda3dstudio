@@ -14,153 +14,10 @@ from .props import PropertyPanel
 from .history import HistoryToolbar
 from .grid import GridToolbar
 from .status import StatusBar
-from .create import CreationButtons
-from .file import FileButtons
+from .menu import MenuBar
+from .create import CreationManager
+from .file import FileManager
 from .render import RenderModeToolbar
-from deepshelf import DeepShelf as DeepShelfBase
-
-
-class DeepShelfActivator(BasicToolbar):
-
-    def __init__(self, deepshelf_base, parent, pos, width):
-
-        image = Cache.load("image", os.path.join(GFX_PATH, "toolbar_bg.png"))
-        bitmap = image.Scale(width, 24).ConvertToBitmap()
-
-        BasicToolbar.__init__(self, parent, pos, bitmap)
-
-        icon = wx.Bitmap(os.path.join(GFX_PATH, "arrow_normal.png"))
-        w_b, h_b = bitmap.GetSize()
-        w_i, h_i = icon.GetSize()
-        offset_x = (w_b - w_i) // 2
-        offset_y = (h_b - h_i) // 2
-        self._arrow_rect = wx.Rect(offset_x, offset_y, w_i, h_i)
-        self._bitmap_normal = bitmap
-        self._bitmap_hilited = bitmap.GetSubBitmap(wx.Rect(0, 0, w_b, h_b))
-        mem_dc = wx.MemoryDC(self._bitmap_normal)
-        mem_dc.DrawBitmap(icon, offset_x, offset_y)
-        icon = wx.Bitmap(os.path.join(GFX_PATH, "arrow_hilited.png"))
-        mem_dc.SelectObject(self._bitmap_hilited)
-        mem_dc.DrawBitmap(icon, offset_x, offset_y)
-        mem_dc.SelectObject(wx.NullBitmap)
-
-        def on_enter_window(event):
-
-            self._bitmap = self._bitmap_hilited
-            self.RefreshRect(self._arrow_rect)
-            deepshelf_base.on_enter()
-
-        def on_leave_window(event):
-
-            self._bitmap = self._bitmap_normal
-            self.RefreshRect(self._arrow_rect)
-            deepshelf_base.on_leave()
-
-        wx.EVT_ENTER_WINDOW(self, on_enter_window)
-        wx.EVT_LEAVE_WINDOW(self, on_leave_window)
-
-
-class DeepShelf(object):
-
-    def __init__(self, parent, gfx_path, pos, width, remote_task_handler,
-                 components_to_replace):
-
-        self._components_to_replace = components_to_replace
-
-        def btn_down_handler():
-
-            Mgr.do("reject_field_input")
-            Mgr.get("default_focus_receiver").SetFocus()
-
-        self._base = DeepShelfBase(parent, gfx_path, width, remote_task_handler,
-                                   self.__on_show, self.__on_hide)
-        self._base.set_tool_btn_down_handler(btn_down_handler)
-
-        self._activator = DeepShelfActivator(self._base, parent, pos, width)
-
-        self._base.hide()
-
-        def add_tool_button(btn_id, btn_props, task_handler):
-
-            self._base.add_tool_button(btn_id, btn_props)
-            Mgr.accept("deepshelf_task %s" % btn_id, task_handler)
-
-        Mgr.accept("add_deepshelf_btn", add_tool_button)
-        Mgr.accept("toggle_deepshelf_btn", self._base.toggle_tool_button)
-
-    def __on_show(self):
-
-        self._activator.Hide()
-
-        for component in self._components_to_replace:
-            component.hide()
-
-    def __on_hide(self):
-
-        self._activator.Show()
-
-        for component in self._components_to_replace:
-            component.show()
-
-    def set_tool_btn_down_handler(self, handler):
-
-        self._base.set_tool_btn_down_handler(handler)
-
-    def set_tool_btn_up_handler(self, handler):
-
-        self._base.set_tool_btn_up_handler(handler)
-
-    def show(self):
-
-        self._base.show()
-
-    def hide(self):
-
-        self._base.hide()
-
-    def enable(self):
-
-        self._activator.Enable()
-
-    def disable(self, show=False):
-
-        if not self._activator.IsShown():
-
-            self._base.hide()
-            self._activator.Show()
-
-            for component in self._components_to_replace:
-                component.show()
-
-        self._activator.Disable()
-
-    def is_enabled(self):
-
-        return self._activator.IsEnabled()
-
-    def on_enter(self):
-
-        self._base.on_enter()
-
-    def on_leave(self):
-
-        self._base.on_leave()
-
-    def add_tool_button(self, btn_id, btn_props):
-
-        self._base.add_tool_button(btn_id, btn_props)
-
-    def toggle_tool_button(self, btn_id):
-
-        self._base.toggle_tool_button(btn_id)
-
-    def handle_key_down(self, key, mod_code=0):
-
-        return self._base.handle_key_down(key, mod_code)
-
-    def handle_key_up(self, key):
-
-        return self._base.handle_key_up(key)
 
 
 class Components(BaseObject):
@@ -265,19 +122,70 @@ class Components(BaseObject):
         components["render_mode_toolbar"] = toolbar
         toolbar = GridToolbar(frame, wx.Point(806, 606 + 24), 200)
         components["grid_toolbar"] = toolbar
+        menubar = MenuBar(frame, wx.Point(0, 0), 1006)
+        components["menubar"] = menubar
 
-        gfx_path = os.path.join(GFX_PATH, "DeepShelf")
-        comp_ids = ("main_toolbar", "history_toolbar")
-        components_to_replace = [self._components[comp_id]
-                                 for comp_id in comp_ids]
-        deepshelf = DeepShelf(frame, gfx_path, wx.Point(0, 0), w, Mgr.do,
-                              components_to_replace)
-        components["deepshelf"] = deepshelf
+        menubar.add_menu("File")
+        menubar.add_menu("Edit")
+        menubar.add_menu("Create")
 
-        components["creation_btns"] = CreationButtons()
-        components["file_btns"] = FileButtons()
+        self._file_mgr = FileManager()
+        file_data = self._file_mgr.get_data()
 
-        self._component_ids = ("deepshelf", "main_toolbar", "history_toolbar",
+        file_ops = ("new", "open", "save")
+        accelerators = ("N", "O", "S")
+        mod_code = wx.MOD_CONTROL
+        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
+
+        for file_op, accel, hotkey in zip(file_ops, accelerators, hotkeys):
+            data = file_data[file_op]
+            menubar.add_menu_item("File", "%s\tCTRL+%s" % (
+                data["descr"], accel), data["handler"], hotkey)
+
+        file_op = "save_as"
+        data = file_data[file_op]
+        menubar.add_menu_item("File", data["descr"], data["handler"])
+
+        menubar.add_menu_item_separator("File")
+
+        file_ops = ("export",)# "import")
+
+        for file_op in file_ops:
+            data = file_data[file_op]
+            menubar.add_menu_item("File", data["descr"], data["handler"])
+
+        menubar.add_menu_item_separator("File")
+
+        handler = Mgr.get("main_window").Close
+        hotkey = (wx.WXK_F4, wx.MOD_ALT)
+        menubar.add_menu_item("File", "Exit\tALT+F4", handler)#, hotkey)
+        self.exit_handler = self._file_mgr.on_exit
+
+        self._creation_mgr = CreationManager()
+        creation_data = self._creation_mgr.get_data()
+
+        obj_types = ("box", "sphere", "cylinder")
+        accelerators = ("B", "S", "C")
+        mod_code = wx.MOD_SHIFT|wx.MOD_CONTROL
+        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
+
+        for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
+            data = creation_data[obj_type]
+            menubar.add_menu_item("Create", "Create %s\tSHIFT+CTRL+%s" % (
+                data["name"], accel), data["handler"], hotkey)
+
+        menubar.add_menu_item_separator("Create")
+
+        obj_types = ("tripod_helper", "tex_projector")
+        accelerators = ("T", "P")
+        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
+
+        for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
+            data = creation_data[obj_type]
+            menubar.add_menu_item("Create", "Create %s\tSHIFT+CTRL+%s" % (
+                data["name"], accel), data["handler"], hotkey)
+
+        self._component_ids = ("menubar", "main_toolbar", "history_toolbar",
                                "panel_stack", "render_mode_toolbar", "grid_toolbar")
 
         def update_object_name_tag(is_shown, name="", pos=None, is_selected=False):
@@ -308,14 +216,15 @@ class Components(BaseObject):
 
             Mgr.enter_state("uv_edit_mode")
 
-        Mgr.do("add_deepshelf_btn", btn_id, btn_props, command)
+        hotkey = (ord("U"), wx.MOD_CONTROL)
+        menubar.add_menu_item("Edit", "Edit UVs\tCTRL+U", command, hotkey)
 
         Mgr.add_app_updater("uv_edit_init", self.__init_uv_editing)
 
     def setup(self):
 
         self._components["main_toolbar"].setup()
-        self._components["creation_btns"].setup()
+        self._creation_mgr.setup()
         self._components["prop_panel"].setup()
 
         def enter_selection_mode(prev_state_id, is_active):
@@ -350,17 +259,13 @@ class Components(BaseObject):
         if Button.handle_hotkey(hotkey, hotkey_repeat):
             return
 
-        deepshelf = self._components["deepshelf"]
+        menubar = self._components["menubar"]
 
-        if deepshelf.is_enabled():
-            deepshelf.handle_key_down(key, mod_code)
+        if menubar.is_enabled():
+            menubar.handle_hotkey(hotkey)
 
     def handle_key_up(self, key):
-
-        deepshelf = self._components["deepshelf"]
-
-        if deepshelf.is_enabled():
-            deepshelf.handle_key_up(key)
+        pass
 
     def get_viewport_data(self):
 

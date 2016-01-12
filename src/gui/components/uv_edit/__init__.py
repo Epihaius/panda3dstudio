@@ -16,7 +16,7 @@ class UVEditGUI(BaseObject):
             Mgr.do("set_viewport_border_color", (100, 255, 100))
 
             if not is_active:
-                ids = ["deepshelf", "main_toolbar",
+                ids = ["menubar", "main_toolbar",
                        "history_toolbar", "panel_stack"]
                 Mgr.do("add_component_disabler", "uv_edit", lambda: True, ids)
                 Mgr.do("disable_components", show=False, ids=ids)

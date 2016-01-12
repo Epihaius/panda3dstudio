@@ -70,6 +70,8 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
 
     def __init__(self, parent, header_text="", focus_receiver=None, interface_id=""):
 
+        self._is_finalized = False
+
         wx.PyPanel.__init__(self, parent)
         BaseObject.__init__(self, interface_id)
         FocusResetter.__init__(self, focus_receiver)
@@ -220,6 +222,8 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
         dc.SelectObject(wx.NullBitmap)
 
         self.Refresh()
+
+        self._is_finalized = True
 
     def get_header(self):
 
@@ -404,6 +408,9 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
             section.draw(dc, clipping_rect)
 
     def __on_size(self, event):
+
+        if not self._is_finalized:
+            return
 
         w, h = self.GetSize()
         self._bottom_rect.y = h - self._heights["bottom_hilited"]

@@ -77,18 +77,12 @@ class GUI(wx.App):
         main_frame.SetClientSize(size)
         self._main_frame = main_frame
 
-# if platform.system() == "Darwin":
-##      panel = wx.Panel(main_frame, -1, size=size)
-##      default_focus_receiver = panel
-# else:
-##      default_focus_receiver = main_frame
-
         panel = wx.Panel(main_frame, -1, size=size)
         default_focus_receiver = panel
         self._default_focus_receiver = default_focus_receiver
         default_focus_receiver.Bind(wx.EVT_KEY_DOWN, self.__on_key_down)
         default_focus_receiver.Bind(wx.EVT_KEY_UP, self.__on_key_up)
-        main_frame.Bind(wx.EVT_CLOSE, self.__close)
+        main_frame.Bind(wx.EVT_CLOSE, self.__on_close)
         main_frame.Bind(wx.EVT_MOUSEWHEEL, lambda evt:
                         EventDispatcher.dispatch_event("", "mouse_wheel", evt))
         Mgr.expose("main_window", lambda: self._main_frame)
@@ -98,6 +92,7 @@ class GUI(wx.App):
         Mgr.accept("handle_key_up", self.__on_key_up)
 
         self._components = Components(default_focus_receiver)
+        self._exit_handler = self._components.exit_handler
 
     # wxWindows calls this method to initialize the application
     def OnInit(self):
@@ -184,18 +179,26 @@ class GUI(wx.App):
 
         self.ProcessIdle()
 
-    def __close(self, *args):
+    def __on_close(self, event):
 
-        for window in wx.GetTopLevelWindows():
-            window.Hide()
+        def cleanup():
 
-        for window in wx.GetTopLevelWindows():
-            if window is not self._main_frame:
-                window.Close()
+            for window in wx.GetTopLevelWindows():
+                window.Hide()
 
-        wx.EventLoop.SetActive(self._old_loop)
+            for window in wx.GetTopLevelWindows():
+                if window is not self._main_frame:
+                    window.Close()
 
-        sys.exit()
+            wx.EventLoop.SetActive(self._old_loop)
+            self._main_frame.Destroy()
+
+            sys.exit()
+
+        if event.CanVeto() and not self._exit_handler():
+            event.Veto()
+        else:
+            cleanup()
 
     def __on_key_down(self, event=None, remote_key=None):
 

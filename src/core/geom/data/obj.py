@@ -235,6 +235,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         return self._subobjs[subobj_type].get(subobj_id)
 
+    def get_toplevel_geom(self):
+
+        return self._geoms["top"]["shaded"]
+
     def process_geom_data(self, data):
 
         subobjs = self._subobjs

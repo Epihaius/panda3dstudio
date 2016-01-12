@@ -1,7 +1,10 @@
 import math
 import os
+import sys
 import time
 import collections
+import wxversion
+wxversion.select('2.8.12')
 import wx
 
 GFX_PATH = os.path.join("res", "gui")

@@ -1,11 +1,12 @@
 from ..base import *
 
 
-class FileButtons(object):
+class FileManager(object):
 
     def __init__(self):
 
         self._filename = ""
+        self._data = {}
 
         handlers = {
             "new": self.__reset_scene,
@@ -17,13 +18,8 @@ class FileButtons(object):
         }
 
         for file_op in ("new", "open", "save", "save_as", "export", "import"):
-
-            btn_id = "file_%s" % file_op
-            label = file_op.replace("_", " ").title()
-            icon_path = os.path.join(GFX_PATH, "icon_" + file_op + ".png")
-            btn_props = (label, icon_path)
-
-            Mgr.do("add_deepshelf_btn", btn_id, btn_props, handlers[file_op])
+            descr = file_op.replace("_", " ").title()
+            self._data[file_op] = {"descr":descr, "handler":handlers[file_op]}
 
         Mgr.add_app_updater("unsaved_scene", self.__set_scene_as_unsaved)
 
@@ -54,7 +50,7 @@ class FileButtons(object):
 
             answer = wx.MessageBox("Save changes to current scene before loading?",
                                    "Save changes",
-                                   wx.YES_NO | wx.CANCEL | wx.ICON_EXCLAMATION)  # , self)
+                                   wx.YES_NO | wx.CANCEL | wx.ICON_EXCLAMATION)
 
             if answer == wx.YES:
                 self.__save_scene()
@@ -115,8 +111,8 @@ class FileButtons(object):
 
     def __export_scene(self):
 
-        filename = wx.FileSelector("Export scene",
-                                   "", "", "bam", "*.bam",
+        wildcard = "Panda3D files (*.bam)|*.bam|Wavefront files (*.obj)|*.obj"
+        filename = wx.FileSelector("Export scene", "", "", "bam", wildcard,
                                    wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
 
         if Mgr.get_global("ctrl_down"):
@@ -127,8 +123,8 @@ class FileButtons(object):
 
     def __import_scene(self):
 
-        filename = wx.FileSelector("Import scene",
-                                   "", "", "bam", "*.bam",
+        wildcard = "Panda3D files (*.bam)|*.bam|Wavefront files (*.obj)|*.obj"
+        filename = wx.FileSelector("Import scene", "", "", "bam", wildcard,
                                    wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
 
         if Mgr.get_global("ctrl_down"):
@@ -140,3 +136,23 @@ class FileButtons(object):
 
         if Mgr.get_global("ctrl_down"):
             Mgr.set_global("ctrl_down", False)
+
+    def on_exit(self):
+
+        if Mgr.get_global("unsaved_scene"):
+
+            answer = wx.MessageBox("Save changes to current scene before exiting?",
+                                   "Save changes",
+                                   wx.YES_NO | wx.CANCEL | wx.ICON_EXCLAMATION)
+
+            if answer == wx.YES:
+                if not self.__save_scene():
+                    return False
+            elif answer == wx.CANCEL:
+                return False
+
+        return True
+
+    def get_data(self):
+
+        return self._data
