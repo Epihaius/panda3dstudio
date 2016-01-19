@@ -7,6 +7,7 @@ loadPrcFileData("", """
                     sync-video #f
                     geom-cache-size 0
                     window-type none
+##                    show-buffers 1
 ##                    gl-debug true
 ##                    notify-level-glgsg debug
 
@@ -66,6 +67,14 @@ class Core(ShowBase):
         MainObjects.init("uv_window")
         MainObjects.setup("uv_window")
 
+    def suppress_mouse_events(self, suppress=True):
+
+        self._listeners[""].suppress_mouse_events(suppress)
+
+    def suppress_key_events(self, suppress=True, keys=None):
+
+        self._listeners[""].suppress_key_events(suppress, keys)
+
     def add_listener(self, interface_id, key_prefix="", mouse_watcher=None):
 
         listener = KeyEventListener(interface_id, key_prefix, mouse_watcher)
@@ -115,14 +124,21 @@ class Core(ShowBase):
         self.mouseWatcherNode.set_modifier_buttons(ModifierButtons())
         self.buttonThrowers[0].node().set_modifier_buttons(ModifierButtons())
 
-        self.set_frame_rate_meter(True)
+        # create a custom frame rate meter, so it can be placed at the bottom
+        # of the viewport
+        meter = FrameRateMeter("fps_meter")
+        meter.setup_window(self.win)
+        meter_np = NodePath(meter)
+        meter_np.set_pos(0., 0., -1.95)
+
+##        self.set_frame_rate_meter(True)
 
 
 class KeyEventListener(object):
 
     _event_ids = {
-        "Esc": "escape",
-        "PrtScr": "print_screen",
+                  "Esc": "escape",
+                  "PrtScr": "print_screen",
                   "ScrlLk": "scroll_lock",
                   "NumLk": "num_lock",
                   "CapsLk": "caps_lock",
@@ -166,57 +182,62 @@ class KeyEventListener(object):
 
         self._listener = listener = DirectObject.DirectObject()
         self._evt_handlers = {}
+        self._mouse_evt_handlers = {}
 
         mouse_btns = ("mouse1", "mouse2", "mouse3", "wheel_up", "wheel_down")
 
-        def get_key_down_handler(key):
-
-            def handle_key_down():
-
-                mod_key_down = self._mouse_watcher.is_button_down
-
-                if mod_key_down(KeyboardButton.shift()):
-                    Mgr.set_global("shift_down", True)
-
-                if mod_key_down(KeyboardButton.control()):
-                    Mgr.set_global("ctrl_down", True)
-
-                if mod_key_down(KeyboardButton.alt()):
-                    Mgr.set_global("alt_down", True)
-
-                if not self.__handle_event(prefix + key):
-                    Mgr.remotely_handle_key_down(key, interface_id)
-
-            return handle_key_down
-
-        def get_key_up_handler(key):
-
-            def handle_key_up():
-
-                if Mgr.get_global("active_viewport") != interface_id:
-                    return
-
-                if key == "shift":
-                    Mgr.set_global("shift_down", False)
-                elif key == "control":
-                    Mgr.set_global("ctrl_down", False)
-                elif key == "alt":
-                    Mgr.set_global("alt_down", False)
-
-                if not self.__handle_event(prefix + key + "-up"):
-                    Mgr.remotely_handle_key_up(key, interface_id)
-
-            return handle_key_up
-
         for key in self._event_ids.itervalues():
-            listener.accept(prefix + key, get_key_down_handler(key))
-            listener.accept(prefix + key + "-up", get_key_up_handler(key))
+            listener.accept(prefix + key, self.__get_key_down_handler(key))
+            listener.accept(prefix + key + "-up", self.__get_key_up_handler(key))
 
         for key in mouse_btns:
-            listener.accept(prefix + key, get_key_down_handler(key))
+            handler = self.__get_key_down_handler(key)
+            listener.accept(prefix + key, handler)
+            self._mouse_evt_handlers[prefix + key] = handler
 
         for key in mouse_btns[:3]:
-            listener.accept(prefix + key + "-up", get_key_up_handler(key))
+            handler = self.__get_key_up_handler(key)
+            listener.accept(prefix + key + "-up", handler)
+            self._mouse_evt_handlers[prefix + key + "-up"] = handler
+
+    def __get_key_down_handler(self, key):
+
+        def handle_key_down():
+
+            mod_key_down = self._mouse_watcher.is_button_down
+
+            if mod_key_down(KeyboardButton.shift()):
+                Mgr.set_global("shift_down", True)
+
+            if mod_key_down(KeyboardButton.control()):
+                Mgr.set_global("ctrl_down", True)
+
+            if mod_key_down(KeyboardButton.alt()):
+                Mgr.set_global("alt_down", True)
+
+            if not self.__handle_event(self._prefix + key):
+                Mgr.remotely_handle_key_down(key, self._interface_id)
+
+        return handle_key_down
+
+    def __get_key_up_handler(self, key):
+
+        def handle_key_up():
+
+            if Mgr.get_global("active_viewport") != self._interface_id:
+                return
+
+            if key == "shift":
+                Mgr.set_global("shift_down", False)
+            elif key == "control":
+                Mgr.set_global("ctrl_down", False)
+            elif key == "alt":
+                Mgr.set_global("alt_down", False)
+
+            if not self.__handle_event(self._prefix + key + "-up"):
+                Mgr.remotely_handle_key_up(key, self._interface_id)
+
+        return handle_key_up
 
     def set_mouse_watcher(self, mouse_watcher):
 
@@ -304,6 +325,47 @@ class KeyEventListener(object):
     def ignore_all(self):
 
         self._evt_handlers.clear()
+
+    def suppress_mouse_events(self, suppress=True):
+
+        mouse_btns = ("mouse1", "mouse2", "mouse3", "wheel_up", "wheel_down")
+        prefix = self._prefix
+        listener = self._listener
+
+        if suppress:
+
+            for btn in mouse_btns:
+                listener.ignore(prefix + btn)
+
+            for btn in mouse_btns[:3]:
+                listener.ignore(prefix + btn + "-up")
+
+        else:
+
+            for btn in mouse_btns:
+                handler = self._mouse_evt_handlers[prefix + btn]
+                listener.accept(prefix + btn, handler)
+
+            for btn in mouse_btns[:3]:
+                handler = self._mouse_evt_handlers[prefix + btn + "-up"]
+                listener.accept(prefix + btn + "-up", handler)
+
+    def suppress_key_events(self, suppress=True, keys=None):
+
+        prefix = self._prefix
+        listener = self._listener
+
+        if keys is None:
+            keys = self._event_ids.itervalues()
+
+        if suppress:
+            for key in keys:
+                listener.ignore(prefix + key)
+                listener.ignore(prefix + key + "-up")
+        else:
+            for key in keys:
+                listener.accept(prefix + key, self.__get_key_down_handler(key))
+                listener.accept(prefix + key + "-up", self.__get_key_up_handler(key))
 
     def destroy(self):
 

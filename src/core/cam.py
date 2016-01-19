@@ -124,6 +124,7 @@ class PickingCamera(BaseObject):
         lens.set_fov(.1)
         node.set_cull_bounds(cull_bounds)
         node.set_camera_mask(self._mask)
+        Mgr.expose("picking_cam", lambda: self)
 
         state_np = NodePath("flat_color_state")
         state_np.set_texture_off(1)
@@ -158,6 +159,19 @@ class PickingCamera(BaseObject):
         Mgr.add_task(self.__check_pixel, "get_pixel_under_mouse", sort=0)
 
         return "picking_camera_ok"
+
+    def set_active(self, is_active=True):
+
+        if self._np.node().is_active() == is_active:
+            return
+
+        self._np.node().set_active(is_active)
+
+        if is_active:
+            Mgr.add_task(self.__check_pixel, "get_pixel_under_mouse", sort=0)
+        else:
+            Mgr.remove_task("get_pixel_under_mouse")
+            self._pixel_color = VBase4()
 
     def __check_pixel(self, task):
 
@@ -300,6 +314,7 @@ class NavigationManager(BaseObject):
         if not is_active:
             self._clock.reset()
             Mgr.do("start_updating_world_axes")
+            Mgr.do("start_updating_nav_gizmo")
 
         Mgr.update_app("status", "navigate")
 
@@ -307,6 +322,7 @@ class NavigationManager(BaseObject):
 
         if not is_active:
             Mgr.do("stop_updating_world_axes")
+            Mgr.do("stop_updating_nav_gizmo")
             Mgr.remove_task("transform_cam")
 
     def __determine_navigation_end(self):

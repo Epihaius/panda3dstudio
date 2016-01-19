@@ -42,6 +42,7 @@ class SceneManager(BaseObject):
         Mgr.do("update_picking_col_id_ranges")
         Mgr.do("reset_cam_transform")
         Mgr.do("update_world_axes")
+        Mgr.do("update_nav_gizmo")
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "sel_center")
         Mgr.update_app("active_grid_plane", "XY")
@@ -98,6 +99,7 @@ class SceneManager(BaseObject):
         Mgr.get(("cam", "target")).set_mat(scene_data["cam_target"])
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_world_axes")
+        Mgr.do("update_nav_gizmo")
         active_grid_plane = scene_data["grid_plane"]
         Mgr.update_app("active_grid_plane", active_grid_plane)
         PendingTasks.handle(["object", "ui"], True)

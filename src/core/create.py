@@ -29,7 +29,8 @@ class CreationManager(BaseObject):
         add_state = Mgr.add_state
         add_state("creation_mode", -10, self.__enter_creation_mode,
                   self.__exit_creation_mode)
-        add_state("checking_creation_start", -11)
+        add_state("checking_creation_start", -11, lambda prev_state_id, is_active:
+                  Mgr.do("enable_nav_gizmo", False))
 
         def cancel_creation():
 
@@ -116,6 +117,8 @@ class CreationManager(BaseObject):
         self._mode_status = mode_status
 
     def __enter_creation_mode(self, prev_state_id, is_active):
+
+        Mgr.do("enable_nav_gizmo")
 
         if Mgr.get_global("active_obj_level") != "top":
             Mgr.set_global("active_obj_level", "top")

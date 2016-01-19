@@ -24,6 +24,8 @@ class WorldAxesTripod(BaseObject):
             }
         }
 
+        self._is_updating = False
+
         Mgr.accept("update_world_axes", self.__update)
         Mgr.accept("start_updating_world_axes", self.__init_update)
         Mgr.accept("stop_updating_world_axes", self.__end_update)
@@ -160,14 +162,23 @@ class WorldAxesTripod(BaseObject):
 
         return task.cont if task else None
 
-    def __init_update(self):
+    def __init_update(self, show_indicator=True):
+
+        if self._is_updating:
+            return False
+
+        self._is_updating = True
 
         Mgr.add_task(self.__update, "update_world_axes")
-        self._nav_indic.show()
+
+        if show_indicator:
+            self._nav_indic.show()
 
         for axis in "XYZ":
             self._axis_labels[axis].set_color(
                 self._axis_label_colors["active"][axis])
+
+        return True
 
     def __end_update(self):
 
@@ -177,6 +188,8 @@ class WorldAxesTripod(BaseObject):
         for axis in "XYZ":
             self._axis_labels[axis].set_color(
                 self._axis_label_colors["inactive"][axis])
+
+        self._is_updating = False
 
 
 MainObjects.add_class(WorldAxesTripod)
