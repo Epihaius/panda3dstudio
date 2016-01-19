@@ -1,6 +1,6 @@
 from ..base import *
 from direct.showbase.ShowBase import DirectObject
-from direct.interval.IntervalGlobal import LerpQuatInterval
+from direct.interval.IntervalGlobal import LerpQuatInterval, LerpPosQuatInterval
 
 
 class NavigationGizmo(BaseObject):
@@ -575,7 +575,8 @@ class NavigationGizmo(BaseObject):
 
         if self._lerp_interval.is_stopped():
 
-            quat = self._cam_target.get_quat()
+            main_cam_target = Mgr.get( ("cam", "target") )
+            quat = main_cam_target.get_quat()
             vec1 = V3D(quat.xform(Vec3(0., 1., 0.)))
 
             # prevent the bottom view from flipping 180 degrees when orbiting
@@ -587,10 +588,9 @@ class NavigationGizmo(BaseObject):
 
             # after the lerp interval has stopped, the view has to be updated
             # one last time
+            main_cam_target.set_hpr(hpr)
             self._cam_target.set_hpr(hpr)
             self.__update_aux_handles()
-            main_cam_target = Mgr.get( ("cam", "target") )
-            main_cam_target.set_hpr(hpr)
             Mgr.do("update_transf_gizmo")
             Mgr.do("update_coord_sys")
 
@@ -612,9 +612,9 @@ class NavigationGizmo(BaseObject):
 
             return
 
-        self.__update_aux_handles()
         main_cam_target = Mgr.get( ("cam", "target") )
-        main_cam_target.set_hpr(self._cam_target.get_hpr())
+        self._cam_target.set_hpr(main_cam_target.get_hpr())
+        self.__update_aux_handles()
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 
@@ -652,7 +652,12 @@ class NavigationGizmo(BaseObject):
             self._listener.ignore("mouse1-up")
             self._picking_cam.set_active(False)
             Mgr.get("core").suppress_key_events()
-            lerp_interval = LerpQuatInterval(self._cam_target, .5,
+            main_cam_target = Mgr.get( ("cam", "target") )
+            lerp_interval = LerpPosQuatInterval(main_cam_target, .5, Point3(),
+                                                self._handle_quats[handle_id],
+                                                blendType="easeInOut") \
+                            if handle_id == "home" else \
+                            LerpQuatInterval(main_cam_target, .5,
                                              self._handle_quats[handle_id],
                                              blendType="easeInOut")
             self._lerp_interval = lerp_interval
