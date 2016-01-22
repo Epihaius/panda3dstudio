@@ -6,7 +6,7 @@ class TopLevelObject(BaseObject):
 
     def __init__(self, obj_type, obj_id, name, origin_pos, has_color=True):
 
-        self._prop_ids = ["name", "selection_state", "transform"]
+        self._prop_ids = ["name", "selection_state", "transform", "tags"]
 
         if has_color:
             self._prop_ids += ["color", "material"]
@@ -261,6 +261,23 @@ class TopLevelObject(BaseObject):
 
         return transform
 
+    def set_tags(self, tags):
+
+        orig = self._origin
+
+        for key in orig.get_tag_keys():
+            orig.clear_tag(key)
+
+        for key, val in tags.iteritems():
+            orig.set_tag(key, val)
+
+    def get_tags(self):
+
+        orig = self._origin
+        tags = dict((key, orig.get_tag(key)) for key in orig.get_tag_keys())
+
+        return tags
+
     def set_property(self, prop_id, value, restore=""):
 
         add_to_hist = not restore
@@ -291,7 +308,7 @@ class TopLevelObject(BaseObject):
 
         elif prop_id == "transform":
 
-            self.get_origin().set_mat(value)
+            self._origin.set_mat(value)
             task = lambda: Mgr.get("selection").update()
             PendingTasks.add(task, "update_selection", "ui")
 
@@ -302,6 +319,10 @@ class TopLevelObject(BaseObject):
             if Mgr.get("transf_center_obj") is self:
                 Mgr.do("set_transf_gizmo_pos",
                        self._origin.get_pos(self.world))
+
+        elif prop_id == "tags":
+
+            self.set_tags(value)
 
     def get_property(self, prop_id, for_remote_update=False):
 
@@ -315,6 +336,8 @@ class TopLevelObject(BaseObject):
             return self.is_selected()
         elif prop_id == "transform":
             return self._origin.get_mat()
+        elif prop_id == "tags":
+            return self.get_tags()
 
     def get_property_ids(self):
 

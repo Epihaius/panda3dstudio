@@ -18,6 +18,7 @@ from .menu import MenuBar
 from .create import CreationManager
 from .file import FileManager
 from .render import RenderModeToolbar
+from .obj_props import ObjectPropertiesMenu
 
 
 class Components(BaseObject):
@@ -102,6 +103,7 @@ class Components(BaseObject):
                                   pos=wx.Point(0, 50 + 24),
                                   size=wx.Size(800, 600),
                                   name="p3d_viewport")
+        self._obj_props_menu = ObjectPropertiesMenu(self._viewport)
         rot_toolbars = RotatingToolbars(frame, wx.Point(826, 0 + 24))
         toolbar = TransformToolbar(frame, wx.Point(0, 0 + 24), 826)
         rot_toolbars.add_toolbar("transform", toolbar)
@@ -158,7 +160,7 @@ class Components(BaseObject):
 
         handler = Mgr.get("main_window").Close
         hotkey = (wx.WXK_F4, wx.MOD_ALT)
-        menubar.add_menu_item("File", "Exit\tALT+F4", handler)#, hotkey)
+        menubar.add_menu_item("File", "Exit\tALT+F4", handler)
         self.exit_handler = self._file_mgr.on_exit
 
         self._creation_mgr = CreationManager()

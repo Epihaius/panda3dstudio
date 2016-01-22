@@ -38,6 +38,7 @@ class GeneralObjectManager(BaseObject):
         Mgr.add_app_updater("selected_obj_color", self.__set_object_color)
         Mgr.add_app_updater("selected_obj_mat", self.__set_object_material)
         Mgr.add_app_updater("selected_obj_prop", self.__set_object_property)
+        Mgr.add_app_updater("obj_tags", self.__update_object_tags)
         Mgr.add_app_updater("render_mode", self.__update_render_mode)
         Mgr.add_app_updater("two_sided", self.__toggle_two_sided)
 
@@ -147,8 +148,7 @@ class GeneralObjectManager(BaseObject):
             if self._showing_object_name:
 
                 self._showing_object_name = False
-                Mgr.update_remotely("object_name_tag",
-                                    self._showing_object_name)
+                Mgr.update_remotely("object_name_tag", self._showing_object_name)
 
                 if len(selection) > 1 and Mgr.get_global("active_transform_type"):
                     Mgr.update_remotely("transform_values")
@@ -207,8 +207,7 @@ class GeneralObjectManager(BaseObject):
                 obj_data[obj.get_id()] = {"name": {"main": new_name}}
 
             if len(new_names) == 1:
-                event_descr = 'Rename "%s"\nto "%s"' % (
-                    old_names[0], new_names[0])
+                event_descr = 'Rename "%s"\nto "%s"' % (old_names[0], new_names[0])
             else:
                 event_descr = 'Rename objects:\n'
                 event_descr += ";\n".join(['\n    "%s"\n    to "%s"' % names
@@ -220,8 +219,7 @@ class GeneralObjectManager(BaseObject):
         if sel_count == 1:
             Mgr.update_remotely("selected_obj_name", selection[0].get_name())
         else:
-            Mgr.update_remotely("selected_obj_name",
-                                "%d Objects selected" % sel_count)
+            Mgr.update_remotely("selected_obj_name", "%d Objects selected" % sel_count)
 
     def __set_object_color(self, color_values):
 
@@ -235,8 +233,7 @@ class GeneralObjectManager(BaseObject):
 
         obj_data = {}
 
-        changed_objs = [obj for obj in objects if obj.set_color(
-            color, update_app=False)]
+        changed_objs = [obj for obj in objects if obj.set_color(color, update_app=False)]
 
         if not changed_objs:
             return
@@ -248,8 +245,7 @@ class GeneralObjectManager(BaseObject):
         if len(changed_objs) == 1:
 
             name = changed_objs[0].get_name()
-            event_descr = 'Change color of "%s"\nto R:%.3f | G:%.3f | B:%.3f' % (
-                name, r, g, b)
+            event_descr = 'Change color of "%s"\nto R:%.3f | G:%.3f | B:%.3f' % (name, r, g, b)
 
         else:
 
@@ -273,6 +269,20 @@ class GeneralObjectManager(BaseObject):
         material = Mgr.get("material", material_id)
         self.__set_object_property("material", material)
 
+    def __update_object_tags(self, obj_id, tags=None):
+
+        obj = self.__get_object(obj_id)
+
+        if tags is None:
+            Mgr.update_remotely("obj_tags", obj.get_tags())
+        else:
+            obj.set_tags(tags)
+            Mgr.do("update_history_time")
+            obj_data = {obj_id: obj.get_data_to_store("prop_change", "tags")}
+            event_descr = 'Change tags of "%s"' % obj.get_name()
+            event_data = {"objects": obj_data}
+            Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
     def __set_object_property(self, prop_id, value):
         """ Set the *type-specific* property given by prop_id to the given value """
 
@@ -291,20 +301,17 @@ class GeneralObjectManager(BaseObject):
         obj_data = {}
 
         for obj in changed_objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store(
-                "prop_change", prop_id)
+            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", prop_id)
 
         if not changed_objs:
             return
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = 'Change %s of "%s"\nto %s' % (
-                prop_id, obj.get_name(), value)
+            event_descr = 'Change %s of "%s"\nto %s' % (prop_id, obj.get_name(), value)
         else:
             event_descr = 'Change %s of objects:\n' % prop_id
-            event_descr += "".join(['\n    "%s"' % obj.get_name()
-                                    for obj in changed_objs])
+            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
             event_descr += '\n\nto %s' % value
 
         event_data = {"objects": obj_data}

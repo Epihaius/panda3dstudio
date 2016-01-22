@@ -508,6 +508,7 @@ class SelectionManager(BaseObject):
         mod_ctrl = Mgr.get("mod_ctrl")
         bind("selection_mode", "toggle-select", "%d|mouse1" % mod_ctrl,
              lambda: self.__select(toggle=True))
+        bind("selection_mode", "access obj props", "mouse3", self.__access_obj_props)
         bind("selection_mode", "del selection",
              "delete", self.__delete_selection)
         bind("selection_mode", "transf off", "q",
@@ -842,6 +843,26 @@ class SelectionManager(BaseObject):
 
             if transform_allowed:
                 Mgr.enter_state("checking_mouse_offset")
+
+    def __access_obj_props(self):
+
+        obj_lvl = Mgr.get_global("active_obj_level")
+
+        if obj_lvl != "top" or not self.mouse_watcher.has_mouse():
+            return
+
+        r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
+        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        pickable_type = PickableTypes.get(a)
+
+        if not pickable_type or pickable_type == "transf_gizmo":
+            return
+
+        picked_obj = Mgr.get(pickable_type, color_id)
+        obj = picked_obj.get_toplevel_object() if picked_obj else None
+
+        if obj:
+            Mgr.update_remotely("obj_props_access", obj.get_id())
 
 
 MainObjects.add_class(SelectionManager)

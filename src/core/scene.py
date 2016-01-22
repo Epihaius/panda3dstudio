@@ -158,6 +158,7 @@ class SceneManager(BaseObject):
             geom_top.set_name(obj.get_name())
             geom_top.set_state(origin.get_state())
             geom_top.set_transform(origin.get_transform())
+            geom_top.node().copy_tags(origin.node())
             geom_top.wrt_reparent_to(root)
 
             tex_stages = geom_top.find_all_texture_stages()
