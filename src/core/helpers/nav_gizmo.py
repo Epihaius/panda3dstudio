@@ -52,6 +52,7 @@ class NavigationGizmo(BaseObject):
         self._is_orbiting = False
         self._orbit_start_pos = Point2()
         self._lerp_interval = None
+        self._dest_view = ""
         self._mouse_start_pos = ()
         self._stop_world_axes_update = False
 
@@ -573,22 +574,21 @@ class NavigationGizmo(BaseObject):
 
     def __transition_view(self, task):
 
+        main_cam_target = Mgr.get( ("cam", "target") )
+
         if self._lerp_interval.is_stopped():
 
-            main_cam_target = Mgr.get( ("cam", "target") )
             quat = main_cam_target.get_quat()
-            vec1 = V3D(quat.xform(Vec3(0., 1., 0.)))
+            pos = main_cam_target.get_pos()
 
             # prevent the bottom view from flipping 180 degrees when orbiting
             # the view later, due to a negative heading
-            if vec1.z > .9:
+            if self._dest_view == "-z":
                 hpr = Vec3(180., 90., 0.)
             else:
                 hpr = quat.get_hpr()
 
-            # after the lerp interval has stopped, the view has to be updated
-            # one last time
-            main_cam_target.set_hpr(hpr)
+            main_cam_target.set_pos_hpr(pos, hpr)
             self._cam_target.set_hpr(hpr)
             self.__update_aux_handles()
             Mgr.do("update_transf_gizmo")
@@ -610,15 +610,18 @@ class NavigationGizmo(BaseObject):
                 Mgr.get("core").suppress_mouse_events(False)
                 Mgr.get("picking_cam").set_active()
 
+            self._dest_view = ""
+
             return
 
-        main_cam_target = Mgr.get( ("cam", "target") )
-        self._cam_target.set_hpr(main_cam_target.get_hpr())
+        hpr = main_cam_target.get_hpr()
+        pos = main_cam_target.get_pos()
+        self._cam_target.set_hpr(hpr)
         self.__update_aux_handles()
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 
-        return task.again
+        return task.cont
 
     def __on_left_down(self):
 
@@ -652,6 +655,7 @@ class NavigationGizmo(BaseObject):
             self._listener.ignore("mouse1-up")
             self._picking_cam.set_active(False)
             Mgr.get("core").suppress_key_events()
+            self._dest_view = handle_id
             main_cam_target = Mgr.get( ("cam", "target") )
             lerp_interval = LerpPosQuatInterval(main_cam_target, .5, Point3(),
                                                 self._handle_quats[handle_id],
@@ -662,7 +666,7 @@ class NavigationGizmo(BaseObject):
                                              blendType="easeInOut")
             self._lerp_interval = lerp_interval
             lerp_interval.start()
-            Mgr.do_next_frame(self.__transition_view, "transition_view", sort=2)
+            Mgr.add_task(self.__transition_view, "transition_view", sort=30)
             self._stop_world_axes_update = Mgr.do("start_updating_world_axes", False)
 
     def __check_mouse_offset(self, task):
