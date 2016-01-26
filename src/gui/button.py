@@ -221,6 +221,8 @@ class Button(wx.PyControl, FocusResetter):
 
         self.SetClientSize(self.GetBestSize())
 
+        self._has_back_bitmap = False
+
         if pos:
             self.SetPosition(pos)
 
@@ -253,6 +255,8 @@ class Button(wx.PyControl, FocusResetter):
                 self._bitmaps["back"] = self._parent.get_bitmap(
                 ).GetSubBitmap(self.GetRect())
 
+            self._has_back_bitmap = True
+
         wx.CallAfter(set_back_bitmap)
 
     def destroy(self):
@@ -264,6 +268,9 @@ class Button(wx.PyControl, FocusResetter):
         return self._bitmaps["active"].GetSize()
 
     def _draw(self, event):
+        
+        if not self._has_back_bitmap:
+            return
 
         dc = wx.AutoBufferedPaintDCFactory(self)
         dc.DrawBitmap(self._bitmaps["back"], 0, 0)
