@@ -17,7 +17,7 @@ loadPrcFileData("", """
 
 class Core(ShowBase):
 
-    def __init__(self, app_mgr, verbose=False):
+    def __init__(self, viewport_data, eventloop_handler, app_mgr, verbose=False):
 
         ShowBase.__init__(self)
 
@@ -26,8 +26,6 @@ class Core(ShowBase):
         KeyEventListener.init_event_ids()
         self._listeners = {"": KeyEventListener()}
         self._gizmo_root = NodePath("gizmo_root")
-
-    def setup(self, viewport_data, eventloop_handler):
 
         size, handle, callback = viewport_data
         self.__create_window(size, handle)
@@ -40,9 +38,6 @@ class Core(ShowBase):
 
         self.task_mgr.add(handle_event_loop, "process_event_loop", sort=55)
 
-        Mgr.init(self, self._app_mgr, self._gizmo_root,
-                 PickingColorIDManager, self._verbose)
-
         def handle_window_event(*args):
 
             window = args[0]
@@ -51,7 +46,13 @@ class Core(ShowBase):
             callback(viewport_name, has_focus)
 
         self.accept("window-event", handle_window_event)
+
+    def setup(self):
+
         self._listeners[""].set_mouse_watcher(self.mouseWatcherNode)
+
+        Mgr.init(self, self._app_mgr, self._gizmo_root,
+                 PickingColorIDManager, self._verbose)
 
         Mgr.set_global("active_viewport", "")
         Mgr.set_global("shift_down", False)
@@ -110,6 +111,7 @@ class Core(ShowBase):
 
         wp = WindowProperties.get_default()
         wp.set_foreground(False)
+        wp.set_undecorated(True)
         wp.set_origin(0, 0)
         wp.set_size(*size)
 
@@ -130,8 +132,6 @@ class Core(ShowBase):
         meter.setup_window(self.win)
         meter_np = NodePath(meter)
         meter_np.set_pos(0., 0., -1.95)
-
-##        self.set_frame_rate_meter(True)
 
 
 class KeyEventListener(object):

@@ -50,8 +50,7 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
 
             for part in ("left", "right"):
                 values = (size, part)
-                path = os.path.join(
-                    GFX_PATH, "panel_%s_header_%s.png" % values)
+                path = os.path.join(GFX_PATH, "panel_%s_header_%s.png" % values)
                 header[size][part] = wx.Bitmap(path)
 
             path = os.path.join(GFX_PATH, "panel_%s_header_center.png" % size)
@@ -105,12 +104,9 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
         h_header = self._gfx["header"]["exp"]["left"].GetHeight()
         self._sizer.Add(wx.Size(0, h_top + 1))
         self._sizer.Add(wx.Size(0, h_header + 7 - h_top))
-        self._sizer.Add(self._top_ctrl_sizer, 0,
-                        wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
-        self._sizer.Add(self._section_sizer, 0, wx.LEFT |
-                        wx.RIGHT | wx.EXPAND, 2)
-        self._sizer.Add(self._bottom_ctrl_sizer, 0,
-                        wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
+        self._sizer.Add(self._top_ctrl_sizer, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
+        self._sizer.Add(self._section_sizer, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
+        self._sizer.Add(self._bottom_ctrl_sizer, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
         h_bottom = self._heights["bottom"]
         self._sizer.Add(wx.Size(0, h_bottom + 1))
         self.SetSizer(self._sizer)
@@ -147,56 +143,110 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
         for state in header_parts:
             header_parts[state] = header_parts[state].copy()
 
+        header_center_imgs = {}
         w_header_side, h_header = header_parts["exp"]["left"].GetSize()
         header_center = header_parts["exp"]["center"]
-        header_center = header_center.Scale(
-            w - 2 * w_header_side - 16, h_header).ConvertToBitmap()
+        header_center_img = header_center.Scale(w - 2 * w_header_side - 16, h_header)
+        header_center_imgs["exp"] = header_center_img
+        header_center = header_center_img.ConvertToBitmap()
         header_parts["exp"]["center"] = header_center
         header_center = header_parts["coll"]["center"]
-        header_center = header_center.Scale(
-            w - 2 * w_header_side - 16, h_header).ConvertToBitmap()
+        header_center_img = header_center.Scale(w - 2 * w_header_side - 16, h_header)
+        header_center_imgs["coll"] = header_center_img
+        header_center = header_center_img.ConvertToBitmap()
         header_parts["coll"]["center"] = header_center
 
         gfx_id = ("panel", "top", w)
-        self._bitmaps["top"] = Cache.create(
-            "bitmap", gfx_id, lambda: image_top.Scale(w, h_top).ConvertToBitmap())
+        self._bitmaps["top"] = Cache.create("bitmap", gfx_id, lambda:
+            image_top.Scale(w, h_top).ConvertToBitmap())
         gfx_id = ("panel", "bottom", w)
-        self._bitmaps["bottom"] = Cache.create(
-            "bitmap", gfx_id, lambda: image_bottom.Scale(w, h_bottom).ConvertToBitmap())
+        self._bitmaps["bottom"] = Cache.create("bitmap", gfx_id, lambda:
+            image_bottom.Scale(w, h_bottom).ConvertToBitmap())
         arrows = self._gfx["arrows"]
         arrow_up_normal = arrows["expanded"]["normal"]
         w_a, h_a = arrow_up_normal.GetSize()
         self._arrow_pos = wx.Size((w - w_a) // 2, h - h_a)
         h_b = self._heights["bottom_hilited"]
         gfx_id = ("panel", "bottom_hilited", w)
-        self._bottom_hilited = Cache.create(
-            "bitmap", gfx_id, lambda: image_bottom_hilited.Scale(w, h_b).ConvertToBitmap())
+        self._bottom_hilited = Cache.create("bitmap", gfx_id, lambda:
+            image_bottom_hilited.Scale(w, h_b).ConvertToBitmap())
         self._bottom_rect = wx.Rect(0, h - h_b, w, h_b)
         self._header_rect = wx.Rect(8, 8, w - 16, h_header)
         dc = wx.MemoryDC()
 
         def create_header(state):
 
-            header_bitmap = wx.EmptyBitmapRGBA(w - 16, h_header)
+            if PLATFORM_ID == "Linux":
+                header_bitmap = wx.EmptyBitmap(w - 16, h_header)
+            else:
+                header_bitmap = wx.EmptyBitmapRGBA(w - 16, h_header)
+
             dc.SelectObject(header_bitmap)
             dc.DrawBitmap(header_parts[state]["left"], 0, 0)
             dc.DrawBitmap(header_parts[state]["center"], w_header_side, 0)
-            dc.DrawBitmap(header_parts[state]["right"],
-                          w - w_header_side - 16, 0)
+            dc.DrawBitmap(header_parts[state]["right"], w - w_header_side - 16, 0)
             dc.SelectObject(wx.NullBitmap)
+
+            if PLATFORM_ID == "Linux":
+
+                img = header_bitmap.ConvertToImage()
+
+                if not img.HasAlpha():
+                    img.InitAlpha()
+
+                center_img = header_center_imgs[state]
+
+                if not center_img.HasAlpha():
+                    center_img.InitAlpha()
+
+                alpha_map = []
+                get_alpha(center_img, alpha_map)
+            
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + w_header_side, y, alpha)
+
+                left_img = header_parts[state]["left"].ConvertToImage()
+
+                if not left_img.HasAlpha():
+                    left_img.InitAlpha()
+
+                alpha_map = []
+                get_alpha(left_img, alpha_map)
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x, y, alpha)
+
+                header_bitmap = img.ConvertToBitmap()
+
+                right_img = header_parts[state]["right"].ConvertToImage()
+
+                if not right_img.HasAlpha():
+                    right_img.InitAlpha()
+
+                alpha_map = []
+                get_alpha(right_img, alpha_map)
+                offset_x = w - w_header_side - 16
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + offset_x, y, alpha)
+
+                header_bitmap = img.ConvertToBitmap()
 
             return header_bitmap
 
         gfx_id = ("panel", "header_expanded", w)
-        self._header_bitmaps["expanded"] = Cache.create(
-            "bitmap", gfx_id, lambda: create_header("exp"))
+        self._header_bitmaps["expanded"] = Cache.create("bitmap", gfx_id, lambda:
+            create_header("exp"))
         gfx_id = ("panel", "header_collapsed", w)
-        self._header_bitmaps["collapsed"] = Cache.create(
-            "bitmap", gfx_id, lambda: create_header("coll"))
+        self._header_bitmaps["collapsed"] = Cache.create("bitmap", gfx_id, lambda:
+            create_header("coll"))
         h = self._heights["collapsed"]
         gfx_id = ("panel", "collapsed", w)
-        self._bitmaps["collapsed"] = Cache.create(
-            "bitmap", gfx_id, lambda: image_collapsed.Scale(w, h).ConvertToBitmap())
+        self._bitmaps["collapsed"] = Cache.create("bitmap", gfx_id, lambda:
+            image_collapsed.Scale(w, h).ConvertToBitmap())
 
         def create_header_back(state):
 
@@ -212,11 +262,11 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
             return header_back.AdjustChannels(*intensity).ConvertToBitmap()
 
         gfx_id = ("panel", "header_back_expanded", w)
-        header_back_expanded = Cache.create(
-            "bitmap", gfx_id, lambda: create_header_back("expanded"))
+        header_back_expanded = Cache.create("bitmap", gfx_id, lambda:
+            create_header_back("expanded"))
         gfx_id = ("panel", "header_back_collapsed", w)
-        header_back_collapsed = Cache.create(
-            "bitmap", gfx_id, lambda: create_header_back("collapsed"))
+        header_back_collapsed = Cache.create("bitmap", gfx_id, lambda:
+            create_header_back("collapsed"))
         self._bitmaps["header_back_expanded"] = header_back_expanded
         self._bitmaps["header_back_collapsed"] = header_back_collapsed
         dc.SelectObject(wx.NullBitmap)
@@ -379,8 +429,7 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
         dc.DrawBitmap(self._header_bitmaps[extent], x, y)
 
         if self._has_mouse:
-            dc.DrawBitmap(self._bottom_hilited, *
-                          self._bottom_rect.GetPosition())
+            dc.DrawBitmap(self._bottom_hilited, * self._bottom_rect.GetPosition())
             arrow = self._gfx["arrows"][extent]["hilited"]
         else:
             arrow = self._gfx["arrows"][extent]["normal"]
@@ -446,8 +495,7 @@ class Panel(wx.PyPanel, BaseObject, FocusResetter):
                     show_drag_cursor = False
                     break
 
-        self.SetCursor(Cursors.get("drag")
-                       if show_drag_cursor else wx.NullCursor)
+        self.SetCursor(Cursors.get("drag") if show_drag_cursor else wx.NullCursor)
 
         if self._is_clicked and not has_mouse:
             self._is_clicked = False

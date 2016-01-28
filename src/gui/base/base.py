@@ -1,12 +1,13 @@
+import platform
 import math
 import os
-import sys
 import time
 import collections
 import wxversion
 wxversion.select('2.8.12')
 import wx
 
+PLATFORM_ID = platform.system()
 GFX_PATH = os.path.join("res", "gui")
 
 
@@ -217,6 +218,17 @@ class Text(object):
         return self._sizer
 
 
+def get_alpha(img, alpha_map):
+    
+    for y in xrange(img.GetHeight()):
+    
+        row = []
+        alpha_map.append(row)
+        
+        for x in xrange(img.GetWidth()):
+            row.append(img.GetAlpha(x, y))
+
+
 def create_border(bitmap_paths, size, background_type="toolbar"):
 
     bitmaps = {}
@@ -249,43 +261,142 @@ def create_border(bitmap_paths, size, background_type="toolbar"):
             bitmaps[part] = image.ConvertToBitmap()
 
     width, height = size
-    border_bitmap = wx.EmptyBitmapRGBA(width, height)
+
+    if PLATFORM_ID == "Linux":
+        border_bitmap = wx.EmptyBitmap(width, height)
+    else:
+        border_bitmap = wx.EmptyBitmapRGBA(width, height)
+
     mem_dc = wx.MemoryDC(border_bitmap)
 
     if background_type == "toolbar":
-        w = bitmaps["left"].GetWidth()
-        bitmap_center = bitmaps["center"].Scale(
-            width - 2 * w, height).ConvertToBitmap()
-        mem_dc.DrawBitmap(bitmaps["left"], 0, 0)
+
+        if PLATFORM_ID == "Linux":
+            parts = ("left", "center", "right")
+            alpha_maps = dict((part, []) for part in parts)
+
+        bitmap_left = bitmaps["left"]
+        bitmap_right = bitmaps["right"]
+        w = bitmap_left.GetWidth()
+        image_center = bitmaps["center"].Scale(width - 2 * w, height)
+        bitmap_center = image_center.ConvertToBitmap()
+
+        mem_dc.DrawBitmap(bitmap_left, 0, 0)
         mem_dc.DrawBitmap(bitmap_center, w, 0)
-        mem_dc.DrawBitmap(bitmaps["right"], width - w, 0)
+        mem_dc.DrawBitmap(bitmap_right, width - w, 0)
         mem_dc.SelectObject(wx.NullBitmap)
+
+        if PLATFORM_ID == "Linux":
+
+            if not image_center.HasAlpha():
+                image_center.InitAlpha()
+
+            get_alpha(image_center, alpha_maps["center"])
+
+            for part in ("left", "right"):
+
+                image = bitmaps[part].ConvertToImage()
+                
+                if not image.HasAlpha():
+                    image.InitAlpha()
+
+                get_alpha(image, alpha_maps[part])
+                
+            image = border_bitmap.ConvertToImage()
+            image.InitAlpha()
+
+            for part, offset_x in zip(parts, (0, w, width - w)):
+
+                alpha_map = alpha_maps[part]
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        image.SetAlpha(x + offset_x, y, alpha)
+
+            border_bitmap = image.ConvertToBitmap()
+
         return border_bitmap
 
     corner = bitmaps["topleft"].GetSize()
     hor_thickness = bitmaps["left"].GetWidth()
     vert_thickness = bitmaps["top"].GetHeight()
 
+    imgs = {}
+    pos = {}
     x = width - corner[0]
     y = height - corner[1]
-    mem_dc.DrawBitmap(bitmaps["topleft"], 0, 0)
-    mem_dc.DrawBitmap(bitmaps["bottomleft"], 0, y)
-    mem_dc.DrawBitmap(bitmaps["topright"], x, 0)
-    mem_dc.DrawBitmap(bitmaps["bottomright"], x, y)
+
+    if PLATFORM_ID == "Linux":
+        for part in ("topleft", "bottomleft", "topright", "bottomright"):
+            imgs[part] = bitmaps[part].ConvertToImage()
+
+    pos["topleft"] = p = (0, 0)
+    mem_dc.DrawBitmap(bitmaps["topleft"], *p)
+    pos["bottomleft"] = p = (0, y)
+    mem_dc.DrawBitmap(bitmaps["bottomleft"], *p)
+    pos["topright"] = p = (x, 0)
+    mem_dc.DrawBitmap(bitmaps["topright"], *p)
+    pos["bottomright"] = p = (x, y)
+    mem_dc.DrawBitmap(bitmaps["bottomright"], *p)
     s = height - corner[1] * 2
     img = bitmaps["left"]
-    bitmap = img.Scale(hor_thickness, s).ConvertToBitmap()
-    mem_dc.DrawBitmap(bitmap, 0, corner[1])
+    imgs["left"] = img = img.Scale(hor_thickness, s)
+    bitmap = img.ConvertToBitmap()
+    pos["left"] = p = (0, corner[1])
+    mem_dc.DrawBitmap(bitmap, *p)
     img = bitmaps["right"]
-    bitmap = img.Scale(hor_thickness, s).ConvertToBitmap()
-    mem_dc.DrawBitmap(bitmap, width - hor_thickness, corner[1])
+    imgs["right"] = img = img.Scale(hor_thickness, s)
+    bitmap = img.ConvertToBitmap()
+    pos["right"] = p = (width - hor_thickness, corner[1])
+    mem_dc.DrawBitmap(bitmap, *p)
     s = width - corner[0] * 2
     img = bitmaps["top"]
-    bitmap = img.Scale(s, vert_thickness).ConvertToBitmap()
-    mem_dc.DrawBitmap(bitmap, corner[0], 0)
+    imgs["top"] = img = img.Scale(s, vert_thickness)
+    bitmap = img.ConvertToBitmap()
+    pos["top"] = p = (corner[0], 0)
+    mem_dc.DrawBitmap(bitmap, *p)
     img = bitmaps["bottom"]
-    bitmap = img.Scale(s, vert_thickness).ConvertToBitmap()
-    mem_dc.DrawBitmap(bitmap, corner[0], height - vert_thickness)
+    imgs["bottom"] = img = img.Scale(s, vert_thickness)
+    bitmap = img.ConvertToBitmap()
+    pos["bottom"] = p = (corner[0], height - vert_thickness)
+    mem_dc.DrawBitmap(bitmap, *p)
     mem_dc.SelectObject(wx.NullBitmap)
+
+    if PLATFORM_ID == "Linux":
+        parts = ("left", "right", "top", "bottom", "topleft", "bottomleft",
+                 "topright", "bottomright")
+        alpha_maps = dict((part, []) for part in parts)
+
+        image = border_bitmap.ConvertToImage()
+        image.InitAlpha()
+
+        for part in parts:
+
+            img = imgs[part]
+            offset_x, offset_y = pos[part]
+
+            if not img.HasAlpha():
+                img.InitAlpha()
+
+            alpha_map = []
+            get_alpha(img, alpha_map)
+
+            for y, row in enumerate(alpha_map):
+                for x, alpha in enumerate(row):
+                    image.SetAlpha(x + offset_x, y + offset_y, alpha)
+
+        for y in xrange(corner[1], height - corner[1]):
+            for x in xrange(hor_thickness, width - hor_thickness):
+                image.SetAlpha(x, y, 0)
+
+        for y in xrange(vert_thickness, corner[1]):
+            for x in xrange(corner[0], width - corner[0]):
+                image.SetAlpha(x, y, 0)
+
+        for y in xrange(height - corner[1], height - vert_thickness):
+            for x in xrange(corner[0], width - corner[0]):
+                image.SetAlpha(x, y, 0)
+
+        border_bitmap = image.ConvertToBitmap()
 
     return border_bitmap

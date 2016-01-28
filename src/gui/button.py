@@ -55,9 +55,23 @@ class Button(wx.PyControl, FocusResetter):
         return cls._bitmap_paths[bitmap_paths_id]
 
     @staticmethod
+    def __get_alpha(img, alpha_map):
+    
+        for y in xrange(img.GetHeight()):
+        
+            row = []
+            alpha_map.append(row)
+            
+            for x in xrange(img.GetWidth()):
+                row.append(img.GetAlpha(x, y))
+
+    @staticmethod
     def __create_button_icons(icon_path, bitmaps, w, h, mem_dc, icon_size=None):
 
         bitmaps["icons"] = {}
+
+        if PLATFORM_ID == "Linux":
+            alpha_map = []
 
         def create_icon(state):
 
@@ -66,16 +80,55 @@ class Button(wx.PyControl, FocusResetter):
             if not img.HasAlpha():
                 img.InitAlpha()
 
+            if PLATFORM_ID == "Linux" and not alpha_map:
+                get_alpha(img, alpha_map)
+
             if state == "disabled":
-                img = img.ConvertToGreyscale().AdjustChannels(.7, .7, .7, .7)
+                img = img.ConvertToGreyscale().AdjustChannels(.7, .7, .7)
 
             icon = img.ConvertToBitmap()
             w_i, h_i = icon_size if icon_size else icon.GetSize()
             offset_x = (w - w_i) // 2
             offset_y = (h - h_i) // 2
-            bitmap = wx.EmptyBitmapRGBA(w, h)
+            
+            if PLATFORM_ID == "Linux":
+                bitmap = wx.EmptyBitmap(w, h)
+            else:
+                bitmap = wx.EmptyBitmapRGBA(w, h)
+
             mem_dc.SelectObject(bitmap)
             mem_dc.DrawBitmap(icon, offset_x, offset_y)
+            mem_dc.SelectObject(wx.NullBitmap)
+
+            if PLATFORM_ID == "Linux":
+                
+                img = bitmap.ConvertToImage()
+                w_i, h_i = icon.GetSize()
+
+                if not img.HasAlpha():
+                    img.InitAlpha()
+            
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + offset_x, y + offset_y, alpha)
+
+                for y in xrange(offset_y):
+                    for x in xrange(w):
+                        img.SetAlpha(x, y, 0)
+
+                for y in xrange(offset_y + h_i, h):
+                    for x in xrange(w):
+                        img.SetAlpha(x, y, 0)
+
+                for y in xrange(offset_y, offset_y + h_i):
+                    for x in xrange(offset_x):
+                        img.SetAlpha(x, y, 0)
+
+                for y in xrange(offset_y, offset_y + h_i):
+                    for x in xrange(offset_x + w_i, w):
+                        img.SetAlpha(x, y, 0)
+
+                bitmap = img.ConvertToBitmap()
 
             return bitmap
 
@@ -91,8 +144,7 @@ class Button(wx.PyControl, FocusResetter):
         bitmaps = {}
 
         parts = ("left", "center", "right")
-        states = ("pressed", "active") + \
-            (() if flat else ("hilited", "disabled"))
+        states = ("pressed", "active") + (() if flat else ("hilited", "disabled"))
 
         if icon_path.startswith("*"):
             label = icon_path.replace("*", "", 1)
@@ -101,13 +153,26 @@ class Button(wx.PyControl, FocusResetter):
 
         mem_dc = wx.MemoryDC()
 
+        if PLATFORM_ID == "Linux":
+            all_states = ("normal", "hilited", "pressed", "active", "disabled")
+            alpha_maps = dict((state, dict((part, []) for part in parts)) for state in all_states)
+
         def create_bitmap(state, w_sides=None, w=None, h=None):
 
             bitmap_parts = {}
 
             for part in ("left", "right"):
-                bitmap_parts[part] = Cache.load(
-                    "bitmap", bitmap_paths[part][state])
+
+                bitmap_parts[part] = bitmap = Cache.load("bitmap", bitmap_paths[part][state])
+
+                if PLATFORM_ID == "Linux" and not alpha_maps[state][part]:
+
+                    img = bitmap.ConvertToImage()
+
+                    if not img.HasAlpha():
+                        img.InitAlpha()
+
+                    get_alpha(img, alpha_maps[state][part])
 
             center_image = Cache.load("image", bitmap_paths["center"][state])
 
@@ -135,9 +200,17 @@ class Button(wx.PyControl, FocusResetter):
 
                 w_center = w - w_sides
 
-            bitmap_parts["center"] = center_image.Scale(
-                w_center, h).ConvertToBitmap()
-            bitmap = wx.EmptyBitmapRGBA(w, h)
+            center_image = center_image.Scale(w_center, h)
+            bitmap_parts["center"] = center_image.ConvertToBitmap()
+
+            if PLATFORM_ID == "Linux" and not alpha_maps[state]["center"]:
+                get_alpha(center_image, alpha_maps[state]["center"])
+
+            if PLATFORM_ID == "Linux":
+                bitmap = wx.EmptyBitmap(w, h)
+            else:
+                bitmap = wx.EmptyBitmapRGBA(w, h)
+
             mem_dc.SelectObject(bitmap)
             x = 0
 
@@ -146,13 +219,36 @@ class Button(wx.PyControl, FocusResetter):
                 mem_dc.DrawBitmap(bitmap_part, x, 0)
                 x += bitmap_part.GetWidth()
 
+            mem_dc.SelectObject(wx.NullBitmap)
+
+            if PLATFORM_ID == "Linux":
+                
+                img = bitmap.ConvertToImage()
+                offset_x = 0
+
+                if not img.HasAlpha():
+                    img.InitAlpha()
+
+                for part in parts:
+
+                    bitmap_part = bitmap_parts[part]
+                    alpha_map = alpha_maps[state][part]
+            
+                    for y, row in enumerate(alpha_map):
+                        for x, alpha in enumerate(row):
+                            img.SetAlpha(x + offset_x, y, alpha)
+
+                    offset_x += bitmap_part.GetWidth()
+
+                bitmap = img.ConvertToBitmap()
+
             return bitmap
 
         if flat:
             for state in ("normal", "disabled"):
                 gfx_id = "pixel"
-                bitmaps[state] = Cache.create(
-                    "bitmap", gfx_id, lambda: wx.EmptyBitmapRGBA(1, 1))
+                bitmaps[state] = Cache.create("bitmap", gfx_id,
+                                              lambda: wx.EmptyBitmapRGBA(1, 1))
 
         state = "hilited" if flat else "normal"
         paths = tuple(bitmap_paths[part][state] for part in parts)
@@ -161,18 +257,16 @@ class Button(wx.PyControl, FocusResetter):
         bitmaps[state] = bitmap
         w, h = bitmap.GetSize()
         w_sides = Cache.load("bitmap", bitmap_paths["left"][state]).GetWidth()
-        w_sides += Cache.load("bitmap",
-                              bitmap_paths["right"][state]).GetWidth()
+        w_sides += Cache.load("bitmap", bitmap_paths["right"][state]).GetWidth()
 
         for state in states:
             paths = tuple(bitmap_paths[part][state] for part in parts)
             gfx_id = (paths, width, label)
-            bitmaps[state] = Cache.create(
-                "bitmap", gfx_id, lambda: create_bitmap(state, w_sides, w, h))
+            bitmaps[state] = Cache.create("bitmap", gfx_id, lambda:
+                                          create_bitmap(state, w_sides, w, h))
 
         if icon_path and not label:
-            cls.__create_button_icons(
-                icon_path, bitmaps, w, h, mem_dc, icon_size)
+            cls.__create_button_icons(icon_path, bitmaps, w, h, mem_dc, icon_size)
         else:
             bitmaps["icons"] = None
 
@@ -189,6 +283,7 @@ class Button(wx.PyControl, FocusResetter):
         self.refuse_focus(reject_field_input=True, on_click=self._on_left_down)
 
         self._parent = parent
+        self._parent_type = parent_type
         self._bitmaps = bitmaps
         self._label = label
         self._tooltip_label = tooltip_label
@@ -231,33 +326,32 @@ class Button(wx.PyControl, FocusResetter):
         else:
             self._tooltip_bitmap = None
 
-        def set_back_bitmap():
+        wx.CallAfter(self._set_back_bitmap)
 
-            w, h = self.GetSize()
+    def _set_back_bitmap(self):
 
-            def create_background():
+        w, h = self.GetSize()
 
-                panel_color = parent.get_main_color()
-                bitmap = wx.EmptyBitmap(w, h)
-                mem_dc = wx.MemoryDC(bitmap)
-                mem_dc.SetPen(wx.Pen(wx.Colour(), 1, wx.TRANSPARENT))
-                mem_dc.SetBrush(wx.Brush(panel_color))
-                mem_dc.DrawRectangle(0, 0, w, h)
-                mem_dc.SelectObject(wx.NullBitmap)
+        def create_background():
 
-                return bitmap
+            panel_color = self._parent.get_main_color()
+            bitmap = wx.EmptyBitmap(w, h)
+            mem_dc = wx.MemoryDC(bitmap)
+            mem_dc.SetPen(wx.Pen(wx.Colour(), 1, wx.TRANSPARENT))
+            mem_dc.SetBrush(wx.Brush(panel_color))
+            mem_dc.DrawRectangle(0, 0, w, h)
+            mem_dc.SelectObject(wx.NullBitmap)
 
-            if parent_type == "panel":
-                gfx_id = ("panel_region", w, h)
-                self._bitmaps["back"] = Cache.create(
-                    "bitmap", gfx_id, create_background)
-            else:
-                self._bitmaps["back"] = self._parent.get_bitmap(
-                ).GetSubBitmap(self.GetRect())
+            return bitmap
 
-            self._has_back_bitmap = True
+        if self._parent_type == "panel":
+            gfx_id = ("panel_region", w, h)
+            self._bitmaps["back"] = Cache.create("bitmap", gfx_id, create_background)
+        else:
+            self._bitmaps["back"] = self._parent.get_bitmap().GetSubBitmap(self.GetRect())
 
-        wx.CallAfter(set_back_bitmap)
+        self._has_back_bitmap = True
+        self.Refresh()
 
     def destroy(self):
 

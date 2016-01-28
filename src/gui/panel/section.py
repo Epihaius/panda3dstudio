@@ -146,12 +146,10 @@ class PanelSection(object):
             part_gfx = cls._gfx["title_%s" % part]
 
             for side in ("left", "right"):
-                path = os.path.join(
-                    GFX_PATH, "panel_section_title_%s_%s.png" % (part, side))
+                path = os.path.join(GFX_PATH, "panel_section_title_%s_%s.png" % (part, side))
                 part_gfx[side] = Cache.load("bitmap", path)
 
-            path = os.path.join(
-                GFX_PATH, "panel_section_title_%s_center.png" % part)
+            path = os.path.join(GFX_PATH, "panel_section_title_%s_center.png" % part)
             center = Cache.load("image", path)
             imgs.append(center)
             part_gfx["center"] = center
@@ -213,27 +211,80 @@ class PanelSection(object):
 
         def create_title_part(part_id):
 
-            bitmap_type = wx.EmptyBitmap if part_id == "box" else wx.EmptyBitmapRGBA
+            if PLATFORM_ID == "Linux":
+                bitmap_type = wx.EmptyBitmap
+            else:
+                bitmap_type = wx.EmptyBitmap if part_id == "box" else wx.EmptyBitmapRGBA
+
             bitmap = bitmap_type(w, h_title)
             title_part = self._gfx["title_%s" % part_id]
             img = title_part["center"]
-            bitmap_center = img.Scale(
-                w - corner * 2, h_title).ConvertToBitmap()
+            bitmap_center_img = img.Scale(w - corner * 2, h_title)
+            bitmap_center = bitmap_center_img.ConvertToBitmap()
             dc.SelectObject(bitmap)
             dc.DrawBitmap(title_part["left"], 0, 0)
             dc.DrawBitmap(bitmap_center, corner, 0)
             dc.DrawBitmap(title_part["right"], w - corner, 0)
             dc.SelectObject(wx.NullBitmap)
 
+            if PLATFORM_ID == "Linux" and part_id == "hilite":
+
+                img = bitmap.ConvertToImage()
+                alpha_map = []
+
+                if not img.HasAlpha():
+                    img.InitAlpha()
+
+                if not bitmap_center_img.HasAlpha():
+                    bitmap_center_img.InitAlpha()
+
+                get_alpha(bitmap_center_img, alpha_map)
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + corner, y, alpha)
+
+                left_img = title_part["left"].ConvertToImage()
+                alpha_map = []
+
+                if not left_img.HasAlpha():
+                    left_img.InitAlpha()
+
+                get_alpha(left_img, alpha_map)
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x, y, alpha)
+
+                right_img = title_part["right"].ConvertToImage()
+                alpha_map = []
+
+                if not right_img.HasAlpha():
+                    right_img.InitAlpha()
+
+                get_alpha(right_img, alpha_map)
+                offset_x = w - corner
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + offset_x, y, alpha)
+
+                bitmap = img.ConvertToBitmap()
+
             return bitmap
 
         def create_collapsed():
 
-            bitmap = wx.EmptyBitmapRGBA(w, h_title)
+            if PLATFORM_ID == "Linux":
+                bitmap = wx.EmptyBitmap(w, h_title)
+            else:
+                bitmap = wx.EmptyBitmapRGBA(w, h_title)
+
             border = self._gfx["border"]
             img = border["hor"]
             h_bottom = img.GetHeight()
-            bitmap_hor = img.Scale(w - corner * 2, h_bottom).ConvertToBitmap()
+            img_hor = img.Scale(w - corner * 2, h_bottom)
+            bitmap_hor = img_hor.ConvertToBitmap()
             dc.SelectObject(bitmap)
             dc.DrawBitmap(border["topleft"], 0, 0)
             dc.DrawBitmap(border["bottomleft"], 0, corner)
@@ -243,20 +294,149 @@ class PanelSection(object):
             dc.DrawBitmap(border["bottomright"], w - corner, corner)
             dc.SelectObject(wx.NullBitmap)
 
+            if PLATFORM_ID == "Linux" and part_id == "hilite":
+
+                img = bitmap.ConvertToImage()
+                alpha_map = []
+
+                if not img.HasAlpha():
+                    img.InitAlpha()
+
+                if not img_hor.HasAlpha():
+                    img_hor.InitAlpha()
+
+                get_alpha(img_hor, alpha_map)
+                offset_y = h_title - h_bottom
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + corner, y, alpha)
+                        img.SetAlpha(x + corner, y + offset_y, alpha)
+
+                for y in xrange(h_bottom, offset_y):
+                    for x in xrange(corner, w - corner):
+                        img.SetAlpha(x, y, 0)
+
+                topleft_img = border["topleft"].ConvertToImage()
+                alpha_map = []
+
+                if not topleft_img.HasAlpha():
+                    topleft_img.InitAlpha()
+
+                get_alpha(topleft_img, alpha_map)
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x, y, alpha)
+
+                bottomleft_img = border["bottomleft"].ConvertToImage()
+                alpha_map = []
+
+                if not bottomleft_img.HasAlpha():
+                    bottomleft_img.InitAlpha()
+
+                get_alpha(bottomleft_img, alpha_map)
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x, y + corner, alpha)
+
+                topright_img = border["topright"].ConvertToImage()
+                alpha_map = []
+
+                if not topright_img.HasAlpha():
+                    topright_img.InitAlpha()
+
+                get_alpha(topright_img, alpha_map)
+                offset_x = w - corner
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + offset_x, y, alpha)
+
+                bottomright_img = border["bottomright"].ConvertToImage()
+                alpha_map = []
+
+                if not bottomright_img.HasAlpha():
+                    bottomright_img.InitAlpha()
+
+                get_alpha(bottomright_img, alpha_map)
+                offset_x = w - corner
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + offset_x, y + corner, alpha)
+
+                bitmap = img.ConvertToBitmap()
+
             return bitmap
 
         def create_bottom():
 
-            bitmap = wx.EmptyBitmapRGBA(w, corner)
+            if PLATFORM_ID == "Linux":
+                bitmap = wx.EmptyBitmap(w, corner)
+            else:
+                bitmap = wx.EmptyBitmapRGBA(w, corner)
+
             border = self._gfx["border"]
             img = border["hor"]
             h_bottom = img.GetHeight()
-            bitmap_hor = img.Scale(w - corner * 2, h_bottom).ConvertToBitmap()
+            img_hor = img.Scale(w - corner * 2, h_bottom)
+            bitmap_hor = img_hor.ConvertToBitmap()
             dc.SelectObject(bitmap)
             dc.DrawBitmap(border["bottomleft"], 0, 0)
             dc.DrawBitmap(bitmap_hor, corner, corner - h_bottom)
             dc.DrawBitmap(border["bottomright"], w - corner, 0)
             dc.SelectObject(wx.NullBitmap)
+
+            if PLATFORM_ID == "Linux" and part_id == "hilite":
+
+                img = bitmap.ConvertToImage()
+                alpha_map = []
+
+                if not img.HasAlpha():
+                    img.InitAlpha()
+
+                if not img_hor.HasAlpha():
+                    img_hor.InitAlpha()
+
+                get_alpha(img_hor, alpha_map)
+                offset_y = corner - h_bottom
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + corner, y + offset_y, alpha)
+
+                for y in xrange(offset_y):
+                    for x in xrange(corner, w - corner):
+                        img.SetAlpha(x, y, 0)
+
+                bottomleft_img = border["bottomleft"].ConvertToImage()
+                alpha_map = []
+
+                if not bottomleft_img.HasAlpha():
+                    bottomleft_img.InitAlpha()
+
+                get_alpha(bottomleft_img, alpha_map)
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x, y, alpha)
+
+                bottomright_img = border["bottomright"].ConvertToImage()
+                alpha_map = []
+
+                if not bottomright_img.HasAlpha():
+                    bottomright_img.InitAlpha()
+
+                get_alpha(bottomright_img, alpha_map)
+                offset_x = w - corner
+
+                for y, row in enumerate(alpha_map):
+                    for x, alpha in enumerate(row):
+                        img.SetAlpha(x + offset_x, y, alpha)
+
+                bitmap = img.ConvertToBitmap()
 
             return bitmap
 
@@ -268,12 +448,9 @@ class PanelSection(object):
 
         for part_id in ("box", "hilite"):
             gfx_id = ("panel_section_title_%s" % part_id, w)
-            gfx_id += (self._title_hilite_color,
-                       ) if part_id == "hilite" else ()
-            bitmap = Cache.create(
-                "bitmap", gfx_id, lambda: create_title_part(part_id))
-            value = bitmap if part_id == "box" else {
-                self._title_hilite_color: bitmap}
+            gfx_id += (self._title_hilite_color,) if part_id == "hilite" else ()
+            bitmap = Cache.create("bitmap", gfx_id, lambda: create_title_part(part_id))
+            value = bitmap if part_id == "box" else {self._title_hilite_color: bitmap}
             self._bitmaps["title_%s" % part_id] = value
 
         gfx_id = ("panel_section_collapsed", w)
@@ -315,13 +492,15 @@ class PanelSection(object):
         l = h_title // 2
         a = h_title // 2 - 6
 
+        pen = wx.Pen(wx.Colour())
+        dc.SetPen(pen)
+
         if not self._is_expanded:
 
             dc.DrawBitmap(self._bitmaps["collapsed"], x, y)
 
             if self._is_title_hilited:
-                bitmap = self._bitmaps["title_hilite"][
-                    self._title_hilite_color]
+                bitmap = self._bitmaps["title_hilite"][self._title_hilite_color]
                 dc.DrawBitmap(bitmap, x, y)
 
             dc.DrawLine(x + l, y + l, x + l + 7, y + l)
@@ -405,15 +584,13 @@ class PanelSection(object):
             def create_hilite():
 
                 r, g, b, a = color
-                title_hilite_bitmap = self._bitmaps[
-                    "title_hilite"][(1., 1., 1., 1.)]
+                title_hilite_bitmap = self._bitmaps["title_hilite"][(1., 1., 1., 1.)]
                 img = title_hilite_bitmap.ConvertToImage().AdjustChannels(r, g, b, a)
 
                 return img.ConvertToBitmap()
 
             gfx_id = ("panel_section_title_hilite", self._width, color)
-            self._bitmaps["title_hilite"][color] = Cache.create(
-                "bitmap", gfx_id, create_hilite)
+            self._bitmaps["title_hilite"][color] = Cache.create("bitmap", gfx_id, create_hilite)
 
     def handle_left_down(self, mouse_pos):
 

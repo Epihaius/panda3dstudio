@@ -20,8 +20,7 @@ class InputField(wx.PyWindow, FocusResetter):
         tlbr_bitmap_paths = bitmap_paths["toolbar"]
         offset_x = Cache.load("image", pnl_bitmap_paths["left"]).GetWidth()
         offset_y = Cache.load("image", pnl_bitmap_paths["top"]).GetHeight()
-        cls._height = Cache.load(
-            "bitmap", tlbr_bitmap_paths["left"]).GetHeight()
+        cls._height = Cache.load("bitmap", tlbr_bitmap_paths["left"]).GetHeight()
         cls._field_pos = (offset_x, offset_y)
         cls._default_text_color = default_text_color
         cls._default_back_color = default_back_color
@@ -163,6 +162,8 @@ class InputField(wx.PyWindow, FocusResetter):
         menu.Append(wx.ID_PASTE, "Paste")
         menu.Append(wx.ID_SELECTALL, "Select All")
         t_ctrl.Bind(wx.EVT_CONTEXT_MENU, lambda event: self._popup_handler())
+        
+        self._back_bitmap = None
 
         if parent_type == "toolbar":
 
@@ -187,6 +188,8 @@ class InputField(wx.PyWindow, FocusResetter):
         dc = wx.AutoBufferedPaintDCFactory(self)
 
         if self._parent_type == "toolbar":
+            if not self._back_bitmap:
+                self._back_bitmap = self._parent.get_bitmap().GetSubBitmap(self.GetRect())
             dc.DrawBitmap(self._back_bitmap, 0, 0)
 
         dc.SetPen(wx.Pen(self._back_color))
@@ -409,6 +412,7 @@ class InputField(wx.PyWindow, FocusResetter):
         t_ctrl.Clear()
         text_attr.SetTextColour(color if color else self._text_color)
         t_ctrl.SetDefaultStyle(text_attr)
+        t_ctrl.SetForegroundColour(color if color else self._text_color)
 
         if self._is_text_shown:
 
@@ -437,8 +441,7 @@ class InputField(wx.PyWindow, FocusResetter):
             self._value_id = value_id
             t_ctrl = self._text_ctrl
             t_ctrl.Clear()
-            font = self._fonts[value_id] if self._fonts[
-                value_id] else Fonts.get("default")
+            font = self._fonts[value_id] if self._fonts[value_id] else Fonts.get("default")
             text_attr = t_ctrl.GetDefaultStyle()
 
             if text_attr.GetFont() != font:

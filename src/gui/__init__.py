@@ -1,4 +1,3 @@
-import platform
 from .base import *
 from .components import Components
 import sys
@@ -72,11 +71,13 @@ class GUI(wx.App):
         self._title_main = "Panda3D Studio - "
         main_frame = wx.Frame(None, -1, self._title_main + "New", style=style)
         self.SetTopWindow(main_frame)
-        main_frame.SetPosition(wx.Point(-10000, -10000))
-        main_frame.Show()
-        main_frame.SetClientSize(size)
-        self._main_frame = main_frame
+        
+        if PLATFORM_ID == "Windows":
+            main_frame.SetPosition(wx.Point(-10000, -10000))
 
+        main_frame.SetClientSize(size)
+        main_frame.Show()
+        self._main_frame = main_frame
         panel = wx.Panel(main_frame, -1, size=size)
         default_focus_receiver = panel
         self._default_focus_receiver = default_focus_receiver

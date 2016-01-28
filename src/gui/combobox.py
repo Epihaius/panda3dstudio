@@ -34,8 +34,7 @@ class ComboBox(Button):
 
         if icon_path and not icon_path.startswith("*"):
             i_w, i_h = Cache.load("image", icon_path).GetSize()
-            h = Cache.load("bitmap", bitmap_paths[
-                           "left"]["normal"]).GetHeight()
+            h = Cache.load("bitmap", bitmap_paths["left"]["normal"]).GetHeight()
             icon_size = (width - 4 - (h - i_w), i_h)
         else:
             icon_size = None
@@ -54,8 +53,7 @@ class ComboBox(Button):
 
             img = Cache.load("image", os.path.join(GFX_PATH, "toolbar_bg.png"))
             h = img.GetHeight()
-            img = img.Scale(width, h).Mirror(
-                horizontally=False).GetSubImage(self._field_rect)
+            img = img.Scale(width, h).Mirror(horizontally=False).GetSubImage(self._field_rect)
             tint = active_tint if state == "active" else (1.6, 1.6, 1.6)
 
             return img.AdjustChannels(*tint).ConvertToBitmap()
@@ -87,12 +85,15 @@ class ComboBox(Button):
         if self.is_clicked():
             self.set_active()
             x, y = self._field_pos
-            y_offset = (-19 * (len(self._items) - 1) -
-                        2) if self._dir == "up" else 18
+            y_offset = (-19 * (len(self._items) - 1) - 2) if self._dir == "up" else 18
             self.PopupMenuXY(self._popup_menu, x, y + y_offset)
             self.set_active(False)
 
     def _draw(self, event):
+        
+        if not self._has_back_bitmap:
+            self._set_back_bitmap()
+            return
 
         dc = wx.AutoBufferedPaintDCFactory(self)
         bitmaps = self.get_bitmaps()
@@ -105,8 +106,7 @@ class ComboBox(Button):
         else:
             state = "hilited" if self.is_hilited() else "normal"
 
-        bitmap = self._field_bitmaps[
-            "active" if self._is_field_active else "normal"]
+        bitmap = self._field_bitmaps["active" if self._is_field_active else "normal"]
         x, y, w, h = self._field_rect
         dc.DrawBitmap(bitmap, x, y)
         dc.SetFont(Fonts.get("default"))
@@ -227,8 +227,7 @@ class ComboBox(Button):
 
         self._label = label
         tooltip_label = self.get_tooltip_label()
-        self.set_tooltip(tooltip_label + ": " +
-                         label if label else tooltip_label)
+        self.set_tooltip(tooltip_label + ": " + label if label else tooltip_label)
         self.Refresh()
 
     def set_item_label(self, item_id, label):
@@ -352,8 +351,7 @@ class EditableComboBox(ComboBox):
         ComboBox.__init__(self, btn_data, *args, **kwargs)
 
         w, h = self._field_rect.size
-        self._input_field = EditField(
-            self, w - 23, h, text_color, back_color, focus_receiver)
+        self._input_field = EditField(self, w - 23, h, text_color, back_color, focus_receiver)
         x, y = self._field_pos
         self._input_field.SetPosition(wx.Point(x + 4, y))
 
@@ -382,8 +380,7 @@ class EditableComboBox(ComboBox):
             state = "hilited" if self.is_hilited() else "normal"
 
         if not self._is_editable:
-            bitmap = self._field_bitmaps[
-                "active" if self._is_field_active else "normal"]
+            bitmap = self._field_bitmaps["active" if self._is_field_active else "normal"]
             x, y, w, h = self._field_rect
             dc.DrawBitmap(bitmap, x, y)
             dc.SetFont(Fonts.get("default"))
