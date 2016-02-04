@@ -30,7 +30,9 @@ class CoreManager(object):
             "select": Filename.binary_filename(GFX_PATH + "select.cur"),
             "translate": Filename.binary_filename(GFX_PATH + "translate.cur"),
             "rotate": Filename.binary_filename(GFX_PATH + "rotate.cur"),
-            "scale": Filename.binary_filename(GFX_PATH + "scale.cur")
+            "scale": Filename.binary_filename(GFX_PATH + "scale.cur"),
+            "link": Filename.binary_filename(GFX_PATH + "link.cur"),
+            "no_link": Filename.binary_filename(GFX_PATH + "no_link.cur")
         }
 
         cls.expose("cursors", lambda: cls._cursors)
@@ -88,8 +90,7 @@ class CoreManager(object):
         if cls._verbose and task_id not in cls._task_handlers:
             print 'Core warning: task "%s" is not defined.' % task_id
 
-        task_handler = cls._task_handlers.get(
-            task_id, cls._defaults["task_handler"])
+        task_handler = cls._task_handlers.get(task_id, cls._defaults["task_handler"])
 
         return task_handler(*args, **kwargs)
 
@@ -110,8 +111,7 @@ class CoreManager(object):
         if cls._verbose and data_id not in cls._data_retrievers:
             print 'Core warning: data "%s" is not defined.' % data_id
 
-        retriever = cls._data_retrievers.get(
-            data_id, cls._defaults["data_retriever"])
+        retriever = cls._data_retrievers.get(data_id, cls._defaults["data_retriever"])
 
         return retriever(*args, **kwargs)
 
@@ -122,7 +122,7 @@ class CoreManager(object):
         sequence consisting of the id of the "owner" object and the id of the data
         itself.
         Example of the latter:
-          CoreManager.get( ("grid", "point_at_screen_pos") )
+            CoreManager.get( ("grid", "point_at_screen_pos") )
 
         """
 
@@ -140,11 +140,9 @@ class CoreManager(object):
     @classmethod
     def add_interface(cls, interface_id, key_prefix="", mouse_watcher=None):
 
-        listener = cls._core.add_listener(
-            interface_id, key_prefix, mouse_watcher)
+        listener = cls._core.add_listener(interface_id, key_prefix, mouse_watcher)
         cls._app_mgr.add_state_manager(interface_id, "CORE", listener)
-        cls._app_mgr.add_key_handlers(
-            interface_id, "CORE", listener.get_key_handlers())
+        cls._app_mgr.add_key_handlers(interface_id, "CORE", listener.get_key_handlers())
 
     @classmethod
     def remove_interface(cls, interface_id):
@@ -155,8 +153,7 @@ class CoreManager(object):
     @classmethod
     def add_state(cls, state_id, persistence, on_enter=None, on_exit=None, interface_id=""):
 
-        cls._app_mgr.add_state(interface_id, "CORE",
-                               state_id, persistence, on_enter, on_exit)
+        cls._app_mgr.add_state(interface_id, "CORE", state_id, persistence, on_enter, on_exit)
 
     @classmethod
     def set_initial_state(cls, state_id, interface_id=""):
@@ -184,8 +181,7 @@ class CoreManager(object):
         return cls._app_mgr.get_state_persistence(interface_id, "CORE", state_id)
 
     @classmethod
-    def bind_state(cls, state_id, binding_id, event_props, event_handler,
-                   interface_id=""):
+    def bind_state(cls, state_id, binding_id, event_props, event_handler, interface_id=""):
 
         cls._app_mgr.bind_state(interface_id, state_id, binding_id, event_props,
                                 event_handler)
@@ -218,8 +214,7 @@ class CoreManager(object):
     @classmethod
     def add_interface_updater(cls, interface_id, update_id, updater, kwargs=None):
 
-        cls._app_mgr.add_interface_updater(
-            interface_id, "CORE", update_id, updater, kwargs)
+        cls._app_mgr.add_interface_updater(interface_id, "CORE", update_id, updater, kwargs)
 
     @classmethod
     def update_interface(cls, interface_id, update_id, *args, **kwargs):
@@ -264,8 +259,8 @@ class CoreManager(object):
         """
         Set a certain global value.
         This can be done from *any* object, while a value obtained through
-        CoreManager.get() can only be set through the object that initially exposed
-        it.
+        CoreManager.get() can only be set through the object that initially
+        exposed it.
 
         """
 
@@ -322,7 +317,8 @@ class CoreManager(object):
     def get_tasks_matching(cls, name_pattern):
         """ Convenience wrapper around ShowBase.task_mgr.get_tasks_matching() """
 
-        return cls._task_mgr.get_tasks_matching(name_pattern)
+        return cls._task_mgr.getTasksMatching(name_pattern)
+##        return cls._task_mgr.get_tasks_matching(name_pattern)
 
     @classmethod
     def load_model(cls, *args, **kwargs):

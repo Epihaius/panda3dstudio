@@ -63,8 +63,7 @@ class BoxManager(PrimitiveManager):
 
         prim = self.get_primitive()
         origin = prim.get_model().get_origin()
-        self._height_axis = self.world.get_relative_vector(
-            origin, V3D(0., 0., 1.))
+        self._height_axis = self.world.get_relative_vector(origin, V3D(0., 0., 1.))
 
     def __creation_phase1(self):
         """ Draw out box base """
@@ -87,10 +86,8 @@ class BoxManager(PrimitiveManager):
     def __start_creation_phase2(self):
         """ Start drawing out box height """
 
-        cam_forward_vec = self.world.get_relative_vector(
-            self.cam, Vec3(0., 1., 0.))
-        normal = V3D(cam_forward_vec -
-                     cam_forward_vec.project(self._height_axis))
+        cam_forward_vec = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+        normal = V3D(cam_forward_vec - cam_forward_vec.project(self._height_axis))
 
         # If the plane normal is the null vector, the axis must be parallel to
         # the forward camera direction. In this case, a new normal can be chosen
@@ -206,8 +203,7 @@ class Box(Primitive):
                 side = side_pair[direction]
                 vert_data = side["vert_data"]
                 normal = side["normal"]
-                coords[axis3] = (0. if direction == -
-                                 1 else 1.) + offsets[axis3]
+                coords[axis3] = (0. if direction == -1 else 1.) + offsets[axis3]
                 offset1 = offsets[axis1]
                 offset2 = offsets[axis2]
 
@@ -239,11 +235,9 @@ class Box(Primitive):
                             pos_obj = PosObj(pos)
 
                         u = (-b if plane == "zx" else a) * direction
-                        u += (1. if (direction > 0 if plane ==
-                                     "zx" else direction < 0) else 0.)
+                        u += (1. if (direction > 0 if plane == "zx" else direction < 0) else 0.)
                         v = a if plane == "zx" else b
-                        vert_data[vert_id] = {
-                            "pos": pos_obj, "normal": normal, "uvs": {0: (u, v)}}
+                        vert_data[vert_id] = {"pos": pos_obj, "normal": normal, "uvs": {0: (u, v)}}
                         vert_id += 1
 
         smoothing_id = 0
@@ -270,19 +264,14 @@ class Box(Primitive):
                         vi2 = vi1 + 1
                         vi3 = vi2 + segs1
                         vi4 = vi3 + 1
-                        vert_ids = (vi1, vi2, vi4) if direction == 1 else (
-                            vi1, vi4, vi2)
-                        tri_data1 = {"verts": [vert_data[vi]
-                                               for vi in vert_ids]}
+                        vert_ids = (vi1, vi2, vi4) if direction == 1 else (vi1, vi4, vi2)
+                        tri_data1 = {"verts": [vert_data[vi] for vi in vert_ids]}
                         tri_data1["tangent_space"] = None
-                        vert_ids = (vi1, vi4, vi3) if direction == 1 else (
-                            vi1, vi3, vi4)
-                        tri_data2 = {"verts": [vert_data[vi]
-                                               for vi in vert_ids]}
+                        vert_ids = (vi1, vi4, vi3) if direction == 1 else (vi1, vi3, vi4)
+                        tri_data2 = {"verts": [vert_data[vi] for vi in vert_ids]}
                         tri_data2["tangent_space"] = None
                         tris = (tri_data1, tri_data2)
-                        poly_data = {"tris": tris,
-                                     "smoothing": [(smoothing_id, True)]}
+                        poly_data = {"tris": tris, "smoothing": [(smoothing_id, True)]}
                         geom_data.append(poly_data)
 
                 smoothing_id += 1
@@ -362,7 +351,7 @@ class Box(Primitive):
                     origin.set_z(s if s < 0. else 0.)
 
         if finalize:
-            self.__center_origin(adjust_model_origin=False)
+            self.__center_origin(adjust_pivot=False)
             self.__update_size()
 
     def set_dimension(self, axis, value):
@@ -404,18 +393,14 @@ class Box(Primitive):
         if "segments" in prop_id:
 
             axis = prop_id.split("_")[1]
-            change = self.set_segments(
-                axis, value["count"] if restore else value)
+            change = self.set_segments(axis, value["count"] if restore else value)
 
             if change:
 
                 if restore:
-                    task = lambda: self.restore_init_pos_data(
-                        value["pos_data"])
-                    sort = PendingTasks.get_sort(
-                        "upd_vert_normals", "object") + 1
-                    PendingTasks.add(task, "restore_pos_data",
-                                     "object", sort, id_prefix=obj_id)
+                    task = lambda: self.restore_init_pos_data(value["pos_data"])
+                    sort = PendingTasks.get_sort("upd_vert_normals", "object") + 1
+                    PendingTasks.add(task, "restore_pos_data","object", sort, id_prefix=obj_id)
                 else:
                     task = self.clear_geometry
                     task_id = "clear_geom_data"
@@ -436,8 +421,7 @@ class Box(Primitive):
             if change:
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
-                PendingTasks.add(task, "upd_size", "object",
-                                 sort, id_prefix=obj_id)
+                PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 update_app()
 
             return change
@@ -458,16 +442,16 @@ class Box(Primitive):
             axis = prop_id.split("_")[1]
             return self._size[axis]
 
-    def __center_origin(self, adjust_model_origin=True):
+    def __center_origin(self, adjust_pivot=True):
 
         model = self.get_model()
         origin = self.get_origin()
         x, y, z = origin.get_pos()
-        model_origin = model.get_origin()
+        pivot = model.get_pivot()
 
-        if adjust_model_origin:
-            pos = self.world.get_relative_point(model_origin, Point3(x, y, 0.))
-            model_origin.set_pos(self.world, pos)
+        if adjust_pivot:
+            pos = self.world.get_relative_point(pivot, Point3(x, y, 0.))
+            pivot.set_pos(self.world, pos)
 
         origin.set_x(0.)
         origin.set_y(0.)

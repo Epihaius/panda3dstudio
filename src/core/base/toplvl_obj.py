@@ -6,7 +6,7 @@ class TopLevelObject(BaseObject):
 
     def __init__(self, obj_type, obj_id, name, origin_pos, has_color=True):
 
-        self._prop_ids = ["name", "selection_state", "transform", "tags"]
+        self._prop_ids = ["name", "parent", "selection_state", "transform", "tags"]
 
         if has_color:
             self._prop_ids += ["color", "material"]
@@ -14,8 +14,12 @@ class TopLevelObject(BaseObject):
         self._type = obj_type
         self._id = obj_id
         self._name = name
-        self._origin = Mgr.get("object_root").attach_new_node(
-            "%s_origin" % str(obj_id))
+        self._parent = None
+        self._children = []
+        obj_root = Mgr.get("object_root")
+        pivot = obj_root.attach_new_node("%s_pivot" % str(obj_id))
+        self._pivot = pivot
+        self._origin = pivot.attach_new_node("%s_origin" % str(obj_id))
         self._has_color = has_color
         self._color = None
         self._material = None
@@ -24,16 +28,32 @@ class TopLevelObject(BaseObject):
         grid_origin = Mgr.get(("grid", "origin"))
 
         if active_grid_plane == "XZ":
-            self._origin.set_pos_hpr(
-                grid_origin, origin_pos, VBase3(0., -90., 0.))
+            pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., -90., 0.))
         elif active_grid_plane == "YZ":
-            self._origin.set_pos_hpr(
-                grid_origin, origin_pos, VBase3(0., 0., 90.))
+            pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., 0., 90.))
         else:
-            self._origin.set_pos_hpr(
-                grid_origin, origin_pos, VBase3(0., 0., 0.))
+            pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., 0., 0.))
 
     def destroy(self, add_to_hist=True):
+
+        if not self._origin:
+            return False
+
+        if add_to_hist:
+
+            obj_data = {}
+            event_data = {"objects": obj_data}
+
+            for child in self._children[:]:
+                obj_data[child.get_id()] = child.get_data_to_store("deletion")
+                child.destroy(add_to_hist)
+
+            if obj_data:
+                Mgr.do("add_history", "", event_data, update_time_id=False)
+
+        if self._parent:
+            self._parent.remove_child(self)
+            self._parent = None
 
         if self._material:
             self._material.remove(self)
@@ -41,6 +61,8 @@ class TopLevelObject(BaseObject):
         self.set_name("")
         self._origin.remove_node()
         self._origin = None
+        self._pivot.remove_node()
+        self._pivot = None
 
         Mgr.do("unregister_%s" % self._type, self)
 
@@ -52,6 +74,8 @@ class TopLevelObject(BaseObject):
         PendingTasks.add(task, task_id, "object", id_prefix=self._id)
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
+
+        return True
 
     def __update_app(self, add_to_hist=True):
 
@@ -83,6 +107,111 @@ class TopLevelObject(BaseObject):
     def register(self):
 
         Mgr.do("register_%s" % self._type, self)
+
+    def display_link_effect(self):
+        """
+        Visually indicate that another object has been successfully reparented
+        to this one.
+
+        Override in derived class.
+
+        """
+
+        pass
+
+    def set_parent(self, parent_id=None, add_to_hist=True):
+
+        parent = Mgr.get("object", parent_id) if parent_id else None
+
+        if add_to_hist:
+
+            if self._parent is parent or parent in self.get_descendants():
+                return False
+
+            if parent:
+                self._pivot.wrt_reparent_to(parent.get_pivot())
+                parent.add_child(self)
+            else:
+                self._pivot.wrt_reparent_to(Mgr.get("object_root"))
+
+        else:
+
+            if self._parent is parent or parent in self.get_descendants():
+                if parent:
+                    parent.set_parent(add_to_hist=False)
+
+            if parent:
+                self._pivot.reparent_to(parent.get_pivot())
+                parent.add_child(self)
+            else:
+                self._pivot.reparent_to(Mgr.get("object_root"))
+
+        if self._parent:
+            self._parent.remove_child(self)
+
+        self._parent = parent
+
+        if add_to_hist:
+
+            Mgr.do("update_history_time")
+            data = self.get_data_to_store("prop_change", "parent")
+            data.update(self.get_data_to_store("prop_change", "transform"))
+            obj_data = {self._id: data}
+
+            if parent:
+                event_descr = 'Link "%s"\nto "%s"' % (self.get_name(), parent.get_name())
+            else:
+                event_descr = 'Unlink "%s"' % self.get_name()
+
+            event_data = {"objects": obj_data}
+            Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        return True
+
+    def get_parent(self):
+
+        return self._parent
+
+    def get_parent_origin(self):
+
+        return self._parent.get_origin() if self._parent else Mgr.get("object_root")
+
+    def get_parent_pivot(self):
+
+        return self._parent.get_pivot() if self._parent else Mgr.get("object_root")
+
+    def get_root(self):
+
+        node = self
+        parent = self._parent
+
+        while parent:
+            node = parent
+            parent = node.get_parent()
+
+        return node
+
+    def add_child(self, child):
+
+        self._children.append(child)
+
+    def get_children(self):
+
+        return self._children
+
+    def get_descendants(self):
+
+        descendants = []
+        descendants.extend(self._children)
+
+        for child in self._children:
+            descendants.extend(child.get_descendants())
+
+        return descendants
+
+    def remove_child(self, child):
+
+        self._children.remove(child)
 
     def get_geom_object(self):
 
@@ -124,6 +253,10 @@ class TopLevelObject(BaseObject):
     def get_name(self):
 
         return self._name
+
+    def get_pivot(self):
+
+        return self._pivot
 
     def get_origin(self):
 
@@ -251,10 +384,10 @@ class TopLevelObject(BaseObject):
             transform["scale"] = (1., 1., 1.)
         else:
             grid_origin = Mgr.get(("grid", "origin"))
-            origin = self._origin
-            x, y, z = origin.get_pos(grid_origin)
-            h, p, r = origin.get_hpr(grid_origin)
-            sx, sy, sz = origin.get_scale(grid_origin)
+            pivot = self._pivot
+            x, y, z = pivot.get_pos(grid_origin)
+            h, p, r = pivot.get_hpr(grid_origin)
+            sx, sy, sz = pivot.get_scale(grid_origin)
             transform["translate"] = (x, y, z)
             transform["rotate"] = (p, r, h)
             transform["scale"] = (sx, sy, sz)
@@ -286,6 +419,15 @@ class TopLevelObject(BaseObject):
 
             self.set_name(value)
 
+        elif prop_id == "parent":
+
+            if restore:
+                task = lambda: self.set_parent(value, add_to_hist)
+                task_id = "object_linking"
+                PendingTasks.add(task, task_id, "object", id_prefix=self._id)
+            else:
+                self.set_parent(value)
+
         elif prop_id == "color":
 
             update = True if restore else False
@@ -308,7 +450,7 @@ class TopLevelObject(BaseObject):
 
         elif prop_id == "transform":
 
-            self._origin.set_mat(value)
+            self._pivot.set_mat(value)
             task = lambda: Mgr.get("selection").update()
             PendingTasks.add(task, "update_selection", "ui")
 
@@ -317,8 +459,7 @@ class TopLevelObject(BaseObject):
                 Mgr.do("update_coord_sys")
 
             if Mgr.get("transf_center_obj") is self:
-                Mgr.do("set_transf_gizmo_pos",
-                       self._origin.get_pos(self.world))
+                Mgr.do("set_transf_gizmo_pos", self._pivot.get_pos(self.world))
 
         elif prop_id == "tags":
 
@@ -328,6 +469,8 @@ class TopLevelObject(BaseObject):
 
         if prop_id == "name":
             return self._name
+        elif prop_id == "parent":
+            return self._parent.get_id() if self._parent else None
         elif prop_id == "color":
             return self._color
         elif prop_id == "material":
@@ -335,7 +478,7 @@ class TopLevelObject(BaseObject):
         elif prop_id == "selection_state":
             return self.is_selected()
         elif prop_id == "transform":
-            return self._origin.get_mat()
+            return self._pivot.get_mat()
         elif prop_id == "tags":
             return self.get_tags()
 
@@ -389,15 +532,13 @@ class TopLevelObject(BaseObject):
             self.register()
 
             for prop_id in self.get_property_ids():
-                val = Mgr.do("load_last_from_history",
-                             obj_id, prop_id, new_time_id)
+                val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
                 self.set_property(prop_id, val, restore_type)
 
         else:
 
             for prop_id in self.get_property_ids():
                 if prop_id in data_ids:
-                    val = Mgr.do("load_last_from_history",
-                                 obj_id, prop_id, new_time_id)
+                    val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
                     self.set_property(prop_id, val, restore_type)
                     data_ids.remove(prop_id)

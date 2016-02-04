@@ -12,8 +12,7 @@ class CoordSysManager(BaseObject):
         Mgr.set_global("coord_sys_type", "world")
         Mgr.expose("coord_sys_obj", lambda: self._cs_obj)
         Mgr.accept("update_coord_sys", self.__update_coord_sys)
-        Mgr.accept("notify_coord_sys_transformed",
-                   self.__notify_coord_sys_transformed)
+        Mgr.accept("notify_coord_sys_transformed", self.__notify_coord_sys_transformed)
         Mgr.add_app_updater("coord_sys", self.__set_coord_sys)
 
         self._pixel_under_mouse = VBase4()
@@ -51,7 +50,7 @@ class CoordSysManager(BaseObject):
 
             self._cs_obj = None
 
-            Mgr.get(("grid", "origin")).set_mat(Mat4.ident_mat())
+            Mgr.get(("grid", "origin")).clear_transform()
             Mgr.do("set_transf_gizmo_hpr", VBase3())
             Mgr.do("set_transf_gizmo_shear", VBase3())
 
@@ -94,8 +93,7 @@ class CoordSysManager(BaseObject):
         self.__update_coord_sys()
 
         if len(selection) == 1:
-            Mgr.update_remotely("transform_values", selection[
-                                0].get_transform_values())
+            Mgr.update_remotely("transform_values", selection[0].get_transform_values())
 
     def __notify_coord_sys_transformed(self, transformed=True):
 
@@ -125,11 +123,11 @@ class CoordSysManager(BaseObject):
             if self._cs_transformed and self._cs_obj:
 
                 self._cs_transformed = False
-                origin = self._cs_obj.get_origin()
-                pos = origin.get_pos(self.world)
-                hpr = origin.get_hpr(self.world)
+                pivot = self._cs_obj.get_pivot()
+                pos = pivot.get_pos(self.world)
+                hpr = pivot.get_hpr(self.world)
                 scale = VBase3(1., 1., 1.)
-                shear = origin.get_shear(self.world)
+                shear = pivot.get_shear(self.world)
                 Mgr.get(("grid", "origin")).set_pos_hpr_scale_shear(
                     pos, hpr, scale, shear)
                 Mgr.do("set_transf_gizmo_hpr", hpr)
@@ -159,8 +157,8 @@ class CoordSysManager(BaseObject):
             self._cs_obj_picked = None
 
         self._item_is_under_mouse = None  # neither False nor True, to force an
-        # update of the cursor next time
-        # self.__update_cursor() is called
+                                          # update of the cursor next time
+                                          # self.__update_cursor() is called
         Mgr.remove_task("update_cs_picking_cursor")
         Mgr.set_cursor("main")
 
@@ -176,8 +174,7 @@ class CoordSysManager(BaseObject):
             selection = Mgr.get("selection")
 
             if len(selection) == 1:
-                Mgr.update_remotely("transform_values", selection[
-                                    0].get_transform_values())
+                Mgr.update_remotely("transform_values", selection[0].get_transform_values())
 
     def __update_cursor(self, task):
 

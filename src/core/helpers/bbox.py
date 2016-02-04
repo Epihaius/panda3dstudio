@@ -5,8 +5,7 @@ class BBoxEdgeManager(ObjectManager, PickingColorIDManager):
 
     def __init__(self):
 
-        ObjectManager.__init__(
-            self, "bbox_edge", self.__create_bbox_edge, "sub", pickable=True)
+        ObjectManager.__init__(self, "bbox_edge", self.__create_bbox_edge, "sub", pickable=True)
         PickingColorIDManager.__init__(self)
         PickableTypes.add("bbox_edge")
 
@@ -45,10 +44,8 @@ class BBoxEdge(BaseObject):
         corner_pos = self._bbox.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
         vec_coords["XYZ".index(self._axis)] = 1.
-        edge_vec = V3D(self.world.get_relative_vector(
-            origin, Vec3(*vec_coords)))
-        cam_vec = V3D(self.world.get_relative_vector(
-            self.cam, Vec3(0., 1., 0.)))
+        edge_vec = V3D(self.world.get_relative_vector(origin, Vec3(*vec_coords)))
+        cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
         cross_vec = edge_vec ** cam_vec
 
         if not cross_vec.normalize():
@@ -134,9 +131,8 @@ class BoundingBox(BaseObject):
                 self._edges[color_id] = edge
                 edge_data.append(((i, j), axis, picking_color))
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "bbox_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("bbox_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -210,6 +206,23 @@ class BoundingBox(BaseObject):
     def hide(self, *args, **kwargs):
 
         self._origin.hide(*args, **kwargs)
+
+    def flash(self):
+
+        orig = self._origin
+        hidden = orig.is_hidden()
+        data = {"flash_count": 0, "state": ["shown", "hidden"]}
+
+        def do_flash(task):
+
+            state = data["state"][0 if hidden else 1]
+            orig.show() if state == "shown" else orig.hide()
+            data["state"].reverse()
+            data["flash_count"] += 1
+
+            return task.again if data["flash_count"] < 4 else None
+
+        Mgr.add_task(.2, do_flash, "do_flash")
 
 
 Mgr.accept("create_bbox", lambda toplevel_obj: BoundingBox(toplevel_obj))

@@ -1,6 +1,6 @@
 from .base import *
 from . import (cam, history, scene, create, select, transform, coord_sys, geom,
-               helpers, texmap, material)
+               hierarchy, helpers, texmap, material)
 from direct.showbase.ShowBase import ShowBase, DirectObject
 
 loadPrcFileData("", """
@@ -273,8 +273,7 @@ class KeyEventListener(object):
 
         if event_id in self._evt_handlers and mod_code in self._evt_handlers[event_id]:
 
-            event_handler, handler_args, once = self._evt_handlers[
-                event_id][mod_code]
+            event_handler, handler_args, once = self._evt_handlers[event_id][mod_code]
             event_handler(*(handler_args + args))
 
             if once:
@@ -299,8 +298,7 @@ class KeyEventListener(object):
         event_id = self._prefix + event_id
         mod_code = int(mod_code_str) if mod_code_str else 0
 
-        self._evt_handlers.setdefault(event_id, {})[
-            mod_code] = (event_handler, args, once)
+        self._evt_handlers.setdefault(event_id, {})[mod_code] = (event_handler, args, once)
 
     def accept(self, event_props, event_handler, handler_args=None):
 

@@ -45,7 +45,7 @@ class SelectionTransformBase(BaseObject):
                                                   for obj in self._objs], Point3()) / len(self._objs))
             return
 
-        self._center.set_pos(self.world, sum([obj.get_origin().get_pos(self.world)
+        self._center.set_pos(self.world, sum([obj.get_pivot().get_pos(self.world)
                                               for obj in self._objs], Point3()) / len(self._objs))
 
     def get_center_pos(self):
@@ -86,8 +86,7 @@ class SelectionTransformBase(BaseObject):
                 if tc_type == "sel_center":
                     Mgr.do("set_transf_gizmo_pos", self._center.get_pos())
                 elif tc_type == "local_origin":
-                    Mgr.do("set_transf_gizmo_pos",
-                           Mgr.get("transf_center_pos"))
+                    Mgr.do("set_transf_gizmo_pos", Mgr.get("transf_center_pos"))
             elif tc_type in ("sel_center", "local_origin"):
                 Mgr.do("set_transf_gizmo_pos", self._center.get_pos())
 
@@ -109,8 +108,7 @@ class SelectionTransformBase(BaseObject):
                 label = obj.get_name() if count == 1 else "%s Objects selected" % count
                 Mgr.update_remotely("selected_obj_name", label)
 
-            sel_colors = set([obj.get_color()
-                              for obj in self._objs if obj.has_color()])
+            sel_colors = set([obj.get_color() for obj in self._objs if obj.has_color()])
             sel_color_count = len(sel_colors)
 
             if sel_color_count == 1:
@@ -121,18 +119,16 @@ class SelectionTransformBase(BaseObject):
             Mgr.set_global("sel_color_count", sel_color_count)
             Mgr.update_app("sel_color_count")
 
-            type_checker = lambda obj, base_type: obj.get_geom_type(
-            ) if base_type == "model" else base_type
-            obj_types = set([type_checker(obj, obj.get_type())
-                             for obj in self._objs])
+            type_checker = lambda obj, base_type: \
+                obj.get_geom_type() if base_type == "model" else base_type
+            obj_types = set([type_checker(obj, obj.get_type()) for obj in self._objs])
             obj_type = obj_types.pop() if len(obj_types) == 1 else ""
             Mgr.update_app("selected_obj_type", obj_type)
 
             if count == 1:
                 for prop_id in obj.get_type_property_ids():
                     value = obj.get_property(prop_id, for_remote_update=True)
-                    Mgr.update_remotely("selected_obj_prop",
-                                        obj_type, prop_id, value)
+                    Mgr.update_remotely("selected_obj_prop", obj_type, prop_id, value)
 
         if self._obj_level != prev_obj_lvl:
             return
@@ -142,12 +138,7 @@ class SelectionTransformBase(BaseObject):
         prev_count = Mgr.get_global("selection_count")
 
         if count != prev_count:
-
-            if count:
-                Mgr.do("show_transf_gizmo")
-            else:
-                Mgr.do("hide_transf_gizmo")
-
+            Mgr.do("%s_transf_gizmo" % ("show" if count else "hide"))
             Mgr.set_global("selection_count", count)
 
         if self._obj_level == "top":
@@ -158,26 +149,25 @@ class SelectionTransformBase(BaseObject):
         value_setter = self._value_setters[transf_type][axis]
         val = max(10e-008, value) if transf_type == "scale" else value
         cs_type = Mgr.get_global("coord_sys_type")
-        grid_origin = None if cs_type == "local" else Mgr.get(
-            ("grid", "origin"))
+        grid_origin = None if cs_type == "local" else Mgr.get( ("grid", "origin") )
 
         if is_rel_value:
 
             value_getter = self._value_getters[transf_type][axis]
 
             for obj in self._objs:
-                origin = obj.get_origin()
-                ref_node = origin if grid_origin is None else grid_origin
-                old_value = value_getter(origin, ref_node)
+                pivot = obj.get_pivot()
+                ref_node = pivot if grid_origin is None else grid_origin
+                old_value = value_getter(pivot, ref_node)
                 new_value = old_value * val if transf_type == "scale" else old_value + val
-                value_setter(origin, ref_node, new_value)
+                value_setter(pivot, ref_node, new_value)
 
         else:
 
             for obj in self._objs:
-                origin = obj.get_origin()
-                ref_node = origin if grid_origin is None else grid_origin
-                value_setter(origin, ref_node, val)
+                pivot = obj.get_pivot()
+                ref_node = pivot if grid_origin is None else grid_origin
+                value_setter(pivot, ref_node, val)
 
         if transf_type == "translate":
 
@@ -189,8 +179,8 @@ class SelectionTransformBase(BaseObject):
                                  or (tc_type == "cs_origin" and cs_type != "local"))
 
             if affects_gizmo:
-                gizmo_pos = tc_obj.get_origin().get_pos(
-                ) if tc_obj in self._objs else self.get_center_pos()
+                gizmo_pos = tc_obj.get_pivot().get_pos() \
+                    if tc_obj in self._objs else self.get_center_pos()
                 Mgr.do("set_transf_gizmo_pos", gizmo_pos)
 
         if Mgr.get("coord_sys_obj") in self._objs:
@@ -198,8 +188,7 @@ class SelectionTransformBase(BaseObject):
             Mgr.do("update_coord_sys")
 
         if len(self._objs) == 1:
-            Mgr.update_remotely("transform_values", self._objs[
-                                0].get_transform_values())
+            Mgr.update_remotely("transform_values", self._objs[0].get_transform_values())
 
         self.__add_history(transf_type)
 
@@ -213,8 +202,7 @@ class SelectionTransformBase(BaseObject):
             self._pivot_used = True
             self._pivot_start = Mgr.get("transf_center_pos")
             self._pivot.set_pos(self._pivot_start)
-            self._pivot_start = grid_origin.get_relative_point(
-                self.world, self._pivot_start)
+            self._pivot_start = grid_origin.get_relative_point(self.world, self._pivot_start)
             self._center.wrt_reparent_to(self._pivot)
 
             for obj in Mgr.get("selection", "top"):
@@ -231,7 +219,7 @@ class SelectionTransformBase(BaseObject):
 
         if Mgr.get_global("coord_sys_type") == "local":
 
-            self._start_mats = [obj.get_origin().get_mat(grid_origin)
+            self._start_mats = [obj.get_pivot().get_mat(grid_origin)
                                 for obj in self._objs]
 
         else:
@@ -239,12 +227,11 @@ class SelectionTransformBase(BaseObject):
             self._pivot_used = True
             self._pivot_start = Mgr.get("transf_center_pos")
             self._pivot.set_pos(self._pivot_start)
-            self._pivot_start = grid_origin.get_relative_point(
-                self.world, self._pivot_start)
+            self._pivot_start = grid_origin.get_relative_point(self.world, self._pivot_start)
             self._center.wrt_reparent_to(self._pivot)
 
             for obj in self._objs:
-                obj.get_origin().wrt_reparent_to(self._pivot)
+                obj.get_pivot().wrt_reparent_to(self._pivot)
 
     def translate(self, translation_vec):
 
@@ -258,8 +245,7 @@ class SelectionTransformBase(BaseObject):
 
             for obj in Mgr.get("selection", "top"):
                 geom_data_obj = obj.get_geom_object().get_geom_data_object()
-                geom_data_obj.transform_selection(
-                    obj_lvl, "translate", translation_vec)
+                geom_data_obj.transform_selection(obj_lvl, "translate", translation_vec)
 
             pos = self._pivot_start + translation_vec
             self._pivot.set_pos(grid_origin, pos)
@@ -271,10 +257,10 @@ class SelectionTransformBase(BaseObject):
         if cs_type == "local":
 
             cs_obj = Mgr.get("coord_sys_obj")
-            vec_local = cs_obj.get_origin().get_relative_vector(grid_origin, translation_vec)
+            vec_local = cs_obj.get_pivot().get_relative_vector(grid_origin, translation_vec)
 
             for obj, start_mat in zip(self._objs, self._start_mats):
-                obj.get_origin().set_pos(grid_origin, start_mat.xform_point(vec_local))
+                obj.get_pivot().set_pos(grid_origin, start_mat.xform_point(vec_local))
 
             if tc_type == "sel_center":
                 self.update_center()
@@ -322,19 +308,16 @@ class SelectionTransformBase(BaseObject):
         if tc_type == "local_origin":
 
             if cs_type == "local":
-                self._start_mats = [obj.get_origin().get_mat(
-                    grid_origin) for obj in self._objs]
+                self._start_mats = [obj.get_pivot().get_mat(grid_origin) for obj in self._objs]
             else:
-                self._start_quats = [obj.get_origin().get_quat(
-                    grid_origin) for obj in self._objs]
+                self._start_quats = [obj.get_pivot().get_quat(grid_origin) for obj in self._objs]
 
         elif cs_type == "local":
 
-            self._start_mats = [obj.get_origin().get_mat(grid_origin)
-                                for obj in self._objs]
+            self._start_mats = [obj.get_pivot().get_mat(grid_origin) for obj in self._objs]
 
             if tc_type != "cs_origin":
-                self._offset_vecs = [Point3() - obj.get_origin().get_relative_point(self.world, tc_pos)
+                self._offset_vecs = [Point3() - obj.get_pivot().get_relative_point(self.world, tc_pos)
                                      for obj in self._objs]
 
         else:
@@ -345,7 +328,7 @@ class SelectionTransformBase(BaseObject):
             self._center.wrt_reparent_to(self._pivot)
 
             for obj in self._objs:
-                obj.get_origin().wrt_reparent_to(self._pivot)
+                obj.get_pivot().wrt_reparent_to(self._pivot)
 
     def rotate(self, rotation):
 
@@ -371,11 +354,11 @@ class SelectionTransformBase(BaseObject):
             if cs_type == "local":
                 for obj, start_mat in zip(self._objs, self._start_mats):
                     mat = rotation * start_mat
-                    obj.get_origin().set_mat(grid_origin, mat)
+                    obj.get_pivot().set_mat(grid_origin, mat)
             else:
                 for obj, start_quat in zip(self._objs, self._start_quats):
                     quat = start_quat * rotation
-                    obj.get_origin().set_quat(grid_origin, quat)
+                    obj.get_pivot().set_quat(grid_origin, quat)
 
         elif cs_type == "local":
 
@@ -384,15 +367,15 @@ class SelectionTransformBase(BaseObject):
             if tc_type == "cs_origin":
                 for obj, start_mat in zip(self._objs, self._start_mats):
                     mat = rotation * start_mat
-                    obj.get_origin().set_mat(grid_origin, mat)
+                    obj.get_pivot().set_mat(grid_origin, mat)
             else:
                 for obj, start_mat, start_vec in zip(self._objs, self._start_mats, self._offset_vecs):
-                    origin = obj.get_origin()
+                    pivot = obj.get_pivot()
                     mat = rotation * start_mat
-                    origin.set_mat(grid_origin, mat)
+                    pivot.set_mat(grid_origin, mat)
                     vec = self.world.get_relative_vector(
                         grid_origin, start_mat.xform_vec(rotation.xform(start_vec)))
-                    origin.set_pos(tc_pos + vec)
+                    pivot.set_pos(tc_pos + vec)
 
         else:
 
@@ -412,8 +395,7 @@ class SelectionTransformBase(BaseObject):
         if obj_lvl != "top":
 
             self._pivot_used = True
-            hpr = grid_origin.get_hpr()
-            self._pivot.set_hpr(hpr)
+            self._pivot.set_hpr(grid_origin.get_hpr())
             self._pivot.set_pos(tc_pos)
             self._center.wrt_reparent_to(self._pivot)
 
@@ -429,32 +411,30 @@ class SelectionTransformBase(BaseObject):
 
         if tc_type == "local_origin":
 
-            self._start_mats = [obj.get_origin().get_mat(grid_origin)
+            self._start_mats = [obj.get_pivot().get_mat(grid_origin)
                                 for obj in self._objs]
 
             if cs_type != "local":
-                self._start_positions = [
-                    obj.get_origin().get_pos() for obj in self._objs]
+                self._start_positions = [obj.get_pivot().get_pos() for obj in self._objs]
 
         elif cs_type == "local":
 
-            self._start_mats = [obj.get_origin().get_mat(grid_origin)
+            self._start_mats = [obj.get_pivot().get_mat(grid_origin)
                                 for obj in self._objs]
 
             if tc_type != "cs_origin":
-                self._offset_vecs = [Point3(
-                ) - obj.get_origin().get_relative_point(self.world, tc_pos) for obj in self._objs]
+                self._offset_vecs = [Point3() - obj.get_pivot().get_relative_point(self.world, tc_pos)
+                                     for obj in self._objs]
 
         else:
 
             self._pivot_used = True
-            hpr = grid_origin.get_hpr()
-            self._pivot.set_hpr(hpr)
+            self._pivot.set_hpr(grid_origin.get_hpr())
             self._pivot.set_pos(tc_pos)
             self._center.wrt_reparent_to(self._pivot)
 
             for obj in self._objs:
-                obj.get_origin().wrt_reparent_to(self._pivot)
+                obj.get_pivot().wrt_reparent_to(self._pivot)
 
     def scale(self, scaling):
 
@@ -478,13 +458,12 @@ class SelectionTransformBase(BaseObject):
         if tc_type == "local_origin":
 
             for obj, start_mat in zip(self._objs, self._start_mats):
-                mat = (
-                    scal_mat * start_mat) if cs_type == "local" else (start_mat * scal_mat)
-                obj.get_origin().set_mat(grid_origin, mat)
+                mat = (scal_mat * start_mat) if cs_type == "local" else (start_mat * scal_mat)
+                obj.get_pivot().set_mat(grid_origin, mat)
 
             if cs_type != "local":
                 for obj, start_pos in zip(self._objs, self._start_positions):
-                    obj.get_origin().set_pos(start_pos)
+                    obj.get_pivot().set_pos(start_pos)
 
         elif cs_type == "local":
 
@@ -492,18 +471,18 @@ class SelectionTransformBase(BaseObject):
 
                 for obj, start_mat in zip(self._objs, self._start_mats):
                     mat = scal_mat * start_mat
-                    obj.get_origin().set_mat(grid_origin, mat)
+                    obj.get_pivot().set_mat(grid_origin, mat)
 
             else:
 
                 tc_pos = Mgr.get("transf_center_pos")
 
                 for obj, start_mat, start_vec in zip(self._objs, self._start_mats, self._offset_vecs):
-                    origin = obj.get_origin()
+                    pivot = obj.get_pivot()
                     mat = scal_mat * start_mat
-                    origin.set_mat(grid_origin, mat)
-                    vec = self.world.get_relative_vector(origin, start_vec)
-                    origin.set_pos(tc_pos + vec)
+                    pivot.set_mat(grid_origin, mat)
+                    vec = self.world.get_relative_vector(pivot, start_vec)
+                    pivot.set_pos(tc_pos + vec)
 
         else:
 
@@ -553,10 +532,9 @@ class SelectionTransformBase(BaseObject):
                 if cs_type == "world":
                     Mgr.do("set_transf_gizmo_pos", Point3())
                 elif cs_type == "object" and cs_obj not in self._objs:
-                    Mgr.do("set_transf_gizmo_pos",
-                           cs_obj.get_origin().get_pos())
+                    Mgr.do("set_transf_gizmo_pos", cs_obj.get_pivot().get_pos())
             elif tc_type == "object" and tc_obj not in self._objs:
-                Mgr.do("set_transf_gizmo_pos", tc_obj.get_origin().get_pos())
+                Mgr.do("set_transf_gizmo_pos", tc_obj.get_pivot().get_pos())
 
             self.update_center()
 
@@ -567,7 +545,7 @@ class SelectionTransformBase(BaseObject):
             self._center.set_shear(0., 0., 0.)
 
             for obj in self._objs:
-                obj.get_origin().wrt_reparent_to(self._obj_root)
+                obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
 
             self._pivot.clear_transform()
 
@@ -583,8 +561,7 @@ class SelectionTransformBase(BaseObject):
         self._offset_vecs = []
 
         if len(self._objs) == 1:
-            Mgr.update_remotely("transform_values", self._objs[
-                                0].get_transform_values())
+            Mgr.update_remotely("transform_values", self._objs[0].get_transform_values())
 
         if not cancelled:
             self.__add_history(transf_type)
@@ -602,20 +579,17 @@ class SelectionTransformBase(BaseObject):
 
             if obj_count > 1:
 
-                event_descr = '%s %d objects:\n' % (
-                    transf_type.title(), obj_count)
+                event_descr = '%s %d objects:\n' % (transf_type.title(), obj_count)
 
                 for obj in sel:
                     event_descr += '\n    "%s"' % obj.get_name()
 
             else:
 
-                event_descr = '%s "%s"' % (
-                    transf_type.title(), sel[0].get_name())
+                event_descr = '%s "%s"' % (transf_type.title(), sel[0].get_name())
 
             for obj in sel:
-                obj_data[obj.get_id()] = {"transform": {
-                    "main": obj.get_origin().get_mat()}}
+                obj_data[obj.get_id()] = {"transform": {"main": obj.get_pivot().get_mat()}}
 
         else:
 
@@ -660,7 +634,7 @@ class SelectionTransformBase(BaseObject):
             if active_transform_type == "translate":
 
                 for obj, start_mat in zip(self._objs, self._start_mats):
-                    obj.get_origin().set_mat(grid_origin, start_mat)
+                    obj.get_pivot().set_mat(grid_origin, start_mat)
 
                 self.update_center()
 
@@ -670,30 +644,22 @@ class SelectionTransformBase(BaseObject):
 
                     if cs_type == "local":
                         for obj, start_mat in zip(self._objs, self._start_mats):
-                            obj.get_origin().set_mat(grid_origin, start_mat)
+                            obj.get_pivot().set_mat(grid_origin, start_mat)
                     else:
                         for obj, start_quat in zip(self._objs, self._start_quats):
-                            obj.get_origin().set_quat(grid_origin, start_quat)
+                            obj.get_pivot().set_quat(grid_origin, start_quat)
 
                 elif cs_type == "local":
 
-                    if tc_type == "cs_origin":
-
-                        for obj, start_mat in zip(self._objs, self._start_mats):
-                            obj.get_origin().set_mat(grid_origin, start_mat)
-
-                    else:
-
-                        for obj, start_mat, start_vec in zip(self._objs, self._start_mats, self._offset_vecs):
-                            origin = obj.get_origin()
-                            origin.set_mat(grid_origin, start_mat)
+                    for obj, start_mat in zip(self._objs, self._start_mats):
+                        obj.get_pivot().set_mat(grid_origin, start_mat)
 
             elif active_transform_type == "scale":
 
                 if tc_type == "local_origin" or cs_type == "local":
 
                     for obj, start_mat in zip(self._objs, self._start_mats):
-                        obj.get_origin().set_mat(grid_origin, start_mat)
+                        obj.get_pivot().set_mat(grid_origin, start_mat)
 
         pos = Mgr.get("transf_center_pos")
         Mgr.do("set_transf_gizmo_pos", pos)
@@ -744,8 +710,7 @@ class TransformationManager(BaseObject):
     def __set_transform_component(self, transf_type, axis, value, is_rel_value):
 
         selection = Mgr.get("selection")
-        selection.set_transform_component(
-            transf_type, axis, value, is_rel_value)
+        selection.set_transform_component(transf_type, axis, value, is_rel_value)
 
     def __init_transform(self, transf_start_pos):
 
@@ -769,8 +734,7 @@ class TransformationManager(BaseObject):
         if active_transform_type == "scale":
             self.__init_scaling()
 
-        Mgr.update_app("status", "select",
-                       active_transform_type, "in_progress")
+        Mgr.update_app("status", "select", active_transform_type, "in_progress")
 
     def __end_transform(self, cancel=False):
 
@@ -801,8 +765,7 @@ class TransformationManager(BaseObject):
         grid_origin = Mgr.get(("grid", "origin"))
 
         if axis_constraints == "screen":
-            normal = V3D(grid_origin.get_relative_vector(
-                self.cam, Vec3(0., 1., 0.)))
+            normal = V3D(grid_origin.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
             self._transf_axis = None
         elif len(axis_constraints) == 1:
             normal = None
@@ -811,16 +774,13 @@ class TransformationManager(BaseObject):
             self._transf_axis = axis
         else:
             normal = V3D()
-            normal["XYZ".index(
-                filter(lambda a: a not in axis_constraints, "XYZ"))] = 1.
+            normal["XYZ".index(filter(lambda a: a not in axis_constraints, "XYZ"))] = 1.
             self._transf_axis = None
 
         if normal is None:
 
-            cam_forward_vec = grid_origin.get_relative_vector(
-                self.cam, Vec3(0., 1., 0.))
-            normal = V3D(cam_forward_vec -
-                         cam_forward_vec.project(self._transf_axis))
+            cam_forward_vec = grid_origin.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+            normal = V3D(cam_forward_vec - cam_forward_vec.project(self._transf_axis))
 
             # If the plane normal is the null vector, the axis must be parallel to
             # the forward camera direction. In this case, a new normal can be chosen
@@ -834,13 +794,9 @@ class TransformationManager(BaseObject):
                 # vector will qualify as plane normal, e.g. a vector pointing in the
                 # positive X-direction; otherwise, the plane normal can be computed
                 # as perpendicular to the axis
-                if max(abs(x), abs(y)) < .0001:
-                    normal = V3D(1., 0., 0.)
-                else:
-                    normal = V3D(y, -x, 0.)
+                normal = V3D(1., 0., 0.) if max(abs(x), abs(y)) < .0001 else V3D(y, -x, 0.)
 
-        pos = grid_origin.get_relative_point(
-            self.world, self._transf_start_pos)
+        pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
         self._transf_plane = Plane(normal, pos)
         cam_pos = self.cam.get_pos(grid_origin)
 
@@ -886,8 +842,7 @@ class TransformationManager(BaseObject):
 
         if self._transf_plane.intersects_line(point, cam_pos, far_point):
 
-            pos = grid_origin.get_relative_point(
-                self.world, self._transf_start_pos)
+            pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
             translation_vec = point - pos
 
             if self._transf_axis is not None:
@@ -904,10 +859,8 @@ class TransformationManager(BaseObject):
 
         if axis_constraints == "screen":
 
-            normal = V3D(self.world.get_relative_vector(
-                self.cam, Vec3(0., 1., 0.)))
-            self._screen_axis_vec = grid_origin.get_relative_vector(
-                self.cam, Vec3(0., 1., 0.))
+            normal = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
+            self._screen_axis_vec = grid_origin.get_relative_vector(self.cam, Vec3(0., 1., 0.))
 
             if not self._screen_axis_vec.normalize():
                 return
@@ -921,10 +874,8 @@ class TransformationManager(BaseObject):
             axis1_vec[axis1_index] = 1.
             axis2_vec = V3D()
             axis2_vec[axis2_index] = 1.
-            axis1_vec = V3D(self.world.get_relative_vector(
-                grid_origin, axis1_vec))
-            axis2_vec = V3D(self.world.get_relative_vector(
-                grid_origin, axis2_vec))
+            axis1_vec = V3D(self.world.get_relative_vector(grid_origin, axis1_vec))
+            axis2_vec = V3D(self.world.get_relative_vector(grid_origin, axis2_vec))
             normal = axis1_vec ** axis2_vec
 
             if not normal.normalize():
@@ -1018,8 +969,7 @@ class TransformationManager(BaseObject):
         screen_pos = self.mouse_watcher.get_mouse()
         self._rot_start_vec = Mgr.get("trackball_data", screen_pos)[0]
 
-        Mgr.add_task(self.__freely_rotate_selection,
-                     "transform_selection", sort=3)
+        Mgr.add_task(self.__freely_rotate_selection,"transform_selection", sort=3)
 
     def __freely_rotate_selection(self, task):
 
@@ -1114,8 +1064,7 @@ class TransformationManager(BaseObject):
 
             if axis_constraints == "XYZ":
 
-                scaling = VBase3(
-                    scaling_factor, scaling_factor, scaling_factor)
+                scaling = VBase3(scaling_factor, scaling_factor, scaling_factor)
 
             else:
 
@@ -1208,11 +1157,11 @@ class TransformCenterManager(BaseObject):
         elif tc_type == "cs_origin":
             pos = Mgr.get(("grid", "origin")).get_pos()
         elif tc_type == "object":
-            pos = self._tc_obj.get_origin().get_pos(self.world)
+            pos = self._tc_obj.get_pivot().get_pos(self.world)
         else:  # tc_type == "local_origin"
             if Mgr.get_global("active_obj_level") == "top":
                 if self._tc_obj:
-                    pos = self._tc_obj.get_origin().get_pos(self.world)
+                    pos = self._tc_obj.get_pivot().get_pos(self.world)
                 else:
                     pos = Mgr.get("selection").get_center_pos()
             else:
@@ -1239,8 +1188,8 @@ class TransformCenterManager(BaseObject):
             self._tc_obj_picked = None
 
         self._item_is_under_mouse = None  # neither False nor True, to force an
-        # update of the cursor next time
-        # self.__update_cursor() is called
+                                          # update of the cursor next time
+                                          # self.__update_cursor() is called
         Mgr.remove_task("update_tc_picking_cursor")
         Mgr.set_cursor("main")
 

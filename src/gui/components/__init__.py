@@ -10,6 +10,7 @@ from ..panel import Panel, PanelStack
 from .viewport import Viewport
 from .transform import TransformToolbar
 from .material import MaterialPanel, MaterialToolbar
+from .hierarchy import HierarchyPanel
 from .props import PropertyPanel
 from .history import HistoryToolbar
 from .grid import GridToolbar
@@ -56,14 +57,12 @@ class Components(BaseObject):
                 bitmap_paths[part] = {}
 
                 for state in states:
-                    path = os.path.join(GFX_PATH, "%s_%s_%s.png" %
-                                        (prefix, part, state))
+                    path = os.path.join(GFX_PATH, "%s_%s_%s.png" % (prefix, part, state))
                     bitmap_paths[part][state] = path
 
                 if dupe_states:
                     for dupe_state, orig_state in dupe_states:
-                        bitmap_paths[part][dupe_state] = bitmap_paths[
-                            part][orig_state]
+                        bitmap_paths[part][dupe_state] = bitmap_paths[part][orig_state]
 
             return bitmap_paths
 
@@ -82,8 +81,7 @@ class Components(BaseObject):
         ComboBox.add_bitmap_paths("toolbar_button", paths)
 
         states = ("normal", "hilited", "pressed")
-        dupe_states = (("flat", "normal"), ("active", "pressed"),
-                       ("disabled", "normal"))
+        dupe_states = (("flat", "normal"), ("active", "pressed"), ("disabled", "normal"))
         paths = create_bitmap_paths("combobox_small", states, dupe_states)
         ComboBox.add_bitmap_paths("panel_button", paths)
 
@@ -113,9 +111,9 @@ class Components(BaseObject):
         x = 826 + rot_toolbars.get_spinner_width()
         toolbar = HistoryToolbar(frame, wx.Point(x, 0 + 24), w - x)
         components["history_toolbar"] = toolbar
-        panel_stack = PanelStack(frame, wx.Point(
-            806, 100 + 24), wx.Size(200, 506))
+        panel_stack = PanelStack(frame, wx.Point(806, 100 + 24), wx.Size(200, 506))
         components["panel_stack"] = panel_stack
+        components["hierarchy_panel"] = HierarchyPanel(panel_stack)
         components["prop_panel"] = PropertyPanel(panel_stack)
         components["material_panel"] = MaterialPanel(panel_stack)
         statusbar = StatusBar(frame, wx.Point(0, h - 24), w)
@@ -141,16 +139,18 @@ class Components(BaseObject):
 
         for file_op, accel, hotkey in zip(file_ops, accelerators, hotkeys):
             data = file_data[file_op]
-            menubar.add_menu_item("File", "%s\tCTRL+%s" % (
-                data["descr"], accel), data["handler"], hotkey)
+            menubar.add_menu_item("File", "%s\tCTRL+%s" % (data["descr"], accel),
+                                  data["handler"], hotkey)
 
-        file_op = "save_as"
-        data = file_data[file_op]
-        menubar.add_menu_item("File", data["descr"], data["handler"])
+        file_ops = ("save_as", "save_incr")
+
+        for file_op in file_ops:
+            data = file_data[file_op]
+            menubar.add_menu_item("File", data["descr"], data["handler"])
 
         menubar.add_menu_item_separator("File")
 
-        file_ops = ("export",)# "import")
+        file_ops = ("export", "import")
 
         for file_op in file_ops:
             data = file_data[file_op]
@@ -173,8 +173,8 @@ class Components(BaseObject):
 
         for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
             data = creation_data[obj_type]
-            menubar.add_menu_item("Create", "Create %s\tSHIFT+CTRL+%s" % (
-                data["name"], accel), data["handler"], hotkey)
+            menubar.add_menu_item("Create", "Create %s\tSHIFT+CTRL+%s" % (data["name"], accel),
+                                  data["handler"], hotkey)
 
         menubar.add_menu_item_separator("Create")
 
@@ -184,8 +184,8 @@ class Components(BaseObject):
 
         for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
             data = creation_data[obj_type]
-            menubar.add_menu_item("Create", "Create %s\tSHIFT+CTRL+%s" % (
-                data["name"], accel), data["handler"], hotkey)
+            menubar.add_menu_item("Create", "Create %s\tSHIFT+CTRL+%s" % (data["name"], accel),
+                                  data["handler"], hotkey)
 
         self._component_ids = ("menubar", "main_toolbar", "history_toolbar",
                                "panel_stack", "render_mode_toolbar", "grid_toolbar")
@@ -227,6 +227,7 @@ class Components(BaseObject):
 
         self._components["main_toolbar"].setup()
         self._creation_mgr.setup()
+        self._components["hierarchy_panel"].setup()
         self._components["prop_panel"].setup()
 
         def enter_selection_mode(prev_state_id, is_active):

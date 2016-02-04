@@ -1,5 +1,4 @@
 from .base import *
-from panda3d.egg import *
 
 
 class SceneManager(BaseObject):
@@ -64,8 +63,7 @@ class SceneManager(BaseObject):
 
         scene_file = Multifile()
         scene_file.open_read(Filename.from_os_specific(filename))
-        scene_data_str = scene_file.read_subfile(
-            scene_file.find_subfile("scene/data"))
+        scene_data_str = scene_file.read_subfile(scene_file.find_subfile("scene/data"))
         Mgr.do("load_history", scene_file)
         scene_file.close()
         scene_data = cPickle.loads(scene_data_str)
@@ -143,69 +141,70 @@ class SceneManager(BaseObject):
 
         Mgr.set_global("unsaved_scene", False)
 
+    def __prepare_for_export_to_bam(self, parent, children, tmp_node):
+
+        for child in children:
+
+            if child.get_type() == "model":
+
+                geom_data_obj = child.get_geom_object().get_geom_data_object()
+                origin = child.get_origin()
+                node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
+                node.set_name(child.get_name())
+                node.set_state(origin.get_state())
+                node.set_transform(origin.get_transform(parent))
+                node.node().copy_tags(origin.node())
+
+                tex_stages = node.find_all_texture_stages()
+
+                # require texture files to be in model directory
+                for tex_stage in tex_stages:
+                    texture = node.get_texture(tex_stage).make_copy()
+                    tex_basename = texture.get_filename().get_basename()
+                    texture.set_filename(tex_basename)
+                    texture.set_fullpath(tex_basename)
+                    node.set_texture(tex_stage, texture)
+
+                node.reparent_to(parent)
+
+            else:
+
+                node = parent.attach_new_node(child.get_name())
+                node.set_transform(child.get_pivot().get_transform(parent))
+                node.node().copy_tags(child.get_origin().node())
+
+            if child.get_children():
+                self.__prepare_for_export_to_bam(node, child.get_children(), tmp_node)
+
     def __export_to_bam(self, filename):
 
-        root = NodePath("p3ds_scene_root")
-        tmp_node = NodePath("tmp_node")
-        objs = [obj for obj in Mgr.get(
-            "selection", "top") if obj.get_type() == "model"]
-
-        for obj in objs:
-
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
-            origin = obj.get_origin()
-            geom_top = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
-            geom_top.set_name(obj.get_name())
-            geom_top.set_state(origin.get_state())
-            geom_top.set_transform(origin.get_transform())
-            geom_top.node().copy_tags(origin.node())
-            geom_top.wrt_reparent_to(root)
-
-            tex_stages = geom_top.find_all_texture_stages()
-
-            # make texture filenames relative
-            for tex_stage in tex_stages:
-                texture = geom_top.get_texture(tex_stage).make_copy()
-                rel_tex_filename = texture.get_filename().get_basename()
-                texture.set_filename(rel_tex_filename)
-                texture.set_fullpath(rel_tex_filename)
-                geom_top.set_texture(tex_stage, texture)
-
-        root.write_bam_file(Filename.from_os_specific(filename))
-        tmp_node.remove_node()
-        root.remove_node()
-
-    def __export_to_obj(self, filename):
-
-        objs = [obj for obj in Mgr.get(
-            "selection", "top") if obj.get_type() == "model"]
+        objs = set([obj.get_root() for obj in Mgr.get("selection", "top")])
 
         if not objs:
             return
 
         tmp_node = NodePath("tmp_node")
+        root = NodePath(ModelRoot(os.path.basename(filename)))
+        self.__prepare_for_export_to_bam(root, objs, tmp_node)
 
-        material_data = {}
-        flat_color_count = 0
+        root.write_bam_file(Filename.from_os_specific(filename))
+        root.remove_node()
+        tmp_node.remove_node()
 
-        with open(filename, "w") as obj_file:
+    def __prepare_for_export_to_obj(self, obj_file, children, tmp_node,
+                                    material_data, counters):
 
-            obj_file.write("# Created with Panda3D Studio\n\n")
-            fname = os.path.basename(filename)
-            mtllib_name = os.path.splitext(fname)[0]
-            default_material = None
-            obj_file.write("mtllib %s.mtl\n" % mtllib_name)
-            row_offset = 1
+        for child in children:
 
-            for obj in objs:
+            if child.get_type() == "model":
 
-                obj_file.write("\no %s\n\n" % obj.get_name())
+                obj_file.write("\no %s\n\n" % child.get_name())
 
-                origin = obj.get_origin()
-                geom_data_obj = obj.get_geom_object().get_geom_data_object()
-                geom_top = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
+                origin = child.get_origin()
+                geom_data_obj = child.get_geom_object().get_geom_data_object()
+                node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
 
-                material = obj.get_material()
+                material = child.get_material()
 
                 if material:
 
@@ -228,7 +227,7 @@ class SceneManager(BaseObject):
                         data["is_flat_color"] = False
                         base_material = material.get_base_material()
                         dif = base_material.get_diffuse() if base_material.has_diffuse() \
-                            else obj.get_color()
+                            else child.get_color()
                         data["diffuse"] = dif
                         alpha = material.get_base_properties()["alpha"]
 
@@ -247,14 +246,14 @@ class SceneManager(BaseObject):
 
                 else:
 
-                    color = obj.get_color()
+                    color = child.get_color()
 
                     if color in material_data:
                         material_name = material_data[color]["name"]
                         material_alias = material_data[color]["alias"]
                     else:
-                        flat_color_count += 1
-                        material_name = "Flat color %d" % flat_color_count
+                        counters["flat_color"] += 1
+                        material_name = "Flat color %d" % counters["flat_color"]
                         data = {}
                         material_data[color] = data
                         data["name"] = material_name
@@ -262,9 +261,9 @@ class SceneManager(BaseObject):
                         data["alias"] = material_alias
                         data["is_flat_color"] = True
 
-                vertex_data = geom_top.node().modify_geom(0).modify_vertex_data()
+                vertex_data = node.node().modify_geom(0).modify_vertex_data()
                 convert_mat = Mat4.convert_mat(CS_default, CS_yup_right)
-                mat = origin.get_mat() * convert_mat
+                mat = origin.get_net_transform().get_mat() * convert_mat
                 vertex_data.transform_vertices(mat)
                 pos_reader = GeomVertexReader(vertex_data, "vertex")
                 uv_reader = GeomVertexReader(vertex_data, "texcoord")
@@ -272,6 +271,7 @@ class SceneManager(BaseObject):
                 verts = geom_data_obj.get_subobjects("vert")
                 polys = geom_data_obj.get_subobjects("poly").itervalues()
                 row_count = vertex_data.get_num_rows()
+                row_offset = counters["row_offset"]
 
                 for i in xrange(row_count):
                     x, y, z = pos_reader.get_data3f()
@@ -292,7 +292,32 @@ class SceneManager(BaseObject):
                         indices = (i1, i1, i1, i2, i2, i2, i3, i3, i3)
                         obj_file.write("f %d/%d/%d %d/%d/%d %d/%d/%d\n" % indices)
 
-                row_offset += row_count
+                counters["row_offset"] += row_count
+
+            if child.get_children():
+                self.__prepare_for_export_to_obj(obj_file, child.get_children(),
+                                                 tmp_node, material_data, counters)
+
+    def __export_to_obj(self, filename):
+
+        objs = set([obj.get_root() for obj in Mgr.get("selection", "top")])
+
+        if not objs:
+            return
+
+        tmp_node = NodePath("tmp_node")
+
+        material_data = {}
+        counters = {"flat_color": 0, "row_offset": 1}
+
+        with open(filename, "w") as obj_file:
+
+            obj_file.write("# Created with Panda3D Studio\n\n")
+            fname = os.path.basename(filename)
+            mtllib_name = os.path.splitext(fname)[0]
+            obj_file.write("mtllib %s.mtl\n" % mtllib_name)
+            self.__prepare_for_export_to_obj(obj_file, objs, tmp_node,
+                                             material_data, counters)
 
         tmp_node.remove_node()
 
@@ -329,7 +354,8 @@ class SceneManager(BaseObject):
         elif ext == ".obj":
             self.__export_to_obj(filename)
 
-    def __import(self, filename):
+    def __import(self, filename, simple_edit=False):
+
         pass
 
 

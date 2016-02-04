@@ -58,16 +58,12 @@ class MainCamera(BaseObject):
         cm = CardMaker("zoom_indicator_part")
         cm.set_frame(-.0533333, .0533333, -.0533333, .0533333)
         cm.set_has_normals(False)
-        zoom_indicator_ring = self._zoom_indicator.attach_new_node(
-            cm.generate())
-        zoom_indicator_ring.set_texture(
-            Mgr.load_tex(GFX_PATH + "zoom_indic_ring.png"))
+        zoom_indicator_ring = self._zoom_indicator.attach_new_node(cm.generate())
+        zoom_indicator_ring.set_texture(Mgr.load_tex(GFX_PATH + "zoom_indic_ring.png"))
         zoom_indicator_ring.set_transparency(TransparencyAttrib.M_alpha)
         zoom_indicator_ring.set_alpha_scale(.5)
-        self._zoom_indicator_dot = self._zoom_indicator.attach_new_node(
-            cm.generate())
-        self._zoom_indicator_dot.set_texture(
-            Mgr.load_tex(GFX_PATH + "zoom_indic_dot.png"))
+        self._zoom_indicator_dot = self._zoom_indicator.attach_new_node(cm.generate())
+        self._zoom_indicator_dot.set_texture(Mgr.load_tex(GFX_PATH + "zoom_indic_dot.png"))
         self._zoom_indicator_dot.set_transparency(TransparencyAttrib.M_alpha)
         self._zoom_indicator_dot.set_alpha_scale(.5)
         self._zoom_indicator_dot.set_scale((1. / -self.cam.get_y()) ** .2)
@@ -354,7 +350,7 @@ class NavigationManager(BaseObject):
 
         if obj:
 
-            self._cam_target.set_pos(obj.get_origin().get_pos(self.world))
+            self._cam_target.set_pos(obj.get_pivot().get_pos(self.world))
             Mgr.do("update_transf_gizmo")
             Mgr.do("update_coord_sys")
 
@@ -452,8 +448,7 @@ class NavigationManager(BaseObject):
         d_heading, d_pitch = (orbit_pos - self._orbit_start_pos) * 100.
         self._orbit_start_pos = Point2(orbit_pos)
         target = self._cam_target
-        target.set_hpr(target.get_h() - d_heading,
-                       target.get_p() + d_pitch, 0.)
+        target.set_hpr(target.get_h() - d_heading, target.get_p() + d_pitch, 0.)
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 
@@ -466,8 +461,7 @@ class NavigationManager(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return
 
-        self._zoom_start_pos = (
-            self.cam.get_y(), self.mouse_watcher.get_mouse_y())
+        self._zoom_start_pos = (self.cam.get_y(), self.mouse_watcher.get_mouse_y())
         Mgr.add_task(self.__zoom, "transform_cam", sort=2)
 
     def __zoom(self, task):
@@ -507,8 +501,7 @@ class NavigationManager(BaseObject):
         if Mgr.get_global("shift_down"):
             self._dolly_accel = min(5., self._dolly_accel + .01)
 
-        self._cam_target.set_y(
-            self._cam_target, self._dolly_dir * self._dolly_accel)
+        self._cam_target.set_y(self._cam_target, self._dolly_dir * self._dolly_accel)
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 

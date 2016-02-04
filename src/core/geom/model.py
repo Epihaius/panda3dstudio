@@ -30,6 +30,7 @@ class Model(TopLevelObject):
         d["_geom_obj"] = None
         d["_material"] = None
         d["_color"] = VBase4(1., 1., 1., 1.)
+        d["_pivot"] = NodePath(self.get_pivot().get_name())
         d["_origin"] = NodePath(self.get_origin().get_name())
 
         return d
@@ -38,8 +39,10 @@ class Model(TopLevelObject):
 
         self.__dict__ = state
 
+        pivot = self.get_pivot()
+        pivot.reparent_to(Mgr.get("object_root"))
         origin = self.get_origin()
-        origin.reparent_to(Mgr.get("object_root"))
+        origin.reparent_to(pivot)
         self._bbox.get_origin().reparent_to(origin)
 
     def __init__(self, model_id, name, origin_pos):
@@ -57,7 +60,8 @@ class Model(TopLevelObject):
 
     def destroy(self, add_to_hist=True):
 
-        TopLevelObject.destroy(self, add_to_hist)
+        if not TopLevelObject.destroy(self, add_to_hist):
+            return
 
         self._geom_obj.destroy()
         self._geom_obj.set_model(None)
@@ -109,35 +113,29 @@ class Model(TopLevelObject):
 
     def restore_data(self, data_ids, restore_type, old_time_id, new_time_id):
 
-        TopLevelObject.restore_data(
-            self, data_ids, restore_type, old_time_id, new_time_id)
+        TopLevelObject.restore_data(self, data_ids, restore_type, old_time_id, new_time_id)
         obj_id = self.get_id()
 
         if "self" in data_ids:
 
-            geom_obj = Mgr.do("load_last_from_history",
-                              obj_id, "geom_obj", new_time_id)
-            self.__restore_geom_object(
-                geom_obj, restore_type, old_time_id, new_time_id)
+            geom_obj = Mgr.do("load_last_from_history", obj_id, "geom_obj", new_time_id)
+            self.__restore_geom_object(geom_obj, restore_type, old_time_id, new_time_id)
 
         else:
 
             if "geom_obj" in data_ids:
 
-                geom_obj = Mgr.do("load_last_from_history",
-                                  obj_id, "geom_obj", new_time_id)
+                geom_obj = Mgr.do("load_last_from_history", obj_id, "geom_obj", new_time_id)
                 self.replace_geom_object(geom_obj)
                 prop_ids = geom_obj.get_property_ids()
-                geom_obj.restore_data(
-                    prop_ids, restore_type, old_time_id, new_time_id)
+                geom_obj.restore_data(prop_ids, restore_type, old_time_id, new_time_id)
 
                 for prop_id in prop_ids:
                     if prop_id in data_ids:
                         data_ids.remove(prop_id)
 
             if data_ids:
-                self._geom_obj.restore_data(
-                    data_ids, restore_type, old_time_id, new_time_id)
+                self._geom_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)
 
     def set_property(self, prop_id, value, restore=""):
 
@@ -200,6 +198,15 @@ class Model(TopLevelObject):
 
         if self._geom_obj:
             self._geom_obj.get_geom_data_object().update_render_mode()
+
+    def display_link_effect(self):
+        """
+        Visually indicate that another object has been successfully reparented
+        to this model.
+
+        """
+
+        self._bbox.flash()
 
 
 MainObjects.add_class(ModelManager)

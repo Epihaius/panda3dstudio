@@ -13,13 +13,23 @@ class FileManager(object):
             "open": self.__load_scene,
             "save": self.__save_scene,
             "save_as": self.__save_scene_as,
+            "save_incr": self.__save_scene_incrementally,
             "export": self.__export_scene,
             "import": self.__import_scene,
         }
+        descriptions = {
+            "new": "New",
+            "open": "Open...",
+            "save": "Save",
+            "save_as": "Save As...",
+            "save_incr": "Save Incrementally",
+            "export": "Export...",
+            "import": "Import...",
+        }
 
-        for file_op in ("new", "open", "save", "save_as", "export", "import"):
-            descr = file_op.replace("_", " ").title()
-            self._data[file_op] = {"descr":descr, "handler":handlers[file_op]}
+        for file_op, handler in handlers.iteritems():
+            descr = descriptions[file_op]
+            self._data[file_op] = {"descr":descr, "handler":handler}
 
         Mgr.add_app_updater("unsaved_scene", self.__set_scene_as_unsaved)
 
@@ -73,6 +83,9 @@ class FileManager(object):
 
         if self._filename:
 
+            if not Mgr.get_global("unsaved_scene"):
+                return True
+
             Mgr.update_app("scene", "save", self._filename)
             Mgr.do("set_scene_label", self._filename)
 
@@ -85,8 +98,9 @@ class FileManager(object):
 
     def __save_scene_as(self):
 
+        default_filename = self._filename if self._filename else ""
         filename = wx.FileSelector("Save scene as",
-                                   "", "", "p3ds", "*.p3ds",
+                                   "", default_filename, "p3ds", "*.p3ds",
                                    wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
 
         if Mgr.get_global("ctrl_down"):
@@ -99,6 +113,48 @@ class FileManager(object):
             return True
 
         return False
+
+    def __get_incremented_filename(self, filename, namestring):
+
+        import re
+
+        min_index = 1
+        pattern = r"(.*?)(\s*)(\d*)$"
+        basename, space, index_str = re.search(pattern, filename).groups()
+        search_pattern = r"^%s\s*(\d+)$" % re.escape(basename)
+
+        if index_str:
+            min_index = int(index_str)
+            zero_padding = len(index_str) if index_str.startswith("0") else 0
+            naming_pattern = basename + space + "%0" + str(zero_padding) + "d"
+        else:
+            naming_pattern = basename + " %02d"
+
+        names = re.finditer(search_pattern, namestring, re.M)
+        inds = [int(name.group(1)) for name in names]
+        max_index = min_index + len(inds)
+
+        for i in xrange(min_index, max_index):
+            if i not in inds:
+                return naming_pattern % i
+
+        return naming_pattern % max_index
+
+    def __save_scene_incrementally(self):
+
+        if not self._filename:
+            return
+
+        dirname, tail = os.path.split(self._filename)
+        basename, ext = os.path.splitext(tail)
+        names = [os.path.splitext(name)[0] for name in os.listdir(dirname)
+                 if os.path.splitext(name)[1] == ext]
+        namestring = "\n".join(names)
+        filename = self.__get_incremented_filename(basename, namestring)
+        self._filename = os.path.join(dirname, filename + ext)
+
+        Mgr.update_app("scene", "save", self._filename)
+        Mgr.do("set_scene_label", self._filename)
 
     def __set_scene_as_unsaved(self):
 
@@ -123,7 +179,7 @@ class FileManager(object):
 
     def __import_scene(self):
 
-        wildcard = "Panda3D files (*.bam)|*.bam|Wavefront files (*.obj)|*.obj"
+        wildcard = "Panda3D files (*.bam)|*.bam"
         filename = wx.FileSelector("Import scene", "", "", "bam", wildcard,
                                    wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
 

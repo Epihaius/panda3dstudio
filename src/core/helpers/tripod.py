@@ -57,8 +57,7 @@ class TripodManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager)
         prop_defaults = self.get_property_defaults()
         tripod.set_size(prop_defaults["size"])
         tripod.set_label_size(prop_defaults["label_size"])
-        Mgr.update_remotely("next_obj_name", Mgr.get(
-            "next_obj_name", obj_type))
+        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(tripod)
 
@@ -97,8 +96,7 @@ class TripodManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager)
         far_point = self.world.get_relative_point(self.cam, far_point_local)
         cam_pos = self.cam.get_pos(self.world)
         intersection_point = Point3()
-        self._draw_plane.intersects_line(
-            intersection_point, cam_pos, far_point)
+        self._draw_plane.intersects_line(intersection_point, cam_pos, far_point)
         grid_origin = Mgr.get(("grid", "origin"))
         pos = self.world.get_relative_point(grid_origin, self.get_origin_pos())
         size = max(.001, (intersection_point - pos).length())
@@ -130,10 +128,8 @@ class TripodHelperAxis(BaseObject):
         origin = self._tripod.get_origin()
         vec_coords = [0., 0., 0.]
         vec_coords["XYZ".index(self._axis)] = 1.
-        axis_vec = V3D(self.world.get_relative_vector(
-            origin, Vec3(*vec_coords)))
-        cam_vec = V3D(self.world.get_relative_vector(
-            self.cam, Vec3(0., 1., 0.)))
+        axis_vec = V3D(self.world.get_relative_vector(origin, Vec3(*vec_coords)))
+        cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
         cross_vec = axis_vec ** cam_vec
 
         point1 = origin.get_pos(self.world)
@@ -160,12 +156,10 @@ class TripodHelperAxis(BaseObject):
 
 class TripodHelper(TopLevelObject):
 
-    # TODO: feature: allow user to set the transform of the tripod to the camera,
-    # and vice-versa.
-
     def __getstate__(self):
 
         d = self.__dict__.copy()
+        d["_pivot"] = NodePath(self.get_pivot().get_name())
         d["_origin"] = NodePath(self.get_origin().get_name())
         d["_axis_root"] = NodePath("tripod_helper")
         d["_axis_label_root"] = NodePath("axis_label_root")
@@ -177,8 +171,10 @@ class TripodHelper(TopLevelObject):
 
         self.__dict__ = state
 
+        pivot = self.get_pivot()
+        pivot.reparent_to(Mgr.get("object_root"))
         origin = self.get_origin()
-        origin.reparent_to(Mgr.get("object_root"))
+        origin.reparent_to(pivot)
         origin.set_light_off()
         axis_root = self._axis_root
         axis_root.reparent_to(origin)
@@ -240,8 +236,7 @@ class TripodHelper(TopLevelObject):
         self._axis_nps = {}
         self._axis_objs = {}
         self._axis_labels = {}
-        self._axis_label_root = self._axis_root.attach_new_node(
-            "axis_label_root")
+        self._axis_label_root = self._axis_root.attach_new_node("axis_label_root")
 
         for axis in "XYZ":
             axis_obj = Mgr.do("create_tripod_helper_axis", self, axis)
@@ -286,8 +281,7 @@ class TripodHelper(TopLevelObject):
     def __create_geom(self):
 
         vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "tripod_helper_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("tripod_helper_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
@@ -358,8 +352,7 @@ class TripodHelper(TopLevelObject):
             tripod_node = GeomNode("tripod_helper_axis")
             tripod_node.add_geom(tripod_geom)
             self._axis_nps[axis] = self._axis_root.attach_new_node(tripod_node)
-            self._axis_nps[axis].set_color(
-                self._axis_colors["deselected"][axis])
+            self._axis_nps[axis].set_color(self._axis_colors["deselected"][axis])
 
     def __create_axis_label(self, points):
 
@@ -499,8 +492,7 @@ class TripodHelper(TopLevelObject):
 
         for axis in "XYZ":
             self._axis_nps[axis].set_color(self._axis_colors[key][axis])
-            self._axis_labels[axis].set_color(
-                self._axis_label_colors[key][axis])
+            self._axis_labels[axis].set_color(self._axis_label_colors[key][axis])
 
     def is_valid(self):
 
