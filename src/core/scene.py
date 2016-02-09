@@ -22,7 +22,7 @@ class SceneManager(BaseObject):
         Mgr.enter_state("selection_mode")
 
         for obj in Mgr.get("objects"):
-            obj.destroy()
+            obj.destroy(add_to_hist=False)
 
         Mgr.do("reset_history")
         PendingTasks.remove("update_selection", "ui")
@@ -37,6 +37,10 @@ class SceneManager(BaseObject):
         if Mgr.get_global("render_mode") != "shaded":
             Mgr.set_global("render_mode", "shaded")
             Mgr.update_app("render_mode")
+
+        if Mgr.get_global("object_links_shown"):
+            Mgr.set_global("object_links_shown", False)
+            Mgr.update_app("object_link_viz", False)
 
         Mgr.do("update_picking_col_id_ranges")
         Mgr.do("reset_cam_transform")

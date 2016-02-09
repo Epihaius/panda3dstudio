@@ -233,6 +233,9 @@ class SelectionTransformBase(BaseObject):
             for obj in self._objs:
                 obj.get_pivot().wrt_reparent_to(self._pivot)
 
+        for obj in self._objs:
+            Mgr.do("update_obj_transf_info", obj.get_id(), ["translate"])
+
     def translate(self, translation_vec):
 
         grid_origin = Mgr.get(("grid", "origin"))
@@ -277,6 +280,9 @@ class SelectionTransformBase(BaseObject):
             pos += self.world.get_relative_vector(grid_origin, translation_vec)
 
         Mgr.do("set_transf_gizmo_pos", pos)
+
+        if Mgr.get_global("object_links_shown"):
+            Mgr.do("update_obj_link_viz")
 
     def init_rotation(self):
 
@@ -330,6 +336,9 @@ class SelectionTransformBase(BaseObject):
             for obj in self._objs:
                 obj.get_pivot().wrt_reparent_to(self._pivot)
 
+        for obj in self._objs:
+            Mgr.do("update_obj_transf_info", obj.get_id(), ["rotate"])
+
     def rotate(self, rotation):
 
         grid_origin = Mgr.get(("grid", "origin"))
@@ -381,6 +390,9 @@ class SelectionTransformBase(BaseObject):
 
             quat = self._pivot_start * rotation
             self._pivot.set_quat(grid_origin, quat)
+
+        if Mgr.get_global("object_links_shown"):
+            Mgr.do("update_obj_link_viz")
 
     def init_scaling(self):
 
@@ -436,6 +448,9 @@ class SelectionTransformBase(BaseObject):
             for obj in self._objs:
                 obj.get_pivot().wrt_reparent_to(self._pivot)
 
+        for obj in self._objs:
+            Mgr.do("update_obj_transf_info", obj.get_id(), ["scale"])
+
     def scale(self, scaling):
 
         scal_mat = Mat4.scale_mat(scaling)
@@ -487,6 +502,9 @@ class SelectionTransformBase(BaseObject):
         else:
 
             self._pivot.set_scale(scaling)
+
+        if Mgr.get_global("object_links_shown"):
+            Mgr.do("update_obj_link_viz")
 
     def finalize_transform(self, cancelled=False):
 
@@ -565,6 +583,9 @@ class SelectionTransformBase(BaseObject):
 
         if not cancelled:
             self.__add_history(transf_type)
+
+        Mgr.do("update_obj_link_viz")
+        Mgr.do("reset_obj_transf_info")
 
     def __add_history(self, transf_type):
 
@@ -677,6 +698,8 @@ class TransformationManager(BaseObject):
             Mgr.set_global("axis_constraints_%s" % transf_type, axes)
             Mgr.set_global("using_rel_%s_values" % transf_type, False)
 
+        self._obj_transf_info = {}
+
         self._selection = None
         self._transf_start_pos = Point3()
 
@@ -687,10 +710,20 @@ class TransformationManager(BaseObject):
         self._rot_start_vec = V3D()
         self._screen_axis_vec = V3D()
 
+        Mgr.expose("obj_transf_info", lambda: self._obj_transf_info)
+        Mgr.accept("update_obj_transf_info", self.__update_obj_transf_info)
+        Mgr.accept("reset_obj_transf_info", self.__reset_obj_transf_info)
         Mgr.accept("init_transform", self.__init_transform)
         Mgr.add_app_updater("transf_component", self.__set_transform_component)
 
     def setup(self):
+
+        sort = PendingTasks.get_sort("object_removal", "object")
+
+        if sort is None:
+            return False
+
+        PendingTasks.add_task_id("obj_transf_info_reset", "object", sort + 1)
 
         add_state = Mgr.add_state
         add_state("transforming", -1)
@@ -706,6 +739,27 @@ class TransformationManager(BaseObject):
         bind("transforming", "finalize transform", "mouse1-up", end_transform)
 
         return True
+
+    def __update_obj_transf_info(self, obj_id, transform_types=None):
+
+        obj_transf_info = self._obj_transf_info
+
+        if transform_types is None:
+            if obj_id in obj_transf_info:
+                del obj_transf_info[obj_id]
+            return
+
+        obj_transf_info.setdefault(obj_id, set()).update(transform_types)
+
+    def __reset_obj_transf_info(self):
+
+        def reset():
+
+            self._obj_transf_info = {}
+
+        task = reset
+        task_id = "obj_transf_info_reset"
+        PendingTasks.add(task, task_id, "object")
 
     def __set_transform_component(self, transf_type, axis, value, is_rel_value):
 
@@ -1090,7 +1144,6 @@ class TransformCenterManager(BaseObject):
         Mgr.set_global("transf_center_type", "sel_center")
 
         self._pixel_under_mouse = VBase4()
-        self._item_is_under_mouse = None
         Mgr.expose("transf_center_obj", lambda: self._tc_obj)
         Mgr.expose("transf_center_pos", self.__get_transform_center_pos)
         Mgr.add_app_updater("transf_center", self.__set_transform_center)
@@ -1187,9 +1240,9 @@ class TransformCenterManager(BaseObject):
 
             self._tc_obj_picked = None
 
-        self._item_is_under_mouse = None  # neither False nor True, to force an
-                                          # update of the cursor next time
-                                          # self.__update_cursor() is called
+        self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                           # next time self.__update_cursor()
+                                           # is called
         Mgr.remove_task("update_tc_picking_cursor")
         Mgr.set_cursor("main")
 
@@ -1204,12 +1257,11 @@ class TransformCenterManager(BaseObject):
 
     def __update_cursor(self, task):
 
-        self._pixel_under_mouse = Mgr.get("pixel_under_mouse")
-        item_is_under_mouse = self._pixel_under_mouse != VBase4()
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
 
-        if item_is_under_mouse != self._item_is_under_mouse:
-            self._item_is_under_mouse = item_is_under_mouse
-            Mgr.set_cursor("select" if item_is_under_mouse else "main")
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
 

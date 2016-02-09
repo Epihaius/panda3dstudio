@@ -51,9 +51,7 @@ class TopLevelObject(BaseObject):
             if obj_data:
                 Mgr.do("add_history", "", event_data, update_time_id=False)
 
-        if self._parent:
-            self._parent.remove_child(self)
-            self._parent = None
+        self.set_parent(add_to_hist=False)
 
         if self._material:
             self._material.remove(self)
@@ -89,6 +87,7 @@ class TopLevelObject(BaseObject):
             Mgr.update_app("transf_center", "sel_center")
 
         Mgr.update_app("object_removal", self._id, add_to_hist)
+        Mgr.do("update_obj_transf_info", self._id)
 
     def recreate(self):
         """
@@ -145,6 +144,11 @@ class TopLevelObject(BaseObject):
                 parent.add_child(self)
             else:
                 self._pivot.reparent_to(Mgr.get("object_root"))
+
+        if parent:
+            Mgr.do("add_obj_link_viz", self, parent)
+        elif self._parent:
+            Mgr.do("remove_obj_link_viz", self._id)
 
         if self._parent:
             self._parent.remove_child(self)
@@ -450,16 +454,22 @@ class TopLevelObject(BaseObject):
 
         elif prop_id == "transform":
 
-            self._pivot.set_mat(value)
+            pivot = self._pivot
+            pivot.set_mat(value)
             task = lambda: Mgr.get("selection").update()
             PendingTasks.add(task, "update_selection", "ui")
+
+            transform_types = ["translate", "rotate", "scale"]
+            Mgr.do("update_obj_transf_info", self._id, transform_types)
+            Mgr.do("update_obj_link_viz")
+            Mgr.do("reset_obj_transf_info")
 
             if Mgr.get("coord_sys_obj") is self:
                 Mgr.do("notify_coord_sys_transformed")
                 Mgr.do("update_coord_sys")
 
             if Mgr.get("transf_center_obj") is self:
-                Mgr.do("set_transf_gizmo_pos", self._pivot.get_pos(self.world))
+                Mgr.do("set_transf_gizmo_pos", pivot.get_pos(self.world))
 
         elif prop_id == "tags":
 

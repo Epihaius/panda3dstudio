@@ -30,12 +30,19 @@ class Core(ShowBase):
         size, handle, callback = viewport_data
         self.__create_window(size, handle)
 
+        def handle_pending_tasks(task):
+
+            PendingTasks.handle()
+
+            return task.cont
+
         def handle_event_loop(task):
 
             eventloop_handler()
 
             return task.cont
 
+        self.task_mgr.add(handle_pending_tasks, "handle_pending_tasks", sort=49)
         self.task_mgr.add(handle_event_loop, "process_event_loop", sort=55)
 
         def handle_window_event(*args):
