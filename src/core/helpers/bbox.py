@@ -215,8 +215,8 @@ class BoundingBox(BaseObject):
 
         def do_flash(task):
 
-            state = data["state"][0 if hidden else 1]
-            orig.show() if state == "shown" else orig.hide()
+            state = data["state"][1 if hidden else 0]
+            orig.show() if state == "hidden" else orig.hide()
             data["state"].reverse()
             data["flash_count"] += 1
 

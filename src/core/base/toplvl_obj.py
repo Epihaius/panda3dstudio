@@ -6,7 +6,8 @@ class TopLevelObject(BaseObject):
 
     def __init__(self, obj_type, obj_id, name, origin_pos, has_color=True):
 
-        self._prop_ids = ["name", "parent", "selection_state", "transform", "tags"]
+        self._prop_ids = ["name", "parent", "selection_state", "tags",
+                          "transform", "origin_transform"]
 
         if has_color:
             self._prop_ids += ["color", "material"]
@@ -34,6 +35,8 @@ class TopLevelObject(BaseObject):
         else:
             pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., 0., 0.))
 
+        self._pivot_gizmo = Mgr.do("create_pivot_gizmo", self)
+
     def destroy(self, add_to_hist=True):
 
         if not self._origin:
@@ -57,6 +60,8 @@ class TopLevelObject(BaseObject):
             self._material.remove(self)
 
         self.set_name("")
+        self._pivot_gizmo.destroy()
+        self._pivot_gizmo = None
         self._origin.remove_node()
         self._origin = None
         self._pivot.remove_node()
@@ -106,6 +111,7 @@ class TopLevelObject(BaseObject):
     def register(self):
 
         Mgr.do("register_%s" % self._type, self)
+        self._pivot_gizmo.register()
 
     def display_link_effect(self):
         """
@@ -128,9 +134,14 @@ class TopLevelObject(BaseObject):
                 return False
 
             if parent:
-                self._pivot.wrt_reparent_to(parent.get_pivot())
+
+                if Mgr.get_global("transform_target_type") == "all":
+                    self._pivot.wrt_reparent_to(parent.get_pivot())
+
                 parent.add_child(self)
+
             else:
+
                 self._pivot.wrt_reparent_to(Mgr.get("object_root"))
 
         else:
@@ -140,9 +151,16 @@ class TopLevelObject(BaseObject):
                     parent.set_parent(add_to_hist=False)
 
             if parent:
-                self._pivot.reparent_to(parent.get_pivot())
+
                 parent.add_child(self)
+
+                if Mgr.get_global("transform_target_type") == "all":
+                    self._pivot.reparent_to(parent.get_pivot())
+                else:
+                    self._pivot.reparent_to(Mgr.get("object_root"))
+
             else:
+
                 self._pivot.reparent_to(Mgr.get("object_root"))
 
         if parent:
@@ -194,6 +212,17 @@ class TopLevelObject(BaseObject):
             parent = node.get_parent()
 
         return node
+
+    def get_ancestors(self):
+
+        ancestors = []
+        ancestor = self._parent
+
+        while ancestor:
+            ancestors.append(ancestor)
+            ancestor = ancestor.get_parent()
+
+        return ancestors
 
     def add_child(self, child):
 
@@ -265,6 +294,10 @@ class TopLevelObject(BaseObject):
     def get_origin(self):
 
         return self._origin
+
+    def get_pivot_gizmo(self):
+
+        return self._pivot_gizmo
 
     def set_color(self, color, update_app=True):
 
@@ -378,6 +411,15 @@ class TopLevelObject(BaseObject):
 
         return self in Mgr.get("selection", "top")
 
+    def update_selection_state(self, is_selected=True):
+        """
+        Visually indicate that this object has been (de)selected.
+
+        """
+
+        if self._pivot_gizmo:
+            self._pivot_gizmo.update_selection_state(is_selected)
+
     def get_transform_values(self):
 
         transform = {}
@@ -454,8 +496,9 @@ class TopLevelObject(BaseObject):
 
         elif prop_id == "transform":
 
-            pivot = self._pivot
-            pivot.set_mat(value)
+            task = lambda: self._pivot.set_mat(self.get_parent_pivot(), value)
+            Mgr.do("add_transf_to_restore", "pivot", self, task)
+            Mgr.do("restore_transforms")
             task = lambda: Mgr.get("selection").update()
             PendingTasks.add(task, "update_selection", "ui")
 
@@ -465,11 +508,25 @@ class TopLevelObject(BaseObject):
             Mgr.do("reset_obj_transf_info")
 
             if Mgr.get("coord_sys_obj") is self:
-                Mgr.do("notify_coord_sys_transformed")
-                Mgr.do("update_coord_sys")
+
+                def update_coord_sys():
+
+                    Mgr.do("notify_coord_sys_transformed")
+                    Mgr.do("update_coord_sys")
+
+                task_id = "coord_sys_update"
+                PendingTasks.add(update_coord_sys, task_id, "ui")
 
             if Mgr.get("transf_center_obj") is self:
-                Mgr.do("set_transf_gizmo_pos", pivot.get_pos(self.world))
+                task = lambda: Mgr.do("set_transf_gizmo_pos", self._pivot.get_pos(self.world))
+                task_id = "transf_center_update"
+                PendingTasks.add(task, task_id, "ui")
+
+        elif prop_id == "origin_transform":
+
+            task = lambda: self._origin.set_mat(self._pivot, value)
+            Mgr.do("add_transf_to_restore", "origin", self, task)
+            Mgr.do("restore_transforms")
 
         elif prop_id == "tags":
 
@@ -488,7 +545,9 @@ class TopLevelObject(BaseObject):
         elif prop_id == "selection_state":
             return self.is_selected()
         elif prop_id == "transform":
-            return self._pivot.get_mat()
+            return self._pivot.get_mat(self.get_parent_pivot())
+        elif prop_id == "origin_transform":
+            return self._origin.get_mat(self._pivot)
         elif prop_id == "tags":
             return self.get_tags()
 

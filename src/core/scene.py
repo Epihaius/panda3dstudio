@@ -42,6 +42,10 @@ class SceneManager(BaseObject):
             Mgr.set_global("object_links_shown", False)
             Mgr.update_app("object_link_viz", False)
 
+        if Mgr.get_global("transform_target_type") != "all":
+            Mgr.set_global("transform_target_type", "all")
+            Mgr.update_app("transform_target_type")
+
         Mgr.do("update_picking_col_id_ranges")
         Mgr.do("reset_cam_transform")
         Mgr.do("update_world_axes")
@@ -153,10 +157,14 @@ class SceneManager(BaseObject):
 
                 geom_data_obj = child.get_geom_object().get_geom_data_object()
                 origin = child.get_origin()
+                pivot = child.get_pivot()
                 node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
                 node.set_name(child.get_name())
                 node.set_state(origin.get_state())
-                node.set_transform(origin.get_transform(parent))
+                mat = origin.get_mat(pivot)
+                vertex_data = node.node().modify_geom(0).modify_vertex_data()
+                vertex_data.transform_vertices(mat)
+                node.set_transform(pivot.get_transform(parent))
                 node.node().copy_tags(origin.node())
 
                 tex_stages = node.find_all_texture_stages()

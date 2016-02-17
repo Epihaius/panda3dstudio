@@ -382,8 +382,8 @@ class SelectionTransformBase(BaseObject):
                     pivot = obj.get_pivot()
                     mat = rotation * start_mat
                     pivot.set_mat(grid_origin, mat)
-                    vec = self.world.get_relative_vector(
-                        grid_origin, start_mat.xform_vec(rotation.xform(start_vec)))
+                    vec = self.world.get_relative_vector(grid_origin,
+                        start_mat.xform_vec(rotation.xform(start_vec)))
                     pivot.set_pos(tc_pos + vec)
 
         else:
@@ -562,8 +562,12 @@ class SelectionTransformBase(BaseObject):
             self._center.set_hpr_scale(0., 0., 0., 1., 1., 1.)
             self._center.set_shear(0., 0., 0.)
 
-            for obj in self._objs:
-                obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
+            if Mgr.get_global("transform_target_type") in ("all", "links"):
+                for obj in self._objs:
+                    obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
+            else:
+                for obj in self._objs:
+                    obj.get_pivot().wrt_reparent_to(self._obj_root)
 
             self._pivot.clear_transform()
 
@@ -597,20 +601,54 @@ class SelectionTransformBase(BaseObject):
 
             sel = self._objs
             obj_count = len(sel)
+            xform_target_type = Mgr.get_global("transform_target_type")
 
             if obj_count > 1:
 
-                event_descr = '%s %d objects:\n' % (transf_type.title(), obj_count)
+                if xform_target_type == "all":
+                    event_descr = '%s %d objects:\n' % (transf_type.title(), obj_count)
+                elif xform_target_type == "pivot":
+                    event_descr = "%s %d objects' pivots:\n" % (transf_type.title(), obj_count)
+                elif xform_target_type == "links":
+                    event_descr = "%s %d objects' hierarchy links:\n" % (transf_type.title(), obj_count)
+                elif xform_target_type == "no_children":
+                    event_descr = '%s %d objects without children:\n' % (transf_type.title(), obj_count)
 
                 for obj in sel:
                     event_descr += '\n    "%s"' % obj.get_name()
 
             else:
 
-                event_descr = '%s "%s"' % (transf_type.title(), sel[0].get_name())
+                if xform_target_type == "all":
+                    event_descr = '%s "%s"' % (transf_type.title(), sel[0].get_name())
+                elif xform_target_type == "pivot":
+                    event_descr = '%s "%s" pivot' % (transf_type.title(), sel[0].get_name())
+                elif xform_target_type == "links":
+                    event_descr = '%s "%s" hierarchy links' % (transf_type.title(), sel[0].get_name())
+                elif xform_target_type == "no_children":
+                    event_descr = '%s "%s" without children' % (transf_type.title(), sel[0].get_name())
 
-            for obj in sel:
-                obj_data[obj.get_id()] = {"transform": {"main": obj.get_pivot().get_mat()}}
+            if xform_target_type == "all":
+
+                for obj in sel:
+                    obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "transform")
+
+            else:
+
+                objs = set(sel)
+
+                for obj in sel:
+                    objs.update(obj.get_descendants() if xform_target_type == "links"
+                                else obj.get_children())
+
+                for obj in objs:
+                    obj_data[obj.get_id()] = data = {}
+                    data.update(obj.get_data_to_store("prop_change", "transform"))
+
+                if xform_target_type != "links":
+                    for obj in sel:
+                        data = obj_data[obj.get_id()]
+                        data.update(obj.get_data_to_store("prop_change", "origin_transform"))
 
         else:
 
@@ -629,7 +667,6 @@ class SelectionTransformBase(BaseObject):
                 obj_data[obj.get_id()] = geom_data_obj.get_data_to_store(
                     "prop_change", "subobj_transform")
 
-        # make undo/redoable
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
     def cancel_transform(self):
@@ -699,6 +736,10 @@ class TransformationManager(BaseObject):
             Mgr.set_global("using_rel_%s_values" % transf_type, False)
 
         self._obj_transf_info = {}
+        self._transforms_to_restore = {"pivot": {}, "origin": {}}
+
+        self._tmp_pivot_mats = {}
+        self._tmp_ref_root = None
 
         self._selection = None
         self._transf_start_pos = Point3()
@@ -711,6 +752,8 @@ class TransformationManager(BaseObject):
         self._screen_axis_vec = V3D()
 
         Mgr.expose("obj_transf_info", lambda: self._obj_transf_info)
+        Mgr.accept("add_transf_to_restore", self.__add_transform_to_restore)
+        Mgr.accept("restore_transforms", self.__restore_transforms)
         Mgr.accept("update_obj_transf_info", self.__update_obj_transf_info)
         Mgr.accept("reset_obj_transf_info", self.__reset_obj_transf_info)
         Mgr.accept("init_transform", self.__init_transform)
@@ -723,7 +766,9 @@ class TransformationManager(BaseObject):
         if sort is None:
             return False
 
-        PendingTasks.add_task_id("obj_transf_info_reset", "object", sort + 1)
+        PendingTasks.add_task_id("pivot_transform", "object", sort + 1)
+        PendingTasks.add_task_id("origin_transform", "object", sort + 2)
+        PendingTasks.add_task_id("obj_transf_info_reset", "object", sort + 3)
 
         add_state = Mgr.add_state
         add_state("transforming", -1)
@@ -739,6 +784,64 @@ class TransformationManager(BaseObject):
         bind("transforming", "finalize transform", "mouse1-up", end_transform)
 
         return True
+
+    def __add_transform_to_restore(self, transf_target, obj, restore_task):
+
+        self._transforms_to_restore[transf_target][obj] = restore_task
+
+    def __restore_transforms(self):
+
+        def restore():
+
+            transforms_to_restore = self._transforms_to_restore["pivot"]
+            objs_to_process = transforms_to_restore.keys()
+
+            while objs_to_process:
+
+                for obj in objs_to_process[:]:
+
+                    other_objs = objs_to_process[:]
+                    other_objs.remove(obj)
+                    ancestor_found = False
+
+                    for other_obj in other_objs:
+                        if other_obj in obj.get_ancestors():
+                            ancestor_found = True
+                            break
+
+                    if not ancestor_found:
+                        transforms_to_restore[obj]()
+                        objs_to_process.remove(obj)
+
+            transforms_to_restore.clear()
+
+        PendingTasks.add(restore, "pivot_transform", "object")
+
+        def restore():
+
+            transforms_to_restore = self._transforms_to_restore["origin"]
+            objs_to_process = transforms_to_restore.keys()
+
+            while objs_to_process:
+
+                for obj in objs_to_process[:]:
+
+                    other_objs = objs_to_process[:]
+                    other_objs.remove(obj)
+                    ancestor_found = False
+
+                    for other_obj in other_objs:
+                        if other_obj in obj.get_ancestors():
+                            ancestor_found = True
+                            break
+
+                    if not ancestor_found:
+                        transforms_to_restore[obj]()
+                        objs_to_process.remove(obj)
+
+            transforms_to_restore.clear()
+
+        PendingTasks.add(restore, "origin_transform", "object")
 
     def __update_obj_transf_info(self, obj_id, transform_types=None):
 
@@ -769,14 +872,37 @@ class TransformationManager(BaseObject):
     def __init_transform(self, transf_start_pos):
 
         active_transform_type = Mgr.get_global("active_transform_type")
+        xform_target_type = Mgr.get_global("transform_target_type")
 
         if not active_transform_type:
+            return
+
+        if xform_target_type == "pivot" and active_transform_type == "scale":
             return
 
         Mgr.enter_state("transforming")
 
         self._selection = Mgr.get("selection")
         self._transf_start_pos = transf_start_pos
+
+        if xform_target_type == "links":
+
+            obj_root = Mgr.get("object_root")
+            self._tmp_ref_root = ref_root = obj_root.attach_new_node("tmp_ref_nodes")
+            objs = set(self._selection)
+
+            for obj in self._selection:
+                objs.update(obj.get_descendants())
+
+            for obj in objs:
+                pivot = obj.get_pivot()
+                origin = obj.get_origin()
+                ref_node = ref_root.attach_new_node("ref_node")
+                ref_node.set_mat(pivot.get_mat(obj_root))
+                self._tmp_pivot_mats[obj] = Mat4(pivot.get_mat(obj_root))
+                compass_effect = CompassEffect.make(ref_node,
+                    CompassEffect.P_rot | CompassEffect.P_scale)
+                origin.set_effect(compass_effect)
 
         if active_transform_type == "translate":
             self.__init_translation()
@@ -801,10 +927,58 @@ class TransformationManager(BaseObject):
             Mgr.do("set_gizmo_scale", 1., 1., 1.)
             Mgr.do("hide_scale_indicator")
 
+        xform_target_type = Mgr.get_global("transform_target_type")
+
+        if xform_target_type == "links":
+
+            obj_root = Mgr.get("object_root")
+            tmp_pivot_mats = self._tmp_pivot_mats
+            positions = {}
+
+            for obj in tmp_pivot_mats:
+                origin = obj.get_origin()
+                origin.clear_effect(CompassEffect.get_class_type())
+                pivot = obj.get_pivot()
+                positions[obj] = pivot.get_pos(obj_root)
+
+            if not cancel:
+
+                objs_to_process = tmp_pivot_mats.keys()
+
+                while objs_to_process:
+
+                    for obj in objs_to_process[:]:
+
+                        other_objs = objs_to_process[:]
+                        other_objs.remove(obj)
+                        ancestor_found = False
+
+                        for other_obj in other_objs:
+                            if other_obj in obj.get_ancestors():
+                                ancestor_found = True
+                                break
+
+                        if not ancestor_found:
+                            pivot = obj.get_pivot()
+                            pivot.set_mat(obj_root, tmp_pivot_mats[obj])
+                            pivot.set_pos(obj_root, positions[obj])
+                            objs_to_process.remove(obj)
+
+            positions.clear()
+
         if cancel:
             self._selection.cancel_transform()
         else:
             self._selection.finalize_transform()
+
+        if xform_target_type == "links":
+
+            if not cancel:
+                Mgr.do("update_obj_link_viz", [obj.get_id() for obj in tmp_pivot_mats])
+
+            tmp_pivot_mats.clear()
+            self._tmp_ref_root.remove_node()
+            self._tmp_ref_root = None
 
         if active_transform_type == "rotate" \
                 and Mgr.get_global("axis_constraints_rotate") == "trackball":
@@ -1150,6 +1324,13 @@ class TransformCenterManager(BaseObject):
 
     def setup(self):
 
+        sort = PendingTasks.get_sort("coord_sys_update", "ui")
+
+        if sort is None:
+            return False
+
+        PendingTasks.add_task_id("transf_center_update", "ui", sort + 1)
+
         add_state = Mgr.add_state
         add_state("transf_center_picking_mode", -80,
                   self.__enter_picking_mode, self.__exit_picking_mode)
@@ -1223,6 +1404,10 @@ class TransformCenterManager(BaseObject):
         return pos
 
     def __enter_picking_mode(self, prev_state_id, is_active):
+
+        if Mgr.get_global("active_obj_level") != "top":
+            Mgr.set_global("active_obj_level", "top")
+            Mgr.update_app("active_obj_level")
 
         Mgr.add_task(self.__update_cursor, "update_tc_picking_cursor")
         Mgr.update_app("status", "pick_transf_center")

@@ -73,8 +73,7 @@ class BaseObject(object):
         if self._verbose and data_id not in self._data_retrievers:
             print 'Core warning: data "%s" is not defined.' % data_id
 
-        retriever = self._data_retrievers.get(
-            data_id, self._defaults["data_retriever"])
+        retriever = self._data_retrievers.get(data_id, self._defaults["data_retriever"])
 
         return retriever(*args, **kwargs)
 
@@ -114,8 +113,7 @@ class MainObjects(object):
                 setup_result = obj.setup()
 
                 if setup_result:
-                    cls._setup_results.setdefault(
-                        group_id, []).append(setup_result)
+                    cls._setup_results.setdefault(group_id, []).append(setup_result)
                     setup_successful = True
                     objs_to_setup.remove(obj)
 
@@ -167,8 +165,7 @@ class PendingTasks(object):
         if id_prefix:
             task_id = "%s_%s" % (id_prefix, task_id)
 
-        cls._tasks.setdefault(task_type, {}).setdefault(
-            sort, {})[task_id] = task
+        cls._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = task
 
     @classmethod
     def remove(cls, task_id, task_type="", sort=None):
@@ -232,12 +229,11 @@ class PendingTasks(object):
 
         if sort_by_type:
             sorted_tasks = [task for task_type in task_types for sort, tasks in
-                            sorted(pending_tasks.pop(
-                                task_type, {}).iteritems())
+                            sorted(pending_tasks.pop(task_type, {}).iteritems())
                             for task in tasks.itervalues()]
         else:
             sorted_tasks = [task for sort, tasks in sorted([i for task_type in task_types
-                                                            for i in pending_tasks.pop(task_type, {}).iteritems()])
+                            for i in pending_tasks.pop(task_type, {}).iteritems()])
                             for task in tasks.itervalues()]
 
         for task in sorted_tasks:
@@ -350,8 +346,7 @@ def get_unique_name(requested_name, namestring, default_search_pattern="",
     if requested_name:
 
         pattern = r"(.*?)(\s*)(\d*)$"
-        basename, space, index_str = re.search(
-            pattern, requested_name).groups()
+        basename, space, index_str = re.search(pattern, requested_name).groups()
 
         if index_str:
 
@@ -364,17 +359,14 @@ def get_unique_name(requested_name, namestring, default_search_pattern="",
 
             # also search for "(<index>)" at the end
             pattern = r"(.*?)(\s*)(?:\((\d*)\))*$"
-            basename, space, index_str = re.search(
-                pattern, requested_name).groups()
+            basename, space, index_str = re.search(pattern, requested_name).groups()
 
             if index_str:
 
                 min_index = int(index_str)
                 search_pattern = r"^%s\s*\((\d+)\)$" % re.escape(basename)
-                zero_padding = len(
-                    index_str) if index_str.startswith("0") else 0
-                naming_pattern = basename + space + \
-                    "(%0" + str(zero_padding) + "d)"
+                zero_padding = len(index_str) if index_str.startswith("0") else 0
+                naming_pattern = basename + space + "(%0" + str(zero_padding) + "d)"
 
             else:
 
@@ -426,47 +418,35 @@ class V3D(Vec3):
     def get_h(self, *args):
         """ Get the heading of this vector """
 
-        np = NodePath("")
+        quat = Quat()
+        look_at(quat, self, Vec3.up())
 
-        x, y, z = self
-        np.look_at(x, y, z)
-        heading = np.get_h(*args)
-        np.remove_node()
-
-        return heading
+        return quat.get_hpr().x
 
     def get_p(self, *args):
         """ Get the pitch of this vector """
 
-        np = NodePath("")
+        quat = Quat()
+        look_at(quat, self, Vec3.up())
 
-        x, y, z = self
-        np.look_at(x, y, z)
-        pitch = np.get_p(*args)
-        np.remove_node()
-
-        return pitch
+        return quat.get_hpr().y
 
     def get_hpr(self, *args):
         """ Get the direction of this vector """
 
-        np = NodePath("")
+        quat = Quat()
+        look_at(quat, self, Vec3.up())
 
-        x, y, z = self
-        np.look_at(x, y, z)
-        hpr = np.get_hpr(*args)
-        np.remove_node()
-
-        return hpr
+        return quat.get_hpr()
 
     def __mul__(self, rhs):
         """
         Overload "*" operator:
-          the right hand side operand can be:
-            - another vector -> dot product;
-            - a matrix -> point transformation;
-            - a single number -> uniform scaling
-            - a sequence of 3 numbers -> non-uniform scaling.
+            the right hand side operand can be:
+                - another vector -> dot product;
+                - a matrix -> point transformation;
+                - a single number -> uniform scaling
+                - a sequence of 3 numbers -> non-uniform scaling.
 
         """
 
@@ -492,10 +472,10 @@ class V3D(Vec3):
     def __imul__(self, rhs):
         """
         Overload "*=" operator:
-          the right hand side operand can be:
-            - a matrix -> in-place point transformation;
-            - a single number -> in-place uniform scaling
-            - a sequence of 3 numbers -> in-place non-uniform scaling.
+            the right hand side operand can be:
+                - a matrix -> in-place point transformation;
+                - a single number -> in-place uniform scaling
+                - a sequence of 3 numbers -> in-place non-uniform scaling.
 
         """
 
@@ -525,7 +505,7 @@ class V3D(Vec3):
     def __pow__(self, vector):
         """
         Overload "**" operator:
-          the other operand must be another vector -> cross product.
+            the other operand must be another vector -> cross product.
 
         """
 
@@ -534,7 +514,7 @@ class V3D(Vec3):
     def __ipow__(self, vector):
         """
         Overload "**=" operator:
-          the other operand must be another vector -> in-place cross product.
+            the other operand must be another vector -> in-place cross product.
 
         """
 

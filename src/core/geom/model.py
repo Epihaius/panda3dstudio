@@ -42,8 +42,14 @@ class Model(TopLevelObject):
         pivot = self.get_pivot()
         pivot.reparent_to(Mgr.get("object_root"))
         origin = self.get_origin()
-        origin.reparent_to(pivot)
+
+        if Mgr.get_global("transform_target_type") == "pivot":
+            origin.reparent_to(Mgr.get("object_root"))
+        else:
+            origin.reparent_to(pivot)
+
         self._bbox.get_origin().reparent_to(origin)
+        self.get_pivot_gizmo().get_origin().set_compass(pivot)
 
     def __init__(self, model_id, name, origin_pos):
 
@@ -175,6 +181,8 @@ class Model(TopLevelObject):
         return self._bbox
 
     def update_selection_state(self, is_selected=True):
+
+        TopLevelObject.update_selection_state(self, is_selected)
 
         if not self._bbox:
             return

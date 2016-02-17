@@ -12,6 +12,7 @@ class HierarchyManager(BaseObject):
         self._link_start_pos = None
         self._link_geom = None
         self._obj_to_link = None
+        self._prev_xform_target_type = "all"
 
         self._pixel_under_mouse = VBase4()
 
@@ -22,11 +23,15 @@ class HierarchyManager(BaseObject):
         status_data["object_linking"] = {"mode": mode_text, "info": info_text}
 
         Mgr.set_global("object_links_shown", False)
+        Mgr.set_global("transform_target_type", "all")
         Mgr.accept("add_obj_link_viz", self.__add_obj_link_viz)
         Mgr.accept("remove_obj_link_viz", self.__remove_obj_link_viz)
         Mgr.accept("update_obj_link_viz", self.__update_obj_link_viz)
         Mgr.add_app_updater("object_link_viz", self.__show_object_links)
         Mgr.add_app_updater("object_unlinking", self.__unlink_objects)
+        Mgr.add_app_updater("transform_target_type", self.__update_xform_target_type)
+        Mgr.add_app_updater("pivot_reset", self.__reset_pivots)
+        Mgr.add_app_updater("history_change", self.__reset_xform_target_type)
 
     def setup(self):
 
@@ -36,6 +41,7 @@ class HierarchyManager(BaseObject):
             return False
 
         PendingTasks.add_task_id("obj_link_viz_update", "object", sort)
+        sort = PendingTasks.get_sort("pivot_transform", "object")
         PendingTasks.add_task_id("object_linking", "object", sort)
 
         add_state = Mgr.add_state
@@ -67,6 +73,7 @@ class HierarchyManager(BaseObject):
             return
 
         Mgr.add_task(self.__update_cursor, "update_linking_cursor")
+        self.__reset_xform_target_type()
 
         if Mgr.get_global("active_transform_type"):
             Mgr.set_global("active_transform_type", "")
@@ -167,6 +174,7 @@ class HierarchyManager(BaseObject):
     def __add_obj_link_viz(self, child, parent):
 
         child_id = child.get_id()
+        parent_pivot = parent.get_pivot()
 
         if child_id in self._obj_link_viz:
             link_geom = self._obj_link_viz[child_id]
@@ -181,7 +189,7 @@ class HierarchyManager(BaseObject):
 
         pos_writer.add_data3f(0., 0., 0.)
         col_writer.add_data4f(1., 1., 1., 1.)
-        pos_writer.add_data3f(child.get_pivot().get_pos())
+        pos_writer.add_data3f(child.get_pivot().get_pos(parent_pivot))
         col_writer.add_data4f(.25, .25, .25, 1.)
 
         lines = GeomLines(Geom.UH_static)
@@ -191,7 +199,7 @@ class HierarchyManager(BaseObject):
         lines_geom.add_primitive(lines)
         node = GeomNode("object_link")
         node.add_geom(lines_geom)
-        link_geom = parent.get_pivot().attach_new_node(node)
+        link_geom = parent_pivot.attach_new_node(node)
         link_geom.set_light_off()
         link_geom.set_shader_off()
         link_geom.set_bin("fixed", 100)
@@ -214,20 +222,47 @@ class HierarchyManager(BaseObject):
         link_geom.remove_node()
         del self._obj_link_viz[child_id]
 
-    def __update_obj_link_viz(self):
+    def __update_obj_link_viz(self, obj_ids=None, force_update_children=False):
 
         def update():
 
-            obj_transf_info = Mgr.get("obj_transf_info")
+            obj_transf_info = obj_ids if obj_ids else Mgr.get("obj_transf_info")
+            obj_link_viz = self._obj_link_viz
+            update_children = Mgr.get_global("transform_target_type") in ("pivot",
+                              "no_children") or force_update_children
 
-            for child_id, link_viz in self._obj_link_viz.iteritems():
-                if child_id in obj_transf_info:
-                    child = Mgr.get("object", child_id)
-                    parent = child.get_parent()
+            for obj_id in obj_transf_info:
+
+                if obj_id in obj_link_viz:
+
+                    link_viz = obj_link_viz[obj_id]
+                    obj = Mgr.get("object", obj_id)
+                    parent = obj.get_parent()
                     vertex_data = link_viz.node().modify_geom(0).modify_vertex_data()
                     pos_writer = GeomVertexWriter(vertex_data, "vertex")
                     pos_writer.set_row(1)
-                    pos_writer.set_data3f(child.get_pivot().get_pos(parent.get_pivot()))
+                    pivot = obj.get_pivot()
+                    pos_writer.set_data3f(pivot.get_pos(parent.get_pivot()))
+
+                    if update_children:
+                        for child in obj.get_children():
+                            child_link_viz = obj_link_viz[child.get_id()]
+                            vertex_data = child_link_viz.node().modify_geom(0).modify_vertex_data()
+                            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+                            pos_writer.set_row(1)
+                            pos_writer.set_data3f(child.get_pivot().get_pos(pivot))
+
+                elif update_children:
+
+                    obj = Mgr.get("object", obj_id)
+                    pivot = obj.get_pivot()
+
+                    for child in obj.get_children():
+                        child_link_viz = obj_link_viz[child.get_id()]
+                        vertex_data = child_link_viz.node().modify_geom(0).modify_vertex_data()
+                        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+                        pos_writer.set_row(1)
+                        pos_writer.set_data3f(child.get_pivot().get_pos(pivot))
 
         task = update
         task_id = "obj_link_viz_update"
@@ -307,6 +342,193 @@ class HierarchyManager(BaseObject):
 
         for obj in Mgr.get("selection", "top"):
             obj.set_parent()
+
+    def __detach_objects(self):
+
+        obj_root = Mgr.get("object_root")
+
+        def detach_objs(objs):
+
+            for obj in objs:
+                detach_objs(obj.get_children())
+                obj.get_origin().wrt_reparent_to(obj_root)
+                obj.get_pivot().wrt_reparent_to(obj_root)
+
+        objs = set(obj.get_root() for obj in Mgr.get("objects"))
+        detach_objs(objs)
+
+    def __reattach_objects(self):
+
+        def reattach_objs(objs, parent_pivot):
+
+            for obj in objs:
+                pivot = obj.get_pivot()
+                pivot.wrt_reparent_to(parent_pivot)
+                obj.get_origin().wrt_reparent_to(pivot)
+                reattach_objs(obj.get_children(), pivot)
+
+        objs = set(obj.get_root() for obj in Mgr.get("objects"))
+        reattach_objs(objs, Mgr.get("object_root"))
+
+    def __detach_pivots(self):
+
+        obj_root = Mgr.get("object_root")
+
+        def detach_pivots(objs):
+
+            for obj in objs:
+                detach_pivots(obj.get_children())
+                obj.get_pivot().wrt_reparent_to(obj_root)
+
+        objs = set(obj.get_root() for obj in Mgr.get("objects"))
+        detach_pivots(objs)
+
+    def __reattach_pivots(self):
+
+        def reattach_pivots(objs, parent_pivot):
+
+            for obj in objs:
+                pivot = obj.get_pivot()
+                pivot.wrt_reparent_to(parent_pivot)
+                reattach_pivots(obj.get_children(), pivot)
+
+        objs = set(obj.get_root() for obj in Mgr.get("objects"))
+        reattach_pivots(objs, Mgr.get("object_root"))
+
+    def __detach_origins(self):
+
+        obj_root = Mgr.get("object_root")
+
+        def detach_origs(objs):
+
+            for obj in objs:
+                detach_origs(obj.get_children())
+                obj.get_origin().wrt_reparent_to(obj_root)
+
+        objs = set(obj.get_root() for obj in Mgr.get("objects"))
+        detach_origs(objs)
+
+    def __reattach_origins(self):
+
+        def reattach_origs(objs):
+
+            for obj in objs:
+                obj.get_origin().wrt_reparent_to(obj.get_pivot())
+                reattach_origs(obj.get_children())
+
+        objs = set(obj.get_root() for obj in Mgr.get("objects"))
+        reattach_origs(objs)
+
+    def __update_xform_target_type(self):
+
+        target_type = Mgr.get_global("transform_target_type")
+        prev_target_type = self._prev_xform_target_type
+        self._prev_xform_target_type = target_type
+
+        if prev_target_type == "all":
+            Mgr.enter_state("selection_mode")
+
+        if target_type == "pivot":
+            if prev_target_type == "no_children":
+                self.__detach_origins()
+            else:
+                self.__detach_objects()
+            Mgr.do("show_pivot_gizmos")
+        elif target_type == "no_children":
+            if prev_target_type == "pivot":
+                self.__reattach_origins()
+                Mgr.do("show_pivot_gizmos", False)
+            else:
+                self.__detach_pivots()
+        elif prev_target_type == "pivot":
+            self.__reattach_objects()
+            Mgr.do("show_pivot_gizmos", False)
+        elif prev_target_type == "no_children":
+            self.__reattach_pivots()
+
+    def __reset_xform_target_type(self):
+
+        if Mgr.get_global("transform_target_type") != "all":
+            Mgr.set_global("transform_target_type", "all")
+            Mgr.update_app("transform_target_type")
+
+    def __reset_pivots(self):
+
+        sel = Mgr.get("selection", "top")
+
+        if not sel:
+            return
+
+        target_type = Mgr.get_global("transform_target_type")
+
+        for obj in sel:
+
+            if target_type in ("all", "links"):
+
+                obj_root = Mgr.get("object_root")
+
+                for child in obj.get_children():
+                    child.get_pivot().wrt_reparent_to(obj_root)
+
+            pivot = obj.get_pivot()
+            origin = obj.get_origin()
+            pivot.set_mat(origin, Mat4.ident_mat())
+            origin.set_mat(pivot, Mat4.ident_mat())
+
+            if target_type in ("all", "links"):
+                for child in obj.get_children():
+                    child.get_pivot().wrt_reparent_to(pivot)
+
+        cs_type = Mgr.get_global("coord_sys_type")
+        cs_obj = Mgr.get("coord_sys_obj")
+        tc_type = Mgr.get_global("transf_center_type")
+        tc_obj = Mgr.get("transf_center_obj")
+
+        if cs_obj in sel:
+            Mgr.do("notify_coord_sys_transformed")
+            Mgr.do("update_coord_sys")
+
+        if tc_type == "cs_origin":
+            if cs_type == "object" and cs_obj in sel:
+                Mgr.do("set_transf_gizmo_pos", cs_obj.get_pivot().get_pos())
+        elif tc_type == "object" and tc_obj in sel:
+            Mgr.do("set_transf_gizmo_pos", tc_obj.get_pivot().get_pos())
+
+        sel.update()
+        self.__update_obj_link_viz([obj.get_id() for obj in sel], True)
+
+        # make undo/redoable
+
+        obj_data = {}
+        event_data = {"objects": obj_data}
+        Mgr.do("update_history_time")
+        obj_count = len(sel)
+
+        if obj_count > 1:
+
+            event_descr = "Reset %d objects' pivots:\n" % obj_count
+
+            for obj in sel:
+                event_descr += '\n    "%s"' % obj.get_name()
+
+        else:
+
+            event_descr = 'Reset "%s" pivot' % sel[0].get_name()
+
+        objs = set(sel)
+
+        for obj in sel:
+            objs.update(obj.get_children())
+
+        for obj in objs:
+            obj_data[obj.get_id()] = data = {}
+            data.update(obj.get_data_to_store("prop_change", "transform"))
+
+        for obj in sel:
+            data = obj_data[obj.get_id()]
+            data.update(obj.get_data_to_store("prop_change", "origin_transform"))
+
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
 MainObjects.add_class(HierarchyManager)

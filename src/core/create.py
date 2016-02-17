@@ -13,10 +13,10 @@ class CreationManager(BaseObject):
         self._interactive_creation_ended = False
         self._mode_status = ""
         self._creation_type = ""
-        Mgr.accept("notify_creation_started", lambda: setattr(
-            self, "_interactive_creation_started", True))
-        Mgr.accept("notify_creation_ended", lambda: setattr(
-            self, "_interactive_creation_ended", True))
+        Mgr.accept("notify_creation_started", lambda: setattr(self,
+            "_interactive_creation_started", True))
+        Mgr.accept("notify_creation_ended", lambda: setattr(self,
+            "_interactive_creation_ended", True))
 
         status_data = Mgr.get_global("status_data")
         status_data["create"] = {}
@@ -65,13 +65,11 @@ class CreationManager(BaseObject):
             if self._mode_status != "suspended" or self._creation_type != creation_type:
 
                 Mgr.update_app("selected_obj_type", creation_type)
-                Mgr.update_remotely("next_obj_name", Mgr.get(
-                    "next_obj_name", creation_type))
+                Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", creation_type))
                 obj_prop_defaults = Mgr.get("%s_prop_defaults" % creation_type)
 
                 for prop_id, value in obj_prop_defaults.iteritems():
-                    Mgr.update_app("obj_prop_default",
-                                   creation_type, prop_id, value)
+                    Mgr.update_app("obj_prop_default", creation_type, prop_id, value)
 
             self._creation_type = creation_type
 
@@ -81,21 +79,17 @@ class CreationManager(BaseObject):
 
             selection = Mgr.get("selection")
             count = len(selection)
-            type_checker = lambda obj, base_type: obj.get_geom_type(
-            ) if base_type == "model" else base_type
-            obj_types = set([type_checker(obj, obj.get_type())
-                             for obj in selection])
+            type_checker = lambda obj, base_type: obj.get_geom_type() if base_type == "model" else base_type
+            obj_types = set([type_checker(obj, obj.get_type()) for obj in selection])
             obj_type = obj_types.pop() if len(obj_types) == 1 else ""
             Mgr.update_app("selected_obj_type", obj_type)
             Mgr.update_app("selection_count")
 
             if count:
-                label = selection[0].get_name(
-                ) if count == 1 else "%s Objects selected" % count
+                label = selection[0].get_name() if count == 1 else "%s Objects selected" % count
                 Mgr.update_remotely("selected_obj_name", label)
 
-            sel_colors = set([obj.get_color()
-                              for obj in selection if obj.has_color()])
+            sel_colors = set([obj.get_color() for obj in selection if obj.has_color()])
             sel_color_count = len(sel_colors)
 
             if sel_color_count == 1:
@@ -111,8 +105,7 @@ class CreationManager(BaseObject):
 
                 for prop_id in obj.get_type_property_ids():
                     value = obj.get_property(prop_id, for_remote_update=True)
-                    Mgr.update_remotely("selected_obj_prop",
-                                        obj_type, prop_id, value)
+                    Mgr.update_remotely("selected_obj_prop", obj_type, prop_id, value)
 
         self._mode_status = mode_status
 
@@ -125,8 +118,15 @@ class CreationManager(BaseObject):
             Mgr.update_app("active_obj_level")
 
         if self._interactive_creation_ended:
+
             self._interactive_creation_ended = False
+
         else:
+
+            if Mgr.get_global("transform_target_type") != "all":
+                Mgr.set_global("transform_target_type", "all")
+                Mgr.update_app("transform_target_type")
+
             Mgr.set_global("active_transform_type", "")
             Mgr.update_app("active_transform_type", "")
             Mgr.update_app("creation", "started")
@@ -186,8 +186,7 @@ class CreationManager(BaseObject):
         self._interactive_creation_ended = False
 
         Mgr.enter_state("checking_creation_start")
-        Mgr.add_task(self.__check_creation_start,
-                     "check_creation_start", sort=3)
+        Mgr.add_task(self.__check_creation_start, "check_creation_start", sort=3)
 
     def __create_object_instantly(self, pos_id):
 

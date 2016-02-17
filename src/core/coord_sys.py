@@ -16,9 +16,15 @@ class CoordSysManager(BaseObject):
         Mgr.add_app_updater("coord_sys", self.__set_coord_sys)
 
         self._pixel_under_mouse = VBase4()
-        self._item_is_under_mouse = None
 
     def setup(self):
+
+        sort = PendingTasks.get_sort("update_selection", "ui")
+
+        if sort is None:
+            return False
+
+        PendingTasks.add_task_id("coord_sys_update", "ui", sort)
 
         add_state = Mgr.add_state
         add_state("coord_sys_picking_mode", -80, self.__enter_picking_mode,
@@ -58,7 +64,7 @@ class CoordSysManager(BaseObject):
                 Mgr.do("set_transf_gizmo_pos", Point3())
 
         Mgr.set_global("coord_sys_type", cs_type)
-        selection = Mgr.get("selection")
+        selection = Mgr.get("selection", "top")
 
         if cs_type == "world":
 
@@ -128,8 +134,7 @@ class CoordSysManager(BaseObject):
                 hpr = pivot.get_hpr(self.world)
                 scale = VBase3(1., 1., 1.)
                 shear = pivot.get_shear(self.world)
-                Mgr.get(("grid", "origin")).set_pos_hpr_scale_shear(
-                    pos, hpr, scale, shear)
+                Mgr.get(("grid", "origin")).set_pos_hpr_scale_shear(pos, hpr, scale, shear)
                 Mgr.do("set_transf_gizmo_hpr", hpr)
                 Mgr.do("set_transf_gizmo_shear", shear)
 
@@ -139,6 +144,10 @@ class CoordSysManager(BaseObject):
         Mgr.do("update_grid")
 
     def __enter_picking_mode(self, prev_state_id, is_active):
+
+        if Mgr.get_global("active_obj_level") != "top":
+            Mgr.set_global("active_obj_level", "top")
+            Mgr.update_app("active_obj_level")
 
         Mgr.add_task(self.__update_cursor, "update_cs_picking_cursor")
         Mgr.update_app("status", "pick_coord_sys")
@@ -156,9 +165,9 @@ class CoordSysManager(BaseObject):
 
             self._cs_obj_picked = None
 
-        self._item_is_under_mouse = None  # neither False nor True, to force an
-                                          # update of the cursor next time
-                                          # self.__update_cursor() is called
+        self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                           # next time self.__update_cursor()
+                                           # is called
         Mgr.remove_task("update_cs_picking_cursor")
         Mgr.set_cursor("main")
 
@@ -178,12 +187,11 @@ class CoordSysManager(BaseObject):
 
     def __update_cursor(self, task):
 
-        self._pixel_under_mouse = Mgr.get("pixel_under_mouse")
-        item_is_under_mouse = self._pixel_under_mouse != VBase4()
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
 
-        if item_is_under_mouse != self._item_is_under_mouse:
-            self._item_is_under_mouse = item_is_under_mouse
-            Mgr.set_cursor("select" if item_is_under_mouse else "main")
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
 
