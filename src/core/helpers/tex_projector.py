@@ -39,7 +39,6 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         self._draw_plane = None
 
         self._pixel_under_mouse = VBase4()
-        self._item_is_under_mouse = None
         self._target_to_projector_ids = {}
 
         Mgr.accept("inst_create_tex_projector", self.__create_projector_instantly)
@@ -98,9 +97,9 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
-        self._item_is_under_mouse = None  # neither False nor True, to force an
-                                          # update of the cursor next time
-                                          # self.__update_cursor() is called
+        self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                           # next time self.__update_cursor()
+                                           # is called
         Mgr.remove_task("update_tpt_picking_cursor")
         Mgr.set_cursor("main")
 
@@ -121,12 +120,11 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
     def __update_cursor(self, task):
 
-        self._pixel_under_mouse = Mgr.get("pixel_under_mouse")
-        item_is_under_mouse = self._pixel_under_mouse != VBase4()
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
 
-        if item_is_under_mouse != self._item_is_under_mouse:
-            self._item_is_under_mouse = item_is_under_mouse
-            Mgr.set_cursor("select" if item_is_under_mouse else "main")
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
 
@@ -357,7 +355,7 @@ class TexProjectorEdge(BaseObject):
         body = self._projector.get_body()
         corner_pos = self._projector.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
-        vec_coords["XYZ".index(self._axis)] = 1.
+        vec_coords["xyz".index(self._axis)] = 1.
         edge_vec = V3D(self.world.get_relative_vector(body, Vec3(*vec_coords)))
         cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
         cross_vec = edge_vec ** cam_vec
@@ -385,6 +383,173 @@ class TexProjectorEdge(BaseObject):
 
 class TexProjector(TopLevelObject):
 
+    _corners = []
+    _original = None
+
+    @classmethod
+    def __define_corners(cls):
+
+        minmax = (-.5, .5)
+        corners = [(x, y, z) for x in minmax for y in minmax for z in minmax]
+
+        x1, y1, z1 = corners.pop()
+
+        for corner in corners[:]:
+
+            x, y, z = corner
+
+            if (x == x1 and y != y1 and z != z1) \
+                    or (y == y1 and x != x1 and z != z1) \
+                    or (z == z1 and x != x1 and y != y1):
+
+                corners.remove(corner)
+
+                if len(corners) == 4:
+                    break
+
+        cls._corners = corners
+
+    @classmethod
+    def __create_original(cls):
+
+        if not cls._corners:
+            cls.__define_corners()
+
+        subobj_root = NodePath("subobj_root")
+        lens_node = LensNode("tex_proj_lens")
+        lens_np = subobj_root.attach_new_node(lens_node)
+
+        edge_ends = cls.__create_body(subobj_root)
+        cls.__create_lens_viz(subobj_root, edge_ends)
+        cls.__create_tripod(subobj_root)
+
+        subobj_root.set_color_scale(.1)
+        subobj_root.set_bin("fixed", 50)
+        subobj_root.set_depth_test(False)
+        subobj_root.set_depth_write(False)
+        cls._original = subobj_root
+
+    @classmethod
+    def __create_body(cls, parent):
+
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("tex_proj_body_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+        lines = GeomLines(Geom.UH_static)
+        edge_ends = []
+
+        for corner in cls._corners:
+            for coord, axis in zip(corner, "xyz"):
+                pos_writer.add_data3f(corner)
+                coord2 = coord + (1. if coord < 0. else -1.)
+                pos = Point3(*corner)
+                pos["xyz".index(axis)] = coord2
+                pos_writer.add_data3f(pos)
+                lines.add_next_vertices(2)
+                edge_ends.append((corner, pos))
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        node = GeomNode("tex_proj_body")
+        node.add_geom(geom)
+
+        body = parent.attach_new_node(node)
+        body.set_scale(1.2, 1.8, 1.2)
+        body.set_color(.7, 1., .7)
+
+        return edge_ends
+
+    @classmethod
+    def __create_lens_viz(cls, parent, edge_ends):
+
+        def xform_point(point, proj_type):
+
+            if proj_type == "orthographic":
+
+                x, y, z = point
+                y = (y + .5) * .5 + .9
+
+            elif proj_type == "perspective":
+
+                x, y, z = point
+                y = (y + .5) * .5 + .9
+                x *= y * .6666
+                z *= y * .6666
+
+            return (x, y, z)
+
+        for proj_type in ("orthographic", "perspective"):
+
+            vertex_format = GeomVertexFormat.get_v3cp()
+            vertex_data = GeomVertexData("tex_proj_lens_%s_viz_data" % proj_type,
+                                         vertex_format, Geom.UH_static)
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+            lines = GeomLines(Geom.UH_static)
+
+            for points in edge_ends:
+
+                for point in points:
+                    pos_writer.add_data3f(xform_point(point, proj_type))
+
+                lines.add_next_vertices(2)
+
+            geom = Geom(vertex_data)
+            geom.add_primitive(lines)
+            node = GeomNode("tex_proj_lens_%s_viz" % proj_type)
+            node.add_geom(geom)
+            lens_viz = parent.attach_new_node(node)
+            lens_viz.hide(Mgr.get("picking_mask"))
+            lens_viz.hide()
+            lens_viz.set_color(.5, .8, .5)
+
+    @classmethod
+    def __create_tripod(cls, parent):
+
+        angle = 2. * pi / 3.
+        positions = [Point3(sin(angle * i), cos(angle * i), -1.5) for i in range(3)]
+
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("tex_proj_tripod_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+        lines = GeomLines(Geom.UH_static)
+
+        pos_writer.add_data3f(0., 0., 0.)
+
+        for i, pos in enumerate(positions):
+            pos_writer.add_data3f(pos)
+            lines.add_vertices(0, i + 1)
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        node = GeomNode("tex_proj_tripod")
+        node.add_geom(geom)
+
+        tripod = parent.attach_new_node(node)
+        tripod.hide(Mgr.get("picking_mask"))
+        tripod.set_z(-.6)
+        tripod.set_color(.5, .8, .5)
+
+    def __get_corners(self):
+
+        if not self._corners:
+            TexProjector.__define_corners()
+
+        return self._corners
+
+    corners = property(__get_corners)
+
+    def __get_original(self):
+
+        if not self._original:
+            TexProjector.__create_original()
+
+        return self._original
+
+    original = property(__get_original)
+
     def __getstate__(self):
 
         d = self.__dict__.copy()
@@ -407,6 +572,7 @@ class TexProjector(TopLevelObject):
         origin.set_texture_off()
         origin.set_material_off()
         origin.set_shader_off()
+        self.get_pivot_gizmo().get_origin().set_compass(pivot)
         self._lens_np.reparent_to(origin)
         subobj_root = self._subobj_root
         subobj_root.reparent_to(origin)
@@ -439,200 +605,49 @@ class TexProjector(TopLevelObject):
         self._projection_type = projection_type
         self._targets = {}
 
-        self._corners = []
-        self._edges = {}
-
         origin = self.get_origin()
         origin.set_light_off()
         origin.set_texture_off()
         origin.set_material_off()
         origin.set_shader_off()
 
-        self._subobj_root = origin.attach_new_node("subobj_root")
-        self._body = None
-        self._lens_viz = {}
-        self._tripod = None
+        self._subobj_root = subobj_root = self.original.copy_to(origin)
+        self._body = subobj_root.find("**/tex_proj_body")
+        self._lens_viz = dict((proj_type, subobj_root.find("**/tex_proj_lens_%s_viz" % proj_type))
+                              for proj_type in ("orthographic", "perspective"))
+        self._lens_viz[projection_type].show()
+        self._tripod = subobj_root.find("**/tex_proj_tripod")
 
         self._lenses = {"orthographic": OrthographicLens(),
                         "perspective": PerspectiveLens()}
-        lens_node = LensNode("tex_proj_lens", self._lenses[projection_type])
-        self._lens_np = origin.attach_new_node(lens_node)
+        self._lens_np = lens_np = subobj_root.find("**/tex_proj_lens")
+        lens_np.node().set_lens(self._lenses[projection_type])
+        lens_np.reparent_to(origin)
 
         for lens in self._lenses.itervalues():
             lens.set_film_size(1., 1.)
             lens.set_focal_length(1.5)
 
-        edge_verts = self.__create_body()
-        self.__create_lens_viz(edge_verts)
-        self.__create_tripod()
-        self._lens_viz[projection_type].show()
         self.set_film_width(film_w)
         self.set_film_height(film_h)
         self.set_film_offset_x(film_x)
         self.set_film_offset_y(film_y)
 
-        self._subobj_root.set_color_scale(.1)
-        self._subobj_root.set_bin("fixed", 50)
-        self._subobj_root.set_depth_test(False)
-        self._subobj_root.set_depth_write(False)
+        vertex_data = self._body.node().modify_geom(0).modify_vertex_data()
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        col_writer.set_row(0)
 
-    def __create_body(self):
-
-        minmax = (-.5, .5)
-        corners = [(x, y, z) for x in minmax for y in minmax for z in minmax]
-
-        x1, y1, z1 = origin1 = corners.pop()
-        edge_origins = [origin1]
-
-        for corner in corners[:]:
-
-            x, y, z = corner
-
-            if (x == x1 and y != y1 and z != z1) \
-                    or (y == y1 and x != x1 and z != z1) \
-                    or (z == z1 and x != x1 and y != y1):
-
-                edge_origins.append(corner)
-                corners.remove(corner)
-
-                if len(corners) == 4:
-                    break
-
-        self._corners = edge_origins + corners
-        edge_verts = []
-        edge_data = []
+        self._edges = {}
         pickable_type_id = PickableTypes.get_id("tex_proj_edge")
 
-        for i, corner1 in enumerate(edge_origins):
-
-            x1, y1, z1 = corner1
-
-            for corner2 in corners:
-
-                x2, y2, z2 = corner2
-
-                if (x1 == x2 and y1 == y2):
-                    axis = "Z"
-                elif (x1 == x2 and z1 == z2):
-                    axis = "Y"
-                elif (y1 == y2 and z1 == z2):
-                    axis = "X"
-                else:
-                    continue
-
-                j = self._corners.index(corner2)
+        for i, corner in enumerate(self._corners):
+            for axis in "xyz":
                 edge = Mgr.do("create_tex_proj_edge", self, axis, i)
                 color_id = edge.get_picking_color_id()
                 picking_color = get_color_vec(color_id, pickable_type_id)
+                col_writer.set_data4f(picking_color)
+                col_writer.set_data4f(picking_color)
                 self._edges[color_id] = edge
-                vert_ids = (i, j)
-                edge_verts.append(vert_ids)
-                edge_data.append((vert_ids, picking_color))
-
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData("tex_proj_body_data", vertex_format, Geom.UH_static)
-
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        col_writer = GeomVertexWriter(vertex_data, "color")
-
-        lines = GeomLines(Geom.UH_static)
-
-        for indices, color in edge_data:
-
-            for index in indices:
-                pos = self._corners[index]
-                pos_writer.add_data3f(pos)
-                col_writer.add_data4f(color)
-
-            lines.add_next_vertices(2)
-
-        geom = Geom(vertex_data)
-        geom.add_primitive(lines)
-        geom_node = GeomNode("tex_proj_body")
-        geom_node.add_geom(geom)
-
-        body = self._subobj_root.attach_new_node(geom_node)
-        body.set_scale(1.2, 1.8, 1.2)
-        body.set_color(.7, 1., .7, 1.)
-        self._body = body
-
-        return edge_verts
-
-    def __create_lens_viz(self, edge_verts):
-
-        def xform_point(point, proj_type):
-
-            if proj_type == "orthographic":
-
-                x, y, z = point
-                y = (y + .5) * .5 + .9
-
-            elif proj_type == "perspective":
-
-                x, y, z = point
-                y = (y + .5) * .5 + .9
-                x *= y * .6666
-                z *= y * .6666
-
-            return (x, y, z)
-
-        for proj_type in ("orthographic", "perspective"):
-
-            corners = [xform_point(pos, proj_type) for pos in self._corners]
-
-            vertex_format = GeomVertexFormat.get_v3n3cpt2()
-            vertex_data = GeomVertexData("tex_proj_lens_%s_viz_data" % proj_type,
-                                         vertex_format, Geom.UH_static)
-
-            pos_writer = GeomVertexWriter(vertex_data, "vertex")
-
-            for pos in corners:
-                pos_writer.add_data3f(pos)
-
-            line = GeomLines(Geom.UH_static)
-
-            for i, j in edge_verts:
-                line.add_vertices(i, j)
-
-            geom = Geom(vertex_data)
-            geom.add_primitive(line)
-            geom_node = GeomNode("tex_proj_lens_%s_viz" % proj_type)
-            geom_node.add_geom(geom)
-
-            lens_viz = self._subobj_root.attach_new_node(geom_node)
-            lens_viz.hide(Mgr.get("picking_mask"))
-            lens_viz.hide()
-            lens_viz.set_color(.5, .8, .5, 1.)
-            self._lens_viz[proj_type] = lens_viz
-
-    def __create_tripod(self):
-
-        angle = 2. * pi / 3.
-        positions = [Point3(sin(angle * i), cos(angle * i), -1.5) for i in range(3)]
-
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData("tex_proj_tripod_data", vertex_format, Geom.UH_static)
-
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-
-        line = GeomLines(Geom.UH_static)
-
-        pos_writer.add_data3f(0., 0., 0.)
-
-        for i, pos in enumerate(positions):
-            pos_writer.add_data3f(pos)
-            line.add_vertices(0, i + 1)
-
-        geom = Geom(vertex_data)
-        geom.add_primitive(line)
-        geom_node = GeomNode("tex_proj_tripod")
-        geom_node.add_geom(geom)
-
-        tripod = self._subobj_root.attach_new_node(geom_node)
-        tripod.hide(Mgr.get("picking_mask"))
-        tripod.set_z(-.6)
-        tripod.set_color(.5, .8, .5, 1.)
-        self._tripod = tripod
 
     def destroy(self, add_to_hist=True):
 
@@ -674,7 +689,7 @@ class TexProjector(TopLevelObject):
 
     def get_corner_pos(self, corner_index):
 
-        corner_pos = Point3(self._corners[corner_index])
+        corner_pos = Point3(self.corners[corner_index])
 
         return self.world.get_relative_point(self._body, corner_pos)
 
@@ -1120,6 +1135,8 @@ class TexProjector(TopLevelObject):
 
     def update_selection_state(self, is_selected=True):
 
+        TopLevelObject.update_selection_state(self, is_selected)
+
         if not self._subobj_root:
             return
 
@@ -1177,13 +1194,13 @@ class TexProjector(TopLevelObject):
 
         """
 
-        root = self._subobj_root
-        data = {"flash_count": 0, "state": ["shown", "hidden"]}
+        is_selected = self.is_selected()
+        data = {"flash_count": 0, "state": ["selected", "unselected"]}
 
         def do_flash(task):
 
-            state = data["state"][1]
-            root.show() if state == "shown" else root.hide()
+            state = data["state"][0 if is_selected else 1]
+            self._subobj_root.set_color_scale(.1 if state == "selected" else 1.)
             data["state"].reverse()
             data["flash_count"] += 1
 

@@ -43,7 +43,7 @@ class BBoxEdge(BaseObject):
         origin = self._bbox.get_origin()
         corner_pos = self._bbox.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
-        vec_coords["XYZ".index(self._axis)] = 1.
+        vec_coords["xyz".index(self._axis)] = 1.
         edge_vec = V3D(self.world.get_relative_vector(origin, Vec3(*vec_coords)))
         cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
         cross_vec = edge_vec ** cam_vec
@@ -71,22 +71,17 @@ class BBoxEdge(BaseObject):
 
 class BoundingBox(BaseObject):
 
-    def __init__(self, toplevel_obj):
+    _corners = []
+    _original = None
 
-        self._toplevel_obj = toplevel_obj
-
-        scalings = {
-            "X": (.5, 1., 1.),
-            "Y": (1., .5, 1.),
-            "Z": (1., 1., .5)
-        }
+    @classmethod
+    def __define_corners(cls):
 
         edge_offset = .52
         minmax = (-edge_offset, edge_offset)
         corners = [(x, y, z) for x in minmax for y in minmax for z in minmax]
 
-        x1, y1, z1 = origin1 = corners.pop()
-        edge_origins = [origin1]
+        x1, y1, z1 = corners.pop()
 
         for corner in corners[:]:
 
@@ -96,69 +91,101 @@ class BoundingBox(BaseObject):
                     or (y == y1 and x != x1 and z != z1) \
                     or (z == z1 and x != x1 and y != y1):
 
-                edge_origins.append(corner)
                 corners.remove(corner)
 
                 if len(corners) == 4:
                     break
 
-        self._corners = edge_origins + corners
-        self._edges = {}
-        edge_data = []
-        pickable_type_id = PickableTypes.get_id("bbox_edge")
+        cls._corners = corners
 
-        for i, corner1 in enumerate(edge_origins):
+    @classmethod
+    def __create_original(cls):
 
-            x1, y1, z1 = corner1
-
-            for corner2 in corners:
-
-                x2, y2, z2 = corner2
-
-                if (x1 == x2 and y1 == y2):
-                    axis = "Z"
-                elif (x1 == x2 and z1 == z2):
-                    axis = "Y"
-                elif (y1 == y2 and z1 == z2):
-                    axis = "X"
-                else:
-                    continue
-
-                j = self._corners.index(corner2)
-                edge = Mgr.do("create_bbox_edge", self, axis, i)
-                color_id = edge.get_picking_color_id()
-                picking_color = get_color_vec(color_id, pickable_type_id)
-                self._edges[color_id] = edge
-                edge_data.append(((i, j), axis, picking_color))
+        if not cls._corners:
+            cls.__define_corners()
 
         vertex_format = GeomVertexFormat.get_v3cp()
         vertex_data = GeomVertexData("bbox_data", vertex_format, Geom.UH_static)
-
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        col_writer = GeomVertexWriter(vertex_data, "color")
 
         lines = GeomLines(Geom.UH_static)
 
-        for indices, axis, color in edge_data:
+        for corner in cls._corners:
 
-            for index in indices:
-                x, y, z = self._corners[index]
-                pos_writer.add_data3f(x, y, z)
-                col_writer.add_data4f(color)
-                scalx, scaly, scalz = scalings[axis]
-                pos_writer.add_data3f(scalx * x, scaly * y, scalz * z)
-                col_writer.add_data4f(color)
+            for coord, axis in zip(corner, "xyz"):
+
+                pos_writer.add_data3f(corner)
+                sign = 1. if coord < 0. else -1.
+                index = "xyz".index(axis)
+                coord2 = coord + .26 * sign
+                pos = Point3(*corner)
+                pos[index] = coord2
+                pos_writer.add_data3f(pos)
                 lines.add_next_vertices(2)
 
-        bbox_geom = Geom(vertex_data)
-        bbox_geom.add_primitive(lines)
-        bbox_node = GeomNode("bounding_box")
-        bbox_node.add_geom(bbox_geom)
-        self._origin = toplevel_obj.get_origin().attach_new_node(bbox_node)
-        self._origin.set_light_off()
-        self._origin.set_texture_off()
-        self._origin.set_color(1., 1., 1., 1.)
-        self._origin.set_color_scale_off()
+                coord2 = coord + .78 * sign
+                pos = Point3(*corner)
+                pos[index] = coord2
+                pos_writer.add_data3f(pos)
+                coord2 = coord + 1.04 * sign
+                pos = Point3(*corner)
+                pos[index] = coord2
+                pos_writer.add_data3f(pos)
+                lines.add_next_vertices(2)
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        node = GeomNode("bounding_box")
+        node.add_geom(geom)
+
+        origin = NodePath(node)
+        origin.set_light_off()
+        origin.set_texture_off()
+        origin.set_color(1., 1., 1., 1.)
+        origin.set_color_scale_off()
+        cls._original = origin
+
+    def __get_corners(self):
+
+        if not self._corners:
+            BoundingBox.__define_corners()
+
+        return self._corners
+
+    corners = property(__get_corners)
+
+    def __get_original(self):
+
+        if not self._original:
+            BoundingBox.__create_original()
+
+        return self._original
+
+    original = property(__get_original)
+
+    def __init__(self, toplevel_obj):
+
+        self._toplevel_obj = toplevel_obj
+        self._origin = origin = self.original.copy_to(toplevel_obj.get_origin())
+        vertex_data = origin.node().modify_geom(0).modify_vertex_data()
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        col_writer.set_row(0)
+
+        self._edges = {}
+        pickable_type_id = PickableTypes.get_id("bbox_edge")
+
+        for i, corner in enumerate(self._corners):
+
+            for axis in "xyz":
+
+                edge = Mgr.do("create_bbox_edge", self, axis, i)
+                color_id = edge.get_picking_color_id()
+                picking_color = get_color_vec(color_id, pickable_type_id)
+
+                for j in range(4):
+                    col_writer.set_data4f(picking_color)
+
+                self._edges[color_id] = edge
 
     def destroy(self):
 
@@ -174,7 +201,7 @@ class BoundingBox(BaseObject):
 
     def get_corner_pos(self, corner_index):
 
-        corner_pos = Point3(self._corners[corner_index])
+        corner_pos = Point3(self.corners[corner_index])
 
         return self.world.get_relative_point(self._origin, corner_pos)
 

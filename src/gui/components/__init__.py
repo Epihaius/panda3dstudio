@@ -178,8 +178,8 @@ class Components(BaseObject):
 
         menubar.add_menu_item_separator("Create")
 
-        obj_types = ("tex_projector",)
-        accelerators = ("P",)
+        obj_types = ("dummy", "tex_projector")
+        accelerators = ("D", "P")
         hotkeys = [(ord(accel), mod_code) for accel in accelerators]
 
         for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):

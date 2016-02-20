@@ -29,9 +29,6 @@ class PivotGizmoManager(BaseObject):
         pivot_gizmo_root.hide()
         self._pivot_gizmo_root = pivot_gizmo_root
         Mgr.expose("pivot_gizmo_root", lambda: self._pivot_gizmo_root)
-
-        PivotGizmo.init()
-
         Mgr.accept("create_pivot_gizmo", self.__create_pivot_gizmo)
         Mgr.accept("show_pivot_gizmos", self.__show_pivot_gizmos)
 
@@ -145,7 +142,7 @@ class PivotGizmo(object):
     }
 
     @classmethod
-    def init(cls):
+    def __create_original(cls):
 
         node = NodePath("pivot_gizmo_base")
         bounds = BoundingSphere(Point3(), 1.1)
@@ -278,6 +275,15 @@ class PivotGizmo(object):
 
         return node_path
 
+    def __get_original(self):
+
+        if not self._original:
+            PivotGizmo.__create_original()
+
+        return self._original
+
+    original = property(__get_original)
+
     def __getstate__(self):
 
         d = self.__dict__.copy()
@@ -293,6 +299,9 @@ class PivotGizmo(object):
 
         node = self._base
         node.reparent_to(Mgr.get("pivot_gizmo_root"))
+        bounds = BoundingSphere(Point3(), 1.1)
+        node.node().set_bounds(bounds)
+        node.node().set_final(True)
         pivot = node.attach_new_node("pivot_gizmo_pivot")
         pivot.set_y(8.)
         origin = self._origin
@@ -310,7 +319,7 @@ class PivotGizmo(object):
     def __init__(self, toplevel_obj):
 
         self._toplevel_obj = toplevel_obj
-        self._base = self._original.copy_to(Mgr.get("pivot_gizmo_root"))
+        self._base = self.original.copy_to(Mgr.get("pivot_gizmo_root"))
         origin = self._base.get_child(0).get_child(0)
         origin.set_compass(toplevel_obj.get_pivot())
         self._origin = origin
