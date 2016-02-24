@@ -26,11 +26,22 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         CreationPhaseManager.__init__(self, "dummy")
         ObjPropDefaultsManager.__init__(self, "dummy")
 
+        self.set_property_default("viz", set(["box", "cross"]))
         self.set_property_default("size", 1.)
+        self.set_property_default("cross_size", 100.)
+        self.set_property_default("const_size_state", False)
+        self.set_property_default("const_size", 1.)
+        self.set_property_default("on_top", True)
 
         self._draw_plane = None
 
+        self._dummy_helper_root = self.cam.attach_new_node("dummy_helper_root")
+        self._dummy_bases = {}
+
+        Mgr.accept("make_dummy_const_size", self.__make_dummy_const_size)
+        Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
         Mgr.accept("inst_create_dummy", self.__create_dummy_instantly)
+        Mgr.add_task(self.__update_dummy_bases, "update_dummy_bases", sort=48)
 
     def setup(self):
 
@@ -46,10 +57,52 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
         return True
 
+    def __make_dummy_const_size(self, dummy, const_size_state=True):
+
+        dummy_id = dummy.get_id()
+
+        if const_size_state:
+            if dummy_id not in self._dummy_bases:
+                dummy_base = self._dummy_helper_root.attach_new_node("dummy_base")
+                pivot = dummy_base.attach_new_node("dummy_pivot")
+                pivot.set_y(20.)
+                origin = pivot.attach_new_node("dummy_origin")
+                dummy.get_geom_root().get_children().reparent_to(origin)
+                origin.set_scale(dummy.get_const_size())
+                origin.set_compass(dummy.get_origin())
+                self._dummy_bases[dummy_id] = dummy_base
+        else:
+            if dummy_id in self._dummy_bases:
+                dummy_base = self._dummy_bases[dummy_id]
+                dummy_base.get_child(0).get_child(0).get_children().reparent_to(dummy.get_geom_root())
+                dummy_base.remove_node()
+                del self._dummy_bases[dummy_id]
+
+    def __set_dummy_const_size(self, dummy, const_size):
+
+        dummy_id = dummy.get_id()
+
+        if dummy_id in self._dummy_bases:
+            dummy_base = self._dummy_bases[dummy_id]
+            dummy_base.get_child(0).get_child(0).set_scale(const_size)
+
+    def __update_dummy_bases(self, task):
+
+        for dummy_id, dummy_base in self._dummy_bases.iteritems():
+            dummy = Mgr.get("dummy", dummy_id)
+            dummy_base.look_at(dummy.get_origin())
+
+        return task.cont
+
     def __create_dummy(self, dummy_id, name, origin_pos):
 
         prop_defaults = self.get_property_defaults()
         dummy = Dummy(dummy_id, name, origin_pos)
+        dummy.set_viz(prop_defaults["viz"])
+        dummy.set_cross_size(prop_defaults["cross_size"])
+        dummy.make_const_size(prop_defaults["const_size_state"])
+        dummy.set_const_size(prop_defaults["const_size"])
+        dummy.draw_on_top(prop_defaults["on_top"])
 
         return dummy, dummy_id
 
@@ -60,7 +113,12 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         name = Mgr.get("next_obj_name", obj_type)
         dummy = Mgr.do("create_dummy", dummy_id, name, origin_pos)
         prop_defaults = self.get_property_defaults()
+        dummy.set_viz(prop_defaults["viz"])
         dummy.set_size(prop_defaults["size"])
+        dummy.set_cross_size(prop_defaults["cross_size"])
+        dummy.make_const_size(prop_defaults["const_size_state"])
+        dummy.set_const_size(prop_defaults["const_size"])
+        dummy.draw_on_top(prop_defaults["on_top"])
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(dummy)
@@ -184,20 +242,27 @@ class Dummy(TopLevelObject):
         if not cls._corners:
             cls.__define_corners()
 
-        root = NodePath("dummy")
-        root.set_light_off()
-        root.set_color_off()
-        root.set_bin("fixed", 50)
-        root.set_depth_test(False)
-        root.set_depth_write(False)
+        dummy = NodePath("dummy")
+        dummy.set_light_off()
+        dummy.set_color_off()
+        dummy.set_bin("fixed", 50)
+        dummy.set_depth_test(False)
+        dummy.set_depth_write(False)
 
-        cls._original = root
-        cls.__create_geom(root, "unselected")
-        cls.__create_geom(root, "selected")
-        cls.__create_geom(root, "pickable")
+        cls._original = dummy
+
+        root = dummy.attach_new_node("box_root")
+        cls.__create_box_geom(root, "unselected")
+        cls.__create_box_geom(root, "selected")
+        cls.__create_box_geom(root, "pickable")
+
+        root = dummy.attach_new_node("cross_root")
+        cls.__create_cross_geom(root, "unselected")
+        cls.__create_cross_geom(root, "selected")
+        cls.__create_cross_geom(root, "pickable")
 
     @classmethod
-    def __create_geom(cls, parent, state):
+    def __create_box_geom(cls, parent, state):
 
         vertex_format = GeomVertexFormat.get_v3cp()
         vertex_data = GeomVertexData("dummy_helper_data", vertex_format, Geom.UH_static)
@@ -255,7 +320,66 @@ class Dummy(TopLevelObject):
 
         geom = Geom(vertex_data)
         geom.add_primitive(lines)
-        node = GeomNode("geom_%s" % state)
+        node = GeomNode("box_geom_%s" % state)
+        node.add_geom(geom)
+        np = parent.attach_new_node(node)
+        np.hide(Mgr.get("%s_mask" % ("render" if state == "pickable" else "picking")))
+        np.hide() if state == "selected" else np.show()
+
+    @classmethod
+    def __create_cross_geom(cls, parent, state):
+
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("dummy_helper_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+        if state != "pickable":
+            col_writer = GeomVertexWriter(vertex_data, "color")
+
+        lines = GeomLines(Geom.UH_static)
+        vert_index = 0
+
+        for axis in "xyz":
+
+            pos = Point3()
+            index = "xyz".index(axis)
+            pos[index] = -.5
+            pos_writer.add_data3f(pos)
+
+            if state == "unselected":
+                col_writer.add_data4f(.5, .5, .5, 1.)
+            elif state == "selected":
+                col_writer.add_data4f(.2, .2, .2, 1.)
+
+            vert_index += 1
+
+            if state != "pickable":
+
+                pos_writer.add_data3f(0., 0., 0.)
+
+                if state == "unselected":
+                    col_writer.add_data4f(0., .15, .15, 1.)
+                elif state == "selected":
+                    col_writer.add_data4f(.2, 1., 1., 1.)
+
+                lines.add_vertices(vert_index - 1, vert_index)
+                vert_index += 1
+
+            pos = Point3()
+            pos[index] = .5
+            pos_writer.add_data3f(pos)
+
+            if state == "unselected":
+                col_writer.add_data4f(.5, .5, .5, 1.)
+            elif state == "selected":
+                col_writer.add_data4f(.2, .2, .2, 1.)
+
+            lines.add_vertices(vert_index - 1, vert_index)
+            vert_index += 1
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        node = GeomNode("cross_geom_%s" % state)
         node.add_geom(geom)
         np = parent.attach_new_node(node)
         np.hide(Mgr.get("%s_mask" % ("render" if state == "pickable" else "picking")))
@@ -266,7 +390,7 @@ class Dummy(TopLevelObject):
         if not self._corners:
             Dummy.__define_corners()
 
-        return self._corners
+        return self._corners + [(0., 0., 0.)]
 
     corners = property(__get_corners)
 
@@ -284,7 +408,15 @@ class Dummy(TopLevelObject):
         d = self.__dict__.copy()
         d["_pivot"] = NodePath(self.get_pivot().get_name())
         d["_origin"] = NodePath(self.get_origin().get_name())
+        del d["_geom_roots"]
         del d["_geoms"]
+
+        if self._is_const_size:
+            Mgr.do("make_dummy_const_size", self, False)
+            root = self._root.copy_to(Mgr.get("object_root"))
+            root.detach_node()
+            d["_root"] = root
+            Mgr.do("make_dummy_const_size", self)
 
         return d
 
@@ -299,30 +431,45 @@ class Dummy(TopLevelObject):
         self.get_pivot_gizmo().get_origin().set_compass(pivot)
         root = self._root
         root.reparent_to(origin)
-        self._geoms = {}
-        self._geoms["unselected"] = root.find("**/geom_unselected")
-        self._geoms["selected"] = root.find("**/geom_selected")
+        self._geom_roots = {}
+        self._geoms = {"box": {}, "cross": {}}
+
+        for geom_type, geoms in self._geoms.iteritems():
+            self._geom_roots[geom_type] = root.find("**/%s_root" % geom_type)
+            geoms["unselected"] = root.find("**/%s_geom_unselected" % geom_type)
+            geoms["selected"] = root.find("**/%s_geom_selected" % geom_type)
 
     def __init__(self, dummy_id, name, origin_pos):
 
         TopLevelObject.__init__(self, "dummy", dummy_id, name, origin_pos,
                                 has_color=False)
 
-        self._type_prop_ids = ["size", "axis_tripod"]
+        self._type_prop_ids = ["viz", "size", "cross_size", "const_size_state",
+                               "const_size", "on_top"]
+        self._viz = set(["box", "cross"])
         self._size = 0.
+        self._cross_size = 100. # percentage of main/box size
+        self._is_const_size = False
+        self._const_size = 0.
+        self._drawn_on_top = True
 
         origin = self.get_origin()
         self._root = root = self.original.copy_to(origin)
-        self._geoms = {}
-        self._geoms["unselected"] = root.find("**/geom_unselected")
-        self._geoms["selected"] = root.find("**/geom_selected")
-        pickable_geom = root.find("**/geom_pickable")
-        vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
-        col_writer = GeomVertexWriter(vertex_data, "color")
-        col_writer.set_row(0)
+        self._geom_roots = {}
+        self._geoms = {"box": {}, "cross": {}}
+
+        for geom_type, geoms in self._geoms.iteritems():
+            self._geom_roots[geom_type] = root.find("**/%s_root" % geom_type)
+            geoms["unselected"] = root.find("**/%s_geom_unselected" % geom_type)
+            geoms["selected"] = root.find("**/%s_geom_selected" % geom_type)
 
         self._edges = {}
         pickable_type_id = PickableTypes.get_id("dummy_edge")
+
+        pickable_geom = root.find("**/box_geom_pickable")
+        vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        col_writer.set_row(0)
 
         for i, corner in enumerate(self._corners):
             for axis in "xyz":
@@ -333,7 +480,23 @@ class Dummy(TopLevelObject):
                 col_writer.set_data4f(picking_color)
                 self._edges[color_id] = edge
 
+        pickable_geom = root.find("**/cross_geom_pickable")
+        vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        col_writer.set_row(0)
+
+        for axis in "xyz":
+            edge = Mgr.do("create_dummy_edge", self, axis, 4)
+            color_id = edge.get_picking_color_id()
+            picking_color = get_color_vec(color_id, pickable_type_id)
+            col_writer.set_data4f(picking_color)
+            col_writer.set_data4f(picking_color)
+            self._edges[color_id] = edge
+
     def destroy(self, add_to_hist=True):
+
+        if self._is_const_size:
+            Mgr.do("make_dummy_const_size", self, False)
 
         TopLevelObject.destroy(self, add_to_hist)
 
@@ -342,11 +505,34 @@ class Dummy(TopLevelObject):
         self._root.remove_node()
         self._root = None
 
+    def get_geom_root(self):
+
+        return self._root
+
     def get_corner_pos(self, corner_index):
 
         corner_pos = Point3(self.corners[corner_index])
 
         return self.world.get_relative_point(self._root, corner_pos)
+
+    def set_viz(self, viz):
+
+        if self._viz == viz:
+            return False
+
+        for geom_type in self._viz - viz:
+            self._geom_roots[geom_type].hide()
+
+        for geom_type in viz - self._viz:
+            self._geom_roots[geom_type].show()
+
+        self._viz = viz
+
+        return True
+
+    def get_viz(self):
+
+        return self._viz
 
     def set_size(self, size):
 
@@ -362,6 +548,67 @@ class Dummy(TopLevelObject):
 
         return self._size
 
+    def set_cross_size(self, size):
+
+        if self._cross_size == size:
+            return False
+
+        self._cross_size = size
+        self._geom_roots["cross"].set_scale(size * .01)
+
+        return True
+
+    def get_cross_size(self):
+
+        return self._cross_size
+
+    def make_const_size(self, is_const_size=True, restore=False):
+
+        if not restore and self._is_const_size == is_const_size:
+            return False
+
+        self._is_const_size = is_const_size
+        Mgr.do("make_dummy_const_size", self, is_const_size)
+
+        return True
+
+    def set_const_size(self, const_size):
+
+        if self._const_size == const_size:
+            return False
+
+        self._const_size = const_size
+        Mgr.do("set_dummy_const_size", self, const_size)
+
+        return True
+
+    def get_const_size(self):
+
+        return self._const_size
+
+    def draw_on_top(self, on_top=True):
+
+        if self._drawn_on_top == on_top:
+            return False
+
+        self._drawn_on_top = on_top
+        root = self._root
+
+        if on_top:
+            root.set_bin("fixed", 50)
+            root.set_depth_test(False)
+            root.set_depth_write(False)
+        else:
+            root.clear_bin()
+            root.clear_depth_test()
+            root.clear_depth_write()
+
+        return True
+
+    def is_drawn_on_top(self):
+
+        return self._drawn_on_top
+
     def set_property(self, prop_id, value, restore=""):
 
         def update_app():
@@ -369,8 +616,28 @@ class Dummy(TopLevelObject):
             Mgr.update_remotely("selected_obj_prop", "dummy", prop_id,
                                 self.get_property(prop_id, True))
 
-        if prop_id == "size":
+        if prop_id == "viz":
+            if self.set_viz(value):
+                update_app()
+                return True
+        elif prop_id == "size":
             if self.set_size(value):
+                update_app()
+                return True
+        elif prop_id == "cross_size":
+            if self.set_cross_size(value):
+                update_app()
+                return True
+        elif prop_id == "const_size_state":
+            if self.make_const_size(value, restore):
+                update_app()
+                return True
+        elif prop_id == "const_size":
+            if self.set_const_size(value):
+                update_app()
+                return True
+        elif prop_id == "on_top":
+            if self.draw_on_top(value):
                 update_app()
                 return True
         else:
@@ -378,8 +645,18 @@ class Dummy(TopLevelObject):
 
     def get_property(self, prop_id, for_remote_update=False):
 
-        if prop_id == "size":
+        if prop_id == "viz":
+            return self._viz
+        elif prop_id == "size":
             return self._size
+        elif prop_id == "cross_size":
+            return self._cross_size
+        elif prop_id == "const_size_state":
+            return self._is_const_size
+        elif prop_id == "const_size":
+            return self._const_size
+        elif prop_id == "on_top":
+            return self._drawn_on_top
 
         return TopLevelObject.get_property(self, prop_id, for_remote_update)
 
@@ -407,8 +684,11 @@ class Dummy(TopLevelObject):
 
         TopLevelObject.update_selection_state(self, is_selected)
 
-        self._geoms["unselected" if is_selected else "selected"].hide()
-        self._geoms["selected" if is_selected else "unselected"].show()
+        geoms = self._geoms
+
+        for geom_type in ("box", "cross"):
+            geoms[geom_type]["unselected" if is_selected else "selected"].hide()
+            geoms[geom_type]["selected" if is_selected else "unselected"].show()
 
     def is_valid(self):
 

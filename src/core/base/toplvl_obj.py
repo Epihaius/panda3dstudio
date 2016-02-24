@@ -287,13 +287,13 @@ class TopLevelObject(BaseObject):
 
         return self._name
 
-    def get_pivot(self):
-
-        return self._pivot
-
     def get_origin(self):
 
         return self._origin
+
+    def get_pivot(self):
+
+        return self._pivot
 
     def get_pivot_gizmo(self):
 

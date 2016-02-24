@@ -145,12 +145,12 @@ class PivotGizmo(object):
     def __create_original(cls):
 
         node = NodePath("pivot_gizmo_base")
-        bounds = BoundingSphere(Point3(), 1.1)
-        node.node().set_bounds(bounds)
-        node.node().set_final(True)
         cls._original = node
         pivot = node.attach_new_node("pivot_gizmo_pivot")
         pivot.set_y(8.)
+        bounds = BoundingSphere(Point3(), 1.1)
+        pivot.node().set_bounds(bounds)
+        pivot.node().set_final(True)
         origin = pivot.attach_new_node("pivot_gizmo")
         axis_label_root = origin.attach_new_node("axis_label_root")
 
@@ -299,11 +299,11 @@ class PivotGizmo(object):
 
         node = self._base
         node.reparent_to(Mgr.get("pivot_gizmo_root"))
-        bounds = BoundingSphere(Point3(), 1.1)
-        node.node().set_bounds(bounds)
-        node.node().set_final(True)
         pivot = node.attach_new_node("pivot_gizmo_pivot")
         pivot.set_y(8.)
+        bounds = BoundingSphere(Point3(), 1.1)
+        pivot.node().set_bounds(bounds)
+        pivot.node().set_final(True)
         origin = self._origin
         origin.reparent_to(pivot)
         axis_label_root = self._axis_label_root
