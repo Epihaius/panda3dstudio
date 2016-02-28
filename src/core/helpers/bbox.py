@@ -205,6 +205,10 @@ class BoundingBox(BaseObject):
 
         return self.world.get_relative_point(self._origin, corner_pos)
 
+    def get_center_pos(self, ref_node):
+
+        return self._origin.get_pos(ref_node)
+
     def get_toplevel_object(self):
 
         return self._toplevel_obj

@@ -30,8 +30,7 @@ class GeneralObjectManager(BaseObject):
                                                           for obj_type in self._obj_types[level]], []))
         Mgr.expose("object_types", lambda level="all": self._obj_types["top"] + self._obj_types["sub"]
                    if level == "all" else self._obj_types[level])
-        Mgr.expose("obj_namestring", lambda: "\n".join(
-            [obj.get_name() for obj in Mgr.get("objects")]))
+        Mgr.expose("obj_namestring", lambda: "\n".join([obj.get_name() for obj in Mgr.get("objects")]))
         Mgr.expose("next_obj_name", self.__get_next_object_name)
         Mgr.add_app_updater("custom_obj_name", self.__set_custom_object_name)
         Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
@@ -70,8 +69,7 @@ class GeneralObjectManager(BaseObject):
 
         elif pixel_color:
 
-            r, g, b, pickable_type_id = [
-                int(round(c * 255.)) for c in pixel_color]
+            r, g, b, pickable_type_id = [int(round(c * 255.)) for c in pixel_color]
             color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
 
             pickable_type = PickableTypes.get(pickable_type_id)
@@ -102,8 +100,8 @@ class GeneralObjectManager(BaseObject):
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
         is_selected = obj in selection
-        Mgr.update_remotely("object_name_tag", self._showing_object_name, name, pos,
-                            is_selected)
+        Mgr.update_remotely("object_name_tag", self._showing_object_name, name,
+                            pos, is_selected)
 
         if is_selected and len(selection) > 1 and Mgr.get_global("active_transform_type"):
             Mgr.update_remotely("transform_values", obj.get_transform_values())
@@ -119,7 +117,7 @@ class GeneralObjectManager(BaseObject):
                 if cs_type == "local":
                     Mgr.update_locally("coord_sys", cs_type, obj)
 
-                if tc_type == "local_origin":
+                if tc_type == "pivot":
                     Mgr.update_locally("transf_center", tc_type, obj)
 
     def __check_object_name(self, task):
@@ -158,8 +156,7 @@ class GeneralObjectManager(BaseObject):
     def __set_custom_object_name(self, obj_type, custom_name):
 
         Mgr.do("set_custom_%s_name" % obj_type, custom_name)
-        Mgr.update_remotely(
-            "next_obj_name", self.__get_next_object_name(obj_type))
+        Mgr.update_remotely("next_obj_name", self.__get_next_object_name(obj_type))
 
     @staticmethod
     def __get_next_object_name(obj_type):
@@ -291,8 +288,7 @@ class GeneralObjectManager(BaseObject):
         if not selection:
             return
 
-        changed_objs = [
-            obj for obj in selection if obj.set_property(prop_id, value)]
+        changed_objs = [obj for obj in selection if obj.set_property(prop_id, value)]
 
         PendingTasks.handle(["object", "ui"], True)
 

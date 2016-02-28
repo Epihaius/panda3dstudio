@@ -131,8 +131,7 @@ class TopLevelSelection(Selection):
 
                 else:
 
-                    event_descr += 'Deselect "%s"' % list(old_sel)[
-                        0].get_name()
+                    event_descr += 'Deselect "%s"' % list(old_sel)[0].get_name()
 
             if event_descr:
 
@@ -140,12 +139,10 @@ class TopLevelSelection(Selection):
                 event_data = {"objects": obj_data}
 
                 for old_obj in old_sel:
-                    obj_data[old_obj.get_id()] = {
-                        "selection_state": {"main": False}}
+                    obj_data[old_obj.get_id()] = {"selection_state": {"main": False}}
 
                 for new_obj in new_sel:
-                    obj_data[new_obj.get_id()] = {
-                        "selection_state": {"main": True}}
+                    obj_data[new_obj.get_id()] = {"selection_state": {"main": True}}
 
                 # make undo/redoable
                 Mgr.do("add_history", event_descr, event_data)
@@ -226,8 +223,7 @@ class TopLevelSelection(Selection):
         if add_to_hist:
             event_data["object_ids"] = set(Mgr.get("object_ids"))
             # make undo/redoable
-            Mgr.do("add_history", event_descr,
-                   event_data, update_time_id=False)
+            Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
 class SubLevelSelection(Selection):
@@ -239,8 +235,7 @@ class SubLevelSelection(Selection):
         self._groups = {}
 
         for obj in subobjs:
-            self._groups.setdefault(
-                obj.get_toplevel_object().get_id(), []).append(obj)
+            self._groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
 
     def add(self, subobj, add_to_hist=True):
 
@@ -262,8 +257,7 @@ class SubLevelSelection(Selection):
             geom_data_obj = obj.get_geom_data_object()
             geom_data_obj.set_selected(obj, True)
             geom_data_objs.add(geom_data_obj)
-            groups.setdefault(
-                obj.get_toplevel_object().get_id(), []).append(obj)
+            groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
 
         sel.extend(sel_to_add)
 
@@ -271,17 +265,14 @@ class SubLevelSelection(Selection):
 
         if add_to_hist:
 
-            subobj_descr = {"vert": "vertex",
-                            "edge": "edge", "poly": "polygon"}
-            event_descr = 'Add to %s selection' % subobj_descr[
-                self.get_object_level()]
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
+            event_descr = 'Add to %s selection' % subobj_descr[self.get_object_level()]
             obj_data = {}
             event_data = {"objects": obj_data}
 
             for geom_data_obj in geom_data_objs:
                 obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store(
-                    "prop_change", "subobj_selection")
+                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_selection")
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
@@ -317,17 +308,14 @@ class SubLevelSelection(Selection):
 
         if add_to_hist:
 
-            subobj_descr = {"vert": "vertex",
-                            "edge": "edge", "poly": "polygon"}
-            event_descr = 'Remove from %s selection' % subobj_descr[
-                self.get_object_level()]
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
+            event_descr = 'Remove from %s selection' % subobj_descr[self.get_object_level()]
             obj_data = {}
             event_data = {"objects": obj_data}
 
             for geom_data_obj in geom_data_objs:
                 obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store(
-                    "prop_change", "subobj_selection")
+                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_selection")
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
@@ -366,24 +354,20 @@ class SubLevelSelection(Selection):
         self._groups = groups = {}
 
         for obj in common | new_sel:
-            groups.setdefault(
-                obj.get_toplevel_object().get_id(), []).append(obj)
+            groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
 
         PendingTasks.add(self.update, "update_selection", "ui")
 
         if add_to_hist and geom_data_objs:
 
-            subobj_descr = {"vert": "vertex",
-                            "edge": "edge", "poly": "polygon"}
-            event_descr = 'Replace %s selection' % subobj_descr[
-                self.get_object_level()]
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
+            event_descr = 'Replace %s selection' % subobj_descr[self.get_object_level()]
             obj_data = {}
             event_data = {"objects": obj_data}
 
             for geom_data_obj in geom_data_objs:
                 obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store(
-                    "prop_change", "subobj_selection")
+                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_selection")
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
@@ -399,8 +383,7 @@ class SubLevelSelection(Selection):
         geom_data_objs = []
 
         for obj_id in self._groups:
-            geom_data_obj = Mgr.get(
-                "object", obj_id).get_geom_object().get_geom_data_object()
+            geom_data_obj = Mgr.get("object", obj_id).get_geom_object().get_geom_data_object()
             geom_data_obj.clear_selection(obj_lvl)
             geom_data_objs.append(geom_data_obj)
 
@@ -411,16 +394,14 @@ class SubLevelSelection(Selection):
 
         if add_to_hist:
 
-            subobj_descr = {"vert": "vertex",
-                            "edge": "edge", "poly": "polygon"}
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
             event_descr = 'Clear %s selection' % subobj_descr[obj_lvl]
             obj_data = {}
             event_data = {"objects": obj_data}
 
             for geom_data_obj in geom_data_objs:
                 obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store(
-                    "prop_change", "subobj_selection")
+                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_selection")
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
@@ -436,8 +417,7 @@ class SubLevelSelection(Selection):
         geom_data_objs = []
 
         for obj_id in self._groups:
-            geom_data_obj = Mgr.get(
-                "object", obj_id).get_geom_object().get_geom_data_object()
+            geom_data_obj = Mgr.get("object", obj_id).get_geom_object().get_geom_data_object()
             geom_data_objs.append(geom_data_obj)
 
         self._groups = {}
@@ -452,20 +432,17 @@ class SubLevelSelection(Selection):
 
             Mgr.do("update_history_time")
 
-            subobj_descr = {"vert": "vertex",
-                            "edge": "edge", "poly": "polygon"}
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
             event_descr = 'Delete %s selection' % subobj_descr[obj_lvl]
             obj_data = {}
             event_data = {"objects": obj_data}
 
             for geom_data_obj in geom_data_objs:
                 obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store(
-                    "subobj_change")
+                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("subobj_change")
 
             # make undo/redoable
-            Mgr.do("add_history", event_descr,
-                   event_data, update_time_id=False)
+            Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
         return True
 
@@ -483,7 +460,6 @@ class SelectionManager(BaseObject):
         self._selection = TopLevelSelection()
         self._subobj_selection = None
         self._pixel_under_mouse = VBase4()
-        self._obj_is_under_mouse = False
 
         Mgr.set_global("selection_count", 0)
         Mgr.set_global("sel_color_count", 0)
@@ -534,20 +510,18 @@ class SelectionManager(BaseObject):
         for transf_type in ("translate", "rotate", "scale"):
             mode = "Select and %s" % transf_type
             status_data["select"][transf_type] = {}
-            status_data["select"][transf_type]["idle"] = {
-                "mode": mode, "info": info_idle}
-            status_data["select"][transf_type][
-                "in_progress"] = {"mode": mode, "info": info}
+            status_data["select"][transf_type]["idle"] = {"mode": mode, "info": info_idle}
+            status_data["select"][transf_type]["in_progress"] = {"mode": mode, "info": info}
 
         def force_cursor_update(transf_type):
 
-            self._obj_is_under_mouse = None  # neither False nor True, to force an
-            # update of the cursor next time
-            # self.__update_cursor() is called
+            self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                               # next time self.__update_cursor()
+                                               # is called
 
         Mgr.add_app_updater("active_transform_type", force_cursor_update)
-        Mgr.add_app_updater("active_obj_level",
-                            self.__update_subobj_selection, kwargs=["restore"])
+        Mgr.add_app_updater("active_obj_level", self.__update_subobj_selection,
+                            kwargs=["restore"])
         Mgr.accept("update_subobj_selection", self.__update_subobj_selection)
         Mgr.accept("update_sel_obj_ids", self.__update_selected_object_ids)
 
@@ -577,9 +551,9 @@ class SelectionManager(BaseObject):
     def __exit_selection_mode(self, next_state_id, is_active):
 
         if next_state_id != "checking_mouse_offset":
-            self._obj_is_under_mouse = None  # neither False nor True, to force an
-            # update of the cursor next time
-            # self.__update_cursor() is called
+            self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                               # next time self.__update_cursor()
+                                               # is called
             Mgr.remove_task("update_cursor")
             Mgr.set_cursor("main")
 
@@ -620,8 +594,7 @@ class SelectionManager(BaseObject):
 
     def __update_selected_object_ids(self):
 
-        self._sel_obj_ids = set([obj.get_id()
-                                 for obj in self.__get_selection()])
+        self._sel_obj_ids = set([obj.get_id() for obj in self.__get_selection()])
 
     def __delete_selection(self):
 
@@ -633,19 +606,18 @@ class SelectionManager(BaseObject):
 
     def __update_cursor(self, task):
 
-        self._pixel_under_mouse = Mgr.get("pixel_under_mouse")
-        obj_is_under_mouse = self._pixel_under_mouse != VBase4()
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
 
-        if obj_is_under_mouse != self._obj_is_under_mouse:
+        if self._pixel_under_mouse != pixel_under_mouse:
 
-            self._obj_is_under_mouse = obj_is_under_mouse
-
-            if obj_is_under_mouse:
+            if pixel_under_mouse == VBase4():
+                Mgr.set_cursor("main")
+            else:
                 active_transform_type = Mgr.get_global("active_transform_type")
                 cursor_name = "select" if not active_transform_type else active_transform_type
                 Mgr.set_cursor(cursor_name)
-            else:
-                Mgr.set_cursor("main")
+
+            self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
 
@@ -716,8 +688,7 @@ class SelectionManager(BaseObject):
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
         color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
         pickable_type, picked_obj = self.__get_picked_object(color_id, a)
-        self._picked_point = picked_obj.get_point_at_screen_pos(
-            screen_pos) if picked_obj else None
+        self._picked_point = picked_obj.get_point_at_screen_pos(screen_pos) if picked_obj else None
 
         if pickable_type == "transf_gizmo":
             Mgr.enter_state("checking_mouse_offset")
@@ -735,7 +706,7 @@ class SelectionManager(BaseObject):
             if cs_type == "local":
                 Mgr.update_locally("coord_sys", cs_type, obj)
 
-            if tc_type == "local_origin":
+            if tc_type == "pivot":
                 Mgr.update_locally("transf_center", tc_type, obj)
 
         elif obj_lvl == "vert":

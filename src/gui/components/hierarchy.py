@@ -73,6 +73,24 @@ class HierarchyPanel(Panel):
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
         sizer_args = (0, wx.ALL, 2)
 
+        label = "Geom only"
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+        toggle = (lambda: self.__set_xform_target_type("geom"), lambda: None)
+        self._toggle_btns.add_button(self, section, btn_sizer, "geom", toggle, bitmaps,
+                                     "Transform geometry only", label, sizer_args=sizer_args)
+
+        label = "Reset geom"
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+        btn = PanelButton(self, section, btn_sizer, bitmaps, label,
+                          "Reset geometry to original transform",
+                          lambda: Mgr.update_app("geom_reset"), sizer_args,
+                          focus_receiver=focus_receiver)
+        self._btns["reset_geom"] = btn
+
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
+        sizer_args = (0, wx.ALL, 2)
+
         label = "Pivot only"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         toggle = (lambda: self.__set_xform_target_type("pivot"), lambda: None)

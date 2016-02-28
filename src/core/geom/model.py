@@ -180,6 +180,10 @@ class Model(TopLevelObject):
 
         return self._bbox
 
+    def get_center_pos(self, ref_node):
+
+        return self._bbox.get_center_pos(ref_node)
+
     def update_selection_state(self, is_selected=True):
 
         TopLevelObject.update_selection_state(self, is_selected)

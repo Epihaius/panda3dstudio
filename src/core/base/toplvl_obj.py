@@ -527,6 +527,8 @@ class TopLevelObject(BaseObject):
             task = lambda: self._origin.set_mat(self._pivot, value)
             Mgr.do("add_transf_to_restore", "origin", self, task)
             Mgr.do("restore_transforms")
+            task = lambda: Mgr.get("selection").update()
+            PendingTasks.add(task, "update_selection", "ui")
 
         elif prop_id == "tags":
 

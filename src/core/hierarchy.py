@@ -30,6 +30,7 @@ class HierarchyManager(BaseObject):
         Mgr.add_app_updater("object_link_viz", self.__show_object_links)
         Mgr.add_app_updater("object_unlinking", self.__unlink_objects)
         Mgr.add_app_updater("transform_target_type", self.__update_xform_target_type)
+        Mgr.add_app_updater("geom_reset", self.__reset_geoms)
         Mgr.add_app_updater("pivot_reset", self.__reset_pivots)
         Mgr.add_app_updater("history_change", self.__reset_xform_target_type)
 
@@ -428,18 +429,29 @@ class HierarchyManager(BaseObject):
         if prev_target_type == "all":
             Mgr.enter_state("selection_mode")
 
-        if target_type == "pivot":
+        if target_type == "geom":
+            if prev_target_type == "pivot":
+                self.__reattach_objects()
+            elif prev_target_type == "no_children":
+                self.__reattach_pivots()
+            Mgr.do("show_pivot_gizmos")
+        elif target_type == "pivot":
             if prev_target_type == "no_children":
                 self.__detach_origins()
             else:
                 self.__detach_objects()
             Mgr.do("show_pivot_gizmos")
         elif target_type == "no_children":
-            if prev_target_type == "pivot":
+            if prev_target_type == "geom":
+                self.__detach_pivots()
+                Mgr.do("show_pivot_gizmos", False)
+            elif prev_target_type == "pivot":
                 self.__reattach_origins()
                 Mgr.do("show_pivot_gizmos", False)
             else:
                 self.__detach_pivots()
+        elif prev_target_type == "geom":
+            Mgr.do("show_pivot_gizmos", False)
         elif prev_target_type == "pivot":
             self.__reattach_objects()
             Mgr.do("show_pivot_gizmos", False)
@@ -451,6 +463,44 @@ class HierarchyManager(BaseObject):
         if Mgr.get_global("transform_target_type") != "all":
             Mgr.set_global("transform_target_type", "all")
             Mgr.update_app("transform_target_type")
+
+    def __reset_geoms(self):
+
+        sel = Mgr.get("selection", "top")
+
+        if not sel:
+            return
+
+        for obj in sel:
+            pivot = obj.get_pivot()
+            origin = obj.get_origin()
+            origin.set_mat(pivot, Mat4.ident_mat())
+
+        sel.update()
+
+        # make undo/redoable
+
+        obj_data = {}
+        event_data = {"objects": obj_data}
+        Mgr.do("update_history_time")
+        obj_count = len(sel)
+
+        if obj_count > 1:
+
+            event_descr = "Reset %d objects' geometry:\n" % obj_count
+
+            for obj in sel:
+                event_descr += '\n    "%s"' % obj.get_name()
+
+        else:
+
+            event_descr = 'Reset "%s" geometry' % sel[0].get_name()
+
+        for obj in sel:
+            data = obj.get_data_to_store("prop_change", "origin_transform")
+            obj_data[obj.get_id()] = data
+
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
     def __reset_pivots(self):
 

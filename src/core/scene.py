@@ -51,7 +51,7 @@ class SceneManager(BaseObject):
         Mgr.do("update_world_axes")
         Mgr.do("update_nav_gizmo")
         Mgr.update_app("coord_sys", "world")
-        Mgr.update_app("transf_center", "sel_center")
+        Mgr.update_app("transf_center", "adaptive")
         Mgr.update_app("active_grid_plane", "XY")
         Mgr.update_app("active_transform_type", "")
         Mgr.update_app("status", "select", "")
@@ -368,7 +368,90 @@ class SceneManager(BaseObject):
 
     def __import(self, filename, simple_edit=False):
 
-        pass
+        model_root = Mgr.load_model(Filename.from_os_specific(filename))
+##        print "Model path:", model_root.node().get_fullpath()
+        model_root.ls()
+        objs = model_root.get_children()
+        objs.detach()
+        model_root.remove_node()
+        objs.reparent_to(Mgr.get("object_root"))
+
+        v_f = GeomVertexFormat.get_v3n3cpt2()
+        v_data = GeomVertexData("test", v_f, Geom.UH_static)
+        pos_writer = GeomVertexWriter(v_data, "vertex")
+        pos_writer.add_data3f(0., 0., 0.)
+        pos_writer.add_data3f(0., 0., 1.)
+        pos_writer.add_data3f(1., 0., 0.)
+        tris = GeomTriangles(Geom.UH_static)
+        tris.add_next_vertices(3)
+        geom1 = Geom(v_data)
+        geom1.add_primitive(tris)
+
+##        v_data = GeomVertexData("test2", v_f, Geom.UH_static)
+##        pos_writer = GeomVertexWriter(v_data, "vertex")
+        pos_writer.add_data3f(0., 0., 0.)
+        pos_writer.add_data3f(0., 0., -1.)
+        pos_writer.add_data3f(-1., 0., 0.)
+        tris = GeomTriangles(Geom.UH_static)
+        tris.add_vertices(3, 4, 5)
+        geom2 = Geom(v_data)
+        geom2.add_primitive(tris)
+
+        np1 = NodePath("tmp1")
+        np1.set_texture(Mgr.load_tex(Filename.from_os_specific("C:\\Projects\\Panda3D Studio\\p3ds2\\Brick_105.jpg")))
+        state1 = np1.get_state()
+        np2 = NodePath("tmp1")
+        np2.set_texture(Mgr.load_tex(Filename.from_os_specific("C:\\Projects\\Panda3D Studio\\p3ds2\\rockwall_diffuse.png")))
+        state2 = np2.get_state()
+        print "PandaNode type:", np2.node().get_class_type().get_name()
+
+        geom_node = GeomNode("test")
+        geom_node.add_geom(geom1, state1)
+        geom_node.add_geom(geom2, state1)
+        geom_node.unify(100, False)
+        print "Remaining geoms:", geom_node.get_num_geoms()
+        print "PandaNode type:", geom_node.get_class_type().get_name()
+
+
+        return
+
+        for obj in objs:
+            # this needs recursion
+
+            name = obj.get_name()
+            namestring = "\n".join([o.get_name() for o in Mgr.get("objects")])
+            name = get_unique_name(name, namestring)
+
+            if simple_edit:
+                # copy render state and transform from obj to model._origin and
+                # clear the obj NodePath before setting it as SimpleGeom._origin
+                simple_geom = Mgr.do("create_simple_geom", obj, name)
+                model = simple_geom.get_model()
+                model.get_bbox().update(*simple_geom.get_origin().get_tight_bounds())
+                continue
+
+            editable_geom = Mgr.do("create_editable_geom", name=name)
+            geom_data_obj = editable_geom.get_geom_data_object()
+
+            geom_data = []
+            verts = []
+            tris = []
+            polys = []
+
+            # check if NodePath contains a GeomNode; if not, discard or merge
+            # with child GeomNode(s)
+
+            # check Geom.get_primitive_type() == Geom.PT_polygons; if so, call
+            # Geom.decompose_in_place() and Geom.unify_in_place(len(verts), False)
+            # to ensure a single GeomTriangles, otherwise discard the Geom
+
+            # check that a vertex is referenced exactly twice; less -> discard,
+            # more -> duplicate
+
+            geom_data_obj.process_geom_data(geom_data)
+            editable_geom.create()
+            model = editable_geom.get_model()
+            model.get_bbox().update(*geom_data_obj.get_origin().get_tight_bounds())
 
 
 MainObjects.add_class(SceneManager)

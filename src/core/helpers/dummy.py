@@ -515,6 +515,10 @@ class Dummy(TopLevelObject):
 
         return self.world.get_relative_point(self._root, corner_pos)
 
+    def get_center_pos(self, ref_node):
+
+        return self.get_origin().get_pos(ref_node)
+
     def set_viz(self, viz):
 
         if self._viz == viz:

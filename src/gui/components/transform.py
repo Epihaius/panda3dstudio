@@ -40,10 +40,8 @@ class TransformButtons(ToggleButtonGroup):
             icon_name, btn_tooltip = btn_data[transf_type]
             icon_path = os.path.join(GFX_PATH, icon_name + ".png")
 
-            bitmaps = Button.create_button_bitmaps(
-                icon_path, bitmap_paths, flat=True)
-            btn = self.add_button(toolbar, transf_type,
-                                  toggle, bitmaps, btn_tooltip)
+            bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
+            btn = self.add_button(toolbar, transf_type, toggle, bitmaps, btn_tooltip)
 
         for transf_type in ("translate", "rotate", "scale"):
             add_toggle(transf_type)
@@ -67,8 +65,7 @@ class AxisButtons(ButtonGroup):
     def setup(self):
 
         for transf_type in ("translate", "rotate", "scale"):
-            self._axes[transf_type] = Mgr.get_global(
-                "axis_constraints_%s" % transf_type)
+            self._axes[transf_type] = Mgr.get_global("axis_constraints_%s" % transf_type)
 
     def update_axis_constraints(self, transf_type, axes):
 
@@ -128,11 +125,9 @@ class AxisButtons(ButtonGroup):
         icon_name = "icon_%s" % axis.lower()
         icon_path = os.path.join(GFX_PATH, icon_name + ".png")
         bitmap_paths = Button.get_bitmap_paths("toolbar_button")
-        bitmaps = Button.create_button_bitmaps(
-            icon_path, bitmap_paths, flat=True)
+        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
         tooltip_label = "Transform about %s" % axis
-        btn = Button(toolbar, bitmaps, "", tooltip_label,
-                     lambda: self.__set_axis_constraint(axis))
+        btn = Button(toolbar, bitmaps, "", tooltip_label, lambda: self.__set_axis_constraint(axis))
         btn.set_hotkey((ord(axis), 0))
         self.add_button(btn, axis)
 
@@ -145,8 +140,7 @@ class CoordSysComboBox(ComboBox):
 
         icon_path = os.path.join(GFX_PATH, "icon_coordsys.png")
         bitmap_paths = ComboBox.get_bitmap_paths("toolbar_button")
-        bitmaps = ComboBox.create_button_bitmaps(
-            icon_path, bitmap_paths, 148, flat=True)
+        bitmaps = ComboBox.create_button_bitmaps(icon_path, bitmap_paths, 148, flat=True)
         btn_data = (toolbar, bitmaps, "", "Coordinate system")
 
         ComboBox.__init__(self, btn_data, active_tint=(.8, 1.8, 1.8))
@@ -160,8 +154,7 @@ class CoordSysComboBox(ComboBox):
                     self.select_item(cs_type)
                     Mgr.enter_state("coord_sys_picking_mode")
 
-                self.add_item(cs_type, label,
-                              start_coord_sys_picking, persistent=True)
+                self.add_item(cs_type, label, start_coord_sys_picking, persistent=True)
 
             else:
 
@@ -197,8 +190,7 @@ class TransfCenterComboBox(ComboBox):
 
         icon_path = os.path.join(GFX_PATH, "icon_transf_center.png")
         bitmap_paths = ComboBox.get_bitmap_paths("toolbar_button")
-        bitmaps = ComboBox.create_button_bitmaps(
-            icon_path, bitmap_paths, 148, flat=True)
+        bitmaps = ComboBox.create_button_bitmaps(icon_path, bitmap_paths, 148, flat=True)
         btn_data = (toolbar, bitmaps, "", "Transform center")
 
         ComboBox.__init__(self, btn_data, active_tint=(.8, 1.8, 1.8))
@@ -212,8 +204,7 @@ class TransfCenterComboBox(ComboBox):
                     self.select_item(tc_type)
                     Mgr.enter_state("transf_center_picking_mode")
 
-                self.add_item(tc_type, label,
-                              start_transf_center_picking, persistent=True)
+                self.add_item(tc_type, label, start_transf_center_picking, persistent=True)
 
             else:
 
@@ -225,8 +216,9 @@ class TransfCenterComboBox(ComboBox):
                 self.add_item(tc_type, label, set_transf_center)
 
         for tc in (
-            ("sel_center", "Selection Center"), ("local_origin", "Local Origin"),
-            ("cs_origin", "Coord Sys Origin"), ("object", "Pick object...")
+            ("adaptive", "Adaptive"), ("sel_center", "Selection Center"),
+            ("pivot", "Pivot"), ("cs_origin", "Coord Sys Origin"),
+            ("object", "Pick object...")
         ):
             add_transf_center_type(*tc)
 
@@ -256,18 +248,14 @@ class TransformToolbar(Toolbar):
 
         sizer.AddSpacer(10)
         self._axis_btns = AxisButtons()
-        self._axis_btns.add_disabler(
-            "no_transf", lambda: not Mgr.get_global("active_transform_type"))
+        self._axis_btns.add_disabler("no_transf", lambda: not Mgr.get_global("active_transform_type"))
         self._fields = {}
 
-        get_rel_val_toggler = lambda field: lambda: self.__toggle_relative_values(
-            field)
+        get_rel_val_toggler = lambda field: lambda: self.__toggle_relative_values(field)
         get_popup_handler = lambda field: lambda: self.__on_popup(field)
-        get_value_handler = lambda axis: lambda value_id, value: self.__handle_value(
-            axis, value_id, value)
+        get_value_handler = lambda axis: lambda value_id, value: self.__handle_value(axis, value_id, value)
 
-        font = wx.Font(8, wx.FONTFAMILY_DEFAULT,
-                       wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL)
+        font = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL)
         is_relative_value = True
 
         for axis in "XYZ":
@@ -284,8 +272,7 @@ class TransformToolbar(Toolbar):
             handler = get_value_handler(axis)
 
             for transf_type in ("translate", "rotate", "scale"):
-                field.add_value(
-                    (transf_type, not is_relative_value), handler=handler)
+                field.add_value((transf_type, not is_relative_value), handler=handler)
                 value_id = (transf_type, is_relative_value)
                 field.add_value(value_id, handler=handler, font=font)
                 field.set_value(value_id, 1. if transf_type == "scale" else 0.)
@@ -323,8 +310,7 @@ class TransformToolbar(Toolbar):
                 self._axis_btns.enable()
                 axes = Mgr.get_global("axis_constraints_%s" % transf_type)
                 self._axis_btns.update_axis_constraints(transf_type, axes)
-                is_rel_value = Mgr.get_global(
-                    "using_rel_%s_values" % transf_type)
+                is_rel_value = Mgr.get_global("using_rel_%s_values" % transf_type)
 
                 for field in self._fields.itervalues():
                     field.show_value((transf_type, is_rel_value))
@@ -398,12 +384,10 @@ class TransformToolbar(Toolbar):
     def __handle_value(self, axis, value_id, value):
 
         transf_type, is_rel_value = value_id
-        Mgr.update_remotely("transf_component", transf_type,
-                            axis, value, is_rel_value)
+        Mgr.update_remotely("transf_component", transf_type, axis, value, is_rel_value)
 
         if is_rel_value:
-            self._fields[axis].set_value(
-                value_id, 1. if transf_type == "scale" else 0.)
+            self._fields[axis].set_value(value_id, 1. if transf_type == "scale" else 0.)
 
     def __set_field_values(self, transform_data=None):
 
@@ -441,8 +425,7 @@ class TransformToolbar(Toolbar):
 
     def __check_selection_count(self, transf_type=None):
 
-        tr_type = Mgr.get_global(
-            "active_transform_type") if transf_type is None else transf_type
+        tr_type = Mgr.get_global("active_transform_type") if transf_type is None else transf_type
 
         if not tr_type:
             return
