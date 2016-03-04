@@ -15,8 +15,8 @@ class TopLevelObject(BaseObject):
         self._type = obj_type
         self._id = obj_id
         self._name = name
-        self._parent = None
-        self._children = []
+        self._parent_id = None
+        self._child_ids = []
         obj_root = Mgr.get("object_root")
         pivot = obj_root.attach_new_node("%s_pivot" % str(obj_id))
         self._pivot = pivot
@@ -47,8 +47,9 @@ class TopLevelObject(BaseObject):
             obj_data = {}
             event_data = {"objects": obj_data}
 
-            for child in self._children[:]:
-                obj_data[child.get_id()] = child.get_data_to_store("deletion")
+            for child_id in self._child_ids[:]:
+                child = Mgr.get("object", child_id)
+                obj_data[child_id] = child.get_data_to_store("deletion")
                 child.destroy(add_to_hist)
 
             if obj_data:
@@ -130,7 +131,7 @@ class TopLevelObject(BaseObject):
 
         if add_to_hist:
 
-            if self._parent is parent or parent in self.get_descendants():
+            if self._parent_id == parent_id or parent in self.get_descendants():
                 return False
 
             if parent:
@@ -138,7 +139,7 @@ class TopLevelObject(BaseObject):
                 if Mgr.get_global("transform_target_type") == "all":
                     self._pivot.wrt_reparent_to(parent.get_pivot())
 
-                parent.add_child(self)
+                parent.add_child(self._id)
 
             else:
 
@@ -146,13 +147,13 @@ class TopLevelObject(BaseObject):
 
         else:
 
-            if self._parent is parent or parent in self.get_descendants():
+            if parent in self.get_descendants():
                 if parent:
                     parent.set_parent(add_to_hist=False)
 
             if parent:
 
-                parent.add_child(self)
+                parent.add_child(self._id)
 
                 if Mgr.get_global("transform_target_type") == "all":
                     self._pivot.reparent_to(parent.get_pivot())
@@ -165,13 +166,17 @@ class TopLevelObject(BaseObject):
 
         if parent:
             Mgr.do("add_obj_link_viz", self, parent)
-        elif self._parent:
+        elif self._parent_id:
             Mgr.do("remove_obj_link_viz", self._id)
 
-        if self._parent:
-            self._parent.remove_child(self)
+        if self._parent_id and self._parent_id != parent_id:
 
-        self._parent = parent
+            prev_parent = Mgr.get("object", self._parent_id)
+
+            if prev_parent:
+                prev_parent.remove_child(self._id)
+
+        self._parent_id = parent_id
 
         if add_to_hist:
 
@@ -192,20 +197,20 @@ class TopLevelObject(BaseObject):
 
     def get_parent(self):
 
-        return self._parent
+        return Mgr.get("object", self._parent_id)
 
     def get_parent_origin(self):
 
-        return self._parent.get_origin() if self._parent else Mgr.get("object_root")
+        return self.get_parent().get_origin() if self._parent_id else Mgr.get("object_root")
 
     def get_parent_pivot(self):
 
-        return self._parent.get_pivot() if self._parent else Mgr.get("object_root")
+        return self.get_parent().get_pivot() if self._parent_id else Mgr.get("object_root")
 
     def get_root(self):
 
         node = self
-        parent = self._parent
+        parent = self.get_parent()
 
         while parent:
             node = parent
@@ -216,7 +221,7 @@ class TopLevelObject(BaseObject):
     def get_ancestors(self):
 
         ancestors = []
-        ancestor = self._parent
+        ancestor = self.get_parent()
 
         while ancestor:
             ancestors.append(ancestor)
@@ -224,27 +229,30 @@ class TopLevelObject(BaseObject):
 
         return ancestors
 
-    def add_child(self, child):
+    def add_child(self, child_id):
 
-        self._children.append(child)
+        if child_id not in self._child_ids:
+            self._child_ids.append(child_id)
 
     def get_children(self):
 
-        return self._children
+        return [Mgr.get("object", child_id) for child_id in self._child_ids]
 
     def get_descendants(self):
 
         descendants = []
-        descendants.extend(self._children)
+        children = self.get_children()
+        descendants.extend(children)
 
-        for child in self._children:
+        for child in children:
             descendants.extend(child.get_descendants())
 
         return descendants
 
-    def remove_child(self, child):
+    def remove_child(self, child_id):
 
-        self._children.remove(child)
+        if child_id in self._child_ids:
+            self._child_ids.remove(child_id)
 
     def get_geom_object(self):
 
@@ -539,7 +547,7 @@ class TopLevelObject(BaseObject):
         if prop_id == "name":
             return self._name
         elif prop_id == "parent":
-            return self._parent.get_id() if self._parent else None
+            return self._parent_id
         elif prop_id == "color":
             return self._color
         elif prop_id == "material":
@@ -596,7 +604,7 @@ class TopLevelObject(BaseObject):
 
     def restore_data(self, data_ids, restore_type, old_time_id, new_time_id):
 
-        obj_id = self.get_id()
+        obj_id = self._id
 
         if "self" in data_ids:
 

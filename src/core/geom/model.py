@@ -15,9 +15,9 @@ class ModelManager(ObjectManager):
 
         return True
 
-    def __create_model(self, model_id, name, origin_pos):
+    def __create_model(self, model_id, name, origin_pos, bbox_color=(1., 1., 1.)):
 
-        model = Model(model_id, name, origin_pos)
+        model = Model(model_id, name, origin_pos, bbox_color)
 
         return model, model_id
 
@@ -51,13 +51,13 @@ class Model(TopLevelObject):
         self._bbox.get_origin().reparent_to(origin)
         self.get_pivot_gizmo().get_origin().set_compass(pivot)
 
-    def __init__(self, model_id, name, origin_pos):
+    def __init__(self, model_id, name, origin_pos, bbox_color):
 
         TopLevelObject.__init__(self, "model", model_id, name, origin_pos)
 
         self._geom_obj = None
 
-        self._bbox = Mgr.do("create_bbox", self)
+        self._bbox = Mgr.do("create_bbox", self, bbox_color)
         self._bbox.hide()
 
     def __del__(self):
@@ -100,9 +100,7 @@ class Model(TopLevelObject):
 
     def replace_geom_object(self, geom_obj):
 
-        geom_data_obj = self._geom_obj.get_geom_data_object()
-        geom_data_obj.set_owner(geom_obj)
-        geom_obj.set_geom_data_object(geom_data_obj)
+        self._geom_obj.replace(geom_obj)
         geom_obj.set_model(self)
         self._geom_obj = geom_obj
 
@@ -165,7 +163,7 @@ class Model(TopLevelObject):
 
     def get_subobj_selection(self, subobj_lvl):
 
-        return self._geom_obj.get_geom_data_object().get_selection(subobj_lvl)
+        return self._geom_obj.get_subobj_selection(subobj_lvl)
 
     def register(self):
 
@@ -198,7 +196,7 @@ class Model(TopLevelObject):
                 self._bbox.hide()
 
         if self._geom_obj:
-            self._geom_obj.get_geom_data_object().update_selection_state(is_selected)
+            self._geom_obj.update_selection_state(is_selected)
 
     def update_render_mode(self):
 
@@ -209,7 +207,7 @@ class Model(TopLevelObject):
                 self._bbox.hide()
 
         if self._geom_obj:
-            self._geom_obj.get_geom_data_object().update_render_mode()
+            self._geom_obj.update_render_mode()
 
     def display_link_effect(self):
         """

@@ -35,12 +35,17 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
         self._draw_plane = None
 
-        self._dummy_helper_root = self.cam.attach_new_node("dummy_helper_root")
+        dummy_root = self.cam.attach_new_node("dummy_helper_root")
+        dummy_root.set_bin("fixed", 50)
+        dummy_root.set_depth_test(False)
+        dummy_root.set_depth_write(False)
+        self._dummy_helper_root = dummy_root
         self._dummy_bases = {}
 
         Mgr.accept("make_dummy_const_size", self.__make_dummy_const_size)
         Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
         Mgr.accept("inst_create_dummy", self.__create_dummy_instantly)
+        Mgr.accept("create_custom_dummy", self.__create_custom_dummy)
         Mgr.add_task(self.__update_dummy_bases, "update_dummy_bases", sort=48)
 
     def setup(self):
@@ -122,6 +127,23 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(dummy)
+
+    def __create_custom_dummy(self, name, viz, size, cross_size, is_const_size,
+                              const_size, on_top, transform=None):
+
+        dummy_id = self.generate_object_id()
+        dummy = Mgr.do("create_dummy", dummy_id, name, Point3())
+        dummy.set_viz(viz)
+        dummy.set_size(size)
+        dummy.set_cross_size(cross_size)
+        dummy.make_const_size(is_const_size)
+        dummy.set_const_size(const_size)
+        dummy.draw_on_top(on_top)
+
+        if transform:
+            dummy.get_pivot().set_transform(transform)
+
+        return dummy
 
     def __start_creation_phase1(self):
         """ Start drawing out dummy """

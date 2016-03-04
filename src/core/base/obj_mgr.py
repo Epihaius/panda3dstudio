@@ -325,7 +325,7 @@ class GeneralObjectManager(BaseObject):
         Mgr.set_global("two_sided", two_sided)
 
         for model in Mgr.get("model_objs"):
-            model.get_geom_object().get_geom_data_object().get_origin().set_two_sided(two_sided)
+            model.get_geom_object().set_two_sided(two_sided)
 
         Mgr.update_remotely("two_sided")
 

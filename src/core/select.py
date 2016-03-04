@@ -579,6 +579,10 @@ class SelectionManager(BaseObject):
 
         else:
 
+            if Mgr.get_global("transform_target_type") != "all":
+                Mgr.set_global("transform_target_type", "all")
+                Mgr.update_app("transform_target_type")
+
             subobjs = []
 
             for obj in self._selection:

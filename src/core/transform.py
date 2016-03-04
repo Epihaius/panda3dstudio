@@ -1034,31 +1034,33 @@ class TransformationManager(BaseObject):
         self._selection = Mgr.get("selection")
         self._transf_start_pos = transf_start_pos
 
-        if target_type in ("all", "links"):
+        if Mgr.get_global("active_obj_level") == "top":
 
-            obj_root = Mgr.get("object_root")
+            if target_type in ("all", "links"):
 
-            for obj in self._selection:
-                obj.get_pivot().wrt_reparent_to(obj_root)
+                obj_root = Mgr.get("object_root")
 
-        if target_type == "links":
+                for obj in self._selection:
+                    obj.get_pivot().wrt_reparent_to(obj_root)
 
-            obj_root = Mgr.get("object_root")
-            self._tmp_ref_root = ref_root = obj_root.attach_new_node("tmp_ref_nodes")
-            objs = set(self._selection)
+            if target_type == "links":
 
-            for obj in self._selection:
-                objs.update(obj.get_descendants())
+                obj_root = Mgr.get("object_root")
+                self._tmp_ref_root = ref_root = obj_root.attach_new_node("tmp_ref_nodes")
+                objs = set(self._selection)
 
-            for obj in objs:
-                pivot = obj.get_pivot()
-                origin = obj.get_origin()
-                ref_node = ref_root.attach_new_node("ref_node")
-                ref_node.set_mat(pivot.get_mat(obj_root))
-                self._tmp_pivot_mats[obj] = Mat4(pivot.get_mat(obj_root))
-                compass_effect = CompassEffect.make(ref_node,
-                    CompassEffect.P_rot | CompassEffect.P_scale)
-                origin.set_effect(compass_effect)
+                for obj in self._selection:
+                    objs.update(obj.get_descendants())
+
+                for obj in objs:
+                    pivot = obj.get_pivot()
+                    origin = obj.get_origin()
+                    ref_node = ref_root.attach_new_node("ref_node")
+                    ref_node.set_mat(pivot.get_mat(obj_root))
+                    self._tmp_pivot_mats[obj] = Mat4(pivot.get_mat(obj_root))
+                    compass_effect = CompassEffect.make(ref_node,
+                        CompassEffect.P_rot | CompassEffect.P_scale)
+                    origin.set_effect(compass_effect)
 
         if active_transform_type == "translate":
             self.__init_translation()
@@ -1075,6 +1077,7 @@ class TransformationManager(BaseObject):
     def __end_transform(self, cancel=False):
 
         Mgr.remove_task("transform_selection")
+        active_obj_lvl = Mgr.get_global("active_obj_level")
         active_transform_type = Mgr.get_global("active_transform_type")
 
         if active_transform_type == "rotate":
@@ -1083,63 +1086,67 @@ class TransformationManager(BaseObject):
             Mgr.do("set_gizmo_scale", 1., 1., 1.)
             Mgr.do("hide_scale_indicator")
 
-        target_type = Mgr.get_global("transform_target_type")
+        if active_obj_lvl == "top":
 
-        if target_type == "links":
+            target_type = Mgr.get_global("transform_target_type")
 
-            obj_root = Mgr.get("object_root")
-            tmp_pivot_mats = self._tmp_pivot_mats
-            positions = {}
+            if target_type == "links":
 
-            for obj in tmp_pivot_mats:
-                origin = obj.get_origin()
-                origin.clear_effect(CompassEffect.get_class_type())
-                pivot = obj.get_pivot()
-                positions[obj] = pivot.get_pos(obj_root)
+                obj_root = Mgr.get("object_root")
+                tmp_pivot_mats = self._tmp_pivot_mats
+                positions = {}
 
-            if not cancel:
+                for obj in tmp_pivot_mats:
+                    origin = obj.get_origin()
+                    origin.clear_effect(CompassEffect.get_class_type())
+                    pivot = obj.get_pivot()
+                    positions[obj] = pivot.get_pos(obj_root)
 
-                objs_to_process = tmp_pivot_mats.keys()
+                if not cancel:
 
-                while objs_to_process:
+                    objs_to_process = tmp_pivot_mats.keys()
 
-                    for obj in objs_to_process[:]:
+                    while objs_to_process:
 
-                        other_objs = objs_to_process[:]
-                        other_objs.remove(obj)
-                        ancestor_found = False
+                        for obj in objs_to_process[:]:
 
-                        for other_obj in other_objs:
-                            if other_obj in obj.get_ancestors():
-                                ancestor_found = True
-                                break
+                            other_objs = objs_to_process[:]
+                            other_objs.remove(obj)
+                            ancestor_found = False
 
-                        if not ancestor_found:
-                            pivot = obj.get_pivot()
-                            pivot.set_mat(obj_root, tmp_pivot_mats[obj])
-                            pivot.set_pos(obj_root, positions[obj])
-                            objs_to_process.remove(obj)
+                            for other_obj in other_objs:
+                                if other_obj in obj.get_ancestors():
+                                    ancestor_found = True
+                                    break
 
-            positions.clear()
+                            if not ancestor_found:
+                                pivot = obj.get_pivot()
+                                pivot.set_mat(obj_root, tmp_pivot_mats[obj])
+                                pivot.set_pos(obj_root, positions[obj])
+                                objs_to_process.remove(obj)
+
+                positions.clear()
 
         if cancel:
             self._selection.cancel_transform()
         else:
             self._selection.finalize_transform()
 
-        if target_type in ("all", "links"):
+        if active_obj_lvl == "top":
 
-            for obj in self._selection:
-                obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
+            if target_type in ("all", "links"):
 
-        if target_type == "links":
+                for obj in self._selection:
+                    obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
 
-            if not cancel:
-                Mgr.do("update_obj_link_viz", [obj.get_id() for obj in tmp_pivot_mats])
+            if target_type == "links":
 
-            tmp_pivot_mats.clear()
-            self._tmp_ref_root.remove_node()
-            self._tmp_ref_root = None
+                if not cancel:
+                    Mgr.do("update_obj_link_viz", [obj.get_id() for obj in tmp_pivot_mats])
+
+                tmp_pivot_mats.clear()
+                self._tmp_ref_root.remove_node()
+                self._tmp_ref_root = None
 
         if active_transform_type == "rotate" \
                 and Mgr.get_global("axis_constraints_rotate") == "trackball":

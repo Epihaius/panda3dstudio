@@ -366,92 +366,76 @@ class SceneManager(BaseObject):
         elif ext == ".obj":
             self.__export_to_obj(filename)
 
-    def __import(self, filename, simple_edit=False):
+    def __import_children(self, basic_edit, parent_id, children, namestring, objs_to_store):
 
-        model_root = Mgr.load_model(Filename.from_os_specific(filename))
-##        print "Model path:", model_root.node().get_fullpath()
-        model_root.ls()
-        objs = model_root.get_children()
-        objs.detach()
-        model_root.remove_node()
-        objs.reparent_to(Mgr.get("object_root"))
+        children.detach()
 
-        v_f = GeomVertexFormat.get_v3n3cpt2()
-        v_data = GeomVertexData("test", v_f, Geom.UH_static)
-        pos_writer = GeomVertexWriter(v_data, "vertex")
-        pos_writer.add_data3f(0., 0., 0.)
-        pos_writer.add_data3f(0., 0., 1.)
-        pos_writer.add_data3f(1., 0., 0.)
-        tris = GeomTriangles(Geom.UH_static)
-        tris.add_next_vertices(3)
-        geom1 = Geom(v_data)
-        geom1.add_primitive(tris)
+        for child in children:
 
-##        v_data = GeomVertexData("test2", v_f, Geom.UH_static)
-##        pos_writer = GeomVertexWriter(v_data, "vertex")
-        pos_writer.add_data3f(0., 0., 0.)
-        pos_writer.add_data3f(0., 0., -1.)
-        pos_writer.add_data3f(-1., 0., 0.)
-        tris = GeomTriangles(Geom.UH_static)
-        tris.add_vertices(3, 4, 5)
-        geom2 = Geom(v_data)
-        geom2.add_primitive(tris)
+            name = child.get_name()
 
-        np1 = NodePath("tmp1")
-        np1.set_texture(Mgr.load_tex(Filename.from_os_specific("C:\\Projects\\Panda3D Studio\\p3ds2\\Brick_105.jpg")))
-        state1 = np1.get_state()
-        np2 = NodePath("tmp1")
-        np2.set_texture(Mgr.load_tex(Filename.from_os_specific("C:\\Projects\\Panda3D Studio\\p3ds2\\rockwall_diffuse.png")))
-        state2 = np2.get_state()
-        print "PandaNode type:", np2.node().get_class_type().get_name()
+            if not name.strip():
+                name = "node0001"
 
-        geom_node = GeomNode("test")
-        geom_node.add_geom(geom1, state1)
-        geom_node.add_geom(geom2, state1)
-        geom_node.unify(100, False)
-        print "Remaining geoms:", geom_node.get_num_geoms()
-        print "PandaNode type:", geom_node.get_class_type().get_name()
-
-
-        return
-
-        for obj in objs:
-            # this needs recursion
-
-            name = obj.get_name()
-            namestring = "\n".join([o.get_name() for o in Mgr.get("objects")])
             name = get_unique_name(name, namestring)
+            namestring += "\n" + name
 
-            if simple_edit:
-                # copy render state and transform from obj to model._origin and
-                # clear the obj NodePath before setting it as SimpleGeom._origin
-                simple_geom = Mgr.do("create_simple_geom", obj, name)
-                model = simple_geom.get_model()
-                model.get_bbox().update(*simple_geom.get_origin().get_tight_bounds())
+            if basic_edit:
+
+                if child.is_empty():
+                    continue
+
+                node_type = child.node().get_class_type().get_name()
+
+                if node_type == "GeomNode":
+                    basic_geom = Mgr.do("create_basic_geom", child, name)
+                    obj = basic_geom.get_model()
+                else:
+                    viz = set(["box", "cross"])
+                    size = 1.
+                    cross_size = 300.
+                    is_const_size = True
+                    const_size = .5
+                    on_top = True
+                    transform = child.get_transform()
+                    obj = Mgr.do("create_custom_dummy", name, viz, size, cross_size,
+                                 is_const_size, const_size, on_top, transform)
+
+                obj.set_parent(parent_id, add_to_hist=False)
+                self.__import_children(basic_edit, obj.get_id(), child.get_children(),
+                                       namestring, objs_to_store)
+
+                if obj.get_type() == "model":
+                    obj.get_bbox().update(*child.get_tight_bounds())
+
+                objs_to_store.append(obj)
+
                 continue
 
-            editable_geom = Mgr.do("create_editable_geom", name=name)
-            geom_data_obj = editable_geom.get_geom_data_object()
+    def __import(self, filename, basic_edit=True):
 
-            geom_data = []
-            verts = []
-            tris = []
-            polys = []
+        namestring = "\n".join([obj.get_name() for obj in Mgr.get("objects")])
+        model_root = Mgr.load_model(Filename.from_os_specific(filename))
+        objs_to_store = []
+        self.__import_children(basic_edit, None, model_root.get_children(),
+                               namestring, objs_to_store)
+        model_root.remove_node()
 
-            # check if NodePath contains a GeomNode; if not, discard or merge
-            # with child GeomNode(s)
+        # make undo/redoable
 
-            # check Geom.get_primitive_type() == Geom.PT_polygons; if so, call
-            # Geom.decompose_in_place() and Geom.unify_in_place(len(verts), False)
-            # to ensure a single GeomTriangles, otherwise discard the Geom
+        Mgr.do("update_history_time")
+        obj_data = {}
+        event_data = {"objects": obj_data}
+        event_descr = 'Import "%s"' % os.path.basename(filename)
 
-            # check that a vertex is referenced exactly twice; less -> discard,
-            # more -> duplicate
+        for obj in objs_to_store:
+            obj_data[obj.get_id()] = obj.get_data_to_store("creation")
 
-            geom_data_obj.process_geom_data(geom_data)
-            editable_geom.create()
-            model = editable_geom.get_model()
-            model.get_bbox().update(*geom_data_obj.get_origin().get_tight_bounds())
+        if not obj_data:
+            return
+
+        event_data["object_ids"] = set(Mgr.get("object_ids"))
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
 MainObjects.add_class(SceneManager)

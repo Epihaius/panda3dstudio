@@ -427,7 +427,12 @@ class HierarchyManager(BaseObject):
         self._prev_xform_target_type = target_type
 
         if prev_target_type == "all":
+
             Mgr.enter_state("selection_mode")
+
+            if Mgr.get_global("active_obj_level") != "top":
+                Mgr.set_global("active_obj_level", "top")
+                Mgr.update_app("active_obj_level")
 
         if target_type == "geom":
             if prev_target_type == "pivot":

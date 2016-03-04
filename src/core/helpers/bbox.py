@@ -26,10 +26,6 @@ class BBoxEdge(BaseObject):
         self._corner_index = corner_index
         self._picking_col_id = picking_col_id
 
-    def destroy(self):
-
-        Mgr.do("unregister_bbox_edge", self._id)
-
     def get_toplevel_object(self):
 
         return self._bbox.get_toplevel_object()
@@ -141,7 +137,6 @@ class BoundingBox(BaseObject):
         origin = NodePath(node)
         origin.set_light_off()
         origin.set_texture_off()
-        origin.set_color(1., 1., 1., 1.)
         origin.set_color_scale_off()
         cls._original = origin
 
@@ -163,10 +158,11 @@ class BoundingBox(BaseObject):
 
     original = property(__get_original)
 
-    def __init__(self, toplevel_obj):
+    def __init__(self, toplevel_obj, color):
 
         self._toplevel_obj = toplevel_obj
         self._origin = origin = self.original.copy_to(toplevel_obj.get_origin())
+        origin.set_color(*color)
         vertex_data = origin.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(0)
@@ -256,5 +252,5 @@ class BoundingBox(BaseObject):
         Mgr.add_task(.2, do_flash, "do_flash")
 
 
-Mgr.accept("create_bbox", lambda toplevel_obj: BoundingBox(toplevel_obj))
+Mgr.accept("create_bbox", lambda toplevel_obj, color: BoundingBox(toplevel_obj, color))
 MainObjects.add_class(BBoxEdgeManager)

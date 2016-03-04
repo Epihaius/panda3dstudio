@@ -29,8 +29,7 @@ class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager)
 
             model_id = self.generate_object_id()
             name = Mgr.get("next_obj_name", self.get_object_type())
-            model = Mgr.do("create_model", model_id,
-                           name, self.get_origin_pos())
+            model = Mgr.do("create_model", model_id, name, self.get_origin_pos())
             next_color = self.get_next_object_color()
             model.set_color(next_color, update_app=False)
             prim = self.init_primitive(model)
@@ -67,8 +66,7 @@ class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager)
         self.apply_default_size(prim)
         prim.get_geom_data_object().finalize_geometry()
         model.set_geom_object(prim)
-        Mgr.update_remotely("next_obj_name", Mgr.get(
-            "next_obj_name", obj_type))
+        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         self.set_next_object_color()
         # make undo/redoable
         self.add_history(model)
@@ -195,6 +193,28 @@ class Primitive(BaseObject):
 
         return self._model
 
+    def replace(self, geom_obj):
+
+        geom_data_obj = self._geom_data_obj
+        geom_data_obj.set_owner(geom_obj)
+        geom_obj.set_geom_data_object(geom_data_obj)
+
+    def get_subobj_selection(self, subobj_lvl):
+
+        return self._geom_data_obj.get_selection(subobj_lvl)
+
+    def update_selection_state(self, is_selected=True):
+
+        self._geom_data_obj.update_selection_state(is_selected)
+
+    def update_render_mode(self):
+
+        self._geom_data_obj.update_render_mode()
+
+    def set_two_sided(self, two_sided=True):
+
+        self._geom_data_obj.get_origin().set_two_sided(two_sided)
+
     def register(self):
         pass
 
@@ -242,30 +262,25 @@ class Primitive(BaseObject):
         if "self" in data_ids:
 
             for prop_id in self.get_property_ids():
-                val = Mgr.do("load_last_from_history",
-                             obj_id, prop_id, new_time_id)
+                val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
                 self.set_property(prop_id, val, restore_type)
 
-            geom_data_obj = Mgr.do(
-                "load_last_from_history", obj_id, "geom_data", new_time_id)
+            geom_data_obj = Mgr.do("load_last_from_history", obj_id, "geom_data", new_time_id)
             self._geom_data_obj = geom_data_obj
             self.get_origin().reparent_to(self._model.get_origin())
             geom_data_obj.set_owner(self)
-            geom_data_obj.restore_data(
-                ["self"], restore_type, old_time_id, new_time_id)
+            geom_data_obj.restore_data(["self"], restore_type, old_time_id, new_time_id)
 
         else:
 
             for prop_id in self.get_property_ids():
                 if prop_id in data_ids:
-                    val = Mgr.do("load_last_from_history",
-                                 obj_id, prop_id, new_time_id)
+                    val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
                     self.set_property(prop_id, val, restore_type)
                     data_ids.remove(prop_id)
 
             if data_ids:
-                self._geom_data_obj.restore_data(
-                    data_ids, restore_type, old_time_id, new_time_id)
+                self._geom_data_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)
 
     def set_property(self, prop_id, value, restore=""):
 

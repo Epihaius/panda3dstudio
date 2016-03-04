@@ -134,6 +134,11 @@ class PickingCamera(BaseObject):
         state = state_np.get_state()
         node.set_initial_state(state)
 
+        # for rendering BasicGeoms
+        node.set_tag_state_key("picking_color")
+        Mgr.accept("set_basic_geom_picking_color", node.set_tag_state)
+        Mgr.accept("clear_basic_geom_picking_color", node.clear_tag_state)
+
         # Create a secondary camera and DisplayRegion to render gizmos on top of the
         # 3D scene.
 
