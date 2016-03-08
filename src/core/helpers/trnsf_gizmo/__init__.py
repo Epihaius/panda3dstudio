@@ -10,16 +10,18 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
         PickingColorIDManager.__init__(self)
 
-        self._pickable_type_id = PickableTypes.add(
-            "transf_gizmo", special=True)
-        gizmo_root = Mgr.get("gizmo_root")
-        self._root = gizmo_root.attach_new_node("transform_gizmo_root")
-        self._root.set_scale(10.)
+        self._pickable_type_id = PickableTypes.add("transf_gizmo", special=True)
+        gizmo_cam = Mgr.get("gizmo_cam")
+        self._base = gizmo_cam.attach_new_node("transform_gizmo_base")
+        self._root = self._base.attach_new_node("transform_gizmo_root")
         self._root.hide()
+        bounds = BoundingSphere(Point3(), 1.5)
+        self._root.node().set_bounds(bounds)
+        self._root.node().set_final(True)
         Mgr.expose("transf_gizmo_root", lambda: self._root)
 
-        self._world_pos = Point3()
-        Mgr.expose("transf_gizmo_world_pos", lambda: self._world_pos)
+        self._target_node = self.world.attach_new_node("transf_gizmo_target")
+        Mgr.expose("transf_gizmo_world_pos", self._target_node.get_pos)
 
         Mgr.accept("set_transf_gizmo", self.__set_gizmo)
         Mgr.accept("set_transf_gizmo_pos", self.__set_pos)
@@ -34,8 +36,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         Mgr.add_app_updater("active_transform_type", self.__set_gizmo)
         Mgr.add_app_updater("axis_constraints", self.__update_active_axes)
 
-        TransformationGizmo.set_picking_col_id_generator(
-            self.get_next_picking_color_id)
+        TransformationGizmo.set_picking_col_id_generator(self.get_next_picking_color_id)
 
         self._gizmos = {}
         self._active_gizmo = None
@@ -43,8 +44,8 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
     def setup(self):
 
-        disabled_gizmo = DisabledGizmo()
         self._gizmos = {
+            "": DisabledGizmo(),
             "translate": TranslationGizmo(),
             "rotate": RotationGizmo(),
             "scale": ScalingGizmo()
@@ -53,7 +54,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         for gizmo in self._gizmos.itervalues():
             gizmo.hide()
 
-        self._active_gizmo = self._gizmos[""] = disabled_gizmo
+        self._active_gizmo = disabled_gizmo = self._gizmos[""]
         disabled_gizmo.show()
 
         for transf_type in ("translate", "rotate", "scale"):
@@ -113,6 +114,8 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
     def __show(self):
 
+        self._base.set_billboard_point_world(self._target_node, 2.)
+        self._root.set_compass(self._target_node)
         self._root.show()
         self.__update()
 
@@ -123,15 +126,17 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
         Mgr.remove_task("use_transf_gizmo")
         self._root.hide()
+        self._root.clear_compass()
+        self._base.clear_billboard()
 
     def __set_pos(self, pos):
 
-        self._world_pos = pos
+        self._target_node.set_pos(pos)
         self.__update()
 
     def __set_hpr(self, *args, **kwargs):
 
-        self._root.set_hpr(*args, **kwargs)
+        self._target_node.set_hpr(*args, **kwargs)
 
         if self._active_gizmo is self._gizmos["scale"]:
             self._active_gizmo.face_camera()
@@ -145,26 +150,6 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
         if self._root.is_hidden():
             return
-
-        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
-        point = self.world.get_relative_point(self.cam, Point3(0., 20., 0.))
-        plane = Plane(normal, point)
-
-        cam_pos = self.cam.get_pos(self.world)
-
-        # if the apparent position of the gizmo is behind the camera, it should not
-        # be seen
-        if V3D(self._world_pos - cam_pos) * normal < .0001:
-            self._root.set_pos(self.cam, 0., -100., 0.)
-            return
-
-        gizmo_pos = Point3()
-
-        if not plane.intersects_line(gizmo_pos, cam_pos, self._world_pos):
-            self._root.set_pos(self.cam, 0., -100., 0.)
-            return
-
-        self._root.set_pos(gizmo_pos)
 
         if self._active_gizmo is self._gizmos["scale"]:
             self._active_gizmo.face_camera()

@@ -69,7 +69,7 @@ class AxisButtons(ButtonGroup):
 
     def update_axis_constraints(self, transf_type, axes):
 
-        for axis in "XYZ":
+        for axis in "xyz":
             self.get_button(axis).set_active(False)
 
         if not transf_type:
@@ -93,7 +93,7 @@ class AxisButtons(ButtonGroup):
 
             if len(self._axes[tt]) == 1:
                 if axis == self._axes[tt]:
-                    self._axes[tt] = "XYZ".replace(axis, "")
+                    self._axes[tt] = "xyz".replace(axis, "")
                 else:
                     self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
             else:
@@ -122,11 +122,11 @@ class AxisButtons(ButtonGroup):
 
     def create_button(self, toolbar, axis):
 
-        icon_name = "icon_%s" % axis.lower()
+        icon_name = "icon_%s" % axis
         icon_path = os.path.join(GFX_PATH, icon_name + ".png")
         bitmap_paths = Button.get_bitmap_paths("toolbar_button")
         bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Transform about %s" % axis
+        tooltip_label = "Transform about %s" % axis.upper()
         btn = Button(toolbar, bitmaps, "", tooltip_label, lambda: self.__set_axis_constraint(axis))
         btn.set_hotkey((ord(axis), 0))
         self.add_button(btn, axis)
@@ -258,7 +258,7 @@ class TransformToolbar(Toolbar):
         font = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL)
         is_relative_value = True
 
-        for axis in "XYZ":
+        for axis in "xyz":
 
             axis_btn = self._axis_btns.create_button(self, axis)
             sizer.Add(axis_btn, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -398,7 +398,7 @@ class TransformToolbar(Toolbar):
             return
 
         for transform_type, values in transform_data.iteritems():
-            for axis, value in zip("XYZ", values):
+            for axis, value in zip("xyz", values):
                 self._fields[axis].set_value((transform_type, False), value)
 
         if Mgr.get_global("active_transform_type"):

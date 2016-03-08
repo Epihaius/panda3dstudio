@@ -14,12 +14,12 @@ class TranslationGizmo(TransformationGizmo):
         blue = VBase4(0., 0., .7, 1.)
         grey = VBase4(.5, .5, .5, 1.)
 
-        self._axis_colors = {"X": red, "Y": green, "Z": blue, "screen": grey}
+        self._axis_colors = {"x": red, "y": green, "z": blue, "screen": grey}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
         # Create single-axis handles
 
-        for i, axis in enumerate("XYZ"):
+        for i, axis in enumerate("xyz"):
 
             color_id = self.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
@@ -29,7 +29,7 @@ class TranslationGizmo(TransformationGizmo):
             pos2 = Point3()
             pos2[i] = .16
             handle = self.__create_axis_handle(self._handle_root, color_vec, pos1, pos2,
-                                               "%s_axis_handle" % axis.lower())
+                                               "%s_axis_handle" % axis)
             color = self._axis_colors[axis]
             handle.set_color(color)
             self._handles["axes"][axis] = handle
@@ -42,25 +42,25 @@ class TranslationGizmo(TransformationGizmo):
             cone_vec[i] = -.05
             cone_vec[(i + 1) % 3] = .01
             cone, cap = self.__create_axis_arrow(self._handle_root, color_vec, pos, axis_vec,
-                                                 cone_vec, 6, "%s_axis_arrow" % axis.lower())
+                                                 cone_vec, 6, "%s_axis_arrow" % axis)
             cone.set_color(color)
             cap.set_color(color * .5)
 
         # Create double-axis handles
 
-        for plane in ("XY", "XZ", "YZ"):
+        for plane in ("xy", "xz", "yz"):
 
             color_id = self.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
             self._handle_names[color_id] = plane
-            index1 = "XYZ".index(plane[0])
-            index2 = "XYZ".index(plane[1])
+            index1 = "xyz".index(plane[0])
+            index2 = "xyz".index(plane[1])
             pos1 = Point3()
             pos2 = Point3()
             pos3 = Point3()
             pos1[index1] = pos2[index1] = pos2[index2] = pos3[index2] = .07
             handle, quad = self.__create_plane_handle(self._handle_root, color_vec, pos1, pos2, pos3,
-                                                      "%s_plane_handle" % plane.lower())
+                                                      "%s_plane_handle" % plane)
             self._handles["planes"][plane] = handle
             self._handles["quads"][plane] = quad
             handle[0].set_color(self._axis_colors[plane[0]])
@@ -71,16 +71,14 @@ class TranslationGizmo(TransformationGizmo):
         color_id = self.get_next_picking_color_id()
         color_vec = get_color_vec(color_id, pickable_type_id)
         self._handle_names[color_id] = "screen"
-        handle = self.__create_screen_handle(
-            self._origin, color_vec, .03, "screen_handle")
+        handle = self.__create_screen_handle(self._origin, color_vec, .03, "screen_handle")
         self._handles["planes"]["screen"] = handle
         handle.set_color(grey)
 
     def __create_axis_handle(self, parent, color, pos1, pos2, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_line_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         pos_writer.add_data3f(pos1)
@@ -99,14 +97,12 @@ class TranslationGizmo(TransformationGizmo):
 
         return parent.attach_new_node(lines_node)
 
-    def __create_axis_arrow(self, parent, color, pos, axis_vec, cone_vec, segments,
-                            node_name):
+    def __create_axis_arrow(self, parent, color, pos, axis_vec, cone_vec, segments, node_name):
 
         # Create the arrow cone
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_arrow_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_arrow_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -142,8 +138,7 @@ class TranslationGizmo(TransformationGizmo):
 
         # Create the cap of the arrow cone
 
-        vertex_data = GeomVertexData(
-            "axis_arrow_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("axis_arrow_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -168,12 +163,11 @@ class TranslationGizmo(TransformationGizmo):
 
     def __create_plane_handle(self, parent, color, pos1, pos2, pos3, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
+        vertex_format = GeomVertexFormat.get_v3cp()
 
         def create_line(pos1, pos2):
 
-            vertex_data = GeomVertexData(
-                "axes_plane_data", vertex_format, Geom.UH_static)
+            vertex_data = GeomVertexData("axes_plane_data", vertex_format, Geom.UH_static)
 
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             col_writer = GeomVertexWriter(vertex_data, "color")
@@ -197,8 +191,7 @@ class TranslationGizmo(TransformationGizmo):
 
         # Create quad
 
-        vertex_data = GeomVertexData(
-            "axes_quad_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("axes_quad_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -221,9 +214,8 @@ class TranslationGizmo(TransformationGizmo):
 
     def __create_screen_handle(self, parent, color, size, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "screen_handle_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("screen_handle_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -291,8 +283,7 @@ class TranslationGizmo(TransformationGizmo):
                     else:
                         handle[0].set_color(cyan)
                         handle[1].set_color(cyan)
-                        self._handles["quads"][
-                            handle_name].set_color(cyan_alpha)
+                        self._handles["quads"][handle_name].set_color(cyan_alpha)
 
                 else:
 
@@ -361,7 +352,7 @@ class TranslationGizmo(TransformationGizmo):
         yellow = VBase4(1., 1., 0., 1.)
         yellow_alpha = VBase4(1., 1., 0., .25)
 
-        for axis in "XYZ":
+        for axis in "xyz":
             if axis in axes:
                 self._handles["axes"][axis].set_color(yellow)
             else:
@@ -372,8 +363,7 @@ class TranslationGizmo(TransformationGizmo):
             if plane == "screen":
 
                 handle = self._handles["planes"][plane]
-                handle.set_color(yellow if plane ==
-                                 axes else self._axis_colors[plane])
+                handle.set_color(yellow if plane == axes else self._axis_colors[plane])
 
             else:
 
@@ -409,24 +399,20 @@ class TranslationGizmo(TransformationGizmo):
             if len(self._selected_axes) == 2:
 
                 axis_vec = Vec3()
-                axis_vec["XYZ".index(self._selected_axes[0])] = 1.
-                axis_vec = V3D(self.world.get_relative_vector(
-                    self._handle_root, axis_vec))
+                axis_vec["xyz".index(self._selected_axes[0])] = 1.
+                axis_vec = V3D(self.world.get_relative_vector(self._handle_root, axis_vec))
                 point2 = point1 + axis_vec
                 axis_vec = Vec3()
-                axis_vec["XYZ".index(self._selected_axes[1])] = 1.
-                axis_vec = V3D(self.world.get_relative_vector(
-                    self._handle_root, axis_vec))
+                axis_vec["xyz".index(self._selected_axes[1])] = 1.
+                axis_vec = V3D(self.world.get_relative_vector(self._handle_root, axis_vec))
                 point3 = point1 + axis_vec
 
             else:
 
                 axis_vec = Vec3()
-                axis_vec["XYZ".index(self._selected_axes)] = 1.
-                axis_vec = V3D(self.world.get_relative_vector(
-                    self._handle_root, axis_vec))
-                cam_vec = V3D(self.world.get_relative_vector(
-                    self.cam, Vec3(0., 1., 0.)))
+                axis_vec["xyz".index(self._selected_axes)] = 1.
+                axis_vec = V3D(self.world.get_relative_vector(self._handle_root, axis_vec))
+                cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
                 cross_vec = axis_vec ** cam_vec
 
                 if not cross_vec.normalize():

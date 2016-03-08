@@ -38,24 +38,25 @@ class PivotGizmoManager(BaseObject):
 
         return pivot_gizmo
 
-    def __update_pivot_gizmos(self, task):
+    def __show_pivot_gizmos(self, show=True):
 
         objs = Mgr.get("objects")
 
-        for obj in objs:
-            pivot_gizmo = obj.get_pivot_gizmo()
-            pivot_gizmo.get_base().look_at(obj.get_pivot())
-
-        return task.cont
-
-    def __show_pivot_gizmos(self, show=True):
-
         if show:
+
+            for obj in objs:
+                pivot_gizmo = obj.get_pivot_gizmo()
+                pivot_gizmo.get_base().set_billboard_point_world(obj.get_pivot(), 8.)
+
             self._pivot_gizmo_root.show()
-            Mgr.add_task(self.__update_pivot_gizmos, "update_pivot_gizmos", sort=48)
+
         else:
+
             self._pivot_gizmo_root.hide()
-            Mgr.remove_task("update_pivot_gizmos")
+
+            for obj in objs:
+                pivot_gizmo = obj.get_pivot_gizmo()
+                pivot_gizmo.get_base().clear_billboard()
 
 
 class PivotAxis(BaseObject):
@@ -146,12 +147,7 @@ class PivotGizmo(object):
 
         node = NodePath("pivot_gizmo_base")
         cls._original = node
-        pivot = node.attach_new_node("pivot_gizmo_pivot")
-        pivot.set_y(8.)
-        bounds = BoundingSphere(Point3(), 1.1)
-        pivot.node().set_bounds(bounds)
-        pivot.node().set_final(True)
-        origin = pivot.attach_new_node("pivot_gizmo")
+        origin = node.attach_new_node("pivot_gizmo")
         axis_label_root = origin.attach_new_node("axis_label_root")
 
         cls.__create_geom(origin)
@@ -299,13 +295,8 @@ class PivotGizmo(object):
 
         node = self._base
         node.reparent_to(Mgr.get("pivot_gizmo_root"))
-        pivot = node.attach_new_node("pivot_gizmo_pivot")
-        pivot.set_y(8.)
-        bounds = BoundingSphere(Point3(), 1.1)
-        pivot.node().set_bounds(bounds)
-        pivot.node().set_final(True)
         origin = self._origin
-        origin.reparent_to(pivot)
+        origin.reparent_to(node)
         axis_label_root = self._axis_label_root
         axis_label_root.reparent_to(origin)
         axis_label_root.hide(Mgr.get("picking_mask"))
@@ -320,7 +311,7 @@ class PivotGizmo(object):
 
         self._toplevel_obj = toplevel_obj
         self._base = self.original.copy_to(Mgr.get("pivot_gizmo_root"))
-        origin = self._base.get_child(0).get_child(0)
+        origin = self._base.get_child(0)
         origin.set_compass(toplevel_obj.get_pivot())
         self._origin = origin
 

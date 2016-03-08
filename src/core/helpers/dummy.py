@@ -46,7 +46,6 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
         Mgr.accept("inst_create_dummy", self.__create_dummy_instantly)
         Mgr.accept("create_custom_dummy", self.__create_custom_dummy)
-        Mgr.add_task(self.__update_dummy_bases, "update_dummy_bases", sort=48)
 
     def setup(self):
 
@@ -69,8 +68,9 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         if const_size_state:
             if dummy_id not in self._dummy_bases:
                 dummy_base = self._dummy_helper_root.attach_new_node("dummy_base")
+                dummy_base.set_billboard_point_world(dummy.get_origin(), 2000.)
                 pivot = dummy_base.attach_new_node("dummy_pivot")
-                pivot.set_y(20.)
+                pivot.set_scale(100.)
                 origin = pivot.attach_new_node("dummy_origin")
                 dummy.get_geom_root().get_children().reparent_to(origin)
                 origin.set_scale(dummy.get_const_size())
@@ -90,14 +90,6 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         if dummy_id in self._dummy_bases:
             dummy_base = self._dummy_bases[dummy_id]
             dummy_base.get_child(0).get_child(0).set_scale(const_size)
-
-    def __update_dummy_bases(self, task):
-
-        for dummy_id, dummy_base in self._dummy_bases.iteritems():
-            dummy = Mgr.get("dummy", dummy_id)
-            dummy_base.look_at(dummy.get_origin())
-
-        return task.cont
 
     def __create_dummy(self, dummy_id, name, origin_pos):
 

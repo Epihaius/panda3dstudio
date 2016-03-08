@@ -179,7 +179,7 @@ class FileManager(object):
 
     def __import_scene(self):
 
-        wildcard = "Panda3D files (*.bam)|*.bam"
+        wildcard = "Panda3D files (*.bam;*.egg;*.egg.pz)|*.bam;*.egg;*.egg.pz"
         filename = wx.FileSelector("Import scene", "", "", "bam", wildcard,
                                    wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
 

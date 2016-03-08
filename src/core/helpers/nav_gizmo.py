@@ -54,7 +54,6 @@ class NavigationGizmo(BaseObject):
         self._lerp_interval = None
         self._dest_view = ""
         self._mouse_start_pos = ()
-        self._stop_world_axes_update = False
 
         self._listener = listener = DirectObject.DirectObject()
         listener.accept("region_enter", self.__on_region_enter)
@@ -88,10 +87,13 @@ class NavigationGizmo(BaseObject):
         Mgr.accept("stop_updating_nav_gizmo", self.__end_update)
         Mgr.accept("enable_nav_gizmo", self.__enable)
 
+        self._world_axes_tripod = WorldAxesTripod(gizmo_cam)
+
     def setup(self):
 
         self._picking_cam.setup()
         self.__update()
+        self._world_axes_tripod.setup()
 
         return True
 
@@ -598,9 +600,6 @@ class NavigationGizmo(BaseObject):
             Mgr.get("core").suppress_key_events(False)
             self.__enable()
 
-            if self._stop_world_axes_update:
-                Mgr.do("stop_updating_world_axes")
-
             if self._gizmo_mouse_watcher.has_mouse():
                 self._has_focus = True
                 self._listener.accept("mouse1", self.__on_left_down)
@@ -667,7 +666,6 @@ class NavigationGizmo(BaseObject):
             self._lerp_interval = lerp_interval
             lerp_interval.start()
             Mgr.add_task(self.__transition_view, "transition_view", sort=30)
-            self._stop_world_axes_update = Mgr.do("start_updating_world_axes", False)
 
     def __check_mouse_offset(self, task):
         """
@@ -698,7 +696,6 @@ class NavigationGizmo(BaseObject):
         self._orbit_start_pos = Point2(self.mouse_watcher.get_mouse())
         Mgr.add_task(self.__orbit, "transform_cam", sort=2)
         self._is_orbiting = True
-        self._stop_world_axes_update = Mgr.do("start_updating_world_axes", False)
         self._picking_cam.set_active(False)
         Mgr.get("core").suppress_key_events()
 
@@ -726,9 +723,6 @@ class NavigationGizmo(BaseObject):
         Mgr.remove_task("transform_cam")
         self._is_orbiting = False
         Mgr.get("core").suppress_key_events(False)
-
-        if self._stop_world_axes_update:
-            Mgr.do("stop_updating_world_axes")
 
         if self._has_focus:
             self._picking_cam.set_active()
@@ -865,6 +859,183 @@ class PickingCamera(BaseObject):
     def get_pixel_under_mouse(self):
 
         return self._pixel_color
+
+
+class WorldAxesTripod(BaseObject):
+
+    def __init__(self, camera):
+
+        core = Mgr.get("core")
+        win = core.win
+        win_props = win.get_properties()
+        size = .085
+        size_v = size * win_props.get_x_size() / win_props.get_y_size()
+        dr = win.make_display_region(0., size, 0., size_v)
+        dr.set_sort(2)
+        lens = OrthographicLens()
+        lens.set_film_size(.235, .235)
+        lens.set_film_offset(-100., 0.)
+        camera.node().set_lens(1, lens)
+        dr.set_camera(camera)
+        dr.set_lens_index(1)
+        dr.set_clear_color(VBase4(1, 0, 0, 1))
+        dr.set_clear_color_active(True)
+        dr.set_clear_color_active(False)
+        dr.set_clear_depth_active(True)
+
+        self._root = camera.attach_new_node("world_axes")
+        self._root.set_pos(-100., 10., 0.)
+        self._axis_tripod = None
+        self._nav_indic = None
+        self._axis_labels = {}
+        self._axis_label_colors = {
+            "normal": {
+                "x": VBase4(.4, 0., 0., 1.),
+                "y": VBase4(0., .2, 0., 1.),
+                "z": VBase4(0., 0., .4, 1.)
+            },
+            "hilited": {
+                "x": VBase4(1., .6, .6, 1.),
+                "y": VBase4(.6, 1., .6, 1.),
+                "z": VBase4(.6, .6, 1., 1.)
+            }
+        }
+
+        self._is_hilited = False
+
+        Mgr.accept("hilite_world_axes", self.__hilite)
+
+    def setup(self):
+
+        self.__create_axis_tripod()
+        self.__create_navigation_indicator()
+
+        points = (
+            ((-.01, -.015), (.01, .015)),
+            ((-.01, .015), (.01, -.015))
+        )
+        label = self.__create_axis_label(points)
+        label.set_pos(.08, 0., .02)
+        self._axis_labels["x"] = label
+
+        points = (
+            ((-.01, -.015), (.01, .015)),
+            ((-.01, .015), (0., 0.))
+        )
+        label = self.__create_axis_label(points)
+        label.set_pos(0., .08, .02)
+        self._axis_labels["y"] = label
+
+        points = (
+            ((-.01, -.015), (.01, -.015)),
+            ((-.01, .015), (.01, .015)),
+            ((-.01, -.015), (.01, .015))
+        )
+        label = self.__create_axis_label(points)
+        label.set_pos(.02, 0., .08)
+        self._axis_labels["z"] = label
+
+        for axis in "xyz":
+            self._axis_labels[axis].set_color(self._axis_label_colors["normal"][axis])
+
+        return True
+
+    def __create_axis_tripod(self):
+
+        vertex_format = GeomVertexFormat.get_v3cp()
+
+        vertex_data = GeomVertexData("axis_tripod_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        col_writer = GeomVertexWriter(vertex_data, "color")
+
+        tripod = GeomLines(Geom.UH_static)
+
+        for i in range(3):
+            v_pos = VBase3()
+            pos_writer.add_data3f(v_pos)
+            v_pos[i] = .1
+            pos_writer.add_data3f(v_pos)
+            color = VBase4(0., 0., 0., 1.)
+            color[i] = 1.
+            col_writer.add_data4f(color)
+            col_writer.add_data4f(color)
+            tripod.add_vertices(i * 2, i * 2 + 1)
+
+        tripod_geom = Geom(vertex_data)
+        tripod_geom.add_primitive(tripod)
+        tripod_node = GeomNode("axis_tripod")
+        tripod_node.add_geom(tripod_geom)
+        self._axis_tripod = self._root.attach_new_node(tripod_node)
+        self._axis_tripod.set_compass()
+
+    def __create_navigation_indicator(self):
+
+        vertex_format = GeomVertexFormat.get_v3()
+
+        vertex_data = GeomVertexData("circle_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+        circle = GeomLines(Geom.UH_static)
+
+        segments = 20
+        radius = .11
+        angle = 2. * math.pi / segments
+
+        for i in xrange(segments):
+            x = math.cos(angle * i) * radius
+            z = math.sin(angle * i) * radius
+            pos_writer.add_data3f(x, 0., z)
+
+        for i in xrange(segments):
+            circle.add_vertices(i, (i + 1) % segments)
+
+        circle_geom = Geom(vertex_data)
+        circle_geom.add_primitive(circle)
+        circle_node = GeomNode("navigation_indicator_circle")
+        circle_node.add_geom(circle_geom)
+        self._nav_indic = self._root.attach_new_node(circle_node)
+        self._nav_indic.hide()
+
+    def __create_axis_label(self, points):
+
+        vertex_format = GeomVertexFormat.get_v3()
+
+        vertex_data = GeomVertexData("axis_label_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+        label = GeomLines(Geom.UH_static)
+
+        for point_group in points:
+
+            for point in point_group:
+
+                x, z = point
+                pos_writer.add_data3f(x, 0., z)
+
+            label.add_next_vertices(2)
+
+        label_geom = Geom(vertex_data)
+        label_geom.add_primitive(label)
+        label_node = GeomNode("world_axis_label")
+        label_node.add_geom(label_geom)
+        node_path = self._axis_tripod.attach_new_node(label_node)
+        node_path.set_billboard_point_eye()
+
+        return node_path
+
+    def __hilite(self, hilite=True):
+
+        if self._is_hilited == hilite:
+            return False
+
+        self._is_hilited = hilite
+        self._nav_indic.show() if hilite else self._nav_indic.hide()
+        state = "hilited" if hilite else "normal"
+
+        for axis in "xyz":
+            self._axis_labels[axis].set_color(self._axis_label_colors[state][axis])
+
+        return True
 
 
 MainObjects.add_class(NavigationGizmo)

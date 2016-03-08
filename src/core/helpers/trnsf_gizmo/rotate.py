@@ -8,21 +8,13 @@ class RotationGizmo(TransformationGizmo):
         root = Mgr.get("transf_gizmo_root")
         self._origin = root.attach_new_node("rotation_gizmo")
 
-        clip_plane = PlaneNode("clip_plane_rotation_gizmo",
-                               Plane(Vec3(0., -1., 0.), Point3()))
-        clip_plane.set_clip_effect(1)
-        clip_plane.set_priority(100)
-        self._clip_plane_main = self.cam.attach_new_node(clip_plane)
-        self._clip_plane_main.set_pos(0., 20.1, 0.)
-
-        self._radius = 1.5
+        self._radius = .15
         self._screen_handle_radius = 1.3
-        self._origin.set_scale(self._radius * .1)
+        self._origin.set_scale(self._radius)
 
         self._screen_plane = None
 
-        self._center_axis_root = self._origin.attach_new_node(
-            "center_axis_root")
+        self._center_axis_root = self._origin.attach_new_node("center_axis_root")
         self._center_axes = {}
 
         red = VBase4(.7, 0., 0., 1.)
@@ -31,34 +23,25 @@ class RotationGizmo(TransformationGizmo):
         grey = VBase4(.5, .5, .5, 1.)
         dark_grey = VBase4(.3, .3, .3, 1.)
 
-        self._axis_colors = {"YZ": red,
-                             "XZ": green, "XY": blue, "screen": grey}
-        self._handle_pivots = {}
+        self._axis_colors = {"yz": red, "xz": green, "xy": blue, "screen": grey}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
-        for plane in ("XY", "XZ", "YZ"):
+        for plane in ("xy", "xz", "yz"):
 
             color_id = self.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
             self._handle_names[color_id] = plane
-            axis = filter(lambda a: a not in plane, "XYZ")
-            pivot = self._origin.attach_new_node(
-                "%s_handle_pivot" % axis.lower())
-            self._handle_pivots[axis] = pivot
-            handle = self.__create_axis_handle(
-                pivot, color_vec, plane, "%s_axis_handle" % axis.lower())
+            axis = filter(lambda a: a not in plane, "xyz")
+
+            if axis == "y":
+                pivot = self._origin.attach_new_node("y_handle_pivot")
+                pivot.set_p(90.)
+                handle = self.__create_axis_handle(pivot, color_vec, "z")
+            else:
+                handle = self.__create_axis_handle(self._origin, color_vec, axis)
+
             handle.set_color(self._axis_colors[plane])
             self._handles["planes"][plane] = handle
-
-        for i, axis in enumerate("XYZ"):
-
-            axis1_index = i - 2
-            axis2_index = i - 1
-            axis1_vec = V3D()
-            axis1_vec[axis1_index] = 1.
-            axis2_vec = V3D()
-            axis2_vec[axis2_index] = 1.
-            self._handle_pivots[axis].look_at(Point3(axis1_vec ** axis2_vec))
 
         color_id = self.get_next_picking_color_id()
         color_vec = get_color_vec(color_id, pickable_type_id)
@@ -69,8 +52,7 @@ class RotationGizmo(TransformationGizmo):
         handle.set_color(grey)
         self._handles["planes"]["screen"] = handle
 
-        handle = self.__create_screen_aligned_circle(self._origin, dark_grey, 1.,
-                                                     "trackball_edge")
+        handle = self.__create_screen_aligned_circle(self._origin, dark_grey, 1., "trackball_edge")
         handle.hide(self._picking_mask)
 
         color_id = self.get_next_picking_color_id()
@@ -82,10 +64,8 @@ class RotationGizmo(TransformationGizmo):
         handle.hide(self._render_mask)
         self._handles["planes"]["trackball"] = handle
 
-        self._angle_disc_pivot = self._origin.attach_new_node(
-            "angle_disc_pivot")
-        self._angle_disc_root = self._angle_disc_pivot.attach_new_node(
-            "angle_disc_root")
+        self._angle_disc_pivot = self._origin.attach_new_node("angle_disc_pivot")
+        self._angle_disc_root = self._angle_disc_pivot.attach_new_node("angle_disc_root")
         self._angle_disc_root.set_p(-90.)
         self._angle_disc_root.hide(self._picking_mask)
         self._angle_disc = self._angle_disc_root.attach_new_node("angle_disc")
@@ -94,30 +74,23 @@ class RotationGizmo(TransformationGizmo):
         self._angle_disc.set_color(.2, .1, .3, .25)
         self._angle_disc.hide()
         angle_disc_half1 = self.__create_angle_disc_half(self._angle_disc)
-        angle_disc_half2 = self.__create_angle_disc_half(
-            self._angle_disc, mirror=True)
+        angle_disc_half2 = self.__create_angle_disc_half(self._angle_disc, mirror=True)
 
-        clip_plane = PlaneNode("clip_plane_neg_angle",
-                               Plane(Vec3(-1., 0., 0.), Point3()))
+        clip_plane = PlaneNode("clip_plane_neg_angle", Plane(Vec3(-1., 0., 0.), Point3()))
         clip_plane.set_clip_effect(1)
         clip_plane.set_priority(100)
-        self._angle_clip_root = self._angle_disc_root.attach_new_node(
-            "angle_clip_root")
-        self._clip_plane_neg_angle = self._angle_clip_root.attach_new_node(
-            clip_plane)
-        clip_plane = PlaneNode("clip_plane_pos_angle",
-                               Plane(Vec3(1., 0., 0.), Point3()))
+        self._angle_clip_root = self._angle_disc_root.attach_new_node("angle_clip_root")
+        self._clip_plane_neg_angle = self._angle_clip_root.attach_new_node(clip_plane)
+        clip_plane = PlaneNode("clip_plane_pos_angle", Plane(Vec3(1., 0., 0.), Point3()))
         clip_plane.set_clip_effect(1)
         clip_plane.set_priority(100)
-        self._clip_plane_pos_angle = self._angle_clip_root.attach_new_node(
-            clip_plane)
+        self._clip_plane_pos_angle = self._angle_clip_root.attach_new_node(clip_plane)
 
         angle_disc_half1.set_clip_plane(self._clip_plane_neg_angle)
         angle_disc_half2.set_clip_plane(self._clip_plane_pos_angle)
 
-        for axis in "XYZ":
-            self._center_axes[axis] = self.__create_center_axis(
-                self._center_axis_root, axis)
+        for axis in "xyz":
+            self._center_axes[axis] = self.__create_center_axis(self._center_axis_root, axis)
 
         self._angle_arrow = self.__create_angle_arrow(self._angle_disc, .5)
         self._angle_arrow.set_color(1., 1., 1., 1.)
@@ -130,34 +103,36 @@ class RotationGizmo(TransformationGizmo):
         Mgr.accept("set_rotation_gizmo_angle", self.__set_rotation_angle)
         Mgr.expose("trackball_data", self.__get_trackball_data)
 
-    def __create_axis_handle(self, parent, color, plane, node_name):
+    def __create_axis_handle(self, parent, color, axis):
 
-        segments = 100
-        angle = 2. * math.pi / segments
+        segments = 50
+        angle = math.pi / segments
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_circle_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_circle_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
         circle = GeomLines(Geom.UH_static)
 
-        for i in xrange(segments):
+        for i in xrange(segments + 1):
             x = math.cos(angle * i)
-            z = math.sin(angle * i)
-            pos_writer.add_data3f(x, 0., z)
+            y = -math.sin(angle * i)
+            pos_writer.add_data3f(x, y, 0.)
             col_writer.add_data4f(color)
 
         for i in xrange(segments):
-            circle.add_vertices(i, (i + 1) % segments)
+            circle.add_vertices(i, i + 1)
 
         circle_geom = Geom(vertex_data)
         circle_geom.add_primitive(circle)
-        circle_node = GeomNode(node_name)
+        circle_node = GeomNode("%s_axis_handle" % axis)
         circle_node.add_geom(circle_geom)
         circle_np = parent.attach_new_node(circle_node)
-        circle_np.set_clip_plane(self._clip_plane_main)
+        up_vec = Vec3()
+        up_vec["xyz".index(axis)] = 1.
+        effect = BillboardEffect.make(up_vec, False, True, 0., self.cam, Point3())
+        circle_np.set_effect(effect)
 
         return circle_np
 
@@ -171,9 +146,8 @@ class RotationGizmo(TransformationGizmo):
 
         offset = math.pi * .5
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "angle_disc_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3()
+        vertex_data = GeomVertexData("angle_disc_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
         disc = GeomTriangles(Geom.UH_static)
@@ -198,9 +172,8 @@ class RotationGizmo(TransformationGizmo):
         segments = 100
         angle = 2. * math.pi / segments
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_circle_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_circle_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
@@ -226,15 +199,14 @@ class RotationGizmo(TransformationGizmo):
 
     def __create_center_axis(self, parent, axis):
 
-        index = "XYZ".index(axis)
+        index = "xyz".index(axis)
         pos = VBase3()
         pos[index] = .5
         color = VBase4(0., 0., 0., 1.)
         color[index] = .3
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "center_axis_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("center_axis_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
@@ -247,7 +219,7 @@ class RotationGizmo(TransformationGizmo):
         lines.add_vertices(0, 1)
         lines_geom = Geom(vertex_data)
         lines_geom.add_primitive(lines)
-        lines_node = GeomNode("center_axis_%s" % axis.lower())
+        lines_node = GeomNode("center_axis_%s" % axis)
         lines_node.add_geom(lines_geom)
         lines_np = parent.attach_new_node(lines_node)
         lines_np.hide(self._picking_mask)
@@ -256,9 +228,8 @@ class RotationGizmo(TransformationGizmo):
 
     def __create_angle_arrow(self, parent, length):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "angle_arrow_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3()
+        vertex_data = GeomVertexData("angle_arrow_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
         pos_writer.add_data3f(0., 1., 0.)
@@ -283,9 +254,8 @@ class RotationGizmo(TransformationGizmo):
         segments = 100
         angle = 2. * math.pi / segments
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "disc_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("disc_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
@@ -330,8 +300,7 @@ class RotationGizmo(TransformationGizmo):
 
             for handle_name in hilited_handles:
                 if handle_name == "trackball":
-                    self._handles["planes"][
-                        handle_name].show(self._render_mask)
+                    self._handles["planes"][handle_name].show(self._render_mask)
                 else:
                     self._handles["planes"][handle_name].set_color(cyan)
 
@@ -345,11 +314,9 @@ class RotationGizmo(TransformationGizmo):
             for handle_name in self._hilited_handles:
                 if handle_name == "trackball":
                     if handle_name != self._selected_axes:
-                        self._handles["planes"][
-                            handle_name].hide(self._render_mask)
+                        self._handles["planes"][handle_name].hide(self._render_mask)
                 else:
-                    color = yellow if handle_name == self._selected_axes \
-                        else self._axis_colors[handle_name]
+                    color = yellow if handle_name == self._selected_axes else self._axis_colors[handle_name]
                     self._handles["planes"][handle_name].set_color(color)
 
             if self._selected_axes == "trackball":
@@ -369,14 +336,12 @@ class RotationGizmo(TransformationGizmo):
             prev_constraints = Mgr.get_global("axis_constraints_rotate")
 
             if prev_constraints != "trackball":
-                Mgr.set_global("prev_axis_constraints_rotate",
-                               prev_constraints)
+                Mgr.set_global("prev_axis_constraints_rotate", prev_constraints)
 
         if axes in ("screen", "trackball"):
             constraints = axes
         else:
-            axis = filter(lambda a: a not in axes, "XYZ") if len(
-                axes) == 2 else axes
+            axis = filter(lambda a: a not in axes, "xyz") if len(axes) == 2 else axes
             constraints = axis
 
         Mgr.update_app("axis_constraints", "rotate", constraints)
@@ -384,7 +349,7 @@ class RotationGizmo(TransformationGizmo):
     def set_active_axes(self, axes):
 
         if len(axes) == 1:
-            self._selected_axes = "XYZ".replace(axes, "")
+            self._selected_axes = "xyz".replace(axes, "")
         else:
             self._selected_axes = axes
 
@@ -395,11 +360,9 @@ class RotationGizmo(TransformationGizmo):
                 if plane == self._selected_axes:
                     self._handles["planes"][plane].show(self._render_mask)
             elif plane == self._selected_axes:
-                self._handles["planes"][plane].set_color(
-                    VBase4(1., 1., 0., 1.))
+                self._handles["planes"][plane].set_color(VBase4(1., 1., 0., 1.))
             else:
-                self._handles["planes"][plane].set_color(
-                    self._axis_colors[plane])
+                self._handles["planes"][plane].set_color(self._axis_colors[plane])
 
         for axis_np in self._center_axes.itervalues():
             axis_np.clear_color_scale()
@@ -415,8 +378,8 @@ class RotationGizmo(TransformationGizmo):
             return
 
         axis1, axis2 = self._selected_axes
-        axis = "XYZ".replace(axis1, "").replace(axis2, "")
-        axis_index = "XYZ".index(axis)
+        axis = "xyz".replace(axis1, "").replace(axis2, "")
+        axis_index = "xyz".index(axis)
         axis1_index = axis_index - 2
         axis2_index = axis_index - 1
         col_scale = VBase4(1., 1., 1., 1.)
@@ -426,10 +389,8 @@ class RotationGizmo(TransformationGizmo):
         axis1_vec[axis1_index] = 1.
         axis2_vec = V3D()
         axis2_vec[axis2_index] = 1.
-        axis1_vec = V3D(self._origin.get_relative_vector(
-            self._center_axis_root, axis1_vec))
-        axis2_vec = V3D(self._origin.get_relative_vector(
-            self._center_axis_root, axis2_vec))
+        axis1_vec = V3D(self._origin.get_relative_vector(self._center_axis_root, axis1_vec))
+        axis2_vec = V3D(self._origin.get_relative_vector(self._center_axis_root, axis2_vec))
         axis_vec = axis1_vec ** axis2_vec
         self._angle_disc_pivot.look_at(Point3(axis_vec))
 
@@ -446,7 +407,13 @@ class RotationGizmo(TransformationGizmo):
         if not self._screen_plane.intersects_line(intersection_point, cam_pos, far_point):
             return
 
-        vec = intersection_point - self._origin.get_pos(self.world)
+        # due to the billboard effect applied to the transf_gizmo_root, the correct
+        # position of the origin cannot be retrieved from self._origin, so it needs
+        # to be computed explicitly
+        vec = Mgr.get("transf_gizmo_world_pos") - cam_pos
+        vec.normalize()
+        origin_pos = cam_pos + vec * 2.
+        vec = intersection_point - origin_pos
         vec = V3D(self.cam.get_relative_vector(self.world, vec))
 
         vec_length = vec.length()
@@ -470,32 +437,21 @@ class RotationGizmo(TransformationGizmo):
     def set_shear(self, shear):
 
         self._center_axis_root.set_shear(shear)
-
-        for i, axis in enumerate("XYZ"):
-            axis1_index = i - 2
-            axis2_index = i - 1
-            axis1_vec = V3D()
-            axis1_vec[axis1_index] = 1.
-            axis2_vec = V3D()
-            axis2_vec[axis2_index] = 1.
-            axis1_vec = V3D(self._origin.get_relative_vector(
-                self._center_axis_root, axis1_vec))
-            axis2_vec = V3D(self._origin.get_relative_vector(
-                self._center_axis_root, axis2_vec))
-            self._handle_pivots[axis].look_at(Point3(axis1_vec ** axis2_vec))
-
         self.__update_angle_disc()
 
     def get_point_at_screen_pos(self, screen_pos):
 
+        point1 = Mgr.get("transf_gizmo_world_pos")
+
         if self._selected_axes == "trackball":
 
             normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
-            point = self._origin.get_pos(self.world)
+            cam_pos = self.cam.get_pos(self.world)
+            vec = point1 - cam_pos
+            vec.normalize()
+            point = cam_pos + vec * 2. # the world position of self._origin
             self._screen_plane = Plane(normal, point)
             return
-
-        point1 = Mgr.get("transf_gizmo_world_pos")
 
         if self._selected_axes == "screen":
 
@@ -505,14 +461,12 @@ class RotationGizmo(TransformationGizmo):
         else:
 
             vec_coords = [0., 0., 0.]
-            vec_coords["XYZ".index(self._selected_axes[0])] = 1.
-            axis_vec = self.world.get_relative_vector(
-                self._origin, Vec3(*vec_coords))
+            vec_coords["xyz".index(self._selected_axes[0])] = 1.
+            axis_vec = self.world.get_relative_vector(self._origin, Vec3(*vec_coords))
             point2 = point1 + axis_vec
             vec_coords = [0., 0., 0.]
-            vec_coords["XYZ".index(self._selected_axes[1])] = 1.
-            axis_vec = self.world.get_relative_vector(
-                self._origin, Vec3(*vec_coords))
+            vec_coords["xyz".index(self._selected_axes[1])] = 1.
+            axis_vec = self.world.get_relative_vector(self._origin, Vec3(*vec_coords))
             point3 = point1 + axis_vec
 
             plane = Plane(point1, point2, point3)
@@ -533,8 +487,7 @@ class RotationGizmo(TransformationGizmo):
 
         gizmo_pos = self._angle_disc_root.get_pos(self.world)
         offset_vec = gizmo_pos - Mgr.get("transf_gizmo_world_pos")
-        p = self._angle_disc_root.get_relative_point(
-            self.world, point + offset_vec)
+        p = self._angle_disc_root.get_relative_point(self.world, point + offset_vec)
         self._angle_clip_root.look_at(p)
         self._angle_disc.look_at(p)
 

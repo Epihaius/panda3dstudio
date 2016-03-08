@@ -60,11 +60,10 @@ class DisabledGizmo(TransformationGizmo):
         self._origin = root.attach_new_node("disabled_gizmo")
         self._origin.hide(self._picking_mask)
 
-        for i, axis in enumerate("XYZ"):
+        for i, axis in enumerate("xyz"):
             pos = Point3()
             pos[i] = .2
-            handle = self.__create_axis_handle(
-                self._origin, pos, axis.lower() + "_axis_handle")
+            handle = self.__create_axis_handle(self._origin, pos, axis + "_axis_handle")
             color = VBase4(0., 0., 0., 1.)
             color[i] = .3
             handle.set_color(color)
@@ -72,9 +71,8 @@ class DisabledGizmo(TransformationGizmo):
 
     def __create_axis_handle(self, origin, pos, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_line_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3()
+        vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         pos_writer.add_data3f(0., 0., 0.)
         pos_writer.add_data3f(*pos)

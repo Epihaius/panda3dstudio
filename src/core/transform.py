@@ -18,22 +18,14 @@ class SelectionTransformBase(BaseObject):
         self._offset_vecs = []
 
         if obj_level == "top":
-            pos_setters = {"X": NodePath.set_x,
-                           "Y": NodePath.set_y, "Z": NodePath.set_z}
-            hpr_setters = {"X": NodePath.set_p,
-                           "Y": NodePath.set_r, "Z": NodePath.set_h}
-            scal_setters = {"X": NodePath.set_sx,
-                            "Y": NodePath.set_sy, "Z": NodePath.set_sz}
-            self._value_setters = {"translate": pos_setters,
-                                   "rotate": hpr_setters, "scale": scal_setters}
-            pos_getters = {"X": NodePath.get_x,
-                           "Y": NodePath.get_y, "Z": NodePath.get_z}
-            hpr_getters = {"X": NodePath.get_p,
-                           "Y": NodePath.get_r, "Z": NodePath.get_h}
-            scal_getters = {"X": NodePath.get_sx,
-                            "Y": NodePath.get_sy, "Z": NodePath.get_sz}
-            self._value_getters = {"translate": pos_getters,
-                                   "rotate": hpr_getters, "scale": scal_getters}
+            pos_setters = {"x": NodePath.set_x, "y": NodePath.set_y, "z": NodePath.set_z}
+            hpr_setters = {"x": NodePath.set_p, "y": NodePath.set_r, "z": NodePath.set_h}
+            scal_setters = {"x": NodePath.set_sx, "y": NodePath.set_sy, "z": NodePath.set_sz}
+            self._value_setters = {"translate": pos_setters, "rotate": hpr_setters, "scale": scal_setters}
+            pos_getters = {"x": NodePath.get_x, "y": NodePath.get_y, "z": NodePath.get_z}
+            hpr_getters = {"x": NodePath.get_p, "y": NodePath.get_r, "z": NodePath.get_h}
+            scal_getters = {"x": NodePath.get_sx, "y": NodePath.get_sy, "z": NodePath.get_sz}
+            self._value_getters = {"translate": pos_getters, "rotate": hpr_getters, "scale": scal_getters}
 
     def update_center(self):
 
@@ -880,7 +872,7 @@ class TransformationManager(BaseObject):
 
         Mgr.set_global("active_transform_type", "")
 
-        for transf_type, axes in (("translate", "XY"), ("rotate", "Z"), ("scale", "XYZ")):
+        for transf_type, axes in (("translate", "xy"), ("rotate", "z"), ("scale", "xyz")):
             Mgr.set_global("axis_constraints_%s" % transf_type, axes)
             Mgr.set_global("using_rel_%s_values" % transf_type, False)
 
@@ -1166,11 +1158,11 @@ class TransformationManager(BaseObject):
         elif len(axis_constraints) == 1:
             normal = None
             axis = Vec3()
-            axis["XYZ".index(axis_constraints)] = 1.
+            axis["xyz".index(axis_constraints)] = 1.
             self._transf_axis = axis
         else:
             normal = V3D()
-            normal["XYZ".index(filter(lambda a: a not in axis_constraints, "XYZ"))] = 1.
+            normal["xyz".index(filter(lambda a: a not in axis_constraints, "xyz"))] = 1.
             self._transf_axis = None
 
         if normal is None:
@@ -1263,7 +1255,7 @@ class TransformationManager(BaseObject):
 
         else:
 
-            axis_index = "XYZ".index(axis_constraints)
+            axis_index = "xyz".index(axis_constraints)
             axis1_index = axis_index - 2
             axis2_index = axis_index - 1
             axis1_vec = V3D()
@@ -1350,7 +1342,7 @@ class TransformationManager(BaseObject):
                 rotation.set_from_axis_angle(angle, self._screen_axis_vec)
             else:
                 hpr = VBase3()
-                hpr["ZXY".index(axis_constraints)] = angle
+                hpr["zxy".index(axis_constraints)] = angle
                 rotation.set_hpr(hpr)
 
             Mgr.do("set_rotation_gizmo_angle", angle)
@@ -1458,7 +1450,7 @@ class TransformationManager(BaseObject):
 
             axis_constraints = Mgr.get_global("axis_constraints_scale")
 
-            if axis_constraints == "XYZ":
+            if axis_constraints == "xyz":
 
                 scaling = VBase3(scaling_factor, scaling_factor, scaling_factor)
 
@@ -1467,7 +1459,7 @@ class TransformationManager(BaseObject):
                 scaling = VBase3(1., 1., 1.)
 
                 for axis in axis_constraints:
-                    scaling["XYZ".index(axis)] = scaling_factor
+                    scaling["xyz".index(axis)] = scaling_factor
 
             Mgr.do("set_gizmo_scale", *scaling)
             self._selection.scale(scaling)

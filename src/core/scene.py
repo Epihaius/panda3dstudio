@@ -48,7 +48,6 @@ class SceneManager(BaseObject):
 
         Mgr.do("update_picking_col_id_ranges")
         Mgr.do("reset_cam_transform")
-        Mgr.do("update_world_axes")
         Mgr.do("update_nav_gizmo")
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "adaptive")
@@ -104,7 +103,6 @@ class SceneManager(BaseObject):
         self.cam.set_y(scene_data["cam"])
         Mgr.get(("cam", "target")).set_mat(scene_data["cam_target"])
         Mgr.do("update_transf_gizmo")
-        Mgr.do("update_world_axes")
         Mgr.do("update_nav_gizmo")
         active_grid_plane = scene_data["grid_plane"]
         Mgr.update_app("active_grid_plane", active_grid_plane)
@@ -149,7 +147,7 @@ class SceneManager(BaseObject):
 
         Mgr.set_global("unsaved_scene", False)
 
-    def __prepare_for_export_to_bam(self, parent, children, tmp_node):
+    def __prepare_export_to_bam(self, parent, children, tmp_node):
 
         for child in children:
 
@@ -186,7 +184,7 @@ class SceneManager(BaseObject):
                 node.node().copy_tags(child.get_origin().node())
 
             if child.get_children():
-                self.__prepare_for_export_to_bam(node, child.get_children(), tmp_node)
+                self.__prepare_export_to_bam(node, child.get_children(), tmp_node)
 
     def __export_to_bam(self, filename):
 
@@ -197,14 +195,13 @@ class SceneManager(BaseObject):
 
         tmp_node = NodePath("tmp_node")
         root = NodePath(ModelRoot(os.path.basename(filename)))
-        self.__prepare_for_export_to_bam(root, objs, tmp_node)
+        self.__prepare_export_to_bam(root, objs, tmp_node)
 
         root.write_bam_file(Filename.from_os_specific(filename))
         root.remove_node()
         tmp_node.remove_node()
 
-    def __prepare_for_export_to_obj(self, obj_file, children, tmp_node,
-                                    material_data, counters):
+    def __prepare_export_to_obj(self, obj_file, children, tmp_node, material_data, counters):
 
         for child in children:
 
@@ -307,8 +304,8 @@ class SceneManager(BaseObject):
                 counters["row_offset"] += row_count
 
             if child.get_children():
-                self.__prepare_for_export_to_obj(obj_file, child.get_children(),
-                                                 tmp_node, material_data, counters)
+                self.__prepare_export_to_obj(obj_file, child.get_children(), tmp_node,
+                                             material_data, counters)
 
     def __export_to_obj(self, filename):
 
@@ -328,8 +325,7 @@ class SceneManager(BaseObject):
             fname = os.path.basename(filename)
             mtllib_name = os.path.splitext(fname)[0]
             obj_file.write("mtllib %s.mtl\n" % mtllib_name)
-            self.__prepare_for_export_to_obj(obj_file, objs, tmp_node,
-                                             material_data, counters)
+            self.__prepare_export_to_obj(obj_file, objs, tmp_node, material_data, counters)
 
         tmp_node.remove_node()
 
@@ -387,7 +383,7 @@ class SceneManager(BaseObject):
 
                 node_type = child.node().get_class_type().get_name()
 
-                if node_type == "GeomNode":
+                if node_type == "GeomNode" or node_type == "Character":
                     basic_geom = Mgr.do("create_basic_geom", child, name)
                     obj = basic_geom.get_model()
                 else:
@@ -402,8 +398,10 @@ class SceneManager(BaseObject):
                                  is_const_size, const_size, on_top, transform)
 
                 obj.set_parent(parent_id, add_to_hist=False)
-                self.__import_children(basic_edit, obj.get_id(), child.get_children(),
-                                       namestring, objs_to_store)
+
+                if node_type != "Character":
+                    self.__import_children(basic_edit, obj.get_id(), child.get_children(),
+                                           namestring, objs_to_store)
 
                 if obj.get_type() == "model":
                     obj.get_bbox().update(*child.get_tight_bounds())

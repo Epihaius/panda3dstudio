@@ -14,12 +14,12 @@ class ScalingGizmo(TransformationGizmo):
         green = VBase4(0., .7, 0., 1.)
         blue = VBase4(0., 0., .7, 1.)
 
-        self._axis_colors = {"X": red, "Y": green, "Z": blue}
+        self._axis_colors = {"x": red, "y": green, "z": blue}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
         # Create single-axis handles
 
-        for i, axis in enumerate("XYZ"):
+        for i, axis in enumerate("xyz"):
 
             color_id = self.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
@@ -27,7 +27,7 @@ class ScalingGizmo(TransformationGizmo):
             pos = Point3()
             pos[i] = .2
             handle, point = self.__create_axis_handle(self._origin, color_vec, pos,
-                                                      "%s_axis_handle" % axis.lower())
+                                                      "%s_axis_handle" % axis)
             color = self._axis_colors[axis]
             handle.set_color(color)
             point.set_color(color)
@@ -35,13 +35,13 @@ class ScalingGizmo(TransformationGizmo):
 
         # Create double-axis handles
 
-        for plane in ("XY", "XZ", "YZ"):
+        for plane in ("xy", "xz", "yz"):
 
             color_id = self.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
             self._handle_names[color_id] = plane
-            index1 = "XYZ".index(plane[0])
-            index2 = "XYZ".index(plane[1])
+            index1 = "xyz".index(plane[0])
+            index2 = "xyz".index(plane[1])
             pos1 = Point3()
             pos2 = Point3()
             pos3 = Point3()
@@ -49,7 +49,7 @@ class ScalingGizmo(TransformationGizmo):
             pos1[index1] = pos3[index2] = .1
             pos2[index1] = pos4[index2] = .14
             handle, quad = self.__create_plane_handle(self._origin, color_vec, pos1, pos2, pos3,
-                                                      pos4, "%s_plane_handle" % plane.lower())
+                                                      pos4, "%s_plane_handle" % plane)
             self._handles["planes"][plane] = handle
             self._handles["quads"][plane] = quad
             handle[0].set_color(self._axis_colors[plane[0]])
@@ -59,10 +59,9 @@ class ScalingGizmo(TransformationGizmo):
 
         color_id = self.get_next_picking_color_id()
         color_vec = get_color_vec(color_id, pickable_type_id)
-        self._handle_names[color_id] = "XYZ"
+        self._handle_names[color_id] = "xyz"
         handle = self.__create_center_handle(self._origin, color_vec,
-                                             Point3(.1, 0.,
-                                                    0.), Point3(.0, .1, 0.),
+                                             Point3(.1, 0., 0.), Point3(.0, .1, 0.),
                                              Point3(0., 0., .1), "center_handle")
         self._center_handle = handle
 
@@ -70,8 +69,7 @@ class ScalingGizmo(TransformationGizmo):
 
         # Create scale indicator
 
-        self._scale_indicator = self.__create_scale_indicator(
-            root, "scale_indicator")
+        self._scale_indicator = self.__create_scale_indicator(root, "scale_indicator")
         self._scale_indicator.set_color(1., 1., 1., 1.)
         self._scale_indicator.hide()
 
@@ -80,9 +78,8 @@ class ScalingGizmo(TransformationGizmo):
 
     def __create_axis_handle(self, parent, color, pos, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_line_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         pos_writer.add_data3f(0., 0., 0.)
@@ -100,8 +97,7 @@ class ScalingGizmo(TransformationGizmo):
         lines_node.add_geom(lines_geom)
         lines_np = parent.attach_new_node(lines_node)
 
-        vertex_data = GeomVertexData(
-            "axis_point_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("axis_point_data", vertex_format, Geom.UH_static)
         GeomVertexWriter(vertex_data, "vertex").add_data3f(pos)
         GeomVertexWriter(vertex_data, "color").add_data4f(color)
 
@@ -121,12 +117,11 @@ class ScalingGizmo(TransformationGizmo):
         pos5 = (pos1 + pos3) * .5
         pos6 = (pos2 + pos4) * .5
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
+        vertex_format = GeomVertexFormat.get_v3cp()
 
         def create_line(pos1, pos2):
 
-            vertex_data = GeomVertexData(
-                "axes_plane_data", vertex_format, Geom.UH_static)
+            vertex_data = GeomVertexData("axes_plane_data", vertex_format, Geom.UH_static)
 
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -152,8 +147,7 @@ class ScalingGizmo(TransformationGizmo):
 
         # Create quad
 
-        vertex_data = GeomVertexData(
-            "axes_quad_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("axes_quad_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -177,10 +171,9 @@ class ScalingGizmo(TransformationGizmo):
 
     def __create_center_handle(self, parent, color, pos1, pos2, pos3, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
+        vertex_format = GeomVertexFormat.get_v3cp()
 
-        vertex_data = GeomVertexData(
-            "axes_quad_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("axes_quad_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -203,9 +196,8 @@ class ScalingGizmo(TransformationGizmo):
 
     def __create_scale_indicator(self, parent, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "scale_indicator_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3()
+        vertex_data = GeomVertexData("scale_indicator_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -241,8 +233,8 @@ class ScalingGizmo(TransformationGizmo):
         lines_np = parent.attach_new_node(lines_node)
         lines_np.set_bin("fixed", 100)
         lines_np.set_depth_test(False)
+        lines_np.set_depth_write(False)
         lines_np.hide(self._picking_mask)
-        lines_np.set_scale(.1)
 
         return lines_np
 
@@ -263,7 +255,7 @@ class ScalingGizmo(TransformationGizmo):
         for axis in handle_name:
             hilited_handles.append(axis)
 
-        if handle_name == "XYZ":
+        if handle_name == "xyz":
 
             hilited_handles.append(handle_name)
 
@@ -284,7 +276,7 @@ class ScalingGizmo(TransformationGizmo):
 
             for handle_name in hilited_handles:
 
-                if handle_name == "XYZ":
+                if handle_name == "xyz":
 
                     self._center_handle.set_color(cyan_alpha)
                     self._center_handle.show(self._render_mask)
@@ -295,9 +287,8 @@ class ScalingGizmo(TransformationGizmo):
                     handle[0].set_color(cyan)
                     handle[1].set_color(cyan)
 
-                    if "XYZ" not in hilited_handles:
-                        self._handles["quads"][
-                            handle_name].set_color(cyan_alpha)
+                    if "xyz" not in hilited_handles:
+                        self._handles["quads"][handle_name].set_color(cyan_alpha)
 
                 else:
 
@@ -310,7 +301,7 @@ class ScalingGizmo(TransformationGizmo):
             yellow = VBase4(1., 1., 0., 1.)
             yellow_alpha = VBase4(1., 1., 0., .25)
 
-            if self._selected_axes == "XYZ":
+            if self._selected_axes == "xyz":
                 self._center_handle.set_color(yellow_alpha)
                 self._center_handle.show(self._render_mask)
             else:
@@ -325,12 +316,12 @@ class ScalingGizmo(TransformationGizmo):
 
             for handle_name in self._hilited_handles:
 
-                if handle_name == "XYZ":
+                if handle_name == "xyz":
                     continue
 
                 if handle_name in self._handles["planes"]:
 
-                    if self._selected_axes in (handle_name, "XYZ"):
+                    if self._selected_axes in (handle_name, "xyz"):
                         color1 = color2 = yellow
                     else:
                         color1 = self._axis_colors[handle_name[0]]
@@ -366,13 +357,13 @@ class ScalingGizmo(TransformationGizmo):
         yellow = VBase4(1., 1., 0., 1.)
         yellow_alpha = VBase4(1., 1., 0., .25)
 
-        for axis in "XYZ":
+        for axis in "xyz":
             if axis in axes:
                 self._handles["axes"][axis].set_color(yellow)
             else:
                 self._handles["axes"][axis].set_color(self._axis_colors[axis])
 
-        if axes == "XYZ":
+        if axes == "xyz":
 
             self._center_handle.set_color(yellow_alpha)
             self._center_handle.show(self._render_mask)
@@ -426,8 +417,7 @@ class ScalingGizmo(TransformationGizmo):
 
     def __set_scale(self, sx, sy, sz):
 
-        self._origin.set_scale(
-            self._scale[0] * sx, self._scale[1] * sy, self._scale[2] * sz)
+        self._origin.set_scale(self._scale[0] * sx, self._scale[1] * sy, self._scale[2] * sz)
 
     def face_camera(self):
 

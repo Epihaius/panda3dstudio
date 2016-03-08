@@ -30,8 +30,8 @@ class MainCamera(BaseObject):
         gizmo_cam_node = Camera("gizmo_cam")
         gizmo_cam_node.set_camera_mask(gizmo_cam_mask)
         gizmo_cam_node.set_lens(self.cam_lens)
-        gizmo_cam_node.set_scene(Mgr.get("gizmo_root"))
-        gizmo_cam = self.cam.attach_new_node(gizmo_cam_node)
+        gizmo_cam = Mgr.get("gizmo_root").attach_new_node(gizmo_cam_node)
+        gizmo_cam.set_effect(CompassEffect.make(self.cam, CompassEffect.P_all))
         dr.set_camera(gizmo_cam)
         dr.set_clear_color_active(False)
         dr.set_clear_depth_active(True)
@@ -239,8 +239,7 @@ class NavigationManager(BaseObject):
 
         def start_dollying(direction):
 
-            Mgr.enter_state("dollying_%s" %
-                            ("forward" if direction == 1. else "backward"))
+            Mgr.enter_state("dollying_%s" % ("forward" if direction == 1. else "backward"))
             self.__init_dolly(direction)
 
         def end_cam_transform():
@@ -314,7 +313,7 @@ class NavigationManager(BaseObject):
 
         if not is_active:
             self._clock.reset()
-            Mgr.do("start_updating_world_axes")
+            Mgr.do("hilite_world_axes")
             Mgr.do("start_updating_nav_gizmo")
 
         Mgr.update_app("status", "navigate")
@@ -322,7 +321,7 @@ class NavigationManager(BaseObject):
     def __exit_navigation_mode(self, next_state_id, is_active):
 
         if not is_active:
-            Mgr.do("stop_updating_world_axes")
+            Mgr.do("hilite_world_axes", False)
             Mgr.do("stop_updating_nav_gizmo")
             Mgr.remove_task("transform_cam")
 
@@ -408,8 +407,7 @@ class NavigationManager(BaseObject):
         if not self.__get_pan_pos(pan_pos):
             return task.cont
 
-        self._cam_target.set_pos(
-            self._cam_target.get_pos() + (self._pan_start_pos - pan_pos))
+        self._cam_target.set_pos(self._cam_target.get_pos() + (self._pan_start_pos - pan_pos))
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 
