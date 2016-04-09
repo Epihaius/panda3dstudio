@@ -14,6 +14,24 @@ class RotationGizmo(TransformationGizmo):
 
         self._screen_plane = None
 
+        cam = self.cam()
+        bb_fx_persp = {}
+        vec_x = Vec3(1., 0., 0.)
+        vec_z = Vec3(0., 0., 1.)
+        effect = BillboardEffect.make(vec_z, False, True, 0., cam, Point3())
+        bb_fx_persp["xy"] = effect
+        bb_fx_persp["xz"] = effect
+        effect = BillboardEffect.make(vec_x, False, True, 0., cam, Point3())
+        bb_fx_persp["yz"] = effect
+        bb_fx_ortho = {}
+        point = Point3(0., -100000., 0.)
+        effect = BillboardEffect.make(vec_z, False, True, 0., cam, point)
+        bb_fx_ortho["xy"] = effect
+        bb_fx_ortho["xz"] = effect
+        effect = BillboardEffect.make(vec_x, False, True, 0., cam, point)
+        bb_fx_ortho["yz"] = effect
+        self._billboard_fx = {"persp": bb_fx_persp, "ortho": bb_fx_ortho}
+
         self._center_axis_root = self._origin.attach_new_node("center_axis_root")
         self._center_axes = {}
 
@@ -40,6 +58,7 @@ class RotationGizmo(TransformationGizmo):
             else:
                 handle = self.__create_axis_handle(self._origin, color_vec, axis)
 
+            handle.set_effect(bb_fx_persp[plane])
             handle.set_color(self._axis_colors[plane])
             self._handles["planes"][plane] = handle
 
@@ -129,10 +148,6 @@ class RotationGizmo(TransformationGizmo):
         circle_node = GeomNode("%s_axis_handle" % axis)
         circle_node.add_geom(circle_geom)
         circle_np = parent.attach_new_node(circle_node)
-        up_vec = Vec3()
-        up_vec["xyz".index(axis)] = 1.
-        effect = BillboardEffect.make(up_vec, False, True, 0., self.cam, Point3())
-        circle_np.set_effect(effect)
 
         return circle_np
 
@@ -368,7 +383,7 @@ class RotationGizmo(TransformationGizmo):
             axis_np.clear_color_scale()
 
         if self._selected_axes == "screen":
-            self._angle_disc_pivot.set_hpr(self.cam, 0., 0., 0.)
+            self._angle_disc_pivot.set_hpr(self.cam(), 0., 0., 0.)
 
         self.__update_angle_disc()
 
@@ -396,28 +411,35 @@ class RotationGizmo(TransformationGizmo):
 
     def __get_trackball_data(self, screen_pos):
 
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        cam = self.cam()
+        lens_type = self.cam.lens_type
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        cam_pos = cam.get_pos(self.world)
 
         intersection_point = Point3()
-        radius = self._radius
 
-        if not self._screen_plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not self._screen_plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
-        # due to the billboard effect applied to the transf_gizmo_root, the correct
-        # position of the origin cannot be retrieved from self._origin, so it needs
-        # to be computed explicitly
-        vec = Mgr.get("transf_gizmo_world_pos") - cam_pos
-        vec.normalize()
-        origin_pos = cam_pos + vec * 2.
+        if lens_type == "persp":
+            # due to the billboard effect applied to the transf_gizmo_root, the correct
+            # position of the origin cannot be retrieved from self._origin, so it needs
+            # to be computed explicitly
+            vec = Mgr.get("transf_gizmo_world_pos") - cam_pos
+            vec.normalize()
+            origin_pos = cam_pos + vec * 2.
+        else:
+            origin_pos = Mgr.get("transf_gizmo_world_pos")
+
         vec = intersection_point - origin_pos
-        vec = V3D(self.cam.get_relative_vector(self.world, vec))
+        vec = V3D(cam.get_relative_vector(self.world, vec))
 
         vec_length = vec.length()
         radians = 0.
+        radius = self._radius * (1. if lens_type == "persp" else 200.)
 
         if vec_length > radius:
             radians = (vec_length - radius) / radius
@@ -441,44 +463,53 @@ class RotationGizmo(TransformationGizmo):
 
     def get_point_at_screen_pos(self, screen_pos):
 
+        cam = self.cam()
+        lens_type = self.cam.lens_type
         point1 = Mgr.get("transf_gizmo_world_pos")
 
         if self._selected_axes == "trackball":
 
-            normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
-            cam_pos = self.cam.get_pos(self.world)
-            vec = point1 - cam_pos
-            vec.normalize()
-            point = cam_pos + vec * 2. # the world position of self._origin
+            normal = self.world.get_relative_vector(cam, Vec3.forward())
+
+            if lens_type == "persp":
+                cam_pos = cam.get_pos(self.world)
+                vec = point1 - cam_pos
+                vec.normalize()
+                point = cam_pos + vec * 2. # the world position of self._origin
+            else:
+                point = point1
+
             self._screen_plane = Plane(normal, point)
+
             return
 
         if self._selected_axes == "screen":
 
-            normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+            normal = self.world.get_relative_vector(cam, Vec3.forward())
             plane = Plane(normal, point1)
 
         else:
 
+            target = Mgr.get("transf_gizmo_target")
             vec_coords = [0., 0., 0.]
             vec_coords["xyz".index(self._selected_axes[0])] = 1.
-            axis_vec = self.world.get_relative_vector(self._origin, Vec3(*vec_coords))
+            axis_vec = self.world.get_relative_vector(target, Vec3(*vec_coords))
             point2 = point1 + axis_vec
             vec_coords = [0., 0., 0.]
             vec_coords["xyz".index(self._selected_axes[1])] = 1.
-            axis_vec = self.world.get_relative_vector(self._origin, Vec3(*vec_coords))
+            axis_vec = self.world.get_relative_vector(target, Vec3(*vec_coords))
             point3 = point1 + axis_vec
 
             plane = Plane(point1, point2, point3)
 
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
 
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point
@@ -551,3 +582,10 @@ class RotationGizmo(TransformationGizmo):
             else:
                 self._clip_plane_neg_angle.set_h(0.)
                 self._clip_plane_pos_angle.set_h(self._angle)
+
+    def adjust_to_lens(self, lens_type):
+
+        bb_fx = self._billboard_fx[lens_type]
+
+        for plane in ("xy", "xz", "yz"):
+            self._handles["planes"][plane].set_effect(bb_fx[plane])

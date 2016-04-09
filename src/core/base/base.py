@@ -18,10 +18,8 @@ class BaseObject(object):
 
     world = None
     screen = None
-    cam = None
-    cam_node = None
-    cam_lens = None
     mouse_watcher = None
+    cam = None
 
     _defaults = {
         "data_retriever": lambda *args, **kwargs: None
@@ -30,20 +28,22 @@ class BaseObject(object):
     _verbose = False
 
     @classmethod
-    def init(cls, world, screen, cam, cam_node, cam_lens, mouse_watcher, verbose):
+    def init(cls, world, screen, mouse_watcher, verbose):
 
         cls.world = world
         cls.screen = screen
-        cls.cam = cam
-        cls.cam_node = cam_node
-        cls.cam_lens = cam_lens
         cls.mouse_watcher = mouse_watcher
         cls._verbose = verbose
 
+    @classmethod
+    def set_cam(cls, cam):
+
+        if not cls.cam:
+            cls.cam = cam
+
     def __init__(self):
 
-        # structure to store callables through which data can be retrieved by
-        # id
+        # structure to store callables through which data can be retrieved by id
         self._data_retrievers = {}
 
     def setup(self, *args, **kwargs):

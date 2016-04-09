@@ -36,12 +36,13 @@ class BBoxEdge(BaseObject):
 
     def get_point_at_screen_pos(self, screen_pos):
 
+        cam = self.cam()
         origin = self._bbox.get_origin()
         corner_pos = self._bbox.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
         vec_coords["xyz".index(self._axis)] = 1.
         edge_vec = V3D(self.world.get_relative_vector(origin, Vec3(*vec_coords)))
-        cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
+        cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
         cross_vec = edge_vec ** cam_vec
 
         if not cross_vec.normalize():
@@ -50,16 +51,16 @@ class BBoxEdge(BaseObject):
         point1 = corner_pos
         point2 = point1 + edge_vec
         point3 = point1 + cross_vec
-
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
-
         plane = Plane(point1, point2, point3)
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point

@@ -68,16 +68,13 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         self._vertex_data = {}
         vertex_format_vert = Mgr.get("vertex_format_vert")
-        vertex_data_vert = GeomVertexData(
-            "vert_data", vertex_format_vert, Geom.UH_dynamic)
+        vertex_data_vert = GeomVertexData("vert_data", vertex_format_vert, Geom.UH_dynamic)
         self._vertex_data["vert"] = vertex_data_vert
         vertex_format_edge = Mgr.get("vertex_format_edge")
-        vertex_data_edge = GeomVertexData(
-            "edge_data", vertex_format_edge, Geom.UH_dynamic)
+        vertex_data_edge = GeomVertexData("edge_data", vertex_format_edge, Geom.UH_dynamic)
         self._vertex_data["edge"] = vertex_data_edge
         vertex_format_poly = Mgr.get("vertex_format_poly")
-        vertex_data_poly = GeomVertexData(
-            "poly_data", vertex_format_poly, Geom.UH_dynamic)
+        vertex_data_poly = GeomVertexData("poly_data", vertex_format_poly, Geom.UH_dynamic)
         self._vertex_data["poly"] = vertex_data_poly
 
         points_prim = GeomPoints(Geom.UH_static)
@@ -100,8 +97,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         vert_selected_geom.set_color(1., 0., 0.)
         geoms["vert"]["selected"] = vert_selected_geom
 
-        render_mask = Mgr.get("render_mask")
-        picking_mask = Mgr.get("picking_mask")
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
         render_mode = Mgr.get_global("render_mode")
 
         lines_prim = GeomLines(Geom.UH_static)
@@ -115,16 +112,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         toplvl_wire_geom.set_texture_off()
         toplvl_wire_geom.set_material_off()
         toplvl_wire_geom.set_shader_off()
-        toplvl_wire_geom.set_attrib(
-            DepthTestAttrib.make(RenderAttrib.M_less_equal))
+        toplvl_wire_geom.set_attrib(DepthTestAttrib.make(RenderAttrib.M_less_equal))
         toplvl_wire_geom.set_bin("fixed", 1)
-        toplvl_wire_geom.hide(picking_mask)
+        toplvl_wire_geom.hide(picking_masks["all"])
         geoms["top"]["wire"] = toplvl_wire_geom
 
         if "wire" in render_mode:
-            toplvl_wire_geom.show(render_mask)
+            toplvl_wire_geom.show(render_masks["all"])
         else:
-            toplvl_wire_geom.hide(render_mask)
+            toplvl_wire_geom.hide(render_masks["all"])
 
         lines_prim = GeomLines(Geom.UH_static)
         lines_prim.reserve_num_vertices(6)
@@ -152,17 +148,17 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geom_node = GeomNode("toplevel_shaded_geom")
         geom_node.add_geom(tris_geom)
         toplvl_shaded_geom = toplvl_geom_root.attach_new_node(geom_node)
-        toplvl_shaded_geom.show(picking_mask)
+        toplvl_shaded_geom.show(picking_masks["all"])
         geoms["top"]["shaded"] = toplvl_shaded_geom
 
         if "shaded" in render_mode:
-            toplvl_shaded_geom.show(render_mask)
+            toplvl_shaded_geom.show(render_masks["all"])
         else:
-            toplvl_shaded_geom.hide(render_mask)
+            toplvl_shaded_geom.hide(render_masks["all"])
 
         if render_mode == "wire":
-            toplvl_shaded_geom.hide(picking_mask)
-            toplvl_wire_geom.show(picking_mask)
+            toplvl_shaded_geom.hide(picking_masks["all"])
+            toplvl_wire_geom.show(picking_masks["all"])
 
         tris_prim = GeomTriangles(Geom.UH_static)
         tris_geom = Geom(vertex_data_poly)
@@ -299,8 +295,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
                 for i, j in ((0, 1), (1, 2), (0, 2)):
 
-                    edge_verts = sorted(
-                        [verts[tri_vert_ids[i]], verts[tri_vert_ids[j]]])
+                    edge_verts = sorted([verts[tri_vert_ids[i]], verts[tri_vert_ids[j]]])
 
                     if edge_verts in edge_data:
                         edge_data.remove(edge_verts)
@@ -318,8 +313,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 edges[edge_id] = edge
                 poly_edges.append(edge)
                 vert_ids = [vert.get_id() for vert in edge_verts]
-                merged_edge_verts = tuple(
-                    sorted([merged_verts[v_id] for v_id in vert_ids]))
+                merged_edge_verts = tuple(sorted([merged_verts[v_id] for v_id in vert_ids]))
 
                 if merged_edge_verts in merged_edges_tmp:
                     merged_edge = merged_edges_tmp[merged_edge_verts]
@@ -330,8 +324,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 merged_edge.append(edge_id)
                 merged_edges[edge_id] = merged_edge
 
-            polygon = Mgr.do("create_poly", self, triangles,
-                             poly_edges, poly_verts)
+            polygon = Mgr.do("create_poly", self, triangles, poly_edges, poly_verts)
             ordered_polys.append(polygon)
             poly_id = polygon.get_id()
             polys[poly_id] = polygon
@@ -347,8 +340,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 smoothing_grp.add(poly_id)
 
                 if use:
-                    poly_smoothing.setdefault(
-                        poly_id, set()).add(smoothing_grp)
+                    poly_smoothing.setdefault(poly_id, set()).add(smoothing_grp)
 
         processed_data = {"smoothing": smoothing_by_id}
 
@@ -411,20 +403,17 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         poly_geom_root = geom_roots["poly"]
 
         vertex_format_vert = Mgr.get("vertex_format_vert")
-        vertex_data_vert = GeomVertexData(
-            "vert_data", vertex_format_vert, Geom.UH_dynamic)
+        vertex_data_vert = GeomVertexData("vert_data", vertex_format_vert, Geom.UH_dynamic)
         vertex_data_vert.reserve_num_rows(count)
         vertex_data_vert.set_num_rows(count)
         self._vertex_data["vert"] = vertex_data_vert
         vertex_format_edge = Mgr.get("vertex_format_edge")
-        vertex_data_edge = GeomVertexData(
-            "edge_data", vertex_format_edge, Geom.UH_dynamic)
+        vertex_data_edge = GeomVertexData("edge_data", vertex_format_edge, Geom.UH_dynamic)
         vertex_data_edge.reserve_num_rows(count * 2)
         vertex_data_edge.set_num_rows(count * 2)
         self._vertex_data["edge"] = vertex_data_edge
         vertex_format_poly = Mgr.get("vertex_format_poly")
-        vertex_data_poly = GeomVertexData(
-            "poly_data", vertex_format_poly, Geom.UH_dynamic)
+        vertex_data_poly = GeomVertexData("poly_data", vertex_format_poly, Geom.UH_dynamic)
         vertex_data_poly.reserve_num_rows(count)
         vertex_data_poly.set_num_rows(count)
         self._vertex_data["poly"] = vertex_data_poly
@@ -510,8 +499,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         vert_selected_geom.set_color(1., 0., 0.)
         geoms["vert"]["selected"] = vert_selected_geom
 
-        render_mask = Mgr.get("render_mask")
-        picking_mask = Mgr.get("picking_mask")
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
         render_mode = Mgr.get_global("render_mode")
 
         vertices = lines_prim.get_vertices()
@@ -524,16 +513,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         toplvl_wire_geom.set_texture_off()
         toplvl_wire_geom.set_material_off()
         toplvl_wire_geom.set_shader_off()
-        toplvl_wire_geom.set_attrib(
-            DepthTestAttrib.make(RenderAttrib.M_less_equal))
+        toplvl_wire_geom.set_attrib(DepthTestAttrib.make(RenderAttrib.M_less_equal))
         toplvl_wire_geom.set_bin("fixed", 1)
-        toplvl_wire_geom.hide(picking_mask)
+        toplvl_wire_geom.hide(picking_masks["all"])
         geoms["top"]["wire"] = toplvl_wire_geom
 
         if "wire" in render_mode:
-            toplvl_wire_geom.show(render_mask)
+            toplvl_wire_geom.show(render_masks["all"])
         else:
-            toplvl_wire_geom.hide(render_mask)
+            toplvl_wire_geom.hide(render_masks["all"])
 
         lines_prim = GeomLines(Geom.UH_static)
         lines_prim.reserve_num_vertices(6)
@@ -562,18 +550,18 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geom_node = GeomNode("toplevel_shaded_geom")
         geom_node.add_geom(tris_geom)
         toplvl_shaded_geom = toplvl_geom_root.attach_new_node(geom_node)
-        toplvl_shaded_geom.show(picking_mask)
+        toplvl_shaded_geom.show(picking_masks["all"])
         geoms["top"]["shaded"] = toplvl_shaded_geom
         self._origin.node().set_bounds(geom_node.get_bounds())
 
         if "shaded" in render_mode:
-            toplvl_shaded_geom.show(render_mask)
+            toplvl_shaded_geom.show(render_masks["all"])
         else:
-            toplvl_shaded_geom.hide(render_mask)
+            toplvl_shaded_geom.hide(render_masks["all"])
 
         if render_mode == "wire":
-            toplvl_shaded_geom.hide(picking_mask)
-            toplvl_wire_geom.show(picking_mask)
+            toplvl_shaded_geom.hide(picking_masks["all"])
+            toplvl_wire_geom.show(picking_masks["all"])
 
         tris_prim = GeomTriangles(Geom.UH_static)
         tris_prim.reserve_num_vertices(3)
@@ -637,8 +625,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         edge_geom_root.set_texture_off()
         edge_geom_root.set_material_off()
         edge_geom_root.set_shader_off()
-        edge_geom_root.set_attrib(
-            DepthTestAttrib.make(RenderAttrib.M_less_equal))
+        edge_geom_root.set_attrib(DepthTestAttrib.make(RenderAttrib.M_less_equal))
         edge_geom_root.set_bin("fixed", 1)
 
         self._geom_roots = geom_roots = {}
@@ -648,21 +635,18 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geom_roots["edge"] = edge_geom_root
         geom_roots["poly"] = poly_geom_root
 
-        subobj_geom_root.hide(Mgr.get("render_mask"))
-        subobj_geom_root.hide(Mgr.get("picking_mask"))
+        subobj_geom_root.hide(Mgr.get("render_masks")["all"] | Mgr.get("picking_masks")["all"])
 
     def set_position_data(self, pos_data):
 
         node = self._geoms["top"]["shaded"].node()
-        handle = node.modify_geom(0).modify_vertex_data(
-        ).modify_array(0).modify_handle()
+        handle = node.modify_geom(0).modify_vertex_data().modify_array(0).modify_handle()
         handle.set_data(pos_data)
 
     def get_position_data(self):
 
         node = self._geoms["top"]["shaded"].node()
-        pos_data = node.get_geom(0).get_vertex_data(
-        ).get_array(0).get_handle().get_data()
+        pos_data = node.get_geom(0).get_vertex_data().get_array(0).get_handle().get_data()
 
         return pos_data
 
@@ -672,7 +656,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         mat = self._origin.get_mat()
         geom_node_top = self._geoms["top"]["shaded"].node()
         geom_node_top.modify_geom(0).transform_vertices(mat)
-        self._origin.set_mat(Mat4.ident_mat())
+        self._origin.clear_transform()
         vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
         array = vertex_data_top.get_array(0)
 
@@ -711,16 +695,14 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for poly in self._ordered_polys:
 
-            picking_color = get_color_vec(
-                poly.get_picking_color_id(), pickable_id_poly)
+            picking_color = get_color_vec(poly.get_picking_color_id(), pickable_id_poly)
             verts = poly.get_vertices()
 
             for i in xrange(len(verts)):
                 col_writer_poly.add_data4f(picking_color)
 
             for vert in verts:
-                picking_color = get_color_vec(
-                    vert.get_picking_color_id(), pickable_id_vert)
+                picking_color = get_color_vec(vert.get_picking_color_id(), pickable_id_vert)
                 col_writer_vert.add_data4f(picking_color)
 
         vert_subobjs = self._subobjs["vert"]
@@ -729,8 +711,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         count = self._data_row_count
 
         for edge in edge_subobjs.itervalues():
-            picking_color = get_color_vec(
-                edge.get_picking_color_id(), pickable_id_edge)
+            picking_color = get_color_vec(edge.get_picking_color_id(), pickable_id_edge)
             row_index = vert_subobjs[edge[0]].get_row_index()
             picking_colors[row_index] = picking_color
             row_index = vert_subobjs[edge[1]].get_row_index() + count
@@ -777,14 +758,14 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
     def update_selection_state(self, is_selected=True):
 
         geoms = self._geoms
-        picking_mask = Mgr.get("picking_mask")
+        picking_masks = Mgr.get("picking_masks")
         render_mode = Mgr.get_global("render_mode")
 
         if is_selected:
 
             if render_mode == "wire":
-                geoms["top"]["shaded"].show(picking_mask)
-                geoms["top"]["wire"].hide(picking_mask)
+                geoms["top"]["shaded"].show(picking_masks["all"])
+                geoms["top"]["wire"].hide(picking_masks["all"])
 
             geoms["top"]["wire"].set_color(1., 1., 1.)
             geoms["edge"]["unselected"].set_color(1., 1., 1.)
@@ -792,8 +773,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         else:
 
             if render_mode == "wire":
-                geoms["top"]["shaded"].hide(picking_mask)
-                geoms["top"]["wire"].show(picking_mask)
+                geoms["top"]["shaded"].hide(picking_masks["all"])
+                geoms["top"]["wire"].show(picking_masks["all"])
 
             geoms["top"]["wire"].clear_color()
             geoms["edge"]["unselected"].clear_color()
@@ -801,8 +782,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
     def update_render_mode(self):
 
         render_mode = Mgr.get_global("render_mode")
-        render_mask = Mgr.get("render_mask")
-        picking_mask = Mgr.get("picking_mask")
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
         geoms = self._geoms
 
         if self.get_toplevel_object().is_selected():
@@ -812,63 +793,62 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         else:
 
             if render_mode == "wire":
-                geoms["top"]["shaded"].hide(picking_mask)
-                geoms["top"]["wire"].show(picking_mask)
+                geoms["top"]["shaded"].hide(picking_masks["all"])
+                geoms["top"]["wire"].show(picking_masks["all"])
             else:
-                geoms["top"]["shaded"].show(picking_mask)
-                geoms["top"]["wire"].hide(picking_mask)
+                geoms["top"]["shaded"].show(picking_masks["all"])
+                geoms["top"]["wire"].hide(picking_masks["all"])
 
             obj_lvl = "top"
 
         if "wire" in render_mode:
             if obj_lvl == "edge":
-                geoms["top"]["wire"].hide(render_mask)
+                geoms["top"]["wire"].hide(render_masks["all"])
             else:
-                geoms["top"]["wire"].show(render_mask)
+                geoms["top"]["wire"].show(render_masks["all"])
         else:
-            geoms["top"]["wire"].hide(render_mask)
+            geoms["top"]["wire"].hide(render_masks["all"])
 
         if "shaded" in render_mode:
             if obj_lvl == "poly" or (obj_lvl == "top" and self._has_poly_tex_proj):
-                geoms["top"]["shaded"].hide(render_mask)
+                geoms["top"]["shaded"].hide(render_masks["all"])
             else:
-                geoms["top"]["shaded"].show(render_mask)
-            geoms["poly"]["unselected"].show(render_mask)
+                geoms["top"]["shaded"].show(render_masks["all"])
+            geoms["poly"]["unselected"].show(render_masks["all"])
         else:
-            geoms["top"]["shaded"].hide(render_mask)
-            geoms["poly"]["unselected"].hide(render_mask)
+            geoms["top"]["shaded"].hide(render_masks["all"])
+            geoms["poly"]["unselected"].hide(render_masks["all"])
 
     def show_top_level(self):
 
-        render_mask = Mgr.get("render_mask")
-        picking_mask = Mgr.get("picking_mask")
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
+        all_masks = render_masks["all"] | picking_masks["all"]
 
         geom_roots = self._geom_roots
 
         for subobj_lvl in ("vert", "edge", "poly"):
-            geom_roots[subobj_lvl].show(render_mask)
-            geom_roots[subobj_lvl].show(picking_mask)
+            geom_roots[subobj_lvl].show(all_masks)
 
         if self._has_poly_tex_proj:
-            geom_roots["poly"].show_through(render_mask)
+            geom_roots["poly"].show_through(render_masks["all"])
 
         self.update_render_mode()
 
     def show_subobj_level(self, subobj_lvl):
 
-        render_mask = Mgr.get("render_mask")
-        picking_mask = Mgr.get("picking_mask")
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
+        all_masks = render_masks["all"] | picking_masks["all"]
 
         geom_roots = self._geom_roots
         other_subobj_lvls = ["vert", "edge", "poly"]
         other_subobj_lvls.remove(subobj_lvl)
 
-        geom_roots[subobj_lvl].show_through(render_mask)
-        geom_roots[subobj_lvl].show_through(picking_mask)
+        geom_roots[subobj_lvl].show_through(all_masks)
 
         for lvl in other_subobj_lvls:
-            geom_roots[lvl].show(render_mask)
-            geom_roots[lvl].show(picking_mask)
+            geom_roots[lvl].show(all_masks)
 
         self.update_render_mode()
 
@@ -984,8 +964,7 @@ class GeomDataManager(BaseObject):
         tex_stage.set_mode(TextureStage.M_add)
         np.set_transparency(TransparencyAttrib.M_none)
         np.set_tex_gen(tex_stage, RenderAttrib.M_world_position)
-        np.set_tex_projector(tex_stage, BaseObject.world,
-                             BaseObject.cam.get_children()[0])
+        np.set_tex_projector(tex_stage, self.world, self.cam())
         tex = Texture()
         tex.read(Filename(GFX_PATH + "sel_tex.png"))
         np.set_texture(tex_stage, tex)
@@ -1005,40 +984,31 @@ class GeomDataManager(BaseObject):
         # sets, as well as tangents and bitangents ("binormals").
 
         array1 = GeomVertexArrayFormat()
-        array1.add_column(InternalName.make("vertex"), 3,
-                          Geom.NT_float32, Geom.C_point)
+        array1.add_column(InternalName.make("vertex"), 3, Geom.NT_float32, Geom.C_point)
 
         array2 = GeomVertexArrayFormat()
-        array2.add_column(InternalName.make("color"), 4,
-                          Geom.NT_float32, Geom.C_color)
+        array2.add_column(InternalName.make("color"), 4, Geom.NT_float32, Geom.C_color)
 
         array3 = GeomVertexArrayFormat()
-        array3.add_column(InternalName.make("color"), 4,
-                          Geom.NT_float32, Geom.C_color)
-        array3.add_column(InternalName.make("normal"), 3,
-                          Geom.NT_float32, Geom.C_vector)
-        array3.add_column(InternalName.make("tangent"), 3,
-                          Geom.NT_float32, Geom.C_vector)
-        array3.add_column(InternalName.make("binormal"), 3,
-                          Geom.NT_float32, Geom.C_vector)
+        array3.add_column(InternalName.make("color"), 4, Geom.NT_float32, Geom.C_color)
+        array3.add_column(InternalName.make("normal"), 3, Geom.NT_float32, Geom.C_normal)
+        array3.add_column(InternalName.make("tangent"), 3, Geom.NT_float32, Geom.C_normal)
+        array3.add_column(InternalName.make("binormal"), 3, Geom.NT_float32, Geom.C_normal)
 
         uv_arrays = []
         uv_array = GeomVertexArrayFormat()
-        uv_array.add_column(InternalName.make("texcoord"),
-                            2, Geom.NT_float32, Geom.C_texcoord)
+        uv_array.add_column(InternalName.make("texcoord"), 2, Geom.NT_float32, Geom.C_texcoord)
         uv_arrays.append(uv_array)
 
         for i in xrange(1, 8):
             uv_array = GeomVertexArrayFormat()
-            uv_array.add_column(InternalName.make(
-                "texcoord.%d" % i), 2, Geom.NT_float32, Geom.C_texcoord)
+            uv_array.add_column(InternalName.make("texcoord.%d" % i), 2, Geom.NT_float32, Geom.C_texcoord)
             uv_arrays.append(uv_array)
 
         vertex_format_vert = GeomVertexFormat()
         vertex_format_vert.add_array(array1)
         vertex_format_vert.add_array(array2)
-        vertex_format_vert = GeomVertexFormat.register_format(
-            vertex_format_vert)
+        vertex_format_vert = GeomVertexFormat.register_format(vertex_format_vert)
         Mgr.expose("vertex_format_vert", lambda: vertex_format_vert)
         Mgr.expose("vertex_format_edge", lambda: vertex_format_vert)
 
@@ -1049,8 +1019,7 @@ class GeomDataManager(BaseObject):
         for uv_array in uv_arrays:
             vertex_format_poly.add_array(uv_array)
 
-        vertex_format_poly = GeomVertexFormat.register_format(
-            vertex_format_poly)
+        vertex_format_poly = GeomVertexFormat.register_format(vertex_format_poly)
         Mgr.expose("vertex_format_poly", lambda: vertex_format_poly)
 
         return True

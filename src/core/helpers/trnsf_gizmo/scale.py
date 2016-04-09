@@ -241,7 +241,7 @@ class ScalingGizmo(TransformationGizmo):
     def __show_scale_indicator(self, pos, hpr):
 
         self._scale_indicator.set_pos(self.world, pos)
-        self._scale_indicator.set_hpr(self.cam, hpr)
+        self._scale_indicator.set_hpr(self.cam(), hpr)
         self._scale_indicator.show()
 
     def hilite_handle(self, color_id):
@@ -400,17 +400,19 @@ class ScalingGizmo(TransformationGizmo):
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
-
-        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
-        point = self.world.get_relative_point(self.cam, Point3(0., 2., 0.))
+        cam = self.cam()
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        normal = self.world.get_relative_vector(cam, Vec3.forward())
+        point = rel_pt(Point3(0., 2., 0.))
         plane = Plane(normal, point)
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point
@@ -422,10 +424,16 @@ class ScalingGizmo(TransformationGizmo):
     def face_camera(self):
 
         root = Mgr.get("transf_gizmo_root")
-        vec = V3D(root.get_pos(self.cam))
-        x_vec = V3D(self.cam.get_relative_vector(root, Vec3(1., 0., 0.)))
-        y_vec = V3D(self.cam.get_relative_vector(root, Vec3(0., 1., 0.)))
-        z_vec = V3D(self.cam.get_relative_vector(root, Vec3(0., 0., 1.)))
+        cam = self.cam()
+
+        if self.cam.lens_type == "persp":
+            vec = V3D(root.get_pos(cam))
+        else:
+            vec = V3D(Vec3.forward())
+
+        x_vec = V3D(cam.get_relative_vector(root, Vec3.unit_x()))
+        y_vec = V3D(cam.get_relative_vector(root, Vec3.unit_y()))
+        z_vec = V3D(cam.get_relative_vector(root, Vec3.unit_z()))
 
         sx = -1. if vec * x_vec > 0. else 1.
         sy = -1. if vec * y_vec > 0. else 1.

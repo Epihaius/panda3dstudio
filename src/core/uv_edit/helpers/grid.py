@@ -13,13 +13,13 @@ class Grid(BaseObject):
         origin.hide(uv_template_mask)
         self._grid_lines = self.__create_lines()
         self._grid_lines.reparent_to(self._origin)
-        x_axis_line = self.__create_axis_line("X")
+        x_axis_line = self.__create_axis_line("x")
         x_axis_line.reparent_to(self._origin)
         x_axis_line.set_y(-.05)
-        z_axis_line = self.__create_axis_line("Z")
+        z_axis_line = self.__create_axis_line("z")
         z_axis_line.reparent_to(self._origin)
         z_axis_line.set_y(-.05)
-        self._axis_lines = {"X": x_axis_line, "Z": z_axis_line}
+        self._axis_lines = {"x": x_axis_line, "z": z_axis_line}
         self._tex_borders = borders = self.__create_tex_borders()
         borders.reparent_to(self._origin)
         borders.set_y(-.05)
@@ -50,16 +50,14 @@ class Grid(BaseObject):
 
     def add_interface_updaters(self):
 
-        Mgr.add_interface_updater(
-            "uv_window", "uv_background", self.__update_background)
+        Mgr.add_interface_updater("uv_window", "uv_background", self.__update_background)
 
     def __update_background(self, value_id, value):
 
         if value_id == "tex_filename":
             if value:
                 self._background.show()
-                self._background.set_texture(
-                    Mgr.load_tex(Filename.from_os_specific(value)))
+                self._background.set_texture(Mgr.load_tex(Filename.from_os_specific(value)))
             else:
                 self._background.hide()
             self._background_tex_filename = value
@@ -72,14 +70,12 @@ class Grid(BaseObject):
             self._background.set_scale(scale)
             self._background.set_tex_scale(TextureStage.get_default(), scale)
 
-        Mgr.update_interface_remotely(
-            "uv_window", "uv_background", value_id, value)
+        Mgr.update_interface_remotely("uv_window", "uv_background", value_id, value)
 
     def __create_line(self):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "gridline_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3()
+        vertex_data = GeomVertexData("gridline_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         pos_writer.add_data3f(-100., 0., 0.)
@@ -123,7 +119,7 @@ class Grid(BaseObject):
         axis_line.set_light_off()
         axis_line.set_render_mode_thickness(3)
 
-        if axis == "Z":
+        if axis == "z":
             axis_line.set_r(90.)
 
         return axis_line
@@ -147,9 +143,8 @@ class Grid(BaseObject):
 
     def __create_quad(self):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "quad_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3t2()
+        vertex_data = GeomVertexData("quad_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         uv_writer = GeomVertexWriter(vertex_data, "texcoord")
@@ -185,8 +180,8 @@ class Grid(BaseObject):
 
         if force or scale != self._scale:
             grid_lines.set_scale(scale)
-            axis_lines["X"].set_scale(scale)
-            axis_lines["Z"].set_scale(scale)
+            axis_lines["x"].set_scale(scale)
+            axis_lines["z"].set_scale(scale)
             self._scale = scale
 
         size = 5. * self._scale
@@ -194,5 +189,5 @@ class Grid(BaseObject):
         z_offset = abs(z) // size * (-size if z < 0. else size)
         offset = VBase3(x_offset, 0., z_offset)
         grid_lines.set_pos(offset)
-        axis_lines["X"].set_x(x_offset)
-        axis_lines["Z"].set_z(z_offset)
+        axis_lines["x"].set_x(x_offset)
+        axis_lines["z"].set_z(z_offset)

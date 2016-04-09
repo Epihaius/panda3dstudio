@@ -16,8 +16,9 @@ from .history import HistoryToolbar
 from .grid import GridToolbar
 from .status import StatusBar
 from .menu import MenuBar
-from .create import CreationManager
 from .file import FileManager
+from .create import CreationManager
+from .view import ViewManager
 from .render import RenderModeToolbar
 from .obj_props import ObjectPropertiesMenu
 
@@ -125,67 +126,11 @@ class Components(BaseObject):
         menubar = MenuBar(frame, wx.Point(0, 0), 1006)
         components["menubar"] = menubar
 
-        menubar.add_menu("File")
-        menubar.add_menu("Edit")
-        menubar.add_menu("Create")
-
-        self._file_mgr = FileManager()
-        file_data = self._file_mgr.get_data()
-
-        file_ops = ("new", "open", "save")
-        accelerators = ("N", "O", "S")
-        mod_code = wx.MOD_CONTROL
-        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
-
-        for file_op, accel, hotkey in zip(file_ops, accelerators, hotkeys):
-            data = file_data[file_op]
-            menubar.add_menu_item("File", "%s\tCTRL+%s" % (data["descr"], accel),
-                                  data["handler"], hotkey)
-
-        file_ops = ("save_as", "save_incr")
-
-        for file_op in file_ops:
-            data = file_data[file_op]
-            menubar.add_menu_item("File", data["descr"], data["handler"])
-
-        menubar.add_menu_item_separator("File")
-
-        file_ops = ("export", "import")
-
-        for file_op in file_ops:
-            data = file_data[file_op]
-            menubar.add_menu_item("File", data["descr"], data["handler"])
-
-        menubar.add_menu_item_separator("File")
-
-        handler = Mgr.get("main_window").Close
-        hotkey = (wx.WXK_F4, wx.MOD_ALT)
-        menubar.add_menu_item("File", "Exit\tALT+F4", handler)
+        self._file_mgr = FileManager(menubar)
+        menubar.add_menu("edit", "Edit")
         self.exit_handler = self._file_mgr.on_exit
-
-        self._creation_mgr = CreationManager()
-        creation_data = self._creation_mgr.get_data()
-
-        obj_types = ("box", "sphere", "cylinder")
-        accelerators = ("B", "S", "C")
-        mod_code = wx.MOD_SHIFT|wx.MOD_CONTROL
-        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
-
-        for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
-            data = creation_data[obj_type]
-            menubar.add_menu_item("Create", "Create %s\tSHIFT+CTRL+%s" % (data["name"], accel),
-                                  data["handler"], hotkey)
-
-        menubar.add_menu_item_separator("Create")
-
-        obj_types = ("dummy", "tex_projector")
-        accelerators = ("D", "P")
-        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
-
-        for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
-            data = creation_data[obj_type]
-            menubar.add_menu_item("Create", "Create %s\tSHIFT+CTRL+%s" % (data["name"], accel),
-                                  data["handler"], hotkey)
+        self._creation_mgr = CreationManager(menubar)
+        self._view_mgr = ViewManager(menubar, self._viewport)
 
         self._component_ids = ("menubar", "main_toolbar", "history_toolbar",
                                "panel_stack", "render_mode_toolbar", "grid_toolbar")
@@ -219,7 +164,7 @@ class Components(BaseObject):
             Mgr.enter_state("uv_edit_mode")
 
         hotkey = (ord("U"), wx.MOD_CONTROL)
-        menubar.add_menu_item("Edit", "Edit UVs\tCTRL+U", command, hotkey)
+        menubar.add_menu_item("edit", "uvs", "Edit UVs\tCTRL+U", command, hotkey)
 
         Mgr.add_app_updater("uv_edit_init", self.__init_uv_editing)
 
@@ -227,6 +172,7 @@ class Components(BaseObject):
 
         self._components["main_toolbar"].setup()
         self._creation_mgr.setup()
+        self._view_mgr.setup()
         self._components["hierarchy_panel"].setup()
         self._components["prop_panel"].setup()
 

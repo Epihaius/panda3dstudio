@@ -1022,6 +1022,7 @@ class TransformationManager(BaseObject):
             return
 
         Mgr.enter_state("transforming")
+        Mgr.do("enable_view_tiles", False)
 
         self._selection = Mgr.get("selection")
         self._transf_start_pos = transf_start_pos
@@ -1069,6 +1070,7 @@ class TransformationManager(BaseObject):
     def __end_transform(self, cancel=False):
 
         Mgr.remove_task("transform_selection")
+        Mgr.do("enable_view_tiles")
         active_obj_lvl = Mgr.get_global("active_obj_level")
         active_transform_type = Mgr.get_global("active_transform_type")
 
@@ -1151,9 +1153,11 @@ class TransformationManager(BaseObject):
 
         axis_constraints = Mgr.get_global("axis_constraints_translate")
         grid_origin = Mgr.get(("grid", "origin"))
+        cam = self.cam()
+        lens_type = self.cam.lens_type
 
         if axis_constraints == "screen":
-            normal = V3D(grid_origin.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
+            normal = V3D(grid_origin.get_relative_vector(cam, Vec3.forward()))
             self._transf_axis = None
         elif len(axis_constraints) == 1:
             normal = None
@@ -1167,7 +1171,7 @@ class TransformationManager(BaseObject):
 
         if normal is None:
 
-            cam_forward_vec = grid_origin.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+            cam_forward_vec = grid_origin.get_relative_vector(cam, Vec3.forward())
             normal = V3D(cam_forward_vec - cam_forward_vec.project(self._transf_axis))
 
             # If the plane normal is the null vector, the axis must be parallel to
@@ -1186,10 +1190,13 @@ class TransformationManager(BaseObject):
 
         pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
         self._transf_plane = Plane(normal, pos)
-        cam_pos = self.cam.get_pos(grid_origin)
 
-        if normal * V3D(self._transf_plane.project(cam_pos) - cam_pos) < .0001:
-            normal *= -1.
+        if lens_type == "persp":
+
+            cam_pos = cam.get_pos(grid_origin)
+
+            if normal * V3D(self._transf_plane.project(cam_pos) - cam_pos) < .0001:
+                normal *= -1.
 
         self._transf_plane_normal = normal
         self._selection.init_translation()
@@ -1215,20 +1222,25 @@ class TransformationManager(BaseObject):
 
         grid_origin = Mgr.get(("grid", "origin"))
         screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        lens_type = self.cam.lens_type
 
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = grid_origin.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(grid_origin)
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: grid_origin.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
 
-        # the selected items should not move if the cursor points away from the
-        # plane of translation
-        if V3D(far_point - cam_pos) * self._transf_plane_normal < .0001:
-            return task.cont
+        if lens_type == "persp":
+            # the selected items should not move if the cursor points away from the
+            # plane of translation
+            if V3D(far_point - near_point) * self._transf_plane_normal < .0001:
+                return task.cont
 
         point = Point3()
 
-        if self._transf_plane.intersects_line(point, cam_pos, far_point):
+        if self._transf_plane.intersects_line(point, near_point, far_point):
 
             pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
             translation_vec = point - pos
@@ -1244,11 +1256,13 @@ class TransformationManager(BaseObject):
 
         grid_origin = Mgr.get(("grid", "origin"))
         axis_constraints = Mgr.get_global("axis_constraints_rotate")
+        cam = self.cam()
+        lens_type = self.cam.lens_type
 
         if axis_constraints == "screen":
 
-            normal = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
-            self._screen_axis_vec = grid_origin.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+            normal = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+            self._screen_axis_vec = grid_origin.get_relative_vector(cam, Vec3.forward())
 
             if not self._screen_axis_vec.normalize():
                 return
@@ -1273,9 +1287,15 @@ class TransformationManager(BaseObject):
         self._transf_plane = Plane(normal, self._rot_origin)
 
         rot_start_pos = Point3()
-        cam_pos = self.cam.get_pos(self.world)
 
-        if not self._transf_plane.intersects_line(rot_start_pos, cam_pos, self._transf_start_pos):
+        if lens_type == "persp":
+            line_start = cam.get_pos(self.world)
+        else:
+            line_start = cam.get_relative_point(self.world, self._transf_start_pos)
+            line_start.y -= 100.
+            line_start = self.world.get_relative_point(cam, line_start)
+
+        if not self._transf_plane.intersects_line(rot_start_pos, line_start, self._transf_start_pos):
             return
 
         Mgr.do("init_rotation_gizmo_angle", rot_start_pos)
@@ -1286,13 +1306,15 @@ class TransformationManager(BaseObject):
         if not self._rot_start_vec[0].normalize():
             return
 
-        if normal * V3D(self._transf_plane.project(cam_pos) - cam_pos) < .0001:
-            normal *= -1.
+        if lens_type == "persp":
 
-        # no rotation can occur if the cursor points away from the plane of
-        # rotation
-        if V3D(self._transf_start_pos - cam_pos) * normal < .0001:
-            return
+            if normal * V3D(self._transf_plane.project(line_start) - line_start) < .0001:
+                normal *= -1.
+
+            # no rotation can occur if the cursor points away from the plane of
+            # rotation
+            if V3D(self._transf_start_pos - line_start) * normal < .0001:
+                return
 
         self._transf_plane_normal = normal
         self._selection.init_rotation()
@@ -1310,20 +1332,25 @@ class TransformationManager(BaseObject):
         # point, while the current vector points to the current intersection of the
         # mouse ray and the plane of rotation.
 
+        cam = self.cam()
+        lens_type = self.cam.lens_type
         screen_pos = self.mouse_watcher.get_mouse()
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
 
-        # the selected items should not rotate if the cursor points away from the
-        # plane of rotation
-        if V3D(far_point - cam_pos) * self._transf_plane_normal < .0001:
-            return task.cont
+        if lens_type == "persp":
+            # the selected items should not rotate if the cursor points away from the
+            # plane of rotation
+            if V3D(far_point - near_point) * self._transf_plane_normal < .0001:
+                return task.cont
 
         point = Point3()
 
-        if self._transf_plane.intersects_line(point, cam_pos, far_point):
+        if self._transf_plane.intersects_line(point, near_point, far_point):
 
             rotation_vec = V3D(point - self._rot_origin)
 
@@ -1377,7 +1404,7 @@ class TransformationManager(BaseObject):
         screen_pos = self.mouse_watcher.get_mouse()
         angle_vec, radians = Mgr.get("trackball_data", screen_pos)
         axis_vec = self._rot_start_vec ** angle_vec
-        axis_vec = grid_origin.get_relative_vector(self.cam, axis_vec)
+        axis_vec = grid_origin.get_relative_vector(self.cam(), axis_vec)
 
         if not axis_vec.normalize():
             return task.cont
@@ -1391,19 +1418,31 @@ class TransformationManager(BaseObject):
 
     def __init_scaling(self):
 
-        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
-        point = self.world.get_relative_point(self.cam, Point3(0., 2., 0.))
+        cam = self.cam()
+        lens_type = self.cam.lens_type
+        normal = self.world.get_relative_vector(cam, Vec3.forward())
+        point = self.world.get_relative_point(cam, Point3(0., 2., 0.))
         self._transf_plane = Plane(normal, point)
-        cam_pos = self.cam.get_pos(self.world)
-        scaling_origin = Point3()
-        start_pos = Point3()
-
-        if not self._transf_plane.intersects_line(start_pos, cam_pos, self._transf_start_pos):
-            return
-
         tc_pos = Mgr.get("transf_center_pos")
 
-        if not self._transf_plane.intersects_line(scaling_origin, cam_pos, tc_pos):
+        if lens_type == "persp":
+            line_start1 = line_start2 = cam.get_pos(self.world)
+        else:
+            line_start = cam.get_relative_point(self.world, self._transf_start_pos)
+            line_start.y -= 100.
+            line_start1 = self.world.get_relative_point(cam, line_start)
+            line_start = cam.get_relative_point(self.world, tc_pos)
+            line_start.y -= 100.
+            line_start2 = self.world.get_relative_point(cam, line_start)
+
+        start_pos = Point3()
+
+        if not self._transf_plane.intersects_line(start_pos, line_start1, self._transf_start_pos):
+            return
+
+        scaling_origin = Point3()
+
+        if not self._transf_plane.intersects_line(scaling_origin, line_start2, tc_pos):
             return
 
         self._transf_start_pos = start_pos
@@ -1412,8 +1451,10 @@ class TransformationManager(BaseObject):
         if not self._transf_axis.normalize():
             return
 
-        scale_dir_vec = V3D(self.cam.get_relative_vector(self.world,
-                                                         scaling_origin - start_pos))
+        if lens_type == "ortho":
+            self._transf_axis *= .005 / self.cam.zoom
+
+        scale_dir_vec = V3D(cam.get_relative_vector(self.world, scaling_origin - start_pos))
         hpr = scale_dir_vec.get_hpr()
         Mgr.do("show_scale_indicator", start_pos, hpr)
         self._selection.init_scaling()
@@ -1426,16 +1467,17 @@ class TransformationManager(BaseObject):
         # multiplied by a factor, based on the distance of the mouse to the center
         # of transformation.
 
+        cam = self.cam()
         screen_pos = self.mouse_watcher.get_mouse()
 
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
 
         point = Point3()
 
-        if self._transf_plane.intersects_line(point, cam_pos, far_point):
+        if self._transf_plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point)):
 
             vec = V3D(point - self._transf_start_pos)
             dot_prod = vec * self._transf_axis

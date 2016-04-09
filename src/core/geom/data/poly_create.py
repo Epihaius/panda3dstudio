@@ -8,15 +8,15 @@ class PolygonCreationBase(BaseObject):
         # Make the vertices pickable at polygon level instead of the polygons, to
         # assist with polygon creation
 
-        picking_mask = Mgr.get("picking_mask")
+        picking_masks = Mgr.get("picking_masks")
         geom_roots = self._geom_roots
-        geom_roots["vert"].show_through(picking_mask)
-        geom_roots["poly"].show(picking_mask)
+        geom_roots["vert"].show_through(picking_masks["all"])
+        geom_roots["poly"].show(picking_masks["all"])
 
     def init_poly_creation(self):
 
         geom_roots = self._geom_roots
-        render_mask = Mgr.get("render_mask")
+        render_masks = Mgr.get("render_masks")
 
         # Create temporary geometry
 
@@ -24,14 +24,11 @@ class PolygonCreationBase(BaseObject):
         tmp_data = {"geoms": tmp_geoms}
 
         vertex_format_vert = GeomVertexFormat.get_v3()
-        vertex_data_vert = GeomVertexData(
-            "vert_data", vertex_format_vert, Geom.UH_dynamic)
-        vertex_format_line = GeomVertexFormat.get_v3c4()
-        vertex_data_line = GeomVertexData(
-            "line_data", vertex_format_line, Geom.UH_dynamic)
+        vertex_data_vert = GeomVertexData("vert_data", vertex_format_vert, Geom.UH_dynamic)
+        vertex_format_line = GeomVertexFormat.get_v3cp()
+        vertex_data_line = GeomVertexData("line_data", vertex_format_line, Geom.UH_dynamic)
         vertex_format_tri = GeomVertexFormat.get_v3n3()
-        vertex_data_tri = GeomVertexData(
-            "tri_data", vertex_format_tri, Geom.UH_dynamic)
+        vertex_data_tri = GeomVertexData("tri_data", vertex_format_tri, Geom.UH_dynamic)
 
         # Create the first vertex of the first triangle
 
@@ -60,7 +57,7 @@ class PolygonCreationBase(BaseObject):
         geom_node = GeomNode("edges_geom")
         geom_node.add_geom(lines_geom)
         edge_geom = geom_roots["subobj"].attach_new_node(geom_node)
-        edge_geom.show_through(render_mask)
+        edge_geom.show_through(render_masks["all"])
         edge_geom.set_render_mode_thickness(3)
         edge_geom.set_color_off()
         edge_geom.set_light_off()
@@ -181,8 +178,7 @@ class PolygonCreationBase(BaseObject):
             start_index = tmp_data["start_index"]
             index2 = last_index - 1 if start_index == last_index else last_index
             index3 = last_index + 1
-            tmp_data["shared_verts"].append(
-                [start_index, tmp_data["start_index_prev"]])
+            tmp_data["shared_verts"].append([start_index, tmp_data["start_index_prev"]])
             prev_indices = tmp_data["vert_indices"][-1]
             i1 = prev_indices.index(start_index)
             i2 = prev_indices.index(index2)
@@ -195,15 +191,13 @@ class PolygonCreationBase(BaseObject):
             # shared edge, compared to the third vertex of the previous
             # triangle)
             if abs(i2 - i1) == 1:
-                indices = [prev_indices[max(i1, i2)], prev_indices[
-                    min(i1, i2)], index3]
+                indices = [prev_indices[max(i1, i2)], prev_indices[min(i1, i2)], index3]
             else:
                 # the indices were not listed consecutively; since there are only 3
                 # indices in the list, this means that, if the list were to be rotated,
                 # they *would* follow each other directly, with their order reversed, so
                 # they are already in the needed order
-                indices = [prev_indices[min(i1, i2)], prev_indices[
-                    max(i1, i2)], index3]
+                indices = [prev_indices[min(i1, i2)], prev_indices[max(i1, i2)], index3]
 
             tmp_data["vert_indices"].append(indices)
 
@@ -305,8 +299,7 @@ class PolygonCreationBase(BaseObject):
             geom.reverse_in_place()
 
         if tmp_data["shared_verts"]:
-            tmp_data["start_index"], tmp_data[
-                "start_index_prev"] = tmp_data["shared_verts"][-1]
+            tmp_data["start_index"], tmp_data["start_index_prev"] = tmp_data["shared_verts"][-1]
             del tmp_data["shared_verts"][-1]
 
         edge_geom = tmp_data["geoms"]["edge"].node().modify_geom(0)
@@ -546,8 +539,7 @@ class PolygonCreationBase(BaseObject):
             edges[edge_id] = edge
             poly_edges.append(edge)
             vert_ids = [vert.get_id() for vert in edge_verts]
-            merged_edge_verts = tuple(
-                sorted([merged_verts[v_id] for v_id in vert_ids]))
+            merged_edge_verts = tuple(sorted([merged_verts[v_id] for v_id in vert_ids]))
 
             if merged_edge_verts in merged_edges_tmp:
                 merged_edge = merged_edges_tmp[merged_edge_verts]
@@ -559,8 +551,7 @@ class PolygonCreationBase(BaseObject):
             merged_edge.append(edge_id)
             merged_edges[edge_id] = merged_edge
 
-        polygon = Mgr.do("create_poly", self, triangles,
-                         poly_edges, poly_verts)
+        polygon = Mgr.do("create_poly", self, triangles, poly_edges, poly_verts)
         ordered_polys.append(polygon)
         poly_id = polygon.get_id()
         polys[poly_id] = polygon
@@ -606,13 +597,11 @@ class PolygonCreationBase(BaseObject):
         pickable_type_id = PickableTypes.get_id("vert")
 
         for vert in poly_verts:
-            picking_color = get_color_vec(
-                vert.get_picking_color_id(), pickable_type_id)
+            picking_color = get_color_vec(vert.get_picking_color_id(), pickable_type_id)
             col_writer.add_data4f(picking_color)
 
         vertex_data_vert.set_num_rows(count)
-        vertex_data_vert.set_array(
-            1, GeomVertexArrayData(vertex_data_tmp.get_array(1)))
+        vertex_data_vert.set_array(1, GeomVertexArrayData(vertex_data_tmp.get_array(1)))
 
         sel_state = self._subobj_sel_state
         sel_state["vert"]["unselected"].extend(range(old_count, count))
@@ -637,8 +626,7 @@ class PolygonCreationBase(BaseObject):
             start_row_indices.append(row1)
             end_row_indices.append(row2)
 
-            picking_color = get_color_vec(
-                edge.get_picking_color_id(), pickable_type_id)
+            picking_color = get_color_vec(edge.get_picking_color_id(), pickable_type_id)
             picking_colors1[row1] = picking_color
             picking_colors2[row2 + count] = picking_color
 
@@ -687,8 +675,7 @@ class PolygonCreationBase(BaseObject):
         geom_node = geoms["edge"]["unselected"].node()
         geom_node.modify_geom(0).set_primitive(0, GeomLines(lines_prim))
         geom_node = geoms["edge"]["selected"].node()
-        geom_node.modify_geom(0).modify_primitive(
-            0).modify_vertices().modify_handle().set_data("")
+        geom_node.modify_geom(0).modify_primitive(0).modify_vertices().modify_handle().set_data("")
 
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly.set_num_rows(count)
@@ -708,8 +695,7 @@ class PolygonCreationBase(BaseObject):
         start = tris_prim.get_num_vertices()
 
         for vert_ids in triangles:
-            tris_prim.add_vertices(
-                *[verts[v_id].get_row_index() for v_id in vert_ids])
+            tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
 
         array = tris_prim.get_vertices()
         stride = array.get_array_format().get_stride()
@@ -750,8 +736,7 @@ class PolygonCreationBase(BaseObject):
                 # as an optimization, one temporary merged subobject references all
                 # newly created subobjects, so self.set_selected() needs to be called
                 # only once
-                tmp_merged_subobj = Mgr.do(
-                    "create_merged_%s" % subobj_type, self)
+                tmp_merged_subobj = Mgr.do("create_merged_%s" % subobj_type, self)
                 for s in subobjs_to_select[subobj_type]:
                     tmp_merged_subobj.append(s.get_id())
                 merged_subobjs[subobj_type][subobj_id] = tmp_merged_subobj
@@ -772,10 +757,10 @@ class PolygonCreationBase(BaseObject):
         # Make the polygons pickable again at polygon level instead of the
         # vertices
 
-        picking_mask = Mgr.get("picking_mask")
+        picking_masks = Mgr.get("picking_masks")
         geom_roots = self._geom_roots
-        geom_roots["poly"].show_through(picking_mask)
-        geom_roots["vert"].show(picking_mask)
+        geom_roots["poly"].show_through(picking_masks["all"])
+        geom_roots["vert"].show(picking_masks["all"])
 
 
 class PolygonCreationManager(BaseObject):
@@ -784,7 +769,6 @@ class PolygonCreationManager(BaseObject):
 
         self._vert_positions = []
         self._pixel_under_mouse = VBase4()
-        self._vert_is_under_mouse = False
         self._picked_verts = []
         self._geom_data_objs = []
         self._active_geom_data_obj = None
@@ -830,8 +814,7 @@ class PolygonCreationManager(BaseObject):
         info_text = "LMB to add vertex; <Backspace> to undo; " \
                     "click a previously added vertex to finalize; " \
                     "<Ctrl> to flip normal; <Shift> to turn diagonal; RMB to cancel"
-        status_data["start_poly_creation"] = {
-            "mode": mode_text, "info": info_text}
+        status_data["start_poly_creation"] = {"mode": mode_text, "info": info_text}
 
         return True
 
@@ -854,9 +837,10 @@ class PolygonCreationManager(BaseObject):
 
             Mgr.set_global("active_transform_type", "")
             Mgr.update_app("active_transform_type", "")
+            Mgr.do("enable_view_gizmo", False)
+            Mgr.do("enable_view_tiles", False)
             Mgr.set_cursor("create")
-            Mgr.add_task(self.__check_vertex_under_mouse,
-                         "check_vertex_under_mouse", sort=3)
+            Mgr.add_task(self.__check_vertex_under_mouse, "check_vertex_under_mouse", sort=3)
 
         Mgr.update_app("status", "create_poly")
 
@@ -876,23 +860,19 @@ class PolygonCreationManager(BaseObject):
             self._geom_data_objs = []
 
             Mgr.remove_task("check_vertex_under_mouse")
+            Mgr.do("enable_view_gizmo")
+            Mgr.do("enable_view_tiles")
 
     def __check_vertex_under_mouse(self, task):
 
         # Check if there is an existing vertex at the mouse position and set the
         # mouse cursor accordingly.
 
-        self._pixel_under_mouse = Mgr.get("pixel_under_mouse")
-        vert_is_under_mouse = self._pixel_under_mouse != VBase4()
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
 
-        if vert_is_under_mouse != self._vert_is_under_mouse:
-
-            self._vert_is_under_mouse = vert_is_under_mouse
-
-            if vert_is_under_mouse:
-                Mgr.set_cursor("select")
-            else:
-                Mgr.set_cursor("create")
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("create" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
 
@@ -914,7 +894,17 @@ class PolygonCreationManager(BaseObject):
 
     def __init_poly_creation(self):
 
-        if self._vert_is_under_mouse:
+        if self._pixel_under_mouse == VBase4():
+
+            point = self.__get_point_on_grid()
+
+            if not point:
+                return
+
+            vertex = None
+            geom_data_obj = self._geom_data_objs[0]
+
+        else:
 
             vertex = self.__get_vertex()
 
@@ -924,16 +914,6 @@ class PolygonCreationManager(BaseObject):
             vertex = vertex.get_merged_vertex()
             point = None
             geom_data_obj = vertex.get_geom_data_object()
-
-        else:
-
-            point = self.__get_point_on_grid()
-
-            if not point:
-                return
-
-            vertex = None
-            geom_data_obj = self._geom_data_objs[0]
 
         geom_data_obj.init_poly_creation()
         geom_data_obj.add_new_poly_vertex(vertex, point)
@@ -950,7 +930,14 @@ class PolygonCreationManager(BaseObject):
 
     def __update_polygon(self, task):
 
-        if self._vert_is_under_mouse:
+        if self._pixel_under_mouse == VBase4():
+
+            point = self.__get_point_on_grid()
+
+            if not point:
+                return task.cont
+
+        else:
 
             vertex = self.__get_vertex()
 
@@ -960,20 +947,22 @@ class PolygonCreationManager(BaseObject):
             grid_origin = Mgr.get(("grid", "origin"))
             point = vertex.get_pos(grid_origin)
 
-        else:
-
-            point = self.__get_point_on_grid()
-
-            if not point:
-                return task.cont
-
         self._active_geom_data_obj.update_new_polygon(point)
 
         return task.cont
 
     def __add_poly_vertex(self):
 
-        if self._vert_is_under_mouse:
+        if self._pixel_under_mouse == VBase4():
+
+            point = self.__get_point_on_grid()
+
+            if not point:
+                return
+
+            vertex = None
+
+        else:
 
             vertex = self.__get_vertex()
 
@@ -992,15 +981,6 @@ class PolygonCreationManager(BaseObject):
                 return
 
             point = None
-
-        else:
-
-            point = self.__get_point_on_grid()
-
-            if not point:
-                return
-
-            vertex = None
 
         self._picked_verts.append(vertex)
         self._active_geom_data_obj.add_new_poly_vertex(vertex, point)

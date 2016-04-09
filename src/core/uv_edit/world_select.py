@@ -8,7 +8,6 @@ class SelectionManager(BaseObject):
         self._uv_editor = uv_editor
         self._mouse_start_pos = ()
         self._pixel_under_mouse = VBase4()
-        self._obj_is_under_mouse = False
         self._obj_lvl = "top"
         self._obj_id = None
         self._selections = {"vert": set(), "edge": set(), "poly": set()}
@@ -17,8 +16,7 @@ class SelectionManager(BaseObject):
     def setup(self):
 
         add_state = Mgr.add_state
-        add_state("uv_edit_mode", -10, self.__enter_edit_mode,
-                  self.__exit_edit_mode)
+        add_state("uv_edit_mode", -10, self.__enter_edit_mode, self.__exit_edit_mode)
 
         bind = Mgr.bind_state
         bind("uv_edit_mode", "uv edit -> navigate", "space",
@@ -45,8 +43,7 @@ class SelectionManager(BaseObject):
                 Mgr.set_global("active_transform_type", "")
                 Mgr.update_app("active_transform_type", "")
 
-            models = set([obj for obj in Mgr.get(
-                "selection", "top") if obj.get_type() == "model"])
+            models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"])
 
             for model in models:
 
@@ -54,8 +51,7 @@ class SelectionManager(BaseObject):
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
 
                 for subobj_lvl in ("vert", "edge", "poly"):
-                    orig_sel[subobj_lvl] = geom_data_obj.get_selection(
-                        subobj_lvl)
+                    orig_sel[subobj_lvl] = geom_data_obj.get_selection(subobj_lvl)
                     geom_data_obj.clear_selection(subobj_lvl, False)
 
         Mgr.add_task(self.__update_cursor, "update_cursor")
@@ -87,7 +83,6 @@ class SelectionManager(BaseObject):
 
         self._mouse_start_pos = ()
         self._pixel_under_mouse = VBase4()
-        self._obj_is_under_mouse = False
         self._obj_lvl = "top"
         self._color_id = None
         self._selections = {"vert": set(), "edge": set(), "poly": set()}
@@ -98,14 +93,14 @@ class SelectionManager(BaseObject):
         self._obj_lvl = obj_lvl
         Mgr.set_global("active_obj_level", obj_lvl)
         obj_root = Mgr.get("object_root")
-        picking_mask = Mgr.get("picking_mask")
+        picking_masks = Mgr.get("picking_masks")
 
         models = set([obj for obj in Mgr.get("selection", "top")
                       if obj.get_type() == "model"])
 
         if obj_lvl == "top":
 
-            obj_root.show(picking_mask)
+            obj_root.show(picking_masks["all"])
 
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
@@ -113,7 +108,7 @@ class SelectionManager(BaseObject):
 
         else:
 
-            obj_root.hide(picking_mask)
+            obj_root.hide(picking_masks["all"])
 
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
@@ -121,12 +116,11 @@ class SelectionManager(BaseObject):
 
     def __update_cursor(self, task):
 
-        self._pixel_under_mouse = Mgr.get("pixel_under_mouse")
-        obj_is_under_mouse = self._pixel_under_mouse != VBase4()
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
 
-        if obj_is_under_mouse != self._obj_is_under_mouse:
-            self._obj_is_under_mouse = obj_is_under_mouse
-            Mgr.set_cursor("select" if obj_is_under_mouse else "main")
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
 
@@ -181,8 +175,7 @@ class SelectionManager(BaseObject):
     def __normal_select(self):
 
         obj_lvl = self._obj_lvl
-        models = [obj for obj in Mgr.get(
-            "selection", "top") if obj.get_type() == "model"]
+        models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"]
 
         for model in models:
             model.get_geom_object().get_geom_data_object().clear_selection(obj_lvl, False)
@@ -229,10 +222,8 @@ class SelectionManager(BaseObject):
             if subobj in selection:
                 geom_data_obj.set_selected(subobj, False, False)
                 selection.remove(subobj)
-                ids_to_keep = set([] if obj_lvl == "poly" else [
-                                  i for x in selection for i in x])
-                self._uv_editor.sync_selection(
-                    color_ids, "remove", ids_to_keep)
+                ids_to_keep = set([] if obj_lvl == "poly" else [i for x in selection for i in x])
+                self._uv_editor.sync_selection(color_ids, "remove", ids_to_keep)
             else:
                 geom_data_obj.set_selected(subobj, True, False)
                 selection.add(subobj)
@@ -258,8 +249,7 @@ class SelectionManager(BaseObject):
         if op == "replace":
 
             selection.clear()
-            models = [obj for obj in Mgr.get(
-                "selection", "top") if obj.get_type() == "model"]
+            models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"]
 
             for model in models:
                 model.get_geom_object().get_geom_data_object().clear_selection(obj_lvl, False)

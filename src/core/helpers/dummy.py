@@ -35,12 +35,10 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
         self._draw_plane = None
 
-        dummy_root = self.cam.attach_new_node("dummy_helper_root")
-        dummy_root.set_bin("fixed", 50)
-        dummy_root.set_depth_test(False)
-        dummy_root.set_depth_write(False)
-        self._dummy_helper_root = dummy_root
+        self._dummy_roots = {}
         self._dummy_bases = {}
+        self._dummy_origins = {"persp": {}, "ortho": {}}
+        self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
 
         Mgr.accept("make_dummy_const_size", self.__make_dummy_const_size)
         Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
@@ -48,6 +46,22 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         Mgr.accept("create_custom_dummy", self.__create_custom_dummy)
 
     def setup(self):
+
+        dummy_root = self.cam().attach_new_node("dummy_helper_root")
+        dummy_root.set_bin("fixed", 50)
+        dummy_root.set_depth_test(False)
+        dummy_root.set_depth_write(False)
+        dummy_root.node().set_bounds(OmniBoundingVolume())
+        dummy_root.node().set_final(True)
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
+        root_persp = dummy_root.attach_new_node("dummy_helper_root_persp")
+        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
+        root_ortho = dummy_root.attach_new_node("dummy_helper_root_ortho")
+        root_ortho.set_scale(20.)
+        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
+        self._dummy_roots["persp"] = root_persp
+        self._dummy_roots["ortho"] = root_ortho
 
         creation_phases = []
         creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
@@ -64,32 +78,48 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
     def __make_dummy_const_size(self, dummy, const_size_state=True):
 
         dummy_id = dummy.get_id()
+        dummy_bases = self._dummy_bases
+        dummy_origins = self._dummy_origins
 
         if const_size_state:
-            if dummy_id not in self._dummy_bases:
-                dummy_base = self._dummy_helper_root.attach_new_node("dummy_base")
+            if dummy_id not in dummy_bases:
+                dummy_roots = self._dummy_roots
+                dummy_base = dummy_roots["persp"].attach_new_node("dummy_base")
                 dummy_base.set_billboard_point_world(dummy.get_origin(), 2000.)
                 pivot = dummy_base.attach_new_node("dummy_pivot")
                 pivot.set_scale(100.)
-                origin = pivot.attach_new_node("dummy_origin")
-                dummy.get_geom_root().get_children().reparent_to(origin)
-                origin.set_scale(dummy.get_const_size())
-                origin.set_compass(dummy.get_origin())
-                self._dummy_bases[dummy_id] = dummy_base
+                origin_persp = pivot.attach_new_node("dummy_origin_persp")
+                dummy_origins["persp"][dummy_id] = origin_persp
+                dummy.get_geom_root().get_children().reparent_to(origin_persp)
+                origin_persp.set_scale(dummy.get_const_size())
+                origin_ortho = origin_persp.copy_to(dummy_roots["ortho"])
+                dummy_origins["ortho"][dummy_id] = origin_ortho
+                origin_persp.set_compass(dummy.get_origin())
+                dummy_bases[dummy_id] = dummy_base
+                compass_effect = CompassEffect.make(dummy.get_origin(), self._compass_props)
+                origin_ortho.set_effect(compass_effect)
+                dummy.set_geoms_for_ortho_lens(origin_ortho)
         else:
-            if dummy_id in self._dummy_bases:
-                dummy_base = self._dummy_bases[dummy_id]
-                dummy_base.get_child(0).get_child(0).get_children().reparent_to(dummy.get_geom_root())
+            if dummy_id in dummy_bases:
+                origin_persp = dummy_origins["persp"][dummy_id]
+                origin_persp.get_children().reparent_to(dummy.get_geom_root())
+                origin_persp.remove_node()
+                del dummy_origins["persp"][dummy_id]
+                origin_ortho = dummy_origins["ortho"][dummy_id]
+                origin_ortho.remove_node()
+                del dummy_origins["ortho"][dummy_id]
+                dummy_base = dummy_bases[dummy_id]
                 dummy_base.remove_node()
-                del self._dummy_bases[dummy_id]
+                del dummy_bases[dummy_id]
+                dummy.set_geoms_for_ortho_lens()
 
     def __set_dummy_const_size(self, dummy, const_size):
 
         dummy_id = dummy.get_id()
 
         if dummy_id in self._dummy_bases:
-            dummy_base = self._dummy_bases[dummy_id]
-            dummy_base.get_child(0).get_child(0).set_scale(const_size)
+            for origins in self._dummy_origins.itervalues():
+                origins[dummy_id].set_scale(const_size)
 
     def __create_dummy(self, dummy_id, name, origin_pos):
 
@@ -149,24 +179,27 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         # Create the plane parallel to the camera and going through the dummy
         # origin, used to determine the size drawn by the user.
 
-        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
         grid_origin = Mgr.get(("grid", "origin"))
-        pos = self.world.get_relative_point(grid_origin, origin_pos)
-        self._draw_plane = Plane(normal, pos)
+        point = self.world.get_relative_point(grid_origin, origin_pos)
+        self._draw_plane = Plane(normal, point)
 
     def __creation_phase1(self):
         """ Draw out dummy """
 
-        mpos = self.mouse_watcher.get_mouse()
-        far_point_local = Point3()
-        self.cam_lens.extrude(mpos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
         intersection_point = Point3()
-        self._draw_plane.intersects_line(intersection_point, cam_pos, far_point)
+        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
         grid_origin = Mgr.get(("grid", "origin"))
-        pos = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        size = max(.001, (intersection_point - pos).length())
+        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        size = max(.001, (intersection_point - point).length())
         self.get_object().set_size(size)
 
 
@@ -193,12 +226,13 @@ class DummyEdge(BaseObject):
 
     def get_point_at_screen_pos(self, screen_pos):
 
+        cam = self.cam()
         origin = self._dummy.get_origin()
         corner_pos = self._dummy.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
         vec_coords["xyz".index(self._axis)] = 1.
         edge_vec = V3D(self.world.get_relative_vector(origin, Vec3(*vec_coords)))
-        cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
+        cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
         cross_vec = edge_vec ** cam_vec
 
         if not cross_vec.normalize():
@@ -207,16 +241,16 @@ class DummyEdge(BaseObject):
         point1 = corner_pos
         point2 = point1 + edge_vec
         point3 = point1 + cross_vec
-
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
-
         plane = Plane(point1, point2, point3)
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point
@@ -337,7 +371,7 @@ class Dummy(TopLevelObject):
         node = GeomNode("box_geom_%s" % state)
         node.add_geom(geom)
         np = parent.attach_new_node(node)
-        np.hide(Mgr.get("%s_mask" % ("render" if state == "pickable" else "picking")))
+        np.hide(Mgr.get("%s_masks" % ("render" if state == "pickable" else "picking"))["all"])
         np.hide() if state == "selected" else np.show()
 
     @classmethod
@@ -396,7 +430,7 @@ class Dummy(TopLevelObject):
         node = GeomNode("cross_geom_%s" % state)
         node.add_geom(geom)
         np = parent.attach_new_node(node)
-        np.hide(Mgr.get("%s_mask" % ("render" if state == "pickable" else "picking")))
+        np.hide(Mgr.get("%s_masks" % ("render" if state == "pickable" else "picking"))["all"])
         np.hide() if state == "selected" else np.show()
 
     def __get_corners(self):
@@ -442,7 +476,6 @@ class Dummy(TopLevelObject):
         pivot.reparent_to(Mgr.get("object_root"))
         origin = self.get_origin()
         origin.reparent_to(pivot)
-        self.get_pivot_gizmo().get_origin().set_compass(pivot)
         root = self._root
         root.reparent_to(origin)
         self._geom_roots = {}
@@ -471,6 +504,7 @@ class Dummy(TopLevelObject):
         self._root = root = self.original.copy_to(origin)
         self._geom_roots = {}
         self._geoms = {"box": {}, "cross": {}}
+        self._geoms_ortho = {}
 
         for geom_type, geoms in self._geoms.iteritems():
             self._geom_roots[geom_type] = root.find("**/%s_root" % geom_type)
@@ -518,6 +552,23 @@ class Dummy(TopLevelObject):
         self._edges = {}
         self._root.remove_node()
         self._root = None
+
+    def set_geoms_for_ortho_lens(self, root=None):
+        """
+        Set the un/selected geometry to be rendered by the orthographic lens
+        when set up to have a constant screen size.
+
+        """
+
+        if root is None:
+            self._geoms_ortho = {}
+            return
+
+        self._geoms_ortho = {"box": {}, "cross": {}}
+
+        for geom_type, geoms in self._geoms_ortho.iteritems():
+            geoms["unselected"] = root.find("**/%s_geom_unselected" % geom_type)
+            geoms["selected"] = root.find("**/%s_geom_selected" % geom_type)
 
     def get_geom_root(self):
 
@@ -707,6 +758,13 @@ class Dummy(TopLevelObject):
         for geom_type in ("box", "cross"):
             geoms[geom_type]["unselected" if is_selected else "selected"].hide()
             geoms[geom_type]["selected" if is_selected else "unselected"].show()
+
+        geoms = self._geoms_ortho
+
+        if geoms:
+            for geom_type in ("box", "cross"):
+                geoms[geom_type]["unselected" if is_selected else "selected"].hide()
+                geoms[geom_type]["selected" if is_selected else "unselected"].show()
 
     def is_valid(self):
 

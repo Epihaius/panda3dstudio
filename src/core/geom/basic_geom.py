@@ -47,7 +47,7 @@ class BasicGeomObject(BaseObject):
     def __getstate__(self):
 
         d = self.__dict__.copy()
-        d["_model"] = None
+        del d["_model"]
         del d["_picking_states"]
 
         return d
@@ -123,6 +123,14 @@ class BasicGeomObject(BaseObject):
 
         return self._type
 
+    def set_geom(self, geom):
+
+        self._geom = geom
+
+    def get_geom(self):
+
+        return self._geom
+
     def set_model(self, model):
 
         self._model = model
@@ -141,17 +149,19 @@ class BasicGeomObject(BaseObject):
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
-
-        normal = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
+        cam = self.cam()
+        normal = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
         point = self._geom.get_pos(self.world)
         plane = Plane(normal, point)
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point

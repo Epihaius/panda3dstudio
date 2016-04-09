@@ -40,8 +40,7 @@ class GridToolbar(Toolbar):
         self._text_bg_rect = wx.Rect(5, h_border - 18, w_border - 10, 12)
         icon_back_img = bitmap.GetSubBitmap(self._border_rect).ConvertToImage()
         icon_back_img = icon_back_img.AdjustChannels(1.6, 1.6, 1.6)
-        icon_back_bitmap = icon_back_img.Mirror(
-            horizontally=False).ConvertToBitmap()
+        icon_back_bitmap = icon_back_img.Mirror(horizontally=False).ConvertToBitmap()
         self._text_bg = icon_back_bitmap.GetSubBitmap(self._text_bg_rect)
         self._text_bg_rect.OffsetXY(x, 0)
         size = (w_border - 2 * w, h_border)
@@ -85,8 +84,8 @@ class GridPlaneButtons(ToggleButtonGroup):
         ToggleButtonGroup.__init__(self)
 
         btn_data = {
-            "XZ": ("icon_gridplane_xz", "Grid plane XZ"),
-            "YZ": ("icon_gridplane_yz", "Grid plane YZ")
+            "xz": ("icon_gridplane_xz", "Grid plane XZ"),
+            "yz": ("icon_gridplane_yz", "Grid plane YZ")
         }
 
         sizer = btn_parent.GetSizer()
@@ -103,23 +102,21 @@ class GridPlaneButtons(ToggleButtonGroup):
 
             toggle = (toggle_on, lambda: None)
 
-            if grid_plane == "XY":
+            if grid_plane == "xy":
                 self.set_default_toggle(grid_plane, toggle)
             else:
                 icon_name, tooltip_text = btn_data[grid_plane]
                 icon_path = os.path.join(GFX_PATH, icon_name + ".png")
-                bitmaps = Button.create_button_bitmaps(
-                    icon_path, bitmap_paths, flat=True)
-                btn = self.add_button(
-                    btn_parent, grid_plane, toggle, bitmaps, tooltip_text)
+                bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
+                btn = self.add_button(btn_parent, grid_plane, toggle, bitmaps, tooltip_text)
                 sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
 
-        for grid_plane in ("XY", "XZ", "YZ"):
+        for grid_plane in ("xy", "xz", "yz"):
             add_toggle(grid_plane)
 
         def set_active_grid_plane(plane):
 
-            if plane == "XY":
+            if plane == "xy":
                 self.deactivate()
             else:
                 self.set_active_button(plane)

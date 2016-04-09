@@ -136,7 +136,6 @@ class UVSelectionBase(BaseObject):
         self._mouse_start_pos = ()
         self._picked_point = None
         self._pixel_under_mouse = VBase4()
-        self._obj_is_under_mouse = False
         self._color_id = None
         self._selections = {}
 
@@ -185,9 +184,9 @@ class UVSelectionBase(BaseObject):
     def __exit_selection_mode(self, next_state_id, is_active):
 
         if next_state_id != "checking_mouse_offset":
-            self._obj_is_under_mouse = None  # neither False nor True, to force an
-            # update of the cursor next time
-            # self.__update_cursor() is called
+            self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                               # next time self.__update_cursor()
+                                               # is called
             Mgr.remove_task("update_cursor_uvs")
             self._set_cursor("main")
 
@@ -195,18 +194,11 @@ class UVSelectionBase(BaseObject):
 
     def __update_cursor(self, task):
 
-        self._pixel_under_mouse = UVMgr.get("pixel_under_mouse")
-        obj_is_under_mouse = self._pixel_under_mouse != VBase4()
+        pixel_under_mouse = UVMgr.get("pixel_under_mouse")
 
-        if obj_is_under_mouse != self._obj_is_under_mouse:
-
-            self._obj_is_under_mouse = obj_is_under_mouse
-
-            if obj_is_under_mouse:
-                cursor_name = "select"
-                self._set_cursor(cursor_name)
-            else:
-                self._set_cursor("main")
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
 

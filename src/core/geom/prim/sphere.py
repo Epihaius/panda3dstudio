@@ -48,25 +48,26 @@ class SphereManager(PrimitiveManager):
         # center, used to determine the radius drawn out by the user.
 
         prim = self.get_primitive()
-        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
         grid_origin = Mgr.get(("grid", "origin"))
-        pos = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        self._draw_plane = Plane(normal, pos)
+        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        self._draw_plane = Plane(normal, point)
 
     def __creation_phase1(self):
         """ Draw out sphere """
 
-        mpos = self.mouse_watcher.get_mouse()
-        far_point_local = Point3()
-        self.cam_lens.extrude(mpos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        screen_pos = self.mouse_watcher.get_mouse()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(self.cam(), point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
         intersection_point = Point3()
-        self._draw_plane.intersects_line(
-            intersection_point, cam_pos, far_point)
+        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
         grid_origin = Mgr.get(("grid", "origin"))
-        pos = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        radius = max(.001, (intersection_point - pos).length())
+        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        radius = max(.001, (intersection_point - point).length())
         self.get_primitive().update_creation_radius(radius)
 
 
@@ -151,12 +152,10 @@ class Sphere(Primitive):
                 vert_data = []
 
                 if not smooth:
-                    plane = Plane(*[Point3(*positions_main[vi])
-                                    for vi in vert_ids])
+                    plane = Plane(*[Point3(*positions_main[vi]) for vi in vert_ids])
                     poly_normal = plane.get_normal()
 
-                get_normal = lambda vi: Vec3(
-                    *positions_main[vi]) if smooth else poly_normal
+                get_normal = lambda vi: Vec3(*positions_main[vi]) if smooth else poly_normal
 
                 for vi in vert_ids:
                     pos = positions_main[vi]
@@ -211,8 +210,7 @@ class Sphere(Primitive):
             vert_ids = (vi2, vi3)
 
             if not smooth:
-                cap_positions = [Point3(*positions_upper[vi])
-                                 for vi in vert_ids]
+                cap_positions = [Point3(*positions_upper[vi]) for vi in vert_ids]
                 cap_positions.append(Point3(*pole_pos))
                 plane = Plane(*cap_positions)
                 poly_normal = plane.get_normal()
@@ -222,8 +220,7 @@ class Sphere(Primitive):
                           "uvs": {0: (u, v)}, "tangent_space": pole_tangent_space}
             vert_data = [vert_props]
 
-            get_normal = lambda vi: Vec3(
-                *positions_upper[vi]) if smooth else poly_normal
+            get_normal = lambda vi: Vec3(*positions_upper[vi]) if smooth else poly_normal
 
             for vi in vert_ids:
                 vert_data.append({"pos": positions_upper[vi], "normal": get_normal(vi),
@@ -250,8 +247,7 @@ class Sphere(Primitive):
             vert_ids = (vi2, vi3)
 
             if not smooth:
-                cap_positions = [Point3(*positions_lower[vi])
-                                 for vi in vert_ids]
+                cap_positions = [Point3(*positions_lower[vi])  for vi in vert_ids]
                 cap_positions.append(Point3(*pole_pos))
                 plane = Plane(*cap_positions)
                 poly_normal = plane.get_normal()
@@ -261,8 +257,7 @@ class Sphere(Primitive):
                           "uvs": {0: (u, v)}, "tangent_space": pole_tangent_space}
             vert_data = [vert_props]
 
-            get_normal = lambda vi: Vec3(
-                *positions_lower[vi]) if smooth else poly_normal
+            get_normal = lambda vi: Vec3(*positions_lower[vi]) if smooth else poly_normal
 
             for vi in vert_ids:
                 vert_data.append({"pos": positions_lower[vi], "normal": get_normal(vi),
@@ -340,14 +335,12 @@ class Sphere(Primitive):
             data[prop_id] = {"main": self.get_property(prop_id)}
 
             if prop_id == "segments":
-                data.update(self.get_geom_data_object().get_data_to_store(
-                    "subobj_change", info="rebuild"))
+                data.update(self.get_geom_data_object().get_data_to_store("subobj_change", info="rebuild"))
             elif prop_id == "smoothness":
-                data.update(self.get_geom_data_object().get_data_to_store(
-                    "prop_change", "smoothing"))
+                data.update(self.get_geom_data_object().get_data_to_store("prop_change", "smoothing"))
             elif prop_id == "radius":
-                data.update(self.get_geom_data_object().get_property_to_store(
-                    "subobj_transform", "prop_change", "all"))
+                data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
+                                                                              "prop_change", "all"))
 
             return data
 
@@ -357,8 +350,7 @@ class Sphere(Primitive):
 
         def update_app():
 
-            Mgr.update_remotely("selected_obj_prop", "sphere", prop_id,
-                                self.get_property(prop_id, True))
+            Mgr.update_remotely("selected_obj_prop", "sphere", prop_id, self.get_property(prop_id, True))
 
         obj_id = self.get_toplevel_object().get_id()
 
@@ -368,12 +360,9 @@ class Sphere(Primitive):
 
             if change:
                 if restore:
-                    task = lambda: self.restore_init_pos_data(
-                        value["pos_data"])
-                    sort = PendingTasks.get_sort(
-                        "upd_vert_normals", "object") + 1
-                    PendingTasks.add(task, "restore_pos_data",
-                                     "object", sort, id_prefix=obj_id)
+                    task = lambda: self.restore_init_pos_data(value["pos_data"])
+                    sort = PendingTasks.get_sort("upd_vert_normals", "object") + 1
+                    PendingTasks.add(task, "restore_pos_data", "object", sort, id_prefix=obj_id)
                 else:
                     task = self.clear_geometry
                     task_id = "clear_geom_data"
@@ -394,8 +383,7 @@ class Sphere(Primitive):
             if change:
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
-                PendingTasks.add(task, "upd_size", "object",
-                                 sort, id_prefix=obj_id)
+                PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 update_app()
 
             return change
@@ -405,10 +393,9 @@ class Sphere(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                task = lambda: self.get_geom_data_object().set_smoothing(
-                    self._smoothing.itervalues() if value else None)
-                PendingTasks.add(task, "smooth_polys",
-                                 "object", id_prefix=obj_id)
+                task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
+                                                                         if value else None)
+                PendingTasks.add(task, "smooth_polys", "object", id_prefix=obj_id)
 
             if change:
                 update_app()

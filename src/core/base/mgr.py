@@ -22,8 +22,7 @@ class CoreManager(object):
 
         cls._verbose = verbose
 
-        BaseObject.init(core.render, core.aspect2d, core.camera, core.camNode,
-                        core.camLens, core.mouseWatcherNode, verbose)
+        BaseObject.init(core.render, core.aspect2d, core.mouseWatcherNode, verbose)
 
         cls._cursors = {
             "create": Filename.binary_filename(GFX_PATH + "create.cur"),
@@ -47,23 +46,26 @@ class CoreManager(object):
         cls.expose("window_width", lambda: cls._core.win.get_x_size())
         cls.expose("window_height", lambda: cls._core.win.get_y_size())
 
-        cls._core.disable_mouse()
+        core.disable_mouse()
+        mouse_watcher = core.mouseWatcherNode
+        mouse_watcher.set_enter_pattern("region_enter")
+        mouse_watcher.set_leave_pattern("region_leave")
+        mouse_watcher.set_within_pattern("region_within")
+        mouse_watcher.set_without_pattern("region_without")
         cls.expose("mouse_pointer", lambda i: cls._core.win.get_pointer(i))
 
         cls.expose("mod_shift", lambda: cls._app_mgr.get_mod_key_code("shift"))
         cls.expose("mod_ctrl", lambda: cls._app_mgr.get_mod_key_code("ctrl"))
         cls.expose("mod_alt", lambda: cls._app_mgr.get_mod_key_code("alt"))
 
-        picking_col_mgr.init()
-        MainObjects.init()
-
-        cls._default_light = None
+        light_node = DirectionalLight("default_light")
+        light_node.set_color(VBase4(1., 1., 1., 1.))
+        cls._default_light = core.render.attach_new_node(light_node)
+        cls._default_light.set_hpr(20., -20., 0.)
         cls.expose("default_light", lambda: cls._default_light)
 
-        p_light = PointLight("point_light")
-        p_light.set_color(VBase4(1., 1., 1., 1.))
-        cls._default_light = cls._core.render.attach_new_node(p_light)
-        cls._default_light.set_pos(500., -1000., 700.)
+        picking_col_mgr.init()
+        MainObjects.init()
 
         MainObjects.setup()
 

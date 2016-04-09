@@ -1,6 +1,6 @@
 from .base import *
-from . import (cam, history, scene, create, select, transform, coord_sys, geom,
-               hierarchy, helpers, texmap, material)
+from . import (cam, nav, view, history, scene, create, select, transform, coord_sys,
+               geom, hierarchy, helpers, texmap, material)
 from direct.showbase.ShowBase import ShowBase, DirectObject
 
 loadPrcFileData("", """
@@ -366,7 +366,8 @@ class KeyEventListener(object):
         if suppress:
             for key in keys:
                 listener.ignore(prefix + key)
-                listener.ignore(prefix + key + "-up")
+                if key not in ("shift", "control", "alt"):
+                    listener.ignore(prefix + key + "-up")
         else:
             for key in keys:
                 listener.accept(prefix + key, self.__get_key_down_handler(key))

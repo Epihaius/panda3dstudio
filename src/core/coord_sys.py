@@ -63,6 +63,9 @@ class CoordSysManager(BaseObject):
             if Mgr.get_global("transf_center_type") == "cs_origin":
                 Mgr.do("set_transf_gizmo_pos", Point3())
 
+        if Mgr.get_global("coord_sys_type") == "screen" and cs_type != "screen":
+            Mgr.do("align_grid_to_screen", False)
+
         Mgr.set_global("coord_sys_type", cs_type)
         selection = Mgr.get("selection", "top")
 
@@ -75,6 +78,7 @@ class CoordSysManager(BaseObject):
             self._cs_obj = None
             shear = VBase3()
             Mgr.get(("grid", "origin")).set_shear(shear)
+            Mgr.do("align_grid_to_screen")
             Mgr.do("set_transf_gizmo_shear", shear)
 
         elif cs_type == "local":
@@ -112,9 +116,8 @@ class CoordSysManager(BaseObject):
 
         if cs_type == "screen":
 
-            cam_target = Mgr.get(("cam", "target"))
-            pos = cam_target.get_pos()
-            quat = cam_target.get_quat()
+            pos = self.cam.pivot.get_pos()
+            quat = self.cam.target.get_quat(self.world)
             rotation = Quat()
             rotation.set_hpr(VBase3(0., 90., 0.))
             hpr = (rotation * quat).get_hpr()

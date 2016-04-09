@@ -40,8 +40,7 @@ class CylinderManager(PrimitiveManager):
     def apply_default_size(self, prim):
 
         prop_defaults = self.get_property_defaults()
-        prim.update_creation_size(prop_defaults["radius"], prop_defaults[
-                                  "height"], finalize=True)
+        prim.update_creation_size(prop_defaults["radius"], prop_defaults["height"], finalize=True)
 
     def init_primitive(self, model):
 
@@ -61,14 +60,13 @@ class CylinderManager(PrimitiveManager):
 
         prim = self.get_primitive()
         origin = prim.get_model().get_origin()
-        self._height_axis = self.world.get_relative_vector(
-            origin, V3D(0., 0., 1.))
+        self._height_axis = self.world.get_relative_vector(origin, V3D(0., 0., 1.))
 
     def __creation_phase1(self):
         """ Draw out cylinder base """
 
-        mpos = self.mouse_watcher.get_mouse()
-        point = Mgr.get(("grid", "point_at_screen_pos"), mpos)
+        screen_pos = self.mouse_watcher.get_mouse()
+        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
 
         if not point:
             return
@@ -81,10 +79,9 @@ class CylinderManager(PrimitiveManager):
     def __start_creation_phase2(self):
         """ Start drawing out cylinder height """
 
-        cam_forward_vec = self.world.get_relative_vector(
-            self.cam, Vec3(0., 1., 0.))
-        normal = V3D(cam_forward_vec -
-                     cam_forward_vec.project(self._height_axis))
+        cam = self.cam()
+        cam_forward_vec = self.world.get_relative_vector(cam, Vec3.forward())
+        normal = V3D(cam_forward_vec - cam_forward_vec.project(self._height_axis))
 
         # If the plane normal is the null vector, the axis must be parallel to
         # the forward camera direction. In this case, a new normal can be chosen
@@ -98,16 +95,16 @@ class CylinderManager(PrimitiveManager):
             # qualify as plane normal, e.g. a vector pointing in the the positive
             # X-direction; otherwise, the plane normal can be computed as
             # perpendicular to the axis
-            if max(abs(x), abs(y)) < .0001:
-                normal = V3D(1., 0., 0.)
-            else:
-                normal = V3D(y, -x, 0.)
+            normal = V3D(1., 0., 0.) if max(abs(x), abs(y)) < .0001 else V3D(y, -x, 0.)
 
         self._draw_plane = Plane(normal, self._dragged_point)
-        cam_pos = self.cam.get_pos(self.world)
 
-        if normal * V3D(self._draw_plane.project(cam_pos) - cam_pos) < .0001:
-            normal *= -1.
+        if self.cam.lens_type == "persp":
+
+            cam_pos = cam.get_pos(self.world)
+
+            if normal * V3D(self._draw_plane.project(cam_pos) - cam_pos) < .0001:
+                normal *= -1.
 
         self._draw_plane_normal = normal
 
@@ -117,20 +114,26 @@ class CylinderManager(PrimitiveManager):
         if not self.mouse_watcher.has_mouse():
             return
 
-        mpos = self.mouse_watcher.get_mouse()
-        far_point_local = Point3()
-        self.cam_lens.extrude(mpos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        lens_type = self.cam.lens_type
 
-        # the height cannot be calculated if the cursor points away from the plane
-        # in which it is drawn out
-        if V3D(far_point - cam_pos) * self._draw_plane_normal < .0001:
-            return
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
+
+        if lens_type == "persp":
+            # the height cannot be calculated if the cursor points away from the plane
+            # in which it is drawn out
+            if V3D(far_point - near_point) * self._draw_plane_normal < .0001:
+                return
 
         point = Point3()
 
-        if not self._draw_plane.intersects_line(point, cam_pos, far_point):
+        if not self._draw_plane.intersects_line(point, near_point, far_point):
             return
 
         prim = self.get_primitive()
@@ -286,12 +289,10 @@ class Cylinder(Primitive):
                 vert_data = []
 
                 if not smooth:
-                    plane = Plane(*[Point3(*positions_main[vi])
-                                    for vi in vert_ids])
+                    plane = Plane(*[Point3(*positions_main[vi]) for vi in vert_ids])
                     poly_normal = plane.get_normal()
 
-                get_normal = lambda i: convert_pos_to_normal(
-                    i) if smooth else poly_normal
+                get_normal = lambda i: convert_pos_to_normal(i) if smooth else poly_normal
 
                 for vi in vert_ids:
                     pos = positions_main[vi]
@@ -389,8 +390,7 @@ class Cylinder(Primitive):
                         tri_data2 = {"verts": vert_data, "tangent_space": None}
 
                         tris = (tri_data1, tri_data2)  # quadrangular face
-                        poly_data = {"tris": tris, "smoothing": [
-                            (smoothing_grp, smooth)]}
+                        poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
                         geom_data.append(poly_data)
 
                 # Define triangular faces at center of cap
@@ -418,8 +418,7 @@ class Cylinder(Primitive):
                     tri_data = {"verts": vert_data, "tangent_space": None}
 
                     tris = (tri_data,)  # triangular face
-                    poly_data = {"tris": tris, "smoothing": [
-                        (smoothing_grp, smooth)]}
+                    poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
                     geom_data.append(poly_data)
 
             define_cap_faces("lower")
@@ -529,14 +528,14 @@ class Cylinder(Primitive):
             data[prop_id] = {"main": self.get_property(prop_id)}
 
             if "segments" in prop_id:
-                data.update(self.get_geom_data_object().get_data_to_store(
-                    "subobj_change", info="rebuild"))
+                data.update(self.get_geom_data_object().get_data_to_store("subobj_change",
+                                                                          info="rebuild"))
             elif prop_id == "smoothness":
-                data.update(self.get_geom_data_object().get_data_to_store(
-                    "prop_change", "smoothing"))
+                data.update(self.get_geom_data_object().get_data_to_store("prop_change",
+                                                                          "smoothing"))
             elif prop_id in ("radius", "height"):
-                data.update(self.get_geom_data_object().get_property_to_store(
-                    "subobj_transform", "prop_change", "all"))
+                data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
+                                                                              "prop_change", "all"))
 
             return data
 
@@ -554,18 +553,14 @@ class Cylinder(Primitive):
         if "segments" in prop_id:
 
             prop_type, spec = prop_id.split("_")
-            change = self.set_segments(
-                spec, value["count"] if restore else value)
+            change = self.set_segments(spec, value["count"] if restore else value)
 
             if change:
 
                 if restore:
-                    task = lambda: self.restore_init_pos_data(
-                        value["pos_data"])
-                    sort = PendingTasks.get_sort(
-                        "upd_vert_normals", "object") + 1
-                    PendingTasks.add(task, "restore_pos_data",
-                                     "object", sort, id_prefix=obj_id)
+                    task = lambda: self.restore_init_pos_data(value["pos_data"])
+                    sort = PendingTasks.get_sort("upd_vert_normals", "object") + 1
+                    PendingTasks.add(task, "restore_pos_data", "object", sort, id_prefix=obj_id)
                 else:
                     task = self.clear_geometry
                     task_id = "clear_geom_data"
@@ -585,8 +580,7 @@ class Cylinder(Primitive):
             if change:
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
-                PendingTasks.add(task, "upd_size", "object",
-                                 sort, id_prefix=obj_id)
+                PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 update_app()
 
             return change
@@ -598,8 +592,7 @@ class Cylinder(Primitive):
             if change:
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
-                PendingTasks.add(task, "upd_size", "object",
-                                 sort, id_prefix=obj_id)
+                PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 update_app()
 
             return change
@@ -609,10 +602,9 @@ class Cylinder(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                task = lambda: self.get_geom_data_object().set_smoothing(
-                    self._smoothing.itervalues() if value else None)
-                PendingTasks.add(task, "smooth_polys",
-                                 "object", id_prefix=obj_id)
+                task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
+                                                                         if value else None)
+                PendingTasks.add(task, "smooth_polys", "object", id_prefix=obj_id)
 
             if change:
                 update_app()

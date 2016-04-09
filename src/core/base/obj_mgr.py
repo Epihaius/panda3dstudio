@@ -11,9 +11,6 @@ class GeneralObjectManager(BaseObject):
 
         self._showing_object_name = False
         self._checking_object_name = False
-        self._clock = None
-        self._mouse_prev = None
-
         self._clock = ClockObject()
         self._mouse_prev = Point2()
 

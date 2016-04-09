@@ -5,8 +5,7 @@ class VertexManager(ObjectManager, PickingColorIDManager):
 
     def __init__(self):
 
-        ObjectManager.__init__(
-            self, "vert", self.__create_vertex, "sub", pickable=True)
+        ObjectManager.__init__(self, "vert", self.__create_vertex, "sub", pickable=True)
         PickingColorIDManager.__init__(self)
         PickableTypes.add("vert")
         Mgr.accept("create_merged_vert", self.__create_merged_vertex)
@@ -50,9 +49,11 @@ class Vertex(BaseObject):
         self._edge_ids = []
         self._poly_id = None
         self._data = {
-            "row": 0, "row_offset": 0,
-                      "uvs": {}, "normal": None,
-                      "tangent_space": (Vec3(), Vec3())
+            "row": 0,
+            "row_offset": 0,
+            "uvs": {},
+            "normal": None,
+            "tangent_space": (Vec3(), Vec3())
         }
 
     def get_type(self):
@@ -206,15 +207,17 @@ class Vertex(BaseObject):
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
-
-        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+        cam = self.cam()
+        normal = self.world.get_relative_vector(cam, Vec3.forward())
         plane = Plane(normal, self.get_pos(self.world))
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+
         intersection_point = Point3()
-        plane.intersects_line(intersection_point, cam_pos, far_point)
+        plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point))
 
         return intersection_point
 
@@ -363,8 +366,7 @@ class MergedVertex(object):
 
         for vert_id in self._ids:
 
-            poly = self._geom_data_obj.get_subobject(
-                "poly", verts[vert_id].get_polygon_id())
+            poly = self._geom_data_obj.get_subobject("poly", verts[vert_id].get_polygon_id())
 
             if poly.is_facing_camera():
                 return True

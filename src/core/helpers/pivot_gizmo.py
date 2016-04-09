@@ -22,15 +22,34 @@ class PivotGizmoManager(BaseObject):
 
     def __init__(self):
 
-        pivot_gizmo_root = self.cam.attach_new_node("pivot_gizmo_root")
+        self._pivot_gizmo_root = None
+        self._pivot_gizmo_roots = {}
+        self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+        Mgr.expose("pivot_gizmo_roots", lambda: self._pivot_gizmo_roots)
+        Mgr.accept("create_pivot_gizmo", self.__create_pivot_gizmo)
+        Mgr.accept("show_pivot_gizmos", self.__show_pivot_gizmos)
+
+    def setup(self):
+
+        pivot_gizmo_root = self.cam().attach_new_node("pivot_gizmo_root")
         pivot_gizmo_root.set_bin("fixed", 50)
         pivot_gizmo_root.set_depth_test(False)
         pivot_gizmo_root.set_depth_write(False)
+        pivot_gizmo_root.node().set_bounds(OmniBoundingVolume())
+        pivot_gizmo_root.node().set_final(True)
         pivot_gizmo_root.hide()
         self._pivot_gizmo_root = pivot_gizmo_root
-        Mgr.expose("pivot_gizmo_root", lambda: self._pivot_gizmo_root)
-        Mgr.accept("create_pivot_gizmo", self.__create_pivot_gizmo)
-        Mgr.accept("show_pivot_gizmos", self.__show_pivot_gizmos)
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
+        root_persp = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_persp")
+        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
+        root_ortho = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_ortho")
+        root_ortho.set_scale(50.)
+        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
+        self._pivot_gizmo_roots["persp"] = root_persp
+        self._pivot_gizmo_roots["ortho"] = root_ortho
+
+        return True
 
     def __create_pivot_gizmo(self, toplevel_obj):
 
@@ -47,6 +66,9 @@ class PivotGizmoManager(BaseObject):
             for obj in objs:
                 pivot_gizmo = obj.get_pivot_gizmo()
                 pivot_gizmo.get_base().set_billboard_point_world(obj.get_pivot(), 8.)
+                pivot_gizmo.get_origin().set_compass(obj.get_pivot())
+                compass_effect = CompassEffect.make(obj.get_pivot(), self._compass_props)
+                pivot_gizmo.get_origin("ortho").set_effect(compass_effect)
 
             self._pivot_gizmo_root.show()
 
@@ -57,6 +79,8 @@ class PivotGizmoManager(BaseObject):
             for obj in objs:
                 pivot_gizmo = obj.get_pivot_gizmo()
                 pivot_gizmo.get_base().clear_billboard()
+                pivot_gizmo.get_origin().clear_compass()
+                pivot_gizmo.get_origin("ortho").clear_effect(CompassEffect.get_class_type())
 
 
 class PivotAxis(BaseObject):
@@ -81,11 +105,12 @@ class PivotAxis(BaseObject):
 
     def get_point_at_screen_pos(self, screen_pos):
 
+        cam = self.cam()
         pivot = self._pivot_gizmo.get_toplevel_object().get_pivot()
         vec_coords = [0., 0., 0.]
         vec_coords["xyz".index(self._axis)] = 1.
         axis_vec = V3D(self.world.get_relative_vector(pivot, Vec3(*vec_coords)))
-        cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
+        cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
         cross_vec = axis_vec ** cam_vec
 
         point1 = pivot.get_pos(self.world)
@@ -95,16 +120,16 @@ class PivotAxis(BaseObject):
 
         point2 = point1 + axis_vec
         point3 = point1 + cross_vec
-
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
-
         plane = Plane(point1, point2, point3)
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point
@@ -174,8 +199,8 @@ class PivotGizmo(object):
         label = cls.__create_axis_label(axis_label_root, "z", points)
         label.set_z(1.3)
 
-        picking_mask = Mgr.get("picking_mask")
-        axis_label_root.hide(picking_mask)
+        picking_masks = Mgr.get("picking_masks")
+        axis_label_root.hide(picking_masks["all"])
 
     @classmethod
     def __create_geom(cls, origin):
@@ -284,8 +309,19 @@ class PivotGizmo(object):
 
         d = self.__dict__.copy()
         d["_base"] = NodePath("pivot_gizmo_base")
-        d["_origin"] = NodePath("pivot_gizmo")
-        d["_axis_label_root"] = NodePath("axis_label_root")
+        origin_persp = NodePath("pivot_gizmo")
+        d["_origins"] = {"persp": origin_persp}
+        label_root_persp = NodePath("axis_label_root")
+        d["_axis_label_roots"] = {"persp": label_root_persp}
+
+        for axis in "xyz":
+            d["_axis_nps"] = d["_axis_nps"].copy()
+            d["_axis_labels"] = d["_axis_labels"].copy()
+            del d["_axis_nps"][axis]
+            del d["_axis_labels"][axis]
+
+        del d["_axis_nps"]["ortho"]
+        del d["_axis_labels"]["ortho"]
 
         return d
 
@@ -293,111 +329,112 @@ class PivotGizmo(object):
 
         self.__dict__ = state
 
+        gizmo_root = Mgr.get("pivot_gizmo_roots")["persp"]
         node = self._base
-        node.reparent_to(Mgr.get("pivot_gizmo_root"))
-        origin = self._origin
+        node.reparent_to(gizmo_root)
+        origin = self._origins["persp"]
         origin.reparent_to(node)
-        axis_label_root = self._axis_label_root
-        axis_label_root.reparent_to(origin)
-        axis_label_root.hide(Mgr.get("picking_mask"))
+
+        label_root = self._axis_label_roots["persp"]
+        label_root.reparent_to(origin)
+        label_root.hide(Mgr.get("picking_masks")["all"])
+
         axis_nps = self._axis_nps
         axis_labels = self._axis_labels
 
         for axis in "xyz":
-            axis_nps[axis].reparent_to(origin)
-            axis_labels[axis].reparent_to(axis_label_root)
+            axis_nps[axis] = NodePathCollection()
+            axis_labels[axis] = NodePathCollection()
+
+        for axis in "xyz":
+            np = axis_nps["persp"][axis]
+            axis_nps[axis].add_path(np)
+            np.reparent_to(origin)
+            label = axis_labels["persp"][axis]
+            axis_labels[axis].add_path(label)
+            label.reparent_to(label_root)
+
+        self.__create_geoms_for_ortho_lens()
 
     def __init__(self, toplevel_obj):
 
         self._toplevel_obj = toplevel_obj
-        self._base = self.original.copy_to(Mgr.get("pivot_gizmo_root"))
+        gizmo_roots = Mgr.get("pivot_gizmo_roots")
+        self._base = self.original.copy_to(gizmo_roots["persp"])
         origin = self._base.get_child(0)
-        origin.set_compass(toplevel_obj.get_pivot())
-        self._origin = origin
+        self._origins = {"persp": origin}
 
-        self._axis_nps = {}
         self._axis_objs = {}
-        self._axis_labels = {}
-        self._axis_label_root = label_root = origin.find("**/axis_label_root")
+        self._axis_nps = {"persp": {}}
+        self._axis_labels = {"persp": {}}
+        label_root = origin.find("**/axis_label_root")
+        self._axis_label_roots = {"persp": label_root}
 
         pickable_type_id = PickableTypes.get_id("pivot_axis")
 
         for axis in "xyz":
-            axis_label = label_root.find("**/%s_axis_label" % axis)
+            axis_label = label_root.find_all_matches("**/%s_axis_label" % axis)
             self._axis_labels[axis] = axis_label
+            self._axis_labels["persp"][axis] = axis_label.get_path(0)
             axis_obj = Mgr.do("create_pivot_axis", self, axis)
             picking_col_id = axis_obj.get_picking_color_id()
             self._axis_objs[picking_col_id] = axis_obj
-            axis_np = origin.find("**/pivot_%s_axis" % axis)
+            axis_np = origin.find_all_matches("**/pivot_%s_axis" % axis)
             self._axis_nps[axis] = axis_np
-            geom = axis_np.node().modify_geom(0)
+            self._axis_nps["persp"][axis] = axis_np.get_path(0)
+            geom = axis_np[0].node().modify_geom(0)
             vertex_data = geom.modify_vertex_data()
             color = get_color_vec(picking_col_id, pickable_type_id)
             geom.set_vertex_data(vertex_data.set_color(color))
+
+        self.__create_geoms_for_ortho_lens()
 
     def destroy(self):
 
         self.unregister()
 
-        self._axis_objs = {}
-        self._origin.remove_node()
-        self._origin = None
+        self._axis_objs = None
+
+        for origin in self._origins.itervalues():
+            origin.remove_node()
+
+        self._origins = None
         self._base.remove_node()
         self._base = None
+        self._axis_nps = None
+        self._axis_label_roots = None
+        self._axis_labels = None
 
-    def get_origin(self):
+    def __create_geoms_for_ortho_lens(self):
 
-        return self._origin
+        gizmo_root = Mgr.get("pivot_gizmo_roots")["ortho"]
+        origin_ortho = self._origins["persp"].copy_to(gizmo_root)
+        origin_ortho.set_name("pivot_gizmo_ortho")
+        self._origins["ortho"] = origin_ortho
+        label_root_ortho = origin_ortho.find("**/axis_label_root")
+        self._axis_label_roots["ortho"] = label_root_ortho
+        self._axis_nps["ortho"] = {}
+        self._axis_labels["ortho"] = {}
+
+        for axis in "xyz":
+            axis_np = origin_ortho.find("**/pivot_%s_axis" % axis)
+            self._axis_nps[axis].add_path(axis_np)
+            self._axis_nps["ortho"][axis] = axis_np
+            axis_label = label_root_ortho.find("**/%s_axis_label" % axis)
+            self._axis_labels[axis].add_path(axis_label)
+            self._axis_labels["ortho"][axis] = axis_label
 
     def get_base(self):
 
         return self._base
 
+    def get_origin(self, lens_type="persp"):
+
+        return self._origins[lens_type]
+
     def get_toplevel_object(self):
 
         return self._toplevel_obj
-
-    def set_size(self, size):
-
-        if self._size == size:
-            return False
-
-        self._size = size
-        self._origin.set_scale(size)
-
-        return True
-
-    def get_size(self):
-
-        return self._size
-
-    def set_label_size(self, size):
-
-        if self._label_size == size:
-            return False
-
-        self._label_size = size
-
-        for label in self._axis_labels.itervalues():
-            label.set_scale(size)
-
-        return True
-
-    def get_label_size(self):
-
-        return self._label_size
-
-    def show_labels(self, show=True):
-
-        if self._axis_label_root.is_hidden() != show:
-            return False
-
-        if show:
-            self._axis_label_root.show()
-        else:
-            self._axis_label_root.hide()
-
-        return True
 
     def register(self):
 

@@ -68,8 +68,8 @@ class BoxManager(PrimitiveManager):
     def __creation_phase1(self):
         """ Draw out box base """
 
-        mpos = self.mouse_watcher.get_mouse()
-        point = Mgr.get(("grid", "point_at_screen_pos"), mpos)
+        screen_pos = self.mouse_watcher.get_mouse()
+        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
 
         if not point:
             return
@@ -86,7 +86,8 @@ class BoxManager(PrimitiveManager):
     def __start_creation_phase2(self):
         """ Start drawing out box height """
 
-        cam_forward_vec = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+        cam = self.cam()
+        cam_forward_vec = self.world.get_relative_vector(cam, Vec3.forward())
         normal = V3D(cam_forward_vec - cam_forward_vec.project(self._height_axis))
 
         # If the plane normal is the null vector, the axis must be parallel to
@@ -101,16 +102,16 @@ class BoxManager(PrimitiveManager):
             # qualify as plane normal, e.g. a vector pointing in the the positive
             # X-direction; otherwise, the plane normal can be computed as
             # perpendicular to the axis
-            if max(abs(x), abs(y)) < .0001:
-                normal = V3D(1., 0., 0.)
-            else:
-                normal = V3D(y, -x, 0.)
+            normal = V3D(1., 0., 0.) if max(abs(x), abs(y)) < .0001 else V3D(y, -x, 0.)
 
         self._draw_plane = Plane(normal, self._dragged_point)
-        cam_pos = self.cam.get_pos(self.world)
 
-        if normal * V3D(self._draw_plane.project(cam_pos) - cam_pos) < .0001:
-            normal *= -1.
+        if self.cam.lens_type == "persp":
+
+            cam_pos = cam.get_pos(self.world)
+
+            if normal * V3D(self._draw_plane.project(cam_pos) - cam_pos) < .0001:
+                normal *= -1.
 
         self._draw_plane_normal = normal
 
@@ -120,20 +121,26 @@ class BoxManager(PrimitiveManager):
         if not self.mouse_watcher.has_mouse():
             return
 
-        mpos = self.mouse_watcher.get_mouse()
-        far_point_local = Point3()
-        self.cam_lens.extrude(mpos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        lens_type = self.cam.lens_type
 
-        # the height cannot be calculated if the cursor points away from the plane
-        # in which it is drawn out
-        if V3D(far_point - cam_pos) * self._draw_plane_normal < .0001:
-            return
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
+
+        if lens_type == "persp":
+            # the height cannot be calculated if the cursor points away from the plane
+            # in which it is drawn out
+            if V3D(far_point - near_point) * self._draw_plane_normal < .0001:
+                return
 
         point = Point3()
 
-        if not self._draw_plane.intersects_line(point, cam_pos, far_point):
+        if not self._draw_plane.intersects_line(point, near_point, far_point):
             return
 
         prim = self.get_primitive()
@@ -148,8 +155,7 @@ class Box(Primitive):
 
         prop_types = ("size", "segments")
         axes = "xyz"
-        prop_ids = ["%s_%s" % (prop_type, axis)
-                    for prop_type in prop_types for axis in axes]
+        prop_ids = ["%s_%s" % (prop_type, axis) for prop_type in prop_types for axis in axes]
 
         Primitive.__init__(self, "box", model, prop_ids)
 
@@ -371,11 +377,11 @@ class Box(Primitive):
             data[prop_id] = {"main": self.get_property(prop_id)}
 
             if "segments" in prop_id:
-                data.update(self.get_geom_data_object().get_data_to_store(
-                    "subobj_change", info="rebuild"))
+                data.update(self.get_geom_data_object().get_data_to_store("subobj_change",
+                                                                          info="rebuild"))
             elif "size" in prop_id:
-                data.update(self.get_geom_data_object().get_property_to_store(
-                    "subobj_transform", "prop_change", "all"))
+                data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
+                                                                              "prop_change", "all"))
 
             return data
 

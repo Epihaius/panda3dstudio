@@ -5,8 +5,7 @@ class EdgeManager(ObjectManager, PickingColorIDManager):
 
     def __init__(self):
 
-        ObjectManager.__init__(
-            self, "edge", self.__create_edge, "sub", pickable=True)
+        ObjectManager.__init__(self, "edge", self.__create_edge, "sub", pickable=True)
         PickingColorIDManager.__init__(self)
         PickableTypes.add("edge")
         Mgr.accept("create_merged_edge", self.__create_merged_edge)
@@ -141,27 +140,27 @@ class Edge(BaseObject):
         verts = self._geom_data_obj.get_subobjects("vert")
         v_ids = self._vert_ids
         world = self.world
-        cam = self.cam
+        cam = self.cam()
         point1 = verts[v_ids[0]].get_pos(world)
         point2 = verts[v_ids[1]].get_pos(world)
         edge_vec = V3D(point1 - point2)
-        cam_vec = V3D(world.get_relative_vector(cam, Vec3(0., 1., 0.)))
+        cam_vec = V3D(world.get_relative_vector(cam, Vec3.forward()))
         cross_vec = edge_vec ** cam_vec
 
         if not cross_vec.normalize():
             return point1
 
         point3 = point1 + cross_vec
-
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = world.get_relative_point(cam, far_point_local)
-        cam_pos = cam.get_pos(world)
-
         plane = Plane(point1, point2, point3)
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: world.get_relative_point(cam, point)
+
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point
@@ -286,8 +285,7 @@ class MergedEdge(object):
 
         for edge_id in self._ids:
 
-            poly = self._geom_data_obj.get_subobject(
-                "poly", edges[edge_id].get_polygon_id())
+            poly = self._geom_data_obj.get_subobject("poly", edges[edge_id].get_polygon_id())
 
             if poly.is_facing_camera():
                 return True

@@ -34,10 +34,6 @@ class SceneManager(BaseObject):
             Mgr.set_global("active_obj_level", "top")
             Mgr.update_app("active_obj_level")
 
-        if Mgr.get_global("render_mode") != "shaded":
-            Mgr.set_global("render_mode", "shaded")
-            Mgr.update_app("render_mode")
-
         if Mgr.get_global("object_links_shown"):
             Mgr.set_global("object_links_shown", False)
             Mgr.update_app("object_link_viz", False)
@@ -47,11 +43,10 @@ class SceneManager(BaseObject):
             Mgr.update_app("transform_target_type")
 
         Mgr.do("update_picking_col_id_ranges")
-        Mgr.do("reset_cam_transform")
-        Mgr.do("update_nav_gizmo")
+        Mgr.do("clear_user_views")
+        Mgr.update_app("view", "reset_all")
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "adaptive")
-        Mgr.update_app("active_grid_plane", "XY")
         Mgr.update_app("active_transform_type", "")
         Mgr.update_app("status", "select", "")
 
@@ -100,20 +95,13 @@ class SceneManager(BaseObject):
             Mgr.update_locally(x, x_type, obj)
             Mgr.update_remotely(x, x_type, name)
 
-        self.cam.set_y(scene_data["cam"])
-        Mgr.get(("cam", "target")).set_mat(scene_data["cam_target"])
-        Mgr.do("update_transf_gizmo")
-        Mgr.do("update_nav_gizmo")
-        active_grid_plane = scene_data["grid_plane"]
-        Mgr.update_app("active_grid_plane", active_grid_plane)
+        Mgr.do("set_view_data", scene_data["view_data"])
         PendingTasks.handle(["object", "ui"], True)
 
     def __save(self, filename):
 
         scene_data = {}
-        scene_data["cam"] = self.cam.get_y()
-        scene_data["cam_target"] = Mgr.get(("cam", "target")).get_mat()
-        scene_data["grid_plane"] = Mgr.get_global("active_grid_plane")
+        scene_data["view_data"] = Mgr.get("view_data")
 
         for x in ("coord_sys", "transf_center"):
             scene_data[x] = {}

@@ -169,7 +169,7 @@ class HierarchyManager(BaseObject):
         link_geom.set_depth_write(False)
         tex = Mgr.load_tex(GFX_PATH + "marquee.png")
         link_geom.set_texture(tex)
-        link_geom.hide(Mgr.get("picking_mask"))
+        link_geom.hide(Mgr.get("picking_masks")["all"])
         self._link_geom = link_geom
 
     def __add_obj_link_viz(self, child, parent):
@@ -206,7 +206,7 @@ class HierarchyManager(BaseObject):
         link_geom.set_bin("fixed", 100)
         link_geom.set_depth_test(False)
         link_geom.set_depth_write(False)
-        link_geom.hide(Mgr.get("picking_mask"))
+        link_geom.hide(Mgr.get("picking_masks")["all"])
         self._obj_link_viz[child_id] = link_geom
         self._obj_link_viz_nps.add_path(link_geom)
 
@@ -272,13 +272,20 @@ class HierarchyManager(BaseObject):
     def __draw_obj_link(self, task):
 
         screen_pos = self.mouse_watcher.get_mouse()
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        cam = self.cam()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
         point = Point3()
-        self._draw_plane.intersects_line(point, cam_pos, far_point)
+        self._draw_plane.intersects_line(point, near_point, far_point)
         length = (point - self._link_start_pos).length()
+
+        if self.cam.lens_type == "ortho":
+            length /= 40. * self.cam.zoom
+
         vertex_data = self._link_geom.node().modify_geom(0).modify_vertex_data()
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         pos_writer.set_row(1)
@@ -296,16 +303,24 @@ class HierarchyManager(BaseObject):
         if not obj:
             return
 
+        cam = self.cam()
+        lens_type = self.cam.lens_type
         self._obj_to_link = obj
-        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
-        point = self.world.get_relative_point(self.cam, Point3(0., 10., 0.))
+        normal = self.world.get_relative_vector(cam, Vec3.forward())
+        point = self.world.get_relative_point(cam, Point3(0., 10., 0.))
         self._draw_plane = Plane(normal, point)
-        cam_pos = self.cam.get_pos(self.world)
         pivot_pos = obj.get_pivot().get_pos(self.world)
+
+        if lens_type == "persp":
+            line_start = cam.get_pos(self.world)
+        else:
+            line_start = pivot_pos + self.world.get_relative_vector(cam, Vec3(0., -100., 0.))
+
         start_pos = Point3()
-        self._draw_plane.intersects_line(start_pos, cam_pos, pivot_pos)
+        self._draw_plane.intersects_line(start_pos, line_start, pivot_pos)
         self.__create_obj_link_geom(start_pos)
 
+        Mgr.do("enable_view_tiles", False)
         Mgr.enter_state("object_link_creation")
         Mgr.add_task(self.__draw_obj_link, "draw_link", sort=3)
         Mgr.set_cursor("no_link")
@@ -332,6 +347,7 @@ class HierarchyManager(BaseObject):
         Mgr.remove_task("draw_link")
         Mgr.enter_state("object_linking_mode")
         Mgr.set_cursor("main" if self._pixel_under_mouse == VBase4() else "select")
+        Mgr.do("enable_view_tiles")
 
         self._draw_plane = None
         self._link_start_pos = None

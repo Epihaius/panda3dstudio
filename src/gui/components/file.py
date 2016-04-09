@@ -3,10 +3,10 @@ from ..base import *
 
 class FileManager(object):
 
-    def __init__(self):
+    def __init__(self, menubar):
 
         self._filename = ""
-        self._data = {}
+        file_data = {}
 
         handlers = {
             "new": self.__reset_scene,
@@ -29,7 +29,38 @@ class FileManager(object):
 
         for file_op, handler in handlers.iteritems():
             descr = descriptions[file_op]
-            self._data[file_op] = {"descr":descr, "handler":handler}
+            file_data[file_op] = {"descr": descr, "handler": handler}
+
+        menubar.add_menu("file", "File")
+
+        file_ops = ("new", "open", "save")
+        accelerators = ("N", "O", "S")
+        mod_code = wx.MOD_CONTROL
+        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
+
+        for file_op, accel, hotkey in zip(file_ops, accelerators, hotkeys):
+            data = file_data[file_op]
+            menubar.add_menu_item("file", file_op, "%s\tCTRL+%s" % (data["descr"], accel),
+                                  data["handler"], hotkey)
+
+        file_ops = ("save_as", "save_incr")
+
+        for file_op in file_ops:
+            data = file_data[file_op]
+            menubar.add_menu_item("file", file_op, data["descr"], data["handler"])
+
+        menubar.add_menu_item_separator("file")
+
+        file_ops = ("export", "import")
+
+        for file_op in file_ops:
+            data = file_data[file_op]
+            menubar.add_menu_item("file", file_op, data["descr"], data["handler"])
+
+        menubar.add_menu_item_separator("file")
+
+        handler = Mgr.get("main_window").Close
+        menubar.add_menu_item("file", "exit", "Exit\tALT+F4", handler)
 
         Mgr.add_app_updater("unsaved_scene", self.__set_scene_as_unsaved)
 
@@ -208,7 +239,3 @@ class FileManager(object):
                 return False
 
         return True
-
-    def get_data(self):
-
-        return self._data

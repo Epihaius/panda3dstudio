@@ -5,8 +5,7 @@ class PolygonManager(ObjectManager, PickingColorIDManager):
 
     def __init__(self):
 
-        ObjectManager.__init__(
-            self, "poly", self.__create_polygon, "sub", pickable=True)
+        ObjectManager.__init__(self, "poly", self.__create_polygon, "sub", pickable=True)
         PickingColorIDManager.__init__(self)
         PickableTypes.add("poly")
 
@@ -14,8 +13,7 @@ class PolygonManager(ObjectManager, PickingColorIDManager):
 
         poly_id = self.get_next_id()
         picking_col_id = self.get_next_picking_color_id()
-        polygon = Polygon(poly_id, picking_col_id,
-                          geom_data_obj, triangle_data, edges, verts)
+        polygon = Polygon(poly_id, picking_col_id, geom_data_obj, triangle_data, edges, verts)
 
         return polygon, picking_col_id
 
@@ -127,11 +125,11 @@ class Polygon(BaseObject):
             return self._vert_ids
 
         """
-    Return the IDs of the vertices belonging to this polygon, in an order that
-    can be used to define the winding of a new triangulation, consistent
-    with the winding direction of the existing triangles.
+        Return the IDs of the vertices belonging to this polygon, in an order that
+        can be used to define the winding of a new triangulation, consistent
+        with the winding direction of the existing triangles.
 
-    """
+        """
 
         tri_data = self._tri_data
         tri_sides = {}
@@ -191,8 +189,7 @@ class Polygon(BaseObject):
     def get_triangle_normal(self, triangle_index):
 
         verts = self._geom_data_obj.get_subobjects("vert")
-        tri_verts = [verts[vert_id]
-                     for vert_id in self._tri_data[triangle_index]]
+        tri_verts = [verts[vert_id] for vert_id in self._tri_data[triangle_index]]
         pos1, pos2, pos3 = [vert.get_pos() for vert in tri_verts]
 
         return V3D(pos2 - pos1) ** V3D(pos3 - pos2)
@@ -237,16 +234,18 @@ class Polygon(BaseObject):
 
     def get_point_at_screen_pos(self, screen_pos):
 
+        cam = self.cam()
         ref_node = self.world
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = ref_node.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(ref_node)
-
         plane = Plane(self.get_normal(ref_node), self.get_center_pos(ref_node))
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: ref_node.get_relative_point(cam, point)
+
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point
@@ -257,10 +256,9 @@ class Polygon(BaseObject):
 
         for vert_ids in self._tri_data:
 
-            plane = Plane(*[verts[vert_id].get_pos(self.world)
-                            for vert_id in vert_ids])
+            plane = Plane(*[verts[vert_id].get_pos(self.world) for vert_id in vert_ids])
 
-            if plane.dist_to_plane(self.cam.get_pos(self.world)) > 0.:
+            if plane.dist_to_plane(self.cam().get_pos(self.world)) > 0.:
                 return True
 
         return False

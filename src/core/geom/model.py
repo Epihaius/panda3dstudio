@@ -49,7 +49,6 @@ class Model(TopLevelObject):
             origin.reparent_to(pivot)
 
         self._bbox.get_origin().reparent_to(origin)
-        self.get_pivot_gizmo().get_origin().set_compass(pivot)
 
     def __init__(self, model_id, name, origin_pos, bbox_color):
 

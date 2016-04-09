@@ -387,11 +387,12 @@ class TranslationGizmo(TransformationGizmo):
 
     def get_point_at_screen_pos(self, screen_pos):
 
+        cam = self.cam()
         point1 = Mgr.get("transf_gizmo_world_pos")
 
         if self._selected_axes == "screen":
 
-            normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+            normal = self.world.get_relative_vector(cam, Vec3.forward())
             plane = Plane(normal, point1)
 
         else:
@@ -412,7 +413,7 @@ class TranslationGizmo(TransformationGizmo):
                 axis_vec = Vec3()
                 axis_vec["xyz".index(self._selected_axes)] = 1.
                 axis_vec = V3D(self.world.get_relative_vector(self._handle_root, axis_vec))
-                cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
+                cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
                 cross_vec = axis_vec ** cam_vec
 
                 if not cross_vec.normalize():
@@ -423,14 +424,14 @@ class TranslationGizmo(TransformationGizmo):
 
             plane = Plane(point1, point2, point3)
 
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
 
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point

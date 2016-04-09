@@ -4,9 +4,9 @@ from .props.base import ObjectTypes
 
 class CreationManager(object):
 
-    def __init__(self):
+    def __init__(self, menubar):
 
-        self._data = {}
+        creation_data = {}
 
         def get_handler(object_type):
 
@@ -27,7 +27,30 @@ class CreationManager(object):
 
         for object_type, object_type_name in ObjectTypes.get_types().iteritems():
             handler = get_handler(object_type)
-            self._data[object_type] = {"name":object_type_name, "handler":handler}
+            creation_data[object_type] = {"name": object_type_name, "handler": handler}
+
+        menubar.add_menu("create", "Create")
+
+        obj_types = ("box", "sphere", "cylinder")
+        accelerators = ("B", "S", "C")
+        mod_code = wx.MOD_SHIFT | wx.MOD_CONTROL
+        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
+
+        for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
+            data = creation_data[obj_type]
+            menubar.add_menu_item("create", obj_type, "Create %s\tSHIFT+CTRL+%s" % (data["name"], accel),
+                                  data["handler"], hotkey)
+
+        menubar.add_menu_item_separator("create")
+
+        obj_types = ("dummy", "tex_projector")
+        accelerators = ("D", "P")
+        hotkeys = [(ord(accel), mod_code) for accel in accelerators]
+
+        for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
+            data = creation_data[obj_type]
+            menubar.add_menu_item("create", obj_type, "Create %s\tSHIFT+CTRL+%s" % (data["name"], accel),
+                                  data["handler"], hotkey)
 
     def setup(self):
 
@@ -43,7 +66,3 @@ class CreationManager(object):
         add_state("creation_mode", -10, enter_creation_mode)
         add_state("checking_creation_start", -11, lambda prev_state_id, is_active:
                   Mgr.do("disable_components", show=False))
-
-    def get_data(self):
-
-        return self._data

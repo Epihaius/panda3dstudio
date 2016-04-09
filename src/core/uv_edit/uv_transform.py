@@ -76,8 +76,7 @@ class SelectionTransformBase(BaseObject):
         obj_lvl = self._obj_level
 
         for uv_data_obj in self.get_uv_data_objects():
-            uv_data_obj.transform_selection(
-                obj_lvl, "translate", translation_vec)
+            uv_data_obj.transform_selection(obj_lvl, "translate", translation_vec)
 
         pos = self._pivot_start + translation_vec
         self._pivot.set_pos(pos)
@@ -156,7 +155,7 @@ class UVTransformationBase(BaseObject):
 
     def __init__(self):
 
-        for transf_type, axes in (("translate", "XY"), ("rotate", "Z"), ("scale", "XYZ")):
+        for transf_type, axes in (("translate", "xy"), ("rotate", "z"), ("scale", "xyz")):
             Mgr.set_global("axis_constraints_%s" % transf_type, axes)
             Mgr.set_global("using_rel_%s_values" % transf_type, False)
 

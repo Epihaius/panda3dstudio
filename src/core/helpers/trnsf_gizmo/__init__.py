@@ -6,22 +6,26 @@ from .scale import ScalingGizmo
 
 class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
+    def __get_root(self):
+
+        return self._roots[self.cam.lens_type]
+
+    root = property(__get_root)
+
     def __init__(self):
 
         PickingColorIDManager.__init__(self)
 
         self._pickable_type_id = PickableTypes.add("transf_gizmo", special=True)
-        gizmo_cam = Mgr.get("gizmo_cam")
-        self._base = gizmo_cam.attach_new_node("transform_gizmo_base")
-        self._root = self._base.attach_new_node("transform_gizmo_root")
-        self._root.hide()
-        bounds = BoundingSphere(Point3(), 1.5)
-        self._root.node().set_bounds(bounds)
-        self._root.node().set_final(True)
-        Mgr.expose("transf_gizmo_root", lambda: self._root)
+        self._base = None
+        self._roots = {}
+        Mgr.expose("transf_gizmo_root", lambda: self.root)
 
         self._target_node = self.world.attach_new_node("transf_gizmo_target")
+        Mgr.expose("transf_gizmo_target", lambda: self._target_node)
         Mgr.expose("transf_gizmo_world_pos", self._target_node.get_pos)
+        compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+        self._compass_effect = CompassEffect.make(self._target_node, compass_props)
 
         Mgr.accept("set_transf_gizmo", self.__set_gizmo)
         Mgr.accept("set_transf_gizmo_pos", self.__set_pos)
@@ -33,6 +37,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         Mgr.accept("select_transf_gizmo_handle", self.__select_gizmo_handle)
         Mgr.accept("enable_transf_gizmo", self.__enable_gizmo)
         Mgr.accept("disable_transf_gizmo", self.__disable_gizmo)
+        Mgr.accept("adjust_transform_gizmo_to_lens", self.__adjust_to_lens)
         Mgr.add_app_updater("active_transform_type", self.__set_gizmo)
         Mgr.add_app_updater("axis_constraints", self.__update_active_axes)
 
@@ -43,6 +48,21 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         self._transf_start_mouse = ()
 
     def setup(self):
+
+        gizmo_cam = Mgr.get("gizmo_cam")
+        self._base = gizmo_base = gizmo_cam.attach_new_node("transform_gizmo_base")
+        root_persp = gizmo_base.attach_new_node("transform_gizmo_root_persp")
+        root_ortho = gizmo_cam.attach_new_node("transform_gizmo_root_ortho")
+        root_persp.hide()
+        root_ortho.hide()
+        root_ortho.set_scale(200.)
+        bounds = BoundingSphere(Point3(), 1.5)
+        root_persp.node().set_bounds(bounds)
+        root_persp.node().set_final(True)
+        bounds = OmniBoundingVolume()
+        root_ortho.node().set_bounds(bounds)
+        root_ortho.node().set_final(True)
+        self._roots = roots = {"persp": root_persp, "ortho": root_ortho}
 
         self._gizmos = {
             "": DisabledGizmo(),
@@ -115,8 +135,11 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
     def __show(self):
 
         self._base.set_billboard_point_world(self._target_node, 2.)
-        self._root.set_compass(self._target_node)
-        self._root.show()
+        roots = self._roots
+        roots["persp"].set_compass(self._target_node)
+        roots["persp"].show()
+        roots["ortho"].set_effect(self._compass_effect)
+        roots["ortho"].show()
         self.__update()
 
         if Mgr.get_state_id() == "selection_mode":
@@ -125,8 +148,11 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
     def __hide(self):
 
         Mgr.remove_task("use_transf_gizmo")
-        self._root.hide()
-        self._root.clear_compass()
+        roots = self._roots
+        roots["persp"].hide()
+        roots["persp"].clear_compass()
+        roots["ortho"].hide()
+        roots["ortho"].clear_effect(CompassEffect.get_class_type())
         self._base.clear_billboard()
 
     def __set_pos(self, pos):
@@ -148,11 +174,17 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
     def __update(self):
 
-        if self._root.is_hidden():
+        if self.root.is_hidden():
             return
 
         if self._active_gizmo is self._gizmos["scale"]:
             self._active_gizmo.face_camera()
+
+    def __adjust_to_lens(self, lens_type_prev, lens_type_next):
+
+        roots = self._roots
+        roots[lens_type_prev].get_children().reparent_to(roots[lens_type_next])
+        self._gizmos["rotate"].adjust_to_lens(lens_type_next)
 
 
 MainObjects.add_class(TransformGizmoManager)

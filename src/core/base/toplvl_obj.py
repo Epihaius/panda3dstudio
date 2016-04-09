@@ -22,15 +22,16 @@ class TopLevelObject(BaseObject):
         self._pivot = pivot
         self._origin = pivot.attach_new_node("%s_origin" % str(obj_id))
         self._has_color = has_color
+        self._vert_colors_shown = False
         self._color = None
         self._material = None
 
-        active_grid_plane = Mgr.get_global("active_grid_plane")
+        active_grid_plane = Mgr.get(("grid", "plane"))
         grid_origin = Mgr.get(("grid", "origin"))
 
-        if active_grid_plane == "XZ":
+        if active_grid_plane == "xz":
             pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., -90., 0.))
-        elif active_grid_plane == "YZ":
+        elif active_grid_plane == "yz":
             pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., 0., 90.))
         else:
             pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., 0., 0.))
@@ -313,7 +314,9 @@ class TopLevelObject(BaseObject):
             return False
 
         self._color = color
-        self._origin.set_color(color)
+
+        if not self._vert_colors_shown:
+            self._origin.set_color(color)
 
         if update_app:
 

@@ -36,7 +36,7 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
 
         obj_lvl = Mgr.get_global("active_obj_level")
         obj_root = Mgr.get("object_root")
-        picking_mask = Mgr.get("picking_mask")
+        picking_masks = Mgr.get("picking_masks")
 
         models = set([obj for obj in Mgr.get("selection", "top")
                       if obj.get_type() == "model" and obj.get_geom_type() == "editable_geom"])
@@ -52,7 +52,7 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
 
         if obj_lvl == "top":
 
-            obj_root.show(picking_mask)
+            obj_root.show(picking_masks["all"])
 
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
@@ -60,7 +60,7 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
 
         else:
 
-            obj_root.hide(picking_mask)
+            obj_root.hide(picking_masks["all"])
 
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()

@@ -1,9 +1,8 @@
 from ..base import *
 from direct.showbase.ShowBase import DirectObject
-from direct.interval.IntervalGlobal import LerpQuatInterval, LerpPosQuatInterval
 
 
-class NavigationGizmo(BaseObject):
+class ViewGizmo(BaseObject):
 
     def __init__(self):
 
@@ -17,25 +16,22 @@ class NavigationGizmo(BaseObject):
         dr = win.make_display_region(1. - size, 1., 1. - size_v, 1.)
         self._display_region = dr
         dr.set_sort(2)
-        gizmo_cam_node = Camera("nav_gizmo_cam")
-        self._root = NodePath("nav_gizmo_root")
+        gizmo_cam_node = Camera("view_gizmo_cam")
+        self._root = NodePath("view_gizmo_root")
         self._cam_target = cam_target = self._root.attach_new_node("gizmo_cam_target")
-        cam_target.set_hpr(-35., -25., 0.)
+        cam_target.set_compass(self.cam())
         self._gizmo_cam = gizmo_cam = cam_target.attach_new_node(gizmo_cam_node)
         gizmo_cam.set_y(-10.)
         dr.set_camera(gizmo_cam)
-        dr.set_clear_color(VBase4(1, 0, 0, 1))
+        dr.set_clear_color(VBase4(1., 0., 0., 1.))
         dr.set_clear_color_active(True)
         dr.set_clear_color_active(False)
         dr.set_clear_depth_active(True)
-        Mgr.expose("nav_gizmo_cam", lambda: gizmo_cam)
 
         frame = (1. - 2. * size, 1., 1. - 2. * size_v, 1.)
-        region = MouseWatcherRegion("nav_gizmo_region", *frame)
+        region = MouseWatcherRegion("view_gizmo_region", *frame)
         self._mouse_region = region
         self.mouse_watcher.add_region(region)
-        self.mouse_watcher.set_enter_pattern("region_enter")
-        self.mouse_watcher.set_leave_pattern("region_leave")
 
         input_ctrl = NodePath(self.mouse_watcher).get_parent()
         mouse_watcher_node = MouseWatcher()
@@ -48,11 +44,10 @@ class NavigationGizmo(BaseObject):
         self._has_focus = False
         self._reached_full_size = False
         self._pixel_under_mouse = VBase4()
+        self._is_pinned = False
         self._is_clicked = False
         self._is_orbiting = False
         self._orbit_start_pos = Point2()
-        self._lerp_interval = None
-        self._dest_view = ""
         self._mouse_start_pos = ()
 
         self._listener = listener = DirectObject.DirectObject()
@@ -67,53 +62,52 @@ class NavigationGizmo(BaseObject):
         self._hilited_handle_id = ""
         self._hilited_handle_color = {"main": VBase4(), "aux": VBase4()}
 
-        self._handle_root_main = self._root.attach_new_node("handle_root_main")
-        self._handle_root_aux = self._root.attach_new_node("handle_root_aux")
+        self._handle_root = self._root.attach_new_node("handle_root")
+        self._handle_root_main = self._handle_root.attach_new_node("handle_root_main")
+        self._handle_root_aux = self._handle_root.attach_new_node("handle_root_aux")
         self._handle_root_aux.set_two_sided(True)
         self._handle_root_aux.set_transparency(TransparencyAttrib.M_alpha)
         self.__create_geometry()
 
-        d_light = DirectionalLight("nav_gizmo_light")
+        d_light = DirectionalLight("view_gizmo_light")
         light = gizmo_cam.attach_new_node(d_light)
         light.set_hpr(3., 3., 0.)
         self._handle_root_main.set_light(light)
-        tex = Mgr.load_tex(GFX_PATH + "nav_gizmo_sides.png")
+        tex = Mgr.load_tex(GFX_PATH + "view_cube_sides.png")
         self._handle_root_main.set_texture(tex)
 
         self._picking_cam = PickingCamera(gizmo_cam, mouse_watcher_node)
 
-        Mgr.accept("update_nav_gizmo", self.__update)
-        Mgr.accept("start_updating_nav_gizmo", self.__init_update)
-        Mgr.accept("stop_updating_nav_gizmo", self.__end_update)
-        Mgr.accept("enable_nav_gizmo", self.__enable)
+        Mgr.expose("view_gizmo_cam", lambda: gizmo_cam)
+        Mgr.expose("view_gizmo_root", lambda: self._handle_root)
+        Mgr.accept("update_view_gizmo", self.__update)
+        Mgr.accept("start_view_gizmo_transition", self.__start_transition)
+        Mgr.accept("start_updating_view_cube", self.__init_update)
+        Mgr.accept("stop_updating_view_cube", self.__end_update)
+        Mgr.accept("enable_view_gizmo", self.__enable)
 
         self._world_axes_tripod = WorldAxesTripod(gizmo_cam)
 
     def setup(self):
 
+        if "views_ok" not in MainObjects.get_setup_results():
+            return False
+
         self._picking_cam.setup()
         self.__update()
-        self._world_axes_tripod.setup()
 
         return True
 
-    def __create_geometry(self):
-
-        handle_ids = self._handle_ids
-        handle_quats = self._handle_quats
-        handle_normals = self._handle_normals
-        handles_main = self._handles_main
-
-        # create Home icon
+    def __create_icon(self, icon_name, color_id):
 
         vertex_format = GeomVertexFormat.get_v3cpt2()
 
-        vertex_data = GeomVertexData("nav_gizmo_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("icon_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
         uv_writer = GeomVertexWriter(vertex_data, "texcoord")
 
-        picking_col = get_color_vec(1, 1)
+        picking_col = get_color_vec(color_id, 1)
 
         pos_writer.add_data3f(0., 0., 0.)
         col_writer.add_data4f(picking_col)
@@ -134,8 +128,21 @@ class NavigationGizmo(BaseObject):
 
         tris_geom = Geom(vertex_data)
         tris_geom.add_primitive(tris)
-        icon_node = GeomNode("nav_home_icon")
+        icon_node = GeomNode("view_%s_icon" % icon_name)
         icon_node.add_geom(tris_geom)
+
+        return icon_node
+
+    def __create_geometry(self):
+
+        handle_ids = self._handle_ids
+        handle_quats = self._handle_quats
+        handle_normals = self._handle_normals
+        handles_main = self._handles_main
+
+        # create Home icon
+
+        icon_node = self.__create_icon("home", 1)
         icon = self._gizmo_cam.attach_new_node(icon_node)
         handle_id = "home"
         handles_main[handle_id] = icon
@@ -147,9 +154,33 @@ class NavigationGizmo(BaseObject):
         icon.hide()
         handle_ids[1] = handle_id
 
-        quat = Quat()
-        quat.set_hpr(VBase3(-45., -45., 0.))
-        handle_quats[handle_id] = quat
+        # create Pin icon
+
+        icon_node = self.__create_icon("pin", 2)
+        icon = self._gizmo_cam.attach_new_node(icon_node)
+        handle_id = "pin"
+        handles_main[handle_id] = icon
+        icon.set_pos(.9, 5.5, 1.3)
+        icon.set_color(.75, .75, .75)
+        icon.set_transparency(TransparencyAttrib.M_alpha)
+        tex = Mgr.load_tex(GFX_PATH + "pin_icon.png")
+        icon.set_texture(tex)
+        icon.hide()
+        handle_ids[2] = handle_id
+
+        # create Reset icon
+
+        icon_node = self.__create_icon("reset", 3)
+        icon = self._gizmo_cam.attach_new_node(icon_node)
+        handle_id = "reset"
+        handles_main[handle_id] = icon
+        icon.set_pos(.9, 5.5, -.9)
+        icon.set_color(.75, .75, .75)
+        icon.set_transparency(TransparencyAttrib.M_alpha)
+        tex = Mgr.load_tex(GFX_PATH + "reset_icon.png")
+        icon.set_texture(tex)
+        icon.hide()
+        handle_ids[3] = handle_id
 
         # create main handles
 
@@ -170,8 +201,7 @@ class NavigationGizmo(BaseObject):
 
             for sign in (-1, 1):
 
-                vertex_data = GeomVertexData("nav_gizmo_data", vertex_format,
-                                             Geom.UH_static)
+                vertex_data = GeomVertexData("view_gizmo_data", vertex_format, Geom.UH_static)
                 pos_writer = GeomVertexWriter(vertex_data, "vertex")
                 col_writer = GeomVertexWriter(vertex_data, "color")
                 normal_writer = GeomVertexWriter(vertex_data, "normal")
@@ -214,16 +244,14 @@ class NavigationGizmo(BaseObject):
                         uv = (u, v)
                         uv_writer.add_data2f(uv)
 
-                tri_indices = (0, 1, 2) if (sign < 0 if axis1 == "y"
-                    else sign > 0) else (0, 2, 1)
+                tri_indices = (0, 1, 2) if (sign < 0 if axis1 == "y" else sign > 0) else (0, 2, 1)
                 tris.add_vertices(*tri_indices)
-                tri_indices = (1, 3, 2) if (sign < 0 if axis1 == "y"
-                    else sign > 0) else (1, 2, 3)
+                tri_indices = (1, 3, 2) if (sign < 0 if axis1 == "y" else sign > 0) else (1, 2, 3)
                 tris.add_vertices(*tri_indices)
 
                 tris_geom = Geom(vertex_data)
                 tris_geom.add_primitive(tris)
-                handle_node = GeomNode("nav_gizmo_handle_main" + handle_id)
+                handle_node = GeomNode("view_gizmo_handle_main" + handle_id)
                 handle_node.add_geom(tris_geom)
                 handle = handle_root_main.attach_new_node(handle_node)
                 handle.set_color(color)
@@ -254,8 +282,7 @@ class NavigationGizmo(BaseObject):
 
                 for k in (-1, 1):
 
-                    vertex_data = GeomVertexData("nav_gizmo_data", vertex_format,
-                                                 Geom.UH_static)
+                    vertex_data = GeomVertexData("view_gizmo_data", vertex_format, Geom.UH_static)
                     pos_writer = GeomVertexWriter(vertex_data, "vertex")
                     col_writer = GeomVertexWriter(vertex_data, "color")
                     normal_writer = GeomVertexWriter(vertex_data, "normal")
@@ -308,7 +335,7 @@ class NavigationGizmo(BaseObject):
 
                     tris_geom = Geom(vertex_data)
                     tris_geom.add_primitive(tris)
-                    handle_node = GeomNode("nav_gizmo_handle_main" + handle_id)
+                    handle_node = GeomNode("view_gizmo_handle_main" + handle_id)
                     handle_node.add_geom(tris_geom)
                     handle = edge_root.attach_new_node(handle_node)
                     handle.set_color(color)
@@ -327,8 +354,7 @@ class NavigationGizmo(BaseObject):
 
                 for k in (-1, 1):
 
-                    vertex_data = GeomVertexData("nav_gizmo_data", vertex_format,
-                                                 Geom.UH_static)
+                    vertex_data = GeomVertexData("view_gizmo_data", vertex_format, Geom.UH_static)
                     pos_writer = GeomVertexWriter(vertex_data, "vertex")
                     col_writer = GeomVertexWriter(vertex_data, "color")
                     normal_writer = GeomVertexWriter(vertex_data, "normal")
@@ -390,7 +416,7 @@ class NavigationGizmo(BaseObject):
 
                     tris_geom = Geom(vertex_data)
                     tris_geom.add_primitive(tris)
-                    handle_node = GeomNode("nav_gizmo_handle_main" + handle_id)
+                    handle_node = GeomNode("view_gizmo_handle_main" + handle_id)
                     handle_node.add_geom(tris_geom)
                     handle = corner_root.attach_new_node(handle_node)
                     handle.set_color(color)
@@ -413,8 +439,7 @@ class NavigationGizmo(BaseObject):
 
             for sign in (-1, 1):
 
-                vertex_data = GeomVertexData("nav_gizmo_data", vertex_format,
-                                             Geom.UH_static)
+                vertex_data = GeomVertexData("view_gizmo_data", vertex_format, Geom.UH_static)
                 pos_writer = GeomVertexWriter(vertex_data, "vertex")
                 col_writer = GeomVertexWriter(vertex_data, "color")
 
@@ -451,7 +476,7 @@ class NavigationGizmo(BaseObject):
 
                 tris_geom = Geom(vertex_data)
                 tris_geom.add_primitive(tris)
-                handle_node = GeomNode("nav_gizmo_handle_aux" + handle_id)
+                handle_node = GeomNode("view_gizmo_handle_aux" + handle_id)
                 handle_node.add_geom(tris_geom)
                 handle = handle_root_aux.attach_new_node(handle_node)
                 offset = {"x": 0., "y": 0., "z": 0.}
@@ -465,10 +490,12 @@ class NavigationGizmo(BaseObject):
 
         name = args[0].get_name()
 
-        if name == "nav_gizmo_region":
+        if name == "view_gizmo_region":
 
-            Mgr.remove_task("resize_nav_gizmo_region")
-            Mgr.add_task(self.__expand_region, "resize_nav_gizmo_region")
+            if not self._is_pinned:
+                Mgr.remove_task("resize_view_gizmo_region")
+
+            Mgr.add_task(self.__expand_region, "resize_view_gizmo_region")
             Mgr.get("core").suppress_mouse_events()
             Mgr.get("picking_cam").set_active(False)
 
@@ -479,18 +506,23 @@ class NavigationGizmo(BaseObject):
 
         name = args[0].get_name()
 
-        if name == "nav_gizmo_region":
+        if name == "view_gizmo_region":
 
             self._has_focus = False
             Mgr.remove_task("hilite_handle")
 
             if not self._is_orbiting:
+
                 self._listener.ignore("mouse1")
                 self._listener.ignore("mouse1-up")
+                self._listener.ignore("mouse3-up")
                 self._picking_cam.set_active(False)
                 Mgr.do_next_frame(lambda task: self.__hilite_handle(), "remove_hilite")
-                Mgr.remove_task("resize_nav_gizmo_region")
-                Mgr.add_task(self.__shrink_region, "resize_nav_gizmo_region")
+
+                if not self._is_pinned:
+                    Mgr.remove_task("resize_view_gizmo_region")
+                    Mgr.add_task(self.__shrink_region, "resize_view_gizmo_region")
+
                 Mgr.get("core").suppress_mouse_events(False)
                 Mgr.get("picking_cam").set_active()
 
@@ -514,13 +546,17 @@ class NavigationGizmo(BaseObject):
             Mgr.add_task(self.__hilite_handle, "hilite_handle")
             self._listener.accept("mouse1", self.__on_left_down)
             self._listener.accept("mouse1-up", self.__on_left_up)
+            self._listener.accept("mouse3-up", self.__on_right_up)
             return
 
         self._time = min(1., self._time + 2. * self._clock.get_dt())
         alpha = max(0., self._time - .5) * 2.
-        icon = self._handles_main["home"]
-        icon.set_alpha_scale(alpha)
-        icon.show() if alpha else icon.hide()
+
+        for icon_name in ("home", "pin", "reset"):
+            icon = self._handles_main[icon_name]
+            icon.set_alpha_scale(alpha)
+            icon.show() if alpha else icon.hide()
+
         self.__set_region_size()
 
         return task.cont
@@ -534,16 +570,19 @@ class NavigationGizmo(BaseObject):
 
         self._time = max(0., self._time - 2. * self._clock.get_dt())
         alpha = max(0., self._time - .5) * 2.
-        icon = self._handles_main["home"]
-        icon.set_alpha_scale(alpha)
-        icon.show() if alpha else icon.hide()
+
+        for icon_name in ("home", "pin", "reset"):
+            icon = self._handles_main[icon_name]
+            icon.set_alpha_scale(alpha)
+            icon.show() if alpha else icon.hide()
+
         self.__set_region_size()
 
         return task.cont
 
     def __hilite_handle(self, task=None):
 
-        r, g, b, a = [int(round(c * 255.)) for c in self._picking_cam.get_pixel_under_mouse()]
+        r, g, b, a = [int(round(c * 255.)) for c in self._picking_cam.pixel_color]
         color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
         handle_ids = self._handle_ids
         handle_id = handle_ids[color_id] if color_id in handle_ids else ""
@@ -576,27 +615,11 @@ class NavigationGizmo(BaseObject):
 
     def __transition_view(self, task):
 
-        main_cam_target = Mgr.get( ("cam", "target") )
+        main_cam_target = self.cam.target
 
-        if self._lerp_interval.is_stopped():
+        if Mgr.get("view_transition_done"):
 
-            quat = main_cam_target.get_quat()
-            pos = main_cam_target.get_pos()
-
-            # prevent the bottom view from flipping 180 degrees when orbiting
-            # the view later, due to a negative heading
-            if self._dest_view == "-z":
-                hpr = Vec3(180., 90., 0.)
-            else:
-                hpr = quat.get_hpr()
-
-            main_cam_target.set_pos_hpr(pos, hpr)
-            self._cam_target.set_hpr(hpr)
             self.__update_aux_handles()
-            Mgr.do("update_transf_gizmo")
-            Mgr.do("update_coord_sys")
-
-            self._lerp_interval = None
             Mgr.get("core").suppress_key_events(False)
             self.__enable()
 
@@ -604,23 +627,34 @@ class NavigationGizmo(BaseObject):
                 self._has_focus = True
                 self._listener.accept("mouse1", self.__on_left_down)
                 self._listener.accept("mouse1-up", self.__on_left_up)
+                self._listener.accept("mouse3-up", self.__on_right_up)
                 self._picking_cam.set_active()
             else:
                 Mgr.get("core").suppress_mouse_events(False)
                 Mgr.get("picking_cam").set_active()
 
-            self._dest_view = ""
-
             return
 
-        hpr = main_cam_target.get_hpr()
-        pos = main_cam_target.get_pos()
-        self._cam_target.set_hpr(hpr)
         self.__update_aux_handles()
-        Mgr.do("update_transf_gizmo")
-        Mgr.do("update_coord_sys")
 
         return task.cont
+
+    def __start_transition(self):
+
+        Mgr.add_task(self.__transition_view, "transition_view", sort=31)
+        self.__enable(False)
+        self._has_focus = False
+        self._listener.ignore("mouse1")
+        self._listener.ignore("mouse1-up")
+        self._listener.ignore("mouse3-up")
+        self._picking_cam.set_active(False)
+        Mgr.get("core").suppress_key_events()
+
+    def __pin(self):
+
+        self._is_pinned = not self._is_pinned
+        color_scale = (0., 1., 1., 1.) if self._is_pinned else (1., 1., 1., 1.)
+        self._handles_main["pin"].set_color_scale(color_scale)
 
     def __on_left_down(self):
 
@@ -647,25 +681,41 @@ class NavigationGizmo(BaseObject):
         self._is_clicked = False
         handle_id = self._hilited_handle_id
 
-        if handle_id:
-            self.__enable(False)
-            self._has_focus = False
-            self._listener.ignore("mouse1")
-            self._listener.ignore("mouse1-up")
-            self._picking_cam.set_active(False)
-            Mgr.get("core").suppress_key_events()
-            self._dest_view = handle_id
-            main_cam_target = Mgr.get( ("cam", "target") )
-            lerp_interval = LerpPosQuatInterval(main_cam_target, .5, Point3(),
-                                                self._handle_quats[handle_id],
-                                                blendType="easeInOut") \
-                            if handle_id == "home" else \
-                            LerpQuatInterval(main_cam_target, .5,
-                                             self._handle_quats[handle_id],
-                                             blendType="easeInOut")
-            self._lerp_interval = lerp_interval
-            lerp_interval.start()
-            Mgr.add_task(self.__transition_view, "transition_view", sort=30)
+        if handle_id == "pin":
+
+            self.__pin()
+
+        elif handle_id == "home":
+
+            Mgr.update_app("view", "reset", False, True)
+
+        elif handle_id == "reset":
+
+            if Mgr.get_global("ctrl_down"):
+                Mgr.update_app("view", "reset_front")
+            elif Mgr.get_global("shift_down"):
+                Mgr.update_app("view", "reset_home")
+            else:
+                Mgr.update_app("view", "reset", True, True)
+
+        elif handle_id:
+
+            current_quat = self.cam.target.get_quat()
+            quat = self._handle_quats[handle_id]
+
+            if current_quat.almost_same_direction(quat, .000001):
+                return
+
+            Mgr.do("start_view_transition", handle_id, quat)
+
+    def __on_right_up(self):
+
+        handle_id = self._hilited_handle_id
+
+        if handle_id == "pin":
+            pass
+        elif handle_id == "home":
+            pass
 
     def __check_mouse_offset(self, task):
         """
@@ -698,6 +748,7 @@ class NavigationGizmo(BaseObject):
         self._is_orbiting = True
         self._picking_cam.set_active(False)
         Mgr.get("core").suppress_key_events()
+        Mgr.do("enable_view_tiles", False)
 
     def __orbit(self, task):
 
@@ -707,12 +758,10 @@ class NavigationGizmo(BaseObject):
         orbit_pos = self.mouse_watcher.get_mouse()
         d_heading, d_pitch = (orbit_pos - self._orbit_start_pos) * 500.
         self._orbit_start_pos = Point2(orbit_pos)
-        target = self._cam_target
+        target = self.cam.target
         hpr = Vec3(target.get_h() - d_heading, target.get_p() + d_pitch, 0.)
         target.set_hpr(hpr)
         self.__update_aux_handles()
-        main_cam_target = Mgr.get( ("cam", "target") )
-        main_cam_target.set_hpr(hpr)
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 
@@ -723,18 +772,20 @@ class NavigationGizmo(BaseObject):
         Mgr.remove_task("transform_cam")
         self._is_orbiting = False
         Mgr.get("core").suppress_key_events(False)
+        Mgr.do("enable_view_tiles")
 
         if self._has_focus:
             self._picking_cam.set_active()
         else:
             self._listener.ignore("mouse1")
             self._listener.ignore("mouse1-up")
+            self._listener.ignore("mouse3-up")
             Mgr.get("core").suppress_mouse_events(False)
             Mgr.get("picking_cam").set_active()
 
     def __update_aux_handles(self):
 
-        cam_vec = V3D(self._root.get_relative_vector(self._cam_target, Vec3(0., 1., 0.)))
+        cam_vec = V3D(self._handle_root.get_relative_vector(self._cam_target, Vec3.forward()))
         handles = self._handles_aux
 
         # make the auxiliary handles more or less transparent, depending on their
@@ -746,23 +797,29 @@ class NavigationGizmo(BaseObject):
             handle.set_alpha_scale(alpha)
             handle.show() if alpha else handle.hide()
 
-    def __update(self, task=None):
+    def __update(self, cube=True, hpr=False):
 
-        if not self._is_orbiting and not self._lerp_interval:
+        if cube:
+            self.__update_cube()
 
-            main_cam_target = Mgr.get( ("cam", "target") )
-            self._cam_target.set_hpr(main_cam_target.get_hpr())
+        if hpr:
+            self._handle_root.set_hpr(self.cam.pivot.get_hpr())
+            self.__update_aux_handles()
+
+    def __update_cube(self, task=None):
+
+        if not self._is_orbiting and Mgr.get("view_transition_done"):
             self.__update_aux_handles()
 
         return task.cont if task else None
 
     def __init_update(self):
 
-        Mgr.add_task(self.__update, "update_nav_gizmo")
+        Mgr.add_task(self.__update_cube, "update_view_cube")
 
     def __end_update(self):
 
-        Mgr.remove_task("update_nav_gizmo")
+        Mgr.remove_task("update_view_cube")
 
     def __enable(self, enable=True):
 
@@ -777,6 +834,12 @@ class NavigationGizmo(BaseObject):
 
 
 class PickingCamera(BaseObject):
+
+    def __get_pixel_color(self):
+
+        return self._pixel_color
+
+    pixel_color = property(__get_pixel_color)
 
     def __init__(self, parent_cam, mouse_watcher):
 
@@ -817,7 +880,7 @@ class PickingCamera(BaseObject):
         lens.set_fov(.1)
         node.set_cull_bounds(cull_bounds)
 
-        state_np = NodePath("flat_color_state")
+        state_np = NodePath("picking_color_state")
         state_np.set_texture_off(1)
         state_np.set_material_off(1)
         state_np.set_shader_off(1)
@@ -837,12 +900,12 @@ class PickingCamera(BaseObject):
         self._np.node().set_active(is_active)
 
         if is_active:
-            Mgr.add_task(self.__check_pixel, "get_pixel_under_mouse", sort=0)
+            Mgr.add_task(self.__get_pixel_under_mouse, "get_pixel_under_mouse", sort=0)
         else:
             Mgr.remove_task("get_pixel_under_mouse")
             self._pixel_color = VBase4()
 
-    def __check_pixel(self, task):
+    def __get_pixel_under_mouse(self, task):
 
         if not self._gizmo_mouse_watcher.has_mouse():
             return task.cont
@@ -855,10 +918,6 @@ class PickingCamera(BaseObject):
         self._pixel_color = self._img.get_xel_a(0, 0)
 
         return task.cont
-
-    def get_pixel_under_mouse(self):
-
-        return self._pixel_color
 
 
 class WorldAxesTripod(BaseObject):
@@ -901,12 +960,6 @@ class WorldAxesTripod(BaseObject):
             }
         }
 
-        self._is_hilited = False
-
-        Mgr.accept("hilite_world_axes", self.__hilite)
-
-    def setup(self):
-
         self.__create_axis_tripod()
         self.__create_navigation_indicator()
 
@@ -935,10 +988,16 @@ class WorldAxesTripod(BaseObject):
         label.set_pos(.02, 0., .08)
         self._axis_labels["z"] = label
 
+        node = self._root.node()
+        node.set_bounds(OmniBoundingVolume())
+        node.set_final(True)
+
         for axis in "xyz":
             self._axis_labels[axis].set_color(self._axis_label_colors["normal"][axis])
 
-        return True
+        self._is_hilited = False
+
+        Mgr.accept("hilite_world_axes", self.__hilite)
 
     def __create_axis_tripod(self):
 
@@ -1038,4 +1097,4 @@ class WorldAxesTripod(BaseObject):
         return True
 
 
-MainObjects.add_class(NavigationGizmo)
+MainObjects.add_class(ViewGizmo)

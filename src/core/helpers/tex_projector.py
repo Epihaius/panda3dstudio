@@ -209,24 +209,27 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         # Create the plane parallel to the camera and going through the projector
         # origin, used to determine the size drawn by the user.
 
-        normal = self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.))
+        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
         grid_origin = Mgr.get(("grid", "origin"))
-        pos = self.world.get_relative_point(grid_origin, origin_pos)
-        self._draw_plane = Plane(normal, pos)
+        point = self.world.get_relative_point(grid_origin, origin_pos)
+        self._draw_plane = Plane(normal, point)
 
     def __creation_phase1(self):
         """ Draw out texture projector """
 
-        mpos = self.mouse_watcher.get_mouse()
-        far_point_local = Point3()
-        self.cam_lens.extrude(mpos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
         intersection_point = Point3()
-        self._draw_plane.intersects_line(intersection_point, cam_pos, far_point)
+        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
         grid_origin = Mgr.get(("grid", "origin"))
-        pos = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        size = max(.001, (intersection_point - pos).length())
+        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        size = max(.001, (intersection_point - point).length())
         self.get_object().set_size(size)
 
     def __set_projector_property(self, prop_id, value, projector_id=None,
@@ -352,12 +355,13 @@ class TexProjectorEdge(BaseObject):
 
     def get_point_at_screen_pos(self, screen_pos):
 
+        cam = self.cam()
         body = self._projector.get_body()
         corner_pos = self._projector.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
         vec_coords["xyz".index(self._axis)] = 1.
         edge_vec = V3D(self.world.get_relative_vector(body, Vec3(*vec_coords)))
-        cam_vec = V3D(self.world.get_relative_vector(self.cam, Vec3(0., 1., 0.)))
+        cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
         cross_vec = edge_vec ** cam_vec
 
         if not cross_vec.normalize():
@@ -366,16 +370,16 @@ class TexProjectorEdge(BaseObject):
         point1 = corner_pos
         point2 = point1 + edge_vec
         point3 = point1 + cross_vec
-
-        far_point_local = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point_local)
-        far_point = self.world.get_relative_point(self.cam, far_point_local)
-        cam_pos = self.cam.get_pos(self.world)
-
         plane = Plane(point1, point2, point3)
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+
         intersection_point = Point3()
 
-        if not plane.intersects_line(intersection_point, cam_pos, far_point):
+        if not plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point)):
             return
 
         return intersection_point
@@ -500,7 +504,7 @@ class TexProjector(TopLevelObject):
             node = GeomNode("tex_proj_lens_%s_viz" % proj_type)
             node.add_geom(geom)
             lens_viz = parent.attach_new_node(node)
-            lens_viz.hide(Mgr.get("picking_mask"))
+            lens_viz.hide(Mgr.get("picking_masks")["all"])
             lens_viz.hide()
             lens_viz.set_color(.5, .8, .5)
 
@@ -528,7 +532,7 @@ class TexProjector(TopLevelObject):
         node.add_geom(geom)
 
         tripod = parent.attach_new_node(node)
-        tripod.hide(Mgr.get("picking_mask"))
+        tripod.hide(Mgr.get("picking_masks")["all"])
         tripod.set_z(-.6)
         tripod.set_color(.5, .8, .5)
 
@@ -572,7 +576,6 @@ class TexProjector(TopLevelObject):
         origin.set_texture_off()
         origin.set_material_off()
         origin.set_shader_off()
-        self.get_pivot_gizmo().get_origin().set_compass(pivot)
         self._lens_np.reparent_to(origin)
         subobj_root = self._subobj_root
         subobj_root.reparent_to(origin)

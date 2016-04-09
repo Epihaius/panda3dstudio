@@ -70,8 +70,7 @@ class SmoothingBase(BaseObject):
 
             for smoothing_grp in smoothing:
                 for poly_id in smoothing_grp:
-                    poly_smoothing.setdefault(
-                        poly_id, set()).add(smoothing_grp)
+                    poly_smoothing.setdefault(poly_id, set()).add(smoothing_grp)
 
             self._update_vertex_normals(set(self._merged_verts.itervalues()))
 
@@ -125,8 +124,7 @@ class SmoothingBase(BaseObject):
             verts = self._subobjs["vert"]
             smoothing_grp = SmoothingGroup(polys.iterkeys())
 
-            self._poly_smoothing = dict(
-                (poly_id, set([smoothing_grp])) for poly_id in polys)
+            self._poly_smoothing = dict((poly_id, set([smoothing_grp])) for poly_id in polys)
 
             vertex_data_poly = self._vertex_data["poly"]
             normal_writer = GeomVertexWriter(vertex_data_poly, "normal")
@@ -151,8 +149,7 @@ class SmoothingBase(BaseObject):
                     normal_writer.set_data3f(normal)
 
             array = vertex_data_poly.get_array(1)
-            vertex_data_top = self._geoms["top"][
-                "shaded"].node().modify_geom(0).modify_vertex_data()
+            vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
             vertex_data_top.set_array(1, GeomVertexArrayData(array))
 
         else:
@@ -175,8 +172,7 @@ class SmoothingBase(BaseObject):
                     normal_writer.set_data3f(normal)
 
             array = vertex_data_poly.get_array(1)
-            vertex_data_top = self._geoms["top"][
-                "shaded"].node().modify_geom(0).modify_vertex_data()
+            vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
             vertex_data_top.set_array(1, GeomVertexArrayData(array))
 
         return True
@@ -216,8 +212,7 @@ class SmoothingBase(BaseObject):
                 new_smoothing_grp = SmoothingGroup(poly_ids)
 
                 for p_id in poly_ids:
-                    poly_smoothing.setdefault(
-                        p_id, set()).add(new_smoothing_grp)
+                    poly_smoothing.setdefault(p_id, set()).add(new_smoothing_grp)
 
                 polys_to_smooth = poly_ids
                 change = True
@@ -289,8 +284,8 @@ class SmoothingBase(BaseObject):
                         polys_to_smooth.update(dif)
 
                         for p_id in dif:
-                            poly_smoothing.setdefault(
-                                p_id, set()).add(smoothing_grp)
+                            poly_smoothing.setdefault(p_id, set()).add(smoothing_grp)
+
                         change = True
 
             else:
@@ -308,13 +303,11 @@ class SmoothingBase(BaseObject):
 
                     if p_id in poly_smoothing:
 
-                        intersection = poly_smoothing[
-                            p_id].intersection(smoothing_change)
+                        intersection = poly_smoothing[p_id].intersection(smoothing_change)
 
                         if intersection:
 
-                            poly_smoothing[p_id].difference_update(
-                                intersection)
+                            poly_smoothing[p_id].difference_update(intersection)
                             polys_to_smooth.add(p_id)
 
                             if not poly_smoothing[p_id]:
@@ -327,8 +320,7 @@ class SmoothingBase(BaseObject):
                                 if len(smoothing_grp) == 1:
 
                                     last_id = smoothing_grp.pop()
-                                    poly_smoothing[last_id].discard(
-                                        smoothing_grp)
+                                    poly_smoothing[last_id].discard(smoothing_grp)
                                     polys_to_smooth.add(last_id)
 
                                     if not poly_smoothing[last_id]:
@@ -342,8 +334,7 @@ class SmoothingBase(BaseObject):
         if update_normals:
             vert_ids = [vert_id for p_id in polys_to_smooth
                         for vert_id in polys[p_id].get_vertex_ids()]
-            merged_verts = set(self._merged_verts[
-                               vert_id] for vert_id in vert_ids)
+            merged_verts = set(self._merged_verts[vert_id] for vert_id in vert_ids)
             self._update_vertex_normals(merged_verts)
 
         return True
@@ -397,8 +388,7 @@ class SmoothingBase(BaseObject):
                         smoothing2 = poly_smoothing[poly2_id]
 
                         if smoothing2.intersection(smoothing):
-                            smoothing_to_check.update(
-                                smoothing2.difference(smoothing))
+                            smoothing_to_check.update(smoothing2.difference(smoothing))
                             poly2 = polys[poly2_id]
                             normal += poly2.get_normal()
                             verts_to_smooth.append(vert2)
@@ -416,8 +406,7 @@ class SmoothingBase(BaseObject):
                             smoothing2 = poly_smoothing[poly2_id]
 
                             if smoothing2.intersection(smoothing_to_check):
-                                next_smoothing_to_check.update(
-                                    smoothing2.difference(smoothing_to_check))
+                                next_smoothing_to_check.update(smoothing2.difference(smoothing_to_check))
                                 poly2 = polys[poly2_id]
                                 normal += poly2.get_normal()
                                 verts_to_smooth.append(vert2)
@@ -444,8 +433,7 @@ class SmoothingBase(BaseObject):
         array = vertex_data_copy.get_array(1)
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly.set_array(1, GeomVertexArrayData(array))
-        vertex_data_top = self._geoms["top"][
-            "shaded"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(1, GeomVertexArrayData(array))
 
     def _restore_poly_smoothing(self, time_id):
@@ -503,12 +491,10 @@ class SmoothingManager(BaseObject):
         status_data = Mgr.get_global("status_data")
         mode_text = "Pick poly for smoothing"
         info_text = "LMB to pick a polygon to smooth the selection with; RMB to cancel"
-        status_data["smooth_with_poly"] = {
-            "mode": mode_text, "info": info_text}
+        status_data["smooth_with_poly"] = {"mode": mode_text, "info": info_text}
         mode_text = "Pick poly for unsmoothing"
         info_text = "LMB to pick a polygon to unsmooth the selection with; RMB to cancel"
-        status_data["unsmooth_with_poly"] = {
-            "mode": mode_text, "info": info_text}
+        status_data["unsmooth_with_poly"] = {"mode": mode_text, "info": info_text}
 
         return True
 
@@ -530,8 +516,7 @@ class SmoothingManager(BaseObject):
         obj_data = {}
 
         for obj_id, data_obj in changed_objs.iteritems():
-            obj_data[obj_id] = data_obj.get_data_to_store(
-                "prop_change", "smoothing")
+            obj_data[obj_id] = data_obj.get_data_to_store("prop_change", "smoothing")
 
         event_descr = "Change model smoothing"
         event_data = {"objects": obj_data}
@@ -555,8 +540,7 @@ class SmoothingManager(BaseObject):
         obj_data = {}
 
         for obj_id, data_obj in changed_objs.iteritems():
-            obj_data[obj_id] = data_obj.get_data_to_store(
-                "prop_change", "smoothing")
+            obj_data[obj_id] = data_obj.get_data_to_store("prop_change", "smoothing")
 
         event_descr = "Change polygon smoothing"
         event_data = {"objects": obj_data}
@@ -574,9 +558,9 @@ class SmoothingManager(BaseObject):
 
     def __exit_smoothing_poly_picking_mode(self, next_state_id, is_active):
 
-        self._obj_is_under_mouse = None  # neither False nor True, to force an
-        # update of the cursor next time
-        # self._update_cursor() is called
+        self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                           # next time self._update_cursor()
+                                           # is called
         Mgr.remove_task("update_poly_picking_cursor")
         Mgr.set_cursor("main")
 

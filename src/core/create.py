@@ -13,10 +13,8 @@ class CreationManager(BaseObject):
         self._interactive_creation_ended = False
         self._mode_status = ""
         self._creation_type = ""
-        Mgr.accept("notify_creation_started", lambda: setattr(self,
-            "_interactive_creation_started", True))
-        Mgr.accept("notify_creation_ended", lambda: setattr(self,
-            "_interactive_creation_ended", True))
+        Mgr.accept("notify_creation_started", lambda: setattr(self, "_interactive_creation_started", True))
+        Mgr.accept("notify_creation_ended", lambda: setattr(self, "_interactive_creation_ended", True))
 
         status_data = Mgr.get_global("status_data")
         status_data["create"] = {}
@@ -27,10 +25,14 @@ class CreationManager(BaseObject):
     def setup(self):
 
         add_state = Mgr.add_state
-        add_state("creation_mode", -10, self.__enter_creation_mode,
-                  self.__exit_creation_mode)
-        add_state("checking_creation_start", -11, lambda prev_state_id, is_active:
-                  Mgr.do("enable_nav_gizmo", False))
+        add_state("creation_mode", -10, self.__enter_creation_mode, self.__exit_creation_mode)
+
+        def enter_state(prev_state_id, is_active):
+
+            Mgr.do("enable_view_gizmo", False)
+            Mgr.do("enable_view_tiles", False)
+
+        add_state("checking_creation_start", -11, enter_state)
 
         def cancel_creation():
 
@@ -111,7 +113,8 @@ class CreationManager(BaseObject):
 
     def __enter_creation_mode(self, prev_state_id, is_active):
 
-        Mgr.do("enable_nav_gizmo")
+        Mgr.do("enable_view_gizmo")
+        Mgr.do("enable_view_tiles")
 
         if Mgr.get_global("active_obj_level") != "top":
             Mgr.set_global("active_obj_level", "top")
@@ -194,7 +197,7 @@ class CreationManager(BaseObject):
             origin_pos = Point3()
         elif pos_id == "cam_target_pos":
             grid_origin = Mgr.get(("grid", "origin"))
-            origin_pos = Mgr.get(("cam", "target")).get_pos(grid_origin)
+            origin_pos = self.cam.target.get_pos(grid_origin)
 
         object_type = Mgr.get_global("active_creation_type")
         Mgr.do("inst_create_%s" % object_type, origin_pos)

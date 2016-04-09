@@ -20,7 +20,6 @@ class PolygonEditManager(PolygonDetachManager, TriangulationManager,
     def __init__(self):
 
         self._pixel_under_mouse = VBase4()
-        self._obj_is_under_mouse = None
 
         PolygonDetachManager.__init__(self)
         TriangulationManager.__init__(self)
@@ -38,12 +37,11 @@ class PolygonEditManager(PolygonDetachManager, TriangulationManager,
 
     def _update_cursor(self, task):
 
-        self._pixel_under_mouse = Mgr.get("pixel_under_mouse")
-        obj_is_under_mouse = self._pixel_under_mouse != VBase4()
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
 
-        if obj_is_under_mouse != self._obj_is_under_mouse:
-            self._obj_is_under_mouse = obj_is_under_mouse
-            Mgr.set_cursor("select" if obj_is_under_mouse else "main")
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
 
