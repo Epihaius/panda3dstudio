@@ -197,7 +197,7 @@ class UVSelectionBase(BaseObject):
         pixel_under_mouse = UVMgr.get("pixel_under_mouse")
 
         if self._pixel_under_mouse != pixel_under_mouse:
-            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._set_cursor("main" if pixel_under_mouse == VBase4() else "select")
             self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont

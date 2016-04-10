@@ -26,25 +26,29 @@ class ViewManager(object):
         menubar.add_menu("user_views", "User views", "view")
         menubar.add_menu("edit_user_views", "Edit", "user_views")
         menubar.add_menu_item_separator("user_views")
-        menubar.add_menu_item("edit_user_views", "convert_persp", "Current to persp",
-                              lambda: Mgr.update_remotely("view", "init_convert", "persp"))
-        menubar.add_menu_item("edit_user_views", "convert_ortho", "Current to ortho",
-                              lambda: Mgr.update_remotely("view", "init_convert", "ortho"))
-        menubar.add_menu_item_separator("edit_user_views")
+        menubar.add_menu_item("edit_user_views", "copy_persp", "Create as persp copy",
+                              lambda: Mgr.update_remotely("view", "init_copy", "persp"))
+        menubar.add_menu_item("edit_user_views", "copy_ortho", "Create as ortho copy",
+                              lambda: Mgr.update_remotely("view", "init_copy", "ortho"))
         mod_code = wx.MOD_SHIFT
         hotkey = (ord("U"), mod_code)
-        menubar.add_menu_item("edit_user_views", "add", "Create from current\tSHIFT+U",
-                              self.__init_new_user_view, hotkey)
+        menubar.add_menu_item("edit_user_views", "snapshot", "Create as snapshot\tSHIFT+U",
+                              self.__init_snapshot, hotkey)
+        menubar.add_menu_item_separator("edit_user_views")
+        menubar.add_menu_item("edit_user_views", "convert_persp", "Convert to persp",
+                              lambda: Mgr.update_remotely("view", "convert", "persp"))
+        menubar.add_menu_item("edit_user_views", "convert_ortho", "Convert to ortho",
+                              lambda: Mgr.update_remotely("view", "convert", "ortho"))
         menubar.add_menu_item_separator("edit_user_views")
         hotkey = (wx.WXK_F2, mod_code)
-        menubar.add_menu_item("edit_user_views", "rename", "Rename current\tSHIFT+F2",
-                              lambda: Mgr.update_remotely("view", "init_rename_user"), hotkey)
+        menubar.add_menu_item("edit_user_views", "rename", "Rename\tSHIFT+F2",
+                              lambda: Mgr.update_remotely("view", "init_rename"), hotkey)
         menubar.add_menu_item_separator("edit_user_views")
         hotkey = (wx.WXK_DELETE, mod_code)
-        menubar.add_menu_item("edit_user_views", "remove", "Remove current\tSHIFT+DEL",
-                              lambda: Mgr.update_remotely("view", "init_remove_user"), hotkey)
-        menubar.add_menu_item("edit_user_views", "clear", "Clear all",
-                              lambda: Mgr.update_remotely("view", "init_clear_user"))
+        menubar.add_menu_item("edit_user_views", "remove", "Remove\tSHIFT+DEL",
+                              lambda: Mgr.update_remotely("view", "init_remove"), hotkey)
+        menubar.add_menu_item("edit_user_views", "clear", "Remove all",
+                              lambda: Mgr.update_remotely("view", "init_clear"))
         menubar.add_menu_item_separator("view")
         hotkey = (ord("C"), 0)
         func = lambda: wx.CallLater(10., lambda: Mgr.update_remotely("view", "center"))
@@ -76,21 +80,28 @@ class ViewManager(object):
 
         for menu in (menu_std, menu_user):
             item = menu.Append(-1, "Copy to persp")
-            command = lambda evt: Mgr.update_remotely("view", "init_convert", "persp")
+            command = lambda evt: Mgr.update_remotely("view", "init_copy", "persp")
             viewport.Bind(wx.EVT_MENU, command, item)
             item = menu.Append(-1, "Copy to ortho")
-            command = lambda evt: Mgr.update_remotely("view", "init_convert", "ortho")
+            command = lambda evt: Mgr.update_remotely("view", "init_copy", "ortho")
             viewport.Bind(wx.EVT_MENU, command, item)
-            item = menu.Append(-1, "Make user view\tSHIFT+U")
-            command = lambda evt: self.__init_new_user_view()
+            item = menu.Append(-1, "Take snapshot\tSHIFT+U")
+            command = lambda evt: self.__init_snapshot()
             viewport.Bind(wx.EVT_MENU, command, item)
 
         menu_user.AppendSeparator()
+        item = menu_user.Append(-1, "Convert to persp")
+        command = lambda evt: Mgr.update_remotely("view", "convert", "persp")
+        viewport.Bind(wx.EVT_MENU, command, item)
+        item = menu_user.Append(-1, "Convert to ortho")
+        command = lambda evt: Mgr.update_remotely("view", "convert", "ortho")
+        viewport.Bind(wx.EVT_MENU, command, item)
+        menu_user.AppendSeparator()
         item = menu_user.Append(-1, "Rename\tSHIFT+F2")
-        command = lambda evt: Mgr.update_remotely("view", "init_rename_user")
+        command = lambda evt: Mgr.update_remotely("view", "init_rename")
         viewport.Bind(wx.EVT_MENU, command, item)
         item = menu_user.Append(-1, "Remove\tSHIFT+DEL")
-        command = lambda evt: Mgr.update_remotely("view", "init_remove_user")
+        command = lambda evt: Mgr.update_remotely("view", "init_remove")
         viewport.Bind(wx.EVT_MENU, command, item)
 
         Mgr.add_app_updater("view", self.__update_view)
@@ -107,24 +118,24 @@ class ViewManager(object):
 
     def __update_view(self, update_type, *args):
 
-        if update_type == "get_convert_user":
-            self.__get_convert_user_view(*args)
-        elif update_type == "add_user":
+        if update_type == "get_copy_name":
+            self.__get_view_copy_name(*args)
+        elif update_type == "add":
             self.__add_user_view(*args)
-        elif update_type == "confirm_remove_user":
+        elif update_type == "confirm_remove":
             self.__confirm_remove_user_view(*args)
-        elif update_type == "remove_user":
+        elif update_type == "remove":
             self.__remove_user_view(*args)
-        elif update_type == "confirm_clear_user":
+        elif update_type == "confirm_clear":
             self.__confirm_clear_user_views(*args)
-        elif update_type == "get_rename_user":
-            self.__get_rename_user_view(*args)
-        elif update_type == "rename_user":
+        elif update_type == "get_new_name":
+            self.__get_new_view_name(*args)
+        elif update_type == "rename":
             self.__rename_user_view(*args)
         elif update_type == "menu":
             self.__popup_menu(*args)
 
-    def __get_user_view_name(self, default_name=None):
+    def __get_view_name(self, default_name=None):
 
         name = "New" if default_name is None else default_name
         view_name = wx.GetTextFromUser(
@@ -137,35 +148,31 @@ class ViewManager(object):
 
         return view_name
 
-    def __get_convert_user_view(self, lens_type, proposed_name):
+    def __get_view_copy_name(self, lens_type, proposed_name):
 
-        name = self.__get_user_view_name(proposed_name)
-
-        if name:
-            Mgr.update_remotely("view", "convert", lens_type, name)
-
-    def __init_new_user_view(self):
-
-        name = self.__get_user_view_name()
+        name = self.__get_view_name(proposed_name)
 
         if name:
-            Mgr.update_remotely("view", "add_user", name)
+            Mgr.update_remotely("view", "copy", lens_type, name)
+
+    def __init_snapshot(self):
+
+        name = self.__get_view_name()
+
+        if name:
+            Mgr.update_remotely("view", "take_snapshot", name)
 
     def __add_user_view(self, view_id, view_name):
 
         get_handler = lambda view: lambda: Mgr.update_app("view", "set", view)
         self._menubar.add_menu_item("user_views", view_id, view_name, get_handler(view_id))
 
-    def __remove_user_view(self, view_id):
+    def __get_new_view_name(self, current_name):
 
-        self._menubar.remove_menu_item("user_views", view_id)
-
-    def __get_rename_user_view(self, current_name):
-
-        name = self.__get_user_view_name(current_name)
+        name = self.__get_view_name(current_name)
 
         if name and name != current_name:
-            Mgr.update_remotely("view", "rename_user", name)
+            Mgr.update_remotely("view", "rename", name)
 
     def __rename_user_view(self, view_id, view_name):
 
@@ -179,7 +186,11 @@ class ViewManager(object):
                                wx.OK|wx.CANCEL|wx.ICON_EXCLAMATION, Mgr.get("main_window"))
 
         if answer == wx.OK:
-            Mgr.update_remotely("view", "remove_user")
+            Mgr.update_remotely("view", "remove")
+
+    def __remove_user_view(self, view_id):
+
+        self._menubar.remove_menu_item("user_views", view_id)
 
     def __confirm_clear_user_views(self, view_count):
 
@@ -188,7 +199,7 @@ class ViewManager(object):
                                wx.OK|wx.CANCEL|wx.ICON_EXCLAMATION, Mgr.get("main_window"))
 
         if answer == wx.OK:
-            Mgr.update_remotely("view", "clear_user")
+            Mgr.update_remotely("view", "clear")
 
     def __popup_menu(self, menu_id):
 

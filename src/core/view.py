@@ -654,7 +654,7 @@ class ViewManager(BaseObject):
             self.__append_view_tile(view)
             cam.add_rig(view, front_quats[view].get_hpr(), defaults["pos"],
                         defaults["quat"].get_hpr(), lens_types[view], defaults["zoom"])
-            Mgr.update_remotely("view", "add_user", view, view_names[view])
+            Mgr.update_remotely("view", "add", view, view_names[view])
 
         self.__update_view_tile_region()
 
@@ -675,7 +675,7 @@ class ViewManager(BaseObject):
         for view, render_mode in data["render_mode_user"].iteritems():
             render_mode_defaults[view] = render_mode
 
-        self.__set_view(data["view"])
+        self.__set_view(data["view"], force=True)
 
     def __clear_user_views(self):
 
@@ -712,7 +712,7 @@ class ViewManager(BaseObject):
             del render_modes[view]
             cam.remove_rig(view)
             self.__remove_view_tile(view)
-            Mgr.update_remotely("view", "remove_user", view)
+            Mgr.update_remotely("view", "remove", view)
 
         self.__update_view_tile_region()
         self._user_views = []
@@ -747,38 +747,76 @@ class ViewManager(BaseObject):
             self.__set_as_front_view()
         elif update_type == "reset_front":
             self.__reset_front_view()
-        elif update_type == "init_convert":
+        elif update_type == "init_copy":
             lens_type = args[0]
-            name = "%s (%s)" % (self._view_names[view], lens_type)
-            Mgr.update_remotely("view", "get_convert_user", lens_type, name)
+            Mgr.update_remotely("view", "get_copy_name", lens_type, self._view_names[view])
+        elif update_type == "copy":
+            self.__copy_view(*args)
+        elif update_type == "take_snapshot":
+            self.__take_snapshot(*args)
         elif update_type == "convert":
             self.__convert_view(*args)
-        elif update_type == "add_user":
-            self.__add_user_view(*args)
-        elif update_type == "init_remove_user":
+        elif update_type == "init_remove":
             if view in self._user_views:
-                Mgr.update_remotely("view", "confirm_remove_user", self._view_names[view])
-        elif update_type == "remove_user":
+                Mgr.update_remotely("view", "confirm_remove", self._view_names[view])
+        elif update_type == "remove":
             self.__remove_user_view()
-        elif update_type == "init_clear_user":
+        elif update_type == "init_clear":
             if self._user_views:
-                Mgr.update_remotely("view", "confirm_clear_user", len(self._user_views))
-        elif update_type == "clear_user":
+                Mgr.update_remotely("view", "confirm_clear", len(self._user_views))
+        elif update_type == "clear":
             self.__clear_user_views()
-        elif update_type == "init_rename_user":
+        elif update_type == "init_rename":
             if view in self._user_views:
-                Mgr.update_remotely("view", "get_rename_user", self._view_names[view])
-        elif update_type == "rename_user":
+                Mgr.update_remotely("view", "get_new_name", self._view_names[view])
+        elif update_type == "rename":
             name = args[0]
             namestring = "\n".join(self._view_names.itervalues())
             name = get_unique_name(name, namestring)
             self._view_names[view] = name
-            self._view_label_node.set_text("User - " + name)
-            Mgr.update_remotely("view", "rename_user", view, name)
+            self._view_label_node.set_text("User %s - %s" % (self.cam.lens_type, name))
+            Mgr.update_remotely("view", "rename", view, name)
         elif update_type == "obj_align":
             Mgr.enter_state("view_obj_picking_mode")
 
-    def __set_view(self, view):
+    def __convert_view(self, lens_type):
+
+        view = Mgr.get_global("view")
+
+        if view not in self._user_views:
+            return
+
+        cam = self.cam
+        current_lens_type = cam.lens_type
+
+        if current_lens_type == lens_type:
+            return
+
+        self._user_lens_types[view] = lens_type
+        default_default = self._default_home_default_transforms[view]
+        default_default["zoom"] = cam.convert_zoom(lens_type, zoom=default_default["zoom"])
+        default_custom = self._default_home_custom_transforms[view]
+        custom_default = self._custom_home_default_transforms[view]
+        custom_custom = self._custom_home_custom_transforms[view]
+
+        for transforms in (default_custom, custom_default, custom_custom):
+
+            zoom = transforms["zoom"]
+
+            if zoom is not None:
+                zoom = cam.convert_zoom(lens_type, zoom=zoom)
+                transforms["zoom"] = zoom
+
+        zoom = cam.convert_zoom(lens_type)
+        cam.lens_type = lens_type
+        cam.zoom = zoom
+        cam.update()
+        self._view_label_node.set_text("User %s - %s" % (lens_type, self._view_names[view]))
+        Mgr.do("adjust_grid_to_lens")
+        Mgr.do("adjust_picking_cam_to_lens")
+        Mgr.do("adjust_transform_gizmo_to_lens", current_lens_type, lens_type)
+
+    def __set_view(self, view, force=False):
         """ Switch to a different view """
 
         current_view = self._view_before_preview if self._view_tile_entered else Mgr.get_global("view")
@@ -797,11 +835,11 @@ class ViewManager(BaseObject):
             name = self._view_names[view]
 
             if view in self._user_views:
-                name = "User - " + name
+                name = "User %s - %s" % (self._user_lens_types[view], name)
 
             self._view_label_node.set_text(name)
 
-        if current_view == view:
+        if not force and current_view == view:
             return
 
         cam = self.cam
@@ -824,8 +862,8 @@ class ViewManager(BaseObject):
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 
-    def __convert_view(self, lens_type, name):
-        """ Copy the current view using the given lens type """
+    def __copy_view(self, lens_type, name):
+        """ Copy the current view using the given lens type and make it a user view """
 
         current_view = Mgr.get_global("view")
         namestring = "\n".join(self._view_names.itervalues())
@@ -876,12 +914,12 @@ class ViewManager(BaseObject):
                 zoom = cam.convert_zoom(lens_type, zoom=zoom)
                 transforms[view]["zoom"] = zoom
 
-        Mgr.update_remotely("view", "add_user", view, name)
+        Mgr.update_remotely("view", "add", view, name)
 
         self.__set_view(view)
 
-    def __add_user_view(self, view_name):
-        """ Store the current view as a user view """
+    def __take_snapshot(self, view_name):
+        """ Take a snapshot of the current view and make it a user view """
 
         current_view = Mgr.get_global("view")
         namestring = "\n".join(self._view_names.itervalues())
@@ -928,7 +966,7 @@ class ViewManager(BaseObject):
         self._user_view_id += 1
         cam.add_rig(view, pivot_hpr, pivot_pos, target_hpr, lens_type, zoom)
 
-        Mgr.update_remotely("view", "add_user", view, name)
+        Mgr.update_remotely("view", "add", view, name)
 
         self.__set_view(view)
 
@@ -961,7 +999,7 @@ class ViewManager(BaseObject):
         del self._render_modes[view]
         cam.remove_rig(view)
         self.__remove_view_tile(view)
-        Mgr.update_remotely("view", "remove_user", view)
+        Mgr.update_remotely("view", "remove", view)
 
         self.__update_view_tile_region()
         self._user_views.remove(view)
@@ -1426,7 +1464,7 @@ class ViewManager(BaseObject):
                 name = self._view_names[view]
 
                 if view in self._user_views:
-                    name = "User - " + name
+                    name = "User %s - %s" % (lens_type, name)
 
                 self._view_label_node.set_text(name)
                 Mgr.update_app("active_grid_plane", self.grid_plane)
@@ -1509,7 +1547,7 @@ class ViewManager(BaseObject):
             name = self._view_names[view]
 
             if view in self._user_views:
-                name = "User - " + name
+                name = "User %s - %s" % (lens_type, name)
 
             self._view_label_node.set_text(name)
             Mgr.update_app("active_grid_plane", self.grid_plane)

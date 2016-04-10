@@ -1,5 +1,4 @@
 from .base import *
-from math import tan, radians
 
 
 class MainCamera(BaseObject):
@@ -12,9 +11,14 @@ class MainCamera(BaseObject):
 
         return self._lens_types[Mgr.get_global("view")]
 
+    def __set_lens_type(self, lens_type):
+
+        self._lens_types[Mgr.get_global("view")] = lens_type
+        self.target.set_scale(1.) if lens_type == "persp" else self.origin.set_y(-500.)
+
     def __get_lens(self):
 
-        return self._lenses[Mgr.get_global("view")]
+        return self._lenses[self.lens_type]
 
     def __get_target(self):
 
@@ -33,7 +37,7 @@ class MainCamera(BaseObject):
         self.origin.set_y(zoom) if self.lens_type == "persp" else self.target.set_scale(zoom)
 
     origin = property(__get_origin)
-    lens_type = property(__get_lens_type)
+    lens_type = property(__get_lens_type, __set_lens_type)
     lens = property(__get_lens)
     target = property(__get_target)
     pivot = property(__get_pivot)
@@ -62,8 +66,7 @@ class MainCamera(BaseObject):
         self._targets = {}
         self._origins = {}
         self._lens_types = {}
-        self._lenses = {}
-        self._default_lenses = {"persp": lens_persp, "ortho": lens_ortho}
+        self._lenses = {"persp": lens_persp, "ortho": lens_ortho}
 
         self._cam_np = core.cam
         self._camera = camera = core.camera
@@ -173,13 +176,13 @@ class MainCamera(BaseObject):
 
     def get_zooms(self):
 
-        persp_lens = self._lenses["persp"]
+        lens_types = self._lens_types
         targets = self._targets
         origs = self._origins
         zooms = {}
 
-        for view, lens in self._lenses.iteritems():
-            if lens is persp_lens:
+        for view, lens_type in lens_types.iteritems():
+            if lens_type == "persp":
                 zooms[view] = origs[view].get_y()
             else:
                 zooms[view] = targets[view].get_scale()[0]
@@ -188,16 +191,15 @@ class MainCamera(BaseObject):
 
     def set_zooms(self, zooms):
 
-        lenses = self._lenses
-        persp_lens = self._default_lenses["persp"]
+        lens_types = self._lens_types
         targets = self._targets
         origs = self._origins
 
         for view, zoom in zooms.iteritems():
-            if lenses[view] is persp_lens:
-                origs[view].set_y(zooms[view])
+            if lens_types[view] == "persp":
+                origs[view].set_y(zoom)
             else:
-                targets[view].set_scale(zooms[view])
+                targets[view].set_scale(zoom)
 
     def add_rig(self, view, front_hpr, pos, hpr, lens_type, zoom):
 
@@ -211,7 +213,6 @@ class MainCamera(BaseObject):
         orig = target.attach_new_node("camera_origin_%s" % view)
         self._origins[view] = orig
         self._lens_types[view] = lens_type
-        self._lenses[view] = self._default_lenses[lens_type]
 
         if lens_type == "persp":
             orig.set_y(zoom)
@@ -231,7 +232,6 @@ class MainCamera(BaseObject):
         orig.remove_node()
         del self._origins[view]
         del self._lens_types[view]
-        del self._lenses[view]
 
     def convert_zoom(self, to_lens_type, from_lens_type=None, zoom=None):
 
@@ -244,7 +244,7 @@ class MainCamera(BaseObject):
         if from_lens_type == to_lens_type:
             return zoom
 
-        lens_persp = self._default_lenses["persp"]
+        lens_persp = self._lenses["persp"]
         tan = math.tan(math.radians(lens_persp.get_hfov() * .5))
 
         if from_lens_type == "persp":
