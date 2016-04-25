@@ -138,14 +138,16 @@ class UVSelectionBase(BaseObject):
         self._pixel_under_mouse = VBase4()
         self._color_id = None
         self._selections = {}
+        self._update_needed = False
 
         self._sel_obj_ids = set()
         self._sel_count = 0
+        Mgr.set_global("uv_selection_count", 0)
 
         UVMgr.expose("sel_obj_ids", lambda: self._sel_obj_ids)
-        UVMgr.expose("selection_count", lambda: self._sel_count)
-        UVMgr.expose("selection_center", lambda: self._selections[
-                     self._uv_set_id][self._obj_lvl].get_center_pos())
+        UVMgr.expose("selection_center",
+                     lambda: self._selections[self._uv_set_id][self._obj_lvl].get_center_pos())
+        UVMgr.accept("update_sel_obj_ids", self.__update_selected_object_ids)
 
         PendingTasks.add_task_id("update_selection", "uv_object")
         PendingTasks.add_task_id("update_selection", "uv_ui")
@@ -172,9 +174,6 @@ class UVSelectionBase(BaseObject):
 
         bind("checking_mouse_offset", "cancel mouse check uvs", "mouse1-up",
              cancel_mouse_check, "uv_window")
-
-        UVMgr.accept("update_sel_obj_ids", self.__update_selected_object_ids)
-        UVMgr.accept("update_selection_count", self.__update_selection_count)
 
     def __enter_selection_mode(self, prev_state_id, is_active):
 
@@ -205,10 +204,6 @@ class UVSelectionBase(BaseObject):
     def __update_selected_object_ids(self, obj_ids):
 
         self._sel_obj_ids = obj_ids
-
-    def __update_selection_count(self, count):
-
-        self._sel_count = count
 
     def update_selection(self):
 
@@ -241,6 +236,9 @@ class UVSelectionBase(BaseObject):
 
         Mgr.remove_task("check_mouse_offset")
 
+        if self._update_needed:
+            self.__update_selection()
+
     def __get_picked_object(self, color_id, obj_type_id):
 
         if not color_id:
@@ -254,8 +252,7 @@ class UVSelectionBase(BaseObject):
         if pickable_type == "transf_gizmo":
             return "transf_gizmo", self._transf_gizmo.select_handle(color_id)
 
-        picked_obj = self._uv_registry[self._uv_set_id][
-            pickable_type].get(color_id)
+        picked_obj = self._uv_registry[self._uv_set_id][pickable_type].get(color_id)
 
         return (pickable_type, picked_obj) if picked_obj else ("", None)
 
@@ -264,6 +261,7 @@ class UVSelectionBase(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return
 
+        self._update_needed = False
         mouse_pointer = self._window.get_pointer(0)
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
 
@@ -273,22 +271,19 @@ class UVSelectionBase(BaseObject):
         self._picked_point = UVMgr.get("picked_point") if picked_obj else None
 
         if pickable_type == "transf_gizmo":
-            self._transf_type = picked_obj.get_transform_type()
+            transf_type = picked_obj.get_transform_type()
+            Mgr.set_global("active_uv_transform_type", transf_type)
+            Mgr.update_interface("uv_window", "active_transform_type", transf_type)
             Mgr.enter_state("checking_mouse_offset", "uv_window")
             return
 
         obj_lvl = self._obj_lvl
 
         if obj_lvl == "vert":
-
             obj = picked_obj.get_merged_vertex() if picked_obj else None
-
         elif obj_lvl == "edge":
-
             obj = picked_obj.get_merged_edge() if picked_obj else None
-
         elif obj_lvl == "poly":
-
             obj = picked_obj
 
         self._color_id = obj.get_picking_color_id() if obj else None
@@ -310,17 +305,70 @@ class UVSelectionBase(BaseObject):
 
             subobj = subobj.get_merged_object()
             uv_data_obj = subobj.get_uv_data_object()
-            selection.replace(subobj)
 
-            if obj_lvl == "poly":
-                color_ids.add(self._color_id)
+            if Mgr.get_global("active_uv_transform_type"):
+
+                if subobj in selection and len(selection) > 1:
+
+                    # When the user clicks one of multiple selected subobjects, updating the
+                    # selection must be delayed until it is clear whether he wants to
+                    # transform the entire selection or simply have only this subobject
+                    # selected (this is determined by checking if the mouse has moved at
+                    # least a certain number of pixels by the time the left mouse button
+                    # is released).
+
+                    self._update_needed = True
+
+                else:
+
+                    selection.replace(subobj)
+
+                    if obj_lvl == "poly":
+                        color_ids.add(self._color_id)
+                    else:
+                        color_ids.update(uv_data_obj.get_subobject(obj_lvl, s_id).get_picking_color_id()
+                                         for s_id in subobj)
+
+                    self._world_sel_mgr.sync_selection(color_ids)
+
+                Mgr.enter_state("checking_mouse_offset", "uv_window")
+
             else:
-                color_ids.update(uv_data_obj.get_subobject(obj_lvl, s_id).get_picking_color_id()
-                                 for s_id in subobj)
+
+                selection.replace(subobj)
+
+                if obj_lvl == "poly":
+                    color_ids.add(self._color_id)
+                else:
+                    color_ids.update(uv_data_obj.get_subobject(obj_lvl, s_id).get_picking_color_id()
+                                     for s_id in subobj)
+
+                self._world_sel_mgr.sync_selection(color_ids)
 
         else:
 
             selection.clear()
+            self._world_sel_mgr.sync_selection(color_ids)
+
+    def __update_selection(self):
+
+        # If multiple subobjects were selected and no transformation occurred, a single
+        # subobject has been selected out of that previous selection.
+
+        obj_lvl = self._obj_lvl
+        uv_set_id = self._uv_set_id
+        selection = self._selections[uv_set_id][obj_lvl]
+        subobj = self._uv_registry[uv_set_id][obj_lvl].get(self._color_id)
+        subobj = subobj.get_merged_object()
+        uv_data_obj = subobj.get_uv_data_object()
+        color_ids = set()
+        selection.replace(subobj)
+
+        if obj_lvl == "poly":
+            color_ids.add(self._color_id)
+        else:
+            color_ids.update(uv_data_obj.get_subobject(obj_lvl, s_id).get_picking_color_id()
+                             for s_id in subobj)
 
         self._world_sel_mgr.sync_selection(color_ids)
 
@@ -345,13 +393,16 @@ class UVSelectionBase(BaseObject):
 
             if subobj in selection:
                 selection.remove(subobj)
-                ids_to_keep = set([] if obj_lvl == "poly" else [
-                                  i for x in selection for i in x])
-                self._world_sel_mgr.sync_selection(
-                    color_ids, "remove", ids_to_keep)
+                ids_to_keep = set([] if obj_lvl == "poly" else [i for x in selection for i in x])
+                self._world_sel_mgr.sync_selection(color_ids, "remove", ids_to_keep)
+                transform_allowed = False
             else:
                 selection.add(subobj)
                 self._world_sel_mgr.sync_selection(color_ids, "add")
+                transform_allowed = Mgr.get_global("active_uv_transform_type")
+
+            if transform_allowed:
+                Mgr.enter_state("checking_mouse_offset", "uv_window")
 
     def sync_selection(self, color_ids, op="replace", keep=None):
 
@@ -383,8 +434,7 @@ class UVSelectionBase(BaseObject):
     def create_selections(self):
 
         obj_lvls = ("vert", "edge", "poly")
-        self._selections[self._uv_set_id] = dict(
-            (lvl, UVSelection(lvl)) for lvl in obj_lvls)
+        self._selections[self._uv_set_id] = dict((lvl, UVSelection(lvl)) for lvl in obj_lvls)
 
     def delete_selections(self):
 

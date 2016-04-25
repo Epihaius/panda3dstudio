@@ -154,15 +154,10 @@ class SelectionManager(BaseObject):
         obj_lvl = self._obj_lvl
 
         if obj_lvl == "vert":
-
             obj = picked_obj.get_merged_vertex() if picked_obj else None
-
         elif obj_lvl == "edge":
-
             obj = picked_obj.get_merged_edge() if picked_obj else None
-
         elif obj_lvl == "poly":
-
             obj = picked_obj
 
         self._color_id = obj.get_picking_color_id() if obj else None

@@ -25,7 +25,8 @@ class PickingCamera(BaseObject):
         self._img = PNMImage(1, 1)
         props = FrameBufferProperties()
         props.set_float_color(True)
-        props.set_alpha_bits(True)
+        props.set_alpha_bits(32)
+        props.set_depth_bits(32)
         self._buffer = core.win.make_texture_buffer("uv_picking_buffer",
                                                     1, 1,
                                                     self._tex,
@@ -38,8 +39,8 @@ class PickingCamera(BaseObject):
         self._np.reparent_to(self.cam)
         node = self._np.node()
         lens = OrthographicLens()
-        size = self.cam_lens.get_film_size()[0] / 600.
-        lens.set_film_size(size)
+        lens.set_near(-10.)
+        lens.set_film_size(.00375)
         node.set_lens(lens)
         node.set_camera_mask(self._mask)
 
@@ -50,7 +51,7 @@ class PickingCamera(BaseObject):
         state_np.set_light_off(1)
         state_np.set_color_off(1)
         state_np.set_color_scale_off(1)
-        state_np.set_render_mode_thickness(10, 1)
+        state_np.set_render_mode_thickness(5, 1)
         state_np.set_transparency(TransparencyAttrib.M_none, 1)
         node.set_initial_state(state_np.get_state())
         node.set_active(False)
@@ -59,31 +60,37 @@ class PickingCamera(BaseObject):
 
     def set_active(self, is_active=True):
 
-        if is_active:
-            Mgr.add_task(self.__check_pixel,
-                         "get_uv_pixel_under_mouse", sort=0)
-        else:
-            Mgr.remove_task("get_uv_pixel_under_mouse")
+        if self._np.node().is_active() == is_active:
+            return
 
         self._np.node().set_active(is_active)
 
-    def __check_pixel(self, task):
+        if is_active:
+            Mgr.add_task(self.__get_pixel_under_mouse, "get_uv_pixel_under_mouse", sort=0)
+        else:
+            Mgr.remove_task("get_uv_pixel_under_mouse")
+            self._pixel_color = VBase4()
+
+    def __get_pixel_under_mouse(self, task):
 
         if not self.mouse_watcher.has_mouse():
             return task.cont
 
-        film_size = self.cam_lens.get_film_size()[0]
-        x, z = self.mouse_watcher.get_mouse() * film_size * .5
-        self._np.set_pos(x, 0., z)
+        screen_pos = self.mouse_watcher.get_mouse()
+        far_point = Point3()
+        self.cam_lens.extrude(screen_pos, Point3(), far_point)
+        far_point.y = 0.
+        self._np.set_pos(far_point)
+
         self._tex.store(self._img)
-        self._pixel_color = p = self._img.get_xel_a(0, 0)
+        self._pixel_color = self._img.get_xel_a(0, 0)
 
         return task.cont
 
     def __get_picked_point(self):
 
         pos = self._np.get_pos(self.uv_space)
-        pos[1] = 0.
+        pos.y = 0.
 
         return pos
 
@@ -136,7 +143,7 @@ class UVNavigationBase(BaseObject):
         self.cam.set_pos(.5, -10., .5)
         self.cam.set_scale(1.)
         self._grid.update()
-        self._transf_gizmo.set_scale(self.cam.get_sx())
+        self._transf_gizmo.set_scale(1.)
 
     def __init_pan(self):
 
@@ -157,7 +164,6 @@ class UVNavigationBase(BaseObject):
 
         self.cam.set_pos(self.cam.get_pos() + (self._pan_start_pos - pan_pos))
         self._grid.update()
-        self._transf_gizmo.set_scale(self.cam.get_sx())
 
         return task.cont
 
@@ -177,8 +183,7 @@ class UVNavigationBase(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return
 
-        self._zoom_start = (self.cam.get_sx(),
-                            self.mouse_watcher.get_mouse_y())
+        self._zoom_start = (self.cam.get_sx(), self.mouse_watcher.get_mouse_y())
         Mgr.add_task(self.__zoom, "transform_uv_cam", sort=2)
 
     def __zoom(self, task):
@@ -198,9 +203,9 @@ class UVNavigationBase(BaseObject):
 
         zoom *= start_scale
         zoom = min(1000., max(.001, zoom))
-        self.cam.set_scale(zoom, 1., zoom)
+        self.cam.set_scale(zoom)
         self._grid.update()
-        self._transf_gizmo.set_scale(self.cam.get_sx())
+        self._transf_gizmo.set_scale(zoom)
 
         return task.cont
 
@@ -208,17 +213,17 @@ class UVNavigationBase(BaseObject):
 
         zoom = self.cam.get_sx() * .9
         zoom = max(.001, zoom)
-        self.cam.set_scale(zoom, 1., zoom)
+        self.cam.set_scale(zoom)
         self._grid.update()
-        self._transf_gizmo.set_scale(self.cam.get_sx())
+        self._transf_gizmo.set_scale(zoom)
 
     def __zoom_step_out(self):
 
         zoom = self.cam.get_sx() * 1.1
         zoom = min(1000., zoom)
-        self.cam.set_scale(zoom, 1., zoom)
+        self.cam.set_scale(zoom)
         self._grid.update()
-        self._transf_gizmo.set_scale(self.cam.get_sx())
+        self._transf_gizmo.set_scale(zoom)
 
 
 class UVTemplateSaver(BaseObject):
@@ -233,25 +238,19 @@ class UVTemplateSaver(BaseObject):
 
         def update_remotely():
 
-            Mgr.update_interface_remotely(
-                "uv_window", "uv_template", "size", self._size)
+            Mgr.update_interface_remotely("uv_window", "uv_template", "size", self._size)
             r, g, b, a = self._edge_color
-            Mgr.update_interface_remotely(
-                "uv_window", "uv_template", "edge_rgb", (r, g, b))
-            Mgr.update_interface_remotely(
-                "uv_window", "uv_template", "edge_alpha", a)
+            Mgr.update_interface_remotely("uv_window", "uv_template", "edge_rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv_window", "uv_template", "edge_alpha", a)
             r, g, b, a = self._poly_color
-            Mgr.update_interface_remotely(
-                "uv_window", "uv_template", "poly_rgb", (r, g, b))
-            Mgr.update_interface_remotely(
-                "uv_window", "uv_template", "poly_alpha", a)
+            Mgr.update_interface_remotely("uv_window", "uv_template", "poly_rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv_window", "uv_template", "poly_alpha", a)
 
         UVMgr.accept("remotely_update_template_props", update_remotely)
 
     def add_interface_updaters(self):
 
-        Mgr.add_interface_updater(
-            "uv_window", "uv_template", self.__update_uv_template)
+        Mgr.add_interface_updater("uv_window", "uv_template", self.__update_uv_template)
 
     def __update_uv_template(self, value_id, value=None):
 
@@ -271,8 +270,7 @@ class UVTemplateSaver(BaseObject):
             self.__save_uv_template(value)
 
         if value_id != "save":
-            Mgr.update_interface_remotely(
-                "uv_window", "uv_template", value_id, value)
+            Mgr.update_interface_remotely("uv_window", "uv_template", value_id, value)
 
     def __save_uv_template(self, filename):
 
@@ -281,7 +279,8 @@ class UVTemplateSaver(BaseObject):
         tex = Texture("uv_template")
         props = FrameBufferProperties()
         props.set_float_color(True)
-        props.set_alpha_bits(True)
+        props.set_alpha_bits(32)
+        props.set_depth_bits(32)
         tex_buffer = core.win.make_texture_buffer("uv_template_buffer",
                                                   res, res,
                                                   tex,

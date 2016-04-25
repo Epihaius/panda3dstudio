@@ -1220,7 +1220,8 @@ class ViewManager(BaseObject):
     def __reset_all_views(self, to_default=True, transition=False):
 
         current_view = Mgr.get_global("view")
-        views = ("persp", "ortho", "front", "back", "left", "right", "top", "bottom")
+        views = ["persp", "ortho", "front", "back", "left", "right", "top", "bottom"]
+        views += self._user_views
 
         for view in views:
             Mgr.set_global("view", view)

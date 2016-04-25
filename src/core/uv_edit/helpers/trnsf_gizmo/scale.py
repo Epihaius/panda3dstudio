@@ -26,12 +26,12 @@ class ScalingComponent(object):
         red = VBase4(.7, 0., 0., 1.)
         green = VBase4(0., .7, 0., 1.)
 
-        self._axis_colors = {"U": red, "V": green}
+        self._axis_colors = {"u": red, "v": green}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
         # Create single-axis handles
 
-        for i, axis in enumerate("UV"):
+        for i, axis in enumerate("uv"):
 
             color_id = self._gizmo.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
@@ -41,7 +41,7 @@ class ScalingComponent(object):
             pos2 = Point2()
             pos2[i] = -.2
             handle, point = self.__create_axis_handle(self._origin, color_vec, pos1, pos2,
-                                                      "%s_axis_handle" % axis.lower())
+                                                      "%s_axis_handle" % axis)
             color = self._axis_colors[axis]
             handle.set_color(color)
             point.set_color(color)
@@ -49,7 +49,7 @@ class ScalingComponent(object):
 
         # Create double-axis handle
 
-        plane = "UV"
+        plane = "uv"
         color_id = self._gizmo.get_next_picking_color_id()
         color_vec = get_color_vec(color_id, pickable_type_id)
         self._handle_names[color_id] = plane
@@ -60,7 +60,7 @@ class ScalingComponent(object):
         pos1[0] = pos3[1] = -.1
         pos2[0] = pos4[1] = -.14
         handle, quad = self.__create_plane_handle(self._origin, color_vec, pos1, pos2, pos3,
-                                                  pos4, "%s_plane_handle" % plane.lower())
+                                                  pos4, "%s_plane_handle" % plane)
         self._handles["planes"][plane] = handle
         self._handles["quads"][plane] = quad
         handle[0].set_color(self._axis_colors[plane[0]])
@@ -70,9 +70,8 @@ class ScalingComponent(object):
 
     def __create_axis_handle(self, parent, color, pos1, pos2, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_line_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         u, v = pos1
@@ -92,8 +91,7 @@ class ScalingComponent(object):
         lines_node.add_geom(lines_geom)
         lines_np = parent.attach_new_node(lines_node)
 
-        vertex_data = GeomVertexData(
-            "axis_point_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("axis_point_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
         pos_writer.add_data3f(u, -.05, v)
@@ -121,12 +119,11 @@ class ScalingComponent(object):
         pos5 = (pos1 + pos3) * .5
         pos6 = (pos2 + pos4) * .5
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
+        vertex_format = GeomVertexFormat.get_v3()
 
         def create_line(pos1, pos2):
 
-            vertex_data = GeomVertexData(
-                "axes_plane_data", vertex_format, Geom.UH_static)
+            vertex_data = GeomVertexData("axes_plane_data", vertex_format, Geom.UH_static)
 
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -151,8 +148,8 @@ class ScalingComponent(object):
 
         # Create quad
 
-        vertex_data = GeomVertexData(
-            "axes_quad_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axes_quad_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -256,6 +253,7 @@ class ScalingComponent(object):
             return
 
         axes = self._handle_names[color_id]
+        Mgr.update_interface("uv_window", "axis_constraints", self._type, axes)
 
         return axes
 
@@ -266,7 +264,7 @@ class ScalingComponent(object):
         yellow = VBase4(1., 1., 0., 1.)
         yellow_alpha = VBase4(1., 1., 0., .25)
 
-        for axis in "UV":
+        for axis in "uv":
             if axis in axes:
                 self._handles["axes"][axis].set_color(yellow)
             else:
@@ -290,8 +288,8 @@ class ScalingComponent(object):
 
     def __set_scale(self, sx, sy, sz):
 
-        self._origin.set_scale(
-            self._scale[0] * sx, self._scale[1] * sy, self._scale[2] * sz)
+        scale = self._scale
+        self._origin.set_scale(scale[0] * sx, scale[1] * sy, scale[2] * sz)
 
     def show(self):
 

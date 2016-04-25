@@ -74,8 +74,7 @@ class UVManager(object):
         if cls._verbose and task_id not in cls._task_handlers:
             print 'Core warning: task "%s" is not defined.' % task_id
 
-        task_handler = cls._task_handlers.get(
-            task_id, cls._defaults["task_handler"])
+        task_handler = cls._task_handlers.get(task_id, cls._defaults["task_handler"])
 
         return task_handler(*args, **kwargs)
 

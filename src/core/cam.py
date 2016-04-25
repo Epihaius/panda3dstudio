@@ -324,9 +324,6 @@ class PickingCamera(BaseObject):
         node.set_camera_mask(self._masks["persp"])
         Mgr.expose("picking_cam", lambda: self)
 
-        plane_node = PlaneNode("picking_cam_plane", Plane(Vec3.forward(), Point3()))
-        self._plane = self.cam().attach_new_node(plane_node)
-
         state_np = NodePath("picking_color_state")
         state_np.set_texture_off(1)
         state_np.set_material_off(1)
@@ -411,8 +408,8 @@ class PickingCamera(BaseObject):
         if self.cam.lens_type == "persp":
             self._np.look_at(far_point)
         else:
-            point = self._plane.node().get_plane().project(far_point)
-            self._np.set_pos(point)
+            far_point.y = 0.
+            self._np.set_pos(far_point)
 
         self._tex.store(self._img)
         self._pixel_color = self._img.get_xel_a(0, 0)

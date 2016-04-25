@@ -15,7 +15,7 @@ class RotationComponent(object):
         self._handle_names = {}
         self._hilited_handles = []
         self._axis_colors = {}
-        self._selected_axes = "UV"
+        self._selected_axes = "uv"
 
         self.__create_handles()
 
@@ -26,15 +26,14 @@ class RotationComponent(object):
 
         yellow = VBase4(1., 1., 0., 1.)
 
-        self._axis_colors = {"UV": yellow}
+        self._axis_colors = {"uv": yellow}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
-        plane = "UV"
+        plane = "uv"
         color_id = self._gizmo.get_next_picking_color_id()
         color_vec = get_color_vec(color_id, pickable_type_id)
         self._handle_names[color_id] = plane
-        handle = self.__create_axis_handle(
-            self._handle_root, color_vec, plane, "w_axis_handle")
+        handle = self.__create_axis_handle(self._handle_root, color_vec, plane, "w_axis_handle")
         handle.set_color(self._axis_colors[plane])
         self._handles["planes"][plane] = handle
 
@@ -43,9 +42,8 @@ class RotationComponent(object):
         segments = 10
         angle = .4 * math.pi / segments
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_circle_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_circle_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
@@ -117,7 +115,7 @@ class RotationComponent(object):
     def select_handle(self, color_id):
 
         if color_id in self._handle_names:
-            return "W"
+            return "w"
 
     def set_active_axes(self, axes):
 

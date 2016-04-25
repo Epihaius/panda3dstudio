@@ -16,8 +16,7 @@ class UVEditGUI(BaseObject):
             Mgr.do("set_viewport_border_color", (100, 255, 100))
 
             if not is_active:
-                ids = ["menubar", "main_toolbar",
-                       "history_toolbar", "panel_stack"]
+                ids = ["menubar", "main_toolbar", "history_toolbar", "panel_stack"]
                 Mgr.do("add_component_disabler", "uv_edit", lambda: True, ids)
                 Mgr.do("disable_components", show=False, ids=ids)
                 self._window = win = UVEditWindow(Mgr.get("main_window"))
@@ -53,7 +52,7 @@ class UVEditWindow(wx.Frame):
         add_state("uv_edit_mode", 0, interface_id="uv_window")
 
         w = 800
-        h = 700
+        h = 650
         self.SetClientSize((w, h))
         self._panel = wx.Panel(self, -1, size=(w, h))
         self.Show()
@@ -81,7 +80,6 @@ class UVEditWindow(wx.Frame):
         Button.remove_interface("uv_window")
         EventDispatcher.remove_interface("uv_window")
         Mgr.update_remotely("uv_viewport", False)
-        Mgr.exit_state("uv_edit_mode")
         self._components.destroy()
 
         if wx_event:

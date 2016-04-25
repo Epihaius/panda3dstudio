@@ -31,7 +31,7 @@ class Grid(BaseObject):
         quad.set_light_off()
         quad.set_color_scale(.5)
         quad.set_pos(.5, 1., .5)
-        quad.hide()
+        quad.hide(UVMgr.get("render_mask"))
         self._background_brightness = .5
         self._background_tiling = 0
 

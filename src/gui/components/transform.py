@@ -128,7 +128,7 @@ class AxisButtons(ButtonGroup):
         bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
         tooltip_label = "Transform about %s" % axis.upper()
         btn = Button(toolbar, bitmaps, "", tooltip_label, lambda: self.__set_axis_constraint(axis))
-        btn.set_hotkey((ord(axis), 0))
+        btn.set_hotkey((ord(axis.upper()), 0))
         self.add_button(btn, axis)
 
         return btn

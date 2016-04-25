@@ -24,12 +24,12 @@ class TranslationComponent(object):
         red = VBase4(.7, 0., 0., 1.)
         green = VBase4(0., .7, 0., 1.)
 
-        self._axis_colors = {"U": red, "V": green}
+        self._axis_colors = {"u": red, "v": green}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
         # Create single-axis handles
 
-        for i, axis in enumerate("UV"):
+        for i, axis in enumerate("uv"):
 
             color_id = self._gizmo.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
@@ -39,7 +39,7 @@ class TranslationComponent(object):
             pos2 = Point2()
             pos2[i] = .16
             handle = self.__create_axis_handle(self._handle_root, color_vec, pos1, pos2,
-                                               "%s_axis_handle" % axis.lower())
+                                               "%s_axis_handle" % axis)
             color = self._axis_colors[axis]
             handle.set_color(color)
             self._handles["axes"][axis] = handle
@@ -53,12 +53,12 @@ class TranslationComponent(object):
             arrow_vec[(i + 1) % 2] = .01
             pos3 = pos1 + arrow_vec
             arrow = self.__create_axis_arrow(self._handle_root, color_vec, pos1, pos2,
-                                             pos3, "%s_axis_arrow" % axis.lower())
+                                             pos3, "%s_axis_arrow" % axis)
             arrow.set_color(color)
 
         # Create double-axis handle
 
-        plane = "UV"
+        plane = "uv"
         color_id = self._gizmo.get_next_picking_color_id()
         color_vec = get_color_vec(color_id, pickable_type_id)
         self._handle_names[color_id] = plane
@@ -67,7 +67,7 @@ class TranslationComponent(object):
         pos3 = Point2()
         pos1[0] = pos2[0] = pos2[1] = pos3[1] = .07
         handle, quad = self.__create_plane_handle(self._handle_root, color_vec, pos1, pos2, pos3,
-                                                  "%s_plane_handle" % plane.lower())
+                                                  "%s_plane_handle" % plane)
         self._handles["planes"][plane] = handle
         self._handles["quads"][plane] = quad
         handle[0].set_color(self._axis_colors[plane[0]])
@@ -75,9 +75,8 @@ class TranslationComponent(object):
 
     def __create_axis_handle(self, parent, color, pos1, pos2, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_line_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         u, v = pos1
@@ -100,9 +99,8 @@ class TranslationComponent(object):
 
     def __create_axis_arrow(self, parent, color, pos1, pos2, pos3, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_arrow_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("axis_arrow_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -125,12 +123,11 @@ class TranslationComponent(object):
 
     def __create_plane_handle(self, parent, color, pos1, pos2, pos3, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
+        vertex_format = GeomVertexFormat.get_v3cp()
 
         def create_line(pos1, pos2):
 
-            vertex_data = GeomVertexData(
-                "axes_plane_data", vertex_format, Geom.UH_static)
+            vertex_data = GeomVertexData("axes_plane_data", vertex_format, Geom.UH_static)
 
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             col_writer = GeomVertexWriter(vertex_data, "color")
@@ -156,8 +153,8 @@ class TranslationComponent(object):
 
         # Create quad
 
-        vertex_data = GeomVertexData(
-            "axes_quad_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3()
+        vertex_data = GeomVertexData("axes_quad_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -260,6 +257,7 @@ class TranslationComponent(object):
             return
 
         axes = self._handle_names[color_id]
+        Mgr.update_interface("uv_window", "axis_constraints", self._type, axes)
 
         return axes
 
@@ -270,7 +268,7 @@ class TranslationComponent(object):
         yellow = VBase4(1., 1., 0., 1.)
         yellow_alpha = VBase4(1., 1., 0., .25)
 
-        for axis in "UV":
+        for axis in "uv":
             if axis in axes:
                 self._handles["axes"][axis].set_color(yellow)
             else:

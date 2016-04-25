@@ -1040,7 +1040,10 @@ class TransformationManager(BaseObject):
 
                 obj_root = Mgr.get("object_root")
                 self._tmp_ref_root = ref_root = obj_root.attach_new_node("tmp_ref_nodes")
+                ref_root.node().set_bounds(OmniBoundingVolume())
+                ref_root.node().set_final(True)
                 objs = set(self._selection)
+                compass_props = CompassEffect.P_rot | CompassEffect.P_scale
 
                 for obj in self._selection:
                     objs.update(obj.get_descendants())
@@ -1051,8 +1054,7 @@ class TransformationManager(BaseObject):
                     ref_node = ref_root.attach_new_node("ref_node")
                     ref_node.set_mat(pivot.get_mat(obj_root))
                     self._tmp_pivot_mats[obj] = Mat4(pivot.get_mat(obj_root))
-                    compass_effect = CompassEffect.make(ref_node,
-                        CompassEffect.P_rot | CompassEffect.P_scale)
+                    compass_effect = CompassEffect.make(ref_node, compass_props)
                     origin.set_effect(compass_effect)
 
         if active_transform_type == "translate":

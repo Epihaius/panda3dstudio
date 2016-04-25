@@ -3,15 +3,21 @@ from ...button import Button, ButtonGroup
 from ...toggle import ToggleButtonGroup
 from ...field import InputField
 from ...combobox import ComboBox
+from ...checkbox import CheckBox
 
 
-class TransformButtons(ButtonGroup):
+class TransformButtons(ToggleButtonGroup):
 
-    def __init__(self, toolbar, focus_receiver=None):
+    def __init__(self, toolbar, focus_receiver):
 
-        ButtonGroup.__init__(self)
+        ToggleButtonGroup.__init__(self)
 
-        self._active_transforms = []
+        def toggle_on_default():
+
+            Mgr.set_global("active_uv_transform_type", "")
+            Mgr.update_interface("uv_window", "active_transform_type", "")
+
+        self.set_default_toggle("", (toggle_on_default, lambda: None))
 
         btn_data = {
             "translate": ("icon_translate", "Select and translate"),
@@ -23,95 +29,21 @@ class TransformButtons(ButtonGroup):
 
         def add_toggle(transf_type):
 
+            def toggle_on():
+
+                Mgr.set_global("active_uv_transform_type", transf_type)
+                Mgr.update_interface("uv_window", "active_transform_type", transf_type)
+
+            toggle = (toggle_on, lambda: None)
             icon_name, btn_tooltip = btn_data[transf_type]
             icon_path = os.path.join(GFX_PATH, icon_name + ".png")
 
-            bitmaps = Button.create_button_bitmaps(
-                icon_path, bitmap_paths, flat=True)
-            command = lambda: self.__toggle_transform_type(transf_type)
-            btn = Button(toolbar, bitmaps, "", btn_tooltip, command,
-                         focus_receiver=focus_receiver)
-            self.add_button(btn, transf_type)
+            bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
+            self.add_button(toolbar, transf_type, toggle, bitmaps, btn_tooltip,
+                            focus_receiver=focus_receiver)
 
         for transf_type in ("translate", "rotate", "scale"):
             add_toggle(transf_type)
-
-        self.get_button("translate").set_hotkey((ord("W"), 0), "uv_window")
-        self.get_button("rotate").set_hotkey((ord("E"), 0), "uv_window")
-        self.get_button("scale").set_hotkey((ord("R"), 0), "uv_window")
-
-        Mgr.add_interface_updater(
-            "uv_window", "uv_transform_type", self.__update_transform_type)
-
-    def __update_transform_type(self, transf_type=None, activate=True):
-
-        if activate:
-
-            if transf_type is None:
-
-                self._active_transforms = transf_ids = [
-                    "translate", "rotate", "scale"]
-
-                for transf_id in transf_ids:
-                    self.get_button(transf_id).set_active(activate)
-
-            elif transf_type not in self._active_transforms:
-
-                self.get_button(transf_type).set_active(activate)
-                self._active_transforms.append(transf_type)
-
-        else:
-
-            if transf_type is None:
-
-                for transf_id in self._active_transforms:
-                    self.get_button(transf_id).set_active(activate)
-
-                self._active_transforms = []
-
-            elif transf_type in self._active_transforms:
-
-                self.get_button(transf_type).set_active(activate)
-                self._active_transforms.remove(transf_type)
-
-    def __toggle_transform_type(self, transf_type):
-
-        if transf_type in self._active_transforms:
-            Mgr.update_interface(
-                "uv_window", "uv_transform_type", transf_type, False)
-        else:
-            Mgr.update_interface(
-                "uv_window", "uv_transform_type", transf_type, True)
-
-
-class ExtraTransformButtons(ButtonGroup):
-
-    def __init__(self, toolbar, focus_receiver=None):
-
-        ButtonGroup.__init__(self)
-
-        sizer = toolbar.GetSizer()
-
-        for label in ("None", "All"):
-
-            bitmap_paths = Button.get_bitmap_paths("toolbar_button")
-            bitmaps = Button.create_button_bitmaps(
-                "*%s" % label, bitmap_paths, flat=True)
-            tooltip_label = "Select " + \
-                ("only" if label == "None" else "and transform")
-            get_command = lambda label: lambda: self.__toggle_transform_type(
-                label)
-            btn = Button(toolbar, bitmaps, label, tooltip_label, get_command(label),
-                         focus_receiver=focus_receiver)
-            self.add_button(btn, label.lower())
-            sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
-
-    def __toggle_transform_type(self, transf_type):
-
-        if transf_type == "None":
-            Mgr.update_interface("uv_window", "uv_transform_type", None, False)
-        else:
-            Mgr.update_interface("uv_window", "uv_transform_type", None, True)
 
 
 class AxisButtons(ButtonGroup):
@@ -127,7 +59,7 @@ class AxisButtons(ButtonGroup):
 
     def update_axis_constraints(self, transf_type, axes):
 
-        for axis in "UVW":
+        for axis in "uvw":
             self.get_button(axis).set_active(False)
 
         if not transf_type:
@@ -140,52 +72,36 @@ class AxisButtons(ButtonGroup):
 
     def __set_axis_constraint(self, axis):
 
-        tt = Mgr.get_global("active_transform_type")
+        tt = Mgr.get_global("active_uv_transform_type")
+
+        if tt == "rotate":
+            self.get_button(axis).set_active()
+            return
 
         old_axes = self._axes[tt]
 
-        if tt == "translate":
-
-            if len(self._axes[tt]) == 1:
-                if axis == self._axes[tt]:
-                    self._axes[tt] = "XYZ".replace(axis, "")
-                else:
-                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
+        if len(self._axes[tt]) == 1:
+            if axis == self._axes[tt]:
+                self._axes[tt] = "uv".replace(axis, "")
             else:
-                if axis in self._axes[tt]:
-                    self._axes[tt] = self._axes[tt].replace(axis, "")
-                else:
-                    self._axes[tt] = axis
-
-        elif tt == "rotate":
-
-            if axis != self._axes[tt]:
+                self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
+        else:
+            if axis in self._axes[tt]:
+                self._axes[tt] = self._axes[tt].replace(axis, "")
+            else:
                 self._axes[tt] = axis
 
-        elif tt == "scale":
-
-            if len(self._axes[tt]) == 1:
-                if axis != self._axes[tt]:
-                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
-            else:
-                if axis in self._axes[tt]:
-                    self._axes[tt] = self._axes[tt].replace(axis, "")
-                else:
-                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
-
-        Mgr.update_app("axis_constraints", tt, self._axes[tt])
+        Mgr.update_interface("uv_window", "axis_constraints", tt, self._axes[tt])
 
     def create_button(self, toolbar, axis, focus_receiver=None):
 
         icon_name = "icon_%s" % axis.lower()
         icon_path = os.path.join(GFX_PATH, icon_name + ".png")
         bitmap_paths = Button.get_bitmap_paths("toolbar_button")
-        bitmaps = Button.create_button_bitmaps(
-            icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Transform about %s" % axis
+        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
+        tooltip_label = "Transform about %s" % axis.upper()
         btn = Button(toolbar, bitmaps, "", tooltip_label, lambda: self.__set_axis_constraint(axis),
                      focus_receiver=focus_receiver)
-        btn.set_hotkey((ord(axis), 0), "uv_window")
         self.add_button(btn, axis)
 
         return btn
@@ -199,10 +115,15 @@ class TransformToolbar(Toolbar):
 
         sizer = self.GetSizer()
 
-        self._extra_transform_btns = ExtraTransformButtons(self, parent)
+        self._checkboxes = {}
         self._transform_btns = TransformButtons(self, parent)
+        get_handles_toggler = lambda transf_type: lambda shown: self.__toggle_transform_handles(transf_type, shown)
 
         for transf_type in ("translate", "rotate", "scale"):
+            checkbox = CheckBox(self, get_handles_toggler(transf_type), focus_receiver=parent)
+            checkbox.check()
+            self._checkboxes[transf_type] = checkbox
+            sizer.Add(checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
             btn = self._transform_btns.get_button(transf_type)
             sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
 
@@ -210,17 +131,9 @@ class TransformToolbar(Toolbar):
         self._axis_btns = AxisButtons()
         self._fields = {}
 
-        get_rel_val_toggler = lambda field: lambda: self.__toggle_relative_values(
-            field)
-        get_popup_handler = lambda field: lambda: self.__on_popup(field)
-        get_value_handler = lambda axis: lambda value_id, value: self.__handle_value(
-            axis, value_id, value)
+        get_value_handler = lambda axis: lambda *args: self.__handle_value(axis, *args)
 
-        font = wx.Font(8, wx.FONTFAMILY_DEFAULT,
-                       wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL)
-        is_relative_value = True
-
-        for axis in "UVW":
+        for axis in "uvw":
 
             axis_btn = self._axis_btns.create_button(self, axis, parent)
             sizer.Add(axis_btn, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -228,28 +141,17 @@ class TransformToolbar(Toolbar):
             field = InputField(self, 80, focus_receiver=parent)
             self._fields[axis] = field
             sizer.Add(field, 0, wx.ALIGN_CENTER_VERTICAL)
-            field.set_popup_handler(get_popup_handler(field))
-            field.add_popup_menu_item("use_rel_values", "Use relative values",
-                                      get_rel_val_toggler(field), checkable=True)
             handler = get_value_handler(axis)
 
             for transf_type in ("translate", "rotate", "scale"):
-                field.add_value(
-                    (transf_type, not is_relative_value), handler=handler)
-                value_id = (transf_type, is_relative_value)
-                field.add_value(value_id, handler=handler, font=font)
-                field.set_value(value_id, 1. if transf_type == "scale" else 0.)
+                field.add_value(transf_type, handler=handler)
+                field.set_value(transf_type, 1. if transf_type == "scale" else 0.)
 
         sizer.Layout()
 
         self._axis_btns.disable()
         self.__enable_fields(False)
         self.__show_field_text(False)
-
-        def disable_transforms(show=True):
-
-            self._transform_btns.deactivate()
-            self.disable(show)
 
         def update_axis_constraints(transf_type, axes):
 
@@ -258,29 +160,37 @@ class TransformToolbar(Toolbar):
 
         def set_transform_type(transf_type):
 
+            axis_btns = self._axis_btns
+
             if transf_type:
 
                 self._transform_btns.set_active_button(transf_type)
-                self._axis_btns.enable()
-                axes = Mgr.get_global("axis_constraints_%s" % transf_type)
-                self._axis_btns.update_axis_constraints(transf_type, axes)
-                is_rel_value = Mgr.get_global(
-                    "using_rel_%s_values" % transf_type)
+                axis_btns.enable()
+
+                if transf_type == "rotate":
+                    axis_btns.disable_button("u")
+                    axis_btns.disable_button("v")
+                    axis_btns.get_button("w").set_active()
+                else:
+                    axis_btns.disable_button("w")
+                    axes = Mgr.get_global("uv_axis_constraints_%s" % transf_type)
+                    axis_btns.update_axis_constraints(transf_type, axes)
 
                 for field in self._fields.itervalues():
-                    field.show_value((transf_type, is_rel_value))
+                    field.show_value(transf_type)
 
                 self.__check_selection_count(transf_type)
-
-                if Mgr.get_global("selection_count") == 1:
-                    self.__show_field_text()
 
             else:
 
                 self._transform_btns.deactivate()
-                self._axis_btns.disable()
+                axis_btns.disable()
                 self.__enable_fields(False)
                 self.__show_field_text(False)
+
+        Mgr.add_interface_updater("uv_window", "active_transform_type", set_transform_type)
+        Mgr.add_interface_updater("uv_window", "axis_constraints", update_axis_constraints)
+        Mgr.add_interface_updater("uv_window", "selection_count", self.__check_selection_count)
 
     def setup(self):
 
@@ -288,52 +198,19 @@ class TransformToolbar(Toolbar):
 
         add_state = Mgr.add_state
         add_state("transforming", -1, lambda prev_state_id, is_active:
-                  Mgr.do("disable_components", show=False),
-                  interface_id="uv_window")
+                  Mgr.do("disable_components", show=False), interface_id="uv_window")
 
-    def __on_popup(self, field):
+    def __toggle_transform_handles(self, transf_type, shown):
 
-        transf_type, is_rel_value = field.get_value_id()
-        field.check_popup_menu_item("use_rel_values", is_rel_value)
+        Mgr.update_interface_remotely("uv_window", "transform_handles",
+                                      transf_type, shown)
 
-    def __toggle_relative_values(self, current_field):
+    def __handle_value(self, axis, transf_type, value):
 
-        transf_type = self._transform_btns.get_active_button_id()
+        Mgr.update_interface_remotely("uv_window", "transf_component", transf_type,
+                                      axis, value)
 
-        use_rel_value = not Mgr.get_global("using_rel_%s_values" % transf_type)
-        Mgr.set_global("using_rel_%s_values" % transf_type, use_rel_value)
-
-        for field in self._fields.itervalues():
-
-            field.show_value((transf_type, use_rel_value))
-
-            if field is not current_field:
-                field.check_popup_menu_item("use_rel_values", use_rel_value)
-
-    def __handle_value(self, axis, value_id, value):
-
-        transf_type, is_rel_value = value_id
-        Mgr.update_remotely("transf_component", transf_type,
-                            axis, value, is_rel_value)
-
-        if is_rel_value:
-            self._fields[axis].set_value(
-                value_id, 1. if transf_type == "scale" else 0.)
-
-    def __set_field_values(self, transform_data=None):
-
-        if not transform_data:
-
-            self.__show_field_text(False)
-
-            return
-
-        for transform_type, values in transform_data.iteritems():
-            for axis, value in zip("XYZ", values):
-                self._fields[axis].set_value((transform_type, False), value)
-
-        if Mgr.get_global("active_transform_type"):
-            self.__show_field_text()
+        self._fields[axis].set_value(transf_type, 1. if transf_type == "scale" else 0.)
 
     def __set_field_text_color(self, color):
 
@@ -342,17 +219,48 @@ class TransformToolbar(Toolbar):
 
     def __show_field_text(self, show=True):
 
-        for field in self._fields.itervalues():
+        transf_type = Mgr.get_global("active_uv_transform_type")
+        fields = self._fields
+
+        for field in fields.itervalues():
             field.show_text(show)
+
+        if show:
+            if transf_type == "rotate":
+                fields["u"].show_text(False)
+                fields["v"].show_text(False)
+            else:
+                fields["w"].show_text(False)
 
     def __enable_fields(self, enable=True):
 
-        if enable and not (Mgr.get_global("active_transform_type")
-                           and Mgr.get_global("selection_count")):
+        transf_type = Mgr.get_global("active_uv_transform_type")
+
+        if enable and not (transf_type and Mgr.get_global("uv_selection_count")):
             return
 
-        for field in self._fields.itervalues():
+        fields = self._fields
+
+        for field in fields.itervalues():
             field.enable(enable)
+
+        if enable:
+            if transf_type == "rotate":
+                fields["u"].enable(False)
+                fields["v"].enable(False)
+            else:
+                fields["w"].enable(False)
+
+    def __check_selection_count(self, transf_type=None):
+
+        tr_type = Mgr.get_global("active_uv_transform_type") if transf_type is None else transf_type
+
+        if not tr_type:
+            return
+
+        sel_count = Mgr.get_global("uv_selection_count")
+        self.__enable_fields(sel_count > 0)
+        self.__show_field_text(sel_count > 0)
 
     def enable(self):
 
@@ -371,7 +279,3 @@ class TransformToolbar(Toolbar):
         self._transform_btns.disable(show)
         self._axis_btns.disable(show)
         self.__enable_fields(False)
-
-    def deactivate(self):
-
-        self._transform_btns.deactivate()

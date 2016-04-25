@@ -18,20 +18,19 @@ class UVTransformGizmo(BaseObject):
 
         self._picking_col_id_generator = get_next_id()
         self._pickable_type_id = None
-        self._root = root = self.uv_space.attach_new_node(
-            "transform_gizmo_root")
+        self._root = root = self.uv_space.attach_new_node("transform_gizmo_root")
         root.set_y(-5.)
         root.hide()
         root.set_light_off()
         root.set_texture_off()
         root.set_material_off()
         root.set_shader_off()
+        root.set_bin("fixed", 100)
 
         self._transf_start_mouse = ()
 
         self._components = {}
         self._active_component_ids = []
-        self._active_axes = ""
 
         UVMgr.accept("set_transf_gizmo_pos", self.set_pos)
         UVMgr.accept("show_transf_gizmo", self.show)
@@ -58,15 +57,17 @@ class UVTransformGizmo(BaseObject):
         default_comp = DefaultAxes(self)
         components[""] = default_comp
         self._active_component_ids = ["translate", "rotate", "scale"]
-        components["translate"].set_active_axes("UV")
-        components["scale"].set_active_axes("UV")
+        components["translate"].set_active_axes("uv")
+        components["scale"].set_active_axes("uv")
 
         return True
 
     def add_interface_updaters(self):
 
-        Mgr.add_interface_updater(
-            "uv_window", "uv_transform_type", self.__update_transform_type)
+        Mgr.add_interface_updater("uv_window", "transform_handles",
+                                  self.__update_transform_handles)
+        Mgr.add_interface_updater("uv_window", "axis_constraints",
+                                  self.__update_axis_constraints)
 
     def __update_hilites(self, task):
 
@@ -105,52 +106,21 @@ class UVTransformGizmo(BaseObject):
             axes = self._components[comp_id].select_handle(color_id)
 
             if axes:
-                self._active_axes = axes
                 self._components[comp_id].set_active_axes(axes)
                 return self._components[comp_id]
 
-    def get_active_axes(self):
+    def __update_transform_handles(self, transf_type, active):
 
-        return self._active_axes
-
-    def __update_transform_type(self, transf_type=None, activate=True):
-
-        if activate:
-
-            if transf_type is None:
-
-                self._active_component_ids = comp_ids = [
-                    "translate", "rotate", "scale"]
-
-                for comp_id in comp_ids:
-                    self._components[comp_id].show()
-
-            elif transf_type not in self._active_component_ids:
-
-                self._components[transf_type].show()
-                self._active_component_ids.append(transf_type)
-
+        if active:
+            self._components[transf_type].show()
+            self._active_component_ids.append(transf_type)
         else:
+            self._components[transf_type].hide()
+            self._active_component_ids.remove(transf_type)
 
-            if transf_type is None:
+    def __update_axis_constraints(self, transf_type, axes):
 
-                for comp_id in self._active_component_ids:
-                    self._components[comp_id].hide()
-
-                self._active_component_ids = []
-
-            elif transf_type in self._active_component_ids:
-
-                self._components[transf_type].hide()
-                self._active_component_ids.remove(transf_type)
-
-    def update_transform_type(self):
-
-        for comp_id in self._active_component_ids:
-            Mgr.update_interface("uv_window", "uv_transform_type", comp_id)
-
-    def __set_axis_constraints(self, transf_type, axes):
-
+        Mgr.set_global("uv_axis_constraints_%s" % transf_type, axes)
         self._components[transf_type].set_active_axes(axes)
 
     def enable(self):
@@ -195,20 +165,18 @@ class DefaultAxes(object):
         self._origin.hide(UVMgr.get("picking_mask"))
         self._origin.set_y(1.)
 
-        for i, axis in enumerate("UV"):
+        for i, axis in enumerate("uv"):
             pos = Point2()
             pos[i] = .1
-            handle = self.__create_axis_handle(
-                pos, axis.lower() + "_axis_handle")
+            handle = self.__create_axis_handle(pos, axis + "_axis_handle")
             color = VBase4(0., 0., 0., 1.)
             color[i] = .3
             handle.set_color(color)
 
     def __create_axis_handle(self, pos, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
-        vertex_data = GeomVertexData(
-            "axis_line_data", vertex_format, Geom.UH_static)
+        vertex_format = GeomVertexFormat.get_v3()
+        vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         pos_writer.add_data3f(0., 0., 0.)
         u, v = pos
