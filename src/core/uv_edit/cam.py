@@ -6,7 +6,7 @@ class PickingCamera(BaseObject):
     def __init__(self):
 
         self._tex = None
-        self._img = None
+        self._tex_peeker = None
         self._buffer = None
         self._np = None
         self._mask = BitMask32.bit(25)
@@ -14,7 +14,7 @@ class PickingCamera(BaseObject):
         self._pixel_color = VBase4()
 
         UVMgr.expose("picking_mask", lambda: self._mask)
-        UVMgr.expose("pixel_under_mouse", lambda: self._pixel_color)
+        UVMgr.expose("pixel_under_mouse", lambda: VBase4(self._pixel_color))
         UVMgr.expose("picking_cam", lambda: self)
         UVMgr.expose("picked_point", self.__get_picked_point)
 
@@ -22,11 +22,9 @@ class PickingCamera(BaseObject):
 
         core = Mgr.get("core")
         self._tex = Texture("uv_picking_texture")
-        self._img = PNMImage(1, 1)
         props = FrameBufferProperties()
-        props.set_float_color(True)
-        props.set_alpha_bits(32)
-        props.set_depth_bits(32)
+        props.set_rgba_bits(16, 16, 16, 16)
+        props.set_depth_bits(16)
         self._buffer = core.win.make_texture_buffer("uv_picking_buffer",
                                                     1, 1,
                                                     self._tex,
@@ -82,8 +80,11 @@ class PickingCamera(BaseObject):
         far_point.y = 0.
         self._np.set_pos(far_point)
 
-        self._tex.store(self._img)
-        self._pixel_color = self._img.get_xel_a(0, 0)
+        if not self._tex_peeker:
+            self._tex_peeker = self._tex.peek()
+            return task.cont
+
+        self._tex_peeker.lookup(self._pixel_color, .5, .5)
 
         return task.cont
 
@@ -278,8 +279,7 @@ class UVTemplateSaver(BaseObject):
         core = Mgr.get("core")
         tex = Texture("uv_template")
         props = FrameBufferProperties()
-        props.set_float_color(True)
-        props.set_alpha_bits(32)
+        props.set_rgba_bits(32, 32, 32, 32)
         props.set_depth_bits(32)
         tex_buffer = core.win.make_texture_buffer("uv_template_buffer",
                                                   res, res,

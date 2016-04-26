@@ -302,7 +302,7 @@ class Grid(BaseObject):
             c_offset = min(1000000., abs(c))
             d = c_offset / self._ref_dist
         else:
-            d = self.cam.target.get_scale()[0]
+            d = self.cam.target.get_sx()
 
         if d > .0005:
             ceil1 = 10. ** math.ceil(math.log(d, 10.))

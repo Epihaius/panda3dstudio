@@ -19,13 +19,11 @@ class UVTransformGizmo(BaseObject):
         self._picking_col_id_generator = get_next_id()
         self._pickable_type_id = None
         self._root = root = self.uv_space.attach_new_node("transform_gizmo_root")
-        root.set_y(-5.)
         root.hide()
         root.set_light_off()
         root.set_texture_off()
         root.set_material_off()
         root.set_shader_off()
-        root.set_bin("fixed", 100)
 
         self._transf_start_mouse = ()
 
@@ -149,11 +147,10 @@ class UVTransformGizmo(BaseObject):
     def set_pos(self, pos):
 
         self._root.set_pos(pos)
-        self._root.set_y(-5.)
 
     def set_scale(self, scale):
 
-        self._root.set_scale(scale, 1., scale)
+        self._root.set_scale(scale)
 
 
 class DefaultAxes(object):

@@ -167,7 +167,7 @@ class NavigationManager(BaseObject):
             new_y = min(-self._near, y + (-y * .5) ** .75)
             self.cam.origin.set_y(new_y)
         else:
-            scale = self.cam.target.get_scale()[0]
+            scale = self.cam.target.get_sx()
             new_scale = max(.0004, scale * .95)
             self.cam.target.set_scale(new_scale)
 
@@ -182,7 +182,7 @@ class NavigationManager(BaseObject):
             new_y = max(-1000000., y - (-y * .5) ** .75)
             self.cam.origin.set_y(new_y)
         else:
-            scale = self.cam.target.get_scale()[0]
+            scale = self.cam.target.get_sx()
             new_scale = min(100000., scale * 1.05)
             self.cam.target.set_scale(new_scale)
 
@@ -269,7 +269,7 @@ class NavigationManager(BaseObject):
         if self.cam.lens_type == "persp":
             self._zoom_start = (self.cam.origin.get_y(), self.mouse_watcher.get_mouse_y())
         else:
-            scale = self.cam.target.get_scale()[0]
+            scale = self.cam.target.get_sx()
             self._zoom_start = (scale, self.mouse_watcher.get_mouse_y())
 
         Mgr.add_task(self.__zoom, "transform_cam", sort=2)

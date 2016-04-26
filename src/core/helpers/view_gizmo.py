@@ -837,7 +837,7 @@ class PickingCamera(BaseObject):
 
     def __get_pixel_color(self):
 
-        return self._pixel_color
+        return VBase4(self._pixel_color)
 
     pixel_color = property(__get_pixel_color)
 
@@ -848,7 +848,7 @@ class PickingCamera(BaseObject):
         self._parent_cam = parent_cam
         self._gizmo_mouse_watcher = mouse_watcher
         self._tex = None
-        self._img = None
+        self._tex_peeker = None
         self._buffer = None
         self._np = None
         self._pixel_color = VBase4()
@@ -857,11 +857,9 @@ class PickingCamera(BaseObject):
 
         core = Mgr.get("core")
         self._tex = Texture("picking_texture")
-        self._img = PNMImage(1, 1)
         props = FrameBufferProperties()
-        props.set_float_color(True)
-        props.set_alpha_bits(32)
-        props.set_depth_bits(32)
+        props.set_rgba_bits(16, 16, 16, 16)
+        props.set_depth_bits(16)
         self._buffer = bfr = core.win.make_texture_buffer("picking_buffer",
                                                           1, 1,
                                                           self._tex,
@@ -914,8 +912,12 @@ class PickingCamera(BaseObject):
         far_point = Point3()
         self._parent_cam.node().get_lens().extrude(screen_pos, Point3(), far_point)
         self._np.look_at(far_point)
-        self._tex.store(self._img)
-        self._pixel_color = self._img.get_xel_a(0, 0)
+
+        if not self._tex_peeker:
+            self._tex_peeker = self._tex.peek()
+            return task.cont
+
+        self._tex_peeker.lookup(self._pixel_color, .5, .5)
 
         return task.cont
 

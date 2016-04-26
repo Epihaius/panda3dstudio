@@ -199,8 +199,6 @@ class UVTransformationBase(BaseObject):
         self._rot_start_vec = V3D()
 
         UVMgr.accept("init_transform", self.__init_transform)
-        Mgr.add_interface_updater("uv_window", "transf_component",
-                                  self.__set_transform_component)
 
     def setup(self):
 
@@ -217,6 +215,9 @@ class UVTransformationBase(BaseObject):
              lambda: end_transform(cancel=True), "uv_window")
         bind("transforming", "finalize transform", "mouse1-up",
              end_transform, "uv_window")
+
+        Mgr.add_interface_updater("uv_window", "transf_component",
+                                  self.__set_transform_component)
 
     def __set_transform_component(self, transf_type, axis, value):
 
@@ -331,6 +332,7 @@ class UVTransformationBase(BaseObject):
     def __scale_selection(self, task):
 
         vec = V3D(UVMgr.get("picked_point") - self._transf_start_pos)
+        vec *= 1. / self.cam.get_sx()
         dot_prod = vec * self._transf_axis
 
         if dot_prod < 0.:

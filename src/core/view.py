@@ -1378,7 +1378,7 @@ class ViewManager(BaseObject):
                 zoom = None
             else:
                 zoom = (x / size_h) if x / z > size_h / size_v else (z / size_v)
-                zoom *= cam.target.get_scale()[0]
+                zoom *= cam.target.get_sx()
                 zoom = min(100000., max(.0004, zoom))
 
             if transition:

@@ -7,7 +7,9 @@ class ScalingComponent(object):
 
         self._gizmo = gizmo
         self._type = "scale"
-        self._origin = gizmo.get_root().attach_new_node("uv_scaling_gizmo")
+        self._origin = orig = gizmo.get_root().attach_new_node("uv_scaling_gizmo")
+        orig.node().set_bounds(BoundingSphere(Point3(), .25))
+        orig.node().set_final(True)
         self._render_mask = UVMgr.get("render_mask")
         self._picking_mask = UVMgr.get("picking_mask")
         self._handle_root = self._origin.attach_new_node("handle_root")
@@ -96,15 +98,9 @@ class ScalingComponent(object):
         col_writer = GeomVertexWriter(vertex_data, "color")
         pos_writer.add_data3f(u, -.05, v)
         col_writer.add_data4f(color)
-        # apparently it is necessary to create at least two vertices, far enough
-        # apart, otherwise the UV picking camera will only detect the point handle
-        # as a single pixel instead of taking the configured render mode thickness
-        # into account; this is probably a bounding volume issue
-        pos_writer.add_data3f(u, 10., v)
-        col_writer.add_data4f(color)
 
         points = GeomPoints(Geom.UH_static)
-        points.add_next_vertices(2)
+        points.add_vertex(0)
         points_geom = Geom(vertex_data)
         points_geom.add_primitive(points)
         points_node = GeomNode("axis_point")

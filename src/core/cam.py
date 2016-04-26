@@ -30,7 +30,7 @@ class MainCamera(BaseObject):
 
     def __get_zoom(self):
 
-        return self.origin.get_y() if self.lens_type == "persp" else self.target.get_scale()[0]
+        return self.origin.get_y() if self.lens_type == "persp" else self.target.get_sx()
 
     def __set_zoom(self, zoom):
 
@@ -185,7 +185,7 @@ class MainCamera(BaseObject):
             if lens_type == "persp":
                 zooms[view] = origs[view].get_y()
             else:
-                zooms[view] = targets[view].get_scale()[0]
+                zooms[view] = targets[view].get_sx()
 
         return zooms
 
@@ -266,7 +266,7 @@ class MainCamera(BaseObject):
         if self.lens_type == "persp":
             scale = (1. / -self.origin.get_y()) ** .2
         else:
-            target_scale = self.target.get_scale()[0]
+            target_scale = self.target.get_sx()
             scale = (.0004 / max(.0004, min(100000., target_scale))) ** .13
 
         self._zoom_indicator_dot.set_scale(scale)
@@ -277,7 +277,7 @@ class PickingCamera(BaseObject):
     def __init__(self):
 
         self._tex = None
-        self._img = None
+        self._tex_peeker = None
         self._buffer = None
         self._np = None
         self._lenses = {}
@@ -288,17 +288,15 @@ class PickingCamera(BaseObject):
         self._pixel_color = VBase4()
 
         Mgr.expose("picking_masks", lambda: self._masks)
-        Mgr.expose("pixel_under_mouse", lambda: self._pixel_color)
+        Mgr.expose("pixel_under_mouse", lambda: VBase4(self._pixel_color))
 
     def setup(self):
 
         core = Mgr.get("core")
         self._tex = Texture("picking_texture")
-        self._img = PNMImage(1, 1)
         props = FrameBufferProperties()
-        props.set_float_color(True)
-        props.set_alpha_bits(32)
-        props.set_depth_bits(32)
+        props.set_rgba_bits(16, 16, 16, 16)
+        props.set_depth_bits(16)
         self._buffer = bfr = core.win.make_texture_buffer("picking_buffer",
                                                           1, 1,
                                                           self._tex,
@@ -411,8 +409,11 @@ class PickingCamera(BaseObject):
             far_point.y = 0.
             self._np.set_pos(far_point)
 
-        self._tex.store(self._img)
-        self._pixel_color = self._img.get_xel_a(0, 0)
+        if not self._tex_peeker:
+            self._tex_peeker = self._tex.peek()
+            return task.cont
+
+        self._tex_peeker.lookup(self._pixel_color, .5, .5)
 
         return task.cont
 

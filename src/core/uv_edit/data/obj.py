@@ -44,8 +44,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             merged_edges = {}
             data_row_count = 0
             vertex_data = {}
-            origin = self.geom_root.attach_new_node(
-                "%s_uv_origin" % (model.get_id(),))
+            origin = self.geom_root.attach_new_node("%s_uv_origin" % (model.get_id(),))
             origin.set_color(model.get_origin().get_color())
             origin.node().set_final(True)
             geom_roots = {}
@@ -87,24 +86,19 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         for subobj_type in ("vert", "edge", "poly"):
 
-            subobjs[subobj_type] = dict((k, v.copy()) for k, v in self._subobjs[
-                                        subobj_type].iteritems())
-            vertex_data[subobj_type] = GeomVertexData(
-                self._vertex_data[subobj_type])
-            geom_roots[subobj_type] = origin_copy.find(
-                "%s_geom_root" % subobj_type)
+            subobjs[subobj_type] = dict((k, v.copy()) for k, v in self._subobjs[subobj_type].iteritems())
+            vertex_data[subobj_type] = GeomVertexData(self._vertex_data[subobj_type])
+            geom_roots[subobj_type] = origin_copy.find("%s_geom_root" % subobj_type)
 
             geoms[subobj_type] = {}
 
             for state in ("selected", "unselected"):
                 path = "**/%s_%s_geom" % (subobj_type, state)
                 geom = origin_copy.find(path)
-                geom.node().modify_geom(0).set_vertex_data(
-                    vertex_data[subobj_type])
+                geom.node().modify_geom(0).set_vertex_data(vertex_data[subobj_type])
                 geoms[subobj_type][state] = geom
 
-        geoms["wire"].node().modify_geom(
-            0).set_vertex_data(vertex_data["edge"])
+        geoms["wire"].node().modify_geom(0).set_vertex_data(vertex_data["edge"])
 
         geom_node = geoms["poly"]["selected"].node()
         prim = geom_node.get_geom(0).get_primitive(0)
@@ -125,10 +119,8 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         data_copy = {}
         data_copy["geom_data_obj"] = self._geom_data_obj
         data_copy["subobjs"] = subobjs
-        data_copy["merged_verts"] = dict(
-            (k, v.copy()) for k, v in self._merged_verts.iteritems())
-        data_copy["merged_edges"] = dict(
-            (k, v.copy()) for k, v in self._merged_edges.iteritems())
+        data_copy["merged_verts"] = dict((k, v.copy()) for k, v in self._merged_verts.iteritems())
+        data_copy["merged_edges"] = dict((k, v.copy()) for k, v in self._merged_edges.iteritems())
         data_copy["data_row_count"] = self._data_row_count
         data_copy["vertex_data"] = vertex_data
         data_copy["origin"] = origin_copy
@@ -241,7 +233,9 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         uv_template_mask = UVMgr.get("template_mask")
 
-        vert_geom_root.set_y(-.2)
+        vert_geom_root.set_bin("background", 13)
+        vert_geom_root.set_depth_write(False)
+        vert_geom_root.set_depth_test(False)
         vert_geom_root.set_render_mode_thickness(7)
         vert_geom_root.set_light_off()
         vert_geom_root.set_texture_off()
@@ -249,13 +243,18 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         vert_geom_root.set_shader_off()
         vert_geom_root.hide(uv_template_mask)
 
-        edge_geom_root.set_y(-.1)
+        edge_geom_root.set_bin("background", 12)
+        edge_geom_root.set_depth_write(False)
+        edge_geom_root.set_depth_test(False)
         edge_geom_root.set_light_off()
         edge_geom_root.set_texture_off()
         edge_geom_root.set_material_off()
         edge_geom_root.set_shader_off()
         edge_geom_root.hide(uv_template_mask)
 
+        poly_geom_root.set_bin("background", 10)
+        poly_geom_root.set_depth_write(False)
+        poly_geom_root.set_depth_test(False)
         poly_geom_root.set_two_sided(True)
 
         geom_roots = self._geom_roots
@@ -275,20 +274,17 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         sel_state_poly = sel_state["poly"]["unselected"]
 
         vertex_format_vert = Mgr.get("vertex_format_vert")
-        vertex_data_vert = GeomVertexData(
-            "vert_data", vertex_format_vert, Geom.UH_dynamic)
+        vertex_data_vert = GeomVertexData("vert_data", vertex_format_vert, Geom.UH_dynamic)
         vertex_data_vert.reserve_num_rows(count)
         vertex_data_vert.set_num_rows(count)
         self._vertex_data["vert"] = vertex_data_vert
         vertex_format_edge = Mgr.get("vertex_format_edge")
-        vertex_data_edge = GeomVertexData(
-            "edge_data", vertex_format_edge, Geom.UH_dynamic)
+        vertex_data_edge = GeomVertexData("edge_data", vertex_format_edge, Geom.UH_dynamic)
         vertex_data_edge.reserve_num_rows(count * 2)
         vertex_data_edge.set_num_rows(count * 2)
         self._vertex_data["edge"] = vertex_data_edge
         vertex_format_poly = Mgr.get("vertex_format_poly")
-        vertex_data_poly = GeomVertexData(
-            "poly_data", vertex_format_poly, Geom.UH_dynamic)
+        vertex_data_poly = GeomVertexData("poly_data", vertex_format_poly, Geom.UH_dynamic)
         vertex_data_poly.reserve_num_rows(count)
         vertex_data_poly.set_num_rows(count)
         self._vertex_data["poly"] = vertex_data_poly
@@ -315,8 +311,8 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
             poly_corners = []
             processed_verts = []
-            picking_color_poly = get_color_vec(
-                poly.get_picking_color_id(), pickable_id_poly)
+            picking_color_poly = get_color_vec(poly.get_picking_color_id(),
+                                               pickable_id_poly)
 
             for vert_ids in poly:
 
@@ -330,8 +326,8 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                         poly_corners.append(pos)
                         pos_writer.add_data3f(pos)
                         col_writer_poly.add_data4f(picking_color_poly)
-                        picking_color_vert = get_color_vec(
-                            vert.get_picking_color_id(), pickable_id_vert)
+                        picking_color_vert = get_color_vec(vert.get_picking_color_id(),
+                                                           pickable_id_vert)
                         col_writer_vert.add_data4f(picking_color_vert)
                         processed_verts.append(vert)
 
@@ -352,8 +348,8 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                 end_row_indices.append(row2)
                 lines_prim.add_vertices(row1, row2 + count)
                 sel_state_edge.append(row1)
-                picking_color_edge = get_color_vec(
-                    edge.get_picking_color_id(), pickable_id_edge)
+                picking_color_edge = get_color_vec(edge.get_picking_color_id(),
+                                                   pickable_id_edge)
                 col_writer_edge.set_row(row1)
                 col_writer_edge.set_data4f(picking_color_edge)
                 col_writer_edge.set_row(row2 + count)
@@ -400,7 +396,9 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         geom_node = GeomNode("wire_geom")
         geom_node.add_geom(lines_geom)
         wire_geom = orig.attach_new_node(geom_node)
-        wire_geom.set_y(-.05)
+        wire_geom.set_bin("background", 11)
+        wire_geom.set_depth_write(False)
+        wire_geom.set_depth_test(False)
         wire_geom.set_light_off()
         wire_geom.set_texture_off()
         wire_geom.set_material_off()
@@ -440,8 +438,6 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         # although the primitive should be empty, it needs *all* vertices initially,
         # otherwise selected polys will not be rendered later on;
         # the vertices will be removed in the next frame
-##    tris_prim = GeomTriangles(Geom.UH_static)
-# tris_prim.reserve_num_vertices(3)
         tris_prim = GeomTriangles(tris_prim)
         tris_geom = Geom(vertex_data_poly)
         tris_geom.add_primitive(tris_prim)
@@ -510,18 +506,16 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         render_mask = UVMgr.get("render_mask")
         picking_mask = UVMgr.get("picking_mask")
-        masks = (render_mask, picking_mask)
+        masks = render_mask | picking_mask
 
         geom_roots = self._geom_roots
         subobj_lvls = ["vert", "edge", "poly"]
         subobj_lvls.remove(subobj_lvl)
 
-        for mask in masks:
+        geom_roots[subobj_lvl].show(masks)
 
-            geom_roots[subobj_lvl].show(mask)
-
-            for lvl in subobj_lvls:
-                geom_roots[lvl].hide(mask)
+        for lvl in subobj_lvls:
+            geom_roots[lvl].hide(masks)
 
     def show(self):
 
