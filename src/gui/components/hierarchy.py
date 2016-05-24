@@ -175,7 +175,7 @@ class HierarchyPanel(Panel):
 
     def __toggle_link_visibility(self):
 
-        show_links = Mgr.get_global("object_links_shown")
+        show_links = GlobalData["object_links_shown"]
         Mgr.update_app("object_link_viz", not show_links)
 
     def __update_link_visibility(self, show):
@@ -184,12 +184,12 @@ class HierarchyPanel(Panel):
 
     def __set_xform_target_type(self, target_type="all"):
 
-        Mgr.set_global("transform_target_type", target_type)
+        GlobalData["transform_target_type"] = target_type
         Mgr.update_app("transform_target_type")
 
     def __update_xform_target_type(self):
 
-        target_type = Mgr.get_global("transform_target_type")
+        target_type = GlobalData["transform_target_type"]
 
         if target_type == "all":
             self._toggle_btns.deactivate()

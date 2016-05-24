@@ -14,7 +14,7 @@ class TransformButtons(ToggleButtonGroup):
 
         def toggle_on_default():
 
-            Mgr.set_global("active_uv_transform_type", "")
+            GlobalData["active_uv_transform_type"] = ""
             Mgr.update_interface("uv_window", "active_transform_type", "")
 
         self.set_default_toggle("", (toggle_on_default, lambda: None))
@@ -31,7 +31,7 @@ class TransformButtons(ToggleButtonGroup):
 
             def toggle_on():
 
-                Mgr.set_global("active_uv_transform_type", transf_type)
+                GlobalData["active_uv_transform_type"] = transf_type
                 Mgr.update_interface("uv_window", "active_transform_type", transf_type)
 
             toggle = (toggle_on, lambda: None)
@@ -54,9 +54,6 @@ class AxisButtons(ButtonGroup):
 
         self._axes = {"": ""}
 
-    def setup(self):
-        pass
-
     def update_axis_constraints(self, transf_type, axes):
 
         for axis in "uvw":
@@ -72,7 +69,7 @@ class AxisButtons(ButtonGroup):
 
     def __set_axis_constraint(self, axis):
 
-        tt = Mgr.get_global("active_uv_transform_type")
+        tt = GlobalData["active_uv_transform_type"]
 
         if tt == "rotate":
             self.get_button(axis).set_active()
@@ -113,6 +110,8 @@ class TransformToolbar(Toolbar):
 
         Toolbar.__init__(self, parent, pos, width, focus_receiver=parent)
 
+        self._uv_lvl = "poly"
+
         sizer = self.GetSizer()
 
         self._checkboxes = {}
@@ -131,7 +130,12 @@ class TransformToolbar(Toolbar):
         self._axis_btns = AxisButtons()
         self._fields = {}
 
+        get_rel_val_toggler = lambda field: lambda: self.__toggle_relative_values(field)
+        get_popup_handler = lambda field: lambda: self.__on_popup(field)
         get_value_handler = lambda axis: lambda *args: self.__handle_value(axis, *args)
+
+        font = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL)
+        is_relative_value = True
 
         for axis in "uvw":
 
@@ -141,11 +145,16 @@ class TransformToolbar(Toolbar):
             field = InputField(self, 80, focus_receiver=parent)
             self._fields[axis] = field
             sizer.Add(field, 0, wx.ALIGN_CENTER_VERTICAL)
+            field.set_popup_handler(get_popup_handler(field))
+            field.add_popup_menu_item("use_rel_values", "Use relative values",
+                                      get_rel_val_toggler(field), checkable=True)
             handler = get_value_handler(axis)
 
             for transf_type in ("translate", "rotate", "scale"):
-                field.add_value(transf_type, handler=handler)
-                field.set_value(transf_type, 1. if transf_type == "scale" else 0.)
+                field.add_value((transf_type, not is_relative_value), handler=handler)
+                value_id = (transf_type, is_relative_value)
+                field.add_value(value_id, handler=handler, font=font)
+                field.set_value(value_id, 1. if transf_type == "scale" else 0.)
 
         sizer.Layout()
 
@@ -173,11 +182,15 @@ class TransformToolbar(Toolbar):
                     axis_btns.get_button("w").set_active()
                 else:
                     axis_btns.disable_button("w")
-                    axes = Mgr.get_global("uv_axis_constraints_%s" % transf_type)
+                    axes = GlobalData["uv_axis_constraints_%s" % transf_type]
                     axis_btns.update_axis_constraints(transf_type, axes)
 
+                rel_values = GlobalData["rel_uv_transform_values"]
+                is_rel_value = rel_values[self._uv_lvl][transf_type]
+                value_id = (transf_type, is_rel_value)
+
                 for field in self._fields.itervalues():
-                    field.show_value(transf_type)
+                    field.show_value(value_id)
 
                 self.__check_selection_count(transf_type)
 
@@ -190,11 +203,11 @@ class TransformToolbar(Toolbar):
 
         Mgr.add_interface_updater("uv_window", "active_transform_type", set_transform_type)
         Mgr.add_interface_updater("uv_window", "axis_constraints", update_axis_constraints)
+        Mgr.add_interface_updater("uv_window", "transform_values", self.__set_field_values)
         Mgr.add_interface_updater("uv_window", "selection_count", self.__check_selection_count)
+        Mgr.add_interface_updater("uv_window", "uv_level", self.__set_uv_level)
 
     def setup(self):
-
-        self._axis_btns.setup()
 
         add_state = Mgr.add_state
         add_state("transforming", -1, lambda prev_state_id, is_active:
@@ -205,12 +218,67 @@ class TransformToolbar(Toolbar):
         Mgr.update_interface_remotely("uv_window", "transform_handles",
                                       transf_type, shown)
 
-    def __handle_value(self, axis, transf_type, value):
+    def __on_popup(self, field):
 
+        transf_type, is_rel_value = field.get_value_id()
+        field.check_popup_menu_item("use_rel_values", is_rel_value)
+
+    def __toggle_relative_values(self, current_field):
+
+        transf_type = self._transform_btns.get_active_button_id()
+        uv_lvl = self._uv_lvl
+
+        if uv_lvl in ("vert", "edge", "poly"):
+            if not (uv_lvl == "vert" and transf_type == "translate"):
+                return
+
+        rel_values = GlobalData["rel_uv_transform_values"][uv_lvl]
+        use_rel_values = not rel_values[transf_type]
+        rel_values[transf_type] = use_rel_values
+
+        for field in self._fields.itervalues():
+
+            value_id = (transf_type, use_rel_values)
+            field.show_value(value_id)
+
+            if use_rel_values:
+                value = 1. if transf_type == "scale" else 0.
+                field.set_value(value_id, value)
+
+            if field is not current_field:
+                field.check_popup_menu_item("use_rel_values", use_rel_values)
+
+        self.__check_selection_count(transf_type)
+
+    def __handle_value(self, axis, value_id, value):
+
+        transf_type, is_rel_value = value_id
         Mgr.update_interface_remotely("uv_window", "transf_component", transf_type,
-                                      axis, value)
+                                      axis, value, is_rel_value)
 
-        self._fields[axis].set_value(transf_type, 1. if transf_type == "scale" else 0.)
+        if is_rel_value:
+            self._fields[axis].set_value(value_id, 1. if transf_type == "scale" else 0.)
+
+    def __set_field_values(self, transform_data=None):
+
+        transf_type = GlobalData["active_uv_transform_type"]
+
+        if not transform_data:
+
+            if not (transf_type and GlobalData["rel_uv_transform_values"][self._uv_lvl][transf_type]):
+                self.__show_field_text(False)
+
+            return
+
+        for transform_type, values in transform_data.iteritems():
+
+            value_id = (transform_type, False)
+
+            for axis, value in zip("uv", values):
+                self._fields[axis].set_value(value_id, value)
+
+        if transf_type:
+            self.__show_field_text()
 
     def __set_field_text_color(self, color):
 
@@ -219,7 +287,7 @@ class TransformToolbar(Toolbar):
 
     def __show_field_text(self, show=True):
 
-        transf_type = Mgr.get_global("active_uv_transform_type")
+        transf_type = GlobalData["active_uv_transform_type"]
         fields = self._fields
 
         for field in fields.itervalues():
@@ -234,9 +302,9 @@ class TransformToolbar(Toolbar):
 
     def __enable_fields(self, enable=True):
 
-        transf_type = Mgr.get_global("active_uv_transform_type")
+        transf_type = GlobalData["active_uv_transform_type"]
 
-        if enable and not (transf_type and Mgr.get_global("uv_selection_count")):
+        if enable and not (transf_type and GlobalData["uv_selection_count"]):
             return
 
         fields = self._fields
@@ -253,14 +321,46 @@ class TransformToolbar(Toolbar):
 
     def __check_selection_count(self, transf_type=None):
 
-        tr_type = Mgr.get_global("active_uv_transform_type") if transf_type is None else transf_type
+        tr_type = GlobalData["active_uv_transform_type"] if transf_type is None else transf_type
 
         if not tr_type:
             return
 
-        sel_count = Mgr.get_global("uv_selection_count")
+        sel_count = GlobalData["uv_selection_count"]
         self.__enable_fields(sel_count > 0)
-        self.__show_field_text(sel_count > 0)
+
+        if sel_count > 1:
+
+            color = wx.Colour(127, 127, 127)
+
+            for field in self._fields.itervalues():
+                field.set_text_color(color)
+
+        else:
+
+            for field in self._fields.itervalues():
+                field.set_text_color()
+
+        use_rel_values = GlobalData["rel_uv_transform_values"][self._uv_lvl][tr_type]
+        show = (use_rel_values and sel_count) or sel_count == 1
+        self.__show_field_text(show)
+
+    def __set_uv_level(self, uv_level):
+
+        self._uv_lvl = uv_level
+
+        transf_type = GlobalData["active_uv_transform_type"]
+
+        if not transf_type:
+            return
+
+        use_rel_values = GlobalData["rel_uv_transform_values"][uv_level][transf_type]
+        value_id = (transf_type, use_rel_values)
+
+        for field in self._fields.itervalues():
+            field.show_value(value_id)
+
+        self.__check_selection_count(transf_type)
 
     def enable(self):
 

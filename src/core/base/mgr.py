@@ -129,14 +129,10 @@ class CoreManager(object):
         """
 
         if isinstance(data_id, (list, tuple)):
-
             obj_id, obj_data_id = data_id
             obj = cls.__get(obj_id)
-
             return obj.get(obj_data_id, *args, **kwargs)
-
         else:
-
             return cls.__get(data_id, *args, **kwargs)
 
     @classmethod
@@ -255,34 +251,6 @@ class CoreManager(object):
     def remotely_handle_key_up(cls, key, interface_id=""):
 
         return cls._app_mgr.remotely_handle_key_up(interface_id, "CORE", key)
-
-    @classmethod
-    def set_global(cls, global_id, value):
-        """
-        Set a certain global value.
-        This can be done from *any* object, while a value obtained through
-        CoreManager.get() can only be set through the object that initially
-        exposed it.
-
-        """
-
-        cls._app_mgr.set_global(global_id, value)
-
-    @classmethod
-    def get_global(cls, global_id):
-        """
-        Get the current value of a certain global.
-        Also see set_global().
-
-        """
-
-        return cls._app_mgr.get_global(global_id)
-
-    @classmethod
-    def reset_globals(cls):
-        """ Reset all globals to their initial values """
-
-        cls._app_mgr.reset_globals()
 
     @classmethod
     def send(cls, *args):

@@ -13,8 +13,7 @@ class VertexEditBase(BaseObject):
         verts = self._subobjs["vert"]
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
-        verts_to_break = set([merged_verts[v_id]
-                              for v_id in selected_vert_ids])
+        verts_to_break = set([merged_verts[v_id] for v_id in selected_vert_ids])
         edges_to_split = set()
 
         change = False
@@ -59,7 +58,7 @@ class VertexEditBase(BaseObject):
 
         if change:
 
-            Mgr.do("update_subobj_selection")
+            Mgr.do("update_active_selection")
 
             self._update_vertex_normals(merged_verts_to_update)
 
@@ -97,8 +96,7 @@ class VertexEditManager(BaseObject):
         obj_data = {}
 
         for obj_id, data_obj in changed_objs.iteritems():
-            obj_data[obj_id] = data_obj.get_data_to_store(
-                "prop_change", "subobj_merge")
+            obj_data[obj_id] = data_obj.get_data_to_store("prop_change", "subobj_merge")
 
         event_descr = "Break vertex selection"
         event_data = {"objects": obj_data}

@@ -1,3 +1,4 @@
+from ...base import GlobalData
 import platform
 import math
 import os
@@ -18,8 +19,7 @@ class EventDispatcher(object):
     @classmethod
     def add_event_handler(cls, interface_id, event_id, obj, event_handler):
 
-        cls._event_handlers.setdefault(interface_id, {}).setdefault(
-            event_id, {})[obj] = event_handler
+        cls._event_handlers.setdefault(interface_id, {}).setdefault(event_id, {})[obj] = event_handler
 
     @classmethod
     def remove_event_handler(cls, interface_id, event_id, obj):
@@ -177,25 +177,21 @@ class BaseObject(object):
         if self._verbose and data_id not in self._data_retrievers:
             print 'GUI warning: data "%s" is not defined.' % data_id
 
-        retriever = self._data_retrievers.get(
-            data_id, self._default_data_retriever)
+        retriever = self._data_retrievers.get(data_id, self._default_data_retriever)
 
         return retriever(*args, **kwargs)
 
     def bind_event(self, event_id, event_handler):
 
-        EventDispatcher.add_event_handler(
-            self._interface_id, event_id, self, event_handler)
+        EventDispatcher.add_event_handler(self._interface_id, event_id, self, event_handler)
 
     def unbind_event(self, event_id):
 
-        EventDispatcher.remove_event_handler(
-            self._interface_id, event_id, self)
+        EventDispatcher.remove_event_handler(self._interface_id, event_id, self)
 
     def dispatch_event(self, event_id, event, *args, **kwargs):
 
-        EventDispatcher.dispatch_event(
-            self._interface_id, event_id, event, *args, **kwargs)
+        EventDispatcher.dispatch_event(self._interface_id, event_id, event, *args, **kwargs)
 
 
 class Text(object):
@@ -204,8 +200,7 @@ class Text(object):
 
         self._text = text
         mem_dc = wx.MemoryDC()
-        w, h, l = mem_dc.GetMultiLineTextExtent(
-            text, font if font else Fonts.get("default"))
+        w, h, l = mem_dc.GetMultiLineTextExtent(text, font if font else Fonts.get("default"))
         self._sizer = wx.BoxSizer()
         self._sizer.Add(wx.Size(w, h))
 
@@ -219,12 +214,12 @@ class Text(object):
 
 
 def get_alpha(img, alpha_map):
-    
+
     for y in xrange(img.GetHeight()):
-    
+
         row = []
         alpha_map.append(row)
-        
+
         for x in xrange(img.GetWidth()):
             row.append(img.GetAlpha(x, y))
 
@@ -296,12 +291,12 @@ def create_border(bitmap_paths, size, background_type="toolbar"):
             for part in ("left", "right"):
 
                 image = bitmaps[part].ConvertToImage()
-                
+
                 if not image.HasAlpha():
                     image.InitAlpha()
 
                 get_alpha(image, alpha_maps[part])
-                
+
             image = border_bitmap.ConvertToImage()
             image.InitAlpha()
 

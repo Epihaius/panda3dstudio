@@ -98,7 +98,7 @@ class Edge(BaseObject):
 
         return [verts[vert_id].get_row_index() for vert_id in self._vert_ids]
 
-    def switch_vertex_order(self):
+    def reverse_vertex_order(self):
 
         self._vert_ids = self._vert_ids[::-1]
 

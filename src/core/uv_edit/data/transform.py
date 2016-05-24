@@ -12,15 +12,14 @@ class UVDataTransformBase(BaseObject):
             for subobj_lvl in ("vert", "edge", "poly"):
                 self._update_verts_to_transform(subobj_lvl)
 
-        self._transf_start_data = {"bbox": None, "pos_array": None}
+        self._transf_start_data = {"bounds": None, "pos_array": None}
 
     def _update_verts_to_transform(self, subobj_lvl):
 
         selected_subobj_ids = self._selected_subobj_ids[subobj_lvl]
         verts = self._subobjs["vert"]
         self._verts_to_transf[subobj_lvl] = verts_to_transf = {}
-        self._rows_to_transf[
-            subobj_lvl] = rows_to_transf = SparseArray.allOff()
+        self._rows_to_transf[subobj_lvl] = rows_to_transf = SparseArray.allOff()
 
         merged_verts = self._merged_verts
         merged_verts_to_transf = set()
@@ -63,32 +62,60 @@ class UVDataTransformBase(BaseObject):
 
     def init_transform(self):
 
-        geom_node = self._geoms["hidden"].node()
+        geom_node = self._geoms["poly"]["unselected"].node()
         start_data = self._transf_start_data
-        start_data["bbox"] = geom_node.get_bounds()
-        start_data["pos_array"] = geom_node.get_geom(
-            0).get_vertex_data().get_array(0)
+        start_data["bounds"] = geom_node.get_bounds()
+        start_data["pos_array"] = geom_node.get_geom(0).get_vertex_data().get_array(0)
+
+    def set_vert_sel_coordinate(self, axis, value):
+
+        verts = self._verts_to_transf["vert"]
+
+        if not verts:
+            return
+
+        geom = self._geoms["poly"]["unselected"]
+        vertex_data = geom.node().modify_geom(0).modify_vertex_data()
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        tmp_vertex_data.set_array(0, self._transf_start_data["pos_array"])
+        index = "u_v".index(axis)
+        pos_rewriter = GeomVertexRewriter(tmp_vertex_data, "vertex")
+
+        for rows in verts.itervalues():
+            for row in rows:
+                pos_rewriter.set_row(row)
+                pos = Point3(pos_rewriter.get_data3f())
+                pos[index] = value
+                pos_rewriter.set_data3f(pos)
+
+        array = tmp_vertex_data.get_array(0)
+        vertex_data.set_array(0, array)
+
+        for subobj_type in ("vert", "poly"):
+            vertex_data = self._vertex_data[subobj_type]
+            vertex_data.set_array(0, array)
+
+        array = GeomVertexArrayData(array)
+        handle = array.modify_handle()
+        handle.set_data(handle.get_data() * 2)
+        self._vertex_data["edge"].set_array(0, array)
 
     def transform_selection(self, subobj_lvl, transf_type, value):
 
-        geom = self._geoms["hidden"]
-        vertex_data_top = geom.node().modify_geom(0).modify_vertex_data()
-        tmp_vertex_data = GeomVertexData(vertex_data_top)
+        geom = self._geoms["poly"]["unselected"]
+        vertex_data = geom.node().modify_geom(0).modify_vertex_data()
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        rows = self._rows_to_transf[subobj_lvl]
+        start_data = self._transf_start_data
 
         if transf_type == "translate":
 
-            rows = self._rows_to_transf[subobj_lvl]
-            start_data = self._transf_start_data
             tmp_vertex_data.set_array(0, start_data["pos_array"])
             mat = Mat4.translate_mat(value)
-            tmp_vertex_data.transform_vertices(mat, rows)
 
         elif transf_type == "rotate":
 
             tc_pos = UVMgr.get("selection_center")
-
-            rows = self._rows_to_transf[subobj_lvl]
-            start_data = self._transf_start_data
             tmp_vertex_data.set_array(0, start_data["pos_array"])
             quat_mat = Mat4()
             value.extract_to_matrix(quat_mat)
@@ -96,24 +123,20 @@ class UVDataTransformBase(BaseObject):
             mat = offset_mat * quat_mat
             offset_mat = Mat4.translate_mat(tc_pos)
             mat *= offset_mat
-            tmp_vertex_data.transform_vertices(mat, rows)
 
         elif transf_type == "scale":
 
             tc_pos = UVMgr.get("selection_center")
-
             mat = Mat4.scale_mat(value)
-            rows = self._rows_to_transf[subobj_lvl]
-            start_data = self._transf_start_data
             tmp_vertex_data.set_array(0, start_data["pos_array"])
             offset_mat = Mat4.translate_mat(-tc_pos)
             mat = offset_mat * mat
             offset_mat = Mat4.translate_mat(tc_pos)
             mat *= offset_mat
-            tmp_vertex_data.transform_vertices(mat, rows)
 
+        tmp_vertex_data.transform_vertices(mat, rows)
         array = tmp_vertex_data.get_array(0)
-        vertex_data_top.set_array(0, array)
+        vertex_data.set_array(0, array)
 
         for subobj_type in ("vert", "poly"):
             vertex_data = self._vertex_data[subobj_type]
@@ -128,12 +151,12 @@ class UVDataTransformBase(BaseObject):
 
         start_data = self._transf_start_data
 
-        geom = self._geoms["hidden"]
+        geom = self._geoms["poly"]["unselected"]
         vertex_data = geom.node().modify_geom(0).modify_vertex_data()
 
         if cancelled:
 
-            bounds = start_data["bbox"]
+            bounds = start_data["bounds"]
 
             pos_array = start_data["pos_array"]
             vertex_data.set_array(0, pos_array)

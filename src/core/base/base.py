@@ -1,3 +1,4 @@
+from ...base import GlobalData, ObjectName
 from panda3d.core import *
 import weakref
 import sys
@@ -87,20 +88,20 @@ class MainObjects(object):
     _setup_results = {}
 
     @classmethod
-    def add_class(cls, main_cls, group_id=""):
+    def add_class(cls, main_cls, interface_id=""):
 
-        cls._classes.setdefault(group_id, []).append(main_cls)
-
-    @classmethod
-    def init(cls, group_id=""):
-
-        for main_cls in cls._classes.get(group_id, []):
-            cls._objs.setdefault(group_id, []).append(main_cls())
+        cls._classes.setdefault(interface_id, []).append(main_cls)
 
     @classmethod
-    def setup(cls, group_id=""):
+    def init(cls, interface_id=""):
 
-        objs_to_setup = cls._objs.get(group_id, [])[:]
+        for main_cls in cls._classes.get(interface_id, []):
+            cls._objs.setdefault(interface_id, []).append(main_cls())
+
+    @classmethod
+    def setup(cls, interface_id=""):
+
+        objs_to_setup = cls._objs.get(interface_id, [])[:]
 
         # if an object's setup failed because it depends on the setup of another
         # object, it will be tried again later
@@ -113,23 +114,23 @@ class MainObjects(object):
                 setup_result = obj.setup()
 
                 if setup_result:
-                    cls._setup_results.setdefault(group_id, []).append(setup_result)
+                    cls._setup_results.setdefault(interface_id, []).append(setup_result)
                     setup_successful = True
                     objs_to_setup.remove(obj)
 
             assert setup_successful, "Setup failed for one or more main objects!"
 
-        del cls._setup_results[group_id]
+        del cls._setup_results[interface_id]
 
     @classmethod
-    def get_setup_results(cls, group_id=""):
+    def get_setup_results(cls, interface_id=""):
         """
         This method can be called by the main objects during their setup to check
         if the setup of a particular main object has already successfully completed.
 
         """
 
-        return cls._setup_results.get(group_id, [])
+        return cls._setup_results.get(interface_id, [])
 
 
 class PendingTasks(object):

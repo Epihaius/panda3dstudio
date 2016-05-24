@@ -50,35 +50,35 @@ class ViewManager(BaseObject):
 
     def __is_front_custom(self):
 
-        return self._is_front_custom[Mgr.get_global("view")]
+        return self._is_front_custom[GlobalData["view"]]
 
     def __set_front_custom(self, is_front_custom):
 
-        self._is_front_custom[Mgr.get_global("view")] = is_front_custom
+        self._is_front_custom[GlobalData["view"]] = is_front_custom
 
     is_front_custom = property(__is_front_custom, __set_front_custom)
 
     def __get_default_front_quat(self):
 
-        return self._default_front_quats[Mgr.get_global("view")]
+        return self._default_front_quats[GlobalData["view"]]
 
     def __set_default_front_quat(self, quat):
 
-        self._default_front_quats[Mgr.get_global("view")] = quat
+        self._default_front_quats[GlobalData["view"]] = quat
 
     default_front_quat = property(__get_default_front_quat, __set_default_front_quat)
 
     def __get_default_home_default_pos(self):
 
-        return self._default_home_default_transforms[Mgr.get_global("view")]["pos"]
+        return self._default_home_default_transforms[GlobalData["view"]]["pos"]
 
     def __get_default_home_default_quat(self):
 
-        return self._default_home_default_transforms[Mgr.get_global("view")]["quat"]
+        return self._default_home_default_transforms[GlobalData["view"]]["quat"]
 
     def __get_default_home_default_zoom(self):
 
-        return self._default_home_default_transforms[Mgr.get_global("view")]["zoom"]
+        return self._default_home_default_transforms[GlobalData["view"]]["zoom"]
 
     default_home_default_pos = property(__get_default_home_default_pos)
     default_home_default_quat = property(__get_default_home_default_quat)
@@ -86,27 +86,27 @@ class ViewManager(BaseObject):
 
     def __get_custom_home_default_pos(self):
 
-        return self._custom_home_default_transforms[Mgr.get_global("view")]["pos"]
+        return self._custom_home_default_transforms[GlobalData["view"]]["pos"]
 
     def __set_custom_home_default_pos(self, pos):
 
-        self._custom_home_default_transforms[Mgr.get_global("view")]["pos"] = pos
+        self._custom_home_default_transforms[GlobalData["view"]]["pos"] = pos
 
     def __get_custom_home_default_quat(self):
 
-        return self._custom_home_default_transforms[Mgr.get_global("view")]["quat"]
+        return self._custom_home_default_transforms[GlobalData["view"]]["quat"]
 
     def __set_custom_home_default_quat(self, quat):
 
-        self._custom_home_default_transforms[Mgr.get_global("view")]["quat"] = quat
+        self._custom_home_default_transforms[GlobalData["view"]]["quat"] = quat
 
     def __get_custom_home_default_zoom(self):
 
-        return self._custom_home_default_transforms[Mgr.get_global("view")]["zoom"]
+        return self._custom_home_default_transforms[GlobalData["view"]]["zoom"]
 
     def __set_custom_home_default_zoom(self, zoom):
 
-        self._custom_home_default_transforms[Mgr.get_global("view")]["zoom"] = zoom
+        self._custom_home_default_transforms[GlobalData["view"]]["zoom"] = zoom
 
     custom_home_default_pos = property(__get_custom_home_default_pos, __set_custom_home_default_pos)
     custom_home_default_quat = property(__get_custom_home_default_quat, __set_custom_home_default_quat)
@@ -114,27 +114,27 @@ class ViewManager(BaseObject):
 
     def __get_custom_home_custom_pos(self):
 
-        return self._custom_home_custom_transforms[Mgr.get_global("view")]["pos"]
+        return self._custom_home_custom_transforms[GlobalData["view"]]["pos"]
 
     def __set_custom_home_custom_pos(self, pos):
 
-        self._custom_home_custom_transforms[Mgr.get_global("view")]["pos"] = pos
+        self._custom_home_custom_transforms[GlobalData["view"]]["pos"] = pos
 
     def __get_custom_home_custom_quat(self):
 
-        return self._custom_home_custom_transforms[Mgr.get_global("view")]["quat"]
+        return self._custom_home_custom_transforms[GlobalData["view"]]["quat"]
 
     def __set_custom_home_custom_quat(self, quat):
 
-        self._custom_home_custom_transforms[Mgr.get_global("view")]["quat"] = quat
+        self._custom_home_custom_transforms[GlobalData["view"]]["quat"] = quat
 
     def __get_custom_home_custom_zoom(self):
 
-        return self._custom_home_custom_transforms[Mgr.get_global("view")]["zoom"]
+        return self._custom_home_custom_transforms[GlobalData["view"]]["zoom"]
 
     def __set_custom_home_custom_zoom(self, zoom):
 
-        self._custom_home_custom_transforms[Mgr.get_global("view")]["zoom"] = zoom
+        self._custom_home_custom_transforms[GlobalData["view"]]["zoom"] = zoom
 
     custom_home_custom_pos = property(__get_custom_home_custom_pos, __set_custom_home_custom_pos)
     custom_home_custom_quat = property(__get_custom_home_custom_quat, __set_custom_home_custom_quat)
@@ -142,33 +142,33 @@ class ViewManager(BaseObject):
 
     def __get_default_home_custom_pos(self):
 
-        pos = self._default_home_custom_transforms[Mgr.get_global("view")]["pos"]
+        pos = self._default_home_custom_transforms[GlobalData["view"]]["pos"]
 
         return self.default_home_default_pos if pos is None else pos
 
     def __set_default_home_custom_pos(self, pos):
 
-        self._default_home_custom_transforms[Mgr.get_global("view")]["pos"] = pos
+        self._default_home_custom_transforms[GlobalData["view"]]["pos"] = pos
 
     def __get_default_home_custom_quat(self):
 
-        quat = self._default_home_custom_transforms[Mgr.get_global("view")]["quat"]
+        quat = self._default_home_custom_transforms[GlobalData["view"]]["quat"]
 
         return self.default_home_default_quat if quat is None else quat
 
     def __set_default_home_custom_quat(self, quat):
 
-        self._default_home_custom_transforms[Mgr.get_global("view")]["quat"] = quat
+        self._default_home_custom_transforms[GlobalData["view"]]["quat"] = quat
 
     def __get_default_home_custom_zoom(self):
 
-        zoom = self._default_home_custom_transforms[Mgr.get_global("view")]["zoom"]
+        zoom = self._default_home_custom_transforms[GlobalData["view"]]["zoom"]
 
         return self.default_home_default_zoom if zoom is None else zoom
 
     def __set_default_home_custom_zoom(self, zoom):
 
-        self._default_home_custom_transforms[Mgr.get_global("view")]["zoom"] = zoom
+        self._default_home_custom_transforms[GlobalData["view"]]["zoom"] = zoom
 
     default_home_custom_pos = property(__get_default_home_custom_pos, __set_default_home_custom_pos)
     default_home_custom_quat = property(__get_default_home_custom_quat, __set_default_home_custom_quat)
@@ -249,37 +249,37 @@ class ViewManager(BaseObject):
 
     def __get_default_grid_plane(self):
 
-        return self._grid_plane_defaults[Mgr.get_global("view")]
+        return self._grid_plane_defaults[GlobalData["view"]]
 
     def __get_grid_plane(self):
 
-        return self._grid_planes[Mgr.get_global("view")]
+        return self._grid_planes[GlobalData["view"]]
 
     def __set_grid_plane(self, grid_plane):
 
-        self._grid_planes[Mgr.get_global("view")] = grid_plane
+        self._grid_planes[GlobalData["view"]] = grid_plane
 
     default_grid_plane = property(__get_default_grid_plane)
     grid_plane = property(__get_grid_plane, __set_grid_plane)
 
     def __get_default_render_mode(self):
 
-        return self._render_mode_defaults[Mgr.get_global("view")]
+        return self._render_mode_defaults[GlobalData["view"]]
 
     def __get_render_mode(self):
 
-        return self._render_modes[Mgr.get_global("view")]
+        return self._render_modes[GlobalData["view"]]
 
     def __set_render_mode(self, render_mode):
 
-        self._render_modes[Mgr.get_global("view")] = render_mode
+        self._render_modes[GlobalData["view"]] = render_mode
 
     default_render_mode = property(__get_default_render_mode)
     render_mode = property(__get_render_mode, __set_render_mode)
 
     def __init__(self):
 
-        Mgr.set_global("view", "persp")
+        GlobalData.set_default("view", "persp")
 
         ViewTileFrame.init()
 
@@ -418,7 +418,7 @@ class ViewManager(BaseObject):
         bind("view_obj_picking_mode", "cancel view obj picking", "mouse3-up",
              exit_view_obj_picking_mode)
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Pick object to align to"
         info_text = "LMB to pick object; RMB to end"
         status_data["pick_view_obj"] = {"mode": mode_text, "info": info_text}
@@ -427,8 +427,8 @@ class ViewManager(BaseObject):
 
     def __enter_picking_mode(self, prev_state_id, is_active):
 
-        if Mgr.get_global("active_obj_level") != "top":
-            Mgr.set_global("active_obj_level", "top")
+        if GlobalData["active_obj_level"] != "top":
+            GlobalData["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
         self._align_info.show()
@@ -627,7 +627,7 @@ class ViewManager(BaseObject):
         data["render_mode"] = self._render_modes
         render_mode_defaults = self._render_mode_defaults
         data["render_mode_user"] = dict((view, render_mode_defaults[view]) for view in user_views)
-        data["view"] = Mgr.get_global("view")
+        data["view"] = GlobalData["view"]
 
         return data
 
@@ -684,7 +684,7 @@ class ViewManager(BaseObject):
         elif self._view_before_preview in self._user_views:
             self.__set_view("persp")
 
-        if Mgr.get_global("view") in self._user_views:
+        if GlobalData["view"] in self._user_views:
             self.__set_view("persp")
 
         cam = self.cam
@@ -699,7 +699,7 @@ class ViewManager(BaseObject):
         render_mode_def = self._render_mode_defaults
         render_modes = self._render_modes
 
-        for view in self._user_views[::-1]:
+        for view in reversed(self._user_views):
             del view_names[view]
             del default_front[view]
             del default_default[view]
@@ -725,11 +725,11 @@ class ViewManager(BaseObject):
 
     def __update_render_mode(self):
 
-        self.render_mode = Mgr.get_global("render_mode")
+        self.render_mode = GlobalData["render_mode"]
 
     def __update_view(self, update_type, *args):
 
-        view = Mgr.get_global("view")
+        view = GlobalData["view"]
 
         if update_type == "set":
             self.__set_view(*args)
@@ -781,7 +781,7 @@ class ViewManager(BaseObject):
 
     def __convert_view(self, lens_type):
 
-        view = Mgr.get_global("view")
+        view = GlobalData["view"]
 
         if view not in self._user_views:
             return
@@ -819,7 +819,7 @@ class ViewManager(BaseObject):
     def __set_view(self, view, force=False):
         """ Switch to a different view """
 
-        current_view = self._view_before_preview if self._view_tile_entered else Mgr.get_global("view")
+        current_view = self._view_before_preview if self._view_tile_entered else GlobalData["view"]
         self._view_tiles[current_view].set_color(1., 1., 1., 1.)
         self._view_tiles[current_view].node().set_frame_color(1., 1., 1., 1.)
         self._view_tiles[view].set_color(0., 1., 1., 1.)
@@ -844,12 +844,12 @@ class ViewManager(BaseObject):
 
         cam = self.cam
         current_lens_type = cam.lens_type
-        Mgr.set_global("view", view)
+        GlobalData["view"] = view
         cam.update()
         lens_type = cam.lens_type
 
         Mgr.update_app("active_grid_plane", self.grid_plane)
-        Mgr.set_global("render_mode", self.render_mode)
+        GlobalData["render_mode"] = self.render_mode
         Mgr.update_app("render_mode")
 
         if current_lens_type != lens_type:
@@ -862,10 +862,13 @@ class ViewManager(BaseObject):
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 
+        if GlobalData["coord_sys_type"] == "screen":
+            Mgr.get("selection").update_transform_values()
+
     def __copy_view(self, lens_type, name):
         """ Copy the current view using the given lens type and make it a user view """
 
-        current_view = Mgr.get_global("view")
+        current_view = GlobalData["view"]
         namestring = "\n".join(self._view_names.itervalues())
         name = get_unique_name(name, namestring)
         view = str(self._user_view_id)
@@ -921,7 +924,7 @@ class ViewManager(BaseObject):
     def __take_snapshot(self, view_name):
         """ Take a snapshot of the current view and make it a user view """
 
-        current_view = Mgr.get_global("view")
+        current_view = GlobalData["view"]
         namestring = "\n".join(self._view_names.itervalues())
         name = get_unique_name(view_name, namestring)
         view = str(self._user_view_id)
@@ -972,7 +975,7 @@ class ViewManager(BaseObject):
 
     def __remove_user_view(self):
 
-        view = Mgr.get_global("view")
+        view = GlobalData["view"]
 
         if view not in self._user_views:
             return
@@ -982,7 +985,7 @@ class ViewManager(BaseObject):
         elif self._view_before_preview in self._user_views:
             self.__set_view("persp")
 
-        if Mgr.get_global("view") in self._user_views:
+        if GlobalData["view"] in self._user_views:
             self.__set_view("persp")
 
         cam = self.cam
@@ -1052,8 +1055,8 @@ class ViewManager(BaseObject):
         """ Set the given or current view as a custom Front view """
 
         if view:
-            current_view = Mgr.get_global("view")
-            Mgr.set_global("view", view)
+            current_view = GlobalData["view"]
+            GlobalData["view"] = view
 
         cam = self.cam
         self.is_front_custom = True
@@ -1074,19 +1077,19 @@ class ViewManager(BaseObject):
             Mgr.do("update_view_gizmo", False, True)
 
         if view:
-            Mgr.set_global("view", current_view)
+            GlobalData["view"] = current_view
 
     def __reset_front_view(self, view=None, transition=True, reset_roll=True):
         """ Realigns the Front view to the world (or original user view space) """
 
         if view:
-            current_view = Mgr.get_global("view")
-            Mgr.set_global("view", view)
+            current_view = GlobalData["view"]
+            GlobalData["view"] = view
 
         if not self.is_front_custom:
 
             if view:
-                Mgr.set_global("view", current_view)
+                GlobalData["view"] = current_view
 
             return
 
@@ -1127,10 +1130,13 @@ class ViewManager(BaseObject):
             if not view or view == current_view:
                 Mgr.do("update_view_gizmo", False, True)
 
+            if GlobalData["coord_sys_type"] == "screen":
+                Mgr.get("selection").update_transform_values()
+
         self.is_front_custom = False
 
         if view:
-            Mgr.set_global("view", current_view)
+            GlobalData["view"] = current_view
 
     def __set_as_home_view(self):
         """ Set the current view as the Home view """
@@ -1163,7 +1169,7 @@ class ViewManager(BaseObject):
             self.__reset_front_view(transition=False, reset_roll=False)
             self.__reset_home_view()
             Mgr.update_app("active_grid_plane", self.default_grid_plane)
-            Mgr.set_global("render_mode", self.default_render_mode)
+            GlobalData["render_mode"] = self.default_render_mode
             Mgr.update_app("render_mode")
 
             if lerp_view_gizmo:
@@ -1217,19 +1223,22 @@ class ViewManager(BaseObject):
             Mgr.do("update_zoom_indicator")
             Mgr.do("update_view_gizmo")
 
+            if GlobalData["coord_sys_type"] == "screen":
+                Mgr.get("selection").update_transform_values()
+
     def __reset_all_views(self, to_default=True, transition=False):
 
-        current_view = Mgr.get_global("view")
+        current_view = GlobalData["view"]
         views = ["persp", "ortho", "front", "back", "left", "right", "top", "bottom"]
         views += self._user_views
 
         for view in views:
-            Mgr.set_global("view", view)
+            GlobalData["view"] = view
             self.__reset_view(to_default, transition)
 
         def task():
 
-            Mgr.set_global("view", current_view)
+            GlobalData["view"] = current_view
             self.__set_view("persp")
 
         PendingTasks.add(task, "set_persp_view", "ui")
@@ -1425,6 +1434,9 @@ class ViewManager(BaseObject):
             if obj_to_align_to:
                 Mgr.do("update_view_gizmo", False, True)
 
+            if GlobalData["coord_sys_type"] == "screen":
+                Mgr.get("selection").update_transform_values()
+
         if obj_to_align_to:
             self.is_front_custom = True
             quat = Quat()
@@ -1451,7 +1463,7 @@ class ViewManager(BaseObject):
 
         if self._view_tile_entered:
 
-            current_view = Mgr.get_global("view")
+            current_view = GlobalData["view"]
             self._view_tiles[current_view].set_color_scale(1., 1., 1., 1.)
             self._view_label.set_color_scale(1., 1., 1., 1.)
             view = self._view_before_preview
@@ -1459,7 +1471,7 @@ class ViewManager(BaseObject):
             if view and view != current_view:
 
                 current_lens_type = self.cam.lens_type
-                Mgr.set_global("view", view)
+                GlobalData["view"] = view
                 self.cam.update()
                 lens_type = self.cam.lens_type
                 name = self._view_names[view]
@@ -1469,7 +1481,7 @@ class ViewManager(BaseObject):
 
                 self._view_label_node.set_text(name)
                 Mgr.update_app("active_grid_plane", self.grid_plane)
-                Mgr.set_global("render_mode", self.render_mode)
+                GlobalData["render_mode"] = self.render_mode
                 Mgr.update_app("render_mode")
 
                 if current_lens_type != lens_type:
@@ -1531,7 +1543,7 @@ class ViewManager(BaseObject):
     def __do_preview(self, view):
 
         self._view_tile_entered = view
-        current_view = Mgr.get_global("view")
+        current_view = GlobalData["view"]
         self._view_tiles[current_view].set_color_scale(1., 1., 1., 1.)
         self._view_tiles[view].set_color_scale(1., 1., 0., 1.)
         self._view_label.set_color_scale(1., 1., 0., 1.)
@@ -1542,7 +1554,7 @@ class ViewManager(BaseObject):
         if view != current_view:
 
             current_lens_type = self.cam.lens_type
-            Mgr.set_global("view", view)
+            GlobalData["view"] = view
             self.cam.update()
             lens_type = self.cam.lens_type
             name = self._view_names[view]
@@ -1552,7 +1564,7 @@ class ViewManager(BaseObject):
 
             self._view_label_node.set_text(name)
             Mgr.update_app("active_grid_plane", self.grid_plane)
-            Mgr.set_global("render_mode", self.render_mode)
+            GlobalData["render_mode"] = self.render_mode
             Mgr.update_app("render_mode")
 
             if current_lens_type != lens_type:
@@ -1564,6 +1576,9 @@ class ViewManager(BaseObject):
             Mgr.do("update_view_gizmo", cube=False, hpr=True)
             Mgr.do("update_transf_gizmo")
             Mgr.do("update_coord_sys")
+
+            if GlobalData["coord_sys_type"] == "screen":
+                Mgr.get("selection").update_transform_values()
 
     def __check_view(self, view, task):
 
@@ -1626,7 +1641,7 @@ class ViewManager(BaseObject):
         else:
 
             Mgr.remove_task("check_view")
-            current_view = Mgr.get_global("view")
+            current_view = GlobalData["view"]
             self._view_tiles[current_view].set_color_scale(1., 1., 1., 1.)
             self._view_label.set_color_scale(1., 1., 1., 1.)
             self._view_tile_root.hide()
@@ -1673,7 +1688,7 @@ class ViewManager(BaseObject):
         self._is_clicked = False
 
         if self._view_tile_entered:
-            Mgr.set_global("view", self._view_tile_entered)
+            GlobalData["view"] = self._view_tile_entered
             self.__set_view(self._view_tile_entered)
 
         if self._quick_view_select:

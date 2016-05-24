@@ -348,10 +348,10 @@ class RotationGizmo(TransformationGizmo):
 
         if axes == "trackball":
 
-            prev_constraints = Mgr.get_global("axis_constraints_rotate")
+            prev_constraints = GlobalData["axis_constraints"]["rotate"]
 
             if prev_constraints != "trackball":
-                Mgr.set_global("prev_axis_constraints_rotate", prev_constraints)
+                GlobalData["prev_axis_constraints_rotate"] = prev_constraints
 
         if axes in ("screen", "trackball"):
             constraints = axes
@@ -383,7 +383,12 @@ class RotationGizmo(TransformationGizmo):
             axis_np.clear_color_scale()
 
         if self._selected_axes == "screen":
-            self._angle_disc_pivot.set_hpr(self.cam(), 0., 0., 0.)
+            self._angle_disc_pivot.set_hpr(0., 0., 0.)
+            self._angle_disc_pivot.set_billboard_point_eye(self.cam(), 0.)
+            self._angle_disc.set_hpr(0., 0., 0.)
+            self._angle_clip_root.set_hpr(0., 0., 0.)
+        else:
+            self._angle_disc_pivot.clear_billboard()
 
         self.__update_angle_disc()
 
@@ -455,11 +460,6 @@ class RotationGizmo(TransformationGizmo):
         vec.normalize()
 
         return vec, radians
-
-    def set_shear(self, shear):
-
-        self._center_axis_root.set_shear(shear)
-        self.__update_angle_disc()
 
     def get_point_at_screen_pos(self, screen_pos):
 

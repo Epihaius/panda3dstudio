@@ -36,7 +36,7 @@ class Grid(BaseObject):
         self._scale = 1.
         self._spacing = 10.
 
-        Mgr.set_global("active_grid_plane", "xy")
+        GlobalData.set_default("active_grid_plane", "xy")
 
         self._active_plane_id = "yz"
 
@@ -388,15 +388,15 @@ class Grid(BaseObject):
         if align:
             self.__change_plane("xy")
         else:
-            self.__change_plane(Mgr.get_global("active_grid_plane"))
+            self.__change_plane(GlobalData["active_grid_plane"])
 
         self.__update(force=True)
 
     def __set_plane(self, plane_id):
 
-        Mgr.set_global("active_grid_plane", plane_id)
+        GlobalData["active_grid_plane"] = plane_id
 
-        if Mgr.get_global("coord_sys_type") != "screen" and plane_id != self._active_plane_id:
+        if GlobalData["coord_sys_type"] != "screen" and plane_id != self._active_plane_id:
             self.__change_plane(plane_id)
 
         self.__update(force=True)

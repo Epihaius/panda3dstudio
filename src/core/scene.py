@@ -5,7 +5,7 @@ class SceneManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.set_global("unsaved_scene", False)
+        GlobalData.set_default("unsaved_scene", False)
 
         self._handlers = {
             "reset": self.__reset,
@@ -25,21 +25,28 @@ class SceneManager(BaseObject):
             obj.destroy(add_to_hist=False)
 
         Mgr.do("reset_history")
+        obj_lvl = GlobalData["active_obj_level"]
+        GlobalData["active_obj_level"] = "top"
         PendingTasks.remove("update_selection", "ui")
-        task = lambda: Mgr.get("selection", "top").update_ui(force=True)
+
+        def task():
+
+            selection = Mgr.get("selection", "top")
+            selection.update_ui()
+            selection.update_obj_props(force=True)
+
         PendingTasks.add(task, "update_selection", "ui")
         PendingTasks.handle(["object", "ui"], True)
 
-        if Mgr.get_global("active_obj_level") != "top":
-            Mgr.set_global("active_obj_level", "top")
+        if obj_lvl != "top":
             Mgr.update_app("active_obj_level")
 
-        if Mgr.get_global("object_links_shown"):
-            Mgr.set_global("object_links_shown", False)
+        if GlobalData["object_links_shown"]:
+            GlobalData["object_links_shown"] = False
             Mgr.update_app("object_link_viz", False)
 
-        if Mgr.get_global("transform_target_type") != "all":
-            Mgr.set_global("transform_target_type", "all")
+        if GlobalData["transform_target_type"] != "all":
+            GlobalData["transform_target_type"] = "all"
             Mgr.update_app("transform_target_type")
 
         Mgr.do("update_picking_col_id_ranges")
@@ -50,11 +57,10 @@ class SceneManager(BaseObject):
         Mgr.update_app("active_transform_type", "")
         Mgr.update_app("status", "select", "")
 
-        Mgr.reset_globals()
+        GlobalData.reset()
 
-        for transf_type in ("translate", "rotate", "scale"):
-            constraints = Mgr.get_global("axis_constraints_%s" % transf_type)
-            Mgr.update_app("axis_constraints", transf_type, constraints)
+        for transf_type, axes in GlobalData["axis_constraints"].iteritems():
+            Mgr.update_app("axis_constraints", transf_type, axes)
 
         for obj_type in Mgr.get("object_types"):
             Mgr.do("set_last_%s_obj_id" % obj_type, 0)
@@ -74,13 +80,14 @@ class SceneManager(BaseObject):
             data_id = "last_%s_obj_id" % obj_type
             Mgr.do("set_last_%s_obj_id" % obj_type, scene_data[data_id])
 
-        for transf_type in ("translate", "rotate", "scale"):
-            constraints = scene_data["axis_constraints"][transf_type]
-            Mgr.set_global("axis_constraints_%s" % transf_type, constraints)
-            Mgr.update_app("axis_constraints", transf_type, constraints)
+        GlobalData["axis_constraints"] = constraints = scene_data["axis_constraints"]
 
+        for transf_type, axes in constraints.iteritems():
+            Mgr.update_app("axis_constraints", transf_type, axes)
+
+        GlobalData["rel_transform_values"] = scene_data["rel_transform_values"]
         transf_type = scene_data["active_transform_type"]
-        Mgr.set_global("active_transform_type", transf_type)
+        GlobalData["active_transform_type"] = transf_type
         Mgr.update_app("active_transform_type", transf_type)
 
         if transf_type:
@@ -91,7 +98,7 @@ class SceneManager(BaseObject):
         for x in ("coord_sys", "transf_center"):
             x_type = scene_data[x]["type"]
             obj = Mgr.get("object", scene_data[x]["obj_id"])
-            name = obj.get_name() if obj else None
+            name = obj.get_name(as_object=True) if obj else None
             Mgr.update_locally(x, x_type, obj)
             Mgr.update_remotely(x, x_type, name)
 
@@ -105,17 +112,13 @@ class SceneManager(BaseObject):
 
         for x in ("coord_sys", "transf_center"):
             scene_data[x] = {}
-            scene_data[x]["type"] = Mgr.get_global("%s_type" % x)
+            scene_data[x]["type"] = GlobalData["%s_type" % x]
             obj = Mgr.get("%s_obj" % x)
             scene_data[x]["obj_id"] = obj.get_id() if obj else None
 
-        transf_type = Mgr.get_global("active_transform_type")
-        scene_data["active_transform_type"] = transf_type
-        scene_data["axis_constraints"] = {}
-
-        for transf_type in ("translate", "rotate", "scale"):
-            constraints = Mgr.get_global("axis_constraints_%s" % transf_type)
-            scene_data["axis_constraints"][transf_type] = constraints
+        scene_data["active_transform_type"] = GlobalData["active_transform_type"]
+        scene_data["rel_transform_values"] = GlobalData["rel_transform_values"]
+        scene_data["axis_constraints"] = GlobalData["axis_constraints"]
 
         for obj_type in Mgr.get("object_types"):
             data_id = "last_%s_obj_id" % obj_type
@@ -133,7 +136,7 @@ class SceneManager(BaseObject):
         scene_file.flush()
         scene_file.close()
 
-        Mgr.set_global("unsaved_scene", False)
+        GlobalData["unsaved_scene"] = False
 
     def __prepare_export_to_bam(self, parent, children, tmp_node):
 
@@ -141,10 +144,16 @@ class SceneManager(BaseObject):
 
             if child.get_type() == "model":
 
-                geom_data_obj = child.get_geom_object().get_geom_data_object()
+                geom_obj = child.get_geom_object()
+
+                if child.get_geom_type() == "basic_geom":
+                    node = geom_obj.get_geom().copy_to(tmp_node)
+                else:
+                    geom_data_obj = geom_obj.get_geom_data_object()
+                    node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
+
                 origin = child.get_origin()
                 pivot = child.get_pivot()
-                node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
                 node.set_name(child.get_name())
                 node.set_state(origin.get_state())
                 mat = origin.get_mat(pivot)
@@ -189,17 +198,24 @@ class SceneManager(BaseObject):
         root.remove_node()
         tmp_node.remove_node()
 
-    def __prepare_export_to_obj(self, obj_file, children, tmp_node, material_data, counters):
+    def __prepare_export_to_obj(self, obj_file, children, tmp_node, material_data,
+                                counters, namestring):
 
         for child in children:
 
             if child.get_type() == "model":
 
-                obj_file.write("\no %s\n\n" % child.get_name())
+                name = get_unique_name(child.get_name().replace(" ", "_"), namestring)
+                namestring += "\n" + name
+                obj_file.write("\ng %s\n\n" % name)
 
-                origin = child.get_origin()
-                geom_data_obj = child.get_geom_object().get_geom_data_object()
-                node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
+                geom_obj = child.get_geom_object()
+
+                if child.get_geom_type() == "basic_geom":
+                    node = geom_obj.get_geom().copy_to(tmp_node)
+                else:
+                    geom_data_obj = geom_obj.get_geom_data_object()
+                    node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
 
                 material = child.get_material()
 
@@ -260,13 +276,12 @@ class SceneManager(BaseObject):
 
                 vertex_data = node.node().modify_geom(0).modify_vertex_data()
                 convert_mat = Mat4.convert_mat(CS_default, CS_yup_right)
+                origin = child.get_origin()
                 mat = origin.get_net_transform().get_mat() * convert_mat
                 vertex_data.transform_vertices(mat)
                 pos_reader = GeomVertexReader(vertex_data, "vertex")
                 uv_reader = GeomVertexReader(vertex_data, "texcoord")
                 normal_reader = GeomVertexReader(vertex_data, "normal")
-                verts = geom_data_obj.get_subobjects("vert")
-                polys = geom_data_obj.get_subobjects("poly").itervalues()
                 row_count = vertex_data.get_num_rows()
                 row_offset = counters["row_offset"]
 
@@ -281,19 +296,19 @@ class SceneManager(BaseObject):
                 obj_file.write("\nusemtl %s\n" % material_alias)
                 obj_file.write("# %s\n" % material_name)
 
-                for poly in polys:
+                index_list = node.node().get_geom(0).get_primitive(0).get_vertex_list()
+                index_count = len(index_list)
 
-                    for tri_data in poly:
-                        i1, i2, i3 = [verts[v_id].get_row_index() + row_offset
-                                      for v_id in tri_data]
-                        indices = (i1, i1, i1, i2, i2, i2, i3, i3, i3)
-                        obj_file.write("f %d/%d/%d %d/%d/%d %d/%d/%d\n" % indices)
+                for i in xrange(0, index_count, 3):
+                    i1, i2, i3 = [j + row_offset for j in index_list[i:i+3]]
+                    indices = (i1, i1, i1, i2, i2, i2, i3, i3, i3)
+                    obj_file.write("f %d/%d/%d %d/%d/%d %d/%d/%d\n" % indices)
 
                 counters["row_offset"] += row_count
 
             if child.get_children():
                 self.__prepare_export_to_obj(obj_file, child.get_children(), tmp_node,
-                                             material_data, counters)
+                                             material_data, counters, namestring)
 
     def __export_to_obj(self, filename):
 
@@ -313,7 +328,8 @@ class SceneManager(BaseObject):
             fname = os.path.basename(filename)
             mtllib_name = os.path.splitext(fname)[0]
             obj_file.write("mtllib %s.mtl\n" % mtllib_name)
-            self.__prepare_export_to_obj(obj_file, objs, tmp_node, material_data, counters)
+            self.__prepare_export_to_obj(obj_file, objs, tmp_node, material_data,
+                                         counters, "")
 
         tmp_node.remove_node()
 

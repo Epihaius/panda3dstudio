@@ -13,13 +13,11 @@ class EditableGeomProperties(BaseObject):
         toggle = (self.__set_topobj_level, lambda: None)
         self._subobj_btns.set_default_toggle("top", toggle)
         self._prev_obj_lvl = "top"
-        self._subobj_state_ids = {"top": [],
-                                  "vert": [], "edge": [], "poly": []}
+        self._subobj_state_ids = {"top": [], "vert": [], "edge": [], "poly": []}
 
         # ************************* Subobject level section *******************
 
-        main_section = section = panel.add_section(
-            "subobj_lvl", "Subobject level")
+        main_section = section = panel.add_section("subobj_lvl", "Subobject level")
         sizer = section.get_client_sizer()
 
         bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
@@ -29,22 +27,19 @@ class EditableGeomProperties(BaseObject):
         sizer_args = (0, wx.RIGHT, 5)
 
         label = "Vert"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         toggle = (lambda: self.__set_subobj_level("vert"), lambda: None)
         self._subobj_btns.add_button(panel, section, btn_sizer, "vert", toggle, bitmaps,
                                      "Vertex level", label, sizer_args=sizer_args)
 
         label = "Edge"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         toggle = (lambda: self.__set_subobj_level("edge"), lambda: None)
         self._subobj_btns.add_button(panel, section, btn_sizer, "edge", toggle, bitmaps,
                                      "Edge level", label, sizer_args=sizer_args)
 
         label = "Poly"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         toggle = (lambda: self.__set_subobj_level("poly"), lambda: None)
         self._subobj_btns.add_button(panel, section, btn_sizer, "poly", toggle, bitmaps,
                                      "Polygon level", label)
@@ -57,8 +52,7 @@ class EditableGeomProperties(BaseObject):
         sizer = section.get_client_sizer()
 
         label = "Break"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, sizer, bitmaps, label, "Break selected vertices",
                           self.__break_vertices, sizer_args)
         self._btns["break_vert"] = btn
@@ -69,8 +63,7 @@ class EditableGeomProperties(BaseObject):
         sizer = section.get_client_sizer()
 
         label = "Split"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, sizer, bitmaps, label, "Split selected edges",
                           self.__split_edges, sizer_args)
         self._btns["split_edge"] = btn
@@ -84,15 +77,13 @@ class EditableGeomProperties(BaseObject):
         sizer.Add(btn_sizer, 0, wx.ALL, 4)
 
         label = "Create"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Create single polygon",
                           self.__toggle_poly_creation, sizer_args)
         self._btns["create_poly"] = btn
 
         label = "Detach"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Detach selected polygons",
                           self.__detach_polygons, sizer_args)
         self._btns["detach_poly"] = btn
@@ -106,15 +97,13 @@ class EditableGeomProperties(BaseObject):
         grp_sizer.Add(btn_sizer, 0)
 
         label = "Smooth"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, btn_sizer, bitmaps, label, "Smooth selected polygons",
                           self.__smooth_polygons, sizer_args)
         self._btns["smooth_polys"] = btn
 
         label = "Unsmooth"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, btn_sizer, bitmaps, label, "Flatten selected polygons",
                           lambda: self.__smooth_polygons(False))
         self._btns["unsmooth_polys"] = btn
@@ -122,8 +111,7 @@ class EditableGeomProperties(BaseObject):
         grp_sizer.Add(wx.Size(0, 4))
 
         label = "Smooth with other..."
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, grp_sizer, bitmaps, label,
                           "Smooth selected polygons with another",
                           self.__pick_poly_to_smooth_with, sizer_args)
@@ -132,8 +120,7 @@ class EditableGeomProperties(BaseObject):
         grp_sizer.Add(wx.Size(0, 4))
 
         label = "Unsmooth with other..."
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, grp_sizer, bitmaps, label,
                           "Unsmooth selected polygons with another",
                           lambda: self.__pick_poly_to_smooth_with(False), sizer_args)
@@ -145,15 +132,13 @@ class EditableGeomProperties(BaseObject):
         grp_sizer.Add(btn_sizer)
 
         label = "Smooth all"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, btn_sizer, bitmaps, label, "Smooth all polygons",
                           self.__smooth_all, sizer_args)
         self._btns["smooth_all"] = btn
 
         label = "Unsm. all"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, btn_sizer, bitmaps, label, "Flatten all polygons",
                           lambda: self.__smooth_all(False))
         self._btns["unsmooth_all"] = btn
@@ -162,8 +147,12 @@ class EditableGeomProperties(BaseObject):
 
         subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
         grp_sizer.Add(subsizer)
-        checkbox = PanelCheckBox(panel, group, subsizer,
-                                 lambda val: Mgr.set_global("sel_polys_by_smoothing", val))
+
+        def handler(val):
+
+            GlobalData["sel_polys_by_smoothing"] = val
+
+        checkbox = PanelCheckBox(panel, group, subsizer, handler)
         checkbox.check(False)
         self._checkboxes["sel_by_smoothing"] = checkbox
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
@@ -177,26 +166,23 @@ class EditableGeomProperties(BaseObject):
         sizer_args = (0, wx.RIGHT, 5)
 
         label = "Flip"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, btn_sizer, bitmaps, label,
                           "Reverse selected polygon normals",
                           self.__flip_poly_normals, sizer_args)
         self._btns["flip_normals"] = btn
 
         label = "Flip all"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, btn_sizer, bitmaps, label,
                           "Reverse all polygon normals",
-                          lambda: self.__flip_poly_normals(False))  # , sizer_args)
+                          lambda: self.__flip_poly_normals(False))
         self._btns["flip_all_normals"] = btn
 
         sizer.Add(wx.Size(0, 4))
 
         label = "Turn diagonals..."
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, sizer, bitmaps, label,
                           "Turn any diagonals of a selected polygon",
                           self.__turn_diagonals)
@@ -266,19 +252,17 @@ class EditableGeomProperties(BaseObject):
         poly_state_ids.append("diagonal_turning_mode")
 
         for subobj_lvl in ("vert", "edge", "poly"):
-            self._panel.show_section("%s_props" %
-                                     subobj_lvl, False, update=False)
+            self._panel.show_section("%s_props" % subobj_lvl, False, update=False)
 
         self._panel.GetSizer().Layout()
         self._panel.update_parent()
 
     def __update_object_level(self):
 
-        obj_lvl = Mgr.get_global("active_obj_level")
+        obj_lvl = GlobalData["active_obj_level"]
 
         for subobj_lvl in ("vert", "edge", "poly"):
-            self._panel.show_section("%s_props" %
-                                     subobj_lvl, False, update=False)
+            self._panel.show_section("%s_props" % subobj_lvl, False, update=False)
 
         if obj_lvl == "top":
             self._subobj_btns.deactivate()
@@ -296,12 +280,12 @@ class EditableGeomProperties(BaseObject):
 
     def __set_topobj_level(self):
 
-        Mgr.set_global("active_obj_level", "top")
+        GlobalData["active_obj_level"] = "top"
         Mgr.update_app("active_obj_level")
 
     def __set_subobj_level(self, subobj_lvl):
 
-        Mgr.set_global("active_obj_level", subobj_lvl)
+        GlobalData["active_obj_level"] = subobj_lvl
         Mgr.update_app("active_obj_level")
 
     def __toggle_poly_creation(self):
@@ -384,7 +368,7 @@ class EditableGeomProperties(BaseObject):
 
     def check_selection_count(self):
 
-        sel_count = Mgr.get_global("selection_count")
+        sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
         color = wx.Colour(127, 127, 127) if multi_sel else None
 

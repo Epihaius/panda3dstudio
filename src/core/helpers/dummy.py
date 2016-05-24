@@ -453,31 +453,26 @@ class Dummy(TopLevelObject):
 
     def __getstate__(self):
 
-        d = self.__dict__.copy()
-        d["_pivot"] = NodePath(self.get_pivot().get_name())
-        d["_origin"] = NodePath(self.get_origin().get_name())
-        del d["_geom_roots"]
-        del d["_geoms"]
+        state = TopLevelObject.__getstate__(self)
+
+        del state["_geom_roots"]
+        del state["_geoms"]
 
         if self._is_const_size:
             Mgr.do("make_dummy_const_size", self, False)
             root = self._root.copy_to(Mgr.get("object_root"))
             root.detach_node()
-            d["_root"] = root
+            state["_root"] = root
             Mgr.do("make_dummy_const_size", self)
 
-        return d
+        return state
 
     def __setstate__(self, state):
 
-        self.__dict__ = state
+        TopLevelObject.__setstate__(self, state)
 
-        pivot = self.get_pivot()
-        pivot.reparent_to(Mgr.get("object_root"))
-        origin = self.get_origin()
-        origin.reparent_to(pivot)
         root = self._root
-        root.reparent_to(origin)
+        root.reparent_to(self.get_origin())
         self._geom_roots = {}
         self._geoms = {"box": {}, "cross": {}}
 
@@ -488,8 +483,7 @@ class Dummy(TopLevelObject):
 
     def __init__(self, dummy_id, name, origin_pos):
 
-        TopLevelObject.__init__(self, "dummy", dummy_id, name, origin_pos,
-                                has_color=False)
+        TopLevelObject.__init__(self, "dummy", dummy_id, name, origin_pos)
 
         self._type_prop_ids = ["viz", "size", "cross_size", "const_size_state",
                                "const_size", "on_top"]

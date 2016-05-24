@@ -137,8 +137,7 @@ class EdgeEditManager(BaseObject):
 
     def setup(self):
 
-        Mgr.add_interface_updater(
-            "uv_window", "edge_split", self.__split_edges)
+        Mgr.add_interface_updater("uv_window", "edge_split", self.__split_edges)
 
     def __split_edges(self):
 

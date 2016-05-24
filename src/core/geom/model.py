@@ -7,7 +7,7 @@ class ModelManager(ObjectManager):
     def __init__(self):
 
         ObjectManager.__init__(self, "model", self.__create_model)
-        Mgr.set_global("two_sided", False)
+        GlobalData.set_default("two_sided", False)
 
     def setup(self):
 
@@ -26,34 +26,26 @@ class Model(TopLevelObject):
 
     def __getstate__(self):
 
-        d = self.__dict__.copy()
-        d["_geom_obj"] = None
-        d["_material"] = None
-        d["_color"] = VBase4(1., 1., 1., 1.)
-        d["_pivot"] = NodePath(self.get_pivot().get_name())
-        d["_origin"] = NodePath(self.get_origin().get_name())
+        state = TopLevelObject.__getstate__(self)
 
-        return d
+        state["_geom_obj"] = None
+        state["_material"] = None
+
+        return state
 
     def __setstate__(self, state):
 
-        self.__dict__ = state
+        TopLevelObject.__setstate__(self, state)
 
-        pivot = self.get_pivot()
-        pivot.reparent_to(Mgr.get("object_root"))
-        origin = self.get_origin()
-
-        if Mgr.get_global("transform_target_type") == "pivot":
-            origin.reparent_to(Mgr.get("object_root"))
-        else:
-            origin.reparent_to(pivot)
-
-        self._bbox.get_origin().reparent_to(origin)
+        self._bbox.get_origin().reparent_to(self.get_origin())
 
     def __init__(self, model_id, name, origin_pos, bbox_color):
 
-        TopLevelObject.__init__(self, "model", model_id, name, origin_pos)
+        TopLevelObject.__init__(self, "model", model_id, name, origin_pos, has_color=True)
 
+        self.get_property_ids().append("material")
+        self._vert_colors_shown = False
+        self._material = None
         self._geom_obj = None
 
         self._bbox = Mgr.do("create_bbox", self, bbox_color)
@@ -68,11 +60,84 @@ class Model(TopLevelObject):
         if not TopLevelObject.destroy(self, add_to_hist):
             return
 
+        if self._material:
+            self._material.remove(self)
+
         self._geom_obj.destroy()
         self._geom_obj.set_model(None)
         self._geom_obj = None
         self._bbox.destroy()
         self._bbox = None
+
+    def set_color(self, color, update_app=True):
+
+        return TopLevelObject.set_color(self, color, update_app, not self._vert_colors_shown)
+
+    def set_material(self, material, restore=""):
+
+        old_material = self._material
+
+        if old_material is material:
+            return False
+
+        if old_material:
+            old_material.remove(self)
+
+        if not material:
+
+            self._material = material
+
+            return True
+
+        material_id = material.get_id()
+        registered_material = Mgr.get("material", material_id)
+
+        if registered_material:
+
+            self._material = registered_material
+
+        else:
+
+            self._material = material
+            Mgr.do("register_material", material)
+            owner_ids = material.get_owner_ids()
+
+            for owner_id in owner_ids[:]:
+
+                if owner_id == self._id:
+                    continue
+
+                owner = Mgr.get("object", owner_id)
+
+                if not owner:
+                    owner_ids.remove(owner_id)
+                    continue
+
+                m = owner.get_material()
+
+                if not m or m.get_id() != material_id:
+                    owner_ids.remove(owner_id)
+
+        force = True if restore else False
+        self._material.apply(self, force=force)
+
+        return True
+
+    def replace_material(self, new_material):
+
+        old_material = self._material
+
+        if old_material:
+            old_material.remove(self)
+
+        new_material.apply(self)
+        self._material = new_material
+
+        return True
+
+    def get_material(self):
+
+        return self._material
 
     def set_geom_object(self, geom_obj):
 
@@ -91,7 +156,12 @@ class Model(TopLevelObject):
         geom_obj.set_model(self)
         self._geom_obj = geom_obj
 
-        task = lambda: Mgr.get("selection", "top").update_ui(force=True)
+        def task():
+
+            selection = Mgr.get("selection", "top")
+            selection.update_ui()
+            selection.update_obj_props(force=True)
+
         task_id = "update_type_props"
         PendingTasks.add(task, task_id, "ui")
 
@@ -103,7 +173,12 @@ class Model(TopLevelObject):
         geom_obj.set_model(self)
         self._geom_obj = geom_obj
 
-        task = lambda: Mgr.get("selection", "top").update_ui(force=True)
+        def task():
+
+            selection = Mgr.get("selection", "top")
+            selection.update_ui()
+            selection.update_obj_props(force=True)
+
         task_id = "update_type_props"
         PendingTasks.add(task, task_id, "ui")
 
@@ -142,6 +217,9 @@ class Model(TopLevelObject):
 
     def set_property(self, prop_id, value, restore=""):
 
+        if prop_id == "material":
+            return self.set_material(value, restore)
+
         if prop_id in TopLevelObject.get_property_ids(self):
             return TopLevelObject.set_property(self, prop_id, value, restore)
 
@@ -149,6 +227,9 @@ class Model(TopLevelObject):
             return self._geom_obj.set_property(prop_id, value)
 
     def get_property(self, prop_id, for_remote_update=False):
+
+        if prop_id == "material":
+            return self._material
 
         if prop_id in TopLevelObject.get_property_ids(self):
             return TopLevelObject.get_property(self, prop_id, for_remote_update)
@@ -188,7 +269,7 @@ class Model(TopLevelObject):
         if not self._bbox:
             return
 
-        if "shaded" in Mgr.get_global("render_mode"):
+        if "shaded" in GlobalData["render_mode"]:
             if is_selected:
                 self._bbox.show()
             else:
@@ -200,7 +281,7 @@ class Model(TopLevelObject):
     def update_render_mode(self):
 
         if self.is_selected():
-            if "shaded" in Mgr.get_global("render_mode"):
+            if "shaded" in GlobalData["render_mode"]:
                 self._bbox.show()
             else:
                 self._bbox.hide()

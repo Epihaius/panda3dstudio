@@ -71,7 +71,7 @@ class GUI(wx.App):
         self._title_main = "Panda3D Studio - "
         main_frame = wx.Frame(None, -1, self._title_main + "New", style=style)
         self.SetTopWindow(main_frame)
-        
+
         if PLATFORM_ID == "Windows":
             main_frame.SetPosition(wx.Point(-10000, -10000))
 
@@ -214,15 +214,15 @@ class GUI(wx.App):
 
             if event.AltDown():
                 mod_code |= wx.MOD_ALT
-                Mgr.set_global("alt_down", True)
+                GlobalData["alt_down"] = True
 
             if event.CmdDown():
                 mod_code |= wx.MOD_CONTROL
-                Mgr.set_global("ctrl_down", True)
+                GlobalData["ctrl_down"] = True
 
             if event.ShiftDown():
                 mod_code |= wx.MOD_SHIFT
-                Mgr.set_global("shift_down", True)
+                GlobalData["shift_down"] = True
 
             if Mgr.remotely_handle_key_down(key):
                 return
@@ -231,13 +231,13 @@ class GUI(wx.App):
 
             key = remote_key
 
-            if Mgr.get_global("alt_down"):
+            if GlobalData["alt_down"]:
                 mod_code |= wx.MOD_ALT
 
-            if Mgr.get_global("ctrl_down"):
+            if GlobalData["ctrl_down"]:
                 mod_code |= wx.MOD_CONTROL
 
-            if Mgr.get_global("shift_down"):
+            if GlobalData["shift_down"]:
                 mod_code |= wx.MOD_SHIFT
 
         hotkey = (key, mod_code)
@@ -262,11 +262,11 @@ class GUI(wx.App):
                 key = self._alt_key_event_ids[key]
 
             if key == wx.WXK_ALT:
-                Mgr.set_global("alt_down", False)
+                GlobalData["alt_down"] = False
             elif key == wx.WXK_CONTROL:
-                Mgr.set_global("ctrl_down", False)
+                GlobalData["ctrl_down"] = False
             elif key == wx.WXK_SHIFT:
-                Mgr.set_global("shift_down", False)
+                GlobalData["shift_down"] = False
 
             if Mgr.remotely_handle_key_up(key):
                 return

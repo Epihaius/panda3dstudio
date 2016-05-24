@@ -20,11 +20,10 @@ class CreationPhaseManager(object):
         if has_color:
             self.set_next_object_color()
         else:
-            Mgr.set_global("next_%s_color" % obj_type, None)
+            GlobalData["next_%s_color" % obj_type] = None
 
         Mgr.expose("custom_%s_name" % obj_type, lambda: self._custom_obj_name)
-        Mgr.accept("set_custom_%s_name" %
-                   obj_type, self.__set_custom_object_name)
+        Mgr.accept("set_custom_%s_name" % obj_type, self.__set_custom_object_name)
 
     def setup(self, creation_phases, status_text):
 
@@ -43,18 +42,15 @@ class CreationPhaseManager(object):
 
             if i == 0:
                 creation_starter = self.__get_creation_starter(main_starter)
-                Mgr.accept("start_%s_creation" %
-                           self._obj_type, creation_starter)
+                Mgr.accept("start_%s_creation" % self._obj_type, creation_starter)
                 on_enter_state = None
             else:
-                on_enter_state = self.__get_creation_phase_starter(
-                    main_starter)
+                on_enter_state = self.__get_creation_phase_starter(main_starter)
 
             state_id = "%s_creation_phase_%s" % (self._obj_type, i + 1)
             add_state(state_id, state_persistence, on_enter_state)
 
-            self._creation_handlers.append(
-                self.__get_creation_phase_handler(main_handler))
+            self._creation_handlers.append(self.__get_creation_phase_handler(main_handler))
 
             binding_id = "quit %s creation" % self._obj_type
             bind(state_id, binding_id, "escape", self.__end_creation)
@@ -69,19 +65,16 @@ class CreationPhaseManager(object):
                      lambda: self.__end_creation(cancel=False))
                 info_text += " release LMB to finalize;"
             else:
-                binding_id = "start %s creation phase %s" % (
-                    self._obj_type, i + 2)
-                next_state_id = "%s_creation_phase_%s" % (
-                    self._obj_type, i + 2)
+                binding_id = "start %s creation phase %s" % (self._obj_type, i + 2)
+                next_state_id = "%s_creation_phase_%s" % (self._obj_type, i + 2)
                 bind(state_id, binding_id, "mouse1-up",
                      lambda: Mgr.enter_state(next_state_id))
                 info_text += " release LMB to set;"
 
             info_text += " RMB to cancel"
-            creation_status["phase%s" %
-                            (i + 1)] = {"mode": mode_text, "info": info_text}
+            creation_status["phase%s" % (i + 1)] = {"mode": mode_text, "info": info_text}
 
-        status_data = Mgr.get_global("status_data")["create"]
+        status_data = GlobalData["status_data"]["create"]
         status_data[self._obj_type] = creation_status
 
         return True
@@ -106,12 +99,10 @@ class CreationPhaseManager(object):
             Mgr.remove_task("draw_object")
             main_start_func()
             self._current_creation_phase += 1
-            creation_handler = self._creation_handlers[
-                self._current_creation_phase]
+            creation_handler = self._creation_handlers[self._current_creation_phase]
             Mgr.add_task(creation_handler, "draw_object", sort=3)
             phase_id = self._current_creation_phase + 1
-            Mgr.update_app("status", "create", self._obj_type,
-                           "phase%s" % phase_id)
+            Mgr.update_app("status", "create", self._obj_type, "phase%s" % phase_id)
 
         return start_creation_phase
 
@@ -150,11 +141,11 @@ class CreationPhaseManager(object):
     def set_next_object_color(self):
 
         color_values = tuple([random.random() * .5 + .5 for i in range(3)])
-        Mgr.set_global("next_%s_color" % self._obj_type, color_values)
+        GlobalData["next_%s_color" % self._obj_type] = color_values
 
     def get_next_object_color(self):
 
-        r, g, b = Mgr.get_global("next_%s_color" % self._obj_type)
+        r, g, b = GlobalData["next_%s_color" % self._obj_type]
         color = VBase4(r, g, b, 1.)
 
         return color
@@ -189,8 +180,7 @@ class CreationPhaseManager(object):
         else:
 
             obj_type = self._obj_type
-            Mgr.update_remotely("next_obj_name", Mgr.get(
-                "next_obj_name", obj_type))
+            Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
 
             if self._has_color:
                 self.set_next_object_color()

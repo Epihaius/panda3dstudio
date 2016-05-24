@@ -35,11 +35,9 @@ class GeomHistoryBase(BaseObject):
                 pickled_objs = dict((s_id, cPickle.dumps(s, -1))
                                     for s_id, s in subobjs.iteritems())
 
-                extra_data = {"%s_objs" %
-                              subobj_type: {"created": pickled_objs}}
+                extra_data = {"%s_objs" % subobj_type: {"created": pickled_objs}}
 
-                data["%ss" % subobj_type] = {
-                    "main": prev_time_ids, "extra": extra_data}
+                data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
 
         elif event_type == "deletion":
 
@@ -48,18 +46,14 @@ class GeomHistoryBase(BaseObject):
 
             for subobj_type in ("vert", "edge", "poly"):
 
-                prev_time_ids = Mgr.do(
-                    "load_last_from_history", obj_id, "%ss" % subobj_type)
+                prev_time_ids = Mgr.do("load_last_from_history", obj_id, "%ss" % subobj_type)
                 prev_time_ids += (cur_time_id,)
 
                 subobjs = self._subobjs[subobj_type].iteritems()
-                creation_times = dict((s_id, s.get_creation_time())
-                                      for s_id, s in subobjs)
-                extra_data = {"%s_objs" %
-                              subobj_type: {"deleted": creation_times}}
+                creation_times = dict((s_id, s.get_creation_time()) for s_id, s in subobjs)
+                extra_data = {"%s_objs" % subobj_type: {"deleted": creation_times}}
 
-                data["%ss" % subobj_type] = {
-                    "main": prev_time_ids, "extra": extra_data}
+                data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
 
         elif event_type == "subobj_change":
 
@@ -88,8 +82,7 @@ class GeomHistoryBase(BaseObject):
 
             for subobj_type in ("vert", "edge", "poly"):
 
-                prev_time_ids = Mgr.do(
-                    "load_last_from_history", obj_id, "%ss" % subobj_type)
+                prev_time_ids = Mgr.do("load_last_from_history", obj_id, "%ss" % subobj_type)
                 prev_time_ids += (cur_time_id,)
                 data_to_store = {}
 
@@ -97,8 +90,8 @@ class GeomHistoryBase(BaseObject):
 
                     deleted_subobjs = subobj_change[subobj_type]["deleted"]
                     # creation times of the deleted subobjects
-                    creation_times = dict(
-                        (s.get_id(), s.get_creation_time()) for s in deleted_subobjs)
+                    creation_times = dict((s.get_id(), s.get_creation_time())
+                                          for s in deleted_subobjs)
                     data_to_store["deleted"] = creation_times
 
                 if "created" in subobj_change[subobj_type]:
@@ -108,14 +101,12 @@ class GeomHistoryBase(BaseObject):
 
                     for subobj in created_subobjs:
                         subobj.set_creation_time(cur_time_id)
-                        pickled_objs[subobj.get_id()] = cPickle.dumps(
-                            subobj, -1)
+                        pickled_objs[subobj.get_id()] = cPickle.dumps(subobj, -1)
 
                     data_to_store["created"] = pickled_objs
 
                 extra_data = {"%s_objs" % subobj_type: data_to_store}
-                data["%ss" % subobj_type] = {
-                    "main": prev_time_ids, "extra": extra_data}
+                data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
 
             self._subobj_change = {"vert": {}, "edge": {}, "poly": {}}
 
@@ -149,7 +140,7 @@ class GeomHistoryBase(BaseObject):
         elif prop_id == "subobj_transform":
 
             obj_id = self.get_toplevel_object().get_id()
-            subobj_lvl = Mgr.get_global("active_obj_level")
+            subobj_lvl = GlobalData["active_obj_level"]
             pos_data = {"prev": {}, "pos": {}}
             extra_data = {"vert_pos_data": pos_data}
             cur_time_id = Mgr.do("get_history_time")
@@ -206,20 +197,18 @@ class GeomHistoryBase(BaseObject):
                         # cannot be relied upon to get a single previous transform time for
                         # all the Vertex objects it references, so this has to be retrieved
                         # per Vertex object
-                        time_id = verts[
-                            vert_id].get_previous_property_time("transform")
+                        time_id = verts[vert_id].get_previous_property_time("transform")
                         pos_data["pos"][vert_id] = pos
                         pos_data["prev"][vert_id] = time_id
 
-                    merged_vert.set_previous_property_time(
-                        "transform", cur_time_id)
+                    merged_vert.set_previous_property_time("transform", cur_time_id)
 
             data[prop_id] = {"main": prev_time_ids, "extra": extra_data}
 
         elif prop_id == "poly_tris":
 
             obj_id = self.get_toplevel_object().get_id()
-            subobj_lvl = Mgr.get_global("active_obj_level")
+            subobj_lvl = GlobalData["active_obj_level"]
             tri_data = {"prev": {}, "tri_data": {}}
             extra_data = {"tri_data": tri_data}
             cur_time_id = Mgr.do("get_history_time")
@@ -338,12 +327,11 @@ class GeomHistoryBase(BaseObject):
         obj_id = self.get_toplevel_object().get_id()
 
         if "self" in data_ids:
-            self.update_selection_state(
-                self.get_toplevel_object().is_selected())
+
+            self.update_selection_state(self.get_toplevel_object().is_selected())
 
             for prop_id in self.get_property_ids():
-                self.__restore_property(
-                    prop_id, restore_type, old_time_id, new_time_id)
+                self.__restore_property(prop_id, restore_type, old_time_id, new_time_id)
 
             task = lambda: self.__restore_subgeometry(old_time_id, new_time_id)
             task_id = "restore_subobjs"
@@ -361,13 +349,11 @@ class GeomHistoryBase(BaseObject):
 
             for prop_id in self.get_property_ids():
                 if prop_id in data_ids:
-                    self.__restore_property(
-                        prop_id, restore_type, old_time_id, new_time_id)
+                    self.__restore_property(prop_id, restore_type, old_time_id, new_time_id)
 
             if "polys" in data_ids:
 
-                task = lambda: self.__restore_subgeometry(
-                    old_time_id, new_time_id)
+                task = lambda: self.__restore_subgeometry(old_time_id, new_time_id)
                 task_id = "restore_subobjs"
                 PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
@@ -394,7 +380,7 @@ class GeomHistoryBase(BaseObject):
             task_id = "merge_subobjs"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
-            task = lambda: Mgr.do("update_subobj_selection", restore=True)
+            task = lambda: Mgr.do("update_active_selection", restore=True)
             task_id = "upd_subobj_sel"
             PendingTasks.add(task, task_id, "object")
 
@@ -426,14 +412,13 @@ class GeomHistoryBase(BaseObject):
             task_id = "set_subobj_sel"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
-            task = lambda: Mgr.do("update_subobj_selection", restore=True)
+            task = lambda: Mgr.do("update_active_selection", restore=True)
             task_id = "upd_subobj_sel"
             PendingTasks.add(task, task_id, "object")
 
         elif prop_id == "subobj_transform":
 
-            task = lambda: self._restore_subobj_transforms(
-                old_time_id, new_time_id)
+            task = lambda: self._restore_subobj_transforms(old_time_id, new_time_id)
             task_id = "set_subobj_transf"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
@@ -443,8 +428,7 @@ class GeomHistoryBase(BaseObject):
 
         elif prop_id == "poly_tris":
 
-            task = lambda: self._restore_poly_triangle_data(
-                old_time_id, new_time_id)
+            task = lambda: self._restore_poly_triangle_data(old_time_id, new_time_id)
             task_id = "set_poly_triangles"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
@@ -478,12 +462,9 @@ class GeomHistoryBase(BaseObject):
         polys_to_reg = subobjs_to_reg["poly"]
         polys_to_unreg = subobjs_to_unreg["poly"]
 
-        vert_change = self.__restore_subobjects(
-            "vert", old_time_id, new_time_id)
-        edge_change = self.__restore_subobjects(
-            "edge", old_time_id, new_time_id)
-        poly_change = self.__restore_subobjects(
-            "poly", old_time_id, new_time_id)
+        vert_change = self.__restore_subobjects("vert", old_time_id, new_time_id)
+        edge_change = self.__restore_subobjects("edge", old_time_id, new_time_id)
+        poly_change = self.__restore_subobjects("poly", old_time_id, new_time_id)
         verts_to_remove, verts_to_restore = vert_change
         edges_to_remove, edges_to_restore = edge_change
         polys_to_remove, polys_to_restore = poly_change
@@ -565,10 +546,8 @@ class GeomHistoryBase(BaseObject):
         obj_id = self.get_toplevel_object().get_id()
         prop_id = "%ss" % subobj_type
 
-        prev_time_ids = Mgr.do("load_last_from_history",
-                               obj_id, prop_id, old_time_id)
-        new_time_ids = Mgr.do("load_last_from_history",
-                              obj_id, prop_id, new_time_id)
+        prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
+        new_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
 
         if prev_time_ids is None:
 
@@ -609,8 +588,7 @@ class GeomHistoryBase(BaseObject):
 
             for subobj_id in created_subobjs:
                 if subobj_id in registered_subobjs:
-                    subobjs_to_delete[
-                        subobj_id] = registered_subobjs[subobj_id]
+                    subobjs_to_delete[subobj_id] = registered_subobjs[subobj_id]
 
             data_to_load = {}
 
@@ -620,8 +598,7 @@ class GeomHistoryBase(BaseObject):
 
             for time_id2, subobj_ids in data_to_load.iteritems():
 
-                subobj_data = Mgr.do("load_from_history",
-                                     obj_id, data_id, time_id2)
+                subobj_data = Mgr.do("load_from_history", obj_id, data_id, time_id2)
                 created_subobjs = subobj_data["created"]
 
                 for subobj_id in subobj_ids:
@@ -639,8 +616,7 @@ class GeomHistoryBase(BaseObject):
                 if subobj_id in subobjs_to_recreate:
                     del subobjs_to_recreate[subobj_id]
                 else:
-                    subobjs_to_delete[
-                        subobj_id] = registered_subobjs[subobj_id]
+                    subobjs_to_delete[subobj_id] = registered_subobjs[subobj_id]
 
             subobjs_to_recreate.update(created_subobjs)
 
@@ -660,8 +636,7 @@ class GeomHistoryBase(BaseObject):
             for state in ("selected", "unselected"):
                 sel_state[subobj_type][state] = []
                 geom_node = self._geoms[subobj_type][state].node()
-                geom_node.modify_geom(0).modify_primitive(
-                    0).modify_vertices().modify_handle().set_data("")
+                geom_node.modify_geom(0).modify_primitive(0).modify_vertices().modify_handle().set_data("")
                 # NOTE: do *NOT* call geom_node.modify_geom(0).modify_primitive(0).clearVertices(),
                 # as this will explicitly remove all data from the primitive, and adding new
                 # data thru ...modify_primitive(0).modify_vertices().modify_handle().set_data(data)
@@ -712,7 +687,7 @@ class GeomHistoryBase(BaseObject):
         vertex_data_vert = self._vertex_data["vert"]
         vertex_data_edge = self._vertex_data["edge"]
 
-        geom_node = self._geoms["top"]["shaded"].node()
+        geom_node = self._toplvl_node
         vertex_data_top = geom_node.modify_geom(0).modify_vertex_data()
 
         vert_array = vertex_data_vert.modify_array(1)
@@ -734,16 +709,12 @@ class GeomHistoryBase(BaseObject):
 
         for start, size in row_ranges_to_delete:
 
-            vert_handle.set_subdata(
-                start * vert_stride, size * vert_stride, "")
-            edge_handle.set_subdata(
-                (start + old_count) * edge_stride, size * edge_stride, "")
-            edge_handle.set_subdata(
-                start * edge_stride, size * edge_stride, "")
+            vert_handle.set_subdata(start * vert_stride, size * vert_stride, "")
+            edge_handle.set_subdata((start + old_count) * edge_stride, size * edge_stride, "")
+            edge_handle.set_subdata(start * edge_stride, size * edge_stride, "")
 
             for poly_handle, poly_stride in zip(poly_handles, poly_strides):
-                poly_handle.set_subdata(
-                    start * poly_stride, size * poly_stride, "")
+                poly_handle.set_subdata(start * poly_stride, size * poly_stride, "")
 
             old_count -= size
 
@@ -754,14 +725,11 @@ class GeomHistoryBase(BaseObject):
         subobjs = self._subobjs
         verts = subobjs["vert"]
         ordered_polys = self._ordered_polys
-        vert_count = sum((poly.get_vertex_count()
-                          for poly in polys_to_restore))
+        vert_count = sum((poly.get_vertex_count() for poly in polys_to_restore))
         old_count = self._data_row_count
         count = old_count + vert_count
 
-        geoms = self._geoms
-        vertex_data_top = geoms["top"][
-            "shaded"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.reserve_num_rows(count)
         row_index_offset = old_count
 
@@ -781,8 +749,7 @@ class GeomHistoryBase(BaseObject):
         for poly in polys_to_restore:
 
             ordered_polys.append(poly)
-            picking_color = get_color_vec(
-                poly.get_picking_color_id(), pickable_type_id)
+            picking_color = get_color_vec(poly.get_picking_color_id(), pickable_type_id)
             poly_verts = poly.get_vertices()
 
             for vert in poly_verts:
@@ -815,8 +782,7 @@ class GeomHistoryBase(BaseObject):
             col_writer.set_row(row)
 
             for vert in poly_verts:
-                picking_color = get_color_vec(
-                    vert.get_picking_color_id(), pickable_type_id)
+                picking_color = get_color_vec(vert.get_picking_color_id(), pickable_type_id)
                 col_writer.add_data4f(picking_color)
 
         vertex_data_vert.set_array(1, vertex_data_tmp.get_array(1))
@@ -868,7 +834,7 @@ class GeomHistoryBase(BaseObject):
 
         self._data_row_count = count
 
-        geom_node = geoms["top"]["shaded"].node()
+        geom_node = self._toplvl_node
 
         # handle possible bug
         try:
@@ -897,7 +863,7 @@ class GeomHistoryBase(BaseObject):
 
         geoms = self._geoms
 
-        geom_node = geoms["top"]["shaded"].node()
+        geom_node = self._toplvl_node
         vertex_data_top = geom_node.get_geom(0).get_vertex_data()
 
         poly_arrays = []
@@ -927,8 +893,7 @@ class GeomHistoryBase(BaseObject):
                 sel_state_edge.append(row1)
 
             for vert_ids in poly:
-                tris_prim.add_vertices(
-                    *[verts[v_id].get_row_index() for v_id in vert_ids])
+                tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
 
             sel_state_poly.extend(poly[:])
 

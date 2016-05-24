@@ -381,10 +381,6 @@ class TranslationGizmo(TransformationGizmo):
                     handle[1].set_color(self._axis_colors[plane[1]])
                     quad.hide()
 
-    def set_shear(self, shear):
-
-        self._handle_root.set_shear(shear)
-
     def get_point_at_screen_pos(self, screen_pos):
 
         cam = self.cam()

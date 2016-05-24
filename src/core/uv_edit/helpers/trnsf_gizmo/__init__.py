@@ -118,7 +118,7 @@ class UVTransformGizmo(BaseObject):
 
     def __update_axis_constraints(self, transf_type, axes):
 
-        Mgr.set_global("uv_axis_constraints_%s" % transf_type, axes)
+        GlobalData["uv_axis_constraints_%s" % transf_type] = axes
         self._components[transf_type].set_active_axes(axes)
 
     def enable(self):

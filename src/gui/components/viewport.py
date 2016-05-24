@@ -36,7 +36,7 @@ class ViewportBorders(object):
         self._borders = []
         default_color = wx.Colour(106, 101, 141)
         self._color = self._default_color = default_color
-        
+
         b_w = border_width
         w, h = size
         w += 2 * b_w
@@ -106,7 +106,7 @@ class Viewport(wx.Panel, FocusResetter):
 
                 if has_focus:
                     Mgr.do("reject_field_input")
-                    Mgr.set_global("active_viewport", viewport_name)
+                    GlobalData["active_viewport"] = viewport_name
 
         return viewport_callback
 

@@ -16,14 +16,14 @@ class HierarchyManager(BaseObject):
 
         self._pixel_under_mouse = VBase4()
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Link objects"
         info_text = "LMB-drag over first (child) object and release LMB over" \
                     " second (parent) object; RMB or <Escape> to end"
         status_data["object_linking"] = {"mode": mode_text, "info": info_text}
 
-        Mgr.set_global("object_links_shown", False)
-        Mgr.set_global("transform_target_type", "all")
+        GlobalData.set_default("object_links_shown", False)
+        GlobalData.set_default("transform_target_type", "all")
         Mgr.accept("add_obj_link_viz", self.__add_obj_link_viz)
         Mgr.accept("remove_obj_link_viz", self.__remove_obj_link_viz)
         Mgr.accept("update_obj_link_viz", self.__update_obj_link_viz)
@@ -76,12 +76,12 @@ class HierarchyManager(BaseObject):
         Mgr.add_task(self.__update_cursor, "update_linking_cursor")
         self.__reset_xform_target_type()
 
-        if Mgr.get_global("active_transform_type"):
-            Mgr.set_global("active_transform_type", "")
+        if GlobalData["active_transform_type"]:
+            GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
-        if Mgr.get_global("active_obj_level") != "top":
-            Mgr.set_global("active_obj_level", "top")
+        if GlobalData["active_obj_level"] != "top":
+            GlobalData["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
         Mgr.update_app("status", "object_linking")
@@ -99,7 +99,7 @@ class HierarchyManager(BaseObject):
 
     def __show_object_links(self, show):
 
-        Mgr.set_global("object_links_shown", show)
+        GlobalData["object_links_shown"] = show
 
         if show:
             self._obj_link_viz_nps.show()
@@ -210,7 +210,7 @@ class HierarchyManager(BaseObject):
         self._obj_link_viz[child_id] = link_geom
         self._obj_link_viz_nps.add_path(link_geom)
 
-        if not Mgr.get_global("object_links_shown"):
+        if not GlobalData["object_links_shown"]:
             link_geom.hide()
 
     def __remove_obj_link_viz(self, child_id):
@@ -229,7 +229,7 @@ class HierarchyManager(BaseObject):
 
             obj_transf_info = obj_ids if obj_ids else Mgr.get("obj_transf_info")
             obj_link_viz = self._obj_link_viz
-            update_children = Mgr.get_global("transform_target_type") in ("pivot",
+            update_children = GlobalData["transform_target_type"] in ("pivot",
                               "no_children") or force_update_children
 
             for obj_id in obj_transf_info:
@@ -438,7 +438,7 @@ class HierarchyManager(BaseObject):
 
     def __update_xform_target_type(self):
 
-        target_type = Mgr.get_global("transform_target_type")
+        target_type = GlobalData["transform_target_type"]
         prev_target_type = self._prev_xform_target_type
         self._prev_xform_target_type = target_type
 
@@ -446,8 +446,8 @@ class HierarchyManager(BaseObject):
 
             Mgr.enter_state("selection_mode")
 
-            if Mgr.get_global("active_obj_level") != "top":
-                Mgr.set_global("active_obj_level", "top")
+            if GlobalData["active_obj_level"] != "top":
+                GlobalData["active_obj_level"] = "top"
                 Mgr.update_app("active_obj_level")
 
         if target_type == "geom":
@@ -481,8 +481,8 @@ class HierarchyManager(BaseObject):
 
     def __reset_xform_target_type(self):
 
-        if Mgr.get_global("transform_target_type") != "all":
-            Mgr.set_global("transform_target_type", "all")
+        if GlobalData["transform_target_type"] != "all":
+            GlobalData["transform_target_type"] = "all"
             Mgr.update_app("transform_target_type")
 
     def __reset_geoms(self):
@@ -497,7 +497,8 @@ class HierarchyManager(BaseObject):
             origin = obj.get_origin()
             origin.set_mat(pivot, Mat4.ident_mat())
 
-        sel.update()
+        task = lambda: Mgr.get("selection").update()
+        PendingTasks.add(task, "update_selection", "ui")
 
         # make undo/redoable
 
@@ -530,7 +531,7 @@ class HierarchyManager(BaseObject):
         if not sel:
             return
 
-        target_type = Mgr.get_global("transform_target_type")
+        target_type = GlobalData["transform_target_type"]
 
         for obj in sel:
 
@@ -550,22 +551,25 @@ class HierarchyManager(BaseObject):
                 for child in obj.get_children():
                     child.get_pivot().wrt_reparent_to(pivot)
 
-        cs_type = Mgr.get_global("coord_sys_type")
+        cs_type = GlobalData["coord_sys_type"]
         cs_obj = Mgr.get("coord_sys_obj")
-        tc_type = Mgr.get_global("transf_center_type")
+        tc_type = GlobalData["transf_center_type"]
         tc_obj = Mgr.get("transf_center_obj")
 
         if cs_obj in sel:
             Mgr.do("notify_coord_sys_transformed")
             Mgr.do("update_coord_sys")
 
-        if tc_type == "cs_origin":
-            if cs_type == "object" and cs_obj in sel:
-                Mgr.do("set_transf_gizmo_pos", cs_obj.get_pivot().get_pos())
-        elif tc_type == "object" and tc_obj in sel:
-            Mgr.do("set_transf_gizmo_pos", tc_obj.get_pivot().get_pos())
+        if GlobalData["active_obj_level"] == "top":
 
-        sel.update()
+            if tc_type == "cs_origin":
+                if cs_type == "object" and cs_obj in sel:
+                    Mgr.do("set_transf_gizmo_pos", cs_obj.get_pivot().get_pos())
+            elif tc_type == "object" and tc_obj in sel:
+                Mgr.do("set_transf_gizmo_pos", tc_obj.get_pivot().get_pos())
+
+        task = lambda: Mgr.get("selection").update()
+        PendingTasks.add(task, "update_selection", "ui")
         self.__update_obj_link_viz([obj.get_id() for obj in sel], True)
 
         # make undo/redoable

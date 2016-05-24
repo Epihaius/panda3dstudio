@@ -48,7 +48,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             origin.set_color(model.get_origin().get_color())
             origin.node().set_final(True)
             geom_roots = {}
-            geoms = {"hidden": None}
+            geoms = {}
 
             for subobj_type in ("vert", "edge", "poly"):
                 subobjs[subobj_type] = {}
@@ -81,7 +81,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         origin_copy.detach_node()
         geom_roots = {}
         geoms = {}
-        geoms["hidden"] = origin_copy.find("hidden_geom")
+##        geoms["hidden"] = origin_copy.find("hidden_geom")
         geoms["wire"] = origin_copy.find("wire_geom")
 
         for subobj_type in ("vert", "edge", "poly"):
@@ -342,7 +342,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
                 if row1 in start_row_indices or row2 in end_row_indices:
                     row1, row2 = row2, row1
-                    edge.switch_vertex_order()
+                    edge.reverse_vertex_order()
 
                 start_row_indices.append(row1)
                 end_row_indices.append(row2)
@@ -426,7 +426,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         edge_selected_geom.set_color(1., 0., 0.)
         geoms["edge"]["selected"] = edge_selected_geom
 
-        tris_geom = Geom(vertex_data_poly)
+        tris_geom = Geom(GeomVertexData(vertex_data_poly))
         tris_geom.add_primitive(tris_prim)
         geom_node = GeomNode("poly_unselected_geom")
         geom_node.add_geom(tris_geom)
@@ -448,11 +448,6 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         poly_selected_geom.set_effects(UVMgr.get("poly_selection_effects"))
         poly_selected_geom.set_tag("uv_template", "poly")
         geoms["poly"]["selected"] = poly_selected_geom
-
-        hidden_geom = poly_unselected_geom.copy_to(orig)
-        hidden_geom.set_name("hidden_geom")
-        hidden_geom.hide()
-        geoms["hidden"] = hidden_geom
 
         Mgr.do_next_frame(self.__clear_selected_subobjs, "clear_sel_subobjs")
 

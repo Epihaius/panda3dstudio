@@ -142,7 +142,7 @@ class Polygon(BaseObject):
                 side_vert1_id = tri_vert_ids[i]
                 side_vert2_id = tri_vert_ids[i - 2]
                 tri_side = (side_vert1_id, side_vert2_id)
-                tri_side_reversed = tri_side[::-1]
+                tri_side_reversed = (side_vert2_id, side_vert1_id)
 
                 if tri_side_reversed in tri_sides.get(side_vert2_id, ()):
                     tri_sides[side_vert2_id].remove(tri_side_reversed)
@@ -210,7 +210,7 @@ class Polygon(BaseObject):
 
     def get_special_selection(self):
 
-        if Mgr.get_global("sel_polys_by_smoothing"):
+        if GlobalData["sel_polys_by_smoothing"]:
             return self._geom_data_obj.get_smoothed_polys(self._id)
 
         return [self]

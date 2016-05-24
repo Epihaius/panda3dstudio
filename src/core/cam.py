@@ -5,15 +5,15 @@ class MainCamera(BaseObject):
 
     def __get_origin(self):
 
-        return self._origins[Mgr.get_global("view")]
+        return self._origins[GlobalData["view"]]
 
     def __get_lens_type(self):
 
-        return self._lens_types[Mgr.get_global("view")]
+        return self._lens_types[GlobalData["view"]]
 
     def __set_lens_type(self, lens_type):
 
-        self._lens_types[Mgr.get_global("view")] = lens_type
+        self._lens_types[GlobalData["view"]] = lens_type
         self.target.set_scale(1.) if lens_type == "persp" else self.origin.set_y(-500.)
 
     def __get_lens(self):
@@ -22,11 +22,11 @@ class MainCamera(BaseObject):
 
     def __get_target(self):
 
-        return self._targets[Mgr.get_global("view")]
+        return self._targets[GlobalData["view"]]
 
     def __get_pivot(self):
 
-        return self._pivots[Mgr.get_global("view")]
+        return self._pivots[GlobalData["view"]]
 
     def __get_zoom(self):
 
@@ -121,7 +121,7 @@ class MainCamera(BaseObject):
         if "grid_ok" not in MainObjects.get_setup_results():
             return False
 
-        Mgr.set_global("view", "ortho")
+        GlobalData["view"] = "ortho"
         Mgr.update_app("view", "set", "persp")
 
         return True

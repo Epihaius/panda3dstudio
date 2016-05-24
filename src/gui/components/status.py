@@ -12,8 +12,7 @@ class StatusBar(BasicToolbar):
             path = os.path.join(GFX_PATH, "statusbar_border_%s.png" % part)
             borders[part] = wx.Bitmap(path)
 
-        center_img = wx.Image(os.path.join(
-            GFX_PATH, "statusbar_border_center.png"))
+        center_img = wx.Image(os.path.join(GFX_PATH, "statusbar_border_center.png"))
 
         if not center_img.HasAlpha():
             center_img.InitAlpha()
@@ -22,11 +21,9 @@ class StatusBar(BasicToolbar):
         margin = 9
         x = 160
         self._mode_text_rect = wx.Rect(margin, 5, x - margin * 2, h - 10)
-        self._info_text_rect = wx.Rect(
-            x + margin, 5, width - x - margin * 2, h - 10)
+        self._info_text_rect = wx.Rect(x + margin, 5, width - x - margin * 2, h - 10)
 
-        bitmap = back_img.AdjustChannels(
-            1.6, 1.6, 1.6).Scale(width, h).ConvertToBitmap()
+        bitmap = back_img.AdjustChannels(1.6, 1.6, 1.6).Scale(width, h).ConvertToBitmap()
         mem_dc = wx.MemoryDC(bitmap)
         mem_dc.DrawBitmap(borders["left"], 0, 0)
         size = (x - 2 * w, h)
@@ -51,7 +48,7 @@ class StatusBar(BasicToolbar):
 
     def __update_status(self, *status_specs):
 
-        data = Mgr.get_global("status_data")[status_specs[0]]
+        data = GlobalData["status_data"][status_specs[0]]
 
         for spec in status_specs[1:]:
             data = data[spec]
@@ -71,10 +68,8 @@ class StatusBar(BasicToolbar):
         dc = wx.AutoBufferedPaintDCFactory(self)
         dc.DrawBitmap(self.get_bitmap(), 0, 0)
         dc.SetFont(Fonts.get("default"))
-        dc.DrawLabel(self._mode_text, self._mode_text_rect,
-                     wx.ALIGN_CENTER_VERTICAL)
-        dc.DrawLabel(self._info_text, self._info_text_rect,
-                     wx.ALIGN_CENTER_VERTICAL)
+        dc.DrawLabel(self._mode_text, self._mode_text_rect, wx.ALIGN_CENTER_VERTICAL)
+        dc.DrawLabel(self._info_text, self._info_text_rect, wx.ALIGN_CENTER_VERTICAL)
 
     def __set_mode_text(self, text):
 

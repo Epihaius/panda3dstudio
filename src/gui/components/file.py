@@ -66,14 +66,14 @@ class FileManager(object):
 
     def __reset_scene(self):
 
-        if Mgr.get_global("unsaved_scene"):
+        if GlobalData["unsaved_scene"]:
 
             answer = wx.MessageBox("Save changes to current scene before resetting?",
                                    "Save changes",
                                    wx.YES_NO | wx.CANCEL | wx.ICON_EXCLAMATION)
 
-            if Mgr.get_global("ctrl_down"):
-                Mgr.set_global("ctrl_down", False)
+            if GlobalData["ctrl_down"]:
+                GlobalData["ctrl_down"] = False
 
             if answer == wx.YES:
                 if not self.__save_scene():
@@ -87,7 +87,7 @@ class FileManager(object):
 
     def __load_scene(self):
 
-        if Mgr.get_global("unsaved_scene"):
+        if GlobalData["unsaved_scene"]:
 
             answer = wx.MessageBox("Save changes to current scene before loading?",
                                    "Save changes",
@@ -107,21 +107,21 @@ class FileManager(object):
             self._filename = filename
             Mgr.do("set_scene_label", self._filename)
 
-        if Mgr.get_global("ctrl_down"):
-            Mgr.set_global("ctrl_down", False)
+        if GlobalData["ctrl_down"]:
+            GlobalData["ctrl_down"] = False
 
     def __save_scene(self):
 
         if self._filename:
 
-            if not Mgr.get_global("unsaved_scene"):
+            if not GlobalData["unsaved_scene"]:
                 return True
 
             Mgr.update_app("scene", "save", self._filename)
             Mgr.do("set_scene_label", self._filename)
 
-            if Mgr.get_global("ctrl_down"):
-                Mgr.set_global("ctrl_down", False)
+            if GlobalData["ctrl_down"]:
+                GlobalData["ctrl_down"] = False
 
             return True
 
@@ -134,8 +134,8 @@ class FileManager(object):
                                    "", default_filename, "p3ds", "*.p3ds",
                                    wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
 
-        if Mgr.get_global("ctrl_down"):
-            Mgr.set_global("ctrl_down", False)
+        if GlobalData["ctrl_down"]:
+            GlobalData["ctrl_down"] = False
 
         if filename:
             Mgr.update_app("scene", "save", filename)
@@ -191,7 +191,7 @@ class FileManager(object):
 
         scene_label = (self._filename if self._filename else "New")
 
-        if Mgr.get_global("unsaved_scene"):
+        if GlobalData["unsaved_scene"]:
             scene_label += "*"
 
         Mgr.do("set_scene_label", scene_label)
@@ -202,8 +202,8 @@ class FileManager(object):
         filename = wx.FileSelector("Export scene", "", "", "bam", wildcard,
                                    wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
 
-        if Mgr.get_global("ctrl_down"):
-            Mgr.set_global("ctrl_down", False)
+        if GlobalData["ctrl_down"]:
+            GlobalData["ctrl_down"] = False
 
         if filename:
             Mgr.update_app("scene", "export", filename)
@@ -214,19 +214,19 @@ class FileManager(object):
         filename = wx.FileSelector("Import scene", "", "", "bam", wildcard,
                                    wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
 
-        if Mgr.get_global("ctrl_down"):
-            Mgr.set_global("ctrl_down", False)
+        if GlobalData["ctrl_down"]:
+            GlobalData["ctrl_down"] = False
 
         if filename:
             Mgr.update_app("scene", "import", filename)
             self.__set_scene_as_unsaved()
 
-        if Mgr.get_global("ctrl_down"):
-            Mgr.set_global("ctrl_down", False)
+        if GlobalData["ctrl_down"]:
+            GlobalData["ctrl_down"] = False
 
     def on_exit(self):
 
-        if Mgr.get_global("unsaved_scene"):
+        if GlobalData["unsaved_scene"]:
 
             answer = wx.MessageBox("Save changes to current scene before exiting?",
                                    "Save changes",

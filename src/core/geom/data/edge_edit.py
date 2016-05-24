@@ -93,8 +93,7 @@ class EdgeEditBase(BaseObject):
             if vert_split:
 
                 if len(merged_edge) > 1:
-                    new_merged_edge = Mgr.do(
-                        "create_merged_edge", self, edge1_id)
+                    new_merged_edge = Mgr.do("create_merged_edge", self, edge1_id)
                     merged_edge.remove(edge1_id)
                     merged_edges[edge1_id] = new_merged_edge
 
@@ -123,7 +122,7 @@ class EdgeEditBase(BaseObject):
                         if merged_vert in poly_verts_to_transf:
                             update_polys_to_transf = True
 
-            Mgr.do("update_subobj_selection")
+            Mgr.do("update_active_selection")
 
             self._update_vertex_normals(merged_verts_to_update)
 
@@ -162,8 +161,7 @@ class EdgeEditManager(BaseObject):
         obj_data = {}
 
         for obj_id, data_obj in changed_objs.iteritems():
-            obj_data[obj_id] = data_obj.get_data_to_store(
-                "prop_change", "subobj_merge")
+            obj_data[obj_id] = data_obj.get_data_to_store("prop_change", "subobj_merge")
 
         event_descr = "Split edge selection"
         event_data = {"objects": obj_data}

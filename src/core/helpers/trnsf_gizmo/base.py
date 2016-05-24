@@ -39,8 +39,6 @@ class TransformationGizmo(BaseObject):
 
     def select_handle(self, color_id): pass
 
-    def set_shear(self, shear): pass
-
     def get_point_at_screen_pos(self, screen_pos): pass
 
     def show(self):
@@ -84,7 +82,3 @@ class DisabledGizmo(TransformationGizmo):
         axis_line_node.add_geom(axis_line_geom)
 
         return origin.attach_new_node(axis_line_node)
-
-    def set_shear(self, shear):
-
-        self._origin.set_shear(shear)

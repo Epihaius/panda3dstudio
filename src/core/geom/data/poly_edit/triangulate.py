@@ -119,7 +119,7 @@ class TriangulationBase(BaseObject):
         vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data_line = GeomVertexData("line_data", vertex_format, Geom.UH_dynamic)
         vertex_data_line.reserve_num_rows(len(diagonals) * 2)
-        geom_node_top = geoms["top"]["shaded"].node()
+        geom_node_top = self._toplvl_node
         vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
 
         lines_prim = GeomLines(Geom.UH_static)
@@ -241,7 +241,7 @@ class TriangulationBase(BaseObject):
         diagonals_geom = self._tmp_geom
         geom_roots = self._geom_roots
         geom_poly_selected = self._geoms["poly"]["selected"]
-        geom_top = self._geoms["top"]["shaded"]
+        geom_node_top = self._toplvl_node
         sel_state = self._subobj_sel_state["poly"]["selected"]
         start_row = diagonal.get_start_row_index()
 
@@ -259,7 +259,7 @@ class TriangulationBase(BaseObject):
         prim_poly_sel = geom_poly_selected.node().modify_geom(0).modify_primitive(0)
         stride = prim_poly_sel.get_index_stride()
         handle = prim_poly_sel.modify_vertices().modify_handle()
-        top_array = geom_top.node().modify_geom(0).modify_primitive(0).modify_vertices()
+        top_array = geom_node_top.modify_geom(0).modify_primitive(0).modify_vertices()
         top_handle = top_array.modify_handle()
         top_data = top_handle.get_data()
 
@@ -330,8 +330,7 @@ class TriangulationBase(BaseObject):
         # occurred, at times leading up to the time that is being replaced (the old
         # time)
 
-        for time_id in prev_time_ids[::-1]:
-
+        for time_id in reversed(prev_time_ids):
             subobj_data = Mgr.do("load_from_history", obj_id, data_id, time_id)
             time_ids_to_restore.update(subobj_data.get("prev", {}))
 
@@ -387,7 +386,7 @@ class TriangulationBase(BaseObject):
         geom_poly_unselected = geoms["poly"]["unselected"].node().modify_geom(0)
         array_unselected = geom_poly_unselected.modify_primitive(0).modify_vertices()
         handle_unselected = array_unselected.modify_handle()
-        geom_node_top = geoms["top"]["shaded"].node().modify_geom(0)
+        geom_node_top = self._toplvl_node.modify_geom(0)
         array_top = geom_node_top.modify_primitive(0).modify_vertices()
         handle_top = array_top.modify_handle()
 
@@ -486,7 +485,7 @@ class TriangulationManager(BaseObject):
         bind("diagonal_turning_mode", "turn diagonal", "mouse1",
              self.__turn_diagonal)
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Turn polygon diagonal"
         info_text = "LMB to pick a polygon diagonal to turn; RMB to cancel"
         status_data["turn_diagonal"] = {"mode": mode_text, "info": info_text}

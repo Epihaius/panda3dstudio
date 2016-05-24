@@ -87,8 +87,7 @@ class PolygonEditManager(BaseObject):
 
     def setup(self):
 
-        Mgr.add_interface_updater(
-            "uv_window", "poly_detach", self.__detach_polygons)
+        Mgr.add_interface_updater("uv_window", "poly_detach", self.__detach_polygons)
 
     def __detach_polygons(self):
 

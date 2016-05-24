@@ -60,6 +60,9 @@ class NavigationManager(BaseObject):
 
         def end_cam_transform():
 
+            if GlobalData["coord_sys_type"] == "screen":
+                Mgr.get("selection").update_transform_values()
+
             Mgr.enter_state("navigation_mode")
             self.__end_cam_transform()
 
@@ -115,7 +118,7 @@ class NavigationManager(BaseObject):
         bind("navigation_mode", "check navigation done", "space-up",
              self.__determine_navigation_end)
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Navigate"
         info_text = "LMB to orbit; RMB to pan; LMB+RMB to zoom; <Home> to reset view;" \
             " <space-up> to end"
@@ -326,10 +329,10 @@ class NavigationManager(BaseObject):
 
     def __dolly(self, task):
 
-        if Mgr.get_global("ctrl_down"):
+        if GlobalData["ctrl_down"]:
             self._dolly_accel = max(.1, self._dolly_accel - .01)
 
-        if Mgr.get_global("shift_down"):
+        if GlobalData["shift_down"]:
             self._dolly_accel = min(5., self._dolly_accel + .01)
 
         self.cam.pivot.set_y(self.cam.target, self._dolly_dir * self._dolly_accel)

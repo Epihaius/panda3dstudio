@@ -21,8 +21,7 @@ class TexProjectorProperties(BaseObject):
 
         self._targets = {}
 
-        section = panel.add_section(
-            "tex_projector_props", "Tex. projector properties")
+        section = panel.add_section("tex_projector_props", "Tex. projector properties")
         sizer = section.get_client_sizer()
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
@@ -44,16 +43,13 @@ class TexProjectorProperties(BaseObject):
         self._fields[val_id] = field
 
         yellow = wx.Colour(255, 255, 0)
-        radio_btns = PanelRadioButtonGroup(
-            panel, section, "Projection type", dot_color=yellow)
+        radio_btns = PanelRadioButtonGroup(panel, section, "Projection type", dot_color=yellow)
 
-        get_command = lambda projection_type: lambda: self.__set_projection_type(
-            projection_type)
+        get_command = lambda projection_type: lambda: self.__set_projection_type(projection_type)
 
         for projection_type in ("orthographic", "perspective"):
             radio_btns.add_button(projection_type, projection_type.title())
-            radio_btns.set_button_command(
-                projection_type, get_command(projection_type))
+            radio_btns.set_button_command(projection_type, get_command(projection_type))
 
         radio_btns.set_selected_button("orthographic")
         self._radio_btns = radio_btns
@@ -91,8 +87,7 @@ class TexProjectorProperties(BaseObject):
         field.set_input_parser(val_id, self.__parse_size)
         self._fields[val_id] = field
 
-        section = panel.add_section(
-            "tex_projector_targets", "Projector targets")
+        section = panel.add_section("tex_projector_targets", "Projector targets")
         sizer = section.get_client_sizer()
 
         sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
@@ -110,21 +105,18 @@ class TexProjectorProperties(BaseObject):
         sizer_args = (0, wx.RIGHT, 5)
 
         label = "Pick"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Add target model",
                           self.__pick_object, sizer_args)
         self._pick_btn = btn
 
         label = "Remove"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Remove selected target",
                           self.__remove_target, sizer_args)
 
         label = "Clear"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Remove all targets",
                           self.__clear_targets)
 
@@ -154,8 +146,7 @@ class TexProjectorProperties(BaseObject):
 
         sizer.Add(wx.Size(0, 4))
         section.add_text("Affected UV sets:", sizer, sizer_args)
-        field = PanelInputField(panel, section, sizer,
-                                164, sizer_args=sizer_args)
+        field = PanelInputField(panel, section, sizer, 164, sizer_args=sizer_args)
         val_id = "uv_set_ids"
         field.add_value(val_id, "custom", handler=self.__handle_value)
         field.show_value(val_id)
@@ -167,8 +158,7 @@ class TexProjectorProperties(BaseObject):
         self._fields[val_id] = field
 
         label = "Apply UVs"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, section, sizer, bitmaps, label, "Bake UVs into target vertices",
                           self.__apply_uvs, sizer_args)
 
@@ -190,7 +180,7 @@ class TexProjectorProperties(BaseObject):
 
     def __set_projection_type(self, projection_type):
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             Mgr.update_app("tex_projector_prop_default",
                            "projection_type", projection_type)
             return
@@ -199,7 +189,7 @@ class TexProjectorProperties(BaseObject):
 
     def __handle_value(self, value_id, value):
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             Mgr.update_app("tex_projector_prop_default", value_id, value)
             return
 
@@ -259,8 +249,7 @@ class TexProjectorProperties(BaseObject):
 
         value = {}
 
-        Mgr.update_remotely("texproj_prop", "targets",
-                            value, target_prop="clear")
+        Mgr.update_remotely("texproj_prop", "targets", value, target_prop="clear")
 
     def __parse_size(self, size_str):
 
@@ -374,10 +363,8 @@ class TexProjectorProperties(BaseObject):
 
             for target_id in new_target_ids - old_target_ids:
                 target_name = target_names[target_id]
-                get_command = lambda target_id: lambda: self.__select_target(
-                    target_id)
-                combobox.add_item(target_id, target_name,
-                                  get_command(target_id))
+                get_command = lambda target_id: lambda: self.__select_target(target_id)
+                combobox.add_item(target_id, target_name, get_command(target_id))
                 combobox.select_item(target_id)
 
             for target_id in old_target_ids - new_target_ids:
@@ -409,7 +396,7 @@ class TexProjectorProperties(BaseObject):
 
     def check_selection_count(self):
 
-        sel_count = Mgr.get_global("selection_count")
+        sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
         color = wx.Colour(127, 127, 127) if multi_sel else None
 

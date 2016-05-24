@@ -77,8 +77,8 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __toggle_viewport(self, create, size=None, parent_handle=None):
 
-        if Mgr.get_global("ctrl_down"):
-            Mgr.set_global("ctrl_down", False)
+        if GlobalData["ctrl_down"]:
+            GlobalData["ctrl_down"] = False
 
         core = Mgr.get("core")
 
@@ -153,7 +153,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self._grid.add_interface_updaters()
         self._uv_template_saver.add_interface_updaters()
         self._transf_gizmo.add_interface_updaters()
-        Mgr.set_global("active_uv_transform_type", "")
+        GlobalData["active_uv_transform_type"] = ""
         Mgr.update_interface("uv_window", "active_transform_type", "")
 
         self.__create_uv_data()
@@ -167,15 +167,14 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __create_uv_data(self):
 
-        models = set([obj for obj in Mgr.get("selection", "top")
-                      if obj.get_type() == "model"])
+        models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                      and obj.get_geom_type() != "basic_geom"])
         uv_set_id = self._uv_set_id
         self._uv_registry[uv_set_id] = uv_registry = {"vert": {}, "edge": {}, "poly": {}}
         self._uv_data_objs[uv_set_id] = uv_data_objs = {}
 
         for model in models:
-            uv_data_obj = UVDataObject(uv_registry, model)
-            uv_data_objs[model] = uv_data_obj
+            uv_data_objs[model] = UVDataObject(uv_registry, model)
 
         # render a frame to make sure that GeomPrimitives with temporary vertices
         # will still be rendered after making them empty (in the next frame)

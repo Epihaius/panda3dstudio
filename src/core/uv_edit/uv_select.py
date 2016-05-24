@@ -125,7 +125,7 @@ class UVSelection(SelectionTransformBase):
 
     def update(self):
 
-        self.update_center()
+        self.update_center_pos()
         self.update_ui()
 
 
@@ -142,7 +142,8 @@ class UVSelectionBase(BaseObject):
 
         self._sel_obj_ids = set()
         self._sel_count = 0
-        Mgr.set_global("uv_selection_count", 0)
+        GlobalData.set_default("uv_selection_count", 0)
+        GlobalData.set_default("uv_cursor", "")
 
         UVMgr.expose("sel_obj_ids", lambda: self._sel_obj_ids)
         UVMgr.expose("selection_center",
@@ -177,7 +178,7 @@ class UVSelectionBase(BaseObject):
 
     def __enter_selection_mode(self, prev_state_id, is_active):
 
-        Mgr.add_task(self.__update_cursor, "update_cursor_uvs")
+        Mgr.add_task(self.__update_cursor, "update_cursor_uvs", sort=2)
         self._transf_gizmo.enable()
 
     def __exit_selection_mode(self, next_state_id, is_active):
@@ -196,7 +197,16 @@ class UVSelectionBase(BaseObject):
         pixel_under_mouse = UVMgr.get("pixel_under_mouse")
 
         if self._pixel_under_mouse != pixel_under_mouse:
-            self._set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+
+            if pixel_under_mouse == VBase4():
+                self._set_cursor("main")
+            else:
+                active_transf_type = GlobalData["active_uv_transform_type"]
+                default_cursor_name = "select" if not active_transf_type else active_transf_type
+                cursor_name = GlobalData["uv_cursor"]
+                cursor_name = cursor_name if cursor_name else default_cursor_name
+                self._set_cursor(cursor_name)
+
             self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
@@ -272,7 +282,7 @@ class UVSelectionBase(BaseObject):
 
         if pickable_type == "transf_gizmo":
             transf_type = picked_obj.get_transform_type()
-            Mgr.set_global("active_uv_transform_type", transf_type)
+            GlobalData["active_uv_transform_type"] = transf_type
             Mgr.update_interface("uv_window", "active_transform_type", transf_type)
             Mgr.enter_state("checking_mouse_offset", "uv_window")
             return
@@ -306,7 +316,7 @@ class UVSelectionBase(BaseObject):
             subobj = subobj.get_merged_object()
             uv_data_obj = subobj.get_uv_data_object()
 
-            if Mgr.get_global("active_uv_transform_type"):
+            if GlobalData["active_uv_transform_type"]:
 
                 if subobj in selection and len(selection) > 1:
 
@@ -399,7 +409,7 @@ class UVSelectionBase(BaseObject):
             else:
                 selection.add(subobj)
                 self._world_sel_mgr.sync_selection(color_ids, "add")
-                transform_allowed = Mgr.get_global("active_uv_transform_type")
+                transform_allowed = GlobalData["active_uv_transform_type"]
 
             if transform_allowed:
                 Mgr.enter_state("checking_mouse_offset", "uv_window")

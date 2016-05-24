@@ -143,8 +143,8 @@ class ViewManager(object):
                                         "Name user view", name, None
                                       )
 
-        if Mgr.get_global("shift_down"):
-            Mgr.set_global("shift_down", False)
+        if GlobalData["shift_down"]:
+            GlobalData["shift_down"] = False
 
         return view_name
 

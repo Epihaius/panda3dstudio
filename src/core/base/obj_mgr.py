@@ -14,9 +14,9 @@ class GeneralObjectManager(BaseObject):
         self._clock = ClockObject()
         self._mouse_prev = Point2()
 
-        Mgr.set_global("active_obj_level", "top")
-        Mgr.set_global("render_mode", "shaded")
-        Mgr.set_global("next_obj_color", None)
+        GlobalData.set_default("active_obj_level", "top")
+        GlobalData.set_default("render_mode", "shaded")
+        GlobalData.set_default("next_obj_color", None)
 
         Mgr.expose("object_root", lambda: self._obj_root)
         Mgr.expose("object_type_data", lambda: self._obj_types)
@@ -100,14 +100,14 @@ class GeneralObjectManager(BaseObject):
         Mgr.update_remotely("object_name_tag", self._showing_object_name, name,
                             pos, is_selected)
 
-        if is_selected and len(selection) > 1 and Mgr.get_global("active_transform_type"):
+        if is_selected and len(selection) > 1 and GlobalData["active_transform_type"]:
             Mgr.update_remotely("transform_values", obj.get_transform_values())
 
         if is_selected:
 
             state_id = Mgr.get_state_id()
-            cs_type = Mgr.get_global("coord_sys_type")
-            tc_type = Mgr.get_global("transf_center_type")
+            cs_type = GlobalData["coord_sys_type"]
+            tc_type = GlobalData["transf_center_type"]
 
             if state_id == "selection_mode":
 
@@ -118,6 +118,9 @@ class GeneralObjectManager(BaseObject):
                     Mgr.update_locally("transf_center", tc_type, obj)
 
     def __check_object_name(self, task):
+
+        if GlobalData["active_obj_level"] != "top":
+            return task.cont
 
         if not self.mouse_watcher.has_mouse():
             return task.cont
@@ -145,7 +148,7 @@ class GeneralObjectManager(BaseObject):
                 self._showing_object_name = False
                 Mgr.update_remotely("object_name_tag", self._showing_object_name)
 
-                if len(selection) > 1 and Mgr.get_global("active_transform_type"):
+                if len(selection) > 1 and GlobalData["active_transform_type"]:
                     Mgr.update_remotely("transform_values")
 
         return task.cont
@@ -168,7 +171,7 @@ class GeneralObjectManager(BaseObject):
     @staticmethod
     def __set_object_name(name):
 
-        selection = Mgr.get("selection")
+        selection = Mgr.get("selection", "top")
 
         if not selection:
             return
@@ -255,7 +258,7 @@ class GeneralObjectManager(BaseObject):
         Mgr.do("add_history", event_descr, event_data)
 
         Mgr.update_remotely("selected_obj_color", color_values)
-        Mgr.set_global("sel_color_count", 1)
+        GlobalData["sel_color_count"] = 1
         Mgr.update_app("sel_color_count")
 
     def __set_object_material(self, material_id):
@@ -318,8 +321,8 @@ class GeneralObjectManager(BaseObject):
 
     def __toggle_two_sided(self):
 
-        two_sided = not Mgr.get_global("two_sided")
-        Mgr.set_global("two_sided", two_sided)
+        two_sided = not GlobalData["two_sided"]
+        GlobalData["two_sided"] = two_sided
 
         for model in Mgr.get("model_objs"):
             model.get_geom_object().set_two_sided(two_sided)

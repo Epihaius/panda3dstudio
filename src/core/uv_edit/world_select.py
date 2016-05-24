@@ -26,7 +26,7 @@ class SelectionManager(BaseObject):
         bind("uv_edit_mode", "toggle-select subobjs", "%d|mouse1" % mod_ctrl,
              lambda: self.__select(toggle=True))
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Edit UVs"
         info_text = "(<Ctrl>-)LMB to (toggle-)select subobjects; <space> to navigate"
         status_data["edit_uvs"] = {"mode": mode_text, "info": info_text}
@@ -35,15 +35,16 @@ class SelectionManager(BaseObject):
 
         if not is_active:
 
-            if Mgr.get_global("active_obj_level") != "top":
-                Mgr.set_global("active_obj_level", "top")
+            if GlobalData["active_obj_level"] != "top":
+                GlobalData["active_obj_level"] = "top"
                 Mgr.update_app("active_obj_level")
 
-            if Mgr.get_global("active_transform_type"):
-                Mgr.set_global("active_transform_type", "")
+            if GlobalData["active_transform_type"]:
+                GlobalData["active_transform_type"] = ""
                 Mgr.update_app("active_transform_type", "")
 
-            models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"])
+            models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                          and obj.get_geom_type() != "basic_geom"])
 
             for model in models:
 
@@ -91,12 +92,12 @@ class SelectionManager(BaseObject):
     def set_object_level(self, obj_lvl):
 
         self._obj_lvl = obj_lvl
-        Mgr.set_global("active_obj_level", obj_lvl)
+        GlobalData["active_obj_level"] = obj_lvl
         obj_root = Mgr.get("object_root")
         picking_masks = Mgr.get("picking_masks")
 
-        models = set([obj for obj in Mgr.get("selection", "top")
-                      if obj.get_type() == "model"])
+        models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                      and obj.get_geom_type() != "basic_geom"])
 
         if obj_lvl == "top":
 
@@ -170,7 +171,8 @@ class SelectionManager(BaseObject):
     def __normal_select(self):
 
         obj_lvl = self._obj_lvl
-        models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"]
+        models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                  and obj.get_geom_type() != "basic_geom"]
 
         for model in models:
             model.get_geom_object().get_geom_data_object().clear_selection(obj_lvl, False)
@@ -244,7 +246,8 @@ class SelectionManager(BaseObject):
         if op == "replace":
 
             selection.clear()
-            models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"]
+            models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                      and obj.get_geom_type() != "basic_geom"]
 
             for model in models:
                 model.get_geom_object().get_geom_data_object().clear_selection(obj_lvl, False)

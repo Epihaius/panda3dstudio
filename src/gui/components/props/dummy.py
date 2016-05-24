@@ -76,7 +76,7 @@ class DummyProperties(BaseObject):
 
     def __handle_value(self, value_id, value):
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             Mgr.update_app("dummy_prop_default", value_id, value)
             return
 
@@ -99,7 +99,7 @@ class DummyProperties(BaseObject):
         if other_shown:
             viz.add(other_geom_type)
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             Mgr.update_app("dummy_prop_default", "viz", viz)
             return
 
@@ -162,7 +162,7 @@ class DummyProperties(BaseObject):
         checkboxes = self._checkboxes
         fields = self._fields
 
-        sel_count = Mgr.get_global("selection_count")
+        sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
         color = wx.Colour(127, 127, 127) if multi_sel else None
 

@@ -212,6 +212,8 @@ class TranslationComponent(object):
                 else:
                     self._handles["axes"][handle_name].set_color(cyan)
 
+            GlobalData["uv_cursor"] = self._type
+
     def remove_hilite(self):
 
         if self._hilited_handles:
@@ -250,6 +252,7 @@ class TranslationComponent(object):
                     self._handles["axes"][handle_name].set_color(color)
 
             self._hilited_handles = []
+            GlobalData["uv_cursor"] = ""
 
     def select_handle(self, color_id):
 

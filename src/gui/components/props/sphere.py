@@ -27,8 +27,7 @@ class SphereProperties(BaseObject):
             self._fields[prop_id] = field
 
         self._fields["radius"].set_input_parser("radius", self.__parse_radius)
-        self._fields["segments"].set_input_parser(
-            "segments", self.__parse_segments)
+        self._fields["segments"].set_input_parser("segments", self.__parse_segments)
 
         sizer.Add(wx.Size(0, 4))
 
@@ -42,7 +41,7 @@ class SphereProperties(BaseObject):
 
     def __handle_value(self, value_id, value):
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             Mgr.update_app("sphere_prop_default", value_id, value)
             return
 
@@ -97,7 +96,7 @@ class SphereProperties(BaseObject):
 
     def check_selection_count(self):
 
-        sel_count = Mgr.get_global("selection_count")
+        sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
         color = wx.Colour(127, 127, 127) if multi_sel else None
 

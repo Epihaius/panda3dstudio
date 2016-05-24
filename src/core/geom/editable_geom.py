@@ -34,21 +34,19 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
 
     def __update_object_level(self):
 
-        obj_lvl = Mgr.get_global("active_obj_level")
+        obj_lvl = GlobalData["active_obj_level"]
         obj_root = Mgr.get("object_root")
         picking_masks = Mgr.get("picking_masks")
 
         models = set([obj for obj in Mgr.get("selection", "top")
                       if obj.get_type() == "model" and obj.get_geom_type() == "editable_geom"])
 
-        if self._sel_before_hist_change:
+        for model_id in self._sel_before_hist_change:
 
-            for model_id in self._sel_before_hist_change:
+            model = Mgr.get("model", model_id)
 
-                model = Mgr.get("model", model_id)
-
-                if model and model.get_geom_type() == "editable_geom":
-                    models.add(model)
+            if model and model.get_geom_type() == "editable_geom":
+                models.add(model)
 
         if obj_lvl == "top":
 
@@ -89,7 +87,7 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
                     break
 
         if set_sublvl:
-            Mgr.set_global("active_obj_level", obj_lvl)
+            GlobalData["active_obj_level"] = obj_lvl
             Mgr.update_app("active_obj_level", restore=True)
 
         self._obj_lvl_before_hist_change = "top"
@@ -101,7 +99,7 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
         # the current subobject level, depending on the change in toplevel object
         # selection.
 
-        obj_lvl = Mgr.get_global("active_obj_level")
+        obj_lvl = GlobalData["active_obj_level"]
 
         if obj_lvl == "top":
             return
@@ -111,7 +109,7 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
         task = self.__check_selection
         task_id = "set_obj_level"
         PendingTasks.add(task, task_id, "object")
-        Mgr.set_global("active_obj_level", "top")
+        GlobalData["active_obj_level"] = "top"
         Mgr.update_app("active_obj_level", restore=True)
 
 

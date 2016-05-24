@@ -7,8 +7,8 @@ class App(object):
 
     def __init__(self):
 
+        GlobalData["status_data"] = {}
         mgr = AppManager(verbose=False)
-        mgr.set_global("status_data", {})
         gui = GUI(mgr, verbose=True)
         viewport_data = gui.get_viewport_data()
         eventloop_handler = gui.get_event_loop_handler()

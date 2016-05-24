@@ -54,7 +54,7 @@ class BasicGeomProperties(BaseObject):
 
     def check_selection_count(self):
 
-        sel_count = Mgr.get_global("selection_count")
+        sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
         color = wx.Colour(127, 127, 127) if multi_sel else None
 

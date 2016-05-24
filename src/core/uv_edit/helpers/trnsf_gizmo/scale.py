@@ -23,8 +23,6 @@ class ScalingComponent(object):
 
     def __create_handles(self):
 
-        self._scale = VBase3(1., 1., 1.)
-
         red = VBase4(.7, 0., 0., 1.)
         green = VBase4(0., .7, 0., 1.)
 
@@ -67,8 +65,6 @@ class ScalingComponent(object):
         self._handles["quads"][plane] = quad
         handle[0].set_color(self._axis_colors[plane[0]])
         handle[1].set_color(self._axis_colors[plane[1]])
-
-        UVMgr.accept("set_gizmo_scale", self.__set_scale)
 
     def __create_axis_handle(self, parent, color, pos1, pos2, node_name):
 
@@ -204,6 +200,8 @@ class ScalingComponent(object):
                 else:
                     self._handles["axes"][handle_name].set_color(cyan)
 
+            GlobalData["uv_cursor"] = self._type
+
     def remove_hilite(self):
 
         if self._hilited_handles:
@@ -242,6 +240,7 @@ class ScalingComponent(object):
                     self._handles["axes"][handle_name].set_color(color)
 
             self._hilited_handles = []
+            GlobalData["uv_cursor"] = ""
 
     def select_handle(self, color_id):
 
@@ -281,11 +280,6 @@ class ScalingComponent(object):
                 handle[0].set_color(self._axis_colors[plane[0]])
                 handle[1].set_color(self._axis_colors[plane[1]])
                 quad.hide(self._render_mask)
-
-    def __set_scale(self, sx, sy, sz):
-
-        scale = self._scale
-        self._origin.set_scale(scale[0] * sx, scale[1] * sy, scale[2] * sz)
 
     def show(self):
 

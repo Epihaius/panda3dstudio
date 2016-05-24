@@ -50,24 +50,21 @@ class PropertyPanel(Panel):
         sizer = wx.BoxSizer()
         section_sizer.Add(sizer)
         self._name_field = PanelInputField(self, id_section, sizer, 130)
-        self._name_field.add_value(
-            "name", "string", handler=self.__handle_value)
+        self._name_field.add_value("name", "string", handler=self.__handle_value)
         self._name_field.set_input_init("name", self.__init_input)
         self._name_field.show_value("name")
         self._name_field.show_text(False)
         self._name_field.enable(False)
         self._name_field.set_input_parser("name", self.__parse_object_name)
         sizer.Add((5, 0))
-        self._color_picker = PanelColorPickerCtrl(
-            self, id_section, sizer, self.__handle_color)
+        self._color_picker = PanelColorPickerCtrl(self, id_section, sizer, self.__handle_color)
         self._color_picker.show_color("none")
         self._color_picker.Enable(False)
 
         create_section = self.add_section("create", "Creation")
 
         yellow = wx.Colour(255, 255, 0)
-        radio_btns = PanelRadioButtonGroup(
-            self, create_section, "Position", dot_color=yellow)
+        radio_btns = PanelRadioButtonGroup(self, create_section, "Position", dot_color=yellow)
         radio_btns.add_button("grid_pos", "Coord. system origin")
         radio_btns.add_button("cam_target_pos", "Camera target")
         radio_btns.set_selected_button("grid_pos")
@@ -78,8 +75,7 @@ class PropertyPanel(Panel):
         bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
 
         label = "Create object"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
         btn = PanelButton(self, create_section, sizer, bitmaps, label, "",
                           self.__create_object, sizer_args)
@@ -91,8 +87,7 @@ class PropertyPanel(Panel):
         sizer_args = (0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
 
         label = "Make editable"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         PanelButton(self, create_section, sizer, bitmaps, label, "Turn into editable geometry",
                     self.__make_editable, sizer_args)
 
@@ -129,8 +124,7 @@ class PropertyPanel(Panel):
         def set_obj_prop_default(obj_type, *args, **kwargs):
 
             if obj_type:
-                self._properties[obj_type].set_object_property_default(
-                    *args, **kwargs)
+                self._properties[obj_type].set_object_property_default(*args, **kwargs)
 
         Mgr.add_app_updater("selected_obj_type", self.show)
         Mgr.add_app_updater("selected_obj_prop", set_obj_prop)
@@ -140,8 +134,7 @@ class PropertyPanel(Panel):
         Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
         Mgr.add_app_updater("selected_obj_color", self.__set_object_color)
         Mgr.add_app_updater("selection_count", self.__check_selection_count)
-        Mgr.add_app_updater("sel_color_count",
-                            self.__check_selection_color_count)
+        Mgr.add_app_updater("sel_color_count", self.__check_selection_color_count)
         Mgr.add_app_updater("next_obj_name", self.__set_next_object_name)
         Mgr.accept("display_next_obj_color", self.__set_next_object_color)
 
@@ -199,7 +192,7 @@ class PropertyPanel(Panel):
 
     def __handle_value(self, value_id, value):
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             Mgr.update_remotely("custom_obj_name", self._obj_type, value)
         else:
             Mgr.update_remotely("selected_obj_name", value)
@@ -208,7 +201,7 @@ class PropertyPanel(Panel):
 
         parsed_name = name.strip(" *")
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             return parsed_name
 
         return parsed_name if parsed_name else None
@@ -233,8 +226,8 @@ class PropertyPanel(Panel):
 
         color_values = Mgr.convert_to_remote_format("color", color.Get())
 
-        if Mgr.get_global("active_creation_type"):
-            Mgr.set_global("next_%s_color" % self._obj_type, color_values)
+        if GlobalData["active_creation_type"]:
+            GlobalData["next_%s_color" % self._obj_type] = color_values
             self._color_picker.set_color(color_values)
         else:
             Mgr.update_remotely("selected_obj_color", color_values)
@@ -245,7 +238,7 @@ class PropertyPanel(Panel):
 
     def __set_next_object_color(self):
 
-        next_color = Mgr.get_global("next_%s_color" % self._obj_type)
+        next_color = GlobalData["next_%s_color" % self._obj_type]
         self._color_picker.Enable(True if next_color else False)
         self._color_picker.show_color("single" if next_color else "none")
 
@@ -254,16 +247,18 @@ class PropertyPanel(Panel):
 
     def __check_selection_count(self):
 
-        self._sel_obj_count = sel_count = Mgr.get_global("selection_count")
-        self._name_field.enable(sel_count > 0)
-        self._name_field.show_text(sel_count > 0)
-        self._name_field.set_text_color(
-            self._colors["disabled"] if sel_count > 1 else None)
+        self._sel_obj_count = sel_count = GlobalData["selection_count"]
+
+        if GlobalData["active_obj_level"] == "top":
+            self._name_field.enable(sel_count > 0)
+            self._name_field.show_text(sel_count > 0)
+            self._name_field.set_text_color(self._colors["disabled"] if sel_count > 1 else None)
+        else:
+            self._name_field.enable(False)
 
         if self._obj_type:
 
-            extra_section_ids = self._properties[
-                self._obj_type].get_extra_section_ids()
+            extra_section_ids = self._properties[self._obj_type].get_extra_section_ids()
 
             if extra_section_ids:
 
@@ -280,10 +275,13 @@ class PropertyPanel(Panel):
 
     def __check_selection_color_count(self):
 
-        count = Mgr.get_global("sel_color_count")
-        self._color_picker.Enable(count > 0)
-        self._color_picker.show_color(("single" if count == 1 else "multiple")
-                                      if count > 0 else "none")
+        if GlobalData["active_obj_level"] == "top":
+            count = GlobalData["sel_color_count"]
+            self._color_picker.Enable(count > 0)
+            self._color_picker.show_color(("single" if count == 1 else "multiple")
+                                          if count > 0 else "none")
+        else:
+            self._color_picker.Enable(False)
 
     def __create_object(self):
 
@@ -296,7 +294,7 @@ class PropertyPanel(Panel):
         if not Panel.enable(self, enable):
             return
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             self._name_field.enable()
             self._color_picker.enable()
         else:
@@ -326,14 +324,11 @@ class PropertyPanel(Panel):
         if (obj_type and obj_type not in props) or self._obj_type == obj_type:
             return
 
-        prev_section_ids = props[
-            self._obj_type].get_section_ids() if self._obj_type else []
-        next_section_ids = props[
-            obj_type].get_section_ids() if obj_type else []
-        extra_section_ids = props[
-            obj_type].get_extra_section_ids() if obj_type else []
+        prev_section_ids = props[self._obj_type].get_section_ids() if self._obj_type else []
+        next_section_ids = props[obj_type].get_section_ids() if obj_type else []
+        extra_section_ids = props[obj_type].get_extra_section_ids() if obj_type else []
 
-        in_creation_mode = Mgr.get_global("active_creation_type") != ""
+        in_creation_mode = GlobalData["active_creation_type"] != ""
 
         for section_id in next_section_ids:
             self.show_section(section_id, update=False)

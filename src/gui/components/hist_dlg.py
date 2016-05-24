@@ -230,16 +230,14 @@ class NavigationComboBox(wx.combo.ComboCtrl):
 
         sizer_width = parent.get_combobox_sizer().GetMinSize()[0]
 
-        wx.combo.ComboCtrl.__init__(self, parent, size=(
-            sizer_width, 20), style=wx.CB_READONLY)
+        wx.combo.ComboCtrl.__init__(self, parent, size=(sizer_width, 20), style=wx.CB_READONLY)
 
         parent.get_combobox_sizer().Add(self, 0, wx.TOP, 3)
         parent.get_combobox_sizer().Layout()
         self._parent = parent
         self._panels = panels
 
-        self._popup = ListCtrlComboPopup(
-            combo_color=wx.Colour(226, 223, 247), fit_width=False)
+        self._popup = ListCtrlComboPopup(combo_color=wx.Colour(226, 223, 247), fit_width=False)
         self.SetPopupControl(self._popup)
 
         for choice in choices:
@@ -338,8 +336,7 @@ class MilestoneComboBox(wx.combo.ComboCtrl):
 
         text = "---Choose milestone to jump to---"
 
-        wx.combo.ComboCtrl.__init__(
-            self, parent, -1, text, style=wx.CB_READONLY)
+        wx.combo.ComboCtrl.__init__(self, parent, -1, text, style=wx.CB_READONLY)
 
         MilestoneComboBox._inst = self
 
@@ -392,8 +389,7 @@ class DeletedHistoryComboBox(wx.combo.ComboCtrl):
 
         text = "---Choose start of history marked for deletion to jump to---"
 
-        wx.combo.ComboCtrl.__init__(
-            self, parent, -1, text, style=wx.CB_READONLY)
+        wx.combo.ComboCtrl.__init__(self, parent, -1, text, style=wx.CB_READONLY)
 
         DeletedHistoryComboBox._inst = self
 
@@ -421,8 +417,7 @@ class DescriptionDialog(wx.Dialog):
         message = "Enter a custom description for this event:"
         msg_ctrl = wx.StaticText(self, -1, message)
         style = wx.TE_DONTWRAP | wx.TE_MULTILINE
-        self._edit_ctrl = wx.TextCtrl(
-            self, -1, description, size=(360, 200), style=style)
+        self._edit_ctrl = wx.TextCtrl(self, -1, description, size=(360, 200), style=style)
         btn_sizer = self.CreateSeparatedButtonSizer(wx.OK | wx.CANCEL)
         main_sizer.Add(msg_ctrl, 0, wx.ALL, 14)
         main_sizer.Add(self._edit_ctrl, 0, wx.ALL, 14)
@@ -465,39 +460,34 @@ class NodePanel(wx.Panel):
         cls._icons["off"] = wx.Bitmap(os.path.join(GFX_PATH, "icon_off.png"))
         cls._icons["on"] = wx.Bitmap(os.path.join(GFX_PATH, "icon_on.png"))
         cls._icons["del"] = wx.Bitmap(os.path.join(GFX_PATH, "icon_del.png"))
-        cls._icons["merge"] = wx.Bitmap(
-            os.path.join(GFX_PATH, "icon_merge.png"))
+        cls._icons["merge"] = wx.Bitmap(os.path.join(GFX_PATH, "icon_merge.png"))
 
         cls._menu = wx.Menu()
-        cls._menu_items[
-            "select"] = cls._menu.AppendCheckItem(-1, "Select range of events to undo/redo")
-        cls._menu_items[
-            "edit"] = cls._menu.Append(-1, "Edit custom description...")
-        cls._menu_items[
-            "milestone"] = cls._menu.AppendCheckItem(-1, "Set as milestone")
+        label = "Select range of events to undo/redo"
+        cls._menu_items["select"] = cls._menu.AppendCheckItem(-1, label)
+        cls._menu_items["edit"] = cls._menu.Append(-1, "Edit custom description...")
+        cls._menu_items["milestone"] = cls._menu.AppendCheckItem(-1, "Set as milestone")
         cls._menu.AppendSeparator()
-        cls._menu_items["merge"] = cls._menu.AppendCheckItem(
-            -1, "Mark event for merging with preceding event\tCtrl+LMB")
-        cls._menu_items["merge_range"] = cls._menu.Append(
-            -1, "Mark range of events for merging\tShift+Ctrl+LMB")
-        cls._menu_items[
-            "del"] = cls._menu.Append(-1, "Mark undone history for deletion, starting here")
-        cls._menu_items[
-            "undel"] = cls._menu.Append(-1, "Unmark undone history for deletion, starting here")
+        label = "Mark event for merging with preceding event\tCtrl+LMB"
+        cls._menu_items["merge"] = cls._menu.AppendCheckItem(-1, label)
+        label = "Mark range of events for merging\tShift+Ctrl+LMB"
+        cls._menu_items["merge_range"] = cls._menu.Append(-1, label)
+        label = "Mark undone history for deletion, starting here"
+        cls._menu_items["del"] = cls._menu.Append(-1, label)
+        label = "Unmark undone history for deletion, starting here"
+        cls._menu_items["undel"] = cls._menu.Append(-1, label)
         cls._menu.AppendSeparator()
-        cls._menu_items[
-            "expand_all"] = cls._menu.Append(-1, "Expand all multiline entries")
-        cls._menu_items[
-            "collapse_all"] = cls._menu.Append(-1, "Collapse all multiline entries")
+        label = "Expand all multiline entries"
+        cls._menu_items["expand_all"] = cls._menu.Append(-1, label)
+        label = "Collapse all multiline entries"
+        cls._menu_items["collapse_all"] = cls._menu.Append(-1, label)
 
         cls._bg_colors = {
             "normal": (wx.Colour(206, 203, 227), wx.Colour(195, 195, 222)),
             "selected": (wx.Colour(236, 243, 255), wx.Colour(225, 235, 252))
         }
-        font_normal = wx.Font(8, wx.FONTFAMILY_DEFAULT,
-                              wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        font_bold = wx.Font(8, wx.FONTFAMILY_DEFAULT,
-                            wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        font_normal = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        font_bold = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
         cls._fonts = {"normal": font_normal, "bold": font_bold}
 
         cls._is_init = True
@@ -631,30 +621,24 @@ class NodePanel(wx.Panel):
             expand_box.SetMinSize((13, 13))
             expand_sizer = wx.BoxSizer()
             expand_sizer.SetMinSize((13, 28))
-            self._expand_boxes.append(expand_sizer.Add(
-                expand_box, 0, wx.ALIGN_CENTER_VERTICAL))
+            self._expand_boxes.append(expand_sizer.Add(expand_box, 0, wx.ALIGN_CENTER_VERTICAL))
             sizer.Add(expand_sizer, 0, wx.LEFT, 25)
-            self._sizers["descr"].append(
-                descr_sizer.Insert(0, sizer, 0, wx.EXPAND))
+            self._sizers["descr"].append(descr_sizer.Insert(0, sizer, 0, wx.EXPAND))
 
         self._combobox_sizer = self._sizers["time"][0].GetSizer()
 
         self.SetSizer(main_sizer)
 
         item = self._menu_items["select"]
-        self.Bind(wx.EVT_MENU, lambda wx_event: self.__select_entry(
-            self._clicked_entry_id), item)
+        self.Bind(wx.EVT_MENU, lambda wx_event: self.__select_entry(self._clicked_entry_id), item)
         item = self._menu_items["edit"]
-        self.Bind(
-            wx.EVT_MENU, lambda wx_event: self.__edit_user_description(), item)
+        self.Bind(wx.EVT_MENU, lambda wx_event: self.__edit_user_description(), item)
         item = self._menu_items["milestone"]
         self.Bind(wx.EVT_MENU, lambda wx_event: self.__set_milestone(), item)
         item = self._menu_items["merge"]
-        self.Bind(wx.EVT_MENU, lambda wx_event: self.__toggle_entry_to_merge(
-            self._clicked_entry_id), item)
+        self.Bind(wx.EVT_MENU, lambda wx_event: self.__toggle_entry_to_merge(self._clicked_entry_id), item)
         item = self._menu_items["merge_range"]
-        self.Bind(wx.EVT_MENU, lambda wx_event: self.__set_range_to_merge(
-            self._clicked_entry_id), item)
+        self.Bind(wx.EVT_MENU, lambda wx_event: self.__set_range_to_merge(self._clicked_entry_id), item)
         item = self._menu_items["del"]
         self.Bind(wx.EVT_MENU, lambda wx_event: self.__delete_from(), item)
         item = self._menu_items["undel"]
@@ -679,8 +663,7 @@ class NodePanel(wx.Panel):
         dc = wx.AutoBufferedPaintDC(self)
         dc.ClippingRect = parent_rect
         pen = wx.Pen(wx.Colour(), style=wx.TRANSPARENT)
-        brushes = dict(
-            (k, map(wx.Brush, self._bg_colors[k])) for k in self._bg_colors)
+        brushes = dict((k, map(wx.Brush, self._bg_colors[k])) for k in self._bg_colors)
         dc.SetPen(pen)
         dc.SetFont(self._fonts["normal"])
         entry_id_min, entry_id_max, event_state = self.__get_selection_range()
@@ -715,8 +698,7 @@ class NodePanel(wx.Panel):
             x, y = rect.GetPosition()
             rect.OffsetXY(47, 7)
 
-            dc.SetFont(
-                self._fonts["bold" if i in self._milestone_ids else "normal"])
+            dc.SetFont(self._fonts["bold" if i in self._milestone_ids else "normal"])
 
             if selected:
                 dc.DrawBitmap(self._icons[event_state], x + 2, y + 3)
@@ -742,8 +724,7 @@ class NodePanel(wx.Panel):
 
         if self is self._old_node_panel:
 
-            rect = self._sizers["descr"][
-                self._old_entry_id].GetRect().Deflate(2, 1)
+            rect = self._sizers["descr"][self._old_entry_id].GetRect().Deflate(2, 1)
 
             if parent_rect.Intersects(rect):
                 dc.DrawRectangleRect(rect)
@@ -875,18 +856,15 @@ class NodePanel(wx.Panel):
 
             if not self._merge_range_start:
 
-                item.SetItemLabel(
-                    "(Un)mark event for merging as start of range")
+                item.SetItemLabel("(Un)mark event for merging as start of range")
                 item.Enable(False)
 
             else:
 
                 if self._unmark_merge_range:
-                    item.SetItemLabel(
-                        "Unmark range of events for merging\tShift+Ctrl+LMB")
+                    item.SetItemLabel("Unmark range of events for merging\tShift+Ctrl+LMB")
                 else:
-                    item.SetItemLabel(
-                        "Mark range of events for merging\tShift+Ctrl+LMB")
+                    item.SetItemLabel("Mark range of events for merging\tShift+Ctrl+LMB")
 
                 enable = enable and self._merge_range_start is not None
                 item.Enable(enable)
@@ -898,11 +876,9 @@ class NodePanel(wx.Panel):
         def refresh():
 
             panel = self._old_node_panel
-            old_node_path = [panel] + \
-                panel.get_ancestor_node_panels() if panel else []
+            old_node_path = [panel] + panel.get_ancestor_node_panels() if panel else []
             panel = self._sel_node_panel
-            sel_node_path = [panel] + \
-                panel.get_ancestor_node_panels() if panel else []
+            sel_node_path = [panel] + panel.get_ancestor_node_panels() if panel else []
 
             for panel in sel_node_path:
 
@@ -930,8 +906,7 @@ class NodePanel(wx.Panel):
             return
 
         panel = self._new_node_panel
-        path_before = [panel] + \
-            panel.get_ancestor_node_panels() if panel else []
+        path_before = [panel] + panel.get_ancestor_node_panels() if panel else []
 
         if (self._sel_entry_id == index and self._sel_node_panel is self):
 
@@ -949,8 +924,8 @@ class NodePanel(wx.Panel):
             NodePanel._sel_node_panel = self
             refresh()
 
-            if (self is self._old_node_panel and index <= self._old_entry_id) \
-                    or (self._old_node_panel and self in self._old_node_panel.get_ancestor_node_panels()):
+            if ((self is self._old_node_panel and index <= self._old_entry_id)
+                    or (self._old_node_panel and self in self._old_node_panel.get_ancestor_node_panels())):
 
                 new_entry_id = index - 1
                 new_node_panel = self
@@ -974,8 +949,7 @@ class NodePanel(wx.Panel):
                 NodePanel._new_node_panel = self
 
         panel = self._new_node_panel
-        path_after = [panel] + \
-            panel.get_ancestor_node_panels() if panel else []
+        path_after = [panel] + panel.get_ancestor_node_panels() if panel else []
 
         for node_panel in path_after:
 
@@ -994,8 +968,7 @@ class NodePanel(wx.Panel):
 
         event = self._events[entry_id]
         panel = self._new_node_panel
-        time_id = panel.get_events()[
-            self._new_entry_id].get_time_id() if panel else (0, 0)
+        time_id = panel.get_events()[self._new_entry_id].get_time_id() if panel else (0, 0)
 
         if event.get_previous_event().get_time_id() == time_id:
             return False
@@ -1005,8 +978,7 @@ class NodePanel(wx.Panel):
 
         if self._parent_node_panel:
 
-            sibling_node_panels = self._parent_node_panel.get_child_node_panels()[
-                :]
+            sibling_node_panels = self._parent_node_panel.get_child_node_panels()[:]
             sibling_node_panels.remove(self)
 
             for sibling_node_panel in sibling_node_panels:
@@ -1076,8 +1048,7 @@ class NodePanel(wx.Panel):
 
             start_ancestors = start_node_panel.get_ancestor_node_panels()
             end_ancestors = self.get_ancestor_node_panels()
-            path = set(start_ancestors).symmetric_difference(
-                set(end_ancestors))
+            path = set(start_ancestors).symmetric_difference(set(end_ancestors))
             path.difference_update(set([self, start_node_panel]))
 
             i = start_node_panel.get_entry_count() - 1 if start_node_panel in end_ancestors else 0
@@ -1093,11 +1064,9 @@ class NodePanel(wx.Panel):
         id_range = xrange(entry_id_min, entry_id_max + 1)
 
         if self._unmark_merge_range:
-            self._entries_to_merge.difference_update(
-                set([i for i in id_range]))
+            self._entries_to_merge.difference_update(set([i for i in id_range]))
         else:
-            self._entries_to_merge.update(
-                set([i for i in id_range if self.__entry_can_be_merged(i)]))
+            self._entries_to_merge.update(set([i for i in id_range if self.__entry_can_be_merged(i)]))
 
         NodePanel._merge_range_start = None
 
@@ -1182,8 +1151,8 @@ class NodePanel(wx.Panel):
 
         elif self._entry_to_del_from < self._entry_count:
 
-            if self._merge_range_start and self._merge_range_start[0] is self \
-                    and self._merge_range_start[1] >= self._entry_to_del_from:
+            if (self._merge_range_start and self._merge_range_start[0] is self
+                    and self._merge_range_start[1] >= self._entry_to_del_from):
                 NodePanel._merge_range_start = None
 
             self._entries_to_merge = set(i for i in self._entries_to_merge
@@ -1204,8 +1173,7 @@ class NodePanel(wx.Panel):
 
         if self._entry_to_del_from < self._entry_count:
             timestamp = self._timestamps[self._entry_to_del_from]
-            descr_start = self._events[
-                self._entry_to_del_from].get_description_start()
+            descr_start = self._events[self._entry_to_del_from].get_description_start()
             choice = timestamp + "|" + descr_start
             entry_location = (self, self._entry_to_del_from)
             data = (choice, entry_location)
@@ -1220,8 +1188,7 @@ class NodePanel(wx.Panel):
 
         if self is self._new_node_panel:
 
-            self._entry_to_del_from = max(
-                self._clicked_entry_id, self._new_entry_id + 1)
+            self._entry_to_del_from = max(self._clicked_entry_id, self._new_entry_id + 1)
 
         else:
 
@@ -1237,11 +1204,10 @@ class NodePanel(wx.Panel):
         for ancestor_node_panel in self._ancestor_node_panels:
             ancestor_node_panel.set_entry_to_delete_from(recurse=False)
 
-        DeletedHistoryComboBox.set_entries(
-            self._root_node_panel.get_entries_to_delete_from())
+        DeletedHistoryComboBox.set_entries(self._root_node_panel.get_entries_to_delete_from())
 
-        if self._merge_range_start and self._merge_range_start[0] is self \
-                and self._merge_range_start[1] >= self._entry_to_del_from:
+        if (self._merge_range_start and self._merge_range_start[0] is self
+                and self._merge_range_start[1] >= self._entry_to_del_from):
             NodePanel._merge_range_start = None
 
         self._entries_to_merge = set(i for i in self._entries_to_merge
@@ -1261,8 +1227,7 @@ class NodePanel(wx.Panel):
         for ancestor_node_panel in self._ancestor_node_panels:
             ancestor_node_panel.set_entry_to_delete_from(recurse=False)
 
-        DeletedHistoryComboBox.set_entries(
-            self._root_node_panel.get_entries_to_delete_from())
+        DeletedHistoryComboBox.set_entries(self._root_node_panel.get_entries_to_delete_from())
 
         self._root_node_panel.check_entries_to_merge()
 
@@ -1279,8 +1244,7 @@ class NodePanel(wx.Panel):
 
         self._entry_to_del_from = max(self._entry_to_del_from, _entry_id)
 
-        DeletedHistoryComboBox.set_entries(
-            self._root_node_panel.get_entries_to_delete_from())
+        DeletedHistoryComboBox.set_entries(self._root_node_panel.get_entries_to_delete_from())
 
         rect = self._sizers["descr"][-1].GetRect()
         rect.SetSize(wx.Size(30, self.GetSize()[1]))
@@ -1319,12 +1283,11 @@ class NodePanel(wx.Panel):
 
             new_choice = timestamp + "|" + descr_start
 
-            if self._clicked_entry_id in self._milestone_ids \
-                    or (self is self._old_node_panel and self._clicked_entry_id == self._old_entry_id):
+            if (self._clicked_entry_id in self._milestone_ids
+                    or (self is self._old_node_panel and self._clicked_entry_id == self._old_entry_id)):
                 MilestoneComboBox.replace_milestone(old_choice, new_choice)
 
-            combobox = self._parent_node_panel.get_combobox(
-            ) if self._parent_node_panel else None
+            combobox = self._parent_node_panel.get_combobox() if self._parent_node_panel else None
 
             if self._clicked_entry_id == 0 and combobox:
                 combobox.replace_choice(self, new_choice)
@@ -1370,8 +1333,7 @@ class NodePanel(wx.Panel):
             event.set_as_milestone(False)
         else:
             self._milestone_ids.append(self._clicked_entry_id)
-            MilestoneComboBox.add_milestone(
-                choice, (self, self._clicked_entry_id))
+            MilestoneComboBox.add_milestone(choice, (self, self._clicked_entry_id))
             event.set_as_milestone()
 
         rect = self._sizers["descr"][self._clicked_entry_id].GetRect()
@@ -1420,8 +1382,7 @@ class NodePanel(wx.Panel):
 
         if self._entry_count:
             if self is self._old_node_panel:
-                self._prev_undone_hist = xrange(
-                    self._old_entry_id + 1, self._entry_count)
+                self._prev_undone_hist = xrange(self._old_entry_id + 1, self._entry_count)
             elif self._old_node_panel and self in self._old_node_panel.get_ancestor_node_panels():
                 self._prev_undone_hist = []
             else:
@@ -1457,9 +1418,9 @@ class NodePanel(wx.Panel):
     def get_undoable_history(self):
 
         if self is self._old_node_panel:
-            return [self._events[i] for i in xrange(self._old_entry_id + 1)][::-1]
+            return [self._events[i] for i in reversed(xrange(self._old_entry_id + 1))]
         elif self._old_node_panel and self in self._old_node_panel.get_ancestor_node_panels():
-            return [self._events[i] for i in xrange(self._entry_count)][::-1]
+            return [self._events[i] for i in reversed(xrange(self._entry_count))]
 
         return []
 
@@ -1517,12 +1478,14 @@ class NodePanel(wx.Panel):
             else:
                 to_undo += panel.get_undoable_history()
 
+        entry_id = cls._sel_entry_id
+
         if cls._sel_node_panel in old_node_ancestors:
-            to_undo += cls._sel_node_panel.get_undoable_history()[::-1][
-                cls._sel_entry_id:][::-1]
+            events = cls._sel_node_panel.get_undoable_history()
+            to_undo += events[:-entry_id] if entry_id else events
         else:
-            to_redo += cls._sel_node_panel.get_redoable_history()[
-                :cls._sel_entry_id + 1]
+            events = cls._sel_node_panel.get_redoable_history()
+            to_redo += events[:entry_id + 1]
 
     def get_history_to_delete(self, to_delete):
 
@@ -1553,10 +1516,9 @@ class NodePanel(wx.Panel):
             l = list(self._entries_to_merge)
             l.sort()
             m = iter(l[1:] + [None])
-            # given l == [1, 2, 3, 5, 6, 8, 9, 10, 11, 17], l filtered = [3, 6,
-            # 11, 17]
-            to_merge += [self._events[i]
-                         for i in filter(lambda j: j + 1 != next(m), l)]
+            # given l == [1, 2, 3, 5, 6, 8, 9, 10, 11, 17],
+            # l filtered = [3, 6, 11, 17]
+            to_merge += [self._events[i] for i in filter(lambda j: j + 1 != next(m), l)]
 
             for i in self._entries_to_merge:
                 self._events[i].set_to_be_merged()
@@ -1668,8 +1630,7 @@ class HistoryPanel(wx.ScrolledWindow):
         if y != -1:
             cls._inst.Scroll(-1, y)
 
-    def __create_node_panel(self, to_create, node_panels, parent_node_panel, event,
-                            event_index):
+    def __create_node_panel(self, to_create, node_panels, parent_node_panel, event, event_index):
 
         events = [event] if parent_node_panel else []
         next_events = event.get_next_events()
@@ -1680,8 +1641,7 @@ class HistoryPanel(wx.ScrolledWindow):
             next_events = next_event.get_next_events()
 
         event_count = len(events)
-        node_panel = NodePanel(self, parent_node_panel,
-                               [], events, event_index % 2)
+        node_panel = NodePanel(self, parent_node_panel, [], events, event_index % 2)
         node_panels.append(node_panel)
 
         if parent_node_panel:
@@ -1741,8 +1701,7 @@ class HistoryPanel(wx.ScrolledWindow):
 
                 panel = child_node_panels[0]
                 panel.set_active()
-                combobox = NavigationComboBox(
-                    panel, child_cb_choices, child_node_panels)
+                combobox = NavigationComboBox(panel, child_cb_choices, child_node_panels)
                 wx.CallAfter(combobox.Refresh)
                 node_panel.set_combobox(combobox)
 
@@ -1755,70 +1714,6 @@ class HistoryPanel(wx.ScrolledWindow):
         root_node_panel.show()
         NodePanel.set_root_node_panel(root_node_panel)
         root_node_panel.check_prev_undone_history()
-
-# ****************** Recursively create NodePanels ***************************
-##
-# def createNodePanel(parent_node_panel, event, event_index):
-##
-##      child_node_panels = []
-##      events = [event] if parent_node_panel else []
-##      next_events = event.get_next_events()
-##
-# while len(next_events) == 1:
-##        next_event = next_events[0]
-# events.append(next_event)
-##        next_events = next_event.get_next_events()
-##
-##      event_count = len(events)
-# node_panel = NodePanel(self, parent_node_panel, child_node_panels,
-# events, event_index % 2)
-##
-##      event_index += event_count
-##
-# if next_events:
-##
-##        child_cb_choices = []
-##
-# for next_event in next_events:
-# child_node_panel, cb_choice = createNodePanel(node_panel, next_event,
-# event_index)
-##          child_node_panels.insert(0, child_node_panel)
-##          child_cb_choices.insert(0, cb_choice)
-##          separator = wx.Panel(self, size=(1, 5))
-##          separator.SetBackgroundColour(wx.Colour(100, 100, 100))
-##          sizer = wx.BoxSizer(wx.VERTICAL)
-##          sizer.Add(child_node_panel, 0, wx.EXPAND)
-##          sizer.Add(separator, 0, wx.EXPAND)
-##          main_sizer.Add(sizer, 0, wx.EXPAND)
-# main_sizer.Hide(sizer)
-##
-##        child_node_panel = child_node_panels[0]
-# child_node_panel.set_active()
-##        combobox = NavigationComboBox(child_node_panel, child_cb_choices, child_node_panels)
-# node_panel.set_combobox(combobox)
-##
-# if events:
-##        start_event = events[0]
-##        timestamp = start_event.get_timestamp()
-##        descr_start = start_event.get_description_start()
-##        combobox_choice = timestamp  + "|" + descr_start
-# else:
-##        combobox_choice = ""
-##
-# return node_panel, combobox_choice
-##
-##    event_index = 0
-##    root_node_panel, cb_choice = createNodePanel(None, history, event_index)
-##
-# if root_node_panel.get_entry_count():
-##      main_sizer.Add(root_node_panel, 0, wx.EXPAND)
-##
-# root_node_panel.set_active()
-# root_node_panel.show()
-# NodePanel.set_root_node_panel(root_node_panel)
-# root_node_panel.check_prev_undone_history()
-##
-# ***************************************************************************
 
         main_sizer.Layout()
         self.SetSizer(main_sizer)

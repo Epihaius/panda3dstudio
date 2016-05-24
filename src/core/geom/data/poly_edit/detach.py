@@ -163,8 +163,7 @@ class PolygonDetachManager(BaseObject):
         obj_data = {}
 
         for obj_id, data_obj in changed_objs.iteritems():
-            obj_data[obj_id] = data_obj.get_data_to_store(
-                "prop_change", "subobj_merge")
+            obj_data[obj_id] = data_obj.get_data_to_store("prop_change", "subobj_merge")
 
         event_descr = "Detach polygon selection"
         event_data = {"objects": obj_data}

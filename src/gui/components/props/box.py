@@ -26,8 +26,7 @@ class BoxProperties(BaseObject):
 
             for axis, dim in zip(axes, dimensions):
                 prop_id = "%s_%s" % (prop_type, axis)
-                group.add_text("%s (%s):" %
-                               (axis.upper(), dim), subsizer, sizer_args)
+                group.add_text("%s (%s):" % (axis.upper(), dim), subsizer, sizer_args)
                 field = PanelInputField(panel, group, subsizer, 80)
                 field.add_value(prop_id, val_type, handler=self.__handle_value)
                 field.show_value(prop_id)
@@ -38,7 +37,7 @@ class BoxProperties(BaseObject):
 
     def __handle_value(self, value_id, value):
 
-        if Mgr.get_global("active_creation_type"):
+        if GlobalData["active_creation_type"]:
             Mgr.update_app("box_prop_default", value_id, value)
             return
 
@@ -98,7 +97,7 @@ class BoxProperties(BaseObject):
 
     def check_selection_count(self):
 
-        sel_count = Mgr.get_global("selection_count")
+        sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
         color = wx.Colour(127, 127, 127) if multi_sel else None
 

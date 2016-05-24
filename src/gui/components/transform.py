@@ -13,7 +13,7 @@ class TransformButtons(ToggleButtonGroup):
 
         def toggle_on_default():
 
-            Mgr.set_global("active_transform_type", "")
+            GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
             Mgr.update_app("status", "select", "")
 
@@ -32,7 +32,7 @@ class TransformButtons(ToggleButtonGroup):
             def toggle_on():
 
                 Mgr.enter_state("selection_mode")
-                Mgr.set_global("active_transform_type", transf_type)
+                GlobalData["active_transform_type"] = transf_type
                 Mgr.update_app("active_transform_type", transf_type)
                 Mgr.update_app("status", "select", transf_type, "idle")
 
@@ -62,11 +62,6 @@ class AxisButtons(ButtonGroup):
         Mgr.accept("enable_axis_constraints", self.enable)
         Mgr.accept("disable_axis_constraints", self.disable)
 
-    def setup(self):
-
-        for transf_type in ("translate", "rotate", "scale"):
-            self._axes[transf_type] = Mgr.get_global("axis_constraints_%s" % transf_type)
-
     def update_axis_constraints(self, transf_type, axes):
 
         for axis in "xyz":
@@ -85,7 +80,7 @@ class AxisButtons(ButtonGroup):
 
     def __set_axis_constraint(self, axis):
 
-        tt = Mgr.get_global("active_transform_type")
+        tt = GlobalData["active_transform_type"]
 
         old_axes = self._axes[tt]
 
@@ -176,12 +171,13 @@ class CoordSysComboBox(ComboBox):
 
         Mgr.add_app_updater("coord_sys", self.__update)
 
-    def __update(self, coord_sys_type, obj_name=""):
+    def __update(self, coord_sys_type, obj_name=None):
 
         self.select_item(coord_sys_type)
 
         if coord_sys_type == "object":
-            self.set_label(obj_name)
+            self.set_label(obj_name.get_value())
+            obj_name.add_updater("coord_sys", self.set_label)
 
 
 class TransfCenterComboBox(ComboBox):
@@ -224,12 +220,13 @@ class TransfCenterComboBox(ComboBox):
 
         Mgr.add_app_updater("transf_center", self.__update)
 
-    def __update(self, transf_center_type, obj_name=""):
+    def __update(self, transf_center_type, obj_name=None):
 
         self.select_item(transf_center_type)
 
         if transf_center_type == "object":
-            self.set_label(obj_name)
+            self.set_label(obj_name.get_value())
+            obj_name.add_updater("transf_center", self.set_label)
 
 
 class TransformToolbar(Toolbar):
@@ -248,7 +245,7 @@ class TransformToolbar(Toolbar):
 
         sizer.AddSpacer(10)
         self._axis_btns = AxisButtons()
-        self._axis_btns.add_disabler("no_transf", lambda: not Mgr.get_global("active_transform_type"))
+        self._axis_btns.add_disabler("no_transf", lambda: not GlobalData["active_transform_type"])
         self._fields = {}
 
         get_rel_val_toggler = lambda field: lambda: self.__toggle_relative_values(field)
@@ -308,17 +305,16 @@ class TransformToolbar(Toolbar):
 
                 self._transform_btns.set_active_button(transf_type)
                 self._axis_btns.enable()
-                axes = Mgr.get_global("axis_constraints_%s" % transf_type)
+                axes = GlobalData["axis_constraints"][transf_type]
                 self._axis_btns.update_axis_constraints(transf_type, axes)
-                is_rel_value = Mgr.get_global("using_rel_%s_values" % transf_type)
+                obj_lvl = GlobalData["active_obj_level"]
+                is_rel_value = GlobalData["rel_transform_values"][obj_lvl][transf_type]
+                value_id = (transf_type, is_rel_value)
 
                 for field in self._fields.itervalues():
-                    field.show_value((transf_type, is_rel_value))
+                    field.show_value(value_id)
 
                 self.__check_selection_count(transf_type)
-
-                if Mgr.get_global("selection_count") == 1:
-                    self.__show_field_text()
 
             else:
 
@@ -334,10 +330,9 @@ class TransformToolbar(Toolbar):
         Mgr.add_app_updater("axis_constraints", update_axis_constraints)
         Mgr.add_app_updater("transform_values", self.__set_field_values)
         Mgr.add_app_updater("selection_count", self.__check_selection_count)
+        Mgr.add_app_updater("active_obj_level", self.__show_values)
 
     def setup(self):
-
-        self._axis_btns.setup()
 
         add_state = Mgr.add_state
         add_state("transforming", -1, lambda prev_state_id, is_active:
@@ -370,16 +365,30 @@ class TransformToolbar(Toolbar):
     def __toggle_relative_values(self, current_field):
 
         transf_type = self._transform_btns.get_active_button_id()
+        obj_lvl = GlobalData["active_obj_level"]
 
-        use_rel_value = not Mgr.get_global("using_rel_%s_values" % transf_type)
-        Mgr.set_global("using_rel_%s_values" % transf_type, use_rel_value)
+        if obj_lvl in ("vert", "edge", "poly"):
+            if not (obj_lvl == "vert" and transf_type == "translate"):
+                return
+
+        rel_values = GlobalData["rel_transform_values"][obj_lvl]
+        use_rel_values = not rel_values[transf_type]
+        rel_values[transf_type] = use_rel_values
+        value_id = (transf_type, use_rel_values)
 
         for field in self._fields.itervalues():
 
-            field.show_value((transf_type, use_rel_value))
+            field.show_value(value_id)
+
+            if use_rel_values:
+                field.show_text()
+                value = 1. if transf_type == "scale" else 0.
+                field.set_value(value_id, value)
 
             if field is not current_field:
-                field.check_popup_menu_item("use_rel_values", use_rel_value)
+                field.check_popup_menu_item("use_rel_values", use_rel_values)
+
+        self.__check_selection_count(transf_type)
 
     def __handle_value(self, axis, value_id, value):
 
@@ -391,17 +400,25 @@ class TransformToolbar(Toolbar):
 
     def __set_field_values(self, transform_data=None):
 
+        transf_type = GlobalData["active_transform_type"]
+
         if not transform_data:
 
-            self.__show_field_text(False)
+            obj_lvl = GlobalData["active_obj_level"]
+
+            if not (transf_type and GlobalData["rel_transform_values"][obj_lvl][transf_type]):
+                self.__show_field_text(False)
 
             return
 
         for transform_type, values in transform_data.iteritems():
-            for axis, value in zip("xyz", values):
-                self._fields[axis].set_value((transform_type, False), value)
 
-        if Mgr.get_global("active_transform_type"):
+            value_id = (transform_type, False)
+
+            for axis, value in zip("xyz", values):
+                self._fields[axis].set_value(value_id, value)
+
+        if transf_type:
             self.__show_field_text()
 
     def __set_field_text_color(self, color):
@@ -416,8 +433,8 @@ class TransformToolbar(Toolbar):
 
     def __enable_fields(self, enable=True):
 
-        if enable and not (Mgr.get_global("active_transform_type")
-                           and Mgr.get_global("selection_count")):
+        if enable and not (GlobalData["active_transform_type"]
+                           and GlobalData["selection_count"]):
             return
 
         for field in self._fields.itervalues():
@@ -425,12 +442,12 @@ class TransformToolbar(Toolbar):
 
     def __check_selection_count(self, transf_type=None):
 
-        tr_type = Mgr.get_global("active_transform_type") if transf_type is None else transf_type
+        tr_type = GlobalData["active_transform_type"] if transf_type is None else transf_type
 
         if not tr_type:
             return
 
-        sel_count = Mgr.get_global("selection_count")
+        sel_count = GlobalData["selection_count"]
         self.__enable_fields(sel_count > 0)
 
         if sel_count > 1:
@@ -444,6 +461,25 @@ class TransformToolbar(Toolbar):
 
             for field in self._fields.itervalues():
                 field.set_text_color()
+
+        obj_lvl = GlobalData["active_obj_level"]
+        use_rel_values = GlobalData["rel_transform_values"][obj_lvl][tr_type]
+        show = (use_rel_values and sel_count) or sel_count == 1
+        self.__show_field_text(show)
+
+    def __show_values(self):
+
+        transf_type = GlobalData["active_transform_type"]
+
+        if not transf_type:
+            return
+
+        obj_lvl = GlobalData["active_obj_level"]
+        use_rel_values = GlobalData["rel_transform_values"][obj_lvl][transf_type]
+        value_id = (transf_type, use_rel_values)
+
+        for field in self._fields.itervalues():
+            field.show_value(value_id)
 
     def enable(self):
 

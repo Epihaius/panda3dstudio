@@ -12,12 +12,12 @@ class CreationManager(object):
 
             def handler():
 
-                if not Mgr.get_global("active_creation_type"):
-                    Mgr.set_global("active_creation_type", object_type)
+                if not GlobalData["active_creation_type"]:
+                    GlobalData["active_creation_type"] = object_type
                     Mgr.enter_state("creation_mode")
-                elif Mgr.get_global("active_creation_type") != object_type:
+                elif GlobalData["active_creation_type"] != object_type:
                     Mgr.update_app("creation", "changed")
-                    Mgr.set_global("active_creation_type", object_type)
+                    GlobalData["active_creation_type"] = object_type
                     Mgr.enter_state("creation_mode")
                     Mgr.update_app("selected_obj_type", object_type)
                     Mgr.update_app("creation", "started")

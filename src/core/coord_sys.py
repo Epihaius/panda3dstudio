@@ -8,9 +8,10 @@ class CoordSysManager(BaseObject):
         self._cs_obj = None
         self._cs_obj_picked = None
         self._cs_transformed = False
+        self._user_obj_id = None
 
-        Mgr.set_global("coord_sys_type", "world")
-        Mgr.expose("coord_sys_obj", lambda: self._cs_obj)
+        GlobalData.set_default("coord_sys_type", "world")
+        Mgr.expose("coord_sys_obj", self.__get_coord_sys_object)
         Mgr.accept("update_coord_sys", self.__update_coord_sys)
         Mgr.accept("notify_coord_sys_transformed", self.__notify_coord_sys_transformed)
         Mgr.add_app_updater("coord_sys", self.__set_coord_sys)
@@ -43,12 +44,21 @@ class CoordSysManager(BaseObject):
         bind("coord_sys_picking_mode", "cancel coord sys picking", "mouse3-up",
              exit_coord_sys_picking_mode)
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Pick coordinate system"
         info_text = "LMB to pick object; RMB to end"
         status_data["pick_coord_sys"] = {"mode": mode_text, "info": info_text}
 
         return True
+
+    def __get_coord_sys_object(self, check_valid=False):
+
+        if self._cs_obj and check_valid:
+            if (GlobalData["coord_sys_type"] == "local"
+                    and self._cs_obj not in Mgr.get("selection", "top")):
+                self._cs_obj = None
+
+        return self._cs_obj
 
     def __set_coord_sys(self, cs_type, obj=None):
 
@@ -58,16 +68,15 @@ class CoordSysManager(BaseObject):
 
             Mgr.get(("grid", "origin")).clear_transform()
             Mgr.do("set_transf_gizmo_hpr", VBase3())
-            Mgr.do("set_transf_gizmo_shear", VBase3())
 
-            if Mgr.get_global("transf_center_type") == "cs_origin":
+            if GlobalData["transf_center_type"] == "cs_origin":
                 Mgr.do("set_transf_gizmo_pos", Point3())
 
-        if Mgr.get_global("coord_sys_type") == "screen" and cs_type != "screen":
+        if GlobalData["coord_sys_type"] == "screen" and cs_type != "screen":
             Mgr.do("align_grid_to_screen", False)
 
-        Mgr.set_global("coord_sys_type", cs_type)
-        selection = Mgr.get("selection", "top")
+        GlobalData["coord_sys_type"] = cs_type
+        self._cs_obj = obj
 
         if cs_type == "world":
 
@@ -76,34 +85,40 @@ class CoordSysManager(BaseObject):
         elif cs_type == "screen":
 
             self._cs_obj = None
-            shear = VBase3()
-            Mgr.get(("grid", "origin")).set_shear(shear)
             Mgr.do("align_grid_to_screen")
-            Mgr.do("set_transf_gizmo_shear", shear)
 
         elif cs_type == "local":
 
-            if obj:
-                self._cs_obj = obj
-            elif selection:
-                self._cs_obj = selection[0]
-            else:
+            if not self._cs_obj:
+
+                tc_type = GlobalData["transf_center_type"]
+
+                if tc_type == "adaptive" and Mgr.get("adaptive_transf_center_type") == "pivot":
+                    tc_type = "pivot"
+
+                if tc_type == "pivot":
+                    self._cs_obj = Mgr.get("transf_center_obj", check_valid=True)
+
+            if not self._cs_obj:
+                self._cs_obj = Mgr.get("selection").get_toplevel_object()
+
+            if not self._cs_obj:
                 reset()
 
-        elif cs_type == "object":
-
-            self._cs_obj = obj
-
         if cs_type != "object":
+
             self._cs_obj_picked = None
+            user_obj = Mgr.get("object", self._user_obj_id)
+            self._user_obj_id = None
+
+            if user_obj:
+                user_obj.get_name(as_object=True).remove_updater("coord_sys")
 
         if self._cs_obj:
             self._cs_transformed = True
 
         self.__update_coord_sys()
-
-        if len(selection) == 1:
-            Mgr.update_remotely("transform_values", selection[0].get_transform_values())
+        Mgr.get("selection").update_transform_values()
 
     def __notify_coord_sys_transformed(self, transformed=True):
 
@@ -111,8 +126,8 @@ class CoordSysManager(BaseObject):
 
     def __update_coord_sys(self):
 
-        cs_type = Mgr.get_global("coord_sys_type")
-        tc_type = Mgr.get_global("transf_center_type")
+        cs_type = GlobalData["coord_sys_type"]
+        tc_type = GlobalData["transf_center_type"]
 
         if cs_type == "screen":
 
@@ -136,10 +151,8 @@ class CoordSysManager(BaseObject):
                 pos = pivot.get_pos(self.world)
                 hpr = pivot.get_hpr(self.world)
                 scale = VBase3(1., 1., 1.)
-                shear = pivot.get_shear(self.world)
-                Mgr.get(("grid", "origin")).set_pos_hpr_scale_shear(pos, hpr, scale, shear)
+                Mgr.get(("grid", "origin")).set_pos_hpr_scale(pos, hpr, scale)
                 Mgr.do("set_transf_gizmo_hpr", hpr)
-                Mgr.do("set_transf_gizmo_shear", shear)
 
                 if tc_type == "cs_origin":
                     Mgr.do("set_transf_gizmo_pos", pos)
@@ -148,8 +161,8 @@ class CoordSysManager(BaseObject):
 
     def __enter_picking_mode(self, prev_state_id, is_active):
 
-        if Mgr.get_global("active_obj_level") != "top":
-            Mgr.set_global("active_obj_level", "top")
+        if GlobalData["active_obj_level"] != "top":
+            GlobalData["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
         Mgr.add_task(self.__update_cursor, "update_cs_picking_cursor")
@@ -160,9 +173,9 @@ class CoordSysManager(BaseObject):
         if not is_active:
 
             if not self._cs_obj_picked:
-                cs_type_prev = Mgr.get_global("coord_sys_type")
+                cs_type_prev = GlobalData["coord_sys_type"]
                 obj = self._cs_obj
-                name = obj.get_name() if obj else None
+                name = obj.get_name(as_object=True) if obj else None
                 Mgr.update_locally("coord_sys", cs_type_prev, obj)
                 Mgr.update_remotely("coord_sys", cs_type_prev, name)
 
@@ -180,9 +193,18 @@ class CoordSysManager(BaseObject):
 
         if obj:
 
+            obj_id = self._user_obj_id
+
+            if obj_id == obj.get_id():
+                return
+            elif obj_id:
+                user_obj = Mgr.get("object", obj_id)
+                user_obj.get_name(as_object=True).remove_updater("coord_sys")
+
             self._cs_obj_picked = obj
+            self._user_obj_id = obj.get_id()
             Mgr.update_locally("coord_sys", "object", obj)
-            Mgr.update_remotely("coord_sys", "object", obj.get_name())
+            Mgr.update_remotely("coord_sys", "object", obj.get_name(as_object=True))
             selection = Mgr.get("selection")
 
             if len(selection) == 1:

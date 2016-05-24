@@ -633,6 +633,9 @@ class ViewGizmo(BaseObject):
                 Mgr.get("core").suppress_mouse_events(False)
                 Mgr.get("picking_cam").set_active()
 
+            if GlobalData["coord_sys_type"] == "screen":
+                Mgr.get("selection").update_transform_values()
+
             return
 
         self.__update_aux_handles()
@@ -691,9 +694,9 @@ class ViewGizmo(BaseObject):
 
         elif handle_id == "reset":
 
-            if Mgr.get_global("ctrl_down"):
+            if GlobalData["ctrl_down"]:
                 Mgr.update_app("view", "reset_front")
-            elif Mgr.get_global("shift_down"):
+            elif GlobalData["shift_down"]:
                 Mgr.update_app("view", "reset_home")
             else:
                 Mgr.update_app("view", "reset", True, True)
@@ -782,6 +785,9 @@ class ViewGizmo(BaseObject):
             self._listener.ignore("mouse3-up")
             Mgr.get("core").suppress_mouse_events(False)
             Mgr.get("picking_cam").set_active()
+
+        if GlobalData["coord_sys_type"] == "screen":
+            Mgr.get("selection").update_transform_values()
 
     def __update_aux_handles(self):
 

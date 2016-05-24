@@ -65,8 +65,6 @@ class ScalingGizmo(TransformationGizmo):
                                              Point3(0., 0., .1), "center_handle")
         self._center_handle = handle
 
-        Mgr.accept("set_gizmo_scale", self.__set_scale)
-
         # Create scale indicator
 
         self._scale_indicator = self.__create_scale_indicator(root, "scale_indicator")
@@ -394,10 +392,6 @@ class ScalingGizmo(TransformationGizmo):
                     handle[1].set_color(self._axis_colors[plane[1]])
                     quad.hide(self._render_mask)
 
-    def set_shear(self, shear):
-
-        self._origin.set_shear(shear)
-
     def get_point_at_screen_pos(self, screen_pos):
 
         cam = self.cam()
@@ -416,10 +410,6 @@ class ScalingGizmo(TransformationGizmo):
             return
 
         return intersection_point
-
-    def __set_scale(self, sx, sy, sz):
-
-        self._origin.set_scale(self._scale[0] * sx, self._scale[1] * sy, self._scale[2] * sz)
 
     def face_camera(self):
 

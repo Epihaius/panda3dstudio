@@ -4,17 +4,40 @@ from .mgr import CoreManager as Mgr
 
 class TopLevelObject(BaseObject):
 
-    def __init__(self, obj_type, obj_id, name, origin_pos, has_color=True):
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        state["_name"] = self._name.get_value()
+        state["_pivot"] = NodePath(self._pivot.get_name())
+        state["_origin"] = NodePath(self._origin.get_name())
+
+        if self._has_color:
+            state["_color"] = None
+
+        return state
+
+    def __setstate__(self, state):
+
+        self.__dict__ = state
+
+        self._name = ObjectName(state["_name"])
+        pivot = self._pivot
+        pivot.reparent_to(Mgr.get("object_root"))
+        origin = self._origin
+        origin.reparent_to(pivot)
+
+    def __init__(self, obj_type, obj_id, name, origin_pos, has_color=False):
 
         self._prop_ids = ["name", "parent", "selection_state", "tags",
                           "transform", "origin_transform"]
 
         if has_color:
-            self._prop_ids += ["color", "material"]
+            self._prop_ids.append("color")
+            self._color = None
 
         self._type = obj_type
         self._id = obj_id
-        self._name = name
+        self._name = ObjectName(name)
         self._parent_id = None
         self._child_ids = []
         obj_root = Mgr.get("object_root")
@@ -22,9 +45,6 @@ class TopLevelObject(BaseObject):
         self._pivot = pivot
         self._origin = pivot.attach_new_node("%s_origin" % str(obj_id))
         self._has_color = has_color
-        self._vert_colors_shown = False
-        self._color = None
-        self._material = None
 
         active_grid_plane = Mgr.get(("grid", "plane"))
         grid_origin = Mgr.get(("grid", "origin"))
@@ -58,9 +78,6 @@ class TopLevelObject(BaseObject):
 
         self.set_parent(add_to_hist=False)
 
-        if self._material:
-            self._material.remove(self)
-
         self.set_name("")
         self._pivot_gizmo.destroy()
         self._pivot_gizmo = None
@@ -71,7 +88,7 @@ class TopLevelObject(BaseObject):
 
         Mgr.do("unregister_%s" % self._type, self)
 
-        task = lambda: self.__update_app(add_to_hist)
+        task = lambda: self.__remove_references(add_to_hist)
         task_id = "object_removal"
         PendingTasks.add(task, task_id, "object", id_prefix=self._id)
         task = lambda: self.set_selected(False, False)
@@ -82,16 +99,16 @@ class TopLevelObject(BaseObject):
 
         return True
 
-    def __update_app(self, add_to_hist=True):
+    def __remove_references(self, add_to_hist=True):
 
-        cs_type = Mgr.get_global("coord_sys_type")
-        tc_type = Mgr.get_global("transf_center_type")
+        cs_type = GlobalData["coord_sys_type"]
+        tc_type = GlobalData["transf_center_type"]
 
-        if cs_type == "object" and self is Mgr.get("coord_sys_obj"):
-            Mgr.update_app("coord_sys", "world")
+        if Mgr.get("coord_sys_obj") is self:
+            Mgr.update_app("coord_sys", "world" if cs_type == "object" else cs_type)
 
-        if tc_type == "object" and self is Mgr.get("transf_center_obj"):
-            Mgr.update_app("transf_center", "sel_center")
+        if Mgr.get("transf_center_obj") is self:
+            Mgr.update_app("transf_center", "adaptive" if tc_type == "object" else tc_type)
 
         Mgr.update_app("object_removal", self._id, add_to_hist)
         Mgr.do("update_obj_transf_info", self._id)
@@ -137,7 +154,7 @@ class TopLevelObject(BaseObject):
 
             if parent:
 
-                if Mgr.get_global("transform_target_type") == "all":
+                if GlobalData["transform_target_type"] == "all":
                     self._pivot.wrt_reparent_to(parent.get_pivot())
 
                 parent.add_child(self._id)
@@ -156,7 +173,7 @@ class TopLevelObject(BaseObject):
 
                 parent.add_child(self._id)
 
-                if Mgr.get_global("transform_target_type") == "all":
+                if GlobalData["transform_target_type"] == "all":
                     self._pivot.reparent_to(parent.get_pivot())
                 else:
                     self._pivot.reparent_to(Mgr.get("object_root"))
@@ -255,10 +272,6 @@ class TopLevelObject(BaseObject):
         if child_id in self._child_ids:
             self._child_ids.remove(child_id)
 
-    def get_geom_object(self):
-
-        return None
-
     def get_type(self):
 
         return self._type
@@ -269,32 +282,21 @@ class TopLevelObject(BaseObject):
 
     def set_name(self, name):
 
-        if self._name == name:
+        if self._name.get_value() == name:
             return False
 
-        self._name = name
+        self._name.set_value(name)
 
         selection = Mgr.get("selection")
 
         if len(selection) == 1 and selection[0] is self:
             Mgr.update_remotely("selected_obj_name", name)
 
-        cs_type = Mgr.get_global("coord_sys_type")
-        tc_type = Mgr.get_global("transf_center_type")
-
-        if cs_type == "object":
-            if self is Mgr.get("coord_sys_obj"):
-                Mgr.update_remotely("coord_sys", "object", name)
-
-        if tc_type == "object":
-            if self is Mgr.get("transf_center_obj"):
-                Mgr.update_remotely("transf_center", "object", name)
-
         return True
 
-    def get_name(self):
+    def get_name(self, as_object=False):
 
-        return self._name
+        return self._name if as_object else self._name.get_value()
 
     def get_origin(self):
 
@@ -308,14 +310,14 @@ class TopLevelObject(BaseObject):
 
         return self._pivot_gizmo
 
-    def set_color(self, color, update_app=True):
+    def set_color(self, color, update_app=True, apply_color=True):
 
         if not self._has_color or self._color == color:
             return False
 
         self._color = color
 
-        if not self._vert_colors_shown:
+        if apply_color:
             self._origin.set_color(color)
 
         if update_app:
@@ -329,7 +331,7 @@ class TopLevelObject(BaseObject):
                 color_values = [x for x in color][:3]
                 Mgr.update_remotely("selected_obj_color", color_values)
 
-            Mgr.set_global("sel_color_count", sel_color_count)
+            GlobalData["sel_color_count"] = sel_color_count
             Mgr.update_app("sel_color_count")
 
         return True
@@ -341,75 +343,6 @@ class TopLevelObject(BaseObject):
     def has_color(self):
 
         return self._has_color
-
-    def set_material(self, material, restore=""):
-
-        old_material = self._material
-
-        if not self._has_color or old_material is material:
-            return False
-
-        if old_material:
-            old_material.remove(self)
-
-        if not material:
-
-            self._material = material
-
-            return True
-
-        material_id = material.get_id()
-        registered_material = Mgr.get("material", material_id)
-
-        if registered_material:
-
-            self._material = registered_material
-
-        else:
-
-            self._material = material
-            Mgr.do("register_material", material)
-            owner_ids = material.get_owner_ids()
-
-            for owner_id in owner_ids[:]:
-
-                if owner_id == self._id:
-                    continue
-
-                owner = Mgr.get("object", owner_id)
-
-                if not owner:
-                    owner_ids.remove(owner_id)
-                    continue
-
-                m = owner.get_material()
-
-                if not m or m.get_id() != material_id:
-                    owner_ids.remove(owner_id)
-
-        force = True if restore else False
-        self._material.apply(self, force=force)
-
-        return True
-
-    def replace_material(self, new_material):
-
-        if not self._has_color:
-            return False
-
-        old_material = self._material
-
-        if old_material:
-            old_material.remove(self)
-
-        new_material.apply(self)
-        self._material = new_material
-
-        return True
-
-    def get_material(self):
-
-        return self._material
 
     def set_selected(self, is_selected=True, add_to_hist=True):
 
@@ -435,7 +368,7 @@ class TopLevelObject(BaseObject):
 
         transform = {}
 
-        if Mgr.get_global("coord_sys_type") == "local":
+        if GlobalData["coord_sys_type"] == "local":
             transform["translate"] = (0., 0., 0.)
             transform["rotate"] = (0., 0., 0.)
             transform["scale"] = (1., 1., 1.)
@@ -489,10 +422,6 @@ class TopLevelObject(BaseObject):
 
             update = True if restore else False
             self.set_color(value, update_app=update)
-
-        elif prop_id == "material":
-
-            return self.set_material(value, restore)
 
         elif prop_id == "selection_state":
 
@@ -548,13 +477,11 @@ class TopLevelObject(BaseObject):
     def get_property(self, prop_id, for_remote_update=False):
 
         if prop_id == "name":
-            return self._name
+            return self._name.get_value()
         elif prop_id == "parent":
             return self._parent_id
         elif prop_id == "color":
             return self._color
-        elif prop_id == "material":
-            return self._material
         elif prop_id == "selection_state":
             return self.is_selected()
         elif prop_id == "transform":
@@ -571,15 +498,11 @@ class TopLevelObject(BaseObject):
     def get_type_property_ids(self):
         """
         Retrieve the IDs of the properties that are specific to the particular type
-        of this object (e.g. "radius" for a sphere or "labels" for an axis tripod
-        helper object), as opposed to the general properties like name, color,
+        of this object (e.g. "radius" for a sphere or "cross_size" for a dummy
+        helper object), as opposed to the basic properties like name, color,
         transform, etc.
 
         """
-
-        return []
-
-    def get_subobj_selection(self, subobj_lvl):
 
         return []
 

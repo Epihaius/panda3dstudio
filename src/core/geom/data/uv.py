@@ -23,7 +23,7 @@ class UVEditBase(BaseObject):
                 uv_writer.set_data2f(uv)
 
         array = vertex_data_poly.get_array(2)
-        vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(2, GeomVertexArrayData(array))
 
     def project_uvs(self, uv_set_ids=None, project=True, projector=None,
@@ -39,7 +39,7 @@ class UVEditBase(BaseObject):
 
         if toplvl:
 
-            geom = self._geoms["top"]["shaded"]
+            geom = self._toplvl_geom
             self._geom_roots["poly"].show(render_masks["all"])
             self._geoms["poly"]["selected"].set_state(Mgr.get("poly_selection_state"))
 
@@ -128,7 +128,7 @@ class UVEditBase(BaseObject):
 
             array = vertex_data_tmp.get_array(2 + uv_set_id)
 
-        vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(2 + uv_set_id, GeomVertexArrayData(array))
         vertex_data_poly.set_array(2 + uv_set_id, array)
 
@@ -136,7 +136,7 @@ class UVEditBase(BaseObject):
 
         self._uv_change.update(vert_ids)
         verts = self._subobjs["vert"]
-        vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_tmp = GeomVertexData(vertex_data_poly)
 
@@ -173,7 +173,7 @@ class UVEditBase(BaseObject):
             vert.set_uvs(self._copied_uvs[vert_id], uv_set_id)
 
         array = self._copied_uv_array
-        vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_top.set_array(2 + uv_set_id, GeomVertexArrayData(array))
         vertex_data_poly.set_array(2 + uv_set_id, array)
@@ -234,7 +234,7 @@ class UVEditBase(BaseObject):
 
         uv_set_ids = {}
 
-        for time_id in prev_time_ids[::-1]:
+        for time_id in reversed(prev_time_ids):
 
             subobj_data = Mgr.do("load_from_history", obj_id, data_id, time_id)
             prev_data = subobj_data.get("prev", {})
@@ -293,7 +293,7 @@ class UVEditBase(BaseObject):
         for vert_id, time_id in time_ids.iteritems():
             verts[vert_id].set_previous_property_time("uvs", time_id)
 
-        vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         uv_writers = {0: GeomVertexWriter(vertex_data_top, "texcoord")}
 
         for uv_set_id in range(1, 8):

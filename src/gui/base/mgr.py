@@ -38,8 +38,7 @@ class GUIManager(object):
         if cls._verbose and task_id not in cls._task_handlers:
             print 'GUI warning: task "%s" is not defined.' % task_id
 
-        task_handler = cls._task_handlers.get(
-            task_id, cls._default_task_handler)
+        task_handler = cls._task_handlers.get(task_id, cls._default_task_handler)
 
         return task_handler(*args, **kwargs)
 
@@ -60,8 +59,7 @@ class GUIManager(object):
         if cls._verbose and data_id not in cls._data_retrievers:
             print 'GUI warning: data "%s" is not defined.' % data_id
 
-        retriever = cls._data_retrievers.get(
-            data_id, cls._default_data_retriever)
+        retriever = cls._data_retrievers.get(data_id, cls._default_data_retriever)
 
         return retriever(*args, **kwargs)
 
@@ -71,20 +69,14 @@ class GUIManager(object):
         Obtain data by id. This id can either be the id of the data, or it can be a
         sequence consisting of the id of the "owner" object and the id of the data
         itself.
-        Example of the latter:
-          GUIManager.get( ("grid", "point_under_mouse") )
 
         """
 
         if isinstance(data_id, (list, tuple)):
-
             obj_id, obj_data_id = data_id
             obj = cls.__get(obj_id)
-
             return obj.get(obj_data_id, *args, **kwargs)
-
         else:
-
             return cls.__get(data_id, *args, **kwargs)
 
     @classmethod
@@ -96,8 +88,8 @@ class GUIManager(object):
     @classmethod
     def add_state(cls, state_id, persistence, on_enter=None, on_exit=None, interface_id=""):
 
-        cls._app_mgr.add_state(interface_id, "GUI",
-                               state_id, persistence, on_enter, on_exit)
+        cls._app_mgr.add_state(interface_id, "GUI", state_id, persistence,
+                               on_enter, on_exit)
 
     @classmethod
     def set_initial_state(cls, state_id, interface_id=""):
@@ -147,23 +139,26 @@ class GUIManager(object):
     @classmethod
     def add_interface_updater(cls, interface_id, update_id, updater, kwargs=None):
 
-        cls._app_mgr.add_interface_updater(
-            interface_id, "GUI", update_id, updater, kwargs)
+        cls._app_mgr.add_interface_updater(interface_id, "GUI", update_id,
+                                           updater, kwargs)
 
     @classmethod
     def update_interface(cls, interface_id, update_id, *args, **kwargs):
 
-        return cls._app_mgr.update_interface(interface_id, "GUI", True, True, update_id, *args, **kwargs)
+        return cls._app_mgr.update_interface(interface_id, "GUI", True, True,
+                                             update_id, *args, **kwargs)
 
     @classmethod
     def update_interface_locally(cls, interface_id, update_id, *args, **kwargs):
 
-        return cls._app_mgr.update_interface(interface_id, "GUI", True, False, update_id, *args, **kwargs)
+        return cls._app_mgr.update_interface(interface_id, "GUI", True, False,
+                                             update_id, *args, **kwargs)
 
     @classmethod
     def update_interface_remotely(cls, interface_id, update_id, *args, **kwargs):
 
-        return cls._app_mgr.update_interface(interface_id, "GUI", False, True, update_id, *args, **kwargs)
+        return cls._app_mgr.update_interface(interface_id, "GUI", False, True,
+                                             update_id, *args, **kwargs)
 
     @classmethod
     def convert_from_remote_format(cls, format_type, data):
@@ -174,28 +169,6 @@ class GUIManager(object):
     def convert_to_remote_format(cls, format_type, data):
 
         return cls._app_mgr.convert_to_format("GUI", format_type, data)
-
-    @classmethod
-    def set_global(cls, global_id, value):
-        """
-        Set a certain global value.
-        This can be done from *any* object, while a value obtained through
-        GUIManager.get() can only be set through the object that initially exposed
-        it.
-
-        """
-
-        cls._app_mgr.set_global(global_id, value)
-
-    @classmethod
-    def get_global(cls, global_id):
-        """
-        Get the current value of a certain global.
-        Also see set_global().
-
-        """
-
-        return cls._app_mgr.get_global(global_id)
 
     @classmethod
     def remotely_handle_key_down(cls, key, interface_id=""):

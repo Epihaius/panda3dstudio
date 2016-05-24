@@ -83,7 +83,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         bind("texprojtarget_picking_mode", "cancel texproj target picking", "mouse3-up",
              lambda: Mgr.exit_state("texprojtarget_picking_mode"))
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Pick projector target"
         info_text = "LMB to pick object; RMB to end"
         status_data["pick_texproj_target"] = {"mode": mode_text, "info": info_text}
@@ -107,7 +107,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
         target = Mgr.get("object", pixel_color=self._pixel_under_mouse)
 
-        if target and target.get_type() == "model":
+        if target and target.get_type() == "model" and target.get_geom_type() != "basic_geom":
 
             projectors = [obj for obj in Mgr.get("selection", "top")
                           if obj.get_type() == "tex_projector"]
@@ -556,22 +556,18 @@ class TexProjector(TopLevelObject):
 
     def __getstate__(self):
 
-        d = self.__dict__.copy()
-        d["_pivot"] = NodePath(self.get_pivot().get_name())
-        d["_origin"] = NodePath(self.get_origin().get_name())
-        d["_subobj_root"] = NodePath("subobj_root")
-        d["_size"] = 1.
+        state = TopLevelObject.__getstate__(self)
 
-        return d
+        state["_subobj_root"] = NodePath("subobj_root")
+        state["_size"] = 1.
+
+        return state
 
     def __setstate__(self, state):
 
-        self.__dict__ = state
+        TopLevelObject.__setstate__(self, state)
 
-        pivot = self.get_pivot()
-        pivot.reparent_to(Mgr.get("object_root"))
         origin = self.get_origin()
-        origin.reparent_to(pivot)
         origin.set_light_off()
         origin.set_texture_off()
         origin.set_material_off()
@@ -595,8 +591,7 @@ class TexProjector(TopLevelObject):
         prop_ids = ["on", "size", "film_w", "film_h", "film_x", "film_y",
                     "projection_type", "targets"]
 
-        TopLevelObject.__init__(self, "tex_projector", projector_id, name, origin_pos,
-                                has_color=False)
+        TopLevelObject.__init__(self, "tex_projector", projector_id, name, origin_pos)
 
         self._type_prop_ids = prop_ids
         self._is_on = on

@@ -5,7 +5,7 @@ class CreationManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.set_global("active_creation_type", "")
+        GlobalData.set_default("active_creation_type", "")
 
         self._creation_start_mouse = (0, 0)
         self._origin_pos = None
@@ -16,7 +16,7 @@ class CreationManager(BaseObject):
         Mgr.accept("notify_creation_started", lambda: setattr(self, "_interactive_creation_started", True))
         Mgr.accept("notify_creation_ended", lambda: setattr(self, "_interactive_creation_ended", True))
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         status_data["create"] = {}
 
         Mgr.add_app_updater("creation", self.__update_creation)
@@ -62,7 +62,7 @@ class CreationManager(BaseObject):
 
         if mode_status == "started":
 
-            creation_type = Mgr.get_global("active_creation_type")
+            creation_type = GlobalData["active_creation_type"]
 
             if self._mode_status != "suspended" or self._creation_type != creation_type:
 
@@ -116,8 +116,8 @@ class CreationManager(BaseObject):
         Mgr.do("enable_view_gizmo")
         Mgr.do("enable_view_tiles")
 
-        if Mgr.get_global("active_obj_level") != "top":
-            Mgr.set_global("active_obj_level", "top")
+        if GlobalData["active_obj_level"] != "top":
+            GlobalData["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
         if self._interactive_creation_ended:
@@ -126,16 +126,16 @@ class CreationManager(BaseObject):
 
         else:
 
-            if Mgr.get_global("transform_target_type") != "all":
-                Mgr.set_global("transform_target_type", "all")
+            if GlobalData["transform_target_type"] != "all":
+                GlobalData["transform_target_type"] = "all"
                 Mgr.update_app("transform_target_type")
 
-            Mgr.set_global("active_transform_type", "")
+            GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
             Mgr.update_app("creation", "started")
             Mgr.set_cursor("create")
 
-        creation_type = Mgr.get_global("active_creation_type")
+        creation_type = GlobalData["active_creation_type"]
         Mgr.update_app("status", "create", creation_type, "idle")
 
     def __exit_creation_mode(self, next_state_id, is_active):
@@ -152,7 +152,7 @@ class CreationManager(BaseObject):
                 mode_status = "suspended"
             else:
                 mode_status = "ended"
-                Mgr.set_global("active_creation_type", "")
+                GlobalData["active_creation_type"] = ""
 
             Mgr.update_app("creation", mode_status)
 
@@ -164,7 +164,7 @@ class CreationManager(BaseObject):
         mouse_start_x, mouse_start_y = self._creation_start_mouse
 
         if max(abs(mouse_x - mouse_start_x), abs(mouse_y - mouse_start_y)) > 3:
-            object_type = Mgr.get_global("active_creation_type")
+            object_type = GlobalData["active_creation_type"]
             Mgr.do("start_%s_creation" % object_type, self._origin_pos)
             return task.done
 
@@ -199,7 +199,7 @@ class CreationManager(BaseObject):
             grid_origin = Mgr.get(("grid", "origin"))
             origin_pos = self.cam.target.get_pos(grid_origin)
 
-        object_type = Mgr.get_global("active_creation_type")
+        object_type = GlobalData["active_creation_type"]
         Mgr.do("inst_create_%s" % object_type, origin_pos)
 
 

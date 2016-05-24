@@ -1,6 +1,6 @@
 from .base import *
-from . import (cam, nav, view, history, scene, create, select, transform, coord_sys,
-               geom, hierarchy, helpers, texmap, material)
+from . import (cam, nav, view, history, scene, create, select, transform, transf_center,
+               coord_sys, geom, hierarchy, helpers, texmap, material)
 from direct.showbase.ShowBase import ShowBase, DirectObject
 
 loadPrcFileData("", """
@@ -61,10 +61,10 @@ class Core(ShowBase):
         Mgr.init(self, self._app_mgr, self._gizmo_root,
                  PickingColorIDManager, self._verbose)
 
-        Mgr.set_global("active_viewport", "")
-        Mgr.set_global("shift_down", False)
-        Mgr.set_global("ctrl_down", False)
-        Mgr.set_global("alt_down", False)
+        GlobalData.set_default("active_viewport", "")
+        GlobalData.set_default("shift_down", False)
+        GlobalData.set_default("ctrl_down", False)
+        GlobalData.set_default("alt_down", False)
 
         Mgr.add_app_updater("uv_edit_init", self.__init_uv_editing)
 
@@ -214,13 +214,13 @@ class KeyEventListener(object):
             mod_key_down = self._mouse_watcher.is_button_down
 
             if mod_key_down(KeyboardButton.shift()):
-                Mgr.set_global("shift_down", True)
+                GlobalData["shift_down"] = True
 
             if mod_key_down(KeyboardButton.control()):
-                Mgr.set_global("ctrl_down", True)
+                GlobalData["ctrl_down"] = True
 
             if mod_key_down(KeyboardButton.alt()):
-                Mgr.set_global("alt_down", True)
+                GlobalData["alt_down"] = True
 
             if not self.__handle_event(self._prefix + key):
                 Mgr.remotely_handle_key_down(key, self._interface_id)
@@ -231,15 +231,15 @@ class KeyEventListener(object):
 
         def handle_key_up():
 
-            if Mgr.get_global("active_viewport") != self._interface_id:
+            if GlobalData["active_viewport"] != self._interface_id:
                 return
 
             if key == "shift":
-                Mgr.set_global("shift_down", False)
+                GlobalData["shift_down"] = False
             elif key == "control":
-                Mgr.set_global("ctrl_down", False)
+                GlobalData["ctrl_down"] = False
             elif key == "alt":
-                Mgr.set_global("alt_down", False)
+                GlobalData["alt_down"] = False
 
             if not self.__handle_event(self._prefix + key + "-up"):
                 Mgr.remotely_handle_key_up(key, self._interface_id)
@@ -274,9 +274,9 @@ class KeyEventListener(object):
             mod_shift = Mgr.get("mod_shift")
             mod_ctrl = Mgr.get("mod_ctrl")
             mod_alt = Mgr.get("mod_alt")
-            mod_code = mod_shift if Mgr.get_global("shift_down") else 0
-            mod_code |= mod_ctrl if Mgr.get_global("ctrl_down") else 0
-            mod_code |= mod_alt if Mgr.get_global("alt_down") else 0
+            mod_code = mod_shift if GlobalData["shift_down"] else 0
+            mod_code |= mod_ctrl if GlobalData["ctrl_down"] else 0
+            mod_code |= mod_alt if GlobalData["alt_down"] else 0
 
         if event_id in self._evt_handlers and mod_code in self._evt_handlers[event_id]:
 

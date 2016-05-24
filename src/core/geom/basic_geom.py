@@ -102,11 +102,7 @@ class BasicGeomObject(BaseObject):
         self._picking_states = picking_states
 
         self.update_render_mode()
-        self.set_two_sided(Mgr.get_global("two_sided"))
-
-##    def __del__(self):
-##
-##        print "Basic geom garbage-collected."
+        self.set_two_sided(GlobalData["two_sided"])
 
     def destroy(self):
 
@@ -175,7 +171,7 @@ class BasicGeomObject(BaseObject):
 
     def update_selection_state(self, is_selected=True):
 
-        render_mode = Mgr.get_global("render_mode")
+        render_mode = GlobalData["render_mode"]
 
         if render_mode == "shaded":
             return
@@ -196,7 +192,7 @@ class BasicGeomObject(BaseObject):
 
     def update_render_mode(self):
 
-        render_mode = Mgr.get_global("render_mode")
+        render_mode = GlobalData["render_mode"]
         render_states = self._render_states
         geom = self._geom
         is_selected = self._model.is_selected()
@@ -225,20 +221,11 @@ class BasicGeomObject(BaseObject):
         Mgr.do("register_basic_geom", self)
 
         self.update_render_mode()
-        self.set_two_sided(Mgr.get_global("two_sided"))
+        self.set_two_sided(GlobalData["two_sided"])
 
     def unregister(self):
 
         Mgr.do("unregister_basic_geom", self)
-
-##    def set_origin(self, origin):
-##
-##        self._geom_data_obj.set_origin(origin)
-##
-##    def get_origin(self):
-##
-##        if self._geom_data_obj:
-##            return self._geom_data_obj.get_origin()
 
     def get_data_to_store(self, event_type, prop_id=""):
 

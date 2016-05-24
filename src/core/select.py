@@ -4,12 +4,12 @@ from .transform import SelectionTransformBase
 
 class Selection(SelectionTransformBase):
 
-    def __init__(self, obj_level, objs=None):
+    def __init__(self):
 
-        SelectionTransformBase.__init__(self, obj_level)
+        SelectionTransformBase.__init__(self)
 
-        self._objs = [] if objs is None else objs
-        self._obj_level = obj_level
+        self._objs = []
+        self._prev_obj_ids = None
 
     def __getitem__(self, index):
 
@@ -24,40 +24,75 @@ class Selection(SelectionTransformBase):
 
         return len(self._objs)
 
-    def get_object_level(self):
+    def get_toplevel_object(self):
+        """ Return a random top-level object """
 
-        return self._obj_level
+        if self._objs:
+            return self._objs[0]
 
-    def get(self):
+    def clear_prev_obj_ids(self):
 
-        return self._objs
+        self._prev_obj_ids = None
 
-    def clear(self):
+    def update_obj_props(self, force=False):
 
-        self._objs = []
+        obj_ids = set(obj.get_id() for obj in self._objs)
+
+        if not force and obj_ids == self._prev_obj_ids:
+            return
+
+        count = len(self._objs)
+
+        if count == 1:
+            sel = self._objs[0]
+
+        if count:
+            label = sel.get_name() if count == 1 else "%s Objects selected" % count
+            Mgr.update_remotely("selected_obj_name", label)
+
+        sel_colors = set([obj.get_color() for obj in self._objs if obj.has_color()])
+        sel_color_count = len(sel_colors)
+
+        if sel_color_count == 1:
+            color = sel_colors.pop()
+            color_values = [x for x in color][:3]
+            Mgr.update_remotely("selected_obj_color", color_values)
+
+        GlobalData["sel_color_count"] = sel_color_count
+        Mgr.update_app("sel_color_count")
+
+        type_checker = lambda obj, base_type: \
+            obj.get_geom_type() if base_type == "model" else base_type
+        obj_types = set([type_checker(obj, obj.get_type()) for obj in self._objs])
+        obj_type = obj_types.pop() if len(obj_types) == 1 else ""
+        Mgr.update_app("selected_obj_type", obj_type)
+
+        if count == 1:
+            for prop_id in sel.get_type_property_ids():
+                value = sel.get_property(prop_id, for_remote_update=True)
+                Mgr.update_remotely("selected_obj_prop", obj_type, prop_id, value)
+
+        self._prev_obj_ids = obj_ids
+
+        Mgr.update_app("selection_count")
 
     def update(self):
 
-        self.update_center()
+        self.update_center_pos()
         self.update_ui()
-
-
-class TopLevelSelection(Selection):
-
-    def __init__(self, objs=None):
-
-        Selection.__init__(self, "top", objs)
+        self.update_obj_props()
 
     def add(self, obj, add_to_hist=True):
 
-        sel = self.get()
+        sel = self._objs
 
         if obj in sel:
             return False
 
         sel.append(obj)
         obj.update_selection_state()
-        PendingTasks.add(self.update, "update_selection", "ui")
+        task = lambda: Mgr.get("selection").update()
+        PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
             event_descr = 'Select "%s"' % obj.get_name()
@@ -71,14 +106,15 @@ class TopLevelSelection(Selection):
 
     def remove(self, obj, add_to_hist=True):
 
-        sel = self.get()
+        sel = self._objs
 
         if obj not in sel:
             return False
 
         sel.remove(obj)
         obj.update_selection_state(False)
-        PendingTasks.add(self.update, "update_selection", "ui")
+        task = lambda: Mgr.get("selection").update()
+        PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
             event_descr = 'Deselect "%s"' % obj.get_name()
@@ -90,7 +126,7 @@ class TopLevelSelection(Selection):
 
     def replace(self, obj, add_to_hist=True):
 
-        sel = self.get()
+        sel = self._objs
         old_sel = set(sel)
         new_sel = set([obj])
         common = old_sel & new_sel
@@ -107,7 +143,8 @@ class TopLevelSelection(Selection):
             sel.append(new_obj)
             new_obj.update_selection_state()
 
-        PendingTasks.add(self.update, "update_selection", "ui")
+        task = lambda: Mgr.get("selection").update()
+        PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
 
@@ -149,7 +186,7 @@ class TopLevelSelection(Selection):
 
     def clear(self, add_to_hist=True):
 
-        sel = self.get()
+        sel = self._objs
 
         if not sel:
             return
@@ -158,9 +195,10 @@ class TopLevelSelection(Selection):
             obj.update_selection_state(False)
 
         sel = sel[:]
-        Selection.clear(self)
+        self._objs = []
 
-        PendingTasks.add(self.update, "update_selection", "ui")
+        task = lambda: Mgr.get("selection").update()
+        PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
 
@@ -188,12 +226,13 @@ class TopLevelSelection(Selection):
 
     def delete(self, add_to_hist=True):
 
-        sel = self.get()
+        sel = self._objs
 
         if not sel:
             return
 
-        PendingTasks.add(self.update, "update_selection", "ui")
+        task = lambda: Mgr.get("selection").update()
+        PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
 
@@ -226,251 +265,43 @@ class TopLevelSelection(Selection):
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
-class SubLevelSelection(Selection):
-
-    def __init__(self, obj_level, subobjs=None):
-
-        Selection.__init__(self, obj_level, subobjs)
-
-        self._groups = {}
-
-        for obj in subobjs:
-            self._groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
-
-    def add(self, subobj, add_to_hist=True):
-
-        sel = self.get()
-        old_sel = set(sel)
-        sel_to_add = set(subobj.get_special_selection())
-        common = old_sel & sel_to_add
-
-        if common:
-            sel_to_add -= common
-
-        if not sel_to_add:
-            return False
-
-        geom_data_objs = set()
-        groups = self._groups
-
-        for obj in sel_to_add:
-            geom_data_obj = obj.get_geom_data_object()
-            geom_data_obj.set_selected(obj, True)
-            geom_data_objs.add(geom_data_obj)
-            groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
-
-        sel.extend(sel_to_add)
-
-        PendingTasks.add(self.update, "update_selection", "ui")
-
-        if add_to_hist:
-
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
-            event_descr = 'Add to %s selection' % subobj_descr[self.get_object_level()]
-            obj_data = {}
-            event_data = {"objects": obj_data}
-
-            for geom_data_obj in geom_data_objs:
-                obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_selection")
-
-            # make undo/redoable
-            Mgr.do("add_history", event_descr, event_data)
-
-        return True
-
-    def remove(self, subobj, add_to_hist=True):
-
-        sel = self.get()
-        old_sel = set(sel)
-        sel_to_remove = set(subobj.get_special_selection())
-        common = old_sel & sel_to_remove
-
-        if not common:
-            return False
-
-        geom_data_objs = set()
-        groups = self._groups
-
-        for obj in common:
-            sel.remove(obj)
-            geom_data_obj = obj.get_geom_data_object()
-            geom_data_obj.set_selected(obj, False)
-            geom_data_objs.add(geom_data_obj)
-
-            topobj_id = obj.get_toplevel_object().get_id()
-            groups[topobj_id].remove(obj)
-
-            if not groups[topobj_id]:
-                del groups[topobj_id]
-
-        PendingTasks.add(self.update, "update_selection", "ui")
-
-        if add_to_hist:
-
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
-            event_descr = 'Remove from %s selection' % subobj_descr[self.get_object_level()]
-            obj_data = {}
-            event_data = {"objects": obj_data}
-
-            for geom_data_obj in geom_data_objs:
-                obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_selection")
-
-            # make undo/redoable
-            Mgr.do("add_history", event_descr, event_data)
-
-        return True
-
-    def replace(self, subobj, add_to_hist=True):
-
-        sel = self.get()
-        old_sel = set(sel)
-        new_sel = set(subobj.get_special_selection())
-        common = old_sel & new_sel
-
-        if common:
-            old_sel -= common
-            new_sel -= common
-
-        if not (old_sel or new_sel):
-            return False
-
-        geom_data_objs = set()
-
-        for old_obj in old_sel:
-            sel.remove(old_obj)
-            geom_data_obj = old_obj.get_geom_data_object()
-            geom_data_obj.set_selected(old_obj, False)
-            geom_data_objs.add(geom_data_obj)
-
-        for new_obj in new_sel:
-            geom_data_obj = new_obj.get_geom_data_object()
-            geom_data_obj.set_selected(new_obj, True)
-            geom_data_objs.add(geom_data_obj)
-
-        sel.extend(new_sel)
-
-        self._groups = groups = {}
-
-        for obj in common | new_sel:
-            groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
-
-        PendingTasks.add(self.update, "update_selection", "ui")
-
-        if add_to_hist and geom_data_objs:
-
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
-            event_descr = 'Replace %s selection' % subobj_descr[self.get_object_level()]
-            obj_data = {}
-            event_data = {"objects": obj_data}
-
-            for geom_data_obj in geom_data_objs:
-                obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_selection")
-
-            # make undo/redoable
-            Mgr.do("add_history", event_descr, event_data)
-
-        return True
-
-    def clear(self, add_to_hist=True):
-
-        if not self.get():
-            return False
-
-        obj_lvl = self.get_object_level()
-        geom_data_objs = []
-
-        for obj_id in self._groups:
-            geom_data_obj = Mgr.get("object", obj_id).get_geom_object().get_geom_data_object()
-            geom_data_obj.clear_selection(obj_lvl)
-            geom_data_objs.append(geom_data_obj)
-
-        self._groups = {}
-        Selection.clear(self)
-
-        PendingTasks.add(self.update, "update_selection", "ui")
-
-        if add_to_hist:
-
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
-            event_descr = 'Clear %s selection' % subobj_descr[obj_lvl]
-            obj_data = {}
-            event_data = {"objects": obj_data}
-
-            for geom_data_obj in geom_data_objs:
-                obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_selection")
-
-            # make undo/redoable
-            Mgr.do("add_history", event_descr, event_data)
-
-        return True
-
-    def delete(self, add_to_hist=True):
-
-        if not self.get():
-            return False
-
-        obj_lvl = self.get_object_level()
-        geom_data_objs = []
-
-        for obj_id in self._groups:
-            geom_data_obj = Mgr.get("object", obj_id).get_geom_object().get_geom_data_object()
-            geom_data_objs.append(geom_data_obj)
-
-        self._groups = {}
-        Selection.clear(self)
-
-        PendingTasks.add(self.update, "update_selection", "ui")
-
-        for geom_data_obj in geom_data_objs:
-            geom_data_obj.delete_selection(obj_lvl)
-
-        if add_to_hist:
-
-            Mgr.do("update_history_time")
-
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
-            event_descr = 'Delete %s selection' % subobj_descr[obj_lvl]
-            obj_data = {}
-            event_data = {"objects": obj_data}
-
-            for geom_data_obj in geom_data_objs:
-                obj = geom_data_obj.get_toplevel_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("subobj_change")
-
-            # make undo/redoable
-            Mgr.do("add_history", event_descr, event_data, update_time_id=False)
-
-        return True
-
-
 class SelectionManager(BaseObject):
 
     def __init__(self):
 
+        obj_root = Mgr.get("object_root")
+        sel_pivot = obj_root.attach_new_node("selection_pivot")
+        Mgr.expose("selection_pivot", lambda: sel_pivot)
+
         self._mouse_start_pos = ()
         self._picked_point = None
-        self._update_needed = False
+        self._can_select_single = False
 
         self._obj_id = None
-        self._sel_obj_ids = set()
-        self._selection = TopLevelSelection()
-        self._subobj_selection = None
+        self._selection = Selection()
         self._pixel_under_mouse = VBase4()
 
-        Mgr.set_global("selection_count", 0)
-        Mgr.set_global("sel_color_count", 0)
+        GlobalData.set_default("selection_count", 0)
+        GlobalData.set_default("sel_color_count", 0)
 
         Mgr.expose("selection", self.__get_selection)
-        Mgr.expose("sel_obj_ids", lambda: self._sel_obj_ids)
+        Mgr.expose("selection_top", lambda: self._selection)
+        Mgr.accept("select_top", self.__select_toplvl_obj)
+        Mgr.accept("select_single_top", self.__select_single)
 
         PendingTasks.add_task_id("update_selection", "object")
         PendingTasks.add_task_id("update_selection", "ui")
 
-    def setup(self):
+        def force_cursor_update(transf_type):
+
+            self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                               # next time self.__update_cursor()
+                                               # is called
+
+        Mgr.add_app_updater("active_transform_type", force_cursor_update)
+        Mgr.add_app_updater("active_obj_level", self.__update_active_selection,
+                            kwargs=["restore"])
+        Mgr.accept("update_active_selection", self.__update_active_selection)
 
         add_state = Mgr.add_state
         add_state("selection_mode", 0, self.__enter_selection_mode,
@@ -498,7 +329,7 @@ class SelectionManager(BaseObject):
         bind("checking_mouse_offset", "cancel mouse check",
              "mouse1-up", cancel_mouse_check)
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         status_data["select"] = {}
         info_start = "(<Ctrl>-)LMB to (toggle-)select; <Del> to delete selection; "
         info = info_start + "<W>, <E>, <R> to set transform type"
@@ -513,35 +344,18 @@ class SelectionManager(BaseObject):
             status_data["select"][transf_type]["idle"] = {"mode": mode, "info": info_idle}
             status_data["select"][transf_type]["in_progress"] = {"mode": mode, "info": info}
 
-        def force_cursor_update(transf_type):
-
-            self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                               # next time self.__update_cursor()
-                                               # is called
-
-        Mgr.add_app_updater("active_transform_type", force_cursor_update)
-        Mgr.add_app_updater("active_obj_level", self.__update_subobj_selection,
-                            kwargs=["restore"])
-        Mgr.accept("update_subobj_selection", self.__update_subobj_selection)
-        Mgr.accept("update_sel_obj_ids", self.__update_selected_object_ids)
-
-        return True
-
     def __get_selection(self, obj_lvl=""):
 
-        if obj_lvl == "top":
-            return self._selection
+        lvl = obj_lvl if obj_lvl else GlobalData["active_obj_level"]
 
-        active_obj_lvl = Mgr.get_global("active_obj_level")
-
-        return self._selection if active_obj_lvl == "top" else self._subobj_selection
+        return Mgr.get("selection_" + lvl)
 
     def __enter_selection_mode(self, prev_state_id, is_active):
 
         Mgr.add_task(self.__update_cursor, "update_cursor")
         Mgr.do("enable_transf_gizmo")
 
-        transf_type = Mgr.get_global("active_transform_type")
+        transf_type = GlobalData["active_transform_type"]
 
         if transf_type:
             Mgr.update_app("status", "select", transf_type, "idle")
@@ -561,7 +375,7 @@ class SelectionManager(BaseObject):
 
     def __set_active_transform_type(self, transf_type):
 
-        Mgr.set_global("active_transform_type", transf_type)
+        GlobalData["active_transform_type"] = transf_type
         Mgr.update_app("active_transform_type", transf_type)
 
         if transf_type:
@@ -569,36 +383,37 @@ class SelectionManager(BaseObject):
         else:
             Mgr.update_app("status", "select", "")
 
-    def __update_subobj_selection(self, restore=False):
+    def __update_active_selection(self, restore=False):
 
-        obj_lvl = Mgr.get_global("active_obj_level")
+        obj_lvl = GlobalData["active_obj_level"]
 
-        if obj_lvl == "top":
+        if obj_lvl != "top":
 
-            self._subobj_selection = None
-
-        else:
-
-            if Mgr.get_global("transform_target_type") != "all":
-                Mgr.set_global("transform_target_type", "all")
+            if GlobalData["transform_target_type"] != "all":
+                GlobalData["transform_target_type"] = "all"
                 Mgr.update_app("transform_target_type")
 
-            subobjs = []
+            self._selection.clear_prev_obj_ids()
+            Mgr.do("update_selection_" + obj_lvl)
 
-            for obj in self._selection:
-                subobjs.extend(obj.get_subobj_selection(obj_lvl))
+            toplvl_obj = self.__get_selection(obj_lvl).get_toplevel_object()
 
-            self._subobj_selection = SubLevelSelection(obj_lvl, subobjs)
+            if toplvl_obj:
+
+                cs_type = GlobalData["coord_sys_type"]
+                tc_type = GlobalData["transf_center_type"]
+
+                if cs_type == "local":
+                    Mgr.update_locally("coord_sys", cs_type, toplvl_obj)
+
+                if tc_type == "pivot":
+                    Mgr.update_locally("transf_center", tc_type, toplvl_obj)
 
         if restore:
             task = lambda: self.__get_selection().update()
             PendingTasks.add(task, "update_selection", "ui")
         else:
             self.__get_selection().update()
-
-    def __update_selected_object_ids(self):
-
-        self._sel_obj_ids = set([obj.get_id() for obj in self.__get_selection()])
 
     def __delete_selection(self):
 
@@ -617,7 +432,7 @@ class SelectionManager(BaseObject):
             if pixel_under_mouse == VBase4():
                 Mgr.set_cursor("main")
             else:
-                active_transform_type = Mgr.get_global("active_transform_type")
+                active_transform_type = GlobalData["active_transform_type"]
                 cursor_name = "select" if not active_transform_type else active_transform_type
                 Mgr.set_cursor(cursor_name)
 
@@ -652,15 +467,16 @@ class SelectionManager(BaseObject):
 
         Mgr.remove_task("check_mouse_offset")
 
-        active_transform_type = Mgr.get_global("active_transform_type")
+        active_transform_type = GlobalData["active_transform_type"]
 
         if active_transform_type == "rotate" \
-                and Mgr.get_global("axis_constraints_rotate") == "trackball":
-            prev_constraints = Mgr.get_global("prev_axis_constraints_rotate")
+                and GlobalData["axis_constraints"]["rotate"] == "trackball":
+            prev_constraints = GlobalData["prev_axis_constraints_rotate"]
             Mgr.update_app("axis_constraints", "rotate", prev_constraints)
 
-        if self._update_needed:
-            self.__update_selection()
+        if self._can_select_single:
+            obj_lvl = GlobalData["active_obj_level"]
+            Mgr.do("select_single_" + obj_lvl)
 
     def __get_picked_object(self, color_id, obj_type_id):
 
@@ -684,7 +500,7 @@ class SelectionManager(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return
 
-        self._update_needed = False
+        self._can_select_single = False
         screen_pos = Point2(self.mouse_watcher.get_mouse())
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
@@ -698,14 +514,33 @@ class SelectionManager(BaseObject):
             Mgr.enter_state("checking_mouse_offset")
             return
 
-        obj_lvl = Mgr.get_global("active_obj_level")
+        obj_lvl = GlobalData["active_obj_level"]
+        can_select_single, start_mouse_checking = Mgr.do("select_" + obj_lvl, picked_obj, toggle)
 
-        if obj_lvl == "top":
+        self._can_select_single = can_select_single
 
-            obj = picked_obj.get_toplevel_object() if picked_obj else None
+        if start_mouse_checking:
+            Mgr.enter_state("checking_mouse_offset")
 
-            cs_type = Mgr.get_global("coord_sys_type")
-            tc_type = Mgr.get_global("transf_center_type")
+    def __select_toplvl_obj(self, picked_obj, toggle):
+
+        obj = picked_obj.get_toplevel_object() if picked_obj else None
+        self._obj_id = obj.get_id() if obj else None
+
+        if toggle:
+            ret = self.__toggle_select()
+        else:
+            ret = self.__normal_select()
+
+        selection = self._selection
+
+        if obj not in selection:
+            obj = selection[0] if selection else None
+
+        if obj:
+
+            cs_type = GlobalData["coord_sys_type"]
+            tc_type = GlobalData["transf_center_type"]
 
             if cs_type == "local":
                 Mgr.update_locally("coord_sys", cs_type, obj)
@@ -713,44 +548,18 @@ class SelectionManager(BaseObject):
             if tc_type == "pivot":
                 Mgr.update_locally("transf_center", tc_type, obj)
 
-        elif obj_lvl == "vert":
-
-            obj = picked_obj.get_merged_vertex() if picked_obj else None
-
-        elif obj_lvl == "edge":
-
-            obj = picked_obj.get_merged_edge() if picked_obj else None
-
-        elif obj_lvl == "poly":
-
-            obj = picked_obj
-
-        if obj_lvl == "top":
-            self._obj_id = obj.get_id() if obj else None
-        else:
-            self._obj_id = obj.get_picking_color_id() if obj else None
-
-        if toggle:
-            self.__toggle_select()
-        else:
-            self.__normal_select()
+        return ret
 
     def __normal_select(self):
 
-        obj_lvl = Mgr.get_global("active_obj_level")
-        obj_type = "object" if obj_lvl == "top" else obj_lvl
-        obj = Mgr.get(obj_type, self._obj_id)
-
-        if obj_type == "vert":
-            obj = obj.get_merged_vertex() if obj else None
-        elif obj_type == "edge":
-            obj = obj.get_merged_edge() if obj else None
-
-        selection = self._selection if obj_lvl == "top" else self._subobj_selection
+        obj = Mgr.get("object", self._obj_id)
+        selection = self._selection
+        can_select_single = False
+        start_mouse_checking = False
 
         if obj:
 
-            if Mgr.get_global("active_transform_type"):
+            if GlobalData["active_transform_type"]:
 
                 if obj in selection and len(selection) > 1:
 
@@ -761,13 +570,13 @@ class SelectionManager(BaseObject):
                     # least a certain number of pixels by the time the left mouse button
                     # is released).
 
-                    self._update_needed = True
+                    can_select_single = True
 
                 else:
 
                     selection.replace(obj)
 
-                Mgr.enter_state("checking_mouse_offset")
+                start_mouse_checking = True
 
             else:
 
@@ -777,35 +586,21 @@ class SelectionManager(BaseObject):
 
             selection.clear()
 
-    def __update_selection(self):
+        return can_select_single, start_mouse_checking
+
+    def __select_single(self):
 
         # If multiple objects were selected and no transformation occurred, a single
         # object has been selected out of that previous selection.
 
-        obj_lvl = Mgr.get_global("active_obj_level")
-        obj_type = "object" if obj_lvl == "top" else obj_lvl
-        obj = Mgr.get(obj_type, self._obj_id)
-
-        if obj_type == "vert":
-            obj = obj.get_merged_vertex() if obj else None
-        elif obj_type == "edge":
-            obj = obj.get_merged_edge() if obj else None
-
-        selection = self._selection if obj_lvl == "top" else self._subobj_selection
-        selection.replace(obj)
+        obj = Mgr.get("object", self._obj_id)
+        self._selection.replace(obj)
 
     def __toggle_select(self):
 
-        obj_lvl = Mgr.get_global("active_obj_level")
-        obj_type = "object" if obj_lvl == "top" else obj_lvl
-        obj = Mgr.get(obj_type, self._obj_id)
-
-        if obj_type == "vert":
-            obj = obj.get_merged_vertex() if obj else None
-        elif obj_type == "edge":
-            obj = obj.get_merged_edge() if obj else None
-
-        selection = self._selection if obj_lvl == "top" else self._subobj_selection
+        obj = Mgr.get("object", self._obj_id)
+        selection = self._selection
+        start_mouse_checking = False
 
         if obj:
 
@@ -814,14 +609,16 @@ class SelectionManager(BaseObject):
                 transform_allowed = False
             else:
                 selection.add(obj)
-                transform_allowed = Mgr.get_global("active_transform_type")
+                transform_allowed = GlobalData["active_transform_type"]
 
             if transform_allowed:
-                Mgr.enter_state("checking_mouse_offset")
+                start_mouse_checking = True
+
+        return False, start_mouse_checking
 
     def __access_obj_props(self):
 
-        obj_lvl = Mgr.get_global("active_obj_level")
+        obj_lvl = GlobalData["active_obj_level"]
 
         if obj_lvl != "top" or not self.mouse_watcher.has_mouse():
             return

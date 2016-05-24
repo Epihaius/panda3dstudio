@@ -17,8 +17,7 @@ class UVDataSelectionBase(BaseObject):
 
             for subobj_type in ("vert", "edge", "poly"):
                 selected_subobj_ids[subobj_type] = []
-                subobj_sel_state[subobj_type] = {
-                    "selected": [], "unselected": []}
+                subobj_sel_state[subobj_type] = {"selected": [], "unselected": []}
 
         self._selected_subobj_ids = selected_subobj_ids
         self._subobj_sel_state = subobj_sel_state
@@ -36,8 +35,7 @@ class UVDataSelectionBase(BaseObject):
             subobj_sel_state[subobj_type] = subobj_sel_state_copy = {}
 
             for state in ("selected", "unselected"):
-                subobj_sel_state_src = self._subobj_sel_state[
-                    subobj_type][state]
+                subobj_sel_state_src = self._subobj_sel_state[subobj_type][state]
                 subobj_sel_state_copy[state] = subobj_sel_state_src[:]
 
         data_copy = {}
@@ -71,8 +69,7 @@ class UVDataSelectionBase(BaseObject):
                 array = prim.modify_vertices()
                 stride = array.get_array_format().get_stride()
                 handle = array.modify_handle()
-                data_rows = dict((unsel_state.index(i), i)
-                                 for i in row_indices)
+                data_rows = dict((unsel_state.index(i), i) for i in row_indices)
                 data = ""
 
                 for start in sorted(data_rows.iterkeys(), reverse=True):
@@ -92,8 +89,7 @@ class UVDataSelectionBase(BaseObject):
                 array = prim.modify_vertices()
                 stride = array.get_array_format().get_stride()
                 handle = array.modify_handle()
-                data_rows = dict((unsel_state.index(i) * 2, i)
-                                 for i in row_indices)
+                data_rows = dict((unsel_state.index(i) * 2, i) for i in row_indices)
                 data = ""
 
                 for start in sorted(data_rows.iterkeys(), reverse=True):
@@ -133,8 +129,10 @@ class UVDataSelectionBase(BaseObject):
             if subobj_type == "vert":
 
                 merged_vert = self._merged_verts[subobj_id]
+
                 for v_id in merged_vert:
                     selected_subobj_ids.remove(v_id)
+
                 row_indices = merged_vert.get_row_indices()
 
                 prim = geom_selected.node().modify_geom(0).modify_primitive(0)
@@ -154,16 +152,17 @@ class UVDataSelectionBase(BaseObject):
             elif subobj_type == "edge":
 
                 merged_edge = self._merged_edges[subobj_id]
+
                 for e_id in merged_edge:
                     selected_subobj_ids.remove(e_id)
+
                 row_indices = merged_edge.get_start_row_indices()
 
                 prim = geom_selected.node().modify_geom(0).modify_primitive(0)
                 array = prim.modify_vertices()
                 stride = array.get_array_format().get_stride()
                 handle = array.modify_handle()
-                data_rows = dict((sel_state.index(i) * 2, i)
-                                 for i in row_indices)
+                data_rows = dict((sel_state.index(i) * 2, i) for i in row_indices)
                 data = ""
 
                 for start in sorted(data_rows.iterkeys(), reverse=True):
@@ -214,21 +213,14 @@ class UVDataSelectionBase(BaseObject):
         selected_subobj_ids = self._selected_subobj_ids[subobj_lvl]
 
         if subobj_lvl == "vert":
-
             merged_verts = self._merged_verts
-            verts = set(merged_verts[vert_id]
-                        for vert_id in selected_subobj_ids)
+            verts = set(merged_verts[vert_id] for vert_id in selected_subobj_ids)
             selection = list(verts)
-
         elif subobj_lvl == "edge":
-
             merged_edges = self._merged_edges
-            edges = set(merged_edges[edge_id]
-                        for edge_id in selected_subobj_ids)
+            edges = set(merged_edges[edge_id] for edge_id in selected_subobj_ids)
             selection = list(edges)
-
         elif subobj_lvl == "poly":
-
             selection = [subobjs[i] for i in selected_subobj_ids]
 
         return selection
@@ -241,12 +233,10 @@ class UVDataSelectionBase(BaseObject):
         self._selected_subobj_ids[subobj_lvl] = []
         geom_selected = self._geoms[subobj_lvl]["selected"]
         geom_unselected = self._geoms[subobj_lvl]["unselected"]
-        handle = geom_selected.node().modify_geom(
-            0).modify_primitive(0).modify_vertices().modify_handle()
+        handle = geom_selected.node().modify_geom(0).modify_primitive(0).modify_vertices().modify_handle()
         data = handle.get_data()
         handle.set_data("")
-        handle = geom_unselected.node().modify_geom(
-            0).modify_primitive(0).modify_vertices().modify_handle()
+        handle = geom_unselected.node().modify_geom(0).modify_primitive(0).modify_vertices().modify_handle()
         handle.set_data(handle.get_data() + data)
 
         self._verts_to_transf[subobj_lvl] = {}

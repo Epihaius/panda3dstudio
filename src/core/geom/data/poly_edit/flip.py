@@ -14,8 +14,7 @@ class PolygonFlipBase(BaseObject):
         merged_verts = self._merged_verts
         merged_verts_to_update = set()
         selected_poly_ids = self._selected_subobj_ids["poly"]
-        poly_ids = iter(
-            selected_poly_ids) if selected_only else polys.iterkeys()
+        poly_ids = iter(selected_poly_ids) if selected_only else polys.iterkeys()
 
         if not poly_ids:
             return False
@@ -45,8 +44,7 @@ class PolygonFlipBase(BaseObject):
 
             poly.set_triangle_data(new_tri_data)
             poly.update_normal()
-            merged_verts_to_update.update(
-                merged_verts[v_id] for v_id in poly.get_vertex_ids())
+            merged_verts_to_update.update(merged_verts[v_id] for v_id in poly.get_vertex_ids())
 
         # Update geometry structures
 
@@ -72,13 +70,11 @@ class PolygonFlipBase(BaseObject):
                     vert_indices[i] = old_indices
 
                     for tri_verts in poly:
-                        old_indices.append(
-                            [verts[vert_id].get_row_index() for vert_id in tri_verts])
+                        old_indices.append([verts[vert_id].get_row_index() for vert_id in tri_verts])
 
         else:
 
-            poly_geom_unselected = geoms["poly"][
-                "unselected"].node().modify_geom(0)
+            poly_geom_unselected = geoms["poly"]["unselected"].node().modify_geom(0)
             prim_unselected = GeomTriangles(Geom.UH_static)
 
             for i in sorted(vert_indices_unselected.iterkeys()):
@@ -91,7 +87,7 @@ class PolygonFlipBase(BaseObject):
             for indices in vert_indices[i]:
                 top_shaded_prim.add_vertices(*indices)
 
-        top_shaded_geom = geoms["top"]["shaded"].node().modify_geom(0)
+        top_shaded_geom = self._toplvl_node.modify_geom(0)
         top_shaded_geom.set_primitive(0, top_shaded_prim)
 
         self._tri_change_all = not selected_only
@@ -126,8 +122,7 @@ class PolygonFlipManager(BaseObject):
         obj_data = {}
 
         for obj_id, data_obj in changed_objs.iteritems():
-            obj_data[obj_id] = data_obj.get_data_to_store(
-                "prop_change", "poly_tris")
+            obj_data[obj_id] = data_obj.get_data_to_store("prop_change", "poly_tris")
 
         event_descr = "Flip polygon normals"
         event_data = {"objects": obj_data}

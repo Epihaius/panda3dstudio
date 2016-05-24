@@ -149,7 +149,7 @@ class SmoothingBase(BaseObject):
                     normal_writer.set_data3f(normal)
 
             array = vertex_data_poly.get_array(1)
-            vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
+            vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
             vertex_data_top.set_array(1, GeomVertexArrayData(array))
 
         else:
@@ -172,7 +172,7 @@ class SmoothingBase(BaseObject):
                     normal_writer.set_data3f(normal)
 
             array = vertex_data_poly.get_array(1)
-            vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
+            vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
             vertex_data_top.set_array(1, GeomVertexArrayData(array))
 
         return True
@@ -433,7 +433,7 @@ class SmoothingBase(BaseObject):
         array = vertex_data_copy.get_array(1)
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly.set_array(1, GeomVertexArrayData(array))
-        vertex_data_top = self._geoms["top"]["shaded"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(1, GeomVertexArrayData(array))
 
     def _restore_poly_smoothing(self, time_id):
@@ -462,7 +462,7 @@ class SmoothingManager(BaseObject):
 
     def setup(self):
 
-        Mgr.set_global("sel_polys_by_smoothing", False)
+        GlobalData.set_default("sel_polys_by_smoothing", False)
 
         add_state = Mgr.add_state
         add_state("smoothing_poly_picking_mode", -10, self.__enter_smoothing_poly_picking_mode,
@@ -488,7 +488,7 @@ class SmoothingManager(BaseObject):
         bind("unsmoothing_poly_picking_mode", "pick unsmoothing poly", "mouse1",
              self.__pick_smoothing_poly)
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Pick poly for smoothing"
         info_text = "LMB to pick a polygon to smooth the selection with; RMB to cancel"
         status_data["smooth_with_poly"] = {"mode": mode_text, "info": info_text}

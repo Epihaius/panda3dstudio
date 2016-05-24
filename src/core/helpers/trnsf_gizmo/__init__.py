@@ -30,7 +30,6 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         Mgr.accept("set_transf_gizmo", self.__set_gizmo)
         Mgr.accept("set_transf_gizmo_pos", self.__set_pos)
         Mgr.accept("set_transf_gizmo_hpr", self.__set_hpr)
-        Mgr.accept("set_transf_gizmo_shear", self.__set_shear)
         Mgr.accept("update_transf_gizmo", self.__update)
         Mgr.accept("show_transf_gizmo", self.__show)
         Mgr.accept("hide_transf_gizmo", self.__hide)
@@ -78,7 +77,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         disabled_gizmo.show()
 
         for transf_type in ("translate", "rotate", "scale"):
-            axes = Mgr.get_global("axis_constraints_%s" % transf_type)
+            axes = GlobalData["axis_constraints"][transf_type]
             self._gizmos[transf_type].set_active_axes(axes)
 
         return True
@@ -120,7 +119,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
     def __update_active_axes(self, transf_type, axes):
 
-        Mgr.set_global("axis_constraints_%s" % transf_type, axes)
+        GlobalData["axis_constraints"][transf_type] = axes
         self._gizmos[transf_type].set_active_axes(axes)
 
     def __enable_gizmo(self):
@@ -166,11 +165,6 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
         if self._active_gizmo is self._gizmos["scale"]:
             self._active_gizmo.face_camera()
-
-    def __set_shear(self, shear):
-
-        for gizmo in self._gizmos.itervalues():
-            gizmo.set_shear(shear)
 
     def __update(self):
 

@@ -21,6 +21,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         state = self.__dict__.copy()
         del state["_vertex_data"]
         del state["_owner"]
+        del state["_toplvl_node"]
+        del state["_toplvl_geom"]
         del state["_geoms"]
         del state["_geom_roots"]
         del state["_ordered_polys"]
@@ -99,7 +101,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         render_masks = Mgr.get("render_masks")
         picking_masks = Mgr.get("picking_masks")
-        render_mode = Mgr.get_global("render_mode")
+        render_mode = GlobalData["render_mode"]
 
         lines_prim = GeomLines(Geom.UH_static)
         lines_prim.reserve_num_vertices(6)
@@ -147,8 +149,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         tris_geom.add_primitive(tris_prim)
         geom_node = GeomNode("toplevel_shaded_geom")
         geom_node.add_geom(tris_geom)
+        self._toplvl_node = geom_node
         toplvl_shaded_geom = toplvl_geom_root.attach_new_node(geom_node)
         toplvl_shaded_geom.show(picking_masks["all"])
+        self._toplvl_geom = toplvl_shaded_geom
         geoms["top"]["shaded"] = toplvl_shaded_geom
 
         if "shaded" in render_mode:
@@ -180,7 +184,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geoms["poly"]["selected"] = poly_selected_geom
 
         self._origin.node().set_final(True)
-        self._origin.set_two_sided(Mgr.get_global("two_sided"))
+        self._origin.set_two_sided(GlobalData["two_sided"])
 
     def __rebuild_node_tree(self):
         """ Rebuild the original NodePath hierarchy """
@@ -233,7 +237,11 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def get_toplevel_geom(self):
 
-        return self._geoms["top"]["shaded"]
+        return self._toplvl_geom
+
+    def get_toplevel_node(self):
+
+        return self._toplvl_node
 
     def process_geom_data(self, data):
 
@@ -462,7 +470,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
                 if row1 in start_row_indices or row2 in end_row_indices:
                     row1, row2 = row2, row1
-                    edge.switch_vertex_order()
+                    edge.reverse_vertex_order()
 
                 start_row_indices.append(row1)
                 end_row_indices.append(row2)
@@ -501,7 +509,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         render_masks = Mgr.get("render_masks")
         picking_masks = Mgr.get("picking_masks")
-        render_mode = Mgr.get_global("render_mode")
+        render_mode = GlobalData["render_mode"]
 
         vertices = lines_prim.get_vertices()
         lines_geom = Geom(vertex_data_edge)
@@ -549,8 +557,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         tris_geom.add_primitive(tris_prim)
         geom_node = GeomNode("toplevel_shaded_geom")
         geom_node.add_geom(tris_geom)
+        self._toplvl_node = geom_node
         toplvl_shaded_geom = toplvl_geom_root.attach_new_node(geom_node)
         toplvl_shaded_geom.show(picking_masks["all"])
+        self._toplvl_geom = toplvl_shaded_geom
         geoms["top"]["shaded"] = toplvl_shaded_geom
         self._origin.node().set_bounds(geom_node.get_bounds())
 
@@ -599,7 +609,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         origin = self.get_toplevel_object().get_origin().attach_new_node(node_name)
         origin.node().set_final(True)
 
-        if Mgr.get_global("two_sided"):
+        if GlobalData["two_sided"]:
             origin.set_two_sided(True)
 
         self._origin = origin
@@ -639,13 +649,13 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def set_position_data(self, pos_data):
 
-        node = self._geoms["top"]["shaded"].node()
+        node = self._toplvl_node
         handle = node.modify_geom(0).modify_vertex_data().modify_array(0).modify_handle()
         handle.set_data(pos_data)
 
     def get_position_data(self):
 
-        node = self._geoms["top"]["shaded"].node()
+        node = self._toplvl_node
         pos_data = node.get_geom(0).get_vertex_data().get_array(0).get_handle().get_data()
 
         return pos_data
@@ -654,7 +664,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         """ Bake the origin's transform into the vertices and reset it to identity """
 
         mat = self._origin.get_mat()
-        geom_node_top = self._geoms["top"]["shaded"].node()
+        geom_node_top = self._toplvl_node
         geom_node_top.modify_geom(0).transform_vertices(mat)
         self._origin.clear_transform()
         vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
@@ -759,7 +769,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         geoms = self._geoms
         picking_masks = Mgr.get("picking_masks")
-        render_mode = Mgr.get_global("render_mode")
+        render_mode = GlobalData["render_mode"]
 
         if is_selected:
 
@@ -781,14 +791,14 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def update_render_mode(self):
 
-        render_mode = Mgr.get_global("render_mode")
+        render_mode = GlobalData["render_mode"]
         render_masks = Mgr.get("render_masks")
         picking_masks = Mgr.get("picking_masks")
         geoms = self._geoms
 
         if self.get_toplevel_object().is_selected():
 
-            obj_lvl = Mgr.get_global("active_obj_level")
+            obj_lvl = GlobalData["active_obj_level"]
 
         else:
 
@@ -953,7 +963,7 @@ class GeomDataManager(BaseObject):
             "rebuild_node_tree"
         )
 
-        for task_id in task_ids[::-1]:
+        for task_id in reversed(task_ids):
             PendingTasks.add_task_id(task_id, "object", sort + 1)
 
         np = NodePath("poly_sel_state")

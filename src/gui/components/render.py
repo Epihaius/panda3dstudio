@@ -21,8 +21,7 @@ class RenderModeToolbar(Toolbar):
         bitmap_paths = Button.get_bitmap_paths("toolbar_button")
         command = lambda: Mgr.update_remotely("two_sided")
         hotkey = (wx.WXK_F5, 0)
-        bitmaps = Button.create_button_bitmaps(
-            icon_path, bitmap_paths, flat=True)
+        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
         btn = Button(self, bitmaps, "", tooltip_text, command)
         btn.set_hotkey(hotkey)
         self._btn_two_sided = btn
@@ -30,7 +29,7 @@ class RenderModeToolbar(Toolbar):
 
         def toggle_two_sided():
 
-            if Mgr.get_global("two_sided"):
+            if GlobalData["two_sided"]:
                 self._btn_two_sided.set_active()
             else:
                 self._btn_two_sided.set_active(False)
@@ -74,7 +73,7 @@ class RenderModeButtons(ToggleButtonGroup):
 
             def toggle_on():
 
-                Mgr.set_global("render_mode", render_mode)
+                GlobalData["render_mode"] = render_mode
                 Mgr.update_app("render_mode")
 
             toggle = (toggle_on, lambda: None)
@@ -84,10 +83,8 @@ class RenderModeButtons(ToggleButtonGroup):
             else:
                 icon_name, tooltip_text = btn_data[render_mode]
                 icon_path = os.path.join(GFX_PATH, icon_name + ".png")
-                bitmaps = Button.create_button_bitmaps(
-                    icon_path, bitmap_paths, flat=True)
-                btn = self.add_button(
-                    btn_parent, render_mode, toggle, bitmaps, tooltip_text)
+                bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
+                btn = self.add_button(btn_parent, render_mode, toggle, bitmaps, tooltip_text)
                 btn.set_hotkey(hotkeys[render_mode])
                 sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
 
@@ -96,7 +93,7 @@ class RenderModeButtons(ToggleButtonGroup):
 
         def update_render_mode():
 
-            render_mode = Mgr.get_global("render_mode")
+            render_mode = GlobalData["render_mode"]
 
             if render_mode == "shaded":
                 self.deactivate()

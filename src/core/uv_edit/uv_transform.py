@@ -5,16 +5,9 @@ class SelectionTransformBase(BaseObject):
 
     def __init__(self):
 
-        self._center = self.uv_space.attach_new_node("uv_selection_center")
-        self._pivot = self.uv_space.attach_new_node("uv_selection_pivot")
+        self._center_pos = Point3()
 
-        self._pivot_start = None
-        self._start_positions = []
-        self._start_quats = []
-        self._start_mats = []
-        self._offset_vecs = []
-
-    def update_center(self):
+    def update_center_pos(self):
 
         if not self._objs:
             return
@@ -22,21 +15,29 @@ class SelectionTransformBase(BaseObject):
         pos = sum([obj.get_center_pos(self.uv_space)
                    for obj in self._objs], Point3()) / len(self._objs)
         pos[1] = 0.
-        self._center.set_pos(self.uv_space, pos)
+        self._center_pos = pos
 
     def get_center_pos(self):
 
-        return self._center.get_pos(self.uv_space)
+        return Point3(self._center_pos)
 
     def update_ui(self, force=False):
 
         count = len(self._objs)
 
-        if count == 1:
-            obj = self._objs[0]
+        if self._obj_level == "vert":
+
+            if count == 1:
+                u, unused, v = self._objs[0].get_pos()
+                transform_values = {"translate": (u, v)}
+            else:
+                transform_values = None
+
+            Mgr.update_interface_remotely("uv_window", "transform_values",
+                                          transform_values)
 
         if count:
-            UVMgr.do("set_transf_gizmo_pos", self._center.get_pos())
+            UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
 
         obj_ids = set(obj.get_id() for obj in self._objs)
         prev_obj_ids = UVMgr.get("sel_obj_ids")
@@ -50,7 +51,7 @@ class SelectionTransformBase(BaseObject):
 
         UVMgr.do("update_sel_obj_ids", obj_ids)
 
-        prev_count = Mgr.get_global("uv_selection_count")
+        prev_count = GlobalData["uv_selection_count"]
 
         if count != prev_count:
 
@@ -59,10 +60,10 @@ class SelectionTransformBase(BaseObject):
             else:
                 UVMgr.do("hide_transf_gizmo")
 
-            Mgr.set_global("uv_selection_count", count)
+            GlobalData["uv_selection_count"] = count
             Mgr.update_interface("uv_window", "selection_count")
 
-    def set_transform_component(self, transf_type, axis, value):
+    def set_transform_component(self, transf_type, axis, value, is_rel_value):
 
         obj_lvl = self._obj_level
         uv_data_objs = self.get_uv_data_objects()
@@ -70,126 +71,92 @@ class SelectionTransformBase(BaseObject):
         for uv_data_obj in uv_data_objs:
             uv_data_obj.init_transform()
 
-        if transf_type == "translate":
+        if is_rel_value:
 
-            if axis == "u":
-                transform = Vec3(value, 0., 0.)
-            else:
-                transform = Vec3(0., 0., value)
+            if transf_type == "translate":
+                if axis == "u":
+                    transform = Vec3(value, 0., 0.)
+                else:
+                    transform = Vec3(0., 0., value)
+            elif transf_type == "rotate":
+                hpr = VBase3(0., 0., value)
+                transform = Quat()
+                transform.set_hpr(hpr)
+            elif transf_type == "scale":
+                if axis == "u":
+                    transform = Vec3(max(.01, value), 1., 1.)
+                else:
+                    transform = Vec3(1., 1., max(.01, value))
 
-            center = self._center
-            center.set_pos(center, Point3(*transform))
-            UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
+            for uv_data_obj in uv_data_objs:
+                uv_data_obj.transform_selection(obj_lvl, transf_type, transform)
+                uv_data_obj.finalize_transform()
 
-        elif transf_type == "rotate":
+        else:
+            # set absolute coordinate for selected vertices
 
-            hpr = VBase3(0., 0., value)
-            transform = Quat()
-            transform.set_hpr(hpr)
+            for uv_data_obj in uv_data_objs:
+                uv_data_obj.set_vert_sel_coordinate(axis, value)
+                uv_data_obj.finalize_transform()
 
-        elif transf_type == "scale":
+            if len(self._objs) == 1:
+                u, unused, v = self._objs[0].get_pos()
+                transform_values = {"translate": (u, v)}
+                Mgr.update_interface_remotely("uv_window", "transform_values",
+                                              transform_values)
 
-            if axis == "u":
-                transform = Vec3(max(.01, value), 1., 1.)
-            else:
-                transform = Vec3(1., 1., max(.01, value))
-
-        for uv_data_obj in uv_data_objs:
-            uv_data_obj.transform_selection(obj_lvl, transf_type, transform)
-            uv_data_obj.finalize_transform()
-
-    def init_translation(self):
-
-        self._pivot_start = self.get_center_pos()
-        self._pivot.set_pos(self._pivot_start)
-        self._center.wrt_reparent_to(self._pivot)
-
-        for uv_data_obj in self.get_uv_data_objects():
-            uv_data_obj.init_transform()
-
-    def translate(self, translation_vec):
-
-        obj_lvl = self._obj_level
-
-        for uv_data_obj in self.get_uv_data_objects():
-            uv_data_obj.transform_selection(obj_lvl, "translate", translation_vec)
-
-        pos = self._pivot_start + translation_vec
-        self._pivot.set_pos(pos)
-
+        self.update_center_pos()
         UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
 
-    def init_rotation(self):
-
-        self._pivot.set_pos(self.get_center_pos())
-        self._pivot_start = self._pivot.get_quat()
-        self._center.wrt_reparent_to(self._pivot)
+    def init_transform(self):
 
         for uv_data_obj in self.get_uv_data_objects():
             uv_data_obj.init_transform()
 
-    def rotate(self, rotation):
+    def transform(self, transf_type, value):
 
         obj_lvl = self._obj_level
 
         for uv_data_obj in self.get_uv_data_objects():
-            uv_data_obj.transform_selection(obj_lvl, "rotate", rotation)
-
-        quat = self._pivot_start * rotation
-        self._pivot.set_quat(quat)
-
-    def init_scaling(self):
-
-        self._pivot.set_pos(self.get_center_pos())
-        self._center.wrt_reparent_to(self._pivot)
-
-        for uv_data_obj in self.get_uv_data_objects():
-            uv_data_obj.init_transform()
-
-    def scale(self, scaling):
-
-        obj_lvl = self._obj_level
-
-        for uv_data_obj in self.get_uv_data_objects():
-            uv_data_obj.transform_selection(obj_lvl, "scale", scaling)
-
-        self._pivot.set_scale(scaling)
+            uv_data_obj.transform_selection(obj_lvl, transf_type, value)
 
     def finalize_transform(self, cancelled=False):
-
-        self._center.wrt_reparent_to(self.uv_space)
-        self._center.set_hpr_scale(0., 0., 0., 1., 1., 1.)
-        self._center.set_shear(0., 0., 0.)
-        self._pivot.clear_transform()
-        self._pivot_start = None
 
         for uv_data_obj in self.get_uv_data_objects():
             uv_data_obj.finalize_transform(cancelled)
 
-    def cancel_transform(self):
+        if not cancelled:
 
-        active_transform_type = Mgr.get_global("active_uv_transform_type")
+            self.update_center_pos()
+            UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
 
-        if active_transform_type == "translate":
-            self._pivot.set_pos(self._pivot_start)
-        elif active_transform_type == "rotate":
-            self._pivot.set_quat(self._pivot_start)
-        elif active_transform_type == "scale":
-            self._pivot.set_scale(1.)
+            if self._obj_level == "vert":
 
-        UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
+                if len(self._objs) == 1:
+                    u, unused, v = self._objs[0].get_pos()
+                    transform_values = {"translate": (u, v)}
+                else:
+                    transform_values = None
 
-        self.finalize_transform(cancelled=True)
+                Mgr.update_interface_remotely("uv_window", "transform_values",
+                                              transform_values)
 
 
 class UVTransformationBase(BaseObject):
 
     def __init__(self):
 
-        Mgr.set_global("active_uv_transform_type", "")
+        GlobalData.set_default("active_uv_transform_type", "")
+        rel_values = {}
 
         for transf_type, axes in (("translate", "uv"), ("scale", "uv")):
-            Mgr.set_global("uv_axis_constraints_%s" % transf_type, axes)
+            GlobalData.set_default("uv_axis_constraints_%s" % transf_type, axes)
+
+        for obj_lvl in ("vert", "edge", "poly"):
+            rel_values[obj_lvl] = {"translate": True, "rotate": True, "scale": True}
+
+        copier = lambda data: dict((key, value.copy()) for key, value in data.iteritems())
+        GlobalData.set_default("rel_uv_transform_values", rel_values, copier)
 
         self._selection = None
         self._transf_start_pos = Point3()
@@ -219,14 +186,14 @@ class UVTransformationBase(BaseObject):
         Mgr.add_interface_updater("uv_window", "transf_component",
                                   self.__set_transform_component)
 
-    def __set_transform_component(self, transf_type, axis, value):
+    def __set_transform_component(self, transf_type, axis, value, is_rel_value):
 
         selection = self._selections[self._uv_set_id][self._obj_lvl]
-        selection.set_transform_component(transf_type, axis, value)
+        selection.set_transform_component(transf_type, axis, value, is_rel_value)
 
     def __init_transform(self, transf_start_pos):
 
-        active_transform_type = Mgr.get_global("active_uv_transform_type")
+        active_transform_type = GlobalData["active_uv_transform_type"]
 
         if not active_transform_type:
             return
@@ -239,24 +206,23 @@ class UVTransformationBase(BaseObject):
         if active_transform_type == "translate":
             self.__init_translation()
         elif active_transform_type == "rotate":
-            self.__init_rotation()
+            if not self.__init_rotation():
+                return
         if active_transform_type == "scale":
-            self.__init_scaling()
+            if not self.__init_scaling():
+                return
+
+        self._selection.init_transform()
 
     def __end_transform(self, cancel=False):
 
         Mgr.remove_task("transform_selection")
-
-        if cancel:
-            self._selection.cancel_transform()
-        else:
-            self._selection.finalize_transform()
-
+        self._selection.finalize_transform(cancel)
         self._selection = None
 
     def __init_translation(self):
 
-        axis_constraints = Mgr.get_global("uv_axis_constraints_translate")
+        axis_constraints = GlobalData["uv_axis_constraints_translate"]
 
         if len(axis_constraints) == 1:
             axis = Vec3()
@@ -264,8 +230,6 @@ class UVTransformationBase(BaseObject):
             self._transf_axis = axis
         else:
             self._transf_axis = None
-
-        self._selection.init_translation()
 
         Mgr.add_task(self.__translate_selection, "transform_selection", sort=3)
 
@@ -276,7 +240,7 @@ class UVTransformationBase(BaseObject):
         if self._transf_axis is not None:
             translation_vec = translation_vec.project(self._transf_axis)
 
-        self._selection.translate(translation_vec)
+        self._selection.transform("translate", translation_vec)
 
         return task.cont
 
@@ -286,12 +250,13 @@ class UVTransformationBase(BaseObject):
         rot_start_vec = V3D(self._transf_start_pos - self._rot_origin)
 
         if not rot_start_vec.normalize():
-            return
+            return False
 
         self._rot_start_vec = (rot_start_vec, V3D(0., 1., 0.) ** rot_start_vec)
-        self._selection.init_rotation()
 
         Mgr.add_task(self.__rotate_selection, "transform_selection", sort=3)
+
+        return True
 
     def __rotate_selection(self, task):
 
@@ -309,7 +274,7 @@ class UVTransformationBase(BaseObject):
         rotation = Quat()
         rotation.set_hpr(hpr)
 
-        self._selection.rotate(rotation)
+        self._selection.transform("rotate", rotation)
 
         return task.cont
 
@@ -320,14 +285,15 @@ class UVTransformationBase(BaseObject):
         transf_axis = V3D(start_pos - scaling_origin)
 
         if not transf_axis.normalize():
-            return
+            return False
 
         self._transf_axis = transf_axis
         scale_dir_vec = transf_axis * -1.
         hpr = scale_dir_vec.get_hpr()
-        self._selection.init_scaling()
 
         Mgr.add_task(self.__scale_selection, "transform_selection", sort=3)
+
+        return True
 
     def __scale_selection(self, task):
 
@@ -343,7 +309,7 @@ class UVTransformationBase(BaseObject):
             s = dot_prod * .99 / (1. + dot_prod)
             scaling_factor = (1. + s / (1. - s)) ** 2.
 
-        axis_constraints = Mgr.get_global("uv_axis_constraints_scale")
+        axis_constraints = GlobalData["uv_axis_constraints_scale"]
 
         if axis_constraints == "uv":
             scaling = VBase3(scaling_factor, 1., scaling_factor)
@@ -351,6 +317,6 @@ class UVTransformationBase(BaseObject):
             scaling = VBase3(1., 1., 1.)
             scaling[0 if axis_constraints == "u" else 2] = scaling_factor
 
-        self._selection.scale(scaling)
+        self._selection.transform("scale", scaling)
 
         return task.cont

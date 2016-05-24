@@ -468,7 +468,7 @@ class PolygonCreationBase(BaseObject):
         for tri_data in indices:
 
             if tmp_data["flip_normal"]:
-                tri_data = tri_data[::-1]
+                tri_data = reversed(tri_data)
 
             tri_vert_ids = []
 
@@ -508,8 +508,7 @@ class PolygonCreationBase(BaseObject):
 
             for i, j in ((0, 1), (1, 2), (0, 2)):
 
-                edge_verts = sorted(
-                    [verts[tri_vert_ids[i]], verts[tri_vert_ids[j]]])
+                edge_verts = sorted([verts[tri_vert_ids[i]], verts[tri_vert_ids[j]]])
 
                 if edge_verts in edge_data:
                     edge_data.remove(edge_verts)
@@ -567,7 +566,7 @@ class PolygonCreationBase(BaseObject):
         self._data_row_count = count
 
         geoms = self._geoms
-        geom_node_top = geoms["top"]["shaded"].node()
+        geom_node_top = self._toplvl_node
         vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
         vertex_data_top.reserve_num_rows(count)
 
@@ -621,7 +620,7 @@ class PolygonCreationBase(BaseObject):
 
             if row1 in start_row_indices or row2 in end_row_indices:
                 row1, row2 = row2, row1
-                edge.switch_vertex_order()
+                edge.reverse_vertex_order()
 
             start_row_indices.append(row1)
             end_row_indices.append(row2)
@@ -807,7 +806,7 @@ class PolygonCreationManager(BaseObject):
         bind("poly_creation", "cancel poly creation",
              "mouse3-up", cancel_creation)
 
-        status_data = Mgr.get_global("status_data")
+        status_data = GlobalData["status_data"]
         mode_text = "Create polygon"
         info_text = "LMB to create first vertex; RMB to cancel"
         status_data["create_poly"] = {"mode": mode_text, "info": info_text}
@@ -835,7 +834,7 @@ class PolygonCreationManager(BaseObject):
 
             self._geom_data_objs = geom_data_objs
 
-            Mgr.set_global("active_transform_type", "")
+            GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
             Mgr.do("enable_view_gizmo", False)
             Mgr.do("enable_view_tiles", False)
