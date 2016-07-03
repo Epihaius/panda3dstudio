@@ -32,10 +32,10 @@ class Edge(BaseObject):
         # When pickling an Edge, it should not have a GeomDataObject, since this
         # will be pickled separately.
 
-        d = self.__dict__.copy()
-        d["_geom_data_obj"] = None
+        state = self.__dict__.copy()
+        state["_geom_data_obj"] = None
 
-        return d
+        return state
 
     def __init__(self, edge_id, picking_col_id, geom_data_obj, verts):
 
@@ -173,10 +173,10 @@ class MergedEdge(object):
         # When pickling a MergedEdge, it should not have a GeomDataObject, since
         # this will be pickled separately.
 
-        d = self.__dict__.copy()
-        d["_geom_data_obj"] = None
+        state = self.__dict__.copy()
+        state["_geom_data_obj"] = None
 
-        return d
+        return state
 
     def __init__(self, geom_data_obj, edge_id=None):
 

@@ -686,6 +686,7 @@ class GeomHistoryBase(BaseObject):
 
         vertex_data_vert = self._vertex_data["vert"]
         vertex_data_edge = self._vertex_data["edge"]
+        vertex_data_poly_picking = self._vertex_data["poly_picking"]
 
         geom_node = self._toplvl_node
         vertex_data_top = geom_node.modify_geom(0).modify_vertex_data()
@@ -696,6 +697,9 @@ class GeomHistoryBase(BaseObject):
         edge_array = vertex_data_edge.modify_array(1)
         edge_handle = edge_array.modify_handle()
         edge_stride = edge_array.get_array_format().get_stride()
+        picking_array = vertex_data_poly_picking.modify_array(1)
+        picking_handle = picking_array.modify_handle()
+        picking_stride = picking_array.get_array_format().get_stride()
 
         poly_arrays = []
         poly_handles = []
@@ -712,6 +716,7 @@ class GeomHistoryBase(BaseObject):
             vert_handle.set_subdata(start * vert_stride, size * vert_stride, "")
             edge_handle.set_subdata((start + old_count) * edge_stride, size * edge_stride, "")
             edge_handle.set_subdata(start * edge_stride, size * edge_stride, "")
+            picking_handle.set_subdata(start * picking_stride, size * picking_stride, "")
 
             for poly_handle, poly_stride in zip(poly_handles, poly_strides):
                 poly_handle.set_subdata(start * poly_stride, size * poly_stride, "")
@@ -731,11 +736,13 @@ class GeomHistoryBase(BaseObject):
 
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.reserve_num_rows(count)
+        vertex_data_poly_picking = self._vertex_data["poly_picking"]
+        vertex_data_poly_picking.reserve_num_rows(count)
         row_index_offset = old_count
 
         pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
         pos_writer.set_row(row_index_offset)
-        col_writer = GeomVertexWriter(vertex_data_top, "color")
+        col_writer = GeomVertexWriter(vertex_data_poly_picking, "color")
         col_writer.set_row(row_index_offset)
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
         normal_writer.set_row(row_index_offset)
@@ -860,6 +867,7 @@ class GeomHistoryBase(BaseObject):
         vertex_data_edge.set_num_rows(count * 2)
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly.set_num_rows(count)
+        vertex_data_poly_picking = self._vertex_data["poly_picking"]
 
         geoms = self._geoms
 
@@ -877,6 +885,7 @@ class GeomHistoryBase(BaseObject):
         array = GeomVertexArrayData(pos_array)
         array.modify_handle().set_data(pos_data * 2)
         vertex_data_edge.set_array(0, array)
+        vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
 
         for i, poly_array in enumerate(poly_arrays):
             vertex_data_poly.set_array(i, GeomVertexArrayData(poly_array))
@@ -906,6 +915,9 @@ class GeomHistoryBase(BaseObject):
         geom_node.modify_geom(0).set_primitive(0, GeomLines(lines_prim))
 
         geom_node = geoms["poly"]["unselected"].node()
+        geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
+
+        geom_node = geoms["poly_picking"].node()
         geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
 
         points_prim = GeomPoints(Geom.UH_static)

@@ -365,7 +365,7 @@ class ViewManager(BaseObject):
 
         hprs = (VBase3(-45., -45., 0.), VBase3(-45., -45., 0.), VBase3(), VBase3(180., 0., 0.),
                 VBase3(-90., 0., 0.), VBase3(90., 0., 0.), VBase3(0., -90., 0.), VBase3(180., 90., 0.))
-        zooms = (-400.,) + (1.,) * 7
+        zooms = (-40.,) + (.1,) * 7
 
         def create_quat(hpr):
 
@@ -771,8 +771,7 @@ class ViewManager(BaseObject):
                 Mgr.update_remotely("view", "get_new_name", self._view_names[view])
         elif update_type == "rename":
             name = args[0]
-            namestring = "\n".join(self._view_names.itervalues())
-            name = get_unique_name(name, namestring)
+            name = get_unique_name(name, self._view_names.itervalues())
             self._view_names[view] = name
             self._view_label_node.set_text("User %s - %s" % (self.cam.lens_type, name))
             Mgr.update_remotely("view", "rename", view, name)
@@ -869,8 +868,7 @@ class ViewManager(BaseObject):
         """ Copy the current view using the given lens type and make it a user view """
 
         current_view = GlobalData["view"]
-        namestring = "\n".join(self._view_names.itervalues())
-        name = get_unique_name(name, namestring)
+        name = get_unique_name(name, self._view_names.itervalues())
         view = str(self._user_view_id)
         self._view_names[view] = name
 
@@ -925,8 +923,7 @@ class ViewManager(BaseObject):
         """ Take a snapshot of the current view and make it a user view """
 
         current_view = GlobalData["view"]
-        namestring = "\n".join(self._view_names.itervalues())
-        name = get_unique_name(view_name, namestring)
+        name = get_unique_name(view_name, self._view_names.itervalues())
         view = str(self._user_view_id)
         self._view_names[view] = name
 

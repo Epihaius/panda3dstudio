@@ -55,7 +55,7 @@ class UVEditBase(BaseObject):
                 geom.set_state(Mgr.get("poly_selection_state"))
                 self._geom_roots["poly"].show(render_masks["all"])
 
-        self.update_render_mode()
+        self.update_render_mode(self.get_toplevel_object().is_selected())
 
         if not uv_set_ids:
             return

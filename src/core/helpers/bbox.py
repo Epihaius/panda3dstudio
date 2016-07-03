@@ -138,6 +138,7 @@ class BoundingBox(BaseObject):
         origin = NodePath(node)
         origin.set_light_off()
         origin.set_texture_off()
+        origin.set_material_off()
         origin.set_color_scale_off()
         cls._original = origin
 

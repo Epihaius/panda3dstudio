@@ -45,11 +45,12 @@ class SelectionManager(BaseObject):
 
             models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
                           and obj.get_geom_type() != "basic_geom"])
+            original_selections = self._original_sel
 
             for model in models:
 
-                self._original_sel[model.get_id()] = orig_sel = {}
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
+                original_selections[geom_data_obj] = orig_sel = {}
 
                 for subobj_lvl in ("vert", "edge", "poly"):
                     orig_sel[subobj_lvl] = geom_data_obj.get_selection(subobj_lvl)
@@ -63,10 +64,7 @@ class SelectionManager(BaseObject):
 
         if not is_active:
 
-            for model_id, orig_sel in self._original_sel.iteritems():
-
-                model = Mgr.get("model", model_id)
-                geom_data_obj = model.get_geom_object().get_geom_data_object()
+            for geom_data_obj, orig_sel in self._original_sel.iteritems():
 
                 for subobj_lvl in ("vert", "edge", "poly"):
 
@@ -175,7 +173,8 @@ class SelectionManager(BaseObject):
                   and obj.get_geom_type() != "basic_geom"]
 
         for model in models:
-            model.get_geom_object().get_geom_data_object().clear_selection(obj_lvl, False)
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj.clear_selection(obj_lvl, False)
 
         selection = self._selections[obj_lvl]
         selection.clear()
@@ -250,7 +249,8 @@ class SelectionManager(BaseObject):
                       and obj.get_geom_type() != "basic_geom"]
 
             for model in models:
-                model.get_geom_object().get_geom_data_object().clear_selection(obj_lvl, False)
+                geom_data_obj = model.get_geom_object().get_geom_data_object()
+                geom_data_obj.clear_selection(obj_lvl, False)
 
         if op == "remove":
 

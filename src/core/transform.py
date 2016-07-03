@@ -9,7 +9,6 @@ class SelectionTransformBase(BaseObject):
         self._pivot = Mgr.get("selection_pivot")
 
         self._pivot_used = False
-        self._pivot_start = None
         self._start_positions = []
         self._start_quats = []
         self._start_mats = []
@@ -189,9 +188,7 @@ class SelectionTransformBase(BaseObject):
         else:
 
             self._pivot_used = True
-            self._pivot_start = Mgr.get("transf_center_pos")
-            self._pivot.set_pos(self._pivot_start)
-            self._pivot_start = grid_origin.get_relative_point(self.world, self._pivot_start)
+            self._pivot.set_pos(grid_origin, 0., 0., 0.)
 
             if target_type == "geom":
                 for obj in self._objs:
@@ -233,8 +230,7 @@ class SelectionTransformBase(BaseObject):
 
         else:
 
-            pos = self._pivot_start + translation_vec
-            self._pivot.set_pos(grid_origin, pos)
+            self._pivot.set_pos(grid_origin, Point3(translation_vec))
 
         if GlobalData["object_links_shown"] and target_type != "geom":
             Mgr.do("update_obj_link_viz")
@@ -292,7 +288,7 @@ class SelectionTransformBase(BaseObject):
 
             self._pivot_used = True
             self._pivot.set_pos(tc_pos)
-            self._pivot_start = self._pivot.get_quat(grid_origin)
+            self._pivot.set_hpr(grid_origin, 0., 0., 0.)
 
             if target_type == "geom":
                 for obj in self._objs:
@@ -386,8 +382,7 @@ class SelectionTransformBase(BaseObject):
 
         else:
 
-            quat = self._pivot_start * rotation
-            self._pivot.set_quat(grid_origin, quat)
+            self._pivot.set_quat(grid_origin, rotation)
 
         if GlobalData["object_links_shown"] and target_type != "geom":
             Mgr.do("update_obj_link_viz")
@@ -507,7 +502,6 @@ class SelectionTransformBase(BaseObject):
                     obj.get_pivot().wrt_reparent_to(self._obj_root)
 
             self._pivot.clear_transform()
-            self._pivot_start = None
             self._pivot_used = False
 
         self._start_positions = []
@@ -616,9 +610,9 @@ class SelectionTransformBase(BaseObject):
         if self._pivot_used:
 
             if active_transform_type == "translate":
-                self._pivot.set_pos(grid_origin, self._pivot_start)
+                self._pivot.set_pos(grid_origin, 0., 0., 0.)
             elif active_transform_type == "rotate":
-                self._pivot.set_quat(grid_origin, self._pivot_start)
+                self._pivot.set_hpr(grid_origin, 0., 0., 0.)
             elif active_transform_type == "scale":
                 self._pivot.set_scale(1.)
 
@@ -676,7 +670,7 @@ class TransformationManager(BaseObject):
         GlobalData.set_default("axis_constraints", axis_constraints, copier)
         rel_values = {}
 
-        for obj_lvl in ("top", "geom_part"):
+        for obj_lvl in ("top",):
             rel_values[obj_lvl] = {"translate": False, "rotate": False, "scale": False}
 
         for obj_lvl in ("vert", "edge", "poly"):

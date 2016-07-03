@@ -525,13 +525,14 @@ class SmoothingManager(BaseObject):
     def __smooth_polygons(self, smooth=True, poly_id=None):
 
         selection = Mgr.get("selection", "top")
-        geom_data_objs = dict((obj.get_id(), obj.get_geom_object().get_geom_data_object())
-                              for obj in selection)
         changed_objs = {}
 
-        for obj_id, data_obj in geom_data_objs.iteritems():
-            if data_obj.smooth_selected_polygons(smooth, poly_id):
-                changed_objs[obj_id] = data_obj
+        for model in selection:
+
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if geom_data_obj.smooth_selected_polygons(smooth, poly_id):
+                changed_objs[model.get_id()] = geom_data_obj
 
         if not changed_objs:
             return
@@ -539,8 +540,8 @@ class SmoothingManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, data_obj in changed_objs.iteritems():
-            obj_data[obj_id] = data_obj.get_data_to_store("prop_change", "smoothing")
+        for obj_id, geom_data_obj in changed_objs.iteritems():
+            obj_data[obj_id] = geom_data_obj.get_data_to_store("prop_change", "smoothing")
 
         event_descr = "Change polygon smoothing"
         event_data = {"objects": obj_data}

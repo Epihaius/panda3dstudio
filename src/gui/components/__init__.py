@@ -175,6 +175,7 @@ class Components(BaseObject):
         self._view_mgr.setup()
         self._components["hierarchy_panel"].setup()
         self._components["prop_panel"].setup()
+        self._components["material_panel"].setup()
 
         def enter_selection_mode(prev_state_id, is_active):
 

@@ -14,9 +14,13 @@ class GeneralObjectManager(BaseObject):
         self._clock = ClockObject()
         self._mouse_prev = Point2()
 
+        self._obj_lvl_before_hist_change = "top"
+        self._sel_before_hist_change = set()
+
         GlobalData.set_default("active_obj_level", "top")
         GlobalData.set_default("render_mode", "shaded")
         GlobalData.set_default("next_obj_color", None)
+        GlobalData.set_default("obj_names", [], lambda l: l[:])
 
         Mgr.expose("object_root", lambda: self._obj_root)
         Mgr.expose("object_type_data", lambda: self._obj_types)
@@ -27,7 +31,6 @@ class GeneralObjectManager(BaseObject):
                                                           for obj_type in self._obj_types[level]], []))
         Mgr.expose("object_types", lambda level="all": self._obj_types["top"] + self._obj_types["sub"]
                    if level == "all" else self._obj_types[level])
-        Mgr.expose("obj_namestring", lambda: "\n".join([obj.get_name() for obj in Mgr.get("objects")]))
         Mgr.expose("next_obj_name", self.__get_next_object_name)
         Mgr.add_app_updater("custom_obj_name", self.__set_custom_object_name)
         Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
@@ -37,11 +40,14 @@ class GeneralObjectManager(BaseObject):
         Mgr.add_app_updater("obj_tags", self.__update_object_tags)
         Mgr.add_app_updater("render_mode", self.__update_render_mode)
         Mgr.add_app_updater("two_sided", self.__toggle_two_sided)
+        Mgr.add_app_updater("active_obj_level", self.__update_object_level)
+        Mgr.add_app_updater("history_change", self.__start_selection_check)
 
     def setup(self):
 
         sort = PendingTasks.get_sort("update_selection", "object")
         PendingTasks.add_task_id("object_removal", "object", sort + 1)
+        PendingTasks.add_task_id("set_obj_level", "object", sort + 1)
 
         self._obj_root.set_light(Mgr.get("default_light"))
 
@@ -162,11 +168,11 @@ class GeneralObjectManager(BaseObject):
     def __get_next_object_name(obj_type):
 
         custom_name = Mgr.get("custom_%s_name" % obj_type)
-        namestring = Mgr.get("obj_namestring")
+        namelist = GlobalData["obj_names"]
         search_pattern = r"^%s\s*(\d+)$" % obj_type
         naming_pattern = obj_type + " %04d"
 
-        return get_unique_name(custom_name, namestring, search_pattern, naming_pattern)
+        return get_unique_name(custom_name, namelist, search_pattern, naming_pattern)
 
     @staticmethod
     def __set_object_name(name):
@@ -176,8 +182,7 @@ class GeneralObjectManager(BaseObject):
         if not selection:
             return
 
-        namestring = "\n".join([obj.get_name() for obj in Mgr.get("objects")
-                                if obj not in selection])
+        namelist = [obj.get_name() for obj in Mgr.get("objects") if obj not in selection]
         old_names = [obj.get_name() for obj in selection]
         new_names = []
         objs_by_name = dict(zip(old_names, selection))
@@ -186,8 +191,8 @@ class GeneralObjectManager(BaseObject):
 
         for i in xrange(sel_count):
 
-            new_name = get_unique_name(name, namestring)
-            namestring += "\n" + new_name
+            new_name = get_unique_name(name, namelist)
+            namelist.append(new_name)
 
             if new_name in old_names:
                 objs_to_rename.remove(objs_by_name[new_name])
@@ -220,7 +225,7 @@ class GeneralObjectManager(BaseObject):
 
     def __set_object_color(self, color_values):
 
-        objects = [obj for obj in Mgr.get("selection") if obj.has_color()]
+        objects = [obj for obj in Mgr.get("selection", "top") if obj.has_color()]
 
         if not objects:
             return
@@ -283,7 +288,7 @@ class GeneralObjectManager(BaseObject):
     def __set_object_property(self, prop_id, value):
         """ Set the *type-specific* property given by prop_id to the given value """
 
-        selection = Mgr.get("selection")
+        selection = Mgr.get("selection", "top")
 
         if not selection:
             return
@@ -328,6 +333,84 @@ class GeneralObjectManager(BaseObject):
             model.get_geom_object().set_two_sided(two_sided)
 
         Mgr.update_remotely("two_sided")
+
+    def __update_object_level(self):
+
+        obj_lvl = GlobalData["active_obj_level"]
+        obj_root = Mgr.get("object_root")
+        picking_masks = Mgr.get("picking_masks")
+
+        models = set([obj for obj in Mgr.get("selection", "top")
+                      if obj.get_type() == "model" and obj.get_geom_type() == "editable_geom"])
+
+        for model_id in self._sel_before_hist_change:
+
+            model = Mgr.get("model", model_id)
+
+            if model and model.get_geom_type() == "editable_geom":
+                models.add(model)
+
+        if obj_lvl == "top":
+
+            obj_root.show(picking_masks["all"])
+
+            for model in models:
+                model.get_geom_object().show_top_level()
+
+        else:
+
+            obj_root.hide(picking_masks["all"])
+
+            for model in models:
+                model.get_geom_object().show_subobj_level(obj_lvl)
+
+    def __check_selection(self):
+
+        obj_lvl = self._obj_lvl_before_hist_change
+
+        if obj_lvl == "top":
+            return
+
+        sel_after_hist_change = set([obj.get_id() for obj in Mgr.get("selection", "top")])
+        set_sublvl = False
+
+        if sel_after_hist_change == self._sel_before_hist_change:
+
+            set_sublvl = True
+
+            for model_id in sel_after_hist_change:
+
+                model = Mgr.get("model", model_id)
+
+                if model.get_geom_type() != "editable_geom":
+                    set_sublvl = False
+                    break
+
+        if set_sublvl:
+            GlobalData["active_obj_level"] = obj_lvl
+            Mgr.update_app("active_obj_level", restore=True)
+
+        self._obj_lvl_before_hist_change = "top"
+        self._sel_before_hist_change = set()
+
+    def __start_selection_check(self):
+
+        # This is called before undo/redo, to determine whether or not to stay at
+        # the current subobject level, depending on the change in toplevel object
+        # selection.
+
+        obj_lvl = GlobalData["active_obj_level"]
+
+        if obj_lvl == "top":
+            return
+
+        self._obj_lvl_before_hist_change = obj_lvl
+        self._sel_before_hist_change = set([obj.get_id() for obj in Mgr.get("selection", "top")])
+        task = self.__check_selection
+        task_id = "set_obj_level"
+        PendingTasks.add(task, task_id, "object")
+        GlobalData["active_obj_level"] = "top"
+        Mgr.update_app("active_obj_level", restore=True)
 
 
 class ObjectManager(BaseObject):

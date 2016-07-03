@@ -25,10 +25,10 @@ class Polygon(BaseObject):
         # When pickling a Polygon, it should not have a GeomDataObject, since this
         # will be pickled separately.
 
-        d = self.__dict__.copy()
-        d["_geom_data_obj"] = None
+        state = self.__dict__.copy()
+        state["_geom_data_obj"] = None
 
-        return d
+        return state
 
     def __init__(self, poly_id, picking_col_id, geom_data_obj, triangle_data, edges, verts):
 

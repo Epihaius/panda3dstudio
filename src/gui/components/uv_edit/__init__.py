@@ -28,6 +28,8 @@ class UVEditGUI(BaseObject):
             if not is_active:
                 self._window = None
                 Mgr.do("remove_component_disabler", "uv_edit")
+                # the following allows the name & color user controls to be re-enabled
+                GlobalData["active_obj_level"] = "top"
                 Mgr.do("enable_components")
 
         add_state = Mgr.add_state

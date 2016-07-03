@@ -1,1 +1,1 @@
-from .obj import *
+from . import obj

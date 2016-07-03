@@ -347,6 +347,7 @@ class GeomSelectionBase(BaseObject):
         vertex_data_vert = self._vertex_data["vert"]
         vertex_data_edge = self._vertex_data["edge"]
         vertex_data_poly = self._vertex_data["poly"]
+        vertex_data_poly_picking = self._vertex_data["poly_picking"]
 
         vert_array = vertex_data_vert.modify_array(1)
         vert_handle = vert_array.modify_handle()
@@ -354,6 +355,9 @@ class GeomSelectionBase(BaseObject):
         edge_array = vertex_data_edge.modify_array(1)
         edge_handle = edge_array.modify_handle()
         edge_stride = edge_array.get_array_format().get_stride()
+        picking_array = vertex_data_poly_picking.modify_array(1)
+        picking_handle = picking_array.modify_handle()
+        picking_stride = picking_array.get_array_format().get_stride()
 
         poly_arrays = []
         poly_handles = []
@@ -374,6 +378,7 @@ class GeomSelectionBase(BaseObject):
             vert_handle.set_subdata(start * vert_stride, size * vert_stride, "")
             edge_handle.set_subdata((start + count) * edge_stride, size * edge_stride, "")
             edge_handle.set_subdata(start * edge_stride, size * edge_stride, "")
+            picking_handle.set_subdata(start * picking_stride, size * picking_stride, "")
 
             for poly_handle, poly_stride in zip(poly_handles, poly_strides):
                 poly_handle.set_subdata(start * poly_stride, size * poly_stride, "")
@@ -383,6 +388,7 @@ class GeomSelectionBase(BaseObject):
         self._data_row_count = count = len(verts)
 
         vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
         tmp_array = GeomVertexArrayData(pos_array)
         handle = tmp_array.modify_handle()
         handle.set_data(handle.get_data() * 2)
@@ -427,6 +433,9 @@ class GeomSelectionBase(BaseObject):
         geom_node_top.modify_geom(0).set_primitive(0, tris_prim)
 
         geom_node = geoms["poly"]["unselected"].node()
+        geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
+
+        geom_node = geoms["poly_picking"].node()
         geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
 
         vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
@@ -540,7 +549,7 @@ class Selection(SelectionTransformBase):
         self._groups = {}
 
         for obj in subobjs:
-            self._groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
+            self._groups.setdefault(obj.get_geom_data_object(), []).append(obj)
 
     def __getitem__(self, index):
 
@@ -557,13 +566,13 @@ class Selection(SelectionTransformBase):
 
     def get_toplevel_objects(self):
 
-        return [Mgr.get("model", model_id) for model_id in self._groups]
+        return [geom_data_obj.get_toplevel_object() for geom_data_obj in self._groups]
 
     def get_toplevel_object(self):
         """ Return a random top-level object """
 
         if self._groups:
-            return Mgr.get("model", self._groups.keys()[0])
+            return self._groups.keys()[0].get_toplevel_object()
 
     def update(self):
 
@@ -590,7 +599,7 @@ class Selection(SelectionTransformBase):
             geom_data_obj = obj.get_geom_data_object()
             geom_data_obj.set_selected(obj, True)
             geom_data_objs.add(geom_data_obj)
-            groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
+            groups.setdefault(geom_data_obj, []).append(obj)
 
         sel.extend(sel_to_add)
 
@@ -627,16 +636,16 @@ class Selection(SelectionTransformBase):
         groups = self._groups
 
         for obj in common:
+
             sel.remove(obj)
             geom_data_obj = obj.get_geom_data_object()
             geom_data_obj.set_selected(obj, False)
             geom_data_objs.add(geom_data_obj)
 
-            topobj_id = obj.get_toplevel_object().get_id()
-            groups[topobj_id].remove(obj)
+            groups[geom_data_obj].remove(obj)
 
-            if not groups[topobj_id]:
-                del groups[topobj_id]
+            if not groups[geom_data_obj]:
+                del groups[geom_data_obj]
 
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
@@ -689,7 +698,7 @@ class Selection(SelectionTransformBase):
         self._groups = groups = {}
 
         for obj in common | new_sel:
-            groups.setdefault(obj.get_toplevel_object().get_id(), []).append(obj)
+            groups.setdefault(obj.get_geom_data_object(), []).append(obj)
 
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
@@ -718,8 +727,7 @@ class Selection(SelectionTransformBase):
         obj_lvl = self._obj_level
         geom_data_objs = []
 
-        for model_id in self._groups:
-            geom_data_obj = Mgr.get("model", model_id).get_geom_object().get_geom_data_object()
+        for geom_data_obj in self._groups:
             geom_data_obj.clear_selection(obj_lvl)
             geom_data_objs.append(geom_data_obj)
 
@@ -753,8 +761,7 @@ class Selection(SelectionTransformBase):
         obj_lvl = self._obj_level
         geom_data_objs = []
 
-        for model_id in self._groups:
-            geom_data_obj = Mgr.get("model", model_id).get_geom_object().get_geom_data_object()
+        for geom_data_obj in self._groups:
             geom_data_objs.append(geom_data_obj)
 
         self._groups = {}

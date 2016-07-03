@@ -1,4 +1,4 @@
-from ..data import *
+from ..base import *
 
 
 class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager):
@@ -72,26 +72,13 @@ class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager)
         self.add_history(model)
 
 
-class Primitive(BaseObject):
-
-    def __getstate__(self):
-
-        # When pickling a Primitive, it should not have a model or a geom_data_obj,
-        # since these are pickled separately.
-
-        d = self.__dict__.copy()
-        d["_model"] = None
-        d["_geom_data_obj"] = None
-
-        return d
+class Primitive(GeomDataOwner):
 
     def __init__(self, prim_type, model, type_prop_ids):
 
+        GeomDataOwner.__init__(self, [], type_prop_ids, model)
+
         self._type = prim_type
-        self._type_prop_ids = type_prop_ids
-        self._prop_ids = []
-        self._model = model
-        self._geom_data_obj = None
         # the following "initial position data" corresponds to the vertex positions
         # at the time the geometry is created or recreated; it is kept around to
         # facilitate resizing of the primitive, when "baking" the transform of the
@@ -123,25 +110,21 @@ class Primitive(BaseObject):
 
     def create(self):
 
-        self._geom_data_obj = geom_data_obj = GeomDataObject(self)
+        geom_data_obj = Mgr.do("create_geom_data", self)
+        self.set_geom_data_object(geom_data_obj)
         geom_data = self.define_geom_data()
         data = geom_data_obj.process_geom_data(geom_data)
         self.update(data)
         geom_data_obj.create_geometry(self._type)
 
-    def destroy(self):
-
-        self._geom_data_obj.destroy()
-        self._geom_data_obj = None
-
     def clear_geometry(self):
 
-        self._geom_data_obj.clear_subobjects()
+        self.get_geom_data_object().clear_subobjects()
 
     def recreate_geometry(self):
 
         Mgr.do("update_picking_col_id_ranges")
-        geom_data_obj = self._geom_data_obj
+        geom_data_obj = self.get_geom_data_object()
         geom_data = self.define_geom_data()
         data = geom_data_obj.process_geom_data(geom_data)
         self.update(data)
@@ -157,21 +140,13 @@ class Primitive(BaseObject):
 
         return self._type
 
-    def set_geom_data_object(self, geom_data_obj):
-
-        self._geom_data_obj = geom_data_obj
-
-    def get_geom_data_object(self):
-
-        return self._geom_data_obj
-
     def update_init_pos_data(self):
 
-        self._init_pos_data = self._geom_data_obj.get_position_data()
+        self._init_pos_data = self.get_geom_data_object().get_position_data()
 
     def reset_init_pos_data(self):
 
-        self._geom_data_obj.set_position_data(self._init_pos_data)
+        self.get_geom_data_object().set_position_data(self._init_pos_data)
 
     def restore_init_pos_data(self, pos_data):
 
@@ -181,125 +156,44 @@ class Primitive(BaseObject):
 
         return self._init_pos_data
 
-    def set_model(self, model):
-
-        self._model = model
-
-    def get_model(self):
-
-        return self._model
-
-    def get_toplevel_object(self):
-
-        return self._model
-
-    def replace(self, geom_obj):
-
-        geom_data_obj = self._geom_data_obj
-        geom_data_obj.set_owner(geom_obj)
-        geom_obj.set_geom_data_object(geom_data_obj)
-
-    def get_subobj_selection(self, subobj_lvl):
-
-        return self._geom_data_obj.get_selection(subobj_lvl)
-
-    def update_selection_state(self, is_selected=True):
-
-        self._geom_data_obj.update_selection_state(is_selected)
-
-    def update_render_mode(self):
-
-        self._geom_data_obj.update_render_mode()
-
-    def set_two_sided(self, two_sided=True):
-
-        self._geom_data_obj.get_origin().set_two_sided(two_sided)
-
-    def register(self):
-        pass
-
-    def unregister(self):
-
-        self._geom_data_obj.unregister()
-
     def set_origin(self, origin):
 
-        self._geom_data_obj.set_origin(origin)
+        self.get_geom_data_object().set_origin(origin)
 
     def get_origin(self):
 
-        if self._geom_data_obj:
-            return self._geom_data_obj.get_origin()
+        geom_data_obj = self.get_geom_data_object()
+
+        if geom_data_obj:
+            return geom_data_obj.get_origin()
 
     def finalize(self, update_poly_centers=True):
 
-        self._geom_data_obj.finalize_geometry(update_poly_centers)
-
-    def get_data_to_store(self, event_type, prop_id=""):
-
-        data = {}
-
-        if event_type == "creation":
-
-            data["geom_obj"] = {"main": self}
-            prop_ids = self.get_property_ids()
-
-            for prop_id in prop_ids:
-                data[prop_id] = {"main": self.get_property(prop_id)}
-
-        elif event_type == "prop_change" and prop_id in self.get_property_ids():
-
-            data[prop_id] = {"main": self.get_property(prop_id)}
-
-        data.update(self._geom_data_obj.get_data_to_store(event_type, prop_id))
-
-        return data
-
-    def restore_data(self, data_ids, restore_type, old_time_id, new_time_id):
-
-        obj_id = self.get_toplevel_object().get_id()
-
-        if "self" in data_ids:
-
-            for prop_id in self.get_property_ids():
-                val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
-                self.set_property(prop_id, val, restore_type)
-
-            geom_data_obj = Mgr.do("load_last_from_history", obj_id, "geom_data", new_time_id)
-            self._geom_data_obj = geom_data_obj
-            self.get_origin().reparent_to(self._model.get_origin())
-            geom_data_obj.set_owner(self)
-            geom_data_obj.restore_data(["self"], restore_type, old_time_id, new_time_id)
-
-        else:
-
-            for prop_id in self.get_property_ids():
-                if prop_id in data_ids:
-                    val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
-                    self.set_property(prop_id, val, restore_type)
-                    data_ids.remove(prop_id)
-
-            if data_ids:
-                self._geom_data_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)
+        self.get_geom_data_object().finalize_geometry(update_poly_centers)
 
     def set_property(self, prop_id, value, restore=""):
 
         if prop_id == "editable state":
 
             obj_type = "editable_geom"
-            Mgr.do("create_%s" % obj_type, self._model, self._geom_data_obj)
+            geom_data_obj = self.get_geom_data_object()
+            Mgr.do("create_%s" % obj_type, self.get_model(), geom_data_obj)
             Mgr.update_remotely("selected_obj_type", obj_type)
 
             return True
 
         else:
 
-            return self._geom_data_obj.set_property(prop_id, value, restore)
+            return self.get_geom_data_object().set_property(prop_id, value, restore)
 
-    def get_property_ids(self):
+    def get_property_to_store(self, prop_id, event_type=""):
 
-        return self._prop_ids + self._type_prop_ids
+        data = {prop_id: {"main": self.get_property(prop_id)}}
 
-    def get_type_property_ids(self):
+        return data
 
-        return self._type_prop_ids
+    def restore_property(self, prop_id, restore_type, old_time_id, new_time_id):
+
+        obj_id = self.get_toplevel_object().get_id()
+        val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
+        self.set_property(prop_id, val, restore_type)

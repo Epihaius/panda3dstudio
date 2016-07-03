@@ -649,7 +649,8 @@ class TexProjector(TopLevelObject):
 
     def destroy(self, add_to_hist=True):
 
-        TopLevelObject.destroy(self, add_to_hist)
+        if not TopLevelObject.destroy(self, add_to_hist):
+            return
 
         if self.is_selected():
 

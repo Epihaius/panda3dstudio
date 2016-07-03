@@ -540,7 +540,8 @@ class Dummy(TopLevelObject):
         if self._is_const_size:
             Mgr.do("make_dummy_const_size", self, False)
 
-        TopLevelObject.destroy(self, add_to_hist)
+        if not TopLevelObject.destroy(self, add_to_hist):
+            return
 
         self.unregister()
         self._edges = {}

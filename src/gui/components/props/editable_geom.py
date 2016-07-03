@@ -259,6 +259,9 @@ class EditableGeomProperties(BaseObject):
 
     def __update_object_level(self):
 
+        if self._panel.get_active_object_type() != "editable_geom":
+            return
+
         obj_lvl = GlobalData["active_obj_level"]
 
         for subobj_lvl in ("vert", "edge", "poly"):
@@ -340,7 +343,7 @@ class EditableGeomProperties(BaseObject):
 
     def get_base_type(self):
 
-        return "editable"
+        return "editable_geom"
 
     def get_section_ids(self):
 

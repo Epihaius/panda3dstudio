@@ -9,7 +9,7 @@ class Selection(SelectionTransformBase):
         SelectionTransformBase.__init__(self)
 
         self._objs = []
-        self._prev_obj_ids = None
+        self._prev_obj_ids = set()
 
     def __getitem__(self, index):
 
@@ -82,58 +82,101 @@ class Selection(SelectionTransformBase):
         self.update_ui()
         self.update_obj_props()
 
-    def add(self, obj, add_to_hist=True):
+    def add(self, objs, add_to_hist=True):
 
         sel = self._objs
+        old_sel = set(sel)
+        sel_to_add = set(objs)
+        common = old_sel & sel_to_add
 
-        if obj in sel:
+        if common:
+            sel_to_add -= common
+
+        if not sel_to_add:
             return False
 
-        sel.append(obj)
-        obj.update_selection_state()
+        sel.extend(sel_to_add)
+
+        for obj in sel_to_add:
+            obj.update_selection_state()
+
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
-            event_descr = 'Select "%s"' % obj.get_name()
+
+            count = len(sel_to_add)
+
+            if count == 1:
+                obj = sel_to_add.copy().pop()
+                event_descr = 'Select "%s"' % obj.get_name()
+            else:
+                event_descr = 'Select %d objects:\n' % count
+                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in sel_to_add])
+
             obj_data = {}
             event_data = {"objects": obj_data}
-            obj_data[obj.get_id()] = {"selection_state": {"main": True}}
+
+            for obj in sel_to_add:
+                obj_data[obj.get_id()] = {"selection_state": {"main": True}}
+
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
 
         return True
 
-    def remove(self, obj, add_to_hist=True):
+    def remove(self, objs, add_to_hist=True):
 
         sel = self._objs
+        old_sel = set(sel)
+        sel_to_remove = set(objs)
+        common = old_sel & sel_to_remove
 
-        if obj not in sel:
+        if not common:
             return False
 
-        sel.remove(obj)
-        obj.update_selection_state(False)
+        for obj in common:
+            sel.remove(obj)
+            obj.update_selection_state(False)
+
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
-            event_descr = 'Deselect "%s"' % obj.get_name()
+
+            count = len(common)
+
+            if count == 1:
+                obj = common.copy().pop()
+                event_descr = 'Deselect "%s"' % obj.get_name()
+            else:
+                event_descr = 'Deselect %d objects:\n' % count
+                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in common])
+
             obj_data = {}
             event_data = {"objects": obj_data}
-            obj_data[obj.get_id()] = {"selection_state": {"main": False}}
+
+            for obj in common:
+                obj_data[obj.get_id()] = {"selection_state": {"main": False}}
+
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
 
-    def replace(self, obj, add_to_hist=True):
+        return True
+
+    def replace(self, objs, add_to_hist=True):
 
         sel = self._objs
         old_sel = set(sel)
-        new_sel = set([obj])
+        new_sel = set(objs)
         common = old_sel & new_sel
 
         if common:
             old_sel -= common
             new_sel -= common
+
+        if not (old_sel or new_sel):
+            return False
 
         for old_obj in old_sel:
             sel.remove(old_obj)
@@ -150,25 +193,35 @@ class Selection(SelectionTransformBase):
 
             event_descr = ''
             old_count = len(old_sel)
+            new_count = len(new_sel)
 
             if new_sel:
 
-                event_descr += 'Select "%s"' % obj.get_name()
+                if new_count == 1:
 
-            if old_count:
+                    event_descr += 'Select "%s"' % new_sel.copy().pop().get_name()
+
+                else:
+
+                    event_descr += 'Select %d objects:\n' % new_count
+
+                    for new_obj in new_sel:
+                        event_descr += '\n    "%s"' % new_obj.get_name()
+
+            if old_sel:
 
                 event_descr += '\n\n' if new_sel else ''
 
-                if old_count > 1:
+                if old_count == 1:
+
+                    event_descr += 'Deselect "%s"' % old_sel.copy().pop().get_name()
+
+                else:
 
                     event_descr += 'Deselect %d objects:\n' % old_count
 
                     for old_obj in old_sel:
                         event_descr += '\n    "%s"' % old_obj.get_name()
-
-                else:
-
-                    event_descr += 'Deselect "%s"' % list(old_sel)[0].get_name()
 
             if event_descr:
 
@@ -184,12 +237,14 @@ class Selection(SelectionTransformBase):
                 # make undo/redoable
                 Mgr.do("add_history", event_descr, event_data)
 
+        return True
+
     def clear(self, add_to_hist=True):
 
         sel = self._objs
 
         if not sel:
-            return
+            return False
 
         for obj in sel:
             obj.update_selection_state(False)
@@ -224,12 +279,14 @@ class Selection(SelectionTransformBase):
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
 
+        return True
+
     def delete(self, add_to_hist=True):
 
         sel = self._objs
 
         if not sel:
-            return
+            return False
 
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
@@ -263,6 +320,8 @@ class Selection(SelectionTransformBase):
             event_data["object_ids"] = set(Mgr.get("object_ids"))
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        return True
 
 
 class SelectionManager(BaseObject):
@@ -574,13 +633,13 @@ class SelectionManager(BaseObject):
 
                 else:
 
-                    selection.replace(obj)
+                    selection.replace([obj])
 
                 start_mouse_checking = True
 
             else:
 
-                selection.replace(obj)
+                selection.replace([obj])
 
         else:
 
@@ -594,7 +653,7 @@ class SelectionManager(BaseObject):
         # object has been selected out of that previous selection.
 
         obj = Mgr.get("object", self._obj_id)
-        self._selection.replace(obj)
+        self._selection.replace([obj])
 
     def __toggle_select(self):
 
@@ -605,10 +664,10 @@ class SelectionManager(BaseObject):
         if obj:
 
             if obj in selection:
-                selection.remove(obj)
+                selection.remove([obj])
                 transform_allowed = False
             else:
-                selection.add(obj)
+                selection.add([obj])
                 transform_allowed = GlobalData["active_transform_type"]
 
             if transform_allowed:

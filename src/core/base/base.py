@@ -337,9 +337,10 @@ def get_color_vec(color_id, alpha):
     return VBase4(r, g, b, alpha) / 255.
 
 
-def get_unique_name(requested_name, namestring, default_search_pattern="",
+def get_unique_name(requested_name, namelist, default_search_pattern="",
                     default_naming_pattern="", default_min_index=1):
 
+    namestring = "\n".join(namelist)
     search_pattern = default_search_pattern
     naming_pattern = default_naming_pattern
     min_index = default_min_index

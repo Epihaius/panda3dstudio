@@ -32,9 +32,9 @@ class AppManager(object):
         self._mod_key_codes = gui_mod_key_codes
 
         core_to_gui = gui_color_max / core_color_max
-        converter = lambda rgb: None if rgb is None else [x / core_to_gui for x in rgb]
+        converter = lambda color: None if color is None else tuple(x / core_to_gui for x in color)
         self._format_converters["CORE"] = {"color": converter}
-        converter = lambda rgb: None if rgb is None else [x * core_to_gui for x in rgb]
+        converter = lambda color: None if color is None else tuple(x * core_to_gui for x in color)
         self._format_converters["GUI"] = {"color": converter}
 
     def remove_interface(self, interface_id):

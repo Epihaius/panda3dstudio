@@ -1,4 +1,5 @@
-from .data import *
+from ..base import *
+from .material import render_state_to_material
 
 
 class BasicGeomManager(ObjectManager, PickingColorIDManager):
@@ -13,7 +14,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
     def setup(self):
 
-        BasicGeomObject.init_render_states()
+        BasicGeom.init_render_states()
 
         return True
 
@@ -22,35 +23,70 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         model_id = ("basic_geom",) + self._id_generator.next()
         model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1.))
         picking_col_id = self.get_next_picking_color_id()
-        basic_geom_obj = BasicGeomObject(model, geom, picking_col_id)
-        model.set_geom_object(basic_geom_obj)
+        basic_geom = BasicGeom(model, geom, picking_col_id)
+        model.set_geom_object(basic_geom)
 
-        return basic_geom_obj, picking_col_id
+        return basic_geom, picking_col_id
 
 
-class BasicGeomObject(BaseObject):
+class BasicGeom(BaseObject):
 
     _render_states = {}
 
     @classmethod
     def init_render_states(cls):
 
-        render_states = cls._render_states
+        state_empty = RenderState.make_empty()
         np = NodePath("render_state")
-        render_states["default"] = np.get_state()
         np.set_light_off(1)
         np.set_texture_off(1)
-        render_states["flat"] = np.get_state()
+        np.set_material_off(1)
+        np.set_shader_off(1)
+        state_flat = np.get_state()
         np.set_color(1., 1., 1., 1., 1)
-        render_states["flat_white"] = np.get_state()
+        state_flat_white = np.get_state()
+        attrib = RenderModeAttrib.make(RenderModeAttrib.M_wireframe)
+        state_wire_white = state_flat_white.add_attrib(attrib)
+        attrib = RenderModeAttrib.make(RenderModeAttrib.M_filled_wireframe, 1.,
+                                       False, (1., 1., 1., 1.))
+        state_filled_wire_white = state_empty.add_attrib(attrib)
+        render_states = cls._render_states
+        render_states["shaded"] = {}
+        render_states["shaded"]["unselected"] = state_empty
+        render_states["shaded"]["selected"] = state_empty
+        render_states["flat"] = state_flat
+        render_states["wire"] = {}
+        render_states["wire"]["unselected"] = "wire_unselected"
+        render_states["wire"]["selected"] = state_wire_white
+        render_states["shaded+wire"] = {}
+        render_states["shaded+wire"]["unselected"] = "filled_wire_unselected"
+        render_states["shaded+wire"]["selected"] = state_filled_wire_white
+
+    def __get_render_state(self, render_state_id):
+
+        color = self._model.get_color()
+
+        if render_state_id == "wire_unselected":
+            render_state = self._render_states["flat"]
+            attrib = ColorAttrib.make_flat(color)
+            render_state = render_state.add_attrib(attrib)
+            attrib = RenderModeAttrib.make(RenderModeAttrib.M_wireframe)
+            render_state = render_state.add_attrib(attrib)
+        elif render_state_id == "filled_wire_unselected":
+            render_state = RenderState.make_empty()
+            attrib = RenderModeAttrib.make(RenderModeAttrib.M_filled_wireframe,
+                                           1., False, color)
+            render_state = render_state.add_attrib(attrib)
+
+        return render_state
 
     def __getstate__(self):
 
-        d = self.__dict__.copy()
-        del d["_model"]
-        del d["_picking_states"]
+        state = self.__dict__.copy()
+        del state["_model"]
+        del state["_picking_states"]
 
-        return d
+        return state
 
     def __setstate__(self, state):
 
@@ -69,9 +105,8 @@ class BasicGeomObject(BaseObject):
 
     def __init__(self, model, geom, picking_col_id):
 
-        prop_ids = []
-        self._prop_ids = prop_ids
-        self._type_prop_ids = prop_ids
+        self._prop_ids = []
+        self._type_prop_ids = []
         self._type = "basic_geom"
         self._model = model
         self._geom = geom
@@ -80,10 +115,33 @@ class BasicGeomObject(BaseObject):
         model.get_pivot().set_transform(geom.get_transform())
         geom.clear_transform()
         model_orig = model.get_origin()
-        model_orig.set_state(geom.get_state())
-        color = geom.get_color() if geom.has_color() else VBase4(1., 1., 1., 1.)
-        model.set_color(color, update_app=False)
+        render_state = geom.get_state()
         geom.set_state(RenderState.make_empty())
+
+        material, uv_set_names = render_state_to_material(render_state)
+
+        src_vert_data = geom.node().get_geom(0).get_vertex_data()
+        src_format = src_vert_data.get_format()
+        dest_format = Mgr.get("vertex_format_poly")
+        dest_vert_data = src_vert_data.convert_to(dest_format)
+        geom.node().modify_geom(0).set_vertex_data(dest_vert_data)
+        dest_vert_data = geom.node().modify_geom(0).modify_vertex_data()
+        num_rows = src_vert_data.get_num_rows()
+
+        for src_uv_set, dest_uv_set in uv_set_names.iteritems():
+
+            uv_reader = GeomVertexReader(src_vert_data, src_uv_set)
+            uv_writer = GeomVertexWriter(dest_vert_data, dest_uv_set)
+
+            for i in xrange(num_rows):
+                uv = uv_reader.get_data2f()
+                uv_writer.set_data2f(uv)
+
+        if material:
+            self.get_toplevel_object().set_material(material)
+
+        color = tuple([random.random() * .5 + .5 for i in range(3)] + [1.])
+        model.set_color(color, update_app=False)
         geom.reparent_to(model_orig)
 
         pickable_type_id = PickableTypes.get_id("basic_geom")
@@ -101,8 +159,13 @@ class BasicGeomObject(BaseObject):
         picking_states["wire"] = state
         self._picking_states = picking_states
 
-        self.update_render_mode()
-        self.set_two_sided(GlobalData["two_sided"])
+        def update_render_mode():
+
+            self.update_render_mode(False)
+            self.set_two_sided(GlobalData["two_sided"])
+
+        obj_id = self.get_toplevel_object().get_id()
+        PendingTasks.add(update_render_mode, "update_render_mode", "object", 0, obj_id)
 
     def destroy(self):
 
@@ -111,17 +174,9 @@ class BasicGeomObject(BaseObject):
         Mgr.do("unregister_basic_geom", self)
         Mgr.do("clear_basic_geom_picking_color", str(self._picking_col_id))
 
-    def is_valid(self):
-
-        return False
-
     def get_type(self):
 
         return self._type
-
-    def set_geom(self, geom):
-
-        self._geom = geom
 
     def get_geom(self):
 
@@ -162,9 +217,6 @@ class BasicGeomObject(BaseObject):
 
         return intersection_point
 
-    def replace(self, geom_obj):
-        pass
-
     def get_subobj_selection(self, subobj_lvl):
 
         return []
@@ -176,41 +228,23 @@ class BasicGeomObject(BaseObject):
         if render_mode == "shaded":
             return
 
-        render_states = self._render_states
-        geom = self._geom
+        self.update_render_mode(is_selected)
+
+    def update_render_mode(self, is_selected):
+
+        render_mode = GlobalData["render_mode"]
+        selection_state = "selected" if is_selected else "unselected"
+        render_state = self._render_states[render_mode][selection_state]
+
+        if render_state in ("wire_unselected", "filled_wire_unselected"):
+            render_state = self.__get_render_state(render_state)
+
+        self._geom.set_state(render_state)
+        self._geom.set_two_sided(GlobalData["two_sided"])
 
         state_id = "filled" if (is_selected or render_mode != "wire") else "wire"
         picking_state = self._picking_states[state_id]
         Mgr.do("set_basic_geom_picking_color", str(self._picking_col_id), picking_state)
-
-        if render_mode == "wire":
-            geom.set_state(render_states["flat_white" if is_selected else "flat"])
-            geom.set_render_mode_wireframe()
-        else:
-            color = VBase4(1., 1., 1., 1.) if is_selected else self._model.get_color()
-            geom.set_render_mode_filled_wireframe(color)
-
-    def update_render_mode(self):
-
-        render_mode = GlobalData["render_mode"]
-        render_states = self._render_states
-        geom = self._geom
-        is_selected = self._model.is_selected()
-
-        state_id = "filled" if (is_selected or "shaded" in render_mode) else "wire"
-        picking_state = self._picking_states[state_id]
-        Mgr.do("set_basic_geom_picking_color", str(self._picking_col_id), picking_state)
-
-        if render_mode == "shaded":
-            geom.set_state(render_states["default"])
-            geom.set_render_mode_filled()
-        elif render_mode == "wire":
-            geom.set_state(render_states["flat_white" if is_selected else "flat"])
-            geom.set_render_mode_wireframe()
-        else:
-            geom.set_state(render_states["default"])
-            color = VBase4(1., 1., 1., 1.) if is_selected else self._model.get_color()
-            geom.set_render_mode_filled_wireframe(color)
 
     def set_two_sided(self, two_sided=True):
 
@@ -219,9 +253,6 @@ class BasicGeomObject(BaseObject):
     def register(self):
 
         Mgr.do("register_basic_geom", self)
-
-        self.update_render_mode()
-        self.set_two_sided(GlobalData["two_sided"])
 
     def unregister(self):
 
@@ -260,6 +291,8 @@ class BasicGeomObject(BaseObject):
 
             self._geom.reparent_to(self._model.get_origin())
             self.register()
+            self.update_render_mode(self._model.is_selected())
+            self.set_two_sided(GlobalData["two_sided"])
 
         else:
 

@@ -5,6 +5,7 @@ from direct.showbase.ShowBase import ShowBase, DirectObject
 
 loadPrcFileData("", """
                     sync-video #f
+                    model-cache-dir
                     geom-cache-size 0
                     window-type none
 ##                    show-buffers 1

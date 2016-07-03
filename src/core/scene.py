@@ -51,6 +51,8 @@ class SceneManager(BaseObject):
 
         Mgr.do("update_picking_col_id_ranges")
         Mgr.do("clear_user_views")
+        Mgr.update_remotely("material_library", "clear")
+        Mgr.update_locally("material_library", "clear")
         Mgr.update_app("view", "reset_all")
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "adaptive")
@@ -103,11 +105,13 @@ class SceneManager(BaseObject):
             Mgr.update_remotely(x, x_type, name)
 
         Mgr.do("set_view_data", scene_data["view_data"])
+        Mgr.do("set_material_library", scene_data["material_library"])
         PendingTasks.handle(["object", "ui"], True)
 
     def __save(self, filename):
 
         scene_data = {}
+        scene_data["material_library"] = Mgr.get("material_library")
         scene_data["view_data"] = Mgr.get("view_data")
 
         for x in ("coord_sys", "transf_center"):
@@ -138,24 +142,47 @@ class SceneManager(BaseObject):
 
         GlobalData["unsaved_scene"] = False
 
-    def __prepare_export_to_bam(self, parent, children, tmp_node):
+    def __prepare_export_to_bam(self, parent, children, tmp_node, directory, geom_node=None):
 
         for child in children:
+
+            child_geom_node = None
 
             if child.get_type() == "model":
 
                 geom_obj = child.get_geom_object()
 
                 if child.get_geom_type() == "basic_geom":
+
                     node = geom_obj.get_geom().copy_to(tmp_node)
+
+                    for key in node.get_tag_keys():
+                        node.clear_tag(key)
+
                 else:
+
                     geom_data_obj = geom_obj.get_geom_data_object()
                     node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
+                    masks = Mgr.get("render_masks")["all"] | Mgr.get("picking_masks")["all"]
+                    node.show(masks)
 
                 origin = child.get_origin()
                 pivot = child.get_pivot()
                 node.set_name(child.get_name())
                 node.set_state(origin.get_state())
+                material = child.get_material()
+                r, g, b, a = origin.get_color()
+
+                if material and not material.has_base_properties():
+                    node.clear_material()
+
+                if not material or r == g == b == a == 1.:
+                    node.clear_color()
+
+                if origin.get_transparency() == TransparencyAttrib.M_none:
+                    node.clear_transparency()
+                    node.clear_color_scale()
+
                 mat = origin.get_mat(pivot)
                 vertex_data = node.node().modify_geom(0).modify_vertex_data()
                 vertex_data.transform_vertices(mat)
@@ -164,24 +191,47 @@ class SceneManager(BaseObject):
 
                 tex_stages = node.find_all_texture_stages()
 
-                # require texture files to be in model directory
+                # make texture filenames relative to the model directory
                 for tex_stage in tex_stages:
                     texture = node.get_texture(tex_stage).make_copy()
-                    tex_basename = texture.get_filename().get_basename()
-                    texture.set_filename(tex_basename)
-                    texture.set_fullpath(tex_basename)
+                    filename = Filename(texture.get_fullpath())
+                    filename.make_relative_to(directory)
+                    texture.set_filename(filename)
+                    texture.set_fullpath(filename)
+                    filename = Filename(texture.get_alpha_fullpath())
+                    filename.make_relative_to(directory)
+                    texture.set_alpha_filename(filename)
+                    texture.set_alpha_fullpath(filename)
                     node.set_texture(tex_stage, texture)
 
-                node.reparent_to(parent)
+                if geom_node and child.get_optimization_for_export():
+                    state = node.get_state()
+                    geom = node.node().modify_geom(0)
+                    mat = node.get_mat(parent)
+                    vertex_data = geom.modify_vertex_data()
+                    vertex_data.transform_vertices(mat)
+                    geom_node.add_geom(geom, state)
+                    node = parent
+                else:
+                    node.reparent_to(parent)
+
+                if child.get_child_optimization_for_export():
+                    child_geom_node = node.node()
 
             else:
 
-                node = parent.attach_new_node(child.get_name())
+                if child.get_child_optimization_for_export():
+                    child_geom_node = GeomNode(child.get_name())
+                    node = parent.attach_new_node(child_geom_node)
+                else:
+                    node = parent.attach_new_node(child.get_name())
+
                 node.set_transform(child.get_pivot().get_transform(parent))
                 node.node().copy_tags(child.get_origin().node())
 
             if child.get_children():
-                self.__prepare_export_to_bam(node, child.get_children(), tmp_node)
+                self.__prepare_export_to_bam(node, child.get_children(), tmp_node,
+                                             directory, child_geom_node)
 
     def __export_to_bam(self, filename):
 
@@ -192,21 +242,23 @@ class SceneManager(BaseObject):
 
         tmp_node = NodePath("tmp_node")
         root = NodePath(ModelRoot(os.path.basename(filename)))
-        self.__prepare_export_to_bam(root, objs, tmp_node)
+        fullpath = Filename.from_os_specific(filename)
+        directory = Filename(fullpath.get_dirname())
+        self.__prepare_export_to_bam(root, objs, tmp_node, directory)
 
-        root.write_bam_file(Filename.from_os_specific(filename))
+        root.write_bam_file(fullpath)
         root.remove_node()
         tmp_node.remove_node()
 
     def __prepare_export_to_obj(self, obj_file, children, tmp_node, material_data,
-                                counters, namestring):
+                                counters, namelist):
 
         for child in children:
 
             if child.get_type() == "model":
 
-                name = get_unique_name(child.get_name().replace(" ", "_"), namestring)
-                namestring += "\n" + name
+                name = get_unique_name(child.get_name().replace(" ", "_"), namelist)
+                namelist.append(name)
                 obj_file.write("\ng %s\n\n" % name)
 
                 geom_obj = child.get_geom_object()
@@ -240,7 +292,7 @@ class SceneManager(BaseObject):
                         data["is_flat_color"] = False
                         base_material = material.get_base_material()
                         dif = base_material.get_diffuse() if base_material.has_diffuse() \
-                            else child.get_color()
+                            else material.get_flat_color()
                         data["diffuse"] = dif
                         alpha = material.get_base_properties()["alpha"]
 
@@ -259,7 +311,7 @@ class SceneManager(BaseObject):
 
                 else:
 
-                    color = child.get_color()
+                    color = (1., 1., 1., 1.)
 
                     if color in material_data:
                         material_name = material_data[color]["name"]
@@ -308,7 +360,7 @@ class SceneManager(BaseObject):
 
             if child.get_children():
                 self.__prepare_export_to_obj(obj_file, child.get_children(), tmp_node,
-                                             material_data, counters, namestring)
+                                             material_data, counters, namelist)
 
     def __export_to_obj(self, filename):
 
@@ -329,7 +381,7 @@ class SceneManager(BaseObject):
             mtllib_name = os.path.splitext(fname)[0]
             obj_file.write("mtllib %s.mtl\n" % mtllib_name)
             self.__prepare_export_to_obj(obj_file, objs, tmp_node, material_data,
-                                         counters, "")
+                                         counters, [])
 
         tmp_node.remove_node()
 
@@ -366,46 +418,89 @@ class SceneManager(BaseObject):
         elif ext == ".obj":
             self.__export_to_obj(filename)
 
-    def __import_children(self, basic_edit, parent_id, children, namestring, objs_to_store):
+    def __create_dummy(self, name, transform):
+
+        viz = set(["box", "cross"])
+        size = 1.
+        cross_size = 300.
+        is_const_size = True
+        const_size = .5
+        on_top = True
+        dummy = Mgr.do("create_custom_dummy", name, viz, size, cross_size,
+                       is_const_size, const_size, on_top, transform)
+
+        return dummy
+
+    def __import_children(self, basic_edit, parent_id, children, objs_to_store):
 
         children.detach()
 
         for child in children:
 
+            if child.is_empty():
+                continue
+
             name = child.get_name()
 
             if not name.strip():
-                name = "node0001"
+                name = "object 0001"
 
-            name = get_unique_name(name, namestring)
-            namestring += "\n" + name
+            name = get_unique_name(name, GlobalData["obj_names"])
+            node = child.node()
 
             if basic_edit:
 
-                if child.is_empty():
-                    continue
+                node_type = node.get_class_type().get_name()
 
-                node_type = child.node().get_class_type().get_name()
+                if node_type == "GeomNode":
 
-                if node_type == "GeomNode" or node_type == "Character":
-                    basic_geom = Mgr.do("create_basic_geom", child, name)
-                    obj = basic_geom.get_model()
+                    geom_count = node.get_num_geoms()
+
+                    if geom_count > 1:
+
+                        obj = self.__create_dummy(name, child.get_transform())
+                        obj.set_child_optimization_for_export()
+                        obj_id = obj.get_id()
+
+                        for i in range(geom_count):
+                            state = node.get_geom_state(i)
+                            new_node = GeomNode("basic_geom_part")
+                            new_node.add_geom(node.modify_geom(i))
+                            new_geom = NodePath(new_node)
+                            new_geom.set_state(state)
+                            part_name = name + " [part %d]" % (i + 1)
+                            part_name = get_unique_name(part_name, GlobalData["obj_names"])
+                            new_geom.node().modify_geom(0).decompose_in_place()
+                            part = Mgr.do("create_basic_geom", new_geom, part_name).get_model()
+                            part.set_parent(obj_id, add_to_hist=False)
+                            part.get_bbox().update(*new_geom.get_tight_bounds())
+                            part.set_optimization_for_export()
+                            objs_to_store.append(part)
+
+                    else:
+
+                        if node.get_geom_state(0).is_empty():
+                            new_geom = child
+                        else:
+                            state = node.get_geom_state(0)
+                            new_node = GeomNode("basic_geom")
+                            new_node.add_geom(node.modify_geom(0))
+                            new_geom = NodePath(new_node)
+                            new_geom.set_state(state)
+
+                        new_geom.node().modify_geom(0).decompose_in_place()
+                        basic_geom = Mgr.do("create_basic_geom", new_geom, name)
+                        obj = basic_geom.get_model()
+                        obj.set_optimization_for_export()
+
                 else:
-                    viz = set(["box", "cross"])
-                    size = 1.
-                    cross_size = 300.
-                    is_const_size = True
-                    const_size = .5
-                    on_top = True
-                    transform = child.get_transform()
-                    obj = Mgr.do("create_custom_dummy", name, viz, size, cross_size,
-                                 is_const_size, const_size, on_top, transform)
+
+                    obj = self.__create_dummy(name, child.get_transform())
 
                 obj.set_parent(parent_id, add_to_hist=False)
 
-                if node_type != "Character":
-                    self.__import_children(basic_edit, obj.get_id(), child.get_children(),
-                                           namestring, objs_to_store)
+                self.__import_children(basic_edit, obj.get_id(), child.get_children(),
+                                       objs_to_store)
 
                 if obj.get_type() == "model":
                     obj.get_bbox().update(*child.get_tight_bounds())
@@ -416,11 +511,16 @@ class SceneManager(BaseObject):
 
     def __import(self, filename, basic_edit=True):
 
-        namestring = "\n".join([obj.get_name() for obj in Mgr.get("objects")])
-        model_root = Mgr.load_model(Filename.from_os_specific(filename))
+        path = Filename.from_os_specific(filename)
+        loader_options = LoaderOptions(LoaderOptions.LF_no_cache)
+        model_root = Mgr.load_model(path, okMissing=True, loaderOptions=loader_options)
+
+        if not model_root:
+            return
+
         objs_to_store = []
         self.__import_children(basic_edit, None, model_root.get_children(),
-                               namestring, objs_to_store)
+                               objs_to_store)
         model_root.remove_node()
 
         # make undo/redoable

@@ -12,7 +12,7 @@ from .transform import UVDataTransformBase
 class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                    EdgeEditBase, PolygonEditBase):
 
-    def __init__(self, uv_registry, model, data_copy=None):
+    def __init__(self, uv_registry, geom_data_obj, data_copy=None):
 
         if data_copy:
 
@@ -38,14 +38,16 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         else:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
             subobjs = {}
             merged_verts = {}
             merged_edges = {}
             data_row_count = 0
             vertex_data = {}
-            origin = self.geom_root.attach_new_node("%s_uv_origin" % (model.get_id(),))
-            origin.set_color(model.get_origin().get_color())
+            model = geom_data_obj.get_toplevel_object()
+            name = "%s_uv_origin" % (model.get_id(),)
+            color = model.get_color()
+            origin = self.geom_root.attach_new_node(name)
+            origin.set_color(color)
             origin.node().set_final(True)
             geom_roots = {}
             geoms = {}
@@ -81,7 +83,6 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         origin_copy.detach_node()
         geom_roots = {}
         geoms = {}
-##        geoms["hidden"] = origin_copy.find("hidden_geom")
         geoms["wire"] = origin_copy.find("wire_geom")
 
         for subobj_type in ("vert", "edge", "poly"):

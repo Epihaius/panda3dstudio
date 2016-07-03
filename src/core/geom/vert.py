@@ -29,12 +29,12 @@ class Vertex(BaseObject):
 
     def __getstate__(self):
 
-        d = self.__dict__.copy()
-        d["_geom_data_obj"] = None
-        d["_data"] = data = self._data.copy()
+        state = self.__dict__.copy()
+        state["_geom_data_obj"] = None
+        state["_data"] = data = self._data.copy()
         data["row_offset"] = 0
 
-        return d
+        return state
 
     def __init__(self, vert_id, picking_col_id, geom_data_obj, pos):
 
@@ -229,10 +229,10 @@ class MergedVertex(object):
         # When pickling a MergedVertex, it should not have a GeomDataObject, since
         # this will be pickled separately.
 
-        d = self.__dict__.copy()
-        d["_geom_data_obj"] = None
+        state = self.__dict__.copy()
+        state["_geom_data_obj"] = None
 
-        return d
+        return state
 
     def __init__(self, geom_data_obj, vert_id=None):
 

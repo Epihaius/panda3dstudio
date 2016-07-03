@@ -21,7 +21,7 @@ class BasicGeomProperties(BaseObject):
 
     def get_base_type(self):
 
-        return "editable"
+        return "basic_geom"
 
     def get_section_ids(self):
 

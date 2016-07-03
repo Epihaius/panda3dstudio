@@ -1,11 +1,28 @@
 import wxversion
 wxversion.select('2.8.12')
 from src import *
-
+import cPickle
 
 class App(object):
 
     def __init__(self):
+
+        def init_config():
+
+            with open("config", "wb") as config_file:
+                config_data = {"texfile_paths": set()}
+                cPickle.dump(config_data, config_file, -1)
+
+        def read_config():
+
+            with open("config", "rb") as config_file:
+                return cPickle.load(config_file)
+
+        try:
+            GlobalData["config"] = read_config()
+        except:
+            init_config()
+            GlobalData["config"] = read_config()
 
         GlobalData["status_data"] = {}
         mgr = AppManager(verbose=False)

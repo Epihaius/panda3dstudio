@@ -8,10 +8,10 @@ class PolygonCreationBase(BaseObject):
         # Make the vertices pickable at polygon level instead of the polygons, to
         # assist with polygon creation
 
-        picking_masks = Mgr.get("picking_masks")
+        picking_masks = Mgr.get("picking_masks")["all"]
         geom_roots = self._geom_roots
-        geom_roots["vert"].show_through(picking_masks["all"])
-        geom_roots["poly"].show(picking_masks["all"])
+        geom_roots["vert"].show_through(picking_masks)
+        self._geoms["poly_picking"].show(picking_masks)
 
     def init_poly_creation(self):
 
@@ -569,10 +569,13 @@ class PolygonCreationBase(BaseObject):
         geom_node_top = self._toplvl_node
         vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
         vertex_data_top.reserve_num_rows(count)
+        vertex_data_poly_picking = self._vertex_data["poly_picking"]
+        vertex_data_poly_picking.reserve_num_rows(count)
+        vertex_data_poly_picking.set_num_rows(count)
 
         pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
         pos_writer.set_row(old_count)
-        col_writer = GeomVertexWriter(vertex_data_top, "color")
+        col_writer = GeomVertexWriter(vertex_data_poly_picking, "color")
         col_writer.set_row(old_count)
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
         normal_writer.set_row(old_count)
@@ -683,6 +686,7 @@ class PolygonCreationBase(BaseObject):
         pos_array = vertex_data_top.get_array(0)
         pos_data = pos_array.get_handle().get_data()
         poly_array = vertex_data_top.get_array(1)
+        vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_poly.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_poly.set_array(1, GeomVertexArrayData(poly_array))
@@ -702,6 +706,10 @@ class PolygonCreationBase(BaseObject):
         size = len(polygon) * stride
         data = array.get_handle().get_subdata(start, size)
         geom_node = geoms["poly"]["unselected"].node()
+        prim = geom_node.modify_geom(0).modify_primitive(0)
+        handle = prim.modify_vertices().modify_handle()
+        handle.set_data(handle.get_data() + data)
+        geom_node = geoms["poly_picking"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
         handle = prim.modify_vertices().modify_handle()
         handle.set_data(handle.get_data() + data)
@@ -756,10 +764,10 @@ class PolygonCreationBase(BaseObject):
         # Make the polygons pickable again at polygon level instead of the
         # vertices
 
-        picking_masks = Mgr.get("picking_masks")
+        picking_masks = Mgr.get("picking_masks")["all"]
         geom_roots = self._geom_roots
-        geom_roots["poly"].show_through(picking_masks["all"])
-        geom_roots["vert"].show(picking_masks["all"])
+        geom_roots["vert"].show(picking_masks)
+        self._geoms["poly_picking"].show_through(picking_masks)
 
 
 class PolygonCreationManager(BaseObject):

@@ -307,23 +307,23 @@ class PivotGizmo(object):
 
     def __getstate__(self):
 
-        d = self.__dict__.copy()
-        d["_base"] = NodePath("pivot_gizmo_base")
+        state = self.__dict__.copy()
+        state["_base"] = NodePath("pivot_gizmo_base")
         origin_persp = NodePath("pivot_gizmo")
-        d["_origins"] = {"persp": origin_persp}
+        state["_origins"] = {"persp": origin_persp}
         label_root_persp = NodePath("axis_label_root")
-        d["_axis_label_roots"] = {"persp": label_root_persp}
+        state["_axis_label_roots"] = {"persp": label_root_persp}
 
         for axis in "xyz":
-            d["_axis_nps"] = d["_axis_nps"].copy()
-            d["_axis_labels"] = d["_axis_labels"].copy()
-            del d["_axis_nps"][axis]
-            del d["_axis_labels"][axis]
+            state["_axis_nps"] = state["_axis_nps"].copy()
+            state["_axis_labels"] = state["_axis_labels"].copy()
+            del state["_axis_nps"][axis]
+            del state["_axis_labels"][axis]
 
-        del d["_axis_nps"]["ortho"]
-        del d["_axis_labels"]["ortho"]
+        del state["_axis_nps"]["ortho"]
+        del state["_axis_labels"]["ortho"]
 
-        return d
+        return state
 
     def __setstate__(self, state):
 

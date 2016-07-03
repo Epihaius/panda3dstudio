@@ -174,7 +174,8 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self._uv_data_objs[uv_set_id] = uv_data_objs = {}
 
         for model in models:
-            uv_data_objs[model] = UVDataObject(uv_registry, model)
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            uv_data_objs[geom_data_obj] = UVDataObject(uv_registry, geom_data_obj)
 
         # render a frame to make sure that GeomPrimitives with temporary vertices
         # will still be rendered after making them empty (in the next frame)
@@ -186,8 +187,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             for uv_data_obj in uv_data_objs.itervalues():
                 uv_data_obj.destroy()
 
-        for uv_data_obj in self._uv_data_obj_copies.itervalues():
-            geom_data_obj = uv_data_obj.get_geom_data_object()
+        for geom_data_obj, uv_data_obj in self._uv_data_obj_copies.iteritems():
             geom_data_obj.clear_copied_uvs()
 
         self._uv_registry.clear()
@@ -250,9 +250,8 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         uv_data_objs = self._uv_data_objs[uv_set_id]
         copies = self._uv_data_obj_copies
 
-        for model, uv_data_obj in uv_data_objs.iteritems():
-            copies[model] = uv_data_obj.copy()
-            geom_data_obj = uv_data_obj.get_geom_data_object()
+        for geom_data_obj, uv_data_obj in uv_data_objs.iteritems():
+            copies[geom_data_obj] = uv_data_obj.copy()
             geom_data_obj.copy_uvs(uv_set_id)
 
     def __paste_uv_set(self):
@@ -268,18 +267,17 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self.create_selections()
         selections = {"vert": [], "edge": [], "poly": []}
 
-        for model, uv_data_obj in uv_data_objs.iteritems():
+        for geom_data_obj, uv_data_obj in uv_data_objs.iteritems():
 
             uv_data_obj.destroy()
-            copy = copies[model].copy()
+            copy = copies[geom_data_obj].copy()
             copy.show()
-            uv_data_objs[model] = copy
+            uv_data_objs[geom_data_obj] = copy
 
             for subobj_type in ("vert", "edge", "poly"):
                 uv_registry[subobj_type].update(copy.get_subobjects(subobj_type).copy())
                 selections[subobj_type].extend(copy.get_selection(subobj_type))
 
-            geom_data_obj = copy.get_geom_data_object()
             geom_data_obj.paste_uvs(uv_set_id)
 
         for subobj_type in ("vert", "edge", "poly"):
@@ -311,8 +309,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __update_history(self):
 
-        geom_data_objs = (model.get_geom_object().get_geom_data_object()
-                          for model in self._uv_data_objs[self._uv_set_id])
+        geom_data_objs = self._uv_data_objs[self._uv_set_id].iterkeys()
         changed_objs = [obj for obj in geom_data_objs if obj.get_uv_change()]
 
         if not changed_objs:

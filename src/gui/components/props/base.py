@@ -238,6 +238,9 @@ class PropertyPanel(Panel):
 
     def __set_next_object_color(self):
 
+        if not self._obj_type:
+            return
+
         next_color = GlobalData["next_%s_color" % self._obj_type]
         self._color_picker.Enable(True if next_color else False)
         self._color_picker.show_color("single" if next_color else "none")
@@ -288,6 +291,10 @@ class PropertyPanel(Panel):
         pos_id = self._radio_btns.get_selected_button()
         Mgr.update_app("instant_creation", pos_id)
         self.__set_next_object_color()
+
+    def get_active_object_type(self):
+
+        return self._obj_type
 
     def enable(self, enable=True):
 

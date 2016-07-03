@@ -44,7 +44,6 @@ class Model(TopLevelObject):
         TopLevelObject.__init__(self, "model", model_id, name, origin_pos, has_color=True)
 
         self.get_property_ids().append("material")
-        self._vert_colors_shown = False
         self._material = None
         self._geom_obj = None
 
@@ -71,7 +70,7 @@ class Model(TopLevelObject):
 
     def set_color(self, color, update_app=True):
 
-        return TopLevelObject.set_color(self, color, update_app, not self._vert_colors_shown)
+        return TopLevelObject.set_color(self, color, update_app, not self._material)
 
     def set_material(self, material, restore=""):
 
@@ -280,14 +279,16 @@ class Model(TopLevelObject):
 
     def update_render_mode(self):
 
-        if self.is_selected():
+        is_selected = self.is_selected()
+
+        if is_selected:
             if "shaded" in GlobalData["render_mode"]:
                 self._bbox.show()
             else:
                 self._bbox.hide()
 
         if self._geom_obj:
-            self._geom_obj.update_render_mode()
+            self._geom_obj.update_render_mode(is_selected)
 
     def display_link_effect(self):
         """

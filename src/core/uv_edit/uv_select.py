@@ -138,7 +138,7 @@ class UVSelectionBase(BaseObject):
         self._pixel_under_mouse = VBase4()
         self._color_id = None
         self._selections = {}
-        self._update_needed = False
+        self._can_select_single = False
 
         self._sel_obj_ids = set()
         self._sel_count = 0
@@ -246,8 +246,8 @@ class UVSelectionBase(BaseObject):
 
         Mgr.remove_task("check_mouse_offset")
 
-        if self._update_needed:
-            self.__update_selection()
+        if self._can_select_single:
+            self.__select_single()
 
     def __get_picked_object(self, color_id, obj_type_id):
 
@@ -271,7 +271,7 @@ class UVSelectionBase(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return
 
-        self._update_needed = False
+        self._can_select_single = False
         mouse_pointer = self._window.get_pointer(0)
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
 
@@ -327,7 +327,7 @@ class UVSelectionBase(BaseObject):
                     # least a certain number of pixels by the time the left mouse button
                     # is released).
 
-                    self._update_needed = True
+                    self._can_select_single = True
 
                 else:
 
@@ -360,7 +360,7 @@ class UVSelectionBase(BaseObject):
             selection.clear()
             self._world_sel_mgr.sync_selection(color_ids)
 
-    def __update_selection(self):
+    def __select_single(self):
 
         # If multiple subobjects were selected and no transformation occurred, a single
         # subobject has been selected out of that previous selection.

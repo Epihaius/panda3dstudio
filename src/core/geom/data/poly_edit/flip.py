@@ -106,14 +106,14 @@ class PolygonFlipManager(BaseObject):
     def __flip_poly_normals(self, selected_only=True):
 
         selection = Mgr.get("selection", "top")
-        geom_data_objs = dict((obj.get_id(), obj.get_geom_object().get_geom_data_object())
-                              for obj in selection)
-
         changed_objs = {}
 
-        for obj_id, data_obj in geom_data_objs.iteritems():
-            if data_obj.flip_polygon_normals(selected_only):
-                changed_objs[obj_id] = data_obj
+        for model in selection:
+
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if geom_data_obj.flip_polygon_normals(selected_only):
+                changed_objs[model.get_id()] = geom_data_obj
 
         if not changed_objs:
             return
@@ -121,8 +121,8 @@ class PolygonFlipManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, data_obj in changed_objs.iteritems():
-            obj_data[obj_id] = data_obj.get_data_to_store("prop_change", "poly_tris")
+        for obj_id, geom_data_obj in changed_objs.iteritems():
+            obj_data[obj_id] = geom_data_obj.get_data_to_store("prop_change", "poly_tris")
 
         event_descr = "Flip polygon normals"
         event_data = {"objects": obj_data}

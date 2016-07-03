@@ -21,6 +21,8 @@ class TopLevelObject(BaseObject):
         self.__dict__ = state
 
         self._name = ObjectName(state["_name"])
+        self._name.add_updater("global_obj_names", self.__update_obj_names)
+        self._name.update("global_obj_names")
         pivot = self._pivot
         pivot.reparent_to(Mgr.get("object_root"))
         origin = self._origin
@@ -38,6 +40,8 @@ class TopLevelObject(BaseObject):
         self._type = obj_type
         self._id = obj_id
         self._name = ObjectName(name)
+        self._name.add_updater("global_obj_names", self.__update_obj_names)
+        self._name.update("global_obj_names")
         self._parent_id = None
         self._child_ids = []
         obj_root = Mgr.get("object_root")
@@ -57,6 +61,22 @@ class TopLevelObject(BaseObject):
             pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., 0., 0.))
 
         self._pivot_gizmo = Mgr.do("create_pivot_gizmo", self)
+        self._optimize_for_export = False
+        self._optimize_children_for_export = False
+
+    def __update_obj_names(self, name=None):
+
+        obj_names = GlobalData["obj_names"]
+
+        if name is None:
+
+            value = self._name.get_value()
+
+            if value in obj_names:
+                obj_names.remove(value)
+
+        elif name not in obj_names:
+            obj_names.append(name)
 
     def destroy(self, add_to_hist=True):
 
@@ -78,6 +98,7 @@ class TopLevelObject(BaseObject):
 
         self.set_parent(add_to_hist=False)
 
+        self._name.remove_updater("global_obj_names", final_update=True)
         self.set_name("")
         self._pivot_gizmo.destroy()
         self._pivot_gizmo = None
@@ -256,6 +277,10 @@ class TopLevelObject(BaseObject):
 
         return [Mgr.get("object", child_id) for child_id in self._child_ids]
 
+    def get_child_types(self):
+
+        return [Mgr.get("object", child_id).get_type() for child_id in self._child_ids]
+
     def get_descendants(self):
 
         descendants = []
@@ -347,9 +372,9 @@ class TopLevelObject(BaseObject):
     def set_selected(self, is_selected=True, add_to_hist=True):
 
         if is_selected:
-            return Mgr.get("selection", "top").add(self, add_to_hist)
+            return Mgr.get("selection", "top").add([self], add_to_hist)
         else:
-            return Mgr.get("selection", "top").remove(self, add_to_hist)
+            return Mgr.get("selection", "top").remove([self], add_to_hist)
 
     def is_selected(self):
 
@@ -400,6 +425,30 @@ class TopLevelObject(BaseObject):
         tags = dict((key, orig.get_tag(key)) for key in orig.get_tag_keys())
 
         return tags
+
+    def set_optimization_for_export(self, optimize=True):
+
+        if self._type == "model":
+            self._optimize_for_export = optimize
+
+    def get_optimization_for_export(self):
+
+        return self._optimize_for_export if self._type == "model" else False
+
+    def get_children_optimized_for_export(self):
+
+        return [child for child in self.get_children() if child.get_optimization_for_export()]
+
+    def set_child_optimization_for_export(self, optimize=True):
+
+        self._optimize_children_for_export = optimize
+
+    def get_child_optimization_for_export(self):
+
+        if not self.get_children_optimized_for_export():
+            return False
+
+        return self._optimize_children_for_export
 
     def set_property(self, prop_id, value, restore=""):
 

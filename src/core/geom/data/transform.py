@@ -161,8 +161,8 @@ class GeomTransformBase(BaseObject):
         array = tmp_vertex_data.get_array(0)
         vertex_data_top.set_array(0, array)
 
-        for subobj_type in ("vert", "poly"):
-            vertex_data = self._vertex_data[subobj_type]
+        for geom_type in ("vert", "poly", "poly_picking"):
+            vertex_data = self._vertex_data[geom_type]
             vertex_data.set_array(0, array)
 
         array = GeomVertexArrayData(array)
@@ -183,8 +183,8 @@ class GeomTransformBase(BaseObject):
             pos_array = start_data["pos_array"]
             vertex_data_top.set_array(0, pos_array)
 
-            for subobj_type in ("vert", "poly"):
-                self._vertex_data[subobj_type].set_array(0, pos_array)
+            for geom_type in ("vert", "poly", "poly_picking"):
+                self._vertex_data[geom_type].set_array(0, pos_array)
 
             pos_array = GeomVertexArrayData(pos_array)
             handle = pos_array.modify_handle()
@@ -327,8 +327,10 @@ class GeomTransformBase(BaseObject):
                 pos_writer.set_data3f(pos)
 
         pos_array = vertex_data_top.get_array(0)
-        self._vertex_data["vert"].set_array(0, pos_array)
-        self._vertex_data["poly"].set_array(0, pos_array)
+
+        for geom_type in ("vert", "poly", "poly_picking"):
+            vertex_data = self._vertex_data[geom_type]
+            vertex_data.set_array(0, pos_array)
 
         pos_array = GeomVertexArrayData(pos_array)
         handle = pos_array.modify_handle()
@@ -352,8 +354,6 @@ class SelectionTransformBase(BaseObject):
 
         self._obj_root = Mgr.get("object_root")
         self._center_pos = Point3()
-
-        self.init_translation = self.init_rotation = self.init_scaling = self.init_transform
 
     def update_center_pos(self):
 
@@ -402,8 +402,7 @@ class SelectionTransformBase(BaseObject):
 
     def set_transform_component(self, transf_type, axis, value, is_rel_value):
 
-        for obj in Mgr.get("selection", "top"):
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+        for geom_data_obj in self._groups:
             geom_data_obj.init_transform()
 
         if is_rel_value:
@@ -422,16 +421,14 @@ class SelectionTransformBase(BaseObject):
 
             obj_lvl = self._obj_level
 
-            for obj in Mgr.get("selection", "top"):
-                geom_data_obj = obj.get_geom_object().get_geom_data_object()
+            for geom_data_obj in self._groups:
                 geom_data_obj.transform_selection(obj_lvl, transf_type, transform)
                 geom_data_obj.finalize_transform()
 
         else:
             # set absolute coordinate for selected vertices
 
-            for obj in Mgr.get("selection", "top"):
-                geom_data_obj = obj.get_geom_object().get_geom_data_object()
+            for geom_data_obj in self._groups:
                 geom_data_obj.set_vert_sel_coordinate(axis, value)
                 geom_data_obj.finalize_transform()
 
@@ -465,38 +462,45 @@ class SelectionTransformBase(BaseObject):
 
     def init_transform(self):
 
-        for obj in Mgr.get("selection", "top"):
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+        for geom_data_obj in self._groups:
             geom_data_obj.init_transform()
+
+    def init_translation(self):
+
+        self.init_transform()
 
     def translate(self, translation_vec):
 
         obj_lvl = self._obj_level
 
-        for obj in Mgr.get("selection", "top"):
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+        for geom_data_obj in self._groups:
             geom_data_obj.transform_selection(obj_lvl, "translate", translation_vec)
+
+    def init_rotation(self):
+
+        self.init_transform()
 
     def rotate(self, rotation):
 
         obj_lvl = self._obj_level
 
-        for obj in Mgr.get("selection", "top"):
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+        for geom_data_obj in self._groups:
             geom_data_obj.transform_selection(obj_lvl, "rotate", rotation)
+
+    def init_scaling(self):
+
+        self.init_transform()
 
     def scale(self, scaling):
 
         obj_lvl = self._obj_level
 
-        for obj in Mgr.get("selection", "top"):
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+        for geom_data_obj in self._groups:
             geom_data_obj.transform_selection(obj_lvl, "scale", scaling)
 
     def finalize_transform(self, cancelled=False):
 
-        for obj in Mgr.get("selection", "top"):
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+        for geom_data_obj in self._groups:
             geom_data_obj.finalize_transform(cancelled)
 
         if not cancelled:
@@ -525,11 +529,10 @@ class SelectionTransformBase(BaseObject):
             subobj_descr = "polygons"
 
         event_descr = '%s %s' % (transf_type.title(), subobj_descr)
-        sel = Mgr.get("selection", "top")
 
-        for obj in sel:
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
-            obj_data[obj.get_id()] = geom_data_obj.get_data_to_store("prop_change", "subobj_transform")
+        for geom_data_obj in self._groups:
+            obj_id = geom_data_obj.get_toplevel_object().get_id()
+            obj_data[obj_id] = geom_data_obj.get_data_to_store("prop_change", "subobj_transform")
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
