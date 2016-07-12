@@ -124,6 +124,7 @@ class TextureMap(object):
 
             if rgb_filename:
 
+                paths = ",".join(GlobalData["config"]["texfile_paths"])
                 rgb_fname = Filename.from_os_specific(rgb_filename)
 
                 if rgb_fname.exists():
@@ -131,7 +132,6 @@ class TextureMap(object):
                 else:
                     rgb_basename = rgb_fname.get_basename()
                     rgb_fname = Filename.from_os_specific(rgb_basename)
-                    paths = ",".join(GlobalData["config"]["texfile_paths"])
                     rgb_fname = DSearchPath.search_path(rgb_fname, paths, ",")
                     rgb_fullpath = rgb_fname.to_os_specific()
 
@@ -148,7 +148,6 @@ class TextureMap(object):
                         else:
                             alpha_basename = a_fname.get_basename()
                             a_fname = Filename.from_os_specific(alpha_basename)
-                            paths = ",".join(GlobalData["config"]["texfile_paths"])
                             a_fname = DSearchPath.search_path(a_fname, paths, ",")
                             alpha_fullpath = a_fname.to_os_specific()
 
@@ -698,9 +697,9 @@ class TexMapManager(object):
         TS = TextureStage
         stages = self._tex_stages
         map_types = ("color", "normal", "height", "normal+height", "gloss",
-                     "color+gloss", "glow", "color+glow")
-        modes = (TS.M_modulate, TS.M_normal, TS.M_height, TS.M_normal_height,
-                 TS.M_gloss, TS.M_modulate_gloss, TS.M_glow, TS.M_modulate_glow)
+                     "color+gloss", "normal+gloss", "glow", "color+glow")
+        modes = (TS.M_modulate, TS.M_normal, TS.M_height, TS.M_normal_height, TS.M_gloss,
+                 TS.M_modulate_gloss, TS.M_normal_gloss, TS.M_glow, TS.M_modulate_glow)
 
         for map_type, mode in zip(map_types, modes):
             stage = TS("tex_stage_%s" % map_type)

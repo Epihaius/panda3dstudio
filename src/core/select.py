@@ -50,7 +50,7 @@ class Selection(SelectionTransformBase):
             label = sel.get_name() if count == 1 else "%s Objects selected" % count
             Mgr.update_remotely("selected_obj_name", label)
 
-        sel_colors = set([obj.get_color() for obj in self._objs if obj.has_color()])
+        sel_colors = set(obj.get_color() for obj in self._objs if obj.has_color())
         sel_color_count = len(sel_colors)
 
         if sel_color_count == 1:
@@ -61,13 +61,14 @@ class Selection(SelectionTransformBase):
         GlobalData["sel_color_count"] = sel_color_count
         Mgr.update_app("sel_color_count")
 
-        type_checker = lambda obj, base_type: \
-            obj.get_geom_type() if base_type == "model" else base_type
-        obj_types = set([type_checker(obj, obj.get_type()) for obj in self._objs])
-        obj_type = obj_types.pop() if len(obj_types) == 1 else ""
-        Mgr.update_app("selected_obj_type", obj_type)
+        type_checker = lambda obj, main_type: obj.get_geom_type() if main_type == "model" else main_type
+        obj_types = set(type_checker(obj, obj.get_type()) for obj in self._objs)
+        Mgr.update_app("selected_obj_types", tuple(obj_types))
 
         if count == 1:
+
+            obj_type = obj_types.pop()
+
             for prop_id in sel.get_type_property_ids():
                 value = sel.get_property(prop_id, for_remote_update=True)
                 Mgr.update_remotely("selected_obj_prop", obj_type, prop_id, value)

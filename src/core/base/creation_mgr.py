@@ -140,7 +140,7 @@ class CreationPhaseManager(object):
 
     def set_next_object_color(self):
 
-        color_values = tuple([random.random() * .5 + .5 for i in range(3)])
+        color_values = tuple(random.random() * .4 + .5 for i in range(3))
         GlobalData["next_%s_color" % self._obj_type] = color_values
 
     def get_next_object_color(self):

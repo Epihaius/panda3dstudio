@@ -222,6 +222,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         self._merged_verts = {}
         self._merged_edges = {}
         self._ordered_polys = []
+        self._is_tangent_space_initialized = False
+        self._has_tangent_space = False
+        self._flip_tangent = False
+        self._flip_bitangent = False
 
         self._prop_ids = ["subobj_merge", "subobj_selection", "subobj_transform",
                           "smoothing", "poly_tris", "uvs"]
@@ -636,6 +640,9 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 subobjs = self._subobjs[subobj_type].values()
                 subobj_change[subobj_type]["created"] = subobjs
 
+        if self._has_tangent_space:
+            self.update_tangent_space()
+
     def create_geometry(self, obj_type):
 
         node_name = "%s_geom_origin" % obj_type
@@ -761,24 +768,66 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             picking_color = picking_colors[row_index]
             col_writer_edge.add_data4f(picking_color)
 
-    def init_tangent_space(self):
-
-        vertex_data = self._vertex_data["poly"]
-        tan_writer = GeomVertexWriter(vertex_data, "tangent")
-        bitan_writer = GeomVertexWriter(vertex_data, "binormal")
-
-        for poly in self._ordered_polys:
-            for vert in poly.get_vertices():
-                tangent, bitangent = vert.get_tangent_space()
-                tan_writer.add_data3f(tangent)
-                bitan_writer.add_data3f(bitangent)
-
     def init_poly_normals(self):
 
         for poly in self._ordered_polys:
             poly.update_normal()
 
         self._update_vertex_normals(set(self._merged_verts.itervalues()))
+
+    def flip_tangent(self, flip_tangent=True):
+
+        self._flip_tangent = flip_tangent
+
+    def flip_bitangent(self, flip_bitangent=True):
+
+        self._flip_bitangent = flip_bitangent
+
+    def update_tangent_space(self, polys=None):
+
+        vertex_data = GeomVertexData(self._vertex_data["poly"])
+        tan_writer = GeomVertexWriter(vertex_data, "tangent")
+        bitan_writer = GeomVertexWriter(vertex_data, "binormal")
+
+        for poly in (self._ordered_polys if polys is None else polys):
+
+            poly.update_tangent_space(self._flip_tangent, self._flip_bitangent)
+
+            for vert in poly.get_vertices():
+                row = vert.get_row_index()
+                tan_writer.set_row(row)
+                bitan_writer.set_row(row)
+                tangent, bitangent = vert.get_tangent_space()
+                tan_writer.set_data3f(tangent)
+                bitan_writer.set_data3f(bitangent)
+
+        array = vertex_data.get_array(1)
+        vertex_data_poly = self._vertex_data["poly"]
+        vertex_data_poly.set_array(1, GeomVertexArrayData(array))
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        vertex_data_top.set_array(1, GeomVertexArrayData(array))
+
+        self._is_tangent_space_initialized = True
+        self._has_tangent_space = True
+
+    def init_tangent_space(self):
+
+        if not self._is_tangent_space_initialized:
+            self.update_tangent_space()
+
+        self._has_tangent_space = True
+
+    def is_tangent_space_initialized(self):
+
+        return self._is_tangent_space_initialized
+
+    def clear_tangent_space(self):
+
+        self._has_tangent_space = False
+
+    def has_tangent_space(self):
+
+        return self._has_tangent_space
 
     def update_poly_centers(self):
 
@@ -789,7 +838,6 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         self.init_vertex_colors()
         self.init_uvs()
-        self.init_tangent_space()
         self.init_poly_normals()
 
         if update_poly_centers:
@@ -1005,7 +1053,9 @@ class GeomDataManager(BaseObject):
             "set_poly_triangles",
             "smooth_polys",
             "upd_vert_normals",
-            "rebuild_node_tree"
+            "rebuild_node_tree",
+            "upd_tangent_space",
+            "set_material"
         )
 
         for task_id in reversed(task_ids):
@@ -1047,8 +1097,8 @@ class GeomDataManager(BaseObject):
         array3 = GeomVertexArrayFormat()
         array3.add_column(InternalName.make("color"), 4, Geom.NT_float32, Geom.C_color)
         array3.add_column(InternalName.make("normal"), 3, Geom.NT_float32, Geom.C_normal)
-        array3.add_column(InternalName.make("tangent"), 3, Geom.NT_float32, Geom.C_normal)
-        array3.add_column(InternalName.make("binormal"), 3, Geom.NT_float32, Geom.C_normal)
+        array3.add_column(InternalName.make("tangent"), 3, Geom.NT_float32, Geom.C_vector)
+        array3.add_column(InternalName.make("binormal"), 3, Geom.NT_float32, Geom.C_vector)
 
         uv_arrays = []
         uv_array = GeomVertexArrayFormat()

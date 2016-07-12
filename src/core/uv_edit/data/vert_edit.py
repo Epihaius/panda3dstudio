@@ -15,7 +15,7 @@ class VertexEditBase(BaseObject):
         verts = self._subobjs["vert"]
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
-        verts_to_break = set([merged_verts[v_id] for v_id in selected_vert_ids])
+        verts_to_break = set(merged_verts[v_id] for v_id in selected_vert_ids)
         edges_to_split = set()
 
         change = False

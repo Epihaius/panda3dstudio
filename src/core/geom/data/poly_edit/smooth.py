@@ -147,6 +147,7 @@ class SmoothingBase(BaseObject):
                 for vert in verts_to_smooth:
                     normal_writer.set_row(vert.get_row_index())
                     normal_writer.set_data3f(normal)
+                    vert.set_normal(normal)
 
             array = vertex_data_poly.get_array(1)
             vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
@@ -170,10 +171,14 @@ class SmoothingBase(BaseObject):
                 for vert in poly.get_vertices():
                     normal_writer.set_row(vert.get_row_index())
                     normal_writer.set_data3f(normal)
+                    vert.set_normal(normal)
 
             array = vertex_data_poly.get_array(1)
             vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
             vertex_data_top.set_array(1, GeomVertexArrayData(array))
+
+        if self._has_tangent_space:
+            self.update_tangent_space()
 
         return True
 
@@ -419,6 +424,7 @@ class SmoothingBase(BaseObject):
                     for vert in verts_to_smooth:
                         normal_writer.set_row(vert.get_row_index())
                         normal_writer.set_data3f(normal)
+                        vert.set_normal(normal)
 
                     processed_verts.extend(verts_to_smooth)
 
@@ -428,6 +434,7 @@ class SmoothingBase(BaseObject):
                     normal.normalize()
                     normal_writer.set_row(vert.get_row_index())
                     normal_writer.set_data3f(normal)
+                    vert.set_normal(normal)
                     processed_verts.append(vert)
 
         array = vertex_data_copy.get_array(1)
@@ -435,6 +442,9 @@ class SmoothingBase(BaseObject):
         vertex_data_poly.set_array(1, GeomVertexArrayData(array))
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(1, GeomVertexArrayData(array))
+
+        if self._has_tangent_space:
+            self.update_tangent_space()
 
     def _restore_poly_smoothing(self, time_id):
 

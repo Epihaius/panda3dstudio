@@ -296,36 +296,22 @@ class Cylinder(Primitive):
 
                 for vi in vert_ids:
                     pos = positions_main[vi]
-                    uv = uvs_main[vi]
                     normal = get_normal(vi)
-                    normalV3D = V3D(normal)
-                    tangent = z_vec ** normalV3D
-                    bitangent = normalV3D ** tangent
-                    tangent.normalize()
-                    bitangent.normalize()
-                    tangent_space = (tangent, bitangent)
-                    vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv},
-                                      "tangent_space": tangent_space})
+                    uv = uvs_main[vi]
+                    vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
 
-                tri_data1 = {"verts": vert_data, "tangent_space": None}
+                tri_data1 = {"verts": vert_data}
 
                 vert_ids = (vi1, vi3, vi4)
                 vert_data = []
 
                 for vi in vert_ids:
                     pos = positions_main[vi]
-                    uv = uvs_main[vi]
                     normal = get_normal(vi)
-                    normalV3D = V3D(normal)
-                    tangent = z_vec ** normalV3D
-                    bitangent = normalV3D ** tangent
-                    tangent.normalize()
-                    bitangent.normalize()
-                    tangent_space = (tangent, bitangent)
-                    vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv},
-                                      "tangent_space": tangent_space})
+                    uv = uvs_main[vi]
+                    vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
 
-                tri_data2 = {"verts": vert_data, "tangent_space": None}
+                tri_data2 = {"verts": vert_data}
 
                 tris = (tri_data1, tri_data2)  # quadrangular face
                 poly_data = {"tris": tris, "smoothing": smoothing_ids}
@@ -364,30 +350,22 @@ class Cylinder(Primitive):
 
                         for vi in vert_ids:
                             pos = positions[vi]
-                            uv = uvs[vi]
                             normal = Vec3(0., 0., -1. * sign)
-                            tangent = Vec3(1., 0., 0.)
-                            bitangent = Vec3(0., 1. * sign, 0.)
-                            tangent_space = (tangent, bitangent)
-                            vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv},
-                                              "tangent_space": tangent_space})
+                            uv = uvs[vi]
+                            vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
 
-                        tri_data1 = {"verts": vert_data, "tangent_space": None}
+                        tri_data1 = {"verts": vert_data}
 
                         vert_ids = (vi1, vi3, vi4)
                         vert_data = []
 
                         for vi in vert_ids:
                             pos = positions[vi]
-                            uv = uvs[vi]
                             normal = Vec3(0., 0., -1. * sign)
-                            tangent = Vec3(1., 0., 0.)
-                            bitangent = Vec3(0., 1. * sign, 0.)
-                            tangent_space = (tangent, bitangent)
-                            vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv},
-                                              "tangent_space": tangent_space})
+                            uv = uvs[vi]
+                            vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
 
-                        tri_data2 = {"verts": vert_data, "tangent_space": None}
+                        tri_data2 = {"verts": vert_data}
 
                         tris = (tri_data1, tri_data2)  # quadrangular face
                         poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
@@ -407,15 +385,11 @@ class Cylinder(Primitive):
 
                     for vi in vert_ids:
                         pos = positions[vi]
-                        uv = uvs[vi]
                         normal = Vec3(0., 0., -1. * sign)
-                        tangent = Vec3(1., 0., 0.)
-                        bitangent = Vec3(0., 1. * sign, 0.)
-                        tangent_space = (tangent, bitangent)
-                        vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv},
-                                          "tangent_space": tangent_space})
+                        uv = uvs[vi]
+                        vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
 
-                    tri_data = {"verts": vert_data, "tangent_space": None}
+                    tri_data = {"verts": vert_data}
 
                     tris = (tri_data,)  # triangular face
                     poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}

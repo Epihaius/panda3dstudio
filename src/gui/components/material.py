@@ -336,9 +336,8 @@ class MaterialPanel(Panel):
             return set_map_type
 
         for map_type in ("color", "normal", "height", "normal+height", "gloss",
-                         "color+gloss", "glow", "color+glow"):
-            combobox.add_item(map_type, map_type.title(),
-                              get_command(map_type))
+                         "color+gloss", "normal+gloss", "glow", "color+glow"):
+            combobox.add_item(map_type, map_type.title(), get_command(map_type))
 
         sizer.Add(wx.Size(0, 5))
 
@@ -1386,10 +1385,12 @@ class MaterialPanel(Panel):
 
         return os.path.basename(filename) if filename else "<None>"
 
-    def __load_texture_file(self, map_type):
+    def __load_texture_file(self, map_type, channel_type):
 
         file_types = "Bitmap files (*.bmp;*.jpg;*.png)|*.bmp;*.jpg;*.png"
-        tex_filename = wx.FileSelector("Load %s texture map" % map_type,
+        channel_descr = "main" if channel_type == "rgb" else "alpha channel of"
+        caption = "Load " + channel_descr + " %s texture map"
+        tex_filename = wx.FileSelector(caption % map_type,
                                        "", "", "bitmap", file_types,
                                        wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
                                        self)
@@ -1400,7 +1401,10 @@ class MaterialPanel(Panel):
 
             config_data = GlobalData["config"]
             texfile_paths = config_data["texfile_paths"]
-            texfile_paths.add(os.path.dirname(tex_filename))
+            path = os.path.dirname(tex_filename)
+
+            if path not in texfile_paths:
+                texfile_paths.append(path)
 
             with open("config", "wb") as config_file:
                 cPickle.dump(config_data, config_file, -1)
@@ -1409,19 +1413,11 @@ class MaterialPanel(Panel):
 
     def __set_texture_map(self):
 
-        rgb_filename = self._tex_map_file_main
-        alpha_filename = self._tex_map_file_alpha
-        map_type = self._map_type
-        rgb_type, alpha_type = (map_type.split("+") + [""])[:2]
-
-        if rgb_filename and alpha_type and not alpha_filename:
-            return
-
         mat_id = self._selected_mat_id
         tex_data = {
-            "map_type": map_type,
-            "rgb_filename": rgb_filename,
-            "alpha_filename": alpha_filename
+            "map_type": self._map_type,
+            "rgb_filename": self._tex_map_file_main,
+            "alpha_filename": self._tex_map_file_alpha
         }
         prop_data = {
             "layer_id": None,
@@ -1431,9 +1427,7 @@ class MaterialPanel(Panel):
 
     def __load_texture_map_main(self):
 
-        map_type = self._map_type
-        rgb_type, alpha_type = (map_type.split("+") + [""])[:2]
-        rgb_filename = self.__load_texture_file(rgb_type)
+        rgb_filename = self.__load_texture_file(self._map_type, "rgb")
 
         if not rgb_filename:
             return
@@ -1444,9 +1438,7 @@ class MaterialPanel(Panel):
 
     def __load_texture_map_alpha(self):
 
-        map_type = self._map_type
-        rgb_type, alpha_type = (map_type.split("+") + [""])[:2]
-        alpha_filename = self.__load_texture_file(alpha_type if alpha_type else "alpha")
+        alpha_filename = self.__load_texture_file(self._map_type, "alpha")
 
         if not alpha_filename:
             return
@@ -1626,24 +1618,21 @@ class MaterialPanel(Panel):
 
     def __set_layer(self):
 
-        rgb_filename = self._layer_file_main
-        alpha_filename = self._layer_file_alpha
-
-        mat_id = self._selected_mat_id
         tex_data = {
             "map_type": "layer",
-            "rgb_filename": rgb_filename,
-            "alpha_filename": alpha_filename
+            "rgb_filename": self._layer_file_main,
+            "alpha_filename": self._layer_file_alpha
         }
         prop_data = {
             "layer_id": self._selected_layer_id,
             "tex_data": tex_data
         }
+        mat_id = self._selected_mat_id
         Mgr.update_remotely("material_prop", mat_id, "texture", prop_data)
 
     def __load_layer_main(self):
 
-        rgb_filename = self.__load_texture_file("color")
+        rgb_filename = self.__load_texture_file("layer", "rgb")
 
         if not rgb_filename:
             return
@@ -1654,7 +1643,7 @@ class MaterialPanel(Panel):
 
     def __load_layer_alpha(self):
 
-        alpha_filename = self.__load_texture_file("alpha")
+        alpha_filename = self.__load_texture_file("layer", "alpha")
 
         if not alpha_filename:
             return
@@ -1737,8 +1726,8 @@ class MaterialToolbar(Toolbar):
 
             return set_map_type
 
-        for map_type in ("color", "color+alpha", "normal", "height", "normal+height",
-                         "gloss", "color+gloss", "glow", "color+glow"):
+        for map_type in ("color", "normal", "height", "normal+height", "gloss",
+                         "color+gloss", "normal+gloss", "glow", "color+glow"):
             combobox.add_item(map_type, map_type.title(), get_command(map_type))
 
         self._btns = {}
@@ -1872,12 +1861,25 @@ class MaterialToolbar(Toolbar):
 
     def setup(self): pass
 
+    def __add_path_to_config(self, path):
+
+        import cPickle
+
+        config_data = GlobalData["config"]
+        texfile_paths = config_data["texfile_paths"]
+
+        if path not in texfile_paths:
+            texfile_paths.append(path)
+
+        with open("config", "wb") as config_file:
+            cPickle.dump(config_data, config_file, -1)
+
     def __load_texture(self):
 
         map_type = self._map_type
-        rgb_type, alpha_type = (map_type.split("+") + [""])[:2]
         file_types = "Bitmap files (*.bmp;*.jpg;*.png)|*.bmp;*.jpg;*.png"
-        rgb_filename = wx.FileSelector("Load %s texture map" % rgb_type,
+
+        rgb_filename = wx.FileSelector("Load main %s texture map" % map_type,
                                        "", "", "bitmap", file_types,
                                        wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
                                        self)
@@ -1885,22 +1887,18 @@ class MaterialToolbar(Toolbar):
         if not rgb_filename:
             return
 
-        if alpha_type:
+        self.__add_path_to_config(os.path.dirname(rgb_filename))
 
-            alpha_filename = wx.FileSelector("Load %s texture map" % alpha_type,
-                                             "", "", "bitmap", file_types,
-                                             wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
-                                             self)
+        alpha_filename = wx.FileSelector("Load alpha channel of %s texture map" % map_type,
+                                         "", "", "bitmap", file_types,
+                                         wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+                                         self)
 
-            if not alpha_filename:
-                return
-
-        else:
-
-            alpha_filename = ""
+        if alpha_filename:
+            self.__add_path_to_config(os.path.dirname(alpha_filename))
 
         tex_data = {
-            "map_type": "color" if map_type == "color+alpha" else map_type,
+            "map_type": map_type,
             "rgb_filename": rgb_filename,
             "alpha_filename": alpha_filename
         }
@@ -1911,7 +1909,7 @@ class MaterialToolbar(Toolbar):
 
         map_type = self._map_type
         tex_data = {
-            "map_type": "color" if map_type == "color+alpha" else map_type,
+            "map_type": map_type,
             "rgb_filename": "",
             "alpha_filename": ""
         }

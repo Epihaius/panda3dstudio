@@ -272,10 +272,8 @@ class Box(Primitive):
                         vi4 = vi3 + 1
                         vert_ids = (vi1, vi2, vi4) if direction == 1 else (vi1, vi4, vi2)
                         tri_data1 = {"verts": [vert_data[vi] for vi in vert_ids]}
-                        tri_data1["tangent_space"] = None
                         vert_ids = (vi1, vi4, vi3) if direction == 1 else (vi1, vi3, vi4)
                         tri_data2 = {"verts": [vert_data[vi] for vi in vert_ids]}
-                        tri_data2["tangent_space"] = None
                         tris = (tri_data1, tri_data2)
                         poly_data = {"tris": tris, "smoothing": [(smoothing_id, True)]}
                         geom_data.append(poly_data)

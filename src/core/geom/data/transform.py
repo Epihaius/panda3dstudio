@@ -208,15 +208,18 @@ class GeomTransformBase(BaseObject):
                 poly_ids.update(merged_vert.get_polygon_ids())
 
             vert_ids = []
+            polys_to_update = [polys[poly_id] for poly_id in poly_ids]
 
-            for poly_id in poly_ids:
-                poly = polys[poly_id]
+            for poly in polys_to_update:
                 poly.update_center_pos()
                 poly.update_normal()
                 vert_ids.extend(poly.get_vertex_ids())
 
             merged_verts = set(self._merged_verts[vert_id] for vert_id in vert_ids)
             self._update_vertex_normals(merged_verts)
+
+            if self._has_tangent_space:
+                self.update_tangent_space(polys_to_update)
 
         self._origin.node().set_bounds(bounds)
         self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
@@ -346,6 +349,9 @@ class GeomTransformBase(BaseObject):
 
         self._vert_normal_change.update(vert_ids)
         self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
+
+        if self._has_tangent_space:
+            self.update_tangent_space(polys_to_update)
 
 
 class SelectionTransformBase(BaseObject):

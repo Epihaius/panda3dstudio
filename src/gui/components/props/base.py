@@ -31,8 +31,8 @@ class PropertyPanel(Panel):
 
         Panel.__init__(self, parent, "Object properties")
 
-        self._obj_type = ""
-        self._sel_obj_type = ""
+        self._obj_types = ()
+        self._sel_obj_types = ()
         self._sel_obj_count = 0
         self._parent = parent
         self._width = parent.get_width()
@@ -41,6 +41,7 @@ class PropertyPanel(Panel):
             "disabled": wx.Colour(127, 127, 127),
             "custom": wx.Colour(255, 255, 0)
         }
+        self._checkboxes = {}
 
         self.GetSizer().SetMinSize(wx.Size(self._width, 1))
         self._parent.GetSizer().Add(self)
@@ -61,27 +62,60 @@ class PropertyPanel(Panel):
         self._color_picker.show_color("none")
         self._color_picker.Enable(False)
 
-        create_section = self.add_section("create", "Creation")
+        # ************************* Creation section ***************************
+
+        create_section = section = self.add_section("create", "Creation")
 
         yellow = wx.Colour(255, 255, 0)
-        radio_btns = PanelRadioButtonGroup(self, create_section, "Position", dot_color=yellow)
+        radio_btns = PanelRadioButtonGroup(self, section, "Position", dot_color=yellow)
         radio_btns.add_button("grid_pos", "Coord. system origin")
         radio_btns.add_button("cam_target_pos", "Camera target")
         radio_btns.set_selected_button("grid_pos")
         self._radio_btns = radio_btns
 
-        sizer = create_section.get_client_sizer()
+        sizer = section.get_client_sizer()
 
         bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
 
         label = "Create object"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
-        btn = PanelButton(self, create_section, sizer, bitmaps, label, "",
+        btn = PanelButton(self, section, sizer, bitmaps, label, "",
                           self.__create_object, sizer_args)
 
         for obj_type, prop_cls in self._property_classes.iteritems():
             self._properties[obj_type] = prop_cls(self)
+
+        # ********************** Surface properties section ********************
+
+        surface_section = section = self.add_section("surface_props", "Surface properties")
+
+        group = section.add_group("Tangent space")
+        grp_sizer = group.get_client_sizer()
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+
+        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
+        grp_sizer.Add(subsizer)
+        checkbox = PanelCheckBox(self, group, subsizer, lambda on: None)
+        checkbox.check(False)
+        self._checkboxes["flip_tan"] = checkbox
+        group.add_text("Flip tangent", subsizer, sizer_args)
+        checkbox = PanelCheckBox(self, group, subsizer, lambda on: None)
+        checkbox.check(False)
+        self._checkboxes["flip_bitan"] = checkbox
+        group.add_text("Flip bitangent", subsizer, sizer_args)
+
+        grp_sizer.Add(wx.Size(0, 5))
+
+        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
+
+        label = "Recompute"
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+        btn = PanelButton(self, group, grp_sizer, bitmaps, label,
+                          "Recompute tangent space using above options",
+                          self.__update_tangent_space, sizer_args)
+
+        # **********************************************************************
 
         sizer = self.get_bottom_ctrl_sizer()
         sizer_args = (0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
@@ -100,7 +134,9 @@ class PropertyPanel(Panel):
             create_section.set_title_hilite_color((1., 1., .5, .65))
             create_section.set_title_hilited()
             create_section.expand(False)
+            surface_section.expand(False)
             self.show_section("create", False, update=False)
+            self.show_section("surface_props", False, update=False)
             self.show_bottom_controls(False, update=False)
 
             for props in self._properties.itervalues():
@@ -118,15 +154,17 @@ class PropertyPanel(Panel):
 
         def check_selection_count():
 
-            if self._obj_type:
-                self._properties[self._obj_type].check_selection_count()
+            obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
+
+            if obj_type:
+                self._properties[obj_type].check_selection_count()
 
         def set_obj_prop_default(obj_type, *args, **kwargs):
 
             if obj_type:
                 self._properties[obj_type].set_object_property_default(*args, **kwargs)
 
-        Mgr.add_app_updater("selected_obj_type", self.show)
+        Mgr.add_app_updater("selected_obj_types", self.show)
         Mgr.add_app_updater("selected_obj_prop", set_obj_prop)
         Mgr.add_app_updater("selection_count", check_selection_count)
         Mgr.add_app_updater("obj_prop_default", set_obj_prop_default)
@@ -158,7 +196,8 @@ class PropertyPanel(Panel):
 
     def __update_sections(self, creation_status):
 
-        obj_type = self._sel_obj_type
+        obj_types = self._sel_obj_types
+        obj_type = obj_types[0] if len(obj_types) == 1 else ""
         props = self._properties[obj_type] if obj_type else None
         extra_section_ids = props.get_extra_section_ids() if props else []
 
@@ -166,6 +205,7 @@ class PropertyPanel(Panel):
 
             self.show_section("create", update=False)
             self.show_bottom_controls(False, update=False)
+            self.show_section("surface_props", False, update=False)
 
             for section_id in extra_section_ids:
                 self.show_section(section_id, False, update=False)
@@ -176,8 +216,14 @@ class PropertyPanel(Panel):
                 for section_id in extra_section_ids:
                     self.show_section(section_id, update=False)
 
-            if props and props.get_base_type() == "primitive":
+            props = self._properties
+            base_types = set(props[o_type].get_base_type() for o_type in obj_types)
+
+            if base_types == set(["primitive"]):
                 self.show_bottom_controls(update=False)
+
+            if base_types and not base_types - set(["primitive", "editable_geom", "basic_geom"]):
+                self.show_section("surface_props", update=False)
 
             self.show_section("create", False, update=False)
 
@@ -193,13 +239,14 @@ class PropertyPanel(Panel):
     def __handle_value(self, value_id, value):
 
         if GlobalData["active_creation_type"]:
-            Mgr.update_remotely("custom_obj_name", self._obj_type, value)
+            obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
+            Mgr.update_remotely("custom_obj_name", obj_type, value)
         else:
             Mgr.update_remotely("selected_obj_name", value)
 
     def __parse_object_name(self, name):
 
-        parsed_name = name.strip(" *")
+        parsed_name = name.strip()
 
         if GlobalData["active_creation_type"]:
             return parsed_name
@@ -227,7 +274,8 @@ class PropertyPanel(Panel):
         color_values = Mgr.convert_to_remote_format("color", color.Get())
 
         if GlobalData["active_creation_type"]:
-            GlobalData["next_%s_color" % self._obj_type] = color_values
+            obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
+            GlobalData["next_%s_color" % obj_type] = color_values
             self._color_picker.set_color(color_values)
         else:
             Mgr.update_remotely("selected_obj_color", color_values)
@@ -238,15 +286,23 @@ class PropertyPanel(Panel):
 
     def __set_next_object_color(self):
 
-        if not self._obj_type:
+        obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
+
+        if not obj_type:
             return
 
-        next_color = GlobalData["next_%s_color" % self._obj_type]
+        next_color = GlobalData["next_%s_color" % obj_type]
         self._color_picker.Enable(True if next_color else False)
         self._color_picker.show_color("single" if next_color else "none")
 
         if next_color:
             self._color_picker.set_color(next_color)
+
+    def __update_tangent_space(self):
+
+        flip_tan = self._checkboxes["flip_tan"].is_checked()
+        flip_bitan = self._checkboxes["flip_bitan"].is_checked()
+        Mgr.update_remotely("selected_obj_prop", "tangent_space", (flip_tan, flip_bitan))
 
     def __check_selection_count(self):
 
@@ -259,9 +315,11 @@ class PropertyPanel(Panel):
         else:
             self._name_field.enable(False)
 
-        if self._obj_type:
+        obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
 
-            extra_section_ids = self._properties[self._obj_type].get_extra_section_ids()
+        if obj_type:
+
+            extra_section_ids = self._properties[obj_type].get_extra_section_ids()
 
             if extra_section_ids:
 
@@ -294,7 +352,9 @@ class PropertyPanel(Panel):
 
     def get_active_object_type(self):
 
-        return self._obj_type
+        obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
+
+        return obj_type
 
     def enable(self, enable=True):
 
@@ -324,14 +384,16 @@ class PropertyPanel(Panel):
 
         return self._width - self.get_client_offset() * 2
 
-    def show(self, obj_type):
+    def show(self, obj_types):
 
+        obj_type = obj_types[0] if len(obj_types) == 1 else ""
         props = self._properties
 
-        if (obj_type and obj_type not in props) or self._obj_type == obj_type:
+        if (obj_type and obj_type not in props) or set(self._obj_types) == set(obj_types):
             return
 
-        prev_section_ids = props[self._obj_type].get_section_ids() if self._obj_type else []
+        prev_obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
+        prev_section_ids = props[prev_obj_type].get_section_ids() if prev_obj_type else []
         next_section_ids = props[obj_type].get_section_ids() if obj_type else []
         extra_section_ids = props[obj_type].get_extra_section_ids() if obj_type else []
 
@@ -340,14 +402,22 @@ class PropertyPanel(Panel):
         for section_id in next_section_ids:
             self.show_section(section_id, update=False)
 
-        if obj_type and props[obj_type].get_base_type() == "primitive":
+        base_types = set(props[o_type].get_base_type() for o_type in obj_types)
+
+        if base_types == set(["primitive"]):
             self.show_bottom_controls(update=False)
         else:
             self.show_bottom_controls(False, update=False)
 
+        if base_types and not base_types - set(["primitive", "editable_geom", "basic_geom"]):
+            self.show_section("surface_props", update=False)
+        else:
+            self.show_section("surface_props", False, update=False)
+
         if in_creation_mode:
 
             self.show_bottom_controls(False, update=False)
+            self.show_section("surface_props", False, update=False)
 
             for section_id in extra_section_ids:
                 self.show_section(section_id, False, update=False)
@@ -355,13 +425,13 @@ class PropertyPanel(Panel):
         for section_id in prev_section_ids:
             self.show_section(section_id, False, update=False)
 
-        self._obj_type = obj_type
+        self._obj_types = obj_types
 
         if in_creation_mode:
             self._color_picker.show_color("single")
             self.__set_next_object_color()
         else:
-            self._sel_obj_type = obj_type
+            self._sel_obj_types = obj_types
 
         self._parent.Refresh()
         self.GetSizer().Layout()

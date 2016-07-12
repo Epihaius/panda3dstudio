@@ -43,8 +43,8 @@ class SelectionManager(BaseObject):
                 GlobalData["active_transform_type"] = ""
                 Mgr.update_app("active_transform_type", "")
 
-            models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                          and obj.get_geom_type() != "basic_geom"])
+            models = set(obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                         and obj.get_geom_type() != "basic_geom")
             original_selections = self._original_sel
 
             for model in models:
@@ -94,8 +94,8 @@ class SelectionManager(BaseObject):
         obj_root = Mgr.get("object_root")
         picking_masks = Mgr.get("picking_masks")
 
-        models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                      and obj.get_geom_type() != "basic_geom"])
+        models = set(obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                     and obj.get_geom_type() != "basic_geom")
 
         if obj_lvl == "top":
 

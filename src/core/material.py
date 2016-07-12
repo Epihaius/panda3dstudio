@@ -51,7 +51,7 @@ class Material(object):
             self._tex_maps = tex_maps
         else:
             map_types = ("color", "normal", "height", "normal+height", "gloss",
-                         "color+gloss", "glow", "color+glow")
+                         "color+gloss", "normal+gloss", "glow", "color+glow")
             self._tex_maps = dict((t, Mgr.do("create_tex_map", t))
                                   for t in map_types)
             self._tex_maps["color"].set_active(True)
@@ -575,7 +575,7 @@ class Material(object):
 
         if uv_set_id == 0:
             map_types = ("color", "normal", "height", "normal+height", "gloss",
-                         "color+gloss", "glow", "color+glow")
+                         "color+gloss", "normal+gloss", "glow", "color+glow")
             stages += [Mgr.get("tex_stage", map_type) for map_type in map_types]
 
         return stages
@@ -613,11 +613,28 @@ class Material(object):
         apply_map = not is_color_map or is_color_map_used
 
         if apply_map:
+
             if texture:
+
                 for owner_id in self._owner_ids:
                     owner = Mgr.get("model", owner_id)
                     owner.get_origin().set_texture(tex_stage, texture)
+
+                if "normal" in map_type and tex_map.is_active():
+
+                    for owner_id in self._owner_ids:
+
+                        owner = Mgr.get("model", owner_id)
+
+                        if owner.get_geom_type() != "basic_geom":
+
+                            geom_data_obj = owner.get_geom_object().get_geom_data_object()
+
+                            if not geom_data_obj.has_tangent_space():
+                                geom_data_obj.init_tangent_space()
+
             else:
+
                 for owner_id in self._owner_ids:
                     owner = Mgr.get("model", owner_id)
                     owner.get_origin().clear_texture(tex_stage)
@@ -704,15 +721,25 @@ class Material(object):
                     self.set_map_active(mtype, is_active=False)
             if map_type == "color+gloss":
                 self.set_map_active("color+glow", is_active=False)
+                self.set_map_active("normal+gloss", is_active=False)
             elif map_type == "color+glow":
                 self.set_map_active("color+gloss", is_active=False)
             elif map_type == "color":
                 self.set_map_active("color+gloss", is_active=False)
                 self.set_map_active("color+glow", is_active=False)
             elif map_type in ("normal", "height"):
+                if map_type == "normal":
+                    self.set_map_active("normal+gloss", is_active=False)
                 self.set_map_active("normal+height", is_active=False)
             elif map_type in ("glow", "gloss"):
+                if map_type == "gloss":
+                    self.set_map_active("normal+gloss", is_active=False)
                 self.set_map_active("color+" + map_type, is_active=False)
+            elif map_type == "normal+gloss":
+                self.set_map_active("color+gloss", is_active=False)
+                self.set_map_active("normal+height", is_active=False)
+            elif map_type == "normal+height":
+                self.set_map_active("normal+gloss", is_active=False)
 
         tex_map.set_active(is_active)
 
@@ -742,6 +769,19 @@ class Material(object):
                 origin = Mgr.get("model", owner_id).get_origin()
                 handle_tex(origin)
                 handle_transform(origin)
+
+            if is_active and "normal" in map_type and texture:
+
+                for owner_id in self._owner_ids:
+
+                    owner = Mgr.get("model", owner_id)
+
+                    if owner.get_geom_type() != "basic_geom":
+
+                        geom_data_obj = owner.get_geom_object().get_geom_data_object()
+
+                        if not geom_data_obj.has_tangent_space():
+                            geom_data_obj.init_tangent_space()
 
     def is_map_active(self, map_type, layer_id=None):
 
@@ -823,6 +863,15 @@ class Material(object):
             if not tr_state.is_identity():
                 origin.set_tex_transform(tex_stage, tr_state)
 
+            if "normal" in map_type and texture:
+
+                if owner.get_geom_type() != "basic_geom":
+
+                    geom_data_obj = owner.get_geom_object().get_geom_data_object()
+
+                    if not geom_data_obj.has_tangent_space():
+                        geom_data_obj.init_tangent_space()
+
         if self._uses_layers:
 
             layers = [l for group in self._layers.itervalues()
@@ -868,6 +917,13 @@ class Material(object):
         if not self._owner_ids:
             Mgr.do("unregister_material", self)
 
+        if owner.get_geom_type() != "basic_geom":
+
+            geom_data_obj = owner.get_geom_object().get_geom_data_object()
+
+            if geom_data_obj.has_tangent_space():
+                geom_data_obj.clear_tangent_space()
+
     def register(self):
 
         Mgr.do("register_material", self, in_library=True)
@@ -887,6 +943,7 @@ class Material(object):
     def strip(self):
 
         for owner in (Mgr.get("model", owner_id) for owner_id in self._owner_ids):
+
             origin = owner.get_origin()
             origin.clear_material()
             origin.clear_texture()
@@ -894,6 +951,13 @@ class Material(object):
             origin.clear_color_scale()
             origin.set_transparency(TransparencyAttrib.M_none)
             origin.set_color(owner.get_color())
+
+            if owner.get_geom_type() != "basic_geom":
+
+                geom_data_obj = owner.get_geom_object().get_geom_data_object()
+
+                if geom_data_obj.has_tangent_space():
+                    geom_data_obj.clear_tangent_space()
 
         self._owner_ids = []
 

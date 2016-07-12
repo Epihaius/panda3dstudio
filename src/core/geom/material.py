@@ -12,9 +12,9 @@ FILTER_TYPE_IDS = ("nearest", "linear", "nearest_mipmap_nearest", "nearest_mipma
 
 TS = TextureStage
 FXMAP_TYPES = (TS.M_normal, TS.M_height, TS.M_normal_height, TS.M_gloss,
-               TS.M_modulate_gloss, TS.M_glow, TS.M_modulate_glow)
+               TS.M_modulate_gloss, TS.M_normal_gloss, TS.M_glow, TS.M_modulate_glow)
 FXMAP_IDS = ("normal", "height", "normal+height", "gloss",
-             "color+gloss", "glow", "color+glow")
+             "color+gloss", "normal+gloss", "glow", "color+glow")
 BLEND_MODES = (TS.M_modulate, TS.M_replace, TS.M_decal, TS.M_add,
                TS.M_blend, TS.M_blend_color_scale, TS.M_selector)
 BLEND_MODE_IDS = ("modulate", "replace", "decal", "add",

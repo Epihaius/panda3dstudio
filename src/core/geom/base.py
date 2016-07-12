@@ -64,6 +64,16 @@ class GeomDataOwner(BaseObject):
 
         self._geom_data_obj.update_render_mode(is_selected)
 
+    def update_tangent_space(self, flip_tangent, flip_bitangent):
+
+        self._geom_data_obj.flip_tangent(flip_tangent)
+        self._geom_data_obj.flip_bitangent(flip_bitangent)
+        self._geom_data_obj.update_tangent_space()
+
+    def is_tangent_space_initialized(self):
+
+        return self._geom_data_obj.is_tangent_space_initialized()
+
     def set_two_sided(self, two_sided=True):
 
         self._geom_data_obj.get_origin().set_two_sided(two_sided)

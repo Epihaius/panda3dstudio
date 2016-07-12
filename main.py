@@ -10,7 +10,7 @@ class App(object):
         def init_config():
 
             with open("config", "wb") as config_file:
-                config_data = {"texfile_paths": set()}
+                config_data = {"texfile_paths": []}
                 cPickle.dump(config_data, config_file, -1)
 
         def read_config():

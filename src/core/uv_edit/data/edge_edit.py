@@ -18,7 +18,7 @@ class EdgeEditBase(BaseObject):
         merged_edges = self._merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        selected_edges = set([merged_edges[i] for i in selected_edge_ids])
+        selected_edges = set(merged_edges[i] for i in selected_edge_ids)
         verts_to_split = {}
 
         change = False

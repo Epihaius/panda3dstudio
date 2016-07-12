@@ -75,6 +75,7 @@ class UVEditBase(BaseObject):
     def apply_uv_projection(self, vertex_data, uv_set_ids, toplvl=True):
 
         verts = self._subobjs["vert"]
+        tangent_space_needs_update = 0 in uv_set_ids and self._has_tangent_space
         vertex_data_poly = self._vertex_data["poly"]
         uv_readers = {}
 
@@ -83,6 +84,9 @@ class UVEditBase(BaseObject):
             uv_readers[uv_set_id] = GeomVertexReader(vertex_data, column)
 
         if toplvl:
+
+            if tangent_space_needs_update:
+                polys_to_update = None
 
             array = vertex_data.get_array(2 + uv_set_id)
             self._uv_change = verts.iterkeys()
@@ -99,6 +103,9 @@ class UVEditBase(BaseObject):
 
         else:
 
+            if tangent_space_needs_update:
+                polys_to_update = []
+
             polys = self._subobjs["poly"]
             vertex_data_tmp = GeomVertexData(vertex_data_poly)
             uv_writers = {}
@@ -109,8 +116,12 @@ class UVEditBase(BaseObject):
 
             for poly_id in self._selected_subobj_ids["poly"]:
 
-                vert_ids = polys[poly_id].get_vertex_ids()
+                poly = polys[poly_id]
+                vert_ids = poly.get_vertex_ids()
                 self._uv_change.update(vert_ids)
+
+                if tangent_space_needs_update:
+                    polys_to_update.append(poly)
 
                 for vert_id in vert_ids:
 
@@ -131,6 +142,9 @@ class UVEditBase(BaseObject):
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(2 + uv_set_id, GeomVertexArrayData(array))
         vertex_data_poly.set_array(2 + uv_set_id, array)
+
+        if tangent_space_needs_update:
+            self.update_tangent_space(polys_to_update)
 
     def apply_uv_edits(self, vert_ids, uv_set_id):
 
@@ -153,6 +167,11 @@ class UVEditBase(BaseObject):
         array = vertex_data_tmp.get_array(2 + uv_set_id)
         vertex_data_top.set_array(2 + uv_set_id, GeomVertexArrayData(array))
         vertex_data_poly.set_array(2 + uv_set_id, array)
+
+        if uv_set_id == 0 and self._has_tangent_space:
+            polys = self._subobjs["poly"]
+            polys_to_update = set(polys[verts[vert_id].get_polygon_id()] for vert_id in vert_ids)
+            self.update_tangent_space(polys_to_update)
 
     def copy_uvs(self, uv_set_id):
 
@@ -177,6 +196,9 @@ class UVEditBase(BaseObject):
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_top.set_array(2 + uv_set_id, GeomVertexArrayData(array))
         vertex_data_poly.set_array(2 + uv_set_id, array)
+
+        if uv_set_id == 0 and self._has_tangent_space:
+            self.update_tangent_space()
 
     def clear_copied_uvs(self):
 
@@ -220,6 +242,7 @@ class UVEditBase(BaseObject):
             new_time_ids = new_time_ids[i:]
 
         verts = self._subobjs["vert"]
+        polys = self._subobjs["poly"]
 
         data_id = "uv_data"
 
@@ -300,22 +323,44 @@ class UVEditBase(BaseObject):
             uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, "texcoord.%d" % uv_set_id)
 
         uv_sets_to_restore = set()
+        polys_to_update = set()
 
         for vert_id, uvs in uv_data.iteritems():
 
             if vert_id in verts:
 
+                if vert_id in uv_set_ids:
+
+                  # when storing UV-mapping data, only the UVs that were specifically changed for a
+                  # particular UV set are stored, instead of also storing the initial (0., 0.) UVs
+                  # of the remaining UV sets (since there are 8 UV sets in total, this would result
+                  # in a lot of redundant data in most cases);
+                  # when creating a new vertex with initial (0., 0.) UV values, those values are
+                  # not stored so any changed values would not be reset to zero when undoing those
+                  # changes; to remedy this, those UVs must now be explicitly set to (0., 0.)
+                  missing_uv_sets = uv_set_ids[vert_id].difference(uvs.iterkeys())
+
+                  for uv_set_id in missing_uv_sets:
+                      uvs[uv_set_id] = (0., 0.)
+
                 vert = verts[vert_id]
                 row = vert.get_row_index()
 
                 for uv_set_id, uv in uvs.iteritems():
+
                     uv_writer = uv_writers[uv_set_id]
                     uv_writer.set_row(row)
                     uv_writer.set_data2f(uv)
                     uv_sets_to_restore.add(uv_set_id)
+
+                    if uv_set_id == 0 and self._has_tangent_space:
+                        polys_to_update.add(polys[vert.get_polygon_id()])
 
                 vert.set_uvs(uvs)
 
         for uv_set_id in uv_sets_to_restore:
             array = vertex_data_top.get_array(2 + uv_set_id)
             self._vertex_data["poly"].set_array(2 + uv_set_id, GeomVertexArrayData(array))
+
+        if 0 in uv_sets_to_restore and self._has_tangent_space:
+            self.update_tangent_space(polys_to_update)

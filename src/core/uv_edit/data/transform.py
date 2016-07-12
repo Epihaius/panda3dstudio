@@ -63,8 +63,11 @@ class UVDataTransformBase(BaseObject):
     def init_transform(self):
 
         geom_node = self._geoms["poly"]["unselected"].node()
+        bounds = geom_node.get_bounds().make_copy()
+        bounds2 = self._geoms["poly"]["selected"].node().get_bounds()
+        bounds.extend_by(bounds2)
         start_data = self._transf_start_data
-        start_data["bounds"] = geom_node.get_bounds()
+        start_data["bounds"] = bounds
         start_data["pos_array"] = geom_node.get_geom(0).get_vertex_data().get_array(0)
 
     def set_vert_sel_coordinate(self, axis, value):
@@ -171,7 +174,13 @@ class UVDataTransformBase(BaseObject):
 
         else:
 
-            bounds = geom.node().get_bounds()
+            bounds = geom.node().get_bounds().make_copy()
+            array = GeomVertexArrayData(vertex_data.get_array(0))
+            geom2 = self._geoms["poly"]["selected"]
+            vertex_data2 = geom2.node().modify_geom(0).modify_vertex_data()
+            vertex_data2.set_array(0, array)
+            bounds2 = geom2.node().get_bounds()
+            bounds.extend_by(bounds2)
             geom_data_obj = self._geom_data_obj
             geom_verts = geom_data_obj.get_subobjects("vert")
 

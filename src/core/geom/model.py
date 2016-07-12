@@ -43,9 +43,11 @@ class Model(TopLevelObject):
 
         TopLevelObject.__init__(self, "model", model_id, name, origin_pos, has_color=True)
 
-        self.get_property_ids().append("material")
+        self.get_property_ids().extend(["material", "tangent_space"])
         self._material = None
         self._geom_obj = None
+        self._flip_tangent = False
+        self._flip_bitangent = False
 
         self._bbox = Mgr.do("create_bbox", self, bbox_color)
         self._bbox.hide()
@@ -217,7 +219,22 @@ class Model(TopLevelObject):
     def set_property(self, prop_id, value, restore=""):
 
         if prop_id == "material":
-            return self.set_material(value, restore)
+            if restore:
+                task = lambda: self.set_material(value, restore)
+                task_id = "set_material"
+                PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
+                return
+            else:
+                return self.set_material(value, restore)
+
+        if prop_id == "tangent_space":
+            if restore:
+                task = lambda: self.update_tangent_space(*value)
+                task_id = "upd_tangent_space"
+                PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
+                return
+            else:
+                return self.update_tangent_space(*value)
 
         if prop_id in TopLevelObject.get_property_ids(self):
             return TopLevelObject.set_property(self, prop_id, value, restore)
@@ -229,6 +246,9 @@ class Model(TopLevelObject):
 
         if prop_id == "material":
             return self._material
+
+        if prop_id == "tangent_space":
+            return self._flip_tangent, self._flip_bitangent
 
         if prop_id in TopLevelObject.get_property_ids(self):
             return TopLevelObject.get_property(self, prop_id, for_remote_update)
@@ -289,6 +309,21 @@ class Model(TopLevelObject):
 
         if self._geom_obj:
             self._geom_obj.update_render_mode(is_selected)
+
+    def update_tangent_space(self, flip_tangent, flip_bitangent):
+
+        if self._flip_tangent == flip_tangent and self._flip_bitangent == flip_bitangent:
+            if self._geom_obj and not self._geom_obj.is_tangent_space_initialized():
+                self._geom_obj.update_tangent_space(flip_tangent, flip_bitangent)
+            return False
+
+        self._flip_tangent = flip_tangent
+        self._flip_bitangent = flip_bitangent
+
+        if self._geom_obj:
+            self._geom_obj.update_tangent_space(flip_tangent, flip_bitangent)
+
+        return True
 
     def display_link_effect(self):
         """

@@ -16,7 +16,6 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
             model = Mgr.do("create_model", model_id, name, pos)
 
         obj = EditableGeom(model, geom_data_obj)
-        model.set_geom_object(obj)
 
         return obj
 
@@ -27,6 +26,7 @@ class EditableGeom(GeomDataOwner):
 
         data_obj = geom_data_obj if geom_data_obj else Mgr.do("create_geom_data", self)
         GeomDataOwner.__init__(self, [], [], model, data_obj)
+        model.set_geom_object(self)
 
         self._type = "editable_geom"
 

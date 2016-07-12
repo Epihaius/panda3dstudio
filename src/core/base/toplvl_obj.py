@@ -347,8 +347,8 @@ class TopLevelObject(BaseObject):
 
         if update_app:
 
-            sel_colors = tuple(set([obj.get_color() for obj in Mgr.get("selection")
-                                    if obj.has_color()]))
+            sel_colors = tuple(set(obj.get_color() for obj in Mgr.get("selection")
+                                    if obj.has_color()))
             sel_color_count = len(sel_colors)
 
             if sel_color_count == 1:

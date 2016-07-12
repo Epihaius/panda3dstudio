@@ -24,7 +24,6 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1.))
         picking_col_id = self.get_next_picking_color_id()
         basic_geom = BasicGeom(model, geom, picking_col_id)
-        model.set_geom_object(basic_geom)
 
         return basic_geom, picking_col_id
 
@@ -111,7 +110,9 @@ class BasicGeom(BaseObject):
         self._model = model
         self._geom = geom
         self._picking_col_id = picking_col_id
+        self._is_tangent_space_initialized = False
 
+        model.set_geom_object(self)
         model.get_pivot().set_transform(geom.get_transform())
         geom.clear_transform()
         model_orig = model.get_origin()
@@ -138,9 +139,9 @@ class BasicGeom(BaseObject):
                 uv_writer.set_data2f(uv)
 
         if material:
-            self.get_toplevel_object().set_material(material)
+            model.set_material(material)
 
-        color = tuple([random.random() * .5 + .5 for i in range(3)] + [1.])
+        color = tuple([random.random() * .4 + .5 for i in range(3)] + [1.])
         model.set_color(color, update_app=False)
         geom.reparent_to(model_orig)
 
@@ -216,6 +217,124 @@ class BasicGeom(BaseObject):
             return
 
         return intersection_point
+
+    def update_tangent_space(self, flip_tangent, flip_bitangent):
+
+        vertex_data = self._geom.node().modify_geom(0).modify_vertex_data()
+        vert_indices = self._geom.node().get_geom(0).get_primitive(0).get_vertex_list()
+
+        pos_reader = GeomVertexReader(vertex_data, "vertex")
+        normal_reader = GeomVertexReader(vertex_data, "normal")
+        uv_reader = GeomVertexReader(vertex_data, "texcoord")
+        tan_writer = GeomVertexWriter(vertex_data, "tangent")
+        bitan_writer = GeomVertexWriter(vertex_data, "binormal")
+        vert_handlers = (pos_reader, normal_reader, uv_reader, tan_writer, bitan_writer)
+
+        processed_rows = []
+        epsilon = 1.e-010
+
+        for rows in (vert_indices[i:i + 3] for i in xrange(0, len(vert_indices), 3)):
+
+            for row in rows:
+
+                if row in processed_rows:
+                    continue
+
+                other_rows = list(rows)
+                other_rows.remove(row)
+                row1, row2 = other_rows
+
+                for handler in vert_handlers:
+                    handler.set_row(row)
+
+                pos = pos_reader.get_data3f()
+                normal = normal_reader.get_data3f()
+                uv = uv_reader.get_data2f()
+
+                pos_reader.set_row(row1)
+                pos1 = pos_reader.get_data3f()
+                pos_reader.set_row(row2)
+                pos2 = pos_reader.get_data3f()
+                pos_vec1 = pos1 - pos
+                pos_vec2 = pos2 - pos
+
+                uv_reader.set_row(row1)
+                uv1 = uv_reader.get_data2f()
+                uv_reader.set_row(row2)
+                uv2 = uv_reader.get_data2f()
+                uv_vec1 = uv1 - uv
+                uv_vec2 = uv2 - uv
+
+                # compute a vector pointing in the +U direction, in texture space
+                # and in world space
+
+                if abs(uv_vec1.y) < epsilon:
+                    u_vec_local = uv_vec1
+                    u_vec_world = Vec3(pos_vec1)
+                elif abs(uv_vec2.y) < epsilon:
+                    u_vec_local = uv_vec2
+                    u_vec_world = Vec3(pos_vec2)
+                else:
+                    scale = (uv_vec1.y / uv_vec2.y)
+                    u_vec_local = uv_vec1 - uv_vec2 * scale
+                    # u_vec_local.y will be 0 and thus point in the -/+U direction;
+                    # replacing the texture-space vectors with the corresponding
+                    # world-space vectors will therefore yield a world-space U-vector
+                    u_vec_world = pos_vec1 - pos_vec2 * scale
+
+                if u_vec_local.x < 0.:
+                    u_vec_world *= -1.
+
+                # compute a vector pointing in the +V direction, in texture space
+                # and in world space
+
+                if abs(uv_vec1.x) < epsilon:
+                    v_vec_local = uv_vec1
+                    v_vec_world = Vec3(pos_vec1)
+                elif abs(uv_vec2.x) < epsilon:
+                    v_vec_local = uv_vec2
+                    v_vec_world = Vec3(pos_vec2)
+                else:
+                    scale = (uv_vec1.x / uv_vec2.x)
+                    v_vec_local = uv_vec1 - uv_vec2 * scale
+                    # v_vec_local.x will be 0 and thus point in the -/+V direction;
+                    # replacing the texture-space vectors with the corresponding
+                    # world-space vectors will therefore yield a world-space V-vector
+                    v_vec_world = pos_vec1 - pos_vec2 * scale
+
+                if v_vec_local.y < 0.:
+                    v_vec_world *= -1.
+
+                tangent_plane = Plane(normal, Point3())
+                # the tangent vector is the world-space U-vector projected onto
+                # the tangent plane
+                tangent = Vec3(tangent_plane.project(Point3(u_vec_world)))
+
+                if not tangent.normalize():
+                    continue
+
+                # the bitangent vector is the world-space V-vector projected onto
+                # the tangent plane
+                bitangent = Vec3(tangent_plane.project(Point3(v_vec_world)))
+
+                if not bitangent.normalize():
+                    continue
+
+                if flip_tangent:
+                    tangent *= -1.
+
+                if flip_bitangent:
+                    bitangent *= -1.
+
+                tan_writer.set_data3f(tangent)
+                bitan_writer.set_data3f(bitangent)
+                processed_rows.append(row)
+
+        self._is_tangent_space_initialized = True
+
+    def is_tangent_space_initialized(self):
+
+        return self._is_tangent_space_initialized
 
     def get_subobj_selection(self, subobj_lvl):
 

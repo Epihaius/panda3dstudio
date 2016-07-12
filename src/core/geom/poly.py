@@ -263,5 +263,97 @@ class Polygon(BaseObject):
 
         return False
 
+    def update_tangent_space(self, flip_tangent=False, flip_bitangent=False):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+        processed_verts = []
+        epsilon = 1.e-010
+
+        for vert_ids in self._tri_data:
+
+            for vert_id in vert_ids:
+
+                if vert_id in processed_verts:
+                    continue
+
+                vert = verts[vert_id]
+                other_vert_ids = list(vert_ids)
+                other_vert_ids.remove(vert_id)
+                other_verts = [verts[v_id] for v_id in other_vert_ids]
+                pos = vert.get_pos()
+                pos1, pos2 = [v.get_pos() for v in other_verts]
+                pos_vec1 = pos1 - pos
+                pos_vec2 = pos2 - pos
+                uv = Point2(vert.get_uvs(0))
+                uv1, uv2 = [Point2(v.get_uvs(0)) for v in other_verts]
+                uv_vec1 = uv1 - uv
+                uv_vec2 = uv2 - uv
+
+                # compute a vector pointing in the +U direction, in texture space
+                # and in world space
+
+                if abs(uv_vec1.y) < epsilon:
+                    u_vec_local = uv_vec1
+                    u_vec_world = Vec3(pos_vec1)
+                elif abs(uv_vec2.y) < epsilon:
+                    u_vec_local = uv_vec2
+                    u_vec_world = Vec3(pos_vec2)
+                else:
+                    scale = (uv_vec1.y / uv_vec2.y)
+                    u_vec_local = uv_vec1 - uv_vec2 * scale
+                    # u_vec_local.y will be 0 and thus point in the -/+U direction;
+                    # replacing the texture-space vectors with the corresponding
+                    # world-space vectors will therefore yield a world-space U-vector
+                    u_vec_world = pos_vec1 - pos_vec2 * scale
+
+                if u_vec_local.x < 0.:
+                    u_vec_world *= -1.
+
+                # compute a vector pointing in the +V direction, in texture space
+                # and in world space
+
+                if abs(uv_vec1.x) < epsilon:
+                    v_vec_local = uv_vec1
+                    v_vec_world = Vec3(pos_vec1)
+                elif abs(uv_vec2.x) < epsilon:
+                    v_vec_local = uv_vec2
+                    v_vec_world = Vec3(pos_vec2)
+                else:
+                    scale = (uv_vec1.x / uv_vec2.x)
+                    v_vec_local = uv_vec1 - uv_vec2 * scale
+                    # v_vec_local.x will be 0 and thus point in the -/+V direction;
+                    # replacing the texture-space vectors with the corresponding
+                    # world-space vectors will therefore yield a world-space V-vector
+                    v_vec_world = pos_vec1 - pos_vec2 * scale
+
+                if v_vec_local.y < 0.:
+                    v_vec_world *= -1.
+
+                normal = vert.get_normal()
+                tangent_plane = Plane(normal, Point3())
+                # the tangent vector is the world-space U-vector projected onto
+                # the tangent plane
+                tangent = Vec3(tangent_plane.project(Point3(u_vec_world)))
+
+                if not tangent.normalize():
+                    continue
+
+                # the bitangent vector is the world-space V-vector projected onto
+                # the tangent plane
+                bitangent = Vec3(tangent_plane.project(Point3(v_vec_world)))
+
+                if not bitangent.normalize():
+                    continue
+
+                if flip_tangent:
+                    tangent *= -1.
+
+                if flip_bitangent:
+                    bitangent *= -1.
+
+                tangent_space = (tangent, bitangent)
+                vert.set_tangent_space(tangent_space)
+                processed_verts.append(vert_id)
+
 
 MainObjects.add_class(PolygonManager)

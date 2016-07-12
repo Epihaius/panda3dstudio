@@ -66,7 +66,7 @@ class CreationManager(BaseObject):
 
             if self._mode_status != "suspended" or self._creation_type != creation_type:
 
-                Mgr.update_app("selected_obj_type", creation_type)
+                Mgr.update_app("selected_obj_types", (creation_type,))
                 Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", creation_type))
                 obj_prop_defaults = Mgr.get("%s_prop_defaults" % creation_type)
 
@@ -81,17 +81,16 @@ class CreationManager(BaseObject):
 
             selection = Mgr.get("selection")
             count = len(selection)
-            type_checker = lambda obj, base_type: obj.get_geom_type() if base_type == "model" else base_type
-            obj_types = set([type_checker(obj, obj.get_type()) for obj in selection])
-            obj_type = obj_types.pop() if len(obj_types) == 1 else ""
-            Mgr.update_app("selected_obj_type", obj_type)
+            type_checker = lambda obj, main_type: obj.get_geom_type() if main_type == "model" else main_type
+            obj_types = set(type_checker(obj, obj.get_type()) for obj in selection)
+            Mgr.update_app("selected_obj_types", tuple(obj_types))
             Mgr.update_app("selection_count")
 
             if count:
                 label = selection[0].get_name() if count == 1 else "%s Objects selected" % count
                 Mgr.update_remotely("selected_obj_name", label)
 
-            sel_colors = set([obj.get_color() for obj in selection if obj.has_color()])
+            sel_colors = set(obj.get_color() for obj in selection if obj.has_color())
             sel_color_count = len(sel_colors)
 
             if sel_color_count == 1:
@@ -104,6 +103,7 @@ class CreationManager(BaseObject):
             if count == 1:
 
                 obj = selection[0]
+                obj_type = obj_types.pop()
 
                 for prop_id in obj.get_type_property_ids():
                     value = obj.get_property(prop_id, for_remote_update=True)

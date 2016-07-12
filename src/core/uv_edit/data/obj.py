@@ -216,12 +216,12 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             if edge_id in merged_uv_edges:
                 continue
 
-            merged_uvs = set([merged_uv_verts[v_id] for v_id in uv_edge])
+            merged_uvs = set(merged_uv_verts[v_id] for v_id in uv_edge)
             merged_edge = geom_data_obj.get_merged_edge(edge_id)
             merged_uv_edge = MergedEdge(self)
 
             for e_id in merged_edge:
-                if set([merged_uv_verts[v_id] for v_id in edges[e_id]]) == merged_uvs:
+                if set(merged_uv_verts[v_id] for v_id in edges[e_id]) == merged_uvs:
                     merged_uv_edge.append(e_id)
                     merged_uv_edges[e_id] = merged_uv_edge
 

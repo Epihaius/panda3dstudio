@@ -19,7 +19,7 @@ class CreationManager(object):
                     Mgr.update_app("creation", "changed")
                     GlobalData["active_creation_type"] = object_type
                     Mgr.enter_state("creation_mode")
-                    Mgr.update_app("selected_obj_type", object_type)
+                    Mgr.update_app("selected_obj_types", (object_type,))
                     Mgr.update_app("creation", "started")
                     Mgr.update_app("status", "create", object_type, "idle")
 

@@ -167,8 +167,8 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __create_uv_data(self):
 
-        models = set([obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                      and obj.get_geom_type() != "basic_geom"])
+        models = set(obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                     and obj.get_geom_type() != "basic_geom")
         uv_set_id = self._uv_set_id
         self._uv_registry[uv_set_id] = uv_registry = {"vert": {}, "edge": {}, "poly": {}}
         self._uv_data_objs[uv_set_id] = uv_data_objs = {}

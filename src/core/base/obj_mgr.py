@@ -313,7 +313,7 @@ class GeneralObjectManager(BaseObject):
         else:
             event_descr = 'Change %s of objects:\n' % prop_id
             event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
-            event_descr += '\n\nto %s' % value
+            event_descr += '\n\nto %s' % (value,)
 
         event_data = {"objects": obj_data}
 
@@ -340,8 +340,8 @@ class GeneralObjectManager(BaseObject):
         obj_root = Mgr.get("object_root")
         picking_masks = Mgr.get("picking_masks")
 
-        models = set([obj for obj in Mgr.get("selection", "top")
-                      if obj.get_type() == "model" and obj.get_geom_type() == "editable_geom"])
+        models = set(obj for obj in Mgr.get("selection", "top")
+                      if obj.get_type() == "model" and obj.get_geom_type() == "editable_geom")
 
         for model_id in self._sel_before_hist_change:
 
@@ -371,7 +371,7 @@ class GeneralObjectManager(BaseObject):
         if obj_lvl == "top":
             return
 
-        sel_after_hist_change = set([obj.get_id() for obj in Mgr.get("selection", "top")])
+        sel_after_hist_change = set(obj.get_id() for obj in Mgr.get("selection", "top"))
         set_sublvl = False
 
         if sel_after_hist_change == self._sel_before_hist_change:
@@ -405,7 +405,7 @@ class GeneralObjectManager(BaseObject):
             return
 
         self._obj_lvl_before_hist_change = obj_lvl
-        self._sel_before_hist_change = set([obj.get_id() for obj in Mgr.get("selection", "top")])
+        self._sel_before_hist_change = set(obj.get_id() for obj in Mgr.get("selection", "top"))
         task = self.__check_selection
         task_id = "set_obj_level"
         PendingTasks.add(task, task_id, "object")

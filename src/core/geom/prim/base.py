@@ -178,7 +178,7 @@ class Primitive(GeomDataOwner):
             obj_type = "editable_geom"
             geom_data_obj = self.get_geom_data_object()
             Mgr.do("create_%s" % obj_type, self.get_model(), geom_data_obj)
-            Mgr.update_remotely("selected_obj_type", obj_type)
+            Mgr.update_remotely("selected_obj_types", (obj_type,))
 
             return True
 

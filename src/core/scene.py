@@ -235,7 +235,7 @@ class SceneManager(BaseObject):
 
     def __export_to_bam(self, filename):
 
-        objs = set([obj.get_root() for obj in Mgr.get("selection", "top")])
+        objs = set(obj.get_root() for obj in Mgr.get("selection", "top"))
 
         if not objs:
             return
@@ -364,7 +364,7 @@ class SceneManager(BaseObject):
 
     def __export_to_obj(self, filename):
 
-        objs = set([obj.get_root() for obj in Mgr.get("selection", "top")])
+        objs = set(obj.get_root() for obj in Mgr.get("selection", "top"))
 
         if not objs:
             return
@@ -454,6 +454,7 @@ class SceneManager(BaseObject):
 
                 if node_type == "GeomNode":
 
+                    bounds_node = child
                     geom_count = node.get_num_geoms()
 
                     if geom_count > 1:
@@ -487,6 +488,8 @@ class SceneManager(BaseObject):
                             new_node.add_geom(node.modify_geom(0))
                             new_geom = NodePath(new_node)
                             new_geom.set_state(state)
+                            new_geom.set_transform(child.get_transform())
+                            bounds_node = new_geom
 
                         new_geom.node().modify_geom(0).decompose_in_place()
                         basic_geom = Mgr.do("create_basic_geom", new_geom, name)
@@ -503,7 +506,7 @@ class SceneManager(BaseObject):
                                        objs_to_store)
 
                 if obj.get_type() == "model":
-                    obj.get_bbox().update(*child.get_tight_bounds())
+                    obj.get_bbox().update(*bounds_node.get_tight_bounds())
 
                 objs_to_store.append(obj)
 

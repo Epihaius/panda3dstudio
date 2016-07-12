@@ -66,13 +66,13 @@ class TriangulationBase(BaseObject):
 
     def set_pickable(self, is_pickable=True):
 
-        picking_masks = Mgr.get("picking_masks")
-        geom_roots = self._geom_roots
+        picking_masks = Mgr.get("picking_masks")["all"]
+        geom_poly_picking = self._geoms["poly_picking"]
 
         if is_pickable:
-            geom_roots["poly"].show_through(picking_masks["all"])
+            geom_poly_picking.show_through(picking_masks)
         else:
-            geom_roots["poly"].show(picking_masks["all"])
+            geom_poly_picking.show(picking_masks)
 
     def create_triangulation_data(self):
 
@@ -109,11 +109,11 @@ class TriangulationBase(BaseObject):
 
         # Create a temporary geom for diagonals
 
-        render_masks = Mgr.get("render_masks")
-        picking_masks = Mgr.get("picking_masks")
+        render_masks = Mgr.get("render_masks")["all"]
+        picking_masks = Mgr.get("picking_masks")["all"]
         geom_roots = self._geom_roots
-        geom_roots["poly"].show(picking_masks["all"])
         geoms = self._geoms
+        geoms["poly_picking"].show(picking_masks)
 
         count = self._data_row_count
         vertex_format = GeomVertexFormat.get_v3c4()
@@ -147,7 +147,7 @@ class TriangulationBase(BaseObject):
         geom_node = GeomNode("diagonals_geom")
         geom_node.add_geom(lines_geom)
         diagonals_geom = geom_roots["subobj"].attach_new_node(geom_node)
-        diagonals_geom.show_through(render_masks["all"] | picking_masks["all"])
+        diagonals_geom.show_through(render_masks | picking_masks)
         diagonals_geom.set_render_mode_thickness(3)
         diagonals_geom.set_color(.5, .5, .5)
         diagonals_geom.set_light_off()
@@ -162,8 +162,8 @@ class TriangulationBase(BaseObject):
 
     def clear_triangulation_data(self):
 
-        picking_masks = Mgr.get("picking_masks")
-        self._geom_roots["poly"].show_through(picking_masks["all"])
+        picking_masks = Mgr.get("picking_masks")["all"]
+        self._geoms["poly_picking"].show_through(picking_masks)
 
         self._tmp_tris = {}
 
