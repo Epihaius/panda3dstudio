@@ -6,10 +6,8 @@ class Grid(BaseObject):
     def __init__(self):
 
         picking_mask = UVMgr.get("picking_mask")
-        uv_template_mask = UVMgr.get("template_mask")
         self._origin = origin = self.uv_space.attach_new_node("grid")
         origin.hide(picking_mask)
-        origin.hide(uv_template_mask)
         self._grid_lines = grid_lines = self.__create_lines()
         grid_lines.set_bin("background", 2)
         grid_lines.set_depth_write(False)
@@ -35,7 +33,6 @@ class Grid(BaseObject):
         self._background = quad = self.__create_quad()
         quad.reparent_to(self.uv_space)
         quad.hide(picking_mask)
-        quad.hide(uv_template_mask)
         quad.set_light_off()
         quad.set_color_scale(.5)
         quad.set_bin("background", 1)
@@ -45,6 +42,8 @@ class Grid(BaseObject):
         quad.hide()
         self._background_brightness = .5
         self._background_tiling = 0
+        self._background_on_models = False
+        self._material = None
 
         self._scale = 1.
 
@@ -72,6 +71,8 @@ class Grid(BaseObject):
             else:
                 self._background.hide()
             self._background_tex_filename = value
+            if self._background_on_models:
+                self.__show_background_on_models(True)
         elif value_id == "brightness":
             self._background_brightness = value
             self._background.set_color_scale(value)
@@ -80,8 +81,54 @@ class Grid(BaseObject):
             scale = value * 2 + 1
             self._background.set_scale(scale)
             self._background.set_tex_scale(TextureStage.get_default(), scale)
+        elif value_id == "show_on_models":
+            self._background_on_models = value
+            self.__show_background_on_models(value)
 
         Mgr.update_interface_remotely("uv_window", "uv_background", value_id, value)
+
+    def __show_background_on_models(self, show):
+
+        models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                  and obj.get_geom_type() != "basic_geom"]
+
+        if show:
+
+            if self._material:
+                self._material.strip()
+            else:
+                for model in models:
+                    model.get_geom_object().reset_vertex_colors()
+                    origin = model.get_origin()
+                    origin.clear_material()
+                    origin.clear_texture()
+                    origin.clear_tex_transform()
+                    origin.clear_color_scale()
+                    origin.set_transparency(TransparencyAttrib.M_none)
+                    origin.set_color(model.get_color())
+
+            material = Mgr.do("create_material")
+            map_data = {}
+            map_data["map_type"] = "color"
+            map_data["rgb_filename"] = self._background_tex_filename
+            map_data["alpha_filename"] = ""
+            material.set_texture(map_data)
+            self._material = material
+
+            for model in models:
+                material.apply(model)
+
+        elif self._material:
+
+            self._material.strip()
+            self._material = None
+
+            for model in models:
+
+                material = model.get_material()
+
+                if material:
+                    material.apply(model, force=True)
 
     def __create_line(self):
 

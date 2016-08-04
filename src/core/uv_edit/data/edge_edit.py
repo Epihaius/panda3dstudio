@@ -8,12 +8,12 @@ class EdgeEditBase(BaseObject):
     def split_edges(self):
 
         selection_ids = self._selected_subobj_ids
+        selected_vert_ids = selection_ids["vert"]
         selected_edge_ids = selection_ids["edge"]
 
         if not selected_edge_ids:
             return False
 
-        selected_vert_ids = selection_ids["vert"]
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
         verts = self._subobjs["vert"]
@@ -22,6 +22,7 @@ class EdgeEditBase(BaseObject):
         verts_to_split = {}
 
         change = False
+        seam_edge_ids = []
         update_verts_to_transf = False
         update_polys_to_transf = False
         poly_verts_to_transf = self._verts_to_transf["poly"]
@@ -31,8 +32,7 @@ class EdgeEditBase(BaseObject):
         # encountered (in this case, the vertex cannot be split), or a different
         # selected edge or border edge is encountered (if so, the vertex can be split);
         # if at least one of the vertices of an edge can be split, the edge itself
-        # can be split;
-        # border edges cannot be split
+        # can be split (unless it is a border edge)
         for merged_edge in selected_edges:
 
             if len(merged_edge) == 1:
@@ -94,7 +94,11 @@ class EdgeEditBase(BaseObject):
 
             if vert_split:
 
+                # it is possible that only vertices are split, without splitting any edges,
+                # e.g. when trying to split two border edges that meet at a vertex that is
+                # shared with other border edges
                 if len(merged_edge) > 1:
+                    seam_edge_ids.extend([edge1_id, edge2_id])
                     new_merged_edge = MergedEdge(self)
                     new_merged_edge.append(edge1_id)
                     merged_edge.remove(edge1_id)
@@ -122,6 +126,8 @@ class EdgeEditBase(BaseObject):
                         if merged_vert in poly_verts_to_transf:
                             update_polys_to_transf = True
 
+            UVMgr.do("update_active_selection")
+
             if update_verts_to_transf:
                 self._update_verts_to_transform("vert")
 
@@ -129,6 +135,17 @@ class EdgeEditBase(BaseObject):
 
             if update_polys_to_transf:
                 self._update_verts_to_transform("poly")
+
+            if seam_edge_ids:
+
+                self.add_seam_edges(seam_edge_ids)
+
+                seam_edges_to_select = set(seam_edge_ids) & set(selected_edge_ids)
+
+                if seam_edges_to_select:
+                    color = UVMgr.get("uv_selection_colors")["seam"]["selected"]
+                    self.update_seam_selection(seam_edges_to_select, color)
+                    self._geom_data_obj.update_tex_seam_selection(seam_edges_to_select, color)
 
         return change
 

@@ -6,6 +6,8 @@ class PolygonDetachBase(BaseObject):
     def detach_polygons(self):
 
         selection_ids = self._selected_subobj_ids
+        selected_vert_ids = selection_ids["vert"]
+        selected_edge_ids = selection_ids["edge"]
         selected_poly_ids = selection_ids["poly"]
 
         if not selected_poly_ids:
@@ -16,8 +18,11 @@ class PolygonDetachBase(BaseObject):
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         polys = self._subobjs["poly"]
-        verts_to_separate = set()
-        edges_to_split = []
+        border_verts = set()
+        border_edges = []
+        update_edges_to_transf = False
+        update_verts_to_transf = False
+        merged_verts_to_resmooth = set()
         selected_polys = (polys[i] for i in selected_poly_ids)
 
         change = False
@@ -28,105 +33,63 @@ class PolygonDetachBase(BaseObject):
 
                 merged_edge = merged_edges[edge_id]
 
-                if len(merged_edge) == 1:
+                if merged_edge in border_edges:
+                    border_edges.remove(merged_edge)
+                else:
+                    border_edges.append(merged_edge)
 
-                    # Even a border edge might still touch a non-selected poly in one of
-                    # its vertices.
+        for merged_edge in border_edges:
 
-                    edge = edges[edge_id]
+            edge_ids = merged_edge[:]
 
-                    for edge_vert_id in edge:
-
-                        merged_vert = merged_verts[edge_vert_id]
-
-                        for vert_id in merged_vert:
-
-                            vert = verts[vert_id]
-
-                            if vert.get_polygon_id() not in selected_poly_ids:
-                                verts_to_separate.add(merged_vert)
-                                change = True
-                                break
-
-                    continue
-
-                edge1_id, edge2_id = merged_edge
-                other_edge_id = edge1_id if edge_id == edge2_id else edge2_id
-                other_edge = edges[other_edge_id]
-
-                if other_edge.get_polygon_id() in selected_poly_ids:
-                    continue
-
-                edges_to_split.append(edge_id)
-
-                change = True
-
-        if change:
-
-            new_merged_verts = {}
-            merged_verts_to_update = set()
-            selected_vert_ids = selection_ids["vert"]
-            selected_edge_ids = selection_ids["edge"]
-            update_verts_to_transf = False
-            update_edges_to_transf = False
-
-            def split_merged_vertex(old_merged_vert, new_merged_vert):
-
-                for vert_id in old_merged_vert[:]:
-
-                    vert = verts[vert_id]
-
-                    if vert.get_polygon_id() in selected_poly_ids:
-                        old_merged_vert.remove(vert_id)
-                        new_merged_vert.append(vert_id)
-                        merged_verts[vert_id] = new_merged_vert
-
-            for edge_id in edges_to_split:
-
-                merged_edge = merged_edges[edge_id]
-                new_merged_edge = Mgr.do("create_merged_edge", self, edge_id)
-                merged_edge.remove(edge_id)
-                merged_edges[edge_id] = new_merged_edge
-
-                if edge_id in selected_edge_ids:
-                    update_edges_to_transf = True
+            for edge_id in edge_ids:
 
                 edge = edges[edge_id]
 
                 for vert_id in edge:
+                    border_verts.add(merged_verts[vert_id])
 
-                    merged_vert = merged_verts[vert_id]
+                if len(merged_edge) == 1:
+                    continue
 
-                    if merged_vert in new_merged_verts:
-                        new_merged_vert = new_merged_verts[merged_vert]
-                    else:
-                        new_merged_vert = Mgr.do("create_merged_vert", self)
-                        new_merged_verts[merged_vert] = new_merged_vert
+                if edge.get_polygon_id() in selected_poly_ids:
+                    merged_edge.remove(edge_id)
+                    new_merged_edge = Mgr.do("create_merged_edge", self, edge_id)
+                    merged_edges[edge_id] = new_merged_edge
+                    change = True
 
-                    merged_vert.remove(vert_id)
-                    new_merged_vert.append(vert_id)
-                    merged_verts[vert_id] = new_merged_vert
-                    merged_verts_to_update.add(merged_vert)
-                    merged_verts_to_update.add(new_merged_vert)
-                    split_merged_vertex(merged_vert, new_merged_vert)
+        for merged_vert in border_verts:
 
-                    if vert_id in selected_vert_ids:
-                        update_verts_to_transf = True
+            remaining_vert_ids = [v_id for v_id in merged_vert
+                                  if verts[v_id].get_polygon_id() not in selected_poly_ids]
 
-            for merged_vert in verts_to_separate:
+            if not remaining_vert_ids:
+                continue
 
-                if merged_vert not in new_merged_verts:
+            if merged_vert.get_id() in selected_vert_ids:
+                update_verts_to_transf = True
 
-                    new_merged_vert = Mgr.do("create_merged_vert", self)
-                    new_merged_verts[merged_vert] = new_merged_vert
-                    merged_verts_to_update.add(merged_vert)
-                    merged_verts_to_update.add(new_merged_vert)
-                    split_merged_vertex(merged_vert, new_merged_vert)
+            for vert_id in merged_vert:
 
-                    if merged_vert[0] in selected_vert_ids:
-                        update_verts_to_transf = True
+                edge_ids = verts[vert_id].get_edge_ids()
 
-            self._update_vertex_normals(merged_verts_to_update)
+                if edge_ids[0] in selected_edge_ids or edge_ids[1] in selected_edge_ids:
+                    update_edges_to_transf = True
+
+            new_merged_vert = Mgr.do("create_merged_vert", self)
+            merged_verts_to_resmooth.add(merged_vert)
+            merged_verts_to_resmooth.add(new_merged_vert)
+
+            for vert_id in [v_id for v_id in merged_vert if v_id not in remaining_vert_ids]:
+                merged_vert.remove(vert_id)
+                new_merged_vert.append(vert_id)
+                merged_verts[vert_id] = new_merged_vert
+
+            change = True
+
+        if change:
+
+            self._update_vertex_normals(merged_verts_to_resmooth)
 
             if update_verts_to_transf:
                 self._update_verts_to_transform("vert")

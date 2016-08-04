@@ -8,6 +8,7 @@ class GeomTransformBase(BaseObject):
         self._verts_to_transf = {"vert": {}, "edge": {}, "poly": {}}
         self._rows_to_transf = {"vert": None, "edge": None, "poly": None}
         self._transf_start_data = {"bounds": None, "pos_array": None}
+        self._pos_arrays = {"main": None, "edge": None}
 
     def _update_verts_to_transform(self, subobj_lvl):
 
@@ -77,7 +78,29 @@ class GeomTransformBase(BaseObject):
         geom_node_top = self._toplvl_node
         start_data = self._transf_start_data
         start_data["bounds"] = geom_node_top.get_bounds()
-        start_data["pos_array"] = geom_node_top.get_geom(0).get_vertex_data().get_array(0)
+        pos_array = geom_node_top.modify_geom(0).modify_vertex_data().modify_array(0)
+        start_data["pos_array"] = GeomVertexArrayData(pos_array)
+
+        for geom_type in ("poly", "poly_picking"):
+            vertex_data = self._vertex_data[geom_type]
+            vertex_data.set_array(0, pos_array)
+
+        geoms = self._geoms
+
+        vertex_data = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        vertex_data = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        self._pos_arrays["main"] = pos_array
+
+        pos_array = GeomVertexArrayData(pos_array)
+        handle = pos_array.modify_handle()
+        handle.set_data(handle.get_data() * 2)
+        vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        self._pos_arrays["edge"] = pos_array
 
     def set_vert_sel_coordinate(self, axis, value):
 
@@ -90,7 +113,7 @@ class GeomTransformBase(BaseObject):
         ref_node = self.__get_ref_node()
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         tmp_vertex_data = GeomVertexData(vertex_data_top)
-        tmp_vertex_data.set_array(0, self._transf_start_data["pos_array"])
+        tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
         index = "xyz".index(axis)
         pos_rewriter = GeomVertexRewriter(tmp_vertex_data, "vertex")
 
@@ -103,18 +126,15 @@ class GeomTransformBase(BaseObject):
                 pos = origin.get_relative_point(ref_node, pos)
                 pos_rewriter.set_data3f(pos)
 
-        array = tmp_vertex_data.get_array(0)
-        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
-        vertex_data_top.set_array(0, array)
+        pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
+        vertex_data_top.set_array(0, pos_array)
 
-        for subobj_type in ("vert", "poly"):
-            vertex_data = self._vertex_data[subobj_type]
-            vertex_data.set_array(0, array)
+        handle = self._pos_arrays["main"].modify_handle()
+        data = pos_array.get_handle().get_data()
+        handle.set_data(data)
 
-        array = GeomVertexArrayData(array)
-        handle = array.modify_handle()
-        handle.set_data(handle.get_data() * 2)
-        self._vertex_data["edge"].set_array(0, array)
+        handle = self._pos_arrays["edge"].modify_handle()
+        handle.set_data(data * 2)
 
     def transform_selection(self, subobj_lvl, transf_type, value):
 
@@ -127,7 +147,7 @@ class GeomTransformBase(BaseObject):
         transf_center_pos = self.__get_transf_center_pos()
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         tmp_vertex_data = GeomVertexData(vertex_data_top)
-        tmp_vertex_data.set_array(0, self._transf_start_data["pos_array"])
+        tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
 
         if transf_type == "translate":
 
@@ -158,17 +178,15 @@ class GeomTransformBase(BaseObject):
             mat *= offset_mat
 
         tmp_vertex_data.transform_vertices(mat, rows)
-        array = tmp_vertex_data.get_array(0)
-        vertex_data_top.set_array(0, array)
+        pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
+        vertex_data_top.set_array(0, pos_array)
 
-        for geom_type in ("vert", "poly", "poly_picking"):
-            vertex_data = self._vertex_data[geom_type]
-            vertex_data.set_array(0, array)
+        handle = self._pos_arrays["main"].modify_handle()
+        data = pos_array.get_handle().get_data()
+        handle.set_data(data)
 
-        array = GeomVertexArrayData(array)
-        handle = array.modify_handle()
-        handle.set_data(handle.get_data() * 2)
-        self._vertex_data["edge"].set_array(0, array)
+        handle = self._pos_arrays["edge"].modify_handle()
+        handle.set_data(data * 2)
 
     def finalize_transform(self, cancelled=False):
 
@@ -183,13 +201,15 @@ class GeomTransformBase(BaseObject):
             pos_array = start_data["pos_array"]
             vertex_data_top.set_array(0, pos_array)
 
-            for geom_type in ("vert", "poly", "poly_picking"):
+            for geom_type in ("poly", "poly_picking"):
                 self._vertex_data[geom_type].set_array(0, pos_array)
 
-            pos_array = GeomVertexArrayData(pos_array)
-            handle = pos_array.modify_handle()
-            handle.set_data(handle.get_data() * 2)
-            self._vertex_data["edge"].set_array(0, pos_array)
+            handle = self._pos_arrays["main"].modify_handle()
+            data = pos_array.get_handle().get_data()
+            handle.set_data(data)
+
+            handle = self._pos_arrays["edge"].modify_handle()
+            handle.set_data(data * 2)
 
         else:
 
@@ -224,6 +244,7 @@ class GeomTransformBase(BaseObject):
         self._origin.node().set_bounds(bounds)
         self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
         start_data.clear()
+        self._pos_arrays = {"main": None, "edge": None}
 
     def _restore_subobj_transforms(self, old_time_id, new_time_id):
 
@@ -331,14 +352,24 @@ class GeomTransformBase(BaseObject):
 
         pos_array = vertex_data_top.get_array(0)
 
-        for geom_type in ("vert", "poly", "poly_picking"):
+        for geom_type in ("poly", "poly_picking"):
             vertex_data = self._vertex_data[geom_type]
             vertex_data.set_array(0, pos_array)
+
+        geoms = self._geoms
+
+        vertex_data = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        vertex_data = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
 
         pos_array = GeomVertexArrayData(pos_array)
         handle = pos_array.modify_handle()
         handle.set_data(handle.get_data() * 2)
-        self._vertex_data["edge"].set_array(0, pos_array)
+        vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
 
         vert_ids = []
 

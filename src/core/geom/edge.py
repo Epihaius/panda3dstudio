@@ -122,8 +122,10 @@ class Edge(BaseObject):
     def get_row_indices(self):
 
         verts = self._geom_data_obj.get_subobjects("vert")
+        count = len(verts)
+        r1, r2 = (verts[vert_id].get_row_index() for vert_id in self._vert_ids)
 
-        return [verts[vert_id].get_row_index() for vert_id in self._vert_ids]
+        return [r1, r2 + count]
 
     def reverse_vertex_order(self):
 
@@ -241,6 +243,16 @@ class MergedEdge(object):
         edges = self._geom_data_obj.get_subobjects("edge")
 
         return [edges[e_id].get_start_row_index() for e_id in self._ids]
+
+    def get_row_indices(self):
+
+        edges = self._geom_data_obj.get_subobjects("edge")
+        row_indices = []
+
+        for e_id in self._ids:
+            row_indices.extend(edges[e_id].get_row_indices())
+
+        return row_indices
 
     def set_geom_data_object(self, geom_data_obj):
 

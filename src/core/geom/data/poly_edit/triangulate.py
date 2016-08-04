@@ -111,9 +111,8 @@ class TriangulationBase(BaseObject):
 
         render_masks = Mgr.get("render_masks")["all"]
         picking_masks = Mgr.get("picking_masks")["all"]
-        geom_roots = self._geom_roots
         geoms = self._geoms
-        geoms["poly_picking"].show(picking_masks)
+        geoms["poly"]["pickable"].show(picking_masks)
 
         count = self._data_row_count
         vertex_format = GeomVertexFormat.get_v3c4()
@@ -146,7 +145,7 @@ class TriangulationBase(BaseObject):
         lines_geom.add_primitive(lines_prim)
         geom_node = GeomNode("diagonals_geom")
         geom_node.add_geom(lines_geom)
-        diagonals_geom = geom_roots["subobj"].attach_new_node(geom_node)
+        diagonals_geom = self._origin.attach_new_node(geom_node)
         diagonals_geom.show_through(render_masks | picking_masks)
         diagonals_geom.set_render_mode_thickness(3)
         diagonals_geom.set_color(.5, .5, .5)
@@ -163,7 +162,7 @@ class TriangulationBase(BaseObject):
     def clear_triangulation_data(self):
 
         picking_masks = Mgr.get("picking_masks")["all"]
-        self._geoms["poly_picking"].show_through(picking_masks)
+        self._geoms["poly"]["pickable"].show_through(picking_masks)
 
         self._tmp_tris = {}
 
@@ -237,12 +236,10 @@ class TriangulationBase(BaseObject):
 
         # Update the geoms
 
-        count = self._data_row_count
         diagonals_geom = self._tmp_geom
-        geom_roots = self._geom_roots
         geom_poly_selected = self._geoms["poly"]["selected"]
         geom_node_top = self._toplvl_node
-        sel_state = self._subobj_sel_state["poly"]["selected"]
+        sel_data = self._poly_selection_data["selected"]
         start_row = diagonal.get_start_row_index()
 
         # Update the temporary diagonals geom
@@ -254,7 +251,7 @@ class TriangulationBase(BaseObject):
         for vert_id in new_vert_ids:
             pos_writer.set_data3f(verts[vert_id].get_pos())
 
-        # Update the selected polys geom and shaded top-level geom
+        # Update the selected polys geom and top-level geom
 
         prim_poly_sel = geom_poly_selected.node().modify_geom(0).modify_primitive(0)
         stride = prim_poly_sel.get_index_stride()
@@ -275,7 +272,7 @@ class TriangulationBase(BaseObject):
             handle.set_subdata(start_row * stride, 3 * stride, data)
             top_data = top_data.replace(old_data, data)
             new_tri_data[index] = new_tri_vert_ids
-            sel_state[start_row / 3] = new_tri_vert_ids
+            sel_data[start_row / 3] = new_tri_vert_ids
 
         top_handle.set_data(top_data)
 
@@ -390,9 +387,9 @@ class TriangulationBase(BaseObject):
         array_top = geom_node_top.modify_primitive(0).modify_vertices()
         handle_top = array_top.modify_handle()
 
-        poly_sel_state = self._subobj_sel_state["poly"]
-        sel_state_selected = poly_sel_state["selected"]
-        sel_state_unselected = poly_sel_state["unselected"]
+        poly_sel_data = self._poly_selection_data
+        data_selected = poly_sel_data["selected"]
+        data_unselected = poly_sel_data["unselected"]
 
         ordered_polys = self._ordered_polys
         selected_poly_ids = self._selected_subobj_ids["poly"]
@@ -423,16 +420,16 @@ class TriangulationBase(BaseObject):
                 handle_top.set_subdata(row_offset * stride, size * stride, data)
 
                 if poly.get_id() in selected_poly_ids:
-                    sel_state = sel_state_selected
+                    sel_data = data_selected
                     handle = handle_selected
                 else:
-                    sel_state = sel_state_unselected
+                    sel_data = data_unselected
                     handle = handle_unselected
 
-                start = sel_state.index(poly[0])
+                start = sel_data.index(poly[0])
 
                 for i, tri_verts in enumerate(tri_data):
-                    sel_state[start + i] = tri_verts
+                    sel_data[start + i] = tri_verts
 
                 handle.set_subdata(start * 3 * stride, size * stride, data)
                 poly.set_triangle_data(tri_data)
@@ -513,6 +510,8 @@ class TriangulationManager(BaseObject):
 
     def __enter_diagonal_turning_mode(self, prev_state_id, is_active):
 
+        GlobalData["active_transform_type"] = ""
+        Mgr.update_app("active_transform_type", "")
         Mgr.add_task(self._update_cursor, "update_diagonal_turning_cursor")
         Mgr.update_app("status", "turn_diagonal")
 

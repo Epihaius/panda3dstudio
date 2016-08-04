@@ -32,8 +32,7 @@ class Vertex(BaseObject):
         data_copy["edge_ids"] = self._edge_ids[:]
         data_copy["poly_id"] = self._poly_id
         data_copy["data"] = self._data.copy()
-        vert = Vertex(self._id, self._picking_col_id,
-                      None, self._pos, data_copy)
+        vert = Vertex(self._id, self._picking_col_id, None, self._pos, data_copy)
 
         return vert
 
@@ -185,6 +184,12 @@ class MergedVertex(object):
         vert = self._uv_data_obj.get_subobject("vert", self._ids[0])
 
         return vert.get_picking_color_id() if vert else None
+
+    def get_picking_color_ids(self):
+
+        verts = self._uv_data_obj.get_subobjects("vert")
+
+        return [verts[v_id].get_picking_color_id() for v_id in self._ids]
 
     def get_polygon_ids(self):
 

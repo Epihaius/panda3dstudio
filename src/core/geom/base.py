@@ -7,7 +7,7 @@ class GeomDataOwner(BaseObject):
 
         state = self.__dict__.copy()
         state["_model"] = None
-        state["_geom_data_obj"] = {}
+        state["_geom_data_obj"] = None
 
         return state
 
@@ -73,6 +73,14 @@ class GeomDataOwner(BaseObject):
     def is_tangent_space_initialized(self):
 
         return self._geom_data_obj.is_tangent_space_initialized()
+
+    def bake_texture(self, texture):
+
+        self._geom_data_obj.bake_texture(texture)
+
+    def reset_vertex_colors(self):
+
+        self._geom_data_obj.reset_vertex_colors()
 
     def set_two_sided(self, two_sided=True):
 

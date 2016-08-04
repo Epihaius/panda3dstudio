@@ -7,7 +7,9 @@ class VertexEditBase(BaseObject):
 
     def break_vertices(self):
 
-        selected_vert_ids = self._selected_subobj_ids["vert"]
+        selection_ids = self._selected_subobj_ids
+        selected_vert_ids = selection_ids["vert"]
+        selected_edge_ids = selection_ids["edge"]
 
         if not selected_vert_ids:
             return False
@@ -19,6 +21,7 @@ class VertexEditBase(BaseObject):
         edges_to_split = set()
 
         change = False
+        seam_edge_ids = []
         update_edges_to_transf = False
         update_polys_to_transf = False
         edge_verts_to_transf = self._verts_to_transf["edge"]
@@ -51,6 +54,8 @@ class VertexEditBase(BaseObject):
             if len(merged_edge) == 1:
                 continue
 
+            seam_edge_ids.extend(merged_edge[:])
+
             for edge_id in merged_edge[1:]:
                 merged_edge.remove(edge_id)
                 new_merged_edge = MergedEdge(self)
@@ -59,12 +64,32 @@ class VertexEditBase(BaseObject):
 
         if change:
 
+            UVMgr.do("update_active_selection")
+
             self._update_verts_to_transform("vert")
 
             if update_edges_to_transf:
                 self._update_verts_to_transform("edge")
+
             if update_polys_to_transf:
                 self._update_verts_to_transform("poly")
+
+            if seam_edge_ids:
+
+                self.add_seam_edges(seam_edge_ids)
+
+                seam_edges_to_select = set(seam_edge_ids) & set(selected_edge_ids)
+                seam_edges_to_unselect = set(seam_edge_ids) - set(selected_edge_ids)
+
+                if seam_edges_to_select:
+                    color = UVMgr.get("uv_selection_colors")["seam"]["selected"]
+                    self.update_seam_selection(seam_edges_to_select, color)
+                    self._geom_data_obj.update_tex_seam_selection(seam_edges_to_select, color)
+
+                if seam_edges_to_unselect:
+                    color = UVMgr.get("uv_selection_colors")["seam"]["unselected"]
+                    self.update_seam_selection(seam_edges_to_unselect, color)
+                    self._geom_data_obj.update_tex_seam_selection(seam_edges_to_unselect, color)
 
         return change
 

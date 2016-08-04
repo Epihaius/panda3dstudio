@@ -51,7 +51,8 @@ class Material(object):
             self._tex_maps = tex_maps
         else:
             map_types = ("color", "normal", "height", "normal+height", "gloss",
-                         "color+gloss", "normal+gloss", "glow", "color+glow")
+                         "color+gloss", "normal+gloss", "glow", "color+glow",
+                         "vertex color")
             self._tex_maps = dict((t, Mgr.do("create_tex_map", t))
                                   for t in map_types)
             self._tex_maps["color"].set_active(True)
@@ -614,17 +615,27 @@ class Material(object):
 
         if apply_map:
 
+            owners = [Mgr.get("model", owner_id) for owner_id in self._owner_ids]
+
+            if map_type == "vertex color":
+
+                if texture:
+                    for owner in owners:
+                        owner.get_geom_object().bake_texture(texture)
+                else:
+                    for owner in owners:
+                        owner.get_geom_object().reset_vertex_colors()
+
+                return
+
             if texture:
 
-                for owner_id in self._owner_ids:
-                    owner = Mgr.get("model", owner_id)
+                for owner in owners:
                     owner.get_origin().set_texture(tex_stage, texture)
 
                 if "normal" in map_type and tex_map.is_active():
 
-                    for owner_id in self._owner_ids:
-
-                        owner = Mgr.get("model", owner_id)
+                    for owner in owners:
 
                         if owner.get_geom_type() != "basic_geom":
 
@@ -635,8 +646,7 @@ class Material(object):
 
             else:
 
-                for owner_id in self._owner_ids:
-                    owner = Mgr.get("model", owner_id)
+                for owner in owners:
                     owner.get_origin().clear_texture(tex_stage)
 
     def get_texture(self, map_type, layer_id=None):
@@ -674,7 +684,7 @@ class Material(object):
         else:
             tex_map = Mgr.get("tex_layer", layer_id)
 
-        if not tex_map:
+        if not tex_map or map_type == "vertex color":
             return
 
         tex_map.set_transform(transf_type, comp_index, value)
@@ -746,35 +756,45 @@ class Material(object):
         is_color_map = map_type in ("color", "layer")
         is_color_map_used = self._uses_layers != (layer_id is None)
         apply_map = not is_color_map or is_color_map_used
+        texture = tex_map.get_texture()
 
-        if apply_map:
+        if apply_map and texture:
+
+            owners = [Mgr.get("model", owner_id) for owner_id in self._owner_ids]
+
+            if map_type == "vertex color":
+
+                if is_active:
+                    for owner in owners:
+                        owner.get_geom_object().bake_texture(texture)
+                else:
+                    for owner in owners:
+                        owner.get_geom_object().reset_vertex_colors()
+
+                return
 
             tex_stage = tex_map.get_tex_stage()
 
             if is_active:
-                texture = tex_map.get_texture()
                 t = tex_map.get_transform()
                 tr_state = TransformState.make_pos_rotate_scale2d(VBase2(*t["offset"]),
                                                                   t["rotate"][0],
                                                                   VBase2(*t["scale"]))
-                handle_tex = lambda origin: (origin.set_texture(tex_stage, texture)
-                                             if texture else None)
+                handle_tex = lambda origin: origin.set_texture(tex_stage, texture)
                 handle_transform = lambda origin: (origin.set_tex_transform(tex_stage, tr_state)
                                                    if not tr_state.is_identity() else None)
             else:
                 handle_tex = lambda origin: origin.clear_texture(tex_stage)
                 handle_transform = lambda origin: origin.clear_tex_transform(tex_stage)
 
-            for owner_id in self._owner_ids:
-                origin = Mgr.get("model", owner_id).get_origin()
+            for owner in owners:
+                origin = owner.get_origin()
                 handle_tex(origin)
                 handle_transform(origin)
 
-            if is_active and "normal" in map_type and texture:
+            if is_active and "normal" in map_type:
 
-                for owner_id in self._owner_ids:
-
-                    owner = Mgr.get("model", owner_id)
+                for owner in owners:
 
                     if owner.get_geom_type() != "basic_geom":
 
@@ -806,8 +826,8 @@ class Material(object):
     def clear_tex_maps(self):
 
         change = False
-        origins = [Mgr.get("model", owner_id).get_origin()
-                   for owner_id in self._owner_ids]
+        owners = [Mgr.get("model", owner_id) for owner_id in self._owner_ids]
+        origins = [owner.get_origin() for owner in owners]
 
         for map_type, tex_map in self._tex_maps.iteritems():
 
@@ -815,6 +835,13 @@ class Material(object):
 
                 tex_map.set_texture()
                 change = True
+
+                if map_type == "vertex color":
+
+                    for owner in owners:
+                        owner.reset_vertex_colors()
+
+                    continue
 
                 if map_type == "color" and self._uses_layers:
                     continue
@@ -851,6 +878,16 @@ class Material(object):
                 continue
 
             texture = tex_map.get_texture()
+
+            if map_type == "vertex color":
+
+                if texture:
+                    owner.get_geom_object().bake_texture(texture)
+                else:
+                    owner.get_geom_object().reset_vertex_colors()
+
+                continue
+
             tex_stage = tex_map.get_tex_stage()
             t = tex_map.get_transform()
             tr_state = TransformState.make_pos_rotate_scale2d(VBase2(*t["offset"]),
@@ -902,6 +939,7 @@ class Material(object):
         if not owner_id in self._owner_ids:
             return
 
+        owner.get_geom_object().reset_vertex_colors()
         origin = owner.get_origin()
 
         if origin:
@@ -944,6 +982,7 @@ class Material(object):
 
         for owner in (Mgr.get("model", owner_id) for owner_id in self._owner_ids):
 
+            owner.get_geom_object().reset_vertex_colors()
             origin = owner.get_origin()
             origin.clear_material()
             origin.clear_texture()
@@ -960,6 +999,7 @@ class Material(object):
                     geom_data_obj.clear_tangent_space()
 
         self._owner_ids = []
+        Mgr.do("unregister_material", self)
 
 
 class MaterialManager(object):
@@ -1397,7 +1437,10 @@ class MaterialManager(object):
     def __set_library(self, library):
 
         Mgr.update_remotely("material_library", "clear")
+        dupe_handling = self._dupe_handling
+        self._dupe_handling = "replace"
         self.__load_library(library=library)
+        self._dupe_handling = dupe_handling
 
     def __update_library(self, update_type, filename=None):
 

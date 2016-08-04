@@ -235,7 +235,9 @@ class UVTemplateSaver(BaseObject):
         self._size = 512
         self._edge_color = VBase4(1., 1., 1., 1.)
         self._poly_color = VBase4(1., 1., 1., 0.)
+        self._seam_color = VBase4(0., 1., 0., 1.)
         UVMgr.expose("template_mask", lambda: self._template_mask)
+        self.uv_space.hide(self._template_mask)
 
         def update_remotely():
 
@@ -246,6 +248,9 @@ class UVTemplateSaver(BaseObject):
             r, g, b, a = self._poly_color
             Mgr.update_interface_remotely("uv_window", "uv_template", "poly_rgb", (r, g, b))
             Mgr.update_interface_remotely("uv_window", "uv_template", "poly_alpha", a)
+            r, g, b, a = self._seam_color
+            Mgr.update_interface_remotely("uv_window", "uv_template", "seam_rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv_window", "uv_template", "seam_alpha", a)
 
         UVMgr.accept("remotely_update_template_props", update_remotely)
 
@@ -267,6 +272,11 @@ class UVTemplateSaver(BaseObject):
                 self._poly_color[i] = value[i]
         elif value_id == "poly_alpha":
             self._poly_color[3] = value
+        elif value_id == "seam_rgb":
+            for i in range(3):
+                self._seam_color[i] = value[i]
+        elif value_id == "seam_alpha":
+            self._seam_color[3] = value
         elif value_id == "save":
             self.__save_uv_template(value)
 
@@ -274,6 +284,8 @@ class UVTemplateSaver(BaseObject):
             Mgr.update_interface_remotely("uv_window", "uv_template", value_id, value)
 
     def __save_uv_template(self, filename):
+
+        UVMgr.do("clear_unselected_poly_state")
 
         res = self._size
         core = Mgr.get("core")
@@ -298,29 +310,32 @@ class UVTemplateSaver(BaseObject):
         node.set_lens(lens)
         node.set_tag_state_key("uv_template")
 
-        state_np = NodePath("uv_template_edge_state")
+        state_np = NodePath("uv_template_render_state")
         state_np.set_texture_off()
         state_np.set_material_off()
         state_np.set_shader_off()
         state_np.set_light_off()
-        state_np.set_color(self._edge_color)
         state_np.set_transparency(TransparencyAttrib.M_alpha)
-        node.set_tag_state("edge", state_np.get_state())
 
-        state_np = NodePath("uv_template_poly_state")
-        state_np.set_texture_off()
-        state_np.set_material_off()
-        state_np.set_shader_off()
-        state_np.set_light_off()
-        state_np.set_two_sided(True)
-        state_np.set_color(self._poly_color)
-        state_np.set_transparency(TransparencyAttrib.M_alpha)
-        node.set_tag_state("poly", state_np.get_state())
+        edge_state_np = NodePath(state_np.node().make_copy())
+        edge_state_np.set_color(self._edge_color)
+        node.set_tag_state("edge", edge_state_np.get_state())
+
+        poly_state_np = NodePath(state_np.node().make_copy())
+        poly_state_np.set_two_sided(True)
+        poly_state_np.set_color(self._poly_color)
+        node.set_tag_state("poly", poly_state_np.get_state())
+
+        seam_state_np = NodePath(state_np.node().make_copy())
+        seam_state_np.set_color(self._seam_color)
+        node.set_tag_state("seam", seam_state_np.get_state())
 
         Mgr.render_frame()
         tex.write(filename)
         cam.remove_node()
         core.graphicsEngine.remove_window(tex_buffer)
+
+        UVMgr.do("reset_unselected_poly_state")
 
 
 MainObjects.add_class(PickingCamera, "uv_window")

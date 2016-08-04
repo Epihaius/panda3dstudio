@@ -706,6 +706,8 @@ class TexMapManager(object):
             stage.set_mode(mode)
             stages[map_type] = stage
 
+        stages["vertex_colors"] = TextureStage.get_default()
+
         Mgr.accept("create_tex_map", self.__create_tex_map)
         Mgr.accept("create_tex_layer", self.__create_layer)
         Mgr.accept("register_tex_layer", self.__register_layer)

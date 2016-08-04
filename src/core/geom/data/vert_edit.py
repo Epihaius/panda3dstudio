@@ -13,7 +13,7 @@ class VertexEditBase(BaseObject):
         verts = self._subobjs["vert"]
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
-        verts_to_break = set([merged_verts[v_id] for v_id in selected_vert_ids])
+        verts_to_break = set(merged_verts[v_id] for v_id in selected_vert_ids)
         edges_to_split = set()
 
         change = False
@@ -21,7 +21,7 @@ class VertexEditBase(BaseObject):
         update_polys_to_transf = False
         edge_verts_to_transf = self._verts_to_transf["edge"]
         poly_verts_to_transf = self._verts_to_transf["poly"]
-        merged_verts_to_update = set()
+        merged_verts_to_resmooth = set()
 
         for merged_vert in verts_to_break:
 
@@ -33,13 +33,13 @@ class VertexEditBase(BaseObject):
                 merged_vert.remove(vert_id)
                 new_merged_vert = Mgr.do("create_merged_vert", self, vert_id)
                 merged_verts[vert_id] = new_merged_vert
-                merged_verts_to_update.add(new_merged_vert)
+                merged_verts_to_resmooth.add(new_merged_vert)
 
                 for edge_id in verts[vert_id].get_edge_ids():
                     edges_to_split.add(merged_edges[edge_id])
 
             change = True
-            merged_verts_to_update.add(merged_vert)
+            merged_verts_to_resmooth.add(merged_vert)
 
             if merged_vert in edge_verts_to_transf:
                 update_edges_to_transf = True
@@ -60,7 +60,7 @@ class VertexEditBase(BaseObject):
 
             Mgr.do("update_active_selection")
 
-            self._update_vertex_normals(merged_verts_to_update)
+            self._update_vertex_normals(merged_verts_to_resmooth)
 
             self._update_verts_to_transform("vert")
 

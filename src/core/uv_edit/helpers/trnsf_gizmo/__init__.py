@@ -43,29 +43,24 @@ class UVTransformGizmo(BaseObject):
         if self._pickable_type_id is None:
             return False
 
-        self._root.hide(UVMgr.get("template_mask"))
-
         components = {
+            "": DefaultAxes(self),
             "translate": TranslationComponent(self),
             "rotate": RotationComponent(self),
             "scale": ScalingComponent(self)
         }
-        self._components = components
-
-        default_comp = DefaultAxes(self)
-        components[""] = default_comp
-        self._active_component_ids = ["translate", "rotate", "scale"]
         components["translate"].set_active_axes("uv")
         components["scale"].set_active_axes("uv")
+        self._components = components
+        self._active_component_ids = ["translate", "rotate", "scale"]
 
         return True
 
     def add_interface_updaters(self):
 
-        Mgr.add_interface_updater("uv_window", "transform_handles",
-                                  self.__update_transform_handles)
-        Mgr.add_interface_updater("uv_window", "axis_constraints",
-                                  self.__update_axis_constraints)
+        Mgr.add_interface_updater("uv_window", "active_transform_type", self.__select_component)
+        Mgr.add_interface_updater("uv_window", "transform_handles", self.__show_transform_handles)
+        Mgr.add_interface_updater("uv_window", "axis_constraints", self.__update_axis_constraints)
 
     def __update_hilites(self, task):
 
@@ -99,22 +94,58 @@ class UVTransformGizmo(BaseObject):
 
     def select_handle(self, color_id):
 
+        components = self._components
+
         for comp_id in self._active_component_ids:
 
-            axes = self._components[comp_id].select_handle(color_id)
+            axes = components[comp_id].select_handle(color_id)
 
             if axes:
-                self._components[comp_id].set_active_axes(axes)
-                return self._components[comp_id]
 
-    def __update_transform_handles(self, transf_type, active):
+                component_ids = ["translate", "rotate", "scale"]
+                component_ids.remove(comp_id)
 
-        if active:
+                for component_id in component_ids:
+                    components[component_id].set_active(False)
+
+                component = components[comp_id]
+                component.set_active()
+                component.set_active_axes(axes)
+
+                return component
+
+    def __select_component(self, component_id):
+
+        components = self._components
+        component = components[component_id]
+        component_ids = ["translate", "rotate", "scale"]
+
+        if component_id:
+            component_ids.remove(component_id)
+
+        for comp_id in component_ids:
+            components[comp_id].set_active(False)
+
+        if component_id:
+            component.set_active()
+            component.set_active_axes(component.get_active_axes())
+
+    def __show_transform_handles(self, transf_type, shown):
+
+        if shown:
             self._components[transf_type].show()
             self._active_component_ids.append(transf_type)
         else:
             self._components[transf_type].hide()
             self._active_component_ids.remove(transf_type)
+
+    def update_transform_handles(self):
+
+        active_component_ids = self._active_component_ids
+
+        for transf_type in ("translate", "rotate", "scale"):
+            shown = transf_type in  active_component_ids
+            Mgr.update_interface_remotely("uv_window", "transform_handles", transf_type, shown)
 
     def __update_axis_constraints(self, transf_type, axes):
 

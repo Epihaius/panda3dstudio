@@ -302,7 +302,7 @@ class PropertyPanel(Panel):
 
         flip_tan = self._checkboxes["flip_tan"].is_checked()
         flip_bitan = self._checkboxes["flip_bitan"].is_checked()
-        Mgr.update_remotely("selected_obj_prop", "tangent_space", (flip_tan, flip_bitan))
+        Mgr.update_remotely("selected_obj_prop", "tangent space", (flip_tan, flip_bitan))
 
     def __check_selection_count(self):
 

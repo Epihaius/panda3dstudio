@@ -203,6 +203,7 @@ class TransformToolbar(Toolbar):
 
         Mgr.add_interface_updater("uv_window", "active_transform_type", set_transform_type)
         Mgr.add_interface_updater("uv_window", "axis_constraints", update_axis_constraints)
+        Mgr.add_interface_updater("uv_window", "transform_handles", self.__show_transform_handles)
         Mgr.add_interface_updater("uv_window", "transform_values", self.__set_field_values)
         Mgr.add_interface_updater("uv_window", "selection_count", self.__check_selection_count)
         Mgr.add_interface_updater("uv_window", "uv_level", self.__set_uv_level)
@@ -215,8 +216,11 @@ class TransformToolbar(Toolbar):
 
     def __toggle_transform_handles(self, transf_type, shown):
 
-        Mgr.update_interface_remotely("uv_window", "transform_handles",
-                                      transf_type, shown)
+        Mgr.update_interface_remotely("uv_window", "transform_handles", transf_type, shown)
+
+    def __show_transform_handles(self, transf_type, shown):
+
+        self._checkboxes[transf_type].check(shown)
 
     def __on_popup(self, field):
 

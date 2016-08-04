@@ -11,11 +11,10 @@ class RotationComponent(object):
         self._render_mask = UVMgr.get("render_mask")
         self._picking_mask = UVMgr.get("picking_mask")
         self._handle_root = self._origin.attach_new_node("handle_root")
-        self._handles = {"axes": {}, "planes": {}, "quads": {}}
+        self._handle = None
         self._handle_names = {}
         self._hilited_handles = []
-        self._axis_colors = {}
-        self._selected_axes = "uv"
+        self._is_active = True
 
         self.__create_handles()
 
@@ -24,9 +23,8 @@ class RotationComponent(object):
         self._radius = .15
         self._origin.set_scale(self._radius)
 
-        yellow = VBase4(1., 1., 0., 1.)
+        yellow = (1., 1., 0., 1.)
 
-        self._axis_colors = {"uv": yellow}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
         plane = "uv"
@@ -34,8 +32,8 @@ class RotationComponent(object):
         color_vec = get_color_vec(color_id, pickable_type_id)
         self._handle_names[color_id] = plane
         handle = self.__create_axis_handle(self._handle_root, color_vec, plane, "w_axis_handle")
-        handle.set_color(self._axis_colors[plane])
-        self._handles["planes"][plane] = handle
+        handle.set_color(yellow)
+        self._handle = handle
 
     def __create_axis_handle(self, parent, color, plane, node_name):
 
@@ -84,34 +82,25 @@ class RotationComponent(object):
 
         hilited_handles = []
         handle_name = self._handle_names[color_id]
-
-        if handle_name in self._handles["planes"]:
-            hilited_handles.append(handle_name)
+        hilited_handles.append(handle_name)
 
         if self._hilited_handles != hilited_handles:
-
             self.remove_hilite()
             self._hilited_handles = hilited_handles
-
-            cyan = VBase4(0., 1., 1., 1.)
-
-            for handle_name in hilited_handles:
-                self._handles["planes"][handle_name].set_color(cyan)
-
+            cyan = (0., 1., 1., 1.)
+            self._handle.set_color(cyan)
             GlobalData["uv_cursor"] = self._type
 
     def remove_hilite(self):
 
         if self._hilited_handles:
 
-            yellow = VBase4(1., 1., 0., 1.)
-            yellow_alpha = VBase4(1., 1., 0., .25)
+            if self._is_active:
+                rgb = (1., 1., 0., 1.)
+            else:
+                rgb = (.5, .5, .5, 1.)
 
-            for handle_name in self._hilited_handles:
-                color = yellow if handle_name == self._selected_axes \
-                    else self._axis_colors[handle_name]
-                self._handles["planes"][handle_name].set_color(color)
-
+            self._handle.set_color(rgb)
             self._hilited_handles = []
             GlobalData["uv_cursor"] = ""
 
@@ -120,9 +109,26 @@ class RotationComponent(object):
         if color_id in self._handle_names:
             return "w"
 
+    def get_active_axes(self):
+
+        return "w"
+
     def set_active_axes(self, axes):
 
         self.remove_hilite()
+
+    def set_active(self, is_active=True):
+
+        if self._is_active == is_active:
+            return
+
+        if is_active:
+            rgb = (1., 1., 0., 1.)
+        else:
+            rgb = (.5, .5, .5, 1.)
+
+        self._handle.set_color(rgb)
+        self._is_active = is_active
 
     def show(self):
 

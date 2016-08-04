@@ -17,14 +17,15 @@ class ScalingComponent(object):
         self._handle_names = {}
         self._hilited_handles = []
         self._axis_colors = {}
-        self._selected_axes = ""
+        self._active_axes = ""
+        self._is_active = True
 
         self.__create_handles()
 
     def __create_handles(self):
 
-        red = VBase4(.7, 0., 0., 1.)
-        green = VBase4(0., .7, 0., 1.)
+        red = (.7, 0., 0., 1.)
+        green = (0., .7, 0., 1.)
 
         self._axis_colors = {"u": red, "v": green}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
@@ -188,8 +189,8 @@ class ScalingComponent(object):
             self.remove_hilite()
             self._hilited_handles = hilited_handles
 
-            cyan = VBase4(0., 1., 1., 1.)
-            cyan_alpha = VBase4(0., 1., 1., .25)
+            cyan = (0., 1., 1., 1.)
+            cyan_alpha = (0., 1., 1., .25)
 
             for handle_name in hilited_handles:
                 if handle_name in self._handles["planes"]:
@@ -206,12 +207,16 @@ class ScalingComponent(object):
 
         if self._hilited_handles:
 
-            yellow = VBase4(1., 1., 0., 1.)
-            yellow_alpha = VBase4(1., 1., 0., .25)
+            if self._is_active:
+                rgb = (1., 1., 0., 1.)
+                rgba = (1., 1., 0., .25)
+            else:
+                rgb = (.5, .5, .5, 1.)
+                rgba = (.5, .5, .5, .25)
 
             for plane in self._handles["quads"]:
-                if plane == self._selected_axes:
-                    self._handles["quads"][plane].set_color(yellow_alpha)
+                if plane == self._active_axes:
+                    self._handles["quads"][plane].set_color(rgba)
                     self._handles["quads"][plane].show(self._render_mask)
                 else:
                     self._handles["quads"][plane].hide(self._render_mask)
@@ -220,8 +225,8 @@ class ScalingComponent(object):
 
                 if handle_name in self._handles["planes"]:
 
-                    if self._selected_axes == handle_name:
-                        color1 = color2 = yellow
+                    if self._active_axes == handle_name or not self._is_active:
+                        color1 = color2 = rgb
                     else:
                         color1 = self._axis_colors[handle_name[0]]
                         color2 = self._axis_colors[handle_name[1]]
@@ -232,8 +237,8 @@ class ScalingComponent(object):
 
                 else:
 
-                    if handle_name in self._selected_axes:
-                        color = yellow
+                    if handle_name in self._active_axes or not self._is_active:
+                        color = rgb
                     else:
                         color = self._axis_colors[handle_name]
 
@@ -252,12 +257,16 @@ class ScalingComponent(object):
 
         return axes
 
+    def get_active_axes(self):
+
+        return self._active_axes
+
     def set_active_axes(self, axes):
 
-        self._selected_axes = axes
+        self._active_axes = axes
         self.remove_hilite()
-        yellow = VBase4(1., 1., 0., 1.)
-        yellow_alpha = VBase4(1., 1., 0., .25)
+        yellow = (1., 1., 0., 1.)
+        yellow_alpha = (1., 1., 0., .25)
 
         for axis in "uv":
             if axis in axes:
@@ -280,6 +289,30 @@ class ScalingComponent(object):
                 handle[0].set_color(self._axis_colors[plane[0]])
                 handle[1].set_color(self._axis_colors[plane[1]])
                 quad.hide(self._render_mask)
+
+    def set_active(self, is_active=True):
+
+        if self._is_active == is_active:
+            return
+
+        if is_active:
+            rgb = (1., 1., 0., 1.)
+            rgba = (1., 1., 0., .25)
+        else:
+            rgb = (.5, .5, .5, 1.)
+            rgba = (.5, .5, .5, .25)
+
+        for handle in self._handles["planes"].itervalues():
+            handle[0].set_color(rgb)
+            handle[1].set_color(rgb)
+
+        for handle in self._handles["quads"].itervalues():
+            handle.set_color(rgba)
+
+        for handle in self._handles["axes"].itervalues():
+            handle.set_color(rgb)
+
+        self._is_active = is_active
 
     def show(self):
 

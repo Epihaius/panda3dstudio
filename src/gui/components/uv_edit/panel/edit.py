@@ -39,10 +39,8 @@ class SubobjectPanel(Panel):
 
         for s_args, subobj_type, tooltip_prefix, hotkey in zip(args, subobj_types, tooltip_prefixes, hotkeys):
             label = subobj_type.title()
-            bitmaps = PanelButton.create_button_bitmaps(
-                "*%s" % label, bitmap_paths)
-            get_command = lambda subobj_type: lambda: self.__set_subobj_level(
-                subobj_type)
+            bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+            get_command = lambda subobj_type: lambda: self.__set_subobj_level(subobj_type)
             toggle = (get_command(subobj_type), lambda: None)
             btn = uv_lvl_btns.add_button(self, self, btn_sizer, subobj_type, toggle, bitmaps,
                                          "%s level" % tooltip_prefix, label, sizer_args=s_args,
@@ -51,14 +49,15 @@ class SubobjectPanel(Panel):
 
         uv_lvl_btns.set_active_button("poly")
 
+        sizer_args = (0, wx.ALL, 5)
+
         # ************************* Vertex section ****************************
 
         vert_section = section = self.add_section("vert_props", "Vertices")
         sizer = section.get_client_sizer()
 
         label = "Break"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(self, section, sizer, bitmaps, label, "Break selected vertices",
                           self.__break_vertices, sizer_args, focus_receiver=focus_receiver)
         self._btns["break_vert"] = btn
@@ -69,8 +68,7 @@ class SubobjectPanel(Panel):
         sizer = section.get_client_sizer()
 
         label = "Split"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(self, section, sizer, bitmaps, label, "Split selected edges",
                           self.__split_edges, sizer_args, focus_receiver=focus_receiver)
         self._btns["split_edge"] = btn
@@ -80,9 +78,61 @@ class SubobjectPanel(Panel):
         poly_section = section = self.add_section("poly_props", "Polygons")
         sizer = section.get_client_sizer()
 
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+
+        group = section.add_group("Color")
+        grp_sizer = group.get_client_sizer()
+
+        group.add_text("Unselected", grp_sizer, (0, wx.ALL, 2))
+        grp_sizer.Add(wx.Size(0, 4))
+
+        subsizer = wx.BoxSizer()
+        grp_sizer.Add(subsizer)
+        group.add_text("RGB:", subsizer, sizer_args)
+        subsizer.Add(wx.Size(4, 0))
+        color_picker = PanelColorPickerCtrl(self, group, subsizer,
+                                            lambda col: self.__handle_poly_rgb("unselected", col),
+                                            focus_receiver=focus_receiver)
+        self._color_pickers["unselected_poly_rgb"] = color_picker
+        subsizer.Add(wx.Size(4, 0))
+        group.add_text("Alpha:", subsizer, sizer_args)
+        subsizer.Add(wx.Size(4, 0))
+        field = PanelInputField(self, group, subsizer, 45, sizer_args=sizer_args,
+                                focus_receiver=focus_receiver)
+        val_id = "unselected_poly_alpha"
+        field.set_input_parser(val_id, self.__parse_alpha)
+        field.add_value(val_id, "float", handler=self.__handle_value)
+        field.show_value(val_id)
+        self._fields[val_id] = field
+
+        grp_sizer.Add(wx.Size(0, 10))
+        group.add_text("Selected", grp_sizer, (0, wx.ALL, 2))
+        grp_sizer.Add(wx.Size(0, 4))
+
+        subsizer = wx.BoxSizer()
+        grp_sizer.Add(subsizer)
+        group.add_text("RGB:", subsizer, sizer_args)
+        subsizer.Add(wx.Size(4, 0))
+        color_picker = PanelColorPickerCtrl(self, group, subsizer,
+                                            lambda col: self.__handle_poly_rgb("selected", col),
+                                            focus_receiver=focus_receiver)
+        self._color_pickers["selected_poly_rgb"] = color_picker
+        subsizer.Add(wx.Size(4, 0))
+        group.add_text("Alpha:", subsizer, sizer_args)
+        subsizer.Add(wx.Size(4, 0))
+        field = PanelInputField(self, group, subsizer, 45, sizer_args=sizer_args,
+                                focus_receiver=focus_receiver)
+        val_id = "selected_poly_alpha"
+        field.set_input_parser(val_id, self.__parse_alpha)
+        field.add_value(val_id, "float", handler=self.__handle_value)
+        field.show_value(val_id)
+        self._fields[val_id] = field
+
+        sizer.Add(wx.Size(0, 4))
+        sizer_args = (0, wx.ALL, 5)
+
         label = "Detach"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(self, section, sizer, bitmaps, label, "Detach selected polygons",
                           self.__detach_polygons, sizer_args, focus_receiver=focus_receiver)
         self._btns["detach_poly"] = btn
@@ -104,6 +154,7 @@ class SubobjectPanel(Panel):
         wx.CallAfter(finalize_sections)
 
         Mgr.add_interface_updater("uv_window", "uv_level", self.__set_uv_level)
+        Mgr.add_interface_updater("uv_window", "poly_color", self.__set_poly_color)
 
     def get_clipping_rect(self):
 
@@ -145,3 +196,29 @@ class SubobjectPanel(Panel):
     def __detach_polygons(self):
 
         Mgr.update_interface_remotely("uv_window", "poly_detach")
+
+    def __handle_poly_rgb(self, sel_state, color):
+
+        color_values = Mgr.convert_to_remote_format("color", color.Get())
+
+        Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, "rgb", color_values)
+
+    def __parse_alpha(self, alpha):
+
+        try:
+            return min(1., max(0., float(eval(alpha))))
+        except:
+            return None
+
+    def __handle_value(self, value_id, value):
+
+        sel_state = value_id.replace("_poly_alpha", "")
+        Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, "alpha", value)
+
+    def __set_poly_color(self, sel_state, channels, value):
+
+        if channels == "rgb":
+            self._color_pickers["%s_poly_rgb" % sel_state].set_color(value)
+        elif channels == "alpha":
+            prop_id = "%s_poly_alpha" % sel_state
+            self._fields[prop_id].set_value(prop_id, value)

@@ -1,4 +1,5 @@
 from ..base import *
+from .base import UVMgr
 
 
 class SelectionManager(BaseObject):
@@ -112,6 +113,7 @@ class SelectionManager(BaseObject):
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
                 geom_data_obj.show_subobj_level(obj_lvl)
+                geom_data_obj.show_tex_seams(obj_lvl)
 
     def __update_cursor(self, task):
 
@@ -172,9 +174,21 @@ class SelectionManager(BaseObject):
         models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
                   and obj.get_geom_type() != "basic_geom"]
 
-        for model in models:
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
-            geom_data_obj.clear_selection(obj_lvl, False)
+        if obj_lvl == "edge":
+
+            uv_set_id = UVMgr.get("active_uv_set")
+            colors = UVMgr.get("uv_selection_colors")["seam"]
+            color = colors["unselected"]
+
+            for model in models:
+                geom_data_obj = model.get_geom_object().get_geom_data_object()
+                geom_data_obj.clear_tex_seam_selection(uv_set_id, color)
+
+        else:
+
+            for model in models:
+                geom_data_obj = model.get_geom_object().get_geom_data_object()
+                geom_data_obj.clear_selection(obj_lvl, False)
 
         selection = self._selections[obj_lvl]
         selection.clear()
@@ -185,7 +199,12 @@ class SelectionManager(BaseObject):
 
             subobj = subobj.get_merged_object()
             geom_data_obj = subobj.get_geom_data_object()
-            geom_data_obj.set_selected(subobj, True, False)
+
+            if obj_lvl == "edge":
+                geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, True)
+            else:
+                geom_data_obj.set_selected(subobj, True, False)
+
             selection.add(subobj)
 
             if obj_lvl == "poly":
@@ -215,17 +234,32 @@ class SelectionManager(BaseObject):
                 color_ids.update(geom_data_obj.get_subobject(obj_lvl, s_id).get_picking_color_id()
                                  for s_id in subobj)
 
+            if obj_lvl == "edge":
+                uv_set_id = UVMgr.get("active_uv_set")
+                colors = UVMgr.get("uv_selection_colors")["seam"]
+
             if subobj in selection:
-                geom_data_obj.set_selected(subobj, False, False)
+
+                if obj_lvl == "edge":
+                    geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, False)
+                else:
+                    geom_data_obj.set_selected(subobj, False, False)
+
                 selection.remove(subobj)
                 ids_to_keep = set([] if obj_lvl == "poly" else [i for x in selection for i in x])
                 self._uv_editor.sync_selection(color_ids, "remove", ids_to_keep)
+
             else:
-                geom_data_obj.set_selected(subobj, True, False)
+
+                if obj_lvl == "edge":
+                    geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, True)
+                else:
+                    geom_data_obj.set_selected(subobj, True, False)
+
                 selection.add(subobj)
                 self._uv_editor.sync_selection(color_ids, "add")
 
-    def sync_selection(self, color_ids, op="replace", keep=None):
+    def sync_selection(self, color_ids, op="replace", keep=None, object_level=None):
 
         # "keep" is a set of IDs of subobjects that must remain selected;
         # since it can happen that e.g. a selected merged vertex in the viewport of
@@ -235,12 +269,17 @@ class SelectionManager(BaseObject):
         # checking the intersection of the "keep" parameter and the set of vertex
         # IDs associated with this selected merged vertex.
 
-        obj_lvl = self._obj_lvl
+        obj_lvl = self._obj_lvl if object_level is None else object_level
         selection = self._selections[obj_lvl]
         subobjects = set()
 
         for color_id in color_ids:
             subobjects.add(Mgr.get(obj_lvl, color_id).get_merged_object())
+
+        if obj_lvl == "edge":
+            uv_set_id = UVMgr.get("active_uv_set")
+            colors = UVMgr.get("uv_selection_colors")["seam"]
+            color = colors["unselected"]
 
         if op == "replace":
 
@@ -248,23 +287,41 @@ class SelectionManager(BaseObject):
             models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
                       and obj.get_geom_type() != "basic_geom"]
 
-            for model in models:
-                geom_data_obj = model.get_geom_object().get_geom_data_object()
-                geom_data_obj.clear_selection(obj_lvl, False)
+            if obj_lvl == "edge":
+                for model in models:
+                    geom_data_obj = model.get_geom_object().get_geom_data_object()
+                    geom_data_obj.clear_tex_seam_selection(uv_set_id, color)
+            else:
+                for model in models:
+                    geom_data_obj = model.get_geom_object().get_geom_data_object()
+                    geom_data_obj.clear_selection(obj_lvl, False)
 
         if op == "remove":
 
             ids_to_keep = keep if keep else set()
 
-            for subobj in subobjects:
-                if obj_lvl == "poly" or not ids_to_keep.intersection(subobj[:]):
-                    geom_data_obj = subobj.get_geom_data_object()
-                    geom_data_obj.set_selected(subobj, False, False)
-                    selection.discard(subobj)
+            if obj_lvl == "edge":
+                for subobj in subobjects:
+                    if not ids_to_keep.intersection(subobj[:]):
+                        geom_data_obj = subobj.get_geom_data_object()
+                        geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, False)
+                        selection.discard(subobj)
+            else:
+                for subobj in subobjects:
+                    if obj_lvl == "poly" or not ids_to_keep.intersection(subobj[:]):
+                        geom_data_obj = subobj.get_geom_data_object()
+                        geom_data_obj.set_selected(subobj, False, False)
+                        selection.discard(subobj)
 
         else:
 
-            for subobj in subobjects:
-                geom_data_obj = subobj.get_geom_data_object()
-                geom_data_obj.set_selected(subobj, True, False)
-                selection.add(subobj)
+            if obj_lvl == "edge":
+                for subobj in subobjects:
+                    geom_data_obj = subobj.get_geom_data_object()
+                    geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, True)
+                    selection.add(subobj)
+            else:
+                for subobj in subobjects:
+                    geom_data_obj = subobj.get_geom_data_object()
+                    geom_data_obj.set_selected(subobj, True, False)
+                    selection.add(subobj)

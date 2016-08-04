@@ -43,7 +43,7 @@ class Model(TopLevelObject):
 
         TopLevelObject.__init__(self, "model", model_id, name, origin_pos, has_color=True)
 
-        self.get_property_ids().extend(["material", "tangent_space"])
+        self.get_property_ids().extend(["material", "tangent space"])
         self._material = None
         self._geom_obj = None
         self._flip_tangent = False
@@ -227,7 +227,7 @@ class Model(TopLevelObject):
             else:
                 return self.set_material(value, restore)
 
-        if prop_id == "tangent_space":
+        if prop_id == "tangent space":
             if restore:
                 task = lambda: self.update_tangent_space(*value)
                 task_id = "upd_tangent_space"
@@ -247,7 +247,7 @@ class Model(TopLevelObject):
         if prop_id == "material":
             return self._material
 
-        if prop_id == "tangent_space":
+        if prop_id == "tangent space":
             return self._flip_tangent, self._flip_bitangent
 
         if prop_id in TopLevelObject.get_property_ids(self):

@@ -9,13 +9,14 @@ class PolygonCreationBase(BaseObject):
         # assist with polygon creation
 
         picking_masks = Mgr.get("picking_masks")["all"]
-        geom_roots = self._geom_roots
-        geom_roots["vert"].show_through(picking_masks)
-        self._geoms["poly_picking"].show(picking_masks)
+        geoms = self._geoms
+        geoms["vert"]["pickable"].show_through(picking_masks)
+        geoms["poly"]["pickable"].show(picking_masks)
 
     def init_poly_creation(self):
 
-        geom_roots = self._geom_roots
+        origin = self._origin
+        geoms = self._geoms
         render_masks = Mgr.get("render_masks")
 
         # Create temporary geometry
@@ -45,8 +46,10 @@ class PolygonCreationBase(BaseObject):
         point_geom.add_primitive(points_prim)
         geom_node = GeomNode("new_vertices_geom")
         geom_node.add_geom(point_geom)
-        new_vert_geom = geom_roots["vert"].attach_new_node(geom_node)
+        new_vert_geom = geoms["vert"]["pickable"].attach_new_node(geom_node)
+        new_vert_geom.show_through(render_masks["all"])
         new_vert_geom.set_color(1., 1., 0., 1.)
+        new_vert_geom.set_render_mode_thickness(7)
         tmp_geoms["vert"] = new_vert_geom
 
         # Create a temporary geom for edges
@@ -56,7 +59,7 @@ class PolygonCreationBase(BaseObject):
         lines_geom.add_primitive(lines_prim)
         geom_node = GeomNode("edges_geom")
         geom_node.add_geom(lines_geom)
-        edge_geom = geom_roots["subobj"].attach_new_node(geom_node)
+        edge_geom = origin.attach_new_node(geom_node)
         edge_geom.show_through(render_masks["all"])
         edge_geom.set_render_mode_thickness(3)
         edge_geom.set_color_off()
@@ -75,7 +78,7 @@ class PolygonCreationBase(BaseObject):
         geom.add_primitive(tris_prim)
         geom_node = GeomNode("new_polygon_geom")
         geom_node.add_geom(geom)
-        new_poly_geom = geom_roots["poly"].attach_new_node(geom_node)
+        new_poly_geom = origin.attach_new_node(geom_node)
         tmp_geoms["poly"] = new_poly_geom
 
         # store all temporary normals of the polygon
@@ -591,25 +594,26 @@ class PolygonCreationBase(BaseObject):
             col_writer.add_data4f(picking_color)
             normal_writer.add_data3f(normal)
 
-        vertex_data_vert = self._vertex_data["vert"]
-        vertex_data_tmp = GeomVertexData(vertex_data_vert)
-        col_writer = GeomVertexWriter(vertex_data_tmp, "color")
-        col_writer.set_row(old_count)
+        vertex_data_vert1 = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_vert1.set_num_rows(count)
+        vertex_data_vert2 = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_vert2.set_num_rows(count)
+        col_writer1 = GeomVertexWriter(vertex_data_vert1, "color")
+        col_writer1.set_row(old_count)
+        col_writer2 = GeomVertexWriter(vertex_data_vert2, "color")
+        col_writer2.set_row(old_count)
 
+        sel_colors = Mgr.get("subobj_selection_colors")
+        color = sel_colors["vert"]["unselected"]
         pickable_type_id = PickableTypes.get_id("vert")
 
         for vert in poly_verts:
             picking_color = get_color_vec(vert.get_picking_color_id(), pickable_type_id)
-            col_writer.add_data4f(picking_color)
+            col_writer1.add_data4f(picking_color)
+            col_writer2.add_data4f(color)
 
-        vertex_data_vert.set_num_rows(count)
-        vertex_data_vert.set_array(1, GeomVertexArrayData(vertex_data_tmp.get_array(1)))
-
-        sel_state = self._subobj_sel_state
-        sel_state["vert"]["unselected"].extend(range(old_count, count))
-        sel_state["poly"]["unselected"].extend(polygon[:])
-        sel_state["edge"]["unselected"] = edge_state_unsel = []
-        sel_state["edge"]["selected"] = []
+        sel_data = self._poly_selection_data
+        sel_data["unselected"].extend(polygon[:])
 
         start_row_indices = []
         end_row_indices = []
@@ -632,52 +636,60 @@ class PolygonCreationBase(BaseObject):
             picking_colors1[row1] = picking_color
             picking_colors2[row2 + count] = picking_color
 
-        vertex_data_edge = self._vertex_data["edge"]
-        vertex_data_tmp = GeomVertexData(vertex_data_edge)
+        vertex_data_edge1 = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_edge2 = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_edge2.set_num_rows(count * 2)
+        vertex_data_tmp = GeomVertexData(vertex_data_edge1)
         vertex_data_tmp.set_num_rows(count)
-        col_writer = GeomVertexWriter(vertex_data_tmp, "color")
-        col_writer.set_row(old_count)
+        col_writer1 = GeomVertexWriter(vertex_data_tmp, "color")
+        col_writer1.set_row(old_count)
+        col_writer2 = GeomVertexWriter(vertex_data_edge2, "color")
+        col_writer2.set_row(old_count)
+        color = sel_colors["edge"]["unselected"]
 
         for row_index in sorted(picking_colors1.iterkeys()):
             picking_color = picking_colors1[row_index]
-            col_writer.add_data4f(picking_color)
+            col_writer1.add_data4f(picking_color)
+            col_writer2.add_data4f(color)
 
         data = vertex_data_tmp.get_array(1).get_handle().get_data()
 
-        vertex_data_tmp = GeomVertexData(vertex_data_edge)
+        vertex_data_tmp = GeomVertexData(vertex_data_edge1)
         array = vertex_data_tmp.modify_array(1)
         stride = array.get_array_format().get_stride()
         array.modify_handle().set_subdata(0, old_count * stride, "")
         vertex_data_tmp.set_num_rows(count)
-        col_writer = GeomVertexWriter(vertex_data_tmp, "color")
-        col_writer.set_row(old_count)
+        col_writer1 = GeomVertexWriter(vertex_data_tmp, "color")
+        col_writer1.set_row(old_count)
+        col_writer2.set_row(count + old_count)
 
         for row_index in sorted(picking_colors2.iterkeys()):
             picking_color = picking_colors2[row_index]
-            col_writer.add_data4f(picking_color)
+            col_writer1.add_data4f(picking_color)
+            col_writer2.add_data4f(color)
 
         data += vertex_data_tmp.get_array(1).get_handle().get_data()
 
-        vertex_data_edge.set_num_rows(count * 2)
-        vertex_data_edge.modify_array(1).modify_handle().set_data(data)
+        vertex_data_edge1.set_num_rows(count * 2)
+        vertex_data_edge1.modify_array(1).modify_handle().set_data(data)
 
         lines_prim = GeomLines(Geom.UH_static)
         lines_prim.reserve_num_vertices(count * 2)
 
         for poly in ordered_polys:
+
             for edge in poly.get_edges():
+
                 row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
                 lines_prim.add_vertices(row1, row2 + count)
-                edge_state_unsel.append(row1)
+
                 if edge.get_id() in sel_edge_ids:
                     subobjs_to_select["edge"].append(edge)
 
-        geom_node = geoms["top"]["wire"].node()
+        geom_node = geoms["edge"]["pickable"].node()
         geom_node.modify_geom(0).set_primitive(0, lines_prim)
-        geom_node = geoms["edge"]["unselected"].node()
+        geom_node = geoms["edge"]["sel_state"].node()
         geom_node.modify_geom(0).set_primitive(0, GeomLines(lines_prim))
-        geom_node = geoms["edge"]["selected"].node()
-        geom_node.modify_geom(0).modify_primitive(0).modify_vertices().modify_handle().set_data("")
 
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly.set_num_rows(count)
@@ -687,12 +699,14 @@ class PolygonCreationBase(BaseObject):
         pos_data = pos_array.get_handle().get_data()
         poly_array = vertex_data_top.get_array(1)
         vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_vert1.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_vert2.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_poly.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_poly.set_array(1, GeomVertexArrayData(poly_array))
-        array = GeomVertexArrayData(pos_array)
-        array.modify_handle().set_data(pos_data * 2)
-        vertex_data_edge.set_array(0, array)
+        pos_array = GeomVertexArrayData(pos_array)
+        pos_array.modify_handle().set_data(pos_data * 2)
+        vertex_data_edge1.set_array(0, pos_array)
+        vertex_data_edge2.set_array(0, pos_array)
 
         tris_prim = geom_node_top.modify_geom(0).modify_primitive(0)
         start = tris_prim.get_num_vertices()
@@ -709,7 +723,7 @@ class PolygonCreationBase(BaseObject):
         prim = geom_node.modify_geom(0).modify_primitive(0)
         handle = prim.modify_vertices().modify_handle()
         handle.set_data(handle.get_data() + data)
-        geom_node = geoms["poly_picking"].node()
+        geom_node = geoms["poly"]["pickable"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
         handle = prim.modify_vertices().modify_handle()
         handle.set_data(handle.get_data() + data)
@@ -720,7 +734,11 @@ class PolygonCreationBase(BaseObject):
         tmp_prim.offset_vertices(old_count)
         array = tmp_prim.get_vertices()
         data = array.get_handle().get_data()
-        geom_node = geoms["vert"]["unselected"].node()
+        geom_node = geoms["vert"]["pickable"].node()
+        prim = geom_node.modify_geom(0).modify_primitive(0)
+        handle = prim.modify_vertices().modify_handle()
+        handle.set_data(handle.get_data() + data)
+        geom_node = geoms["vert"]["sel_state"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
         handle = prim.modify_vertices().modify_handle()
         handle.set_data(handle.get_data() + data)
@@ -765,9 +783,9 @@ class PolygonCreationBase(BaseObject):
         # vertices
 
         picking_masks = Mgr.get("picking_masks")["all"]
-        geom_roots = self._geom_roots
-        geom_roots["vert"].show(picking_masks)
-        self._geoms["poly_picking"].show_through(picking_masks)
+        geoms = self._geoms
+        geoms["vert"]["pickable"].show(picking_masks)
+        geoms["poly"]["pickable"].show_through(picking_masks)
 
 
 class PolygonCreationManager(BaseObject):

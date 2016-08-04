@@ -6,8 +6,7 @@ class ExportPanel(Panel):
 
     def __init__(self, parent, focus_receiver=None):
 
-        Panel.__init__(self, parent, "Template export",
-                       focus_receiver, "uv_window")
+        Panel.__init__(self, parent, "Template export", focus_receiver, "uv_window")
 
         self._parent = parent
         self._width = parent.get_width()
@@ -27,8 +26,7 @@ class ExportPanel(Panel):
 
         # ************************* Options section ***************************
 
-        subobj_section = section = self.add_section(
-            "export_options", "Export options")
+        subobj_section = section = self.add_section("export_options", "Export options")
         sizer = section.get_client_sizer()
 
         subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
@@ -49,8 +47,7 @@ class ExportPanel(Panel):
         group.add_text("RGB:", subsizer, sizer_args)
         subsizer.Add(wx.Size(4, 0))
         color_picker = PanelColorPickerCtrl(self, group, subsizer,
-                                            lambda col: self.__handle_subobj_rgb(
-                                                "edge", col),
+                                            lambda col: self.__handle_subobj_rgb("edge", col),
                                             focus_receiver=focus_receiver)
         self._color_pickers["edge_rgb"] = color_picker
         subsizer.Add(wx.Size(4, 0))
@@ -64,15 +61,14 @@ class ExportPanel(Panel):
         field.show_value(val_id)
         self._fields[val_id] = field
 
-        group = section.add_group("Poly color")
+        group = section.add_group("Polygon color")
         grp_sizer = group.get_client_sizer()
         subsizer = wx.BoxSizer()
         grp_sizer.Add(subsizer)
         group.add_text("RGB:", subsizer, sizer_args)
         subsizer.Add(wx.Size(4, 0))
         color_picker = PanelColorPickerCtrl(self, group, subsizer,
-                                            lambda col: self.__handle_subobj_rgb(
-                                                "poly", col),
+                                            lambda col: self.__handle_subobj_rgb("poly", col),
                                             focus_receiver=focus_receiver)
         self._color_pickers["poly_rgb"] = color_picker
         subsizer.Add(wx.Size(4, 0))
@@ -86,14 +82,34 @@ class ExportPanel(Panel):
         field.show_value(val_id)
         self._fields[val_id] = field
 
+        group = section.add_group("Seam color")
+        grp_sizer = group.get_client_sizer()
+        subsizer = wx.BoxSizer()
+        grp_sizer.Add(subsizer)
+        group.add_text("RGB:", subsizer, sizer_args)
+        subsizer.Add(wx.Size(4, 0))
+        color_picker = PanelColorPickerCtrl(self, group, subsizer,
+                                            lambda col: self.__handle_subobj_rgb("seam", col),
+                                            focus_receiver=focus_receiver)
+        self._color_pickers["seam_rgb"] = color_picker
+        subsizer.Add(wx.Size(4, 0))
+        group.add_text("Alpha:", subsizer, sizer_args)
+        subsizer.Add(wx.Size(4, 0))
+        field = PanelInputField(self, group, subsizer, 45, sizer_args=sizer_args,
+                                focus_receiver=focus_receiver)
+        val_id = "seam_alpha"
+        field.set_input_parser(val_id, self.__parse_alpha)
+        field.add_value(val_id, "float", handler=self.__handle_value)
+        field.show_value(val_id)
+        self._fields[val_id] = field
+
         # **************************************************************************
 
         sizer = self.get_bottom_ctrl_sizer()
         sizer_args = (0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
 
         label = "Export"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(self, self, sizer, bitmaps, label, "Export UV template",
                           self.__export, sizer_args, focus_receiver=focus_receiver)
         self._btns["export"] = btn
@@ -103,8 +119,7 @@ class ExportPanel(Panel):
         self.finalize()
         self.update_parent()
 
-        Mgr.add_interface_updater(
-            "uv_window", "uv_template", self.__set_template_property)
+        Mgr.add_interface_updater("uv_window", "uv_template", self.__set_template_property)
 
     def get_clipping_rect(self):
 
@@ -117,8 +132,7 @@ class ExportPanel(Panel):
 
     def __handle_value(self, value_id, value):
 
-        Mgr.update_interface_remotely(
-            "uv_window", "uv_template", value_id, value)
+        Mgr.update_interface_remotely("uv_window", "uv_template", value_id, value)
 
     def __parse_size(self, size):
 
@@ -138,8 +152,7 @@ class ExportPanel(Panel):
 
         color_values = Mgr.convert_to_remote_format("color", color.Get())
 
-        Mgr.update_interface_remotely(
-            "uv_window", "uv_template", "%s_rgb" % subobj_type, color_values)
+        Mgr.update_interface_remotely("uv_window", "uv_template", "%s_rgb" % subobj_type, color_values)
 
     def __export(self):
 
@@ -148,12 +161,11 @@ class ExportPanel(Panel):
                                    wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, self)
 
         if filename:
-            Mgr.update_interface_remotely(
-                "uv_window", "uv_template", "save", filename)
+            Mgr.update_interface_remotely("uv_window", "uv_template", "save", filename)
 
     def __set_template_property(self, prop_id, value):
 
-        if prop_id in ("size", "edge_alpha", "poly_alpha"):
+        if prop_id in ("size", "edge_alpha", "poly_alpha", "seam_alpha"):
             self._fields[prop_id].set_value(prop_id, value)
         else:
             self._color_pickers[prop_id].set_color(value)

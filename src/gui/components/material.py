@@ -336,7 +336,8 @@ class MaterialPanel(Panel):
             return set_map_type
 
         for map_type in ("color", "normal", "height", "normal+height", "gloss",
-                         "color+gloss", "normal+gloss", "glow", "color+glow"):
+                         "color+gloss", "normal+gloss", "glow", "color+glow",
+                         "vertex color"):
             combobox.add_item(map_type, map_type.title(), get_command(map_type))
 
         sizer.Add(wx.Size(0, 5))
@@ -1727,7 +1728,8 @@ class MaterialToolbar(Toolbar):
             return set_map_type
 
         for map_type in ("color", "normal", "height", "normal+height", "gloss",
-                         "color+gloss", "normal+gloss", "glow", "color+glow"):
+                         "color+gloss", "normal+gloss", "glow", "color+glow",
+                         "vertex color"):
             combobox.add_item(map_type, map_type.title(), get_command(map_type))
 
         self._btns = {}

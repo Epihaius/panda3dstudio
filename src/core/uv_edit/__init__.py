@@ -48,21 +48,62 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self._uv_set_id = 0
         UVMgr.expose("active_uv_set", lambda: self._uv_set_id)
 
-        np = NodePath("uv_poly_sel_state")
+        state_np = NodePath("render_state")
+        state_np.set_light_off()
+        state_np.set_texture_off()
+        state_np.set_material_off()
+        state_np.set_shader_off()
+        state_np.set_depth_write(False)
+        state_np.set_depth_test(False)
+        state_np.set_color_off()
+        state_np.set_transparency(TransparencyAttrib.M_none)
+
+        vert_state_np = NodePath(state_np.node().make_copy())
+        vert_state_np.set_render_mode_thickness(7)
+        vert_state_np.set_bin("background", 13)
+
+        edge_state_np = NodePath(state_np.node().make_copy())
+        edge_state_np.set_bin("background", 11)
+
+        poly_unsel_state_np = NodePath(state_np.node().make_copy())
+        poly_unsel_state_np.set_two_sided(True)
+        poly_unsel_state_np.set_transparency(TransparencyAttrib.M_alpha)
+        poly_unsel_color = VBase4(.3, .3, .3, .5)
+        poly_unsel_state_np.set_color(poly_unsel_color)
+        poly_unsel_state_np.set_bin("background", 10)
+
+        poly_sel_state_np = NodePath(poly_unsel_state_np.node().make_copy())
+        poly_sel_color = VBase4(1., 0., 0., 1.)
+        poly_sel_state_np.set_color(poly_sel_color)
         tex_stage = TextureStage("uv_poly_selection")
         tex_stage.set_mode(TextureStage.M_add)
-        np.set_tex_gen(tex_stage, RenderAttrib.M_world_position)
-        np.set_tex_projector(tex_stage, BaseObject.uv_space, BaseObject.cam)
+        poly_sel_state_np.set_tex_gen(tex_stage, RenderAttrib.M_world_position)
+        poly_sel_state_np.set_tex_projector(tex_stage, BaseObject.uv_space, BaseObject.cam)
         tex = Texture()
         tex.read(Filename(GFX_PATH + "sel_tex.png"))
-        np.set_texture(tex_stage, tex)
-        np.set_tex_scale(tex_stage, 100.)
-        red = VBase4(1., 0., 0., 1.)
-        np.set_color(red)
-        poly_sel_state = np.get_state()
-        poly_sel_effects = np.get_effects()
-        UVMgr.expose("poly_selection_state", lambda: poly_sel_state)
+        poly_sel_state_np.set_texture(tex_stage, tex)
+        poly_sel_state_np.set_tex_scale(tex_stage, 100.)
+
+        vert_state = vert_state_np.get_state()
+        edge_state = edge_state_np.get_state()
+        poly_unsel_state = poly_unsel_state_np.get_state()
+        poly_sel_state = poly_sel_state_np.get_state()
+        poly_sel_effects = poly_sel_state_np.get_effects()
+        self._poly_colors = {"unselected": poly_unsel_color, "selected": poly_sel_color}
+        self._poly_states = {"unselected": poly_unsel_state, "selected": poly_sel_state}
+        UVMgr.expose("vert_render_state", lambda: vert_state)
+        UVMgr.expose("edge_render_state", lambda: edge_state)
+        UVMgr.expose("poly_states", lambda: self._poly_states)
         UVMgr.expose("poly_selection_effects", lambda: poly_sel_effects)
+
+        vert_colors = {"selected": (1., 0., 0., 1.), "unselected": (.5, .5, 1., 1.)}
+        edge_colors = {"selected": (1., 0., 0., 1.), "unselected": (1., 1., 1., 1.)}
+        seam_colors = {"selected": (1., .5, 1., 1.), "unselected": (0., 1., 0., 1.)}
+        self._uv_sel_colors = {"vert": vert_colors, "edge": edge_colors, "seam": seam_colors}
+        UVMgr.expose("uv_selection_colors", lambda: self._uv_sel_colors)
+
+        UVMgr.accept("clear_unselected_poly_state", self.__clear_unselected_poly_state)
+        UVMgr.accept("reset_unselected_poly_state", self.__reset_unselected_poly_state)
 
         Mgr.add_app_updater("uv_viewport", self.__toggle_viewport)
 
@@ -86,7 +127,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             if self._window:
                 self.__update_history()
-                Mgr.exit_state("uv_edit_mode")
+                Mgr.update_interface_locally("uv_window", "uv_background", "show_on_models", False)
                 Mgr.remove_task("update_cursor_uvs")
                 Mgr.remove_interface("uv_window")
                 UVMgr.get("picking_cam").set_active(False)
@@ -97,6 +138,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
                 self._uv_set_id = 0
                 self.__update_object_level()
                 self._transf_gizmo.hide()
+                Mgr.exit_state("uv_edit_mode")
                 core.close_window(self._window, keepCamera=True)
                 self._window = None
 
@@ -149,12 +191,19 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         Mgr.add_interface_updater("uv_window", "active_uv_set", self.__update_uv_set)
         Mgr.add_interface_updater("uv_window", "uv_set_copy", self.__copy_uv_set)
         Mgr.add_interface_updater("uv_window", "uv_set_paste", self.__paste_uv_set)
+        Mgr.add_interface_updater("uv_window", "poly_color", self.__update_poly_color)
 
         self._grid.add_interface_updaters()
         self._uv_template_saver.add_interface_updaters()
         self._transf_gizmo.add_interface_updaters()
+        self._transf_gizmo.update_transform_handles()
         GlobalData["active_uv_transform_type"] = ""
         Mgr.update_interface("uv_window", "active_transform_type", "")
+
+        for sel_state in ("unselected", "selected"):
+            r, g, b, a = self._poly_colors[sel_state]
+            Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, "rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, "alpha", a)
 
         self.__create_uv_data()
         self.create_selections()
@@ -167,15 +216,15 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __create_uv_data(self):
 
-        models = set(obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                     and obj.get_geom_type() != "basic_geom")
+        models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+                  and obj.get_geom_type() != "basic_geom"]
         uv_set_id = self._uv_set_id
         self._uv_registry[uv_set_id] = uv_registry = {"vert": {}, "edge": {}, "poly": {}}
         self._uv_data_objs[uv_set_id] = uv_data_objs = {}
 
         for model in models:
             geom_data_obj = model.get_geom_object().get_geom_data_object()
-            uv_data_objs[geom_data_obj] = UVDataObject(uv_registry, geom_data_obj)
+            uv_data_objs[geom_data_obj] = UVDataObject(uv_set_id, uv_registry, geom_data_obj)
 
         # render a frame to make sure that GeomPrimitives with temporary vertices
         # will still be rendered after making them empty (in the next frame)
@@ -205,7 +254,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
                 for uv_data_obj in uv_data_objs.itervalues():
                     uv_data_obj.show_subobj_level(obj_lvl)
 
-            self.update_selection()
+            self.update_selection(recreate=True)
 
     def __update_uv_set(self, uv_set_id):
 
@@ -223,7 +272,8 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             uv_data_objs = self._uv_data_objs[uv_set_id]
 
-            for uv_data_obj in uv_data_objs.itervalues():
+            for geom_data_obj, uv_data_obj in uv_data_objs.iteritems():
+                geom_data_obj.set_tex_seams(uv_set_id)
                 uv_data_obj.show()
 
         else:
@@ -234,15 +284,22 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
         self.update_selection()
 
-        obj_lvl = self._obj_lvl
-        selection = self._selections[uv_set_id][obj_lvl]
+        for obj_lvl in ("vert", "edge", "poly"):
 
-        if obj_lvl == "poly":
-            subobj_ids = [subobj.get_id() for subobj in selection]
-        else:
-            subobj_ids = [subobj_id for subobj in selection for subobj_id in subobj]
+            selection = self._selections[uv_set_id][obj_lvl]
 
-        self._world_sel_mgr.sync_selection(subobj_ids)
+            if obj_lvl == "poly":
+
+                color_ids = [subobj.get_picking_color_id() for subobj in selection]
+
+            else:
+
+                color_ids = []
+
+                for subobj in selection:
+                    color_ids.extend(subobj.get_picking_color_ids())
+
+            self._world_sel_mgr.sync_selection(color_ids, object_level=obj_lvl)
 
     def __copy_uv_set(self):
 
@@ -270,13 +327,14 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         for geom_data_obj, uv_data_obj in uv_data_objs.iteritems():
 
             uv_data_obj.destroy()
-            copy = copies[geom_data_obj].copy()
+            copy = copies[geom_data_obj].copy(uv_set_id)
             copy.show()
             uv_data_objs[geom_data_obj] = copy
 
             for subobj_type in ("vert", "edge", "poly"):
-                uv_registry[subobj_type].update(copy.get_subobjects(subobj_type).copy())
-                selections[subobj_type].extend(copy.get_selection(subobj_type))
+                uv_registry[subobj_type] = dict((s.get_picking_color_id(), s)
+                                                for s in copy.get_subobjects(subobj_type).itervalues())
+                selections[subobj_type] = copy.get_selection(subobj_type)
 
             geom_data_obj.paste_uvs(uv_set_id)
 
@@ -284,17 +342,66 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             self._selections[uv_set_id][subobj_type].set(selections[subobj_type])
 
         self.__update_object_level()
-        self.update_selection()
 
-        obj_lvl = self._obj_lvl
-        selection = self._selections[uv_set_id][obj_lvl]
+        for obj_lvl in ("vert", "edge", "poly"):
 
-        if obj_lvl == "poly":
-            subobj_ids = [subobj.get_id() for subobj in selection]
-        else:
-            subobj_ids = [subobj_id for subobj in selection for subobj_id in subobj]
+            selection = self._selections[uv_set_id][obj_lvl]
 
-        self._world_sel_mgr.sync_selection(subobj_ids)
+            if obj_lvl == "poly":
+
+                color_ids = [subobj.get_picking_color_id() for subobj in selection]
+
+            else:
+
+                color_ids = []
+
+                for subobj in selection:
+                    color_ids.extend(subobj.get_picking_color_ids())
+
+            self._world_sel_mgr.sync_selection(color_ids, object_level=obj_lvl)
+
+    def __clear_unselected_poly_state(self):
+
+        uv_data_objs = self._uv_data_objs[self._uv_set_id]
+        state = RenderState.make_empty()
+
+        for uv_data_obj in uv_data_objs.itervalues():
+            uv_data_obj.set_poly_state("unselected", state)
+
+    def __reset_unselected_poly_state(self):
+
+        uv_data_objs = self._uv_data_objs[self._uv_set_id]
+        state = self._poly_states["unselected"]
+
+        for uv_data_obj in uv_data_objs.itervalues():
+            uv_data_obj.set_poly_state("unselected", state)
+
+    def __update_poly_color(self, sel_state, channels, value):
+
+        poly_colors = self._poly_colors
+        poly_states = self._poly_states
+        color = poly_colors[sel_state]
+        state = poly_states[sel_state]
+
+        if channels == "rgb":
+            for i in range(3):
+                color[i] = value[i]
+        elif channels == "alpha":
+            color[3] = value
+
+        state = state.add_attrib(ColorAttrib.make_flat(color))
+
+        poly_colors[sel_state] = color
+        poly_states[sel_state] = state
+
+        uv_data_objs = self._uv_data_objs[self._uv_set_id]
+
+        for uv_data_obj in uv_data_objs.itervalues():
+            uv_data_obj.set_poly_state(sel_state, state)
+
+        r, g, b, a = poly_colors[sel_state]
+        value = {"rgb": (r, g, b), "alpha": a}[channels]
+        Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, channels, value)
 
     def _set_cursor(self, cursor_name):
 

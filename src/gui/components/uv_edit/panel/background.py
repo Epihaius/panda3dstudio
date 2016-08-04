@@ -32,8 +32,7 @@ class BackgroundPanel(Panel):
         sizer.Add(subsizer, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
         label = "Load"
-        bitmaps = PanelButton.create_button_bitmaps(
-            "*%s" % label, bitmap_paths)
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(self, self, subsizer, bitmaps, label,
                           "Load background texture", self.__load_tex,
                           sizer_args, focus_receiver=focus_receiver)
@@ -65,17 +64,21 @@ class BackgroundPanel(Panel):
         field.set_input_parser(val_id, self.__parse_tiling)
         self._fields[val_id] = field
 
-        # TODO: add combobox allowing user to choose texture from selected objects?
-        # TODO: add button allowing user to show texture on all selected
-        # objects?
+        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
+        sizer.Add(subsizer, 0, wx.ALL, 10)
+        checkbox = PanelCheckBox(self, self, subsizer,
+                                 lambda val: self.__handle_value("show_on_models", val),
+                                 sizer_args=sizer_args, focus_receiver=focus_receiver)
+        checkbox.check(False)
+        self._checkboxes["show_on_models"] = checkbox
+        self.add_text("Show on models", subsizer, sizer_args)
 
         parent.add_panel(self)
         self.update()
         self.finalize()
         self.update_parent()
 
-        Mgr.add_interface_updater(
-            "uv_window", "uv_background", self.__set_background_property)
+        Mgr.add_interface_updater("uv_window", "uv_background", self.__set_background_property)
 
     def get_clipping_rect(self):
 
@@ -88,8 +91,7 @@ class BackgroundPanel(Panel):
 
     def __handle_value(self, value_id, value):
 
-        Mgr.update_interface_remotely(
-            "uv_window", "uv_background", value_id, value)
+        Mgr.update_interface_remotely("uv_window", "uv_background", value_id, value)
 
     def __load_tex(self):
 
@@ -104,15 +106,13 @@ class BackgroundPanel(Panel):
         self._fields["tex_filename"].set_value("tex_filename", tex_filename)
         self._tex_filename = tex_filename
 
-        Mgr.update_interface_remotely(
-            "uv_window", "uv_background", "tex_filename", tex_filename)
+        Mgr.update_interface_remotely("uv_window", "uv_background", "tex_filename", tex_filename)
 
     def __set_tex(self, value_id, tex_filename):
 
         self._tex_filename = tex_filename
 
-        Mgr.update_interface_remotely(
-            "uv_window", "uv_background", "tex_filename", tex_filename)
+        Mgr.update_interface_remotely("uv_window", "uv_background", "tex_filename", tex_filename)
 
     def __init_tex_filename_input(self):
 
@@ -146,6 +146,10 @@ class BackgroundPanel(Panel):
             return None
 
     def __set_background_property(self, prop_id, value):
+
+        if prop_id == "show_on_models":
+            self._checkboxes[prop_id].check(value)
+            return
 
         self._fields[prop_id].set_value(prop_id, value)
 

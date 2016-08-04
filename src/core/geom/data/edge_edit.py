@@ -16,7 +16,7 @@ class EdgeEditBase(BaseObject):
         merged_edges = self._merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        selected_edges = set([merged_edges[i] for i in selected_edge_ids])
+        selected_edges = set(merged_edges[i] for i in selected_edge_ids)
         verts_to_split = {}
 
         change = False
@@ -29,8 +29,7 @@ class EdgeEditBase(BaseObject):
         # encountered (in this case, the vertex cannot be split), or a different
         # selected edge or border edge is encountered (if so, the vertex can be split);
         # if at least one of the vertices of an edge can be split, the edge itself
-        # can be split;
-        # border edges cannot be split
+        # can be split (unless it is a border edge)
         for merged_edge in selected_edges:
 
             if len(merged_edge) == 1:
@@ -92,6 +91,9 @@ class EdgeEditBase(BaseObject):
 
             if vert_split:
 
+                # it is possible that only vertices are split, without splitting any edges,
+                # e.g. when trying to split two border edges that meet at a vertex that is
+                # shared with other border edges
                 if len(merged_edge) > 1:
                     new_merged_edge = Mgr.do("create_merged_edge", self, edge1_id)
                     merged_edge.remove(edge1_id)
@@ -101,14 +103,14 @@ class EdgeEditBase(BaseObject):
 
         if change:
 
-            merged_verts_to_update = set(verts_to_split.iterkeys())
+            merged_verts_to_resmooth = set(verts_to_split.iterkeys())
 
             for merged_vert in verts_to_split:
 
                 for vert_ids_to_separate in verts_to_split[merged_vert]:
 
                     new_merged_vert = Mgr.do("create_merged_vert", self)
-                    merged_verts_to_update.add(new_merged_vert)
+                    merged_verts_to_resmooth.add(new_merged_vert)
 
                     for id_to_separate in vert_ids_to_separate:
 
@@ -124,7 +126,7 @@ class EdgeEditBase(BaseObject):
 
             Mgr.do("update_active_selection")
 
-            self._update_vertex_normals(merged_verts_to_update)
+            self._update_vertex_normals(merged_verts_to_resmooth)
 
             if update_verts_to_transf:
                 self._update_verts_to_transform("vert")

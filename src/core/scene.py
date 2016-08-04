@@ -142,6 +142,70 @@ class SceneManager(BaseObject):
 
         GlobalData["unsaved_scene"] = False
 
+    def __merge_duplicate_vertices(self, geom_data_obj):
+
+        verts = geom_data_obj.get_subobjects("vert")
+        merged_verts = set(geom_data_obj.get_merged_vertex(v_id) for v_id in verts)
+        rows = range(len(verts))
+        dupes = {}
+
+        for merged_vert in merged_verts:
+
+            verts1 = [verts[v_id] for v_id in merged_vert]
+            verts2 = verts1[:]
+
+            for vert1 in verts1:
+
+                pos1 = vert1.get_pos()
+                normal1 = vert1.get_normal()
+                uv1 = vert1.get_uvs()
+                row1 = vert1.get_row_index()
+
+                if row1 in dupes:
+                    continue
+
+                for vert2 in verts2[:]:
+
+                    if vert2 is vert1:
+                        continue
+
+                    pos2 = vert2.get_pos()
+                    normal2 = vert2.get_normal()
+                    uv2 = vert2.get_uvs()
+
+                    if pos2 == pos1 and normal2 == normal1 and uv2 == uv1:
+                        row2 = vert2.get_row_index()
+                        rows.remove(row2)
+                        verts2.remove(vert2)
+                        dupes[row2] = row1
+
+        geom = geom_data_obj.get_toplevel_node().get_geom(0)
+        vdata_src = geom.get_vertex_data()
+        vdata_dest = GeomVertexData(vdata_src)
+        vdata_dest.unclean_set_num_rows(len(rows))
+        thread = Thread.get_main_thread()
+
+        for row_dest, row_src in enumerate(rows):
+            vdata_dest.copy_row_from(row_dest, vdata_src, row_src, thread)
+
+        for row2, row1 in dupes.items():
+            dupes[row2] = rows.index(row1)
+
+        prim_src = geom.get_primitive(0)
+        prim_dest = GeomTriangles(Geom.UH_static)
+        rows_src = prim_src.get_vertex_list()
+        rows_dest = [dupes[row] if row in dupes else rows.index(row) for row in rows_src]
+
+        for indices in (rows_dest[i:i + 3] for i in xrange(0, len(rows_dest), 3)):
+            prim_dest.add_vertices(*indices)
+
+        geom_dest = Geom(vdata_dest)
+        geom_dest.add_primitive(prim_dest)
+        geom_node = GeomNode("")
+        geom_node.add_geom(geom_dest)
+
+        return geom_node
+
     def __prepare_export_to_bam(self, parent, children, tmp_node, directory, geom_node=None):
 
         for child in children:
@@ -162,7 +226,8 @@ class SceneManager(BaseObject):
                 else:
 
                     geom_data_obj = geom_obj.get_geom_data_object()
-                    node = geom_data_obj.get_toplevel_geom().copy_to(tmp_node)
+                    optimized_geom_node = self.__merge_duplicate_vertices(geom_data_obj)
+                    node = tmp_node.attach_new_node(optimized_geom_node)
                     masks = Mgr.get("render_masks")["all"] | Mgr.get("picking_masks")["all"]
                     node.show(masks)
 

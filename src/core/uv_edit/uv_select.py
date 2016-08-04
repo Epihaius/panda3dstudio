@@ -4,11 +4,11 @@ from .uv_transform import SelectionTransformBase
 
 class UVSelection(SelectionTransformBase):
 
-    def __init__(self, obj_level):
+    def __init__(self, obj_level, subobjs=None):
 
         SelectionTransformBase.__init__(self)
 
-        self._objs = []
+        self._objs = [] if subobjs is None else subobjs
         self._obj_level = obj_level
 
     def __getitem__(self, index):
@@ -149,6 +149,7 @@ class UVSelectionBase(BaseObject):
         UVMgr.expose("selection_center",
                      lambda: self._selections[self._uv_set_id][self._obj_lvl].get_center_pos())
         UVMgr.accept("update_sel_obj_ids", self.__update_selected_object_ids)
+        UVMgr.accept("update_active_selection", self.__update_active_selection)
 
         PendingTasks.add_task_id("update_selection", "uv_object")
         PendingTasks.add_task_id("update_selection", "uv_ui")
@@ -215,9 +216,25 @@ class UVSelectionBase(BaseObject):
 
         self._sel_obj_ids = obj_ids
 
-    def update_selection(self):
+    def update_selection(self, recreate=False):
 
-        self._selections[self._uv_set_id][self._obj_lvl].update()
+        selections = self._selections[self._uv_set_id]
+        obj_lvl = self._obj_lvl
+
+        if recreate:
+
+            subobjs = []
+
+            for uv_data_obj in self._uv_data_objs[self._uv_set_id].itervalues():
+                subobjs.extend(uv_data_obj.get_selection(obj_lvl))
+
+            selections[obj_lvl] = UVSelection(obj_lvl, subobjs)
+
+        selections[obj_lvl].update()
+
+    def __update_active_selection(self):
+
+        self.update_selection(recreate=True)
 
     def __check_mouse_offset(self, task):
         """

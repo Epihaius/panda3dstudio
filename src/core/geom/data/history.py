@@ -80,6 +80,9 @@ class GeomHistoryBase(BaseObject):
                 if self.smooth_polygons(poly_ids, smooth=False, update_normals=False):
                     data.update(self.get_property_to_store("smoothing"))
 
+                # check if all polys have been deleted; if so, this GeomDataObject
+                # needs to be deleted itself also
+
             for subobj_type in ("vert", "edge", "poly"):
 
                 prev_time_ids = Mgr.do("load_last_from_history", obj_id, "%ss" % subobj_type)
@@ -630,19 +633,17 @@ class GeomHistoryBase(BaseObject):
 
     def __init_subobj_restore(self):
 
-        sel_state = self._subobj_sel_state
+        sel_data = self._poly_selection_data
 
-        for subobj_type in ("vert", "edge", "poly"):
-            for state in ("selected", "unselected"):
-                sel_state[subobj_type][state] = []
-                geom_node = self._geoms[subobj_type][state].node()
-                geom_node.modify_geom(0).modify_primitive(0).modify_vertices().modify_handle().set_data("")
-                # NOTE: do *NOT* call geom_node.modify_geom(0).modify_primitive(0).clearVertices(),
-                # as this will explicitly remove all data from the primitive, and adding new
-                # data thru ...modify_primitive(0).modify_vertices().modify_handle().set_data(data)
-                # will not internally notify Panda3D that the primitive has now been
-                # updated to contain new data! This will result in an assertion error
-                # later on.
+        for state in ("selected", "unselected"):
+            sel_data[state] = []
+            prim = self._geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
+            prim.modify_vertices().modify_handle().set_data("")
+            # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
+            # remove all data from the primitive, and adding new data through
+            # prim.modify_vertices().modify_handle().set_data(data) will not
+            # internally notify Panda3D that the primitive has now been updated
+            # to contain new data. This will result in an assertion error later on.
 
         self._verts_to_transf["vert"] = {}
         self._verts_to_transf["edge"] = {}
@@ -684,8 +685,11 @@ class GeomHistoryBase(BaseObject):
 
         row_ranges_to_delete.sort(reverse=True)
 
-        vertex_data_vert = self._vertex_data["vert"]
-        vertex_data_edge = self._vertex_data["edge"]
+        geoms = self._geoms
+        vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
+        edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
+        vertex_data_vert = vert_geom.modify_vertex_data()
+        vertex_data_edge = edge_geom.modify_vertex_data()
         vertex_data_poly_picking = self._vertex_data["poly_picking"]
 
         geom_node = self._toplvl_node
@@ -734,6 +738,8 @@ class GeomHistoryBase(BaseObject):
         old_count = self._data_row_count
         count = old_count + vert_count
 
+        geoms = self._geoms
+
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.reserve_num_rows(count)
         vertex_data_poly_picking = self._vertex_data["poly_picking"]
@@ -744,12 +750,6 @@ class GeomHistoryBase(BaseObject):
         pos_writer.set_row(row_index_offset)
         col_writer = GeomVertexWriter(vertex_data_poly_picking, "color")
         col_writer.set_row(row_index_offset)
-        normal_writer = GeomVertexWriter(vertex_data_top, "normal")
-        normal_writer.set_row(row_index_offset)
-        tan_writer = GeomVertexWriter(vertex_data_top, "tangent")
-        tan_writer.set_row(row_index_offset)
-        bitan_writer = GeomVertexWriter(vertex_data_top, "binormal")
-        bitan_writer.set_row(row_index_offset)
 
         pickable_type_id = PickableTypes.get_id("poly")
 
@@ -764,17 +764,11 @@ class GeomHistoryBase(BaseObject):
                 pos = vert.get_pos()
                 pos_writer.add_data3f(pos)
                 col_writer.add_data4f(picking_color)
-                # TODO: move the next data updates to a later pending task (after
-                # restoring the corresponding properties)
-                normal = vert.get_normal()
-                normal_writer.add_data3f(normal)
-                tangent, bitangent = vert.get_tangent_space()
-                tan_writer.add_data3f(tangent)
-                bitan_writer.add_data3f(bitangent)
 
             row_index_offset += len(poly_verts)
 
-        vertex_data_vert = self._vertex_data["vert"]
+        vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
+        vertex_data_vert = vert_geom.modify_vertex_data()
         vertex_data_vert.reserve_num_rows(count)
         vertex_data_vert.set_num_rows(count)
         vertex_data_tmp = GeomVertexData(vertex_data_vert)
@@ -810,7 +804,8 @@ class GeomHistoryBase(BaseObject):
             row_index = verts[edge[1]].get_row_index() + count
             picking_colors2[row_index] = picking_color
 
-        vertex_data_edge = self._vertex_data["edge"]
+        edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
+        vertex_data_edge = edge_geom.modify_vertex_data()
         vertex_data_tmp = GeomVertexData(vertex_data_edge)
         vertex_data_tmp.set_num_rows(count)
         col_writer = GeomVertexWriter(vertex_data_tmp, "color")
@@ -841,35 +836,29 @@ class GeomHistoryBase(BaseObject):
 
         self._data_row_count = count
 
-        geom_node = self._toplvl_node
-
-        # handle possible bug
-        try:
-            self._origin.node().set_bounds(geom_node.get_bounds())
-        except:
-            print "\n\n\n---------------------------------------------"
-            print "---------- Could not set bounds! ------------"
-            print "---------------------------------------------"
-
     def __finalize_subobj_restore(self):
 
         count = self._data_row_count
         ordered_polys = self._ordered_polys
         verts = self._subobjs["vert"]
-        sel_state = self._subobj_sel_state
-        sel_state["vert"]["unselected"] = range(count)
-        sel_state_edge = sel_state["edge"]["unselected"]
-        sel_state_poly = sel_state["poly"]["unselected"]
+        sel_data = self._poly_selection_data["unselected"]
 
-        vertex_data_vert = self._vertex_data["vert"]
+        geoms = self._geoms
+        sel_colors = Mgr.get("subobj_selection_colors")
+
+        pickable_vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
+        pickable_edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
+        pickable_poly_geom = geoms["poly"]["pickable"].node().modify_geom(0)
+        vert_sel_state_geom = geoms["vert"]["sel_state"].node().modify_geom(0)
+        edge_sel_state_geom = geoms["edge"]["sel_state"].node().modify_geom(0)
+        poly_unselected_geom = geoms["poly"]["unselected"].node().modify_geom(0)
+        vertex_data_vert = pickable_vert_geom.modify_vertex_data()
         vertex_data_vert.set_num_rows(count)
-        vertex_data_edge = self._vertex_data["edge"]
+        vertex_data_edge = pickable_edge_geom.modify_vertex_data()
         vertex_data_edge.set_num_rows(count * 2)
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly.set_num_rows(count)
         vertex_data_poly_picking = self._vertex_data["poly_picking"]
-
-        geoms = self._geoms
 
         geom_node = self._toplvl_node
         vertex_data_top = geom_node.get_geom(0).get_vertex_data()
@@ -881,10 +870,24 @@ class GeomHistoryBase(BaseObject):
 
         pos_array = poly_arrays[0]
         vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
+
+        vertex_data_vert = vert_sel_state_geom.modify_vertex_data()
+        vertex_data_vert.set_num_rows(count)
+        vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
+        new_data = vertex_data_vert.set_color(sel_colors["vert"]["unselected"])
+        vertex_data_vert.set_array(1, new_data.get_array(1))
+
         pos_data = pos_array.get_handle().get_data()
         array = GeomVertexArrayData(pos_array)
         array.modify_handle().set_data(pos_data * 2)
         vertex_data_edge.set_array(0, array)
+
+        vertex_data_edge = edge_sel_state_geom.modify_vertex_data()
+        vertex_data_edge.set_num_rows(count * 2)
+        vertex_data_edge.set_array(0, GeomVertexArrayData(array))
+        new_data = vertex_data_edge.set_color(sel_colors["edge"]["unselected"])
+        vertex_data_edge.set_array(1, new_data.get_array(1))
+
         vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
 
         for i, poly_array in enumerate(poly_arrays):
@@ -899,32 +902,27 @@ class GeomHistoryBase(BaseObject):
             for edge in poly.get_edges():
                 row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
                 lines_prim.add_vertices(row1, row2 + count)
-                sel_state_edge.append(row1)
 
             for vert_ids in poly:
                 tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
 
-            sel_state_poly.extend(poly[:])
+            sel_data.extend(poly[:])
 
         geom_node.modify_geom(0).set_primitive(0, tris_prim)
-
-        geom_node = geoms["top"]["wire"].node()
-        geom_node.modify_geom(0).set_primitive(0, lines_prim)
-
-        geom_node = geoms["edge"]["unselected"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomLines(lines_prim))
-
-        geom_node = geoms["poly"]["unselected"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
-
-        geom_node = geoms["poly_picking"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
 
         points_prim = GeomPoints(Geom.UH_static)
         points_prim.reserve_num_vertices(count)
         points_prim.add_next_vertices(count)
-        geom_node = geoms["vert"]["unselected"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomPoints(points_prim))
+        pickable_vert_geom.set_primitive(0, GeomPoints(points_prim))
+        vert_sel_state_geom.set_primitive(0, GeomPoints(points_prim))
+
+        pickable_edge_geom.set_primitive(0, lines_prim)
+        edge_sel_state_geom.set_primitive(0, GeomLines(lines_prim))
+
+        pickable_poly_geom.set_primitive(0, GeomTriangles(tris_prim))
+        poly_unselected_geom.set_primitive(0, GeomTriangles(tris_prim))
+
+        self._origin.node().set_bounds(self._toplvl_node.get_bounds())
 
     def __restore_subobj_merge(self, time_id):
 

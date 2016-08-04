@@ -84,6 +84,7 @@ class BasicGeom(BaseObject):
         state = self.__dict__.copy()
         del state["_model"]
         del state["_picking_states"]
+        del state["_initial_vertex_colors"]
 
         return state
 
@@ -101,6 +102,9 @@ class BasicGeom(BaseObject):
         np.set_render_mode_thickness(5, 1)
         picking_states["wire"] = np.get_state()
         self._picking_states = picking_states
+        vertex_data = self._geom.node().get_geom(0).get_vertex_data()
+        array = GeomVertexArrayData(vertex_data.get_array(2))
+        self._initial_vertex_colors = array
 
     def __init__(self, model, geom, picking_col_id):
 
@@ -123,8 +127,9 @@ class BasicGeom(BaseObject):
 
         src_vert_data = geom.node().get_geom(0).get_vertex_data()
         src_format = src_vert_data.get_format()
-        dest_format = Mgr.get("vertex_format_poly")
+        dest_format = Mgr.get("vertex_format_full")
         dest_vert_data = src_vert_data.convert_to(dest_format)
+        self._initial_vertex_colors = dest_vert_data.get_array(2)
         geom.node().modify_geom(0).set_vertex_data(dest_vert_data)
         dest_vert_data = geom.node().modify_geom(0).modify_vertex_data()
         num_rows = src_vert_data.get_num_rows()
@@ -335,6 +340,24 @@ class BasicGeom(BaseObject):
     def is_tangent_space_initialized(self):
 
         return self._is_tangent_space_initialized
+
+    def bake_texture(self, texture):
+
+        vertex_data = self._geom.node().modify_geom(0).modify_vertex_data()
+        geom_copy = self._geom.copy_to(self.world)
+        geom_copy.detach_node()
+        geom_copy.set_texture(TextureStage.get_default(), texture)
+        geom_copy.flatten_light()
+        geom_copy.apply_texture_colors()
+        vertex_data_copy = geom_copy.node().modify_geom(0).modify_vertex_data()
+        array = vertex_data_copy.modify_array(10)
+        vertex_data.set_array(2, array)
+
+    def reset_vertex_colors(self):
+
+        vertex_data = self._geom.node().modify_geom(0).modify_vertex_data()
+        array = GeomVertexArrayData(self._initial_vertex_colors)
+        vertex_data.set_array(2, array)
 
     def get_subobj_selection(self, subobj_lvl):
 
