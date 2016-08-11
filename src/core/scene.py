@@ -483,18 +483,14 @@ class SceneManager(BaseObject):
         elif ext == ".obj":
             self.__export_to_obj(filename)
 
-    def __create_dummy(self, name, transform):
+    def __create_point_helper(self, name, transform):
 
-        viz = set(["box", "cross"])
-        size = 1.
-        cross_size = 300.
-        is_const_size = True
-        const_size = .5
+        size = 10.
         on_top = True
-        dummy = Mgr.do("create_custom_dummy", name, viz, size, cross_size,
-                       is_const_size, const_size, on_top, transform)
+        colors = {"unselected": (0., .5, .5, 1.), "selected": (1., 1., 1., 1.)}
+        point_helper = Mgr.do("create_custom_point_helper", name, size, on_top, colors, transform)
 
-        return dummy
+        return point_helper
 
     def __import_children(self, basic_edit, parent_id, children, objs_to_store):
 
@@ -524,7 +520,7 @@ class SceneManager(BaseObject):
 
                     if geom_count > 1:
 
-                        obj = self.__create_dummy(name, child.get_transform())
+                        obj = self.__create_point_helper(name, child.get_transform())
                         obj.set_child_optimization_for_export()
                         obj_id = obj.get_id()
 
@@ -563,7 +559,7 @@ class SceneManager(BaseObject):
 
                 else:
 
-                    obj = self.__create_dummy(name, child.get_transform())
+                    obj = self.__create_point_helper(name, child.get_transform())
 
                 obj.set_parent(parent_id, add_to_hist=False)
 

@@ -821,13 +821,16 @@ class TransformationManager(BaseObject):
             objs.update(obj.get_descendants())
 
         for obj in objs:
+
             pivot = obj.get_pivot()
-            origin = obj.get_origin()
             ref_node = ref_root.attach_new_node("ref_node")
             ref_node.set_mat(pivot.get_mat(obj_root))
             self._tmp_pivot_mats[obj] = Mat4(pivot.get_mat(obj_root))
-            compass_effect = CompassEffect.make(ref_node, compass_props)
-            origin.set_effect(compass_effect)
+
+            if obj.get_type() != "point_helper":
+                compass_effect = CompassEffect.make(ref_node, compass_props)
+                origin = obj.get_origin()
+                origin.set_effect(compass_effect)
 
     def __finalize_link_transform(self, cancel=False):
 
@@ -836,8 +839,11 @@ class TransformationManager(BaseObject):
         positions = {}
 
         for obj in tmp_pivot_mats:
-            origin = obj.get_origin()
-            origin.clear_effect(CompassEffect.get_class_type())
+
+            if obj.get_type() != "point_helper":
+                origin = obj.get_origin()
+                origin.clear_effect(CompassEffect.get_class_type())
+
             pivot = obj.get_pivot()
             positions[obj] = pivot.get_pos(obj_root)
 
@@ -914,6 +920,9 @@ class TransformationManager(BaseObject):
                 self.__cleanup_link_transform()
 
             selection.finalize_transform_component(transf_type, is_rel_value)
+            Mgr.do("init_point_helper_transform")
+            Mgr.do("transform_point_helpers")
+            Mgr.do("finalize_point_helper_transform")
 
         self._selection = None
 
@@ -935,6 +944,8 @@ class TransformationManager(BaseObject):
         self._transf_start_pos = transf_start_pos
 
         if GlobalData["active_obj_level"] == "top":
+
+            Mgr.do("init_point_helper_transform")
 
             if target_type in ("all", "links"):
 
@@ -990,6 +1001,8 @@ class TransformationManager(BaseObject):
 
             if target_type == "links":
                 self.__cleanup_link_transform(cancel)
+
+            Mgr.do("finalize_point_helper_transform", cancel)
 
         if active_transform_type == "rotate" \
                 and GlobalData["axis_constraints"]["rotate"] == "trackball":
@@ -1098,6 +1111,7 @@ class TransformationManager(BaseObject):
                 translation_vec = translation_vec.project(self._transf_axis)
 
             self._selection.translate(translation_vec)
+            Mgr.do("transform_point_helpers")
 
         return task.cont
 
@@ -1223,6 +1237,7 @@ class TransformationManager(BaseObject):
 
             Mgr.do("set_rotation_gizmo_angle", angle)
             self._selection.rotate(rotation)
+            Mgr.do("transform_point_helpers")
 
         return task.cont
 
@@ -1262,6 +1277,7 @@ class TransformationManager(BaseObject):
         rotation = Quat()
         rotation.set_from_axis_angle_rad(angle, axis_vec)
         self._selection.rotate(rotation)
+        Mgr.do("transform_point_helpers")
 
         return task.cont
 
@@ -1353,6 +1369,7 @@ class TransformationManager(BaseObject):
                     scaling["xyz".index(axis)] = scaling_factor
 
             self._selection.scale(scaling)
+            Mgr.do("transform_point_helpers")
 
         return task.cont
 

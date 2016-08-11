@@ -417,7 +417,7 @@ class V3D(Vec3):
 
         return "V3D(%s, %s, %s)" % (x, y, z)
 
-    def get_h(self, *args):
+    def get_h(self):
         """ Get the heading of this vector """
 
         quat = Quat()
@@ -425,7 +425,7 @@ class V3D(Vec3):
 
         return quat.get_hpr().x
 
-    def get_p(self, *args):
+    def get_p(self):
         """ Get the pitch of this vector """
 
         quat = Quat()
@@ -433,7 +433,7 @@ class V3D(Vec3):
 
         return quat.get_hpr().y
 
-    def get_hpr(self, *args):
+    def get_hpr(self):
         """ Get the direction of this vector """
 
         quat = Quat()

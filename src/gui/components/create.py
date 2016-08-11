@@ -43,14 +43,17 @@ class CreationManager(object):
 
         menubar.add_menu_item_separator("create")
 
-        obj_types = ("dummy", "tex_projector")
-        accelerators = ("D", "P")
+        obj_types = ("tex_projector", "dummy")
+        accelerators = ("P", "D")
         hotkeys = [(ord(accel), mod_code) for accel in accelerators]
 
         for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
             data = creation_data[obj_type]
             menubar.add_menu_item("create", obj_type, "Create %s\tSHIFT+CTRL+%s" % (data["name"], accel),
                                   data["handler"], hotkey)
+
+        data = creation_data["point_helper"]
+        menubar.add_menu_item("create", "point_helper", "Create %s" % data["name"], data["handler"])
 
     def setup(self):
 

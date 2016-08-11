@@ -511,6 +511,10 @@ class TopLevelObject(BaseObject):
                 task_id = "transf_center_update"
                 PendingTasks.add(task, task_id, "ui")
 
+            for obj in self.get_descendants():
+                if obj.get_type() == "point_helper":
+                    obj.update_pos()
+
         elif prop_id == "origin_transform":
 
             task = lambda: self._origin.set_mat(self._pivot, value)
