@@ -1,6 +1,6 @@
 from .base import *
-from . import (cam, nav, view, history, scene, create, select, transform, transf_center,
-               coord_sys, geom, hierarchy, helpers, texmap, material)
+from . import (cam, nav, view, history, scene, import_, export, create, select, transform,
+               transf_center, coord_sys, geom, hierarchy, helpers, texmap, material)
 from direct.showbase.ShowBase import ShowBase, DirectObject
 
 loadPrcFileData("", """
@@ -33,7 +33,7 @@ class Core(ShowBase):
 
         def handle_pending_tasks(task):
 
-            PendingTasks.handle()
+            PendingTasks.handle(["object", "ui"], True)
 
             return task.cont
 
@@ -43,7 +43,7 @@ class Core(ShowBase):
 
             return task.cont
 
-        self.task_mgr.add(handle_pending_tasks, "handle_pending_tasks", sort=49)
+        self.task_mgr.add(handle_pending_tasks, "handle_pending_tasks", sort=48)
         self.task_mgr.add(handle_event_loop, "process_event_loop", sort=55)
 
         def handle_window_event(*args):

@@ -26,9 +26,9 @@ class BBoxEdge(BaseObject):
         self._corner_index = corner_index
         self._picking_col_id = picking_col_id
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._bbox.get_toplevel_object()
+        return self._bbox.get_toplevel_object(get_group)
 
     def get_picking_color_id(self):
 
@@ -160,11 +160,11 @@ class BoundingBox(BaseObject):
 
     original = property(__get_original)
 
-    def __init__(self, toplevel_obj, color):
+    def __init__(self, owner, color):
 
-        self._toplevel_obj = toplevel_obj
-        self._origin = origin = self.original.copy_to(toplevel_obj.get_origin())
-        origin.set_color(*color)
+        self._owner = owner
+        self._origin = origin = self.original.copy_to(owner.get_origin())
+        origin.set_color(color)
         vertex_data = origin.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(0)
@@ -207,9 +207,9 @@ class BoundingBox(BaseObject):
 
         return self._origin.get_pos(ref_node)
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._toplevel_obj
+        return self._owner.get_toplevel_object(get_group)
 
     def register(self):
 
@@ -227,6 +227,7 @@ class BoundingBox(BaseObject):
         scale_factors = [max(.0001, abs(factor)) for factor in vec]
         self._origin.set_scale(*scale_factors)
         self._origin.set_pos(point_min + vec * .5)
+        self._owner.update_group_bbox()
 
     def show(self, *args, **kwargs):
 
@@ -235,6 +236,10 @@ class BoundingBox(BaseObject):
     def hide(self, *args, **kwargs):
 
         self._origin.hide(*args, **kwargs)
+
+    def set_color(self, color):
+
+        self._origin.set_color(color)
 
     def flash(self):
 
@@ -254,5 +259,5 @@ class BoundingBox(BaseObject):
         Mgr.add_task(.2, do_flash, "do_flash")
 
 
-Mgr.accept("create_bbox", lambda toplevel_obj, color: BoundingBox(toplevel_obj, color))
+Mgr.accept("create_bbox", lambda owner, color: BoundingBox(owner, color))
 MainObjects.add_class(BBoxEdgeManager)

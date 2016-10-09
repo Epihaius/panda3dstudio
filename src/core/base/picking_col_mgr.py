@@ -1,4 +1,5 @@
 from .mgr import CoreManager as Mgr
+from .base import PendingTasks
 
 
 # All managers of pickable objects should derive from the following class
@@ -9,13 +10,20 @@ class PickingColorIDManager(object):
     @classmethod
     def init(cls):
 
+        sort = PendingTasks.get_sort("register_subobjs", "object")
+        PendingTasks.add_task_id("update_picking_col_id_ranges", "object", sort + 1)
         Mgr.accept("update_picking_col_id_ranges", cls.__update_id_ranges)
 
     @classmethod
     def __update_id_ranges(cls):
 
-        for mgr in cls._mgrs.itervalues():
-            mgr.update_picking_color_id_ranges()
+        def task():
+
+            for mgr in cls._mgrs.itervalues():
+                mgr.update_picking_color_id_ranges()
+
+        task_id = "update_picking_col_id_ranges"
+        PendingTasks.add(task, task_id, "object")
 
     def __init__(self):
 
@@ -110,6 +118,9 @@ class PickingColorIDManager(object):
         set_to_recover = self._ids_to_recover
         set_to_discard = self._ids_to_discard
 
+        if not (set_to_recover or set_to_discard):
+            return
+
         # remove the common IDs from both sets
         if not set_to_recover.isdisjoint(set_to_discard):
             set_to_recover ^= set_to_discard
@@ -117,17 +128,16 @@ class PickingColorIDManager(object):
             set_to_recover -= set_to_discard
 
         if set_to_recover:
-            id_count = len(set_to_recover)
-            ids_to_recover = [set_to_recover.pop() for i in range(id_count)]
-            ids_to_recover.sort()
+            ids_to_recover = sorted(set_to_recover)
             id_ranges += self.__get_ranges(ids_to_recover)
             id_ranges.sort()
-            id_ranges[:] = reduce(self.__merge_ranges, id_ranges, [])
+            id_ranges[:] = reduce(self.__merge_ranges, id_ranges[:], [])
 
         if set_to_discard:
-            id_count = len(set_to_discard)
-            ids_to_discard = [set_to_discard.pop() for i in range(id_count)]
-            ids_to_discard.sort()
+            ids_to_discard = sorted(set_to_discard)
             id_ranges += self.__get_ranges(ids_to_discard)
             id_ranges.sort()
-            id_ranges[:] = reduce(self.__split_ranges, id_ranges, [])
+            id_ranges[:] = reduce(self.__split_ranges, id_ranges[:], [])
+
+        self._ids_to_recover = set()
+        self._ids_to_discard = set()

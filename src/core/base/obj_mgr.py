@@ -35,7 +35,6 @@ class GeneralObjectManager(BaseObject):
         Mgr.add_app_updater("custom_obj_name", self.__set_custom_object_name)
         Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
         Mgr.add_app_updater("selected_obj_color", self.__set_object_color)
-        Mgr.add_app_updater("selected_obj_mat", self.__set_object_material)
         Mgr.add_app_updater("selected_obj_prop", self.__set_object_property)
         Mgr.add_app_updater("obj_tags", self.__update_object_tags)
         Mgr.add_app_updater("render_mode", self.__update_render_mode)
@@ -88,7 +87,7 @@ class GeneralObjectManager(BaseObject):
             if obj_lvl and obj_lvl != "top":
                 return obj
 
-            return obj.get_toplevel_object() if obj else None
+            return obj.get_toplevel_object(get_group=True) if obj else None
 
     def __show_object_name(self, selection):
 
@@ -99,6 +98,11 @@ class GeneralObjectManager(BaseObject):
             return
 
         name = obj.get_name()
+        group = obj.get_group()
+
+        if group:
+            name = '%s [%s]' % (group.get_name(), name)
+
         self._showing_object_name = True
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
@@ -265,11 +269,6 @@ class GeneralObjectManager(BaseObject):
         Mgr.update_remotely("selected_obj_color", color_values)
         GlobalData["sel_color_count"] = 1
         Mgr.update_app("sel_color_count")
-
-    def __set_object_material(self, material_id):
-
-        material = Mgr.get("material", material_id)
-        self.__set_object_property("material", material)
 
     def __update_object_tags(self, obj_id, tags=None):
 

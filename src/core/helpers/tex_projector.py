@@ -245,8 +245,6 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
         changed_objs = [obj for obj in objs if obj.set_property(prop_id, value)]
 
-        PendingTasks.handle(["object", "ui"], True)
-
         if not changed_objs:
             return
 
@@ -345,9 +343,9 @@ class TexProjectorEdge(BaseObject):
 
         Mgr.do("unregister_tex_proj_edge", self._id)
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._projector
+        return self._projector.get_toplevel_object(get_group)
 
     def get_picking_color_id(self):
 
@@ -695,10 +693,6 @@ class TexProjector(TopLevelObject):
     def get_center_pos(self, ref_node):
 
         return self.get_origin().get_pos(ref_node)
-
-    def get_toplevel_object(self):
-
-        return self
 
     def register(self):
 

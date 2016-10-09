@@ -10,6 +10,10 @@ class TopLevelObject(BaseObject):
         state["_name"] = self._name.get_value()
         state["_pivot"] = NodePath(self._pivot.get_name())
         state["_origin"] = NodePath(self._origin.get_name())
+        state["_child_ids"] = []
+        state["_parent_id"] = None
+        state["_group_id"] = None
+        del state["_pivot_gizmo"]
 
         if self._has_color:
             state["_color"] = None
@@ -27,10 +31,11 @@ class TopLevelObject(BaseObject):
         pivot.reparent_to(Mgr.get("object_root"))
         origin = self._origin
         origin.reparent_to(pivot)
+        self._pivot_gizmo = Mgr.do("create_pivot_gizmo", self)
 
     def __init__(self, obj_type, obj_id, name, origin_pos, has_color=False):
 
-        self._prop_ids = ["name", "parent", "selection_state", "tags",
+        self._prop_ids = ["name", "link", "selection_state", "tags",
                           "transform", "origin_transform"]
 
         if has_color:
@@ -43,6 +48,7 @@ class TopLevelObject(BaseObject):
         self._name.add_updater("global_obj_names", self.__update_obj_names)
         self._name.update("global_obj_names")
         self._parent_id = None
+        self._group_id = None
         self._child_ids = []
         obj_root = Mgr.get("object_root")
         pivot = obj_root.attach_new_node("%s_pivot" % str(obj_id))
@@ -61,8 +67,6 @@ class TopLevelObject(BaseObject):
             pivot.set_pos_hpr(grid_origin, origin_pos, VBase3(0., 0., 0.))
 
         self._pivot_gizmo = Mgr.do("create_pivot_gizmo", self)
-        self._optimize_for_export = False
-        self._optimize_children_for_export = False
 
     def __update_obj_names(self, name=None):
 
@@ -96,7 +100,8 @@ class TopLevelObject(BaseObject):
             if obj_data:
                 Mgr.do("add_history", "", event_data, update_time_id=False)
 
-        self.set_parent(add_to_hist=False)
+        self.set_parent(None)
+        self.set_group(None)
 
         self._name.remove_updater("global_obj_names", final_update=True)
         self.set_name("")
@@ -144,14 +149,20 @@ class TopLevelObject(BaseObject):
 
         pass
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
+
+        if get_group:
+
+            group = Mgr.get("group", self._group_id) if self._group_id else None
+
+            if group and not group.is_open():
+                return group.get_toplevel_object(get_group)
 
         return self
 
     def register(self):
 
         Mgr.do("register_%s" % self._type, self)
-        self._pivot_gizmo.register()
 
     def display_link_effect(self):
         """
@@ -164,75 +175,177 @@ class TopLevelObject(BaseObject):
 
         pass
 
-    def set_parent(self, parent_id=None, add_to_hist=True):
+    def set_parent(self, parent_id=None):
+
+        if self._parent_id == parent_id:
+            if parent_id is None:
+                if self._group_id is None:
+                    return False
+            else:
+                return False
 
         parent = Mgr.get("object", parent_id) if parent_id else None
 
-        if add_to_hist:
-
-            if self._parent_id == parent_id or parent in self.get_descendants():
-                return False
-
-            if parent:
-
-                if GlobalData["transform_target_type"] == "all":
-                    self._pivot.wrt_reparent_to(parent.get_pivot())
-
-                parent.add_child(self._id)
-
-            else:
-
-                self._pivot.wrt_reparent_to(Mgr.get("object_root"))
-
+        if parent:
+            self._pivot.wrt_reparent_to(parent.get_pivot())
+            parent.add_child(self._id)
         else:
-
-            if parent in self.get_descendants():
-                if parent:
-                    parent.set_parent(add_to_hist=False)
-
-            if parent:
-
-                parent.add_child(self._id)
-
-                if GlobalData["transform_target_type"] == "all":
-                    self._pivot.reparent_to(parent.get_pivot())
-                else:
-                    self._pivot.reparent_to(Mgr.get("object_root"))
-
-            else:
-
-                self._pivot.reparent_to(Mgr.get("object_root"))
+            self._pivot.wrt_reparent_to(Mgr.get("object_root"))
 
         if parent:
             Mgr.do("add_obj_link_viz", self, parent)
         elif self._parent_id:
             Mgr.do("remove_obj_link_viz", self._id)
 
-        if self._parent_id and self._parent_id != parent_id:
+        old_parent = Mgr.get("object", self._parent_id)
+        old_group = Mgr.get("group", self._group_id)
 
-            prev_parent = Mgr.get("object", self._parent_id)
-
-            if prev_parent:
-                prev_parent.remove_child(self._id)
+        if old_parent:
+            old_parent.remove_child(self._id)
+        elif old_group:
+            old_group.remove_member(self._id)
 
         self._parent_id = parent_id
-
-        if add_to_hist:
-
-            Mgr.do("update_history_time")
-            data = self.get_data_to_store("prop_change", "parent")
-            data.update(self.get_data_to_store("prop_change", "transform"))
-            obj_data = {self._id: data}
-
-            if parent:
-                event_descr = 'Link "%s"\nto "%s"' % (self.get_name(), parent.get_name())
-            else:
-                event_descr = 'Unlink "%s"' % self.get_name()
-
-            event_data = {"objects": obj_data}
-            Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+        self._group_id = None
 
         return True
+
+    def set_group(self, group_id=None):
+
+        if self._group_id == group_id:
+            if group_id is None:
+                if self._parent_id is None:
+                    return False
+            else:
+                return False
+
+        group = Mgr.get("group", group_id) if group_id else None
+
+        if group:
+            self._pivot.wrt_reparent_to(group.get_pivot())
+            group.add_member(self._id)
+        else:
+            self._pivot.wrt_reparent_to(Mgr.get("object_root"))
+
+        if self._parent_id:
+            Mgr.do("remove_obj_link_viz", self._id)
+
+        old_parent = Mgr.get("object", self._parent_id)
+        old_group = Mgr.get("group", self._group_id)
+
+        if old_parent:
+            old_parent.remove_child(self._id)
+        elif old_group:
+            old_group.remove_member(self._id)
+
+        self._parent_id = None
+        self._group_id = group_id
+
+        return True
+
+    def restore_link(self, parent_id, group_id):
+
+        old_parent = Mgr.get("object", self._parent_id)
+        old_group = Mgr.get("group", self._group_id)
+        link_restored = False
+
+        if parent_id is None and group_id is None:
+            restore_parent = self._parent_id != parent_id
+            restore_group = self._group_id != group_id
+        elif parent_id is None:
+            restore_parent = False
+            restore_group = self._group_id != group_id
+        elif group_id is None:
+            restore_parent = self._parent_id != parent_id
+            restore_group = False
+
+        if restore_parent:
+
+            parent = Mgr.get("object", parent_id) if parent_id else None
+
+            if parent in self.get_descendants():
+                parent.restore_link(None, None)
+
+            if parent:
+                parent.add_child(self._id)
+                self._pivot.reparent_to(parent.get_pivot())
+            else:
+                self._pivot.reparent_to(Mgr.get("object_root"))
+
+            if parent:
+                Mgr.do("add_obj_link_viz", self, parent)
+            elif self._parent_id:
+                Mgr.do("remove_obj_link_viz", self._id)
+
+            link_restored = True
+
+        if restore_group:
+
+            group = Mgr.get("group", group_id) if group_id else None
+
+            if group in self.get_descendants():
+                group.restore_link(None, None)
+
+            if group:
+                self._pivot.reparent_to(group.get_pivot())
+                group.add_member(self._id)
+            else:
+                self._pivot.reparent_to(Mgr.get("object_root"))
+
+            if self._parent_id:
+                Mgr.do("remove_obj_link_viz", self._id)
+
+            link_restored = True
+
+        self._parent_id = parent_id
+        self._group_id = group_id
+
+        if link_restored:
+            if old_parent:
+                old_parent.remove_child(self._id)
+            elif old_group:
+                old_group.remove_member(self._id)
+
+    def get_link_target(self):
+
+        return Mgr.get("group", self._group_id) or Mgr.get("object", self._parent_id)
+
+    def get_common_link_target(self, others):
+
+        link_targets = []
+        link_target = self.get_link_target()
+
+        while link_target:
+            link_targets.append(link_target)
+            link_target = link_target.get_link_target()
+
+        common_link_target = None
+        link_target_index = -1
+
+        for other in others:
+
+            common_link_target_found = False
+            link_target = other.get_link_target()
+
+            while link_target:
+
+                if link_target in link_targets:
+
+                    index = link_targets.index(link_target)
+
+                    if index > link_target_index:
+                        common_link_target = link_target
+                        link_target_index = index
+
+                    common_link_target_found = True
+                    break
+
+                link_target = link_target.get_link_target()
+
+            if not common_link_target_found:
+                return None
+
+        return common_link_target
 
     def get_parent(self):
 
@@ -242,18 +355,88 @@ class TopLevelObject(BaseObject):
 
         return self.get_parent().get_origin() if self._parent_id else Mgr.get("object_root")
 
-    def get_parent_pivot(self):
+    def get_parent_pivot(self, accept_group=True):
 
-        return self.get_parent().get_pivot() if self._parent_id else Mgr.get("object_root")
+        pivot = self.get_parent().get_pivot() if self._parent_id else None
+
+        if not pivot and accept_group:
+            pivot = self.get_group().get_pivot() if self._group_id else None
+
+        if not pivot:
+            pivot = Mgr.get("object_root")
+
+        return pivot
+
+    def get_group(self):
+
+        return Mgr.get("group", self._group_id)
+
+    def get_outer_groups(self):
+
+        outer_groups = []
+        group = Mgr.get("group", self._group_id)
+
+        while group:
+            outer_groups.append(group)
+            group = group.get_group()
+
+        return outer_groups
+
+    def get_outermost_group(self, accept_self=True):
+
+        group = Mgr.get("group", self._group_id)
+
+        if group:
+            return group.get_outermost_group()
+        elif self._type == "group" and accept_self:
+            return self
+
+    def get_common_group(self, others):
+
+        outer_groups = self.get_outer_groups()
+        common_group = None
+        group_index = -1
+
+        for other in others:
+
+            common_group_found = False
+            group = other.get_group()
+
+            while group:
+
+                if group in outer_groups:
+
+                    index = outer_groups.index(group)
+
+                    if index > group_index:
+                        common_group = group
+                        group_index = index
+
+                    common_group_found = True
+                    break
+
+                group = group.get_group()
+
+            if not common_group_found:
+                return None
+
+        return common_group
+
+    def update_group_bbox(self):
+
+        group = Mgr.get("group", self._group_id)
+
+        if group:
+            Mgr.do("update_group_bboxes", [self._group_id])
 
     def get_root(self):
 
         node = self
-        parent = self.get_parent()
+        parent = self.get_link_target()
 
         while parent:
             node = parent
-            parent = node.get_parent()
+            parent = node.get_link_target()
 
         return node
 
@@ -268,10 +451,54 @@ class TopLevelObject(BaseObject):
 
         return ancestors
 
+    def get_common_ancestor(self, others):
+
+        ancestors = self.get_ancestors()
+        common_ancestor = None
+        ancestor_index = -1
+
+        for other in others:
+
+            common_ancestor_found = False
+            parent = other.get_parent()
+
+            while parent:
+
+                if parent in ancestors:
+
+                    index = ancestors.index(parent)
+
+                    if index > ancestor_index:
+                        common_ancestor = parent
+                        ancestor_index = index
+
+                    common_ancestor_found = True
+                    break
+
+                parent = parent.get_parent()
+
+            if not common_ancestor_found:
+                return None
+
+        return common_ancestor
+
     def add_child(self, child_id):
 
+        if child_id in self._child_ids:
+            return False
+
+        self._child_ids.append(child_id)
+
+        return True
+
+    def remove_child(self, child_id):
+
         if child_id not in self._child_ids:
-            self._child_ids.append(child_id)
+            return False
+
+        self._child_ids.remove(child_id)
+
+        return True
 
     def get_children(self):
 
@@ -281,21 +508,20 @@ class TopLevelObject(BaseObject):
 
         return [Mgr.get("object", child_id).get_type() for child_id in self._child_ids]
 
-    def get_descendants(self):
+    def get_descendants(self, include_group_members=True):
 
         descendants = []
-        children = self.get_children()
+        children = self.get_children()[:]
+
+        if include_group_members and self._type == "group":
+            children.extend(self.get_members())
+
         descendants.extend(children)
 
         for child in children:
-            descendants.extend(child.get_descendants())
+            descendants.extend(child.get_descendants(include_group_members))
 
         return descendants
-
-    def remove_child(self, child_id):
-
-        if child_id in self._child_ids:
-            self._child_ids.remove(child_id)
 
     def get_type(self):
 
@@ -348,7 +574,7 @@ class TopLevelObject(BaseObject):
         if update_app:
 
             sel_colors = tuple(set(obj.get_color() for obj in Mgr.get("selection")
-                                    if obj.has_color()))
+                                   if obj.has_color()))
             sel_color_count = len(sel_colors)
 
             if sel_color_count == 1:
@@ -387,7 +613,7 @@ class TopLevelObject(BaseObject):
         """
 
         if self._pivot_gizmo:
-            self._pivot_gizmo.update_selection_state(is_selected)
+            self._pivot_gizmo.show(is_selected)
 
     def get_transform_values(self):
 
@@ -426,30 +652,6 @@ class TopLevelObject(BaseObject):
 
         return tags
 
-    def set_optimization_for_export(self, optimize=True):
-
-        if self._type == "model":
-            self._optimize_for_export = optimize
-
-    def get_optimization_for_export(self):
-
-        return self._optimize_for_export if self._type == "model" else False
-
-    def get_children_optimized_for_export(self):
-
-        return [child for child in self.get_children() if child.get_optimization_for_export()]
-
-    def set_child_optimization_for_export(self, optimize=True):
-
-        self._optimize_children_for_export = optimize
-
-    def get_child_optimization_for_export(self):
-
-        if not self.get_children_optimized_for_export():
-            return False
-
-        return self._optimize_children_for_export
-
     def set_property(self, prop_id, value, restore=""):
 
         add_to_hist = not restore
@@ -458,14 +660,19 @@ class TopLevelObject(BaseObject):
 
             self.set_name(value)
 
-        elif prop_id == "parent":
+        elif prop_id == "link":
 
-            if restore:
-                task = lambda: self.set_parent(value, add_to_hist)
-                task_id = "object_linking"
-                PendingTasks.add(task, task_id, "object", id_prefix=self._id)
-            else:
-                self.set_parent(value)
+            group_ids = [obj_id for obj_id in value if obj_id]
+            group = self.get_group()
+
+            if group:
+                group_ids.append(group.get_id())
+
+            Mgr.do("update_group_bboxes", group_ids)
+
+            task = lambda: self.restore_link(*value)
+            task_id = "object_linking"
+            PendingTasks.add(task, task_id, "object", id_prefix=self._id)
 
         elif prop_id == "color":
 
@@ -515,6 +722,8 @@ class TopLevelObject(BaseObject):
                 if obj.get_type() == "point_helper":
                     obj.update_pos()
 
+            self.update_group_bbox()
+
         elif prop_id == "origin_transform":
 
             task = lambda: self._origin.set_mat(self._pivot, value)
@@ -522,6 +731,11 @@ class TopLevelObject(BaseObject):
             Mgr.do("restore_transforms")
             task = lambda: Mgr.get("selection").update()
             PendingTasks.add(task, "update_selection", "ui")
+
+            self.update_group_bbox()
+
+            if self._type == "group":
+                Mgr.do("update_group_bboxes", [self._id])
 
         elif prop_id == "tags":
 
@@ -531,8 +745,8 @@ class TopLevelObject(BaseObject):
 
         if prop_id == "name":
             return self._name.get_value()
-        elif prop_id == "parent":
-            return self._parent_id
+        elif prop_id == "link":
+            return self._parent_id, self._group_id
         elif prop_id == "color":
             return self._color
         elif prop_id == "selection_state":

@@ -12,27 +12,36 @@ class HierarchyManager(BaseObject):
         self._link_start_pos = None
         self._link_geom = None
         self._obj_to_link = None
-        self._prev_xform_target_type = "all"
 
         self._pixel_under_mouse = VBase4()
 
         status_data = GlobalData["status_data"]
-        mode_text = "Link objects"
+        mode_text = "Link selection"
+        info_text = "LMB to pick parent object; RMB or <Escape> to end"
+        status_data["sel_linking_mode"] = {"mode": mode_text, "info": info_text}
+        mode_text = "Link object"
         info_text = "LMB-drag over first (child) object and release LMB over" \
                     " second (parent) object; RMB or <Escape> to end"
-        status_data["object_linking"] = {"mode": mode_text, "info": info_text}
+        status_data["obj_linking_mode"] = {"mode": mode_text, "info": info_text}
+        mode_text = "Unlink object"
+        info_text = "LMB to pick child object; RMB or <Escape> to end"
+        status_data["obj_unlinking_mode"] = {"mode": mode_text, "info": info_text}
 
         GlobalData.set_default("object_links_shown", False)
+        GlobalData.set_default("object_linking_mode", "")
+        GlobalData.set_default("group_member_linking", True)
+        GlobalData.set_default("open_group_member_linking", True)
+        GlobalData.set_default("group_member_unlink_only", True)
         GlobalData.set_default("transform_target_type", "all")
         Mgr.accept("add_obj_link_viz", self.__add_obj_link_viz)
         Mgr.accept("remove_obj_link_viz", self.__remove_obj_link_viz)
         Mgr.accept("update_obj_link_viz", self.__update_obj_link_viz)
+        Mgr.accept("update_xform_target_type", self.__update_xform_target_type)
         Mgr.add_app_updater("object_link_viz", self.__show_object_links)
-        Mgr.add_app_updater("object_unlinking", self.__unlink_objects)
-        Mgr.add_app_updater("transform_target_type", self.__update_xform_target_type)
+        Mgr.add_app_updater("selection_unlinking", self.__unlink_selection)
+        Mgr.add_app_updater("transform_target_type", self.__update_pivot_viz)
         Mgr.add_app_updater("geom_reset", self.__reset_geoms)
         Mgr.add_app_updater("pivot_reset", self.__reset_pivots)
-        Mgr.add_app_updater("history_change", self.__reset_xform_target_type)
 
     def setup(self):
 
@@ -52,15 +61,17 @@ class HierarchyManager(BaseObject):
 
         cancel_link_creation = lambda: self.__finalize_object_linking(cancel=True)
 
+        def exit_mode():
+
+            Mgr.exit_state("object_linking_mode")
+            GlobalData["object_linking_mode"] = ""
+
         bind = Mgr.bind_state
         bind("object_linking_mode", "link objects -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
-        bind("object_linking_mode", "link objects -> select", "escape",
-             lambda: Mgr.exit_state("object_linking_mode"))
-        bind("object_linking_mode", "exit object linking mode", "mouse3-up",
-             lambda: Mgr.exit_state("object_linking_mode"))
-        bind("object_linking_mode", "initialize link creation", "mouse1",
-             self.__init_object_linking)
+        bind("object_linking_mode", "link objects -> select", "escape", exit_mode)
+        bind("object_linking_mode", "exit object linking mode", "mouse3-up", exit_mode)
+        bind("object_linking_mode", "handle linking", "mouse1", self.__handle_linking)
         bind("object_link_creation", "quit link creation", "escape", cancel_link_creation)
         bind("object_link_creation", "cancel link creation", "mouse3-up", cancel_link_creation)
         bind("object_link_creation", "finalize link creation",
@@ -74,7 +85,6 @@ class HierarchyManager(BaseObject):
             return
 
         Mgr.add_task(self.__update_cursor, "update_linking_cursor")
-        self.__reset_xform_target_type()
 
         if GlobalData["active_transform_type"]:
             GlobalData["active_transform_type"] = ""
@@ -84,7 +94,7 @@ class HierarchyManager(BaseObject):
             GlobalData["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
-        Mgr.update_app("status", "object_linking")
+        Mgr.update_app("status", GlobalData["object_linking_mode"])
 
     def __exit_linking_mode(self, next_state_id, is_active):
 
@@ -97,14 +107,33 @@ class HierarchyManager(BaseObject):
         Mgr.remove_task("update_linking_cursor")
         Mgr.set_cursor("main")
 
-    def __show_object_links(self, show):
+    def __show_object_links(self):
 
-        GlobalData["object_links_shown"] = show
+        show_links = GlobalData["object_links_shown"]
 
-        if show:
+        if show_links:
             self._obj_link_viz_nps.show()
         else:
             self._obj_link_viz_nps.hide()
+
+    def __get_linkability(self, obj_to_link, target_obj):
+
+        target_is_group = target_obj and target_obj.get_type() == "group"
+        objs = obj_to_link.get_descendants() + [obj_to_link]
+
+        if (target_is_group and GlobalData["group_member_linking"]
+                and not GlobalData["group_member_unlink_only"]
+                and (target_obj.is_open() or not GlobalData["open_group_member_linking"])):
+            objs += [obj_to_link.get_group()]
+            linkable = target_obj.can_contain(obj_to_link) and target_obj not in objs
+            link_type = "member"
+        else:
+            objs += [obj_to_link.get_parent()]
+            group = target_obj.get_group() if target_obj else None
+            linkable = not (group or target_obj in objs)
+            link_type = "child"
+
+        return linkable, link_type
 
     def __update_cursor(self, task):
 
@@ -121,11 +150,10 @@ class HierarchyManager(BaseObject):
 
                 if obj_to_link:
 
-                    obj = Mgr.get("object", pixel_color=pixel_under_mouse)
+                    target_obj = Mgr.get("object", pixel_color=pixel_under_mouse)
+                    linkable, link_type = self.__get_linkability(obj_to_link, target_obj)
 
-                    if obj and obj is not obj_to_link \
-                            and obj is not obj_to_link.get_parent() \
-                            and obj not in obj_to_link.get_descendants():
+                    if target_obj and linkable:
                         cursor_name = "link"
                     else:
                         cursor_name = "no_link"
@@ -225,7 +253,7 @@ class HierarchyManager(BaseObject):
 
     def __update_obj_link_viz(self, obj_ids=None, force_update_children=False):
 
-        def update():
+        def task():
 
             obj_transf_info = obj_ids if obj_ids else Mgr.get("obj_transf_info")
             obj_link_viz = self._obj_link_viz
@@ -265,7 +293,6 @@ class HierarchyManager(BaseObject):
                         pos_writer.set_row(1)
                         pos_writer.set_data3f(child.get_pivot().get_pos(pivot))
 
-        task = update
         task_id = "obj_link_viz_update"
         PendingTasks.add(task, task_id, "object")
 
@@ -296,6 +323,17 @@ class HierarchyManager(BaseObject):
 
         return task.cont
 
+    def __handle_linking(self):
+
+        linking_mode = GlobalData["object_linking_mode"]
+
+        if linking_mode == "sel_linking_mode":
+            self.__link_selection()
+        elif linking_mode == "obj_linking_mode":
+            self.__init_object_linking()
+        elif linking_mode == "obj_unlinking_mode":
+            self.__unlink_object()
+
     def __init_object_linking(self):
 
         obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
@@ -325,24 +363,10 @@ class HierarchyManager(BaseObject):
         Mgr.add_task(self.__draw_obj_link, "draw_link", sort=3)
         Mgr.set_cursor("no_link")
 
-    def __link_objects(self):
-
-        obj_to_link = self._obj_to_link
-
-        if not obj_to_link:
-            return
-
-        obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
-
-        if obj and obj is not obj_to_link and obj is not obj_to_link.get_parent() \
-                and obj not in obj_to_link.get_descendants():
-            obj_to_link.set_parent(obj.get_id())
-            obj.display_link_effect()
-
     def __finalize_object_linking(self, cancel=False):
 
         if not cancel:
-            self.__link_objects()
+            self.__link_picked_object()
 
         Mgr.remove_task("draw_link")
         Mgr.enter_state("object_linking_mode")
@@ -355,135 +379,428 @@ class HierarchyManager(BaseObject):
         self._link_geom = None
         self._obj_to_link = None
 
-    def __unlink_objects(self):
+    def __link_object(self, obj_to_link, new_target, link_type):
+
+        old_target = obj_to_link.get_link_target()
+        old_target_is_group = old_target and old_target.get_type() == "group"
+        target_id = new_target.get_id()
+
+        if link_type == "child":
+
+            obj_to_link.set_parent(target_id)
+
+        else:
+
+            obj_to_link.set_group(target_id)
+            children = obj_to_link.get_children()
+            parent_id = new_target.get_outermost_group().get_id()
+
+            for child in children:
+                child.set_parent(parent_id)
+
+        if link_type == "member" and not new_target.is_open():
+
+            closed_groups = []
+            deselected_members = []
+            Mgr.do("close_groups", [obj_to_link], closed_groups, deselected_members)
+
+            if closed_groups:
+
+                # make undo/redoable
+
+                obj_data = {}
+                event_data = {"objects": obj_data}
+
+                for group in closed_groups:
+                    obj_data[group.get_id()] = group.get_data_to_store("prop_change", "open")
+
+                for member in deselected_members:
+                    data = member.get_data_to_store("prop_change", "selection_state")
+                    obj_data.setdefault(member.get_id(), {}).update(data)
+
+                Mgr.do("add_history", "", event_data, update_time_id=False)
+
+            obj_to_link_deselected = obj_to_link.set_selected(False, add_to_hist=False)
+
+            if obj_to_link_deselected or deselected_members:
+
+                # make undo/redoable
+
+                obj_data = {}
+                event_data = {"objects": obj_data}
+
+                if obj_to_link_deselected:
+                    data = obj_to_link.get_data_to_store("prop_change", "selection_state")
+                    obj_data.setdefault(obj_to_link.get_id(), {}).update(data)
+
+                if new_target.set_selected(add_to_hist=False):
+                    data = new_target.get_data_to_store("prop_change", "selection_state")
+                    obj_data[target_id] = data
+
+                Mgr.do("add_history", "", event_data, update_time_id=False)
+
+        if link_type == "member" and children:
+
+            # make undo/redoable
+
+            obj_data = {}
+            event_data = {"objects": obj_data}
+
+            for child in children:
+                data = child.get_data_to_store("prop_change", "link")
+                data.update(child.get_data_to_store("prop_change", "transform"))
+                obj_data[child.get_id()] = data
+
+            Mgr.do("add_history", "", event_data, update_time_id=False)
+
+        if old_target_is_group:
+
+            obj_data = {}
+
+            if Mgr.do("prune_empty_groups", [old_target], obj_data):
+                # make undo/redoable
+                event_data = {"objects": obj_data, "object_ids": set(Mgr.get("object_ids"))}
+                Mgr.do("add_history", "", event_data, update_time_id=False)
+
+    def __link_picked_object(self):
+
+        obj_to_link = self._obj_to_link
+
+        if not obj_to_link:
+            return
+
+        new_target = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+
+        if not new_target:
+            return
+
+        linkable, link_type = self.__get_linkability(obj_to_link, new_target)
+
+        if not linkable:
+            return
+
+        Mgr.do("update_history_time")
+
+        self.__link_object(obj_to_link, new_target, link_type)
+
+        # make undo/redoable
+        data = obj_to_link.get_data_to_store("prop_change", "link")
+        data.update(obj_to_link.get_data_to_store("prop_change", "transform"))
+        obj_data = {obj_to_link.get_id(): data}
+        names = (obj_to_link.get_name(), new_target.get_name())
+
+        if link_type == "child":
+            event_descr = 'Link "%s"\nto "%s"' % names
+        else:
+            event_descr = 'Add to group "%s":\n    "%s"' % names[::-1]
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        new_target_is_group = new_target.get_type() == "group"
+
+        if link_type == "child" and not (new_target_is_group and not new_target.get_members()):
+            new_target.display_link_effect()
+
+    def __link_selection(self):
+
+        new_target = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+
+        if not new_target:
+            return
+
+        selection = Mgr.get("selection", "top")
+
+        if not selection:
+            return
+
+        children = []
+        members = []
+        groups = []
+        group_children = {}
+
+        for obj in selection:
+
+            linkable, link_type = self.__get_linkability(obj, new_target)
+
+            if not linkable:
+                continue
+
+            if obj.get_type() == "group":
+                groups.append(obj)
+                group_children[obj] = obj.get_children()
+
+            if link_type == "child":
+                children.append(obj)
+            else:
+                members.append(obj)
+
+        if not (children or members):
+            return
+
+        Mgr.do("update_history_time")
+
+        for child in children:
+            if child not in groups:
+                self.__link_object(child, new_target, "child")
+
+        for member in members:
+            if member not in groups:
+                self.__link_object(member, new_target, "member")
+
+        for group in groups:
+            if group in children:
+                if group.get_members():
+                    del group_children[group]
+                    self.__link_object(group, new_target, "child")
+                else:
+                    children.remove(group)
+            else:
+                if group.get_members():
+                    del group_children[group]
+                    self.__link_object(group, new_target, "member")
+                else:
+                    members.remove(group)
+
+        group_children = [child for group, c in group_children.iteritems() for child in c]
+        new_target_id = new_target.get_id()
+
+        for child in group_children:
+            child.set_parent(new_target_id)
+
+        # make undo/redoable
+
+        obj_data = {}
+        event_data = {"objects": obj_data}
+
+        for obj in children + members:
+            data = obj.get_data_to_store("prop_change", "link")
+            data.update(obj.get_data_to_store("prop_change", "transform"))
+            obj_data[obj.get_id()] = data
+
+        for child in group_children:
+            data = child.get_data_to_store("prop_change", "link")
+            data.update(child.get_data_to_store("prop_change", "transform"))
+            obj_data.setdefault(child.get_id(), {}).update(data)
+
+        if children:
+
+            if len(children) == 1:
+
+                names = (children[0].get_name(), new_target.get_name())
+                event_descr = 'Link "%s"\nto "%s"' % names
+
+            else:
+
+                event_descr = 'Link objects to "%s":\n' % new_target.get_name()
+
+                for child in children:
+                    event_descr += '\n    "%s"' % child.get_name()
+
+        elif members:
+
+            if len(members) == 1:
+
+                names = (new_target.get_name(), members[0].get_name())
+                event_descr = 'Add to group "%s":\n    "%s"' % names
+
+            else:
+
+                event_descr = 'Add to group "%s":\n' % new_target.get_name()
+
+                for member in members:
+                    event_descr += '\n    "%s"' % member.get_name()
+
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        new_target_is_group = new_target.get_type() == "group"
+
+        if children and not (new_target_is_group and not new_target.get_members()):
+            new_target.display_link_effect()
+
+    def __unlink_object(self):
+
+        obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+
+        if not obj:
+            return
+
+        affect_group_members = GlobalData["group_member_linking"]
+        ungrouped = False
+        unlinked = False
+
+        group = obj.get_group()
+        groups = [group] if group else []
+
+        if group:
+            if affect_group_members and obj.set_group(None):
+                ungrouped = True
+        elif obj.set_parent(None):
+            unlinked = True
+
+        change = ungrouped or unlinked
+
+        if not change:
+            return
+
+        # make undo/redoable
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+        event_data = {"objects": obj_data}
+
+        if unlinked:
+            event_descr = 'Unlink "%s"' % obj.get_name()
+        elif ungrouped:
+            event_descr = 'Ungroup "%s"' % obj.get_name()
+
+        data = obj.get_data_to_store("prop_change", "link")
+        data.update(obj.get_data_to_store("prop_change", "transform"))
+        obj_data[obj.get_id()] = data
+
+        if Mgr.do("prune_empty_groups", groups, obj_data):
+            event_data["object_ids"] = set(Mgr.get("object_ids"))
+
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __unlink_selection(self):
+
+        if GlobalData["active_obj_level"] != "top":
+            return
+
+        groups = set()
+        affect_group_members = GlobalData["group_member_linking"]
+        ungrouped_members = []
+        unlinked_children = []
 
         for obj in Mgr.get("selection", "top"):
-            obj.set_parent()
 
-    def __detach_objects(self):
+            group = obj.get_group()
 
-        obj_root = Mgr.get("object_root")
+            if group:
 
-        def detach_objs(objs):
+                groups.add(group)
 
-            for obj in objs:
-                detach_objs(obj.get_children())
-                obj.get_origin().wrt_reparent_to(obj_root)
-                obj.get_pivot().wrt_reparent_to(obj_root)
+                if affect_group_members and obj.set_group(None):
+                    ungrouped_members.append(obj)
 
-        objs = set(obj.get_root() for obj in Mgr.get("objects"))
-        detach_objs(objs)
+            elif obj.set_parent(None):
 
-    def __reattach_objects(self):
+                unlinked_children.append(obj)
 
-        def reattach_objs(objs, parent_pivot):
+        changed_objs = ungrouped_members + unlinked_children
 
-            for obj in objs:
-                pivot = obj.get_pivot()
-                pivot.wrt_reparent_to(parent_pivot)
-                obj.get_origin().wrt_reparent_to(pivot)
-                reattach_objs(obj.get_children(), pivot)
+        if not changed_objs:
+            return
 
-        objs = set(obj.get_root() for obj in Mgr.get("objects"))
-        reattach_objs(objs, Mgr.get("object_root"))
+        # make undo/redoable
 
-    def __detach_pivots(self):
+        Mgr.do("update_history_time")
+        obj_data = {}
+        event_data = {"objects": obj_data}
 
-        obj_root = Mgr.get("object_root")
+        if len(unlinked_children) == 1:
 
-        def detach_pivots(objs):
+            event_descr = 'Unlink "%s"' % unlinked_children[0].get_name()
 
-            for obj in objs:
-                detach_pivots(obj.get_children())
-                obj.get_pivot().wrt_reparent_to(obj_root)
+        elif unlinked_children:
 
-        objs = set(obj.get_root() for obj in Mgr.get("objects"))
-        detach_pivots(objs)
+            event_descr = 'Unlink objects:\n'
 
-    def __reattach_pivots(self):
+            for obj in unlinked_children:
+                event_descr += '\n    "%s"' % obj.get_name()
 
-        def reattach_pivots(objs, parent_pivot):
+        if ungrouped_members:
 
-            for obj in objs:
-                pivot = obj.get_pivot()
-                pivot.wrt_reparent_to(parent_pivot)
-                reattach_pivots(obj.get_children(), pivot)
+            if unlinked_children:
+                event_descr += '\n\n'
+            else:
+                event_descr = ''
 
-        objs = set(obj.get_root() for obj in Mgr.get("objects"))
-        reattach_pivots(objs, Mgr.get("object_root"))
+            if len(ungrouped_members) == 1:
 
-    def __detach_origins(self):
+                event_descr += 'Ungroup "%s"' % ungrouped_members[0].get_name()
 
-        obj_root = Mgr.get("object_root")
+            else:
 
-        def detach_origs(objs):
+                event_descr += 'Ungroup objects:\n'
 
-            for obj in objs:
-                detach_origs(obj.get_children())
-                obj.get_origin().wrt_reparent_to(obj_root)
+                for obj in ungrouped_members:
+                    event_descr += '\n    "%s"' % obj.get_name()
 
-        objs = set(obj.get_root() for obj in Mgr.get("objects"))
-        detach_origs(objs)
+        for obj in changed_objs:
+            data = obj.get_data_to_store("prop_change", "link")
+            data.update(obj.get_data_to_store("prop_change", "transform"))
+            obj_data[obj.get_id()] = data
 
-    def __reattach_origins(self):
+        if Mgr.do("prune_empty_groups", groups, obj_data):
+            event_data["object_ids"] = set(Mgr.get("object_ids"))
 
-        def reattach_origs(objs):
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-            for obj in objs:
-                obj.get_origin().wrt_reparent_to(obj.get_pivot())
-                reattach_origs(obj.get_children())
-
-        objs = set(obj.get_root() for obj in Mgr.get("objects"))
-        reattach_origs(objs)
-
-    def __update_xform_target_type(self):
+    def __update_pivot_viz(self):
 
         target_type = GlobalData["transform_target_type"]
-        prev_target_type = self._prev_xform_target_type
-        self._prev_xform_target_type = target_type
+        Mgr.do("show_pivot_gizmos", target_type in ("geom", "pivot"))
 
-        if prev_target_type == "all":
+    def __update_xform_target_type(self, objs, reset=False):
 
-            Mgr.enter_state("selection_mode")
+        new_target_type = "all" if reset else GlobalData["transform_target_type"]
+        old_target_type = GlobalData["transform_target_type"] if reset else "all"
 
-            if GlobalData["active_obj_level"] != "top":
-                GlobalData["active_obj_level"] = "top"
-                Mgr.update_app("active_obj_level")
+        if new_target_type == old_target_type:
+            return
 
-        if target_type == "geom":
-            if prev_target_type == "pivot":
-                self.__reattach_objects()
-            elif prev_target_type == "no_children":
-                self.__reattach_pivots()
-            Mgr.do("show_pivot_gizmos")
-        elif target_type == "pivot":
-            if prev_target_type == "no_children":
-                self.__detach_origins()
-            else:
-                self.__detach_objects()
-            Mgr.do("show_pivot_gizmos")
-        elif target_type == "no_children":
-            if prev_target_type == "geom":
-                self.__detach_pivots()
-                Mgr.do("show_pivot_gizmos", False)
-            elif prev_target_type == "pivot":
-                self.__reattach_origins()
-                Mgr.do("show_pivot_gizmos", False)
-            else:
-                self.__detach_pivots()
-        elif prev_target_type == "geom":
-            Mgr.do("show_pivot_gizmos", False)
-        elif prev_target_type == "pivot":
-            self.__reattach_objects()
-            Mgr.do("show_pivot_gizmos", False)
-        elif prev_target_type == "no_children":
-            self.__reattach_pivots()
+        obj_root = Mgr.get("object_root")
 
-    def __reset_xform_target_type(self):
+        if new_target_type == "pivot":
 
-        if GlobalData["transform_target_type"] != "all":
-            GlobalData["transform_target_type"] = "all"
-            Mgr.update_app("transform_target_type")
+            for obj in objs:
+
+                obj.get_origin().wrt_reparent_to(obj_root)
+
+                for child in obj.get_children():
+                    child.get_pivot().wrt_reparent_to(obj_root)
+
+                if obj.get_type() == "group":
+                    for member in obj.get_members():
+                        member.get_pivot().wrt_reparent_to(obj_root)
+
+        elif new_target_type == "no_children":
+
+            for obj in objs:
+
+                for child in obj.get_children():
+                    child.get_pivot().wrt_reparent_to(obj_root)
+
+                if obj.get_group() in objs:
+                    obj.get_pivot().wrt_reparent_to(obj_root)
+
+        elif old_target_type == "pivot":
+
+            for obj in objs:
+
+                pivot = obj.get_pivot()
+                obj.get_origin().wrt_reparent_to(pivot)
+
+                for child in obj.get_children():
+                    child.get_pivot().wrt_reparent_to(pivot)
+
+                if obj.get_type() == "group":
+                    for member in obj.get_members():
+                        member.get_pivot().wrt_reparent_to(pivot)
+
+        elif old_target_type == "no_children":
+
+            for obj in objs:
+
+                if obj.get_group() in objs:
+                    obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
+
+                pivot = obj.get_pivot()
+
+                for child in obj.get_children():
+                    child.get_pivot().wrt_reparent_to(pivot)
 
     def __reset_geoms(self):
 
@@ -493,9 +810,12 @@ class HierarchyManager(BaseObject):
             return
 
         for obj in sel:
-            pivot = obj.get_pivot()
-            origin = obj.get_origin()
-            origin.set_mat(pivot, Mat4.ident_mat())
+
+            obj.get_origin().clear_transform(obj.get_pivot())
+            obj.update_group_bbox()
+
+            if obj.get_type() == "group":
+                Mgr.do("update_group_bboxes", [obj.get_id()])
 
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
@@ -531,25 +851,34 @@ class HierarchyManager(BaseObject):
         if not sel:
             return
 
-        target_type = GlobalData["transform_target_type"]
+        members = []
 
         for obj in sel:
 
-            if target_type in ("all", "links"):
+            obj_root = Mgr.get("object_root")
 
-                obj_root = Mgr.get("object_root")
+            for child in obj.get_children():
+                child.get_pivot().wrt_reparent_to(obj_root)
 
-                for child in obj.get_children():
-                    child.get_pivot().wrt_reparent_to(obj_root)
+            if obj.get_type() == "group":
+
+                m = obj.get_members()
+                members.extend(m)
+
+                for member in m:
+                    member.get_pivot().wrt_reparent_to(obj_root)
 
             pivot = obj.get_pivot()
             origin = obj.get_origin()
-            pivot.set_mat(origin, Mat4.ident_mat())
-            origin.set_mat(pivot, Mat4.ident_mat())
+            pivot.clear_transform(origin)
+            origin.clear_transform(pivot)
 
-            if target_type in ("all", "links"):
-                for child in obj.get_children():
-                    child.get_pivot().wrt_reparent_to(pivot)
+            for child in obj.get_children():
+                child.get_pivot().wrt_reparent_to(pivot)
+
+            if obj.get_type() == "group":
+                for member in m:
+                    member.get_pivot().wrt_reparent_to(pivot)
 
         cs_type = GlobalData["coord_sys_type"]
         cs_obj = Mgr.get("coord_sys_obj")
@@ -591,13 +920,14 @@ class HierarchyManager(BaseObject):
             event_descr = 'Reset "%s" pivot' % sel[0].get_name()
 
         objs = set(sel)
+        objs.update(members)
 
         for obj in sel:
             objs.update(obj.get_children())
 
         for obj in objs:
-            obj_data[obj.get_id()] = data = {}
-            data.update(obj.get_data_to_store("prop_change", "transform"))
+            data = obj.get_data_to_store("prop_change", "transform")
+            obj_data[obj.get_id()] = data
 
         for obj in sel:
             data = obj_data[obj.get_id()]

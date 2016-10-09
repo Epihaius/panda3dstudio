@@ -11,6 +11,7 @@ class SelectionManager(BaseObject):
         self._pixel_under_mouse = VBase4()
         self._obj_lvl = "top"
         self._obj_id = None
+        self._models = []
         self._selections = {"vert": set(), "edge": set(), "poly": set()}
         self._original_sel = {}
 
@@ -32,6 +33,55 @@ class SelectionManager(BaseObject):
         info_text = "(<Ctrl>-)LMB to (toggle-)select subobjects; <space> to navigate"
         status_data["edit_uvs"] = {"mode": mode_text, "info": info_text}
 
+    def __get_models(self, objs):
+
+        def get_grouped_models(group, models):
+
+            for member in group.get_members():
+                if member.get_type() == "model" and member.get_geom_type() != "basic_geom":
+                    models.append(member)
+                elif member.get_type() == "group" and not (member.is_open()
+                        or member.get_member_types_id() == "collision"):
+                    get_grouped_models(member, models)
+
+        models = []
+
+        for obj in objs:
+            if obj.get_type() == "model" and obj.get_geom_type() != "basic_geom":
+                models.append(obj)
+            elif obj.get_type() == "group" and not (obj.is_open()
+                    or obj.get_member_types_id() == "collision"):
+                get_grouped_models(obj, models)
+
+        return models
+
+    def get_models(self):
+
+        return self._models
+
+    def __make_grouped_models_accessible(self, objs, accessible=True):
+
+        selection = Mgr.get("selection", "top")
+
+        def process_grouped_models(group, selection):
+
+            for member in group.get_members():
+                if member.get_type() == "model" and member.get_geom_type() != "basic_geom":
+                    if accessible:
+                        selection.add([member], add_to_hist=False, update=False)
+                        member.get_bbox().get_origin().detach_node()
+                    else:
+                        selection.remove([member], add_to_hist=False, update=False)
+                        member.get_bbox().get_origin().reparent_to(member.get_origin())
+                elif member.get_type() == "group" and not (member.is_open()
+                        or member.get_member_types_id() == "collision"):
+                    process_grouped_models(member, selection)
+
+        for obj in objs:
+            if obj.get_type() == "group" and not (obj.is_open()
+                    or obj.get_member_types_id() == "collision"):
+                process_grouped_models(obj, selection)
+
     def __enter_edit_mode(self, prev_state_id, is_active):
 
         if not is_active:
@@ -44,8 +94,8 @@ class SelectionManager(BaseObject):
                 GlobalData["active_transform_type"] = ""
                 Mgr.update_app("active_transform_type", "")
 
-            models = set(obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                         and obj.get_geom_type() != "basic_geom")
+            selection = Mgr.get("selection", "top")
+            models = self._models = self.__get_models(selection)
             original_selections = self._original_sel
 
             for model in models:
@@ -56,6 +106,8 @@ class SelectionManager(BaseObject):
                 for subobj_lvl in ("vert", "edge", "poly"):
                     orig_sel[subobj_lvl] = geom_data_obj.get_selection(subobj_lvl)
                     geom_data_obj.clear_selection(subobj_lvl, False)
+
+            self.__make_grouped_models_accessible(selection)
 
         Mgr.add_task(self.__update_cursor, "update_cursor")
 
@@ -75,6 +127,8 @@ class SelectionManager(BaseObject):
                         geom_data_obj.set_selected(subobj, True, False)
 
             self.__reset()
+            selection = Mgr.get("selection", "top")
+            self.__make_grouped_models_accessible(selection, False)
 
         Mgr.remove_task("update_cursor")
         Mgr.set_cursor("main")
@@ -87,6 +141,7 @@ class SelectionManager(BaseObject):
         self._color_id = None
         self._selections = {"vert": set(), "edge": set(), "poly": set()}
         self._original_sel = {}
+        self._models = []
 
     def set_object_level(self, obj_lvl):
 
@@ -95,8 +150,7 @@ class SelectionManager(BaseObject):
         obj_root = Mgr.get("object_root")
         picking_masks = Mgr.get("picking_masks")
 
-        models = set(obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                     and obj.get_geom_type() != "basic_geom")
+        models = self._models
 
         if obj_lvl == "top":
 
@@ -171,8 +225,7 @@ class SelectionManager(BaseObject):
     def __normal_select(self):
 
         obj_lvl = self._obj_lvl
-        models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                  and obj.get_geom_type() != "basic_geom"]
+        models = self._models
 
         if obj_lvl == "edge":
 
@@ -284,8 +337,7 @@ class SelectionManager(BaseObject):
         if op == "replace":
 
             selection.clear()
-            models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                      and obj.get_geom_type() != "basic_geom"]
+            models = self._models
 
             if obj_lvl == "edge":
                 for model in models:

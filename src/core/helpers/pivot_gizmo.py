@@ -51,9 +51,17 @@ class PivotGizmoManager(BaseObject):
 
         return True
 
-    def __create_pivot_gizmo(self, toplevel_obj):
+    def __create_pivot_gizmo(self, owner):
 
-        pivot_gizmo = PivotGizmo(toplevel_obj)
+        pivot_gizmo = PivotGizmo(owner)
+        pivot_gizmo.show(False)
+
+        if not self._pivot_gizmo_root.is_hidden():
+            pivot = owner.get_pivot()
+            pivot_gizmo.get_base().set_billboard_point_world(pivot, 8.)
+            pivot_gizmo.get_origin().set_compass(pivot)
+            compass_effect = CompassEffect.make(pivot, self._compass_props)
+            pivot_gizmo.get_origin("ortho").set_effect(compass_effect)
 
         return pivot_gizmo
 
@@ -64,10 +72,11 @@ class PivotGizmoManager(BaseObject):
         if show:
 
             for obj in objs:
+                pivot = obj.get_pivot()
                 pivot_gizmo = obj.get_pivot_gizmo()
-                pivot_gizmo.get_base().set_billboard_point_world(obj.get_pivot(), 8.)
-                pivot_gizmo.get_origin().set_compass(obj.get_pivot())
-                compass_effect = CompassEffect.make(obj.get_pivot(), self._compass_props)
+                pivot_gizmo.get_base().set_billboard_point_world(pivot, 8.)
+                pivot_gizmo.get_origin().set_compass(pivot)
+                compass_effect = CompassEffect.make(pivot, self._compass_props)
                 pivot_gizmo.get_origin("ortho").set_effect(compass_effect)
 
             self._pivot_gizmo_root.show()
@@ -91,9 +100,9 @@ class PivotAxis(BaseObject):
         self._axis = axis
         self._picking_col_id = picking_col_id
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._pivot_gizmo.get_toplevel_object()
+        return self._pivot_gizmo.get_toplevel_object(get_group)
 
     def get_picking_color_id(self):
 
@@ -142,31 +151,6 @@ class PivotGizmo(object):
     _size = 1.
     _label_size = .5
 
-    _axis_colors = {
-        "selected": {
-            "x": VBase4(.7, 0., 0., 1.),
-            "y": VBase4(0., .7, 0., 1.),
-            "z": VBase4(0., 0., .7, 1.)
-        },
-        "deselected": {
-            "x": VBase4(.3, .2, .2, 1.),
-            "y": VBase4(.2, .3, .2, 1.),
-            "z": VBase4(.2, .2, .3, 1.)
-        }
-    }
-    _axis_label_colors = {
-        "selected": {
-            "x": VBase4(1., .6, .6, 1.),
-            "y": VBase4(.6, 1., .6, 1.),
-            "z": VBase4(.6, .6, 1., 1.)
-        },
-        "deselected": {
-            "x": VBase4(.4, 0., 0., 1.),
-            "y": VBase4(0., .2, 0., 1.),
-            "z": VBase4(0., 0., .4, 1.)
-        }
-    }
-
     @classmethod
     def __create_original(cls):
 
@@ -181,14 +165,14 @@ class PivotGizmo(object):
             ((-.1, -.15), (.1, .15)),
             ((-.1, .15), (.1, -.15))
         )
-        label = cls.__create_axis_label(axis_label_root, "x", points)
+        label = cls.__create_axis_label(axis_label_root, "x", points, (1., .6, .6, 1.))
         label.set_x(1.3)
 
         points = (
             ((-.1, -.15), (.1, .15)),
             ((-.1, .15), (0., 0.))
         )
-        label = cls.__create_axis_label(axis_label_root, "y", points)
+        label = cls.__create_axis_label(axis_label_root, "y", points, (.6, 1., .6, 1.))
         label.set_y(1.3)
 
         points = (
@@ -196,7 +180,7 @@ class PivotGizmo(object):
             ((-.1, .15), (.1, .15)),
             ((-.1, -.15), (.1, .15))
         )
-        label = cls.__create_axis_label(axis_label_root, "z", points)
+        label = cls.__create_axis_label(axis_label_root, "z", points, (.6, .6, 1., 1.))
         label.set_z(1.3)
 
         picking_masks = Mgr.get("picking_masks")
@@ -210,7 +194,12 @@ class PivotGizmo(object):
         angle = math.pi * 2. / 3.
         shaft_radius = .035
         head_radius = .1
-        axis_colors = cls._axis_colors["deselected"]
+
+        axis_colors = {
+            "x": (.7, 0., 0., 1.),
+            "y": (0., .7, 0., 1.),
+            "z": (0., 0., .7, 1.)
+        }
 
         for i, axis in enumerate("xyz"):
 
@@ -268,7 +257,7 @@ class PivotGizmo(object):
             np.set_color(axis_colors[axis])
 
     @classmethod
-    def __create_axis_label(cls, root, axis, points):
+    def __create_axis_label(cls, root, axis, points, color):
 
         vertex_format = GeomVertexFormat.get_v3()
 
@@ -292,7 +281,7 @@ class PivotGizmo(object):
         node_path = root.attach_new_node(label_node)
         node_path.set_billboard_point_eye()
         node_path.set_scale(cls._label_size)
-        node_path.set_color(cls._axis_label_colors["deselected"][axis])
+        node_path.set_color(color)
 
         return node_path
 
@@ -305,60 +294,9 @@ class PivotGizmo(object):
 
     original = property(__get_original)
 
-    def __getstate__(self):
+    def __init__(self, owner):
 
-        state = self.__dict__.copy()
-        state["_base"] = NodePath("pivot_gizmo_base")
-        origin_persp = NodePath("pivot_gizmo")
-        state["_origins"] = {"persp": origin_persp}
-        label_root_persp = NodePath("axis_label_root")
-        state["_axis_label_roots"] = {"persp": label_root_persp}
-
-        for axis in "xyz":
-            state["_axis_nps"] = state["_axis_nps"].copy()
-            state["_axis_labels"] = state["_axis_labels"].copy()
-            del state["_axis_nps"][axis]
-            del state["_axis_labels"][axis]
-
-        del state["_axis_nps"]["ortho"]
-        del state["_axis_labels"]["ortho"]
-
-        return state
-
-    def __setstate__(self, state):
-
-        self.__dict__ = state
-
-        gizmo_root = Mgr.get("pivot_gizmo_roots")["persp"]
-        node = self._base
-        node.reparent_to(gizmo_root)
-        origin = self._origins["persp"]
-        origin.reparent_to(node)
-
-        label_root = self._axis_label_roots["persp"]
-        label_root.reparent_to(origin)
-        label_root.hide(Mgr.get("picking_masks")["all"])
-
-        axis_nps = self._axis_nps
-        axis_labels = self._axis_labels
-
-        for axis in "xyz":
-            axis_nps[axis] = NodePathCollection()
-            axis_labels[axis] = NodePathCollection()
-
-        for axis in "xyz":
-            np = axis_nps["persp"][axis]
-            axis_nps[axis].add_path(np)
-            np.reparent_to(origin)
-            label = axis_labels["persp"][axis]
-            axis_labels[axis].add_path(label)
-            label.reparent_to(label_root)
-
-        self.__create_geoms_for_ortho_lens()
-
-    def __init__(self, toplevel_obj):
-
-        self._toplevel_obj = toplevel_obj
+        self._owner = owner
         gizmo_roots = Mgr.get("pivot_gizmo_roots")
         self._base = self.original.copy_to(gizmo_roots["persp"])
         origin = self._base.get_child(0)
@@ -432,9 +370,9 @@ class PivotGizmo(object):
 
         return self._origins[lens_type]
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._toplevel_obj
+        return self._owner.get_toplevel_object(get_group)
 
     def register(self):
 
@@ -446,13 +384,10 @@ class PivotGizmo(object):
         obj_type = "pivot_axis"
         Mgr.do("unregister_%s_objs" % obj_type, self._axis_objs.itervalues())
 
-    def update_selection_state(self, is_selected=True):
+    def show(self, show=True):
 
-        key = "selected" if is_selected else "deselected"
-
-        for axis in "xyz":
-            self._axis_nps[axis].set_color(self._axis_colors[key][axis])
-            self._axis_labels[axis].set_color(self._axis_label_colors[key][axis])
+        for origin in self._origins.itervalues():
+            origin.show() if show else origin.hide()
 
 
 MainObjects.add_class(PivotAxisManager)

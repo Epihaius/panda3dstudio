@@ -206,7 +206,7 @@ class FileManager(object):
             GlobalData["ctrl_down"] = False
 
         if filename:
-            Mgr.update_app("scene", "export", filename)
+            Mgr.update_app("export", filename)
 
     def __import_scene(self):
 
@@ -218,7 +218,7 @@ class FileManager(object):
             GlobalData["ctrl_down"] = False
 
         if filename:
-            Mgr.update_app("scene", "import", filename)
+            Mgr.update_app("import", filename)
             self.__set_scene_as_unsaved()
 
         if GlobalData["ctrl_down"]:

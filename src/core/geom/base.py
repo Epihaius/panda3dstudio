@@ -34,9 +34,9 @@ class GeomDataOwner(BaseObject):
 
         self._geom_data_obj = geom_data_obj
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._model
+        return self._model.get_toplevel_object(get_group)
 
     def get_model(self):
 

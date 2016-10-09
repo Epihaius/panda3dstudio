@@ -23,6 +23,7 @@ class BoxManager(PrimitiveManager):
                 self.set_property_default(prop_id, value)
 
         Mgr.accept("inst_create_box", self.create_instantly)
+        Mgr.accept("create_custom_box", self.__create_custom)
 
     def setup(self):
 
@@ -147,6 +148,27 @@ class BoxManager(PrimitiveManager):
         origin = prim.get_model().get_origin()
         z = origin.get_relative_point(self.world, point)[2]
         prim.update_creation_size(z=z)
+
+    def __create_custom(self, name, x, y, z, segments, origin_pos, rel_to_grid=False):
+
+        model_id = self.generate_object_id()
+        model = Mgr.do("create_model", model_id, name, origin_pos)
+
+        if not rel_to_grid:
+            pivot = model.get_pivot()
+            pivot.clear_transform()
+            pivot.set_pos(self.world, origin_pos)
+
+        next_color = self.get_next_object_color()
+        model.set_color(next_color, update_app=False)
+        prim = Box(model)
+        prim.create(segments)
+        prim.update_creation_size(x, y, z, finalize=True)
+        prim.get_geom_data_object().finalize_geometry()
+        model.set_geom_object(prim)
+        self.set_next_object_color()
+
+        return model
 
 
 class Box(Primitive):
@@ -406,12 +428,7 @@ class Box(Primitive):
                     sort = PendingTasks.get_sort("upd_vert_normals", "object") + 1
                     PendingTasks.add(task, "restore_pos_data","object", sort, id_prefix=obj_id)
                 else:
-                    task = self.clear_geometry
-                    task_id = "clear_geom_data"
-                    PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
-                    task = self.recreate_geometry
-                    task_id = "set_geom_data"
-                    PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+                    self.recreate_geometry()
 
                 update_app()
 
@@ -426,6 +443,7 @@ class Box(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
+                self.get_model().update_group_bbox()
                 update_app()
 
             return change

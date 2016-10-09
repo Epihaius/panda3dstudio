@@ -38,33 +38,99 @@ class HierarchyPanel(Panel):
         link_section = section = self.add_section("linking", "Object linking")
         sizer = section.get_client_sizer()
 
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(btn_sizer)
-        sizer_args = (0, wx.ALL, 2)
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer)
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
-        label = "Link"
+        checkbox = PanelCheckBox(self, section, subsizer, self.__toggle_link_visibility,
+                                 sizer_args=sizer_args)
+        checkbox.check(False)
+        self._checkboxes["show_links"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("Show links", subsizer, sizer_args)
+
+        sizer.Add(wx.Size(0, 2))
+        group = section.add_group("Link")
+        grp_sizer = group.get_client_sizer()
+        subsizer = wx.BoxSizer()
+        grp_sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
+
+        label = "Selection"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label, "Link objects",
-                          self.__toggle_linking_mode, sizer_args, focus_receiver=focus_receiver)
-        self._btns["link"] = btn
+        btn = PanelButton(self, group, subsizer, bitmaps, label,
+                          "Link selected objects to target object",
+                          lambda: self.__toggle_linking_mode("sel_linking_mode"))
+        self._btns["sel_linking_mode"] = btn
 
-        btn_sizer.Add(wx.Size(5, 0))
-
-        label = "Unlink"
+        subsizer.Add(wx.Size(15, 0))
+        label = "Pick..."
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label, "Unlink selected objects",
-                          self.__unlink_objects, sizer_args, focus_receiver=focus_receiver)
-        self._btns["unlink"] = btn
+        btn = PanelButton(self, group, subsizer, bitmaps, label,
+                          "Link single object to target object",
+                          lambda: self.__toggle_linking_mode("obj_linking_mode"))
+        self._btns["obj_linking_mode"] = btn
 
-        btn_sizer.Add(wx.Size(5, 0))
+        sizer.Add(wx.Size(0, 2))
+        group = section.add_group("Unlink")
+        grp_sizer = group.get_client_sizer()
+        subsizer = wx.BoxSizer()
+        grp_sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
 
-        label = "Show"
+        label = "Selection"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label, "Show links between objects",
-                          self.__toggle_link_visibility, sizer_args, focus_receiver=focus_receiver)
-        self._btns["show_links"] = btn
+        btn = PanelButton(self, group, subsizer, bitmaps, label,
+                          "Unlink selected objects",
+                          self.__unlink_selection)
+
+        subsizer.Add(wx.Size(15, 0))
+        label = "Pick..."
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+        btn = PanelButton(self, group, subsizer, bitmaps, label,
+                          "Unlink single object",
+                          lambda: self.__toggle_linking_mode("obj_unlinking_mode"))
+        self._btns["obj_unlinking_mode"] = btn
+
+        sizer.Add(wx.Size(0, 5))
+
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer)
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+
+        checkbox = PanelCheckBox(self, section, subsizer,
+                                 self.__toggle_group_member_linking,
+                                 sizer_args=sizer_args)
+        checkbox.check()
+        self._checkboxes["group_member_linking"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("Affect group membership", subsizer, sizer_args)
+
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer)
+
+        subsizer.Add(wx.Size(15, 0))
+        checkbox = PanelCheckBox(self, section, subsizer,
+                                 self.__toggle_open_group_member_linking,
+                                 sizer_args=sizer_args)
+        checkbox.check()
+        self._checkboxes["open_group_member_linking"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("Affect open groups only", subsizer, sizer_args)
+
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer)
+
+        subsizer.Add(wx.Size(15, 0))
+        checkbox = PanelCheckBox(self, section, subsizer,
+                                 self.__toggle_group_member_unlink_only,
+                                 sizer_args=sizer_args)
+        checkbox.check()
+        self._checkboxes["group_member_unlink_only"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("Unlink only", subsizer, sizer_args)
 
         # ************************ Transforms section **************************
+
+        disabler = lambda: GlobalData["active_obj_level"] != "top"
 
         transf_section = section = self.add_section("transforms", "Transforms")
         sizer = section.get_client_sizer()
@@ -76,8 +142,9 @@ class HierarchyPanel(Panel):
         label = "Geom only"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         toggle = (lambda: self.__set_xform_target_type("geom"), lambda: None)
-        self._toggle_btns.add_button(self, section, btn_sizer, "geom", toggle, bitmaps,
-                                     "Transform geometry only", label, sizer_args=sizer_args)
+        btn = self._toggle_btns.add_button(self, section, btn_sizer, "geom", toggle, bitmaps,
+                                           "Transform geometry only", label, sizer_args=sizer_args)
+        btn.add_disabler("subobj_lvl", disabler)
 
         label = "Reset geom"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
@@ -85,6 +152,7 @@ class HierarchyPanel(Panel):
                           "Reset geometry to original transform",
                           lambda: Mgr.update_app("geom_reset"), sizer_args,
                           focus_receiver=focus_receiver)
+        btn.add_disabler("subobj_lvl", disabler)
         self._btns["reset_geom"] = btn
 
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -94,8 +162,9 @@ class HierarchyPanel(Panel):
         label = "Pivot only"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         toggle = (lambda: self.__set_xform_target_type("pivot"), lambda: None)
-        self._toggle_btns.add_button(self, section, btn_sizer, "pivot", toggle, bitmaps,
-                                     "Transform pivot only", label, sizer_args=sizer_args)
+        btn = self._toggle_btns.add_button(self, section, btn_sizer, "pivot", toggle, bitmaps,
+                                           "Transform pivot only", label, sizer_args=sizer_args)
+        btn.add_disabler("subobj_lvl", disabler)
 
         label = "Reset pivot"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
@@ -103,6 +172,7 @@ class HierarchyPanel(Panel):
                           "Reset pivot to original transform",
                           lambda: Mgr.update_app("pivot_reset"), sizer_args,
                           focus_receiver=focus_receiver)
+        btn.add_disabler("subobj_lvl", disabler)
         self._btns["reset_pivot"] = btn
 
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -112,14 +182,16 @@ class HierarchyPanel(Panel):
         label = "Links only"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         toggle = (lambda: self.__set_xform_target_type("links"), lambda: None)
-        self._toggle_btns.add_button(self, section, btn_sizer, "links", toggle, bitmaps,
-                                     "Transform hierarchy links only", label, sizer_args=sizer_args)
+        btn = self._toggle_btns.add_button(self, section, btn_sizer, "links", toggle, bitmaps,
+                                           "Transform hierarchy links only", label, sizer_args=sizer_args)
+        btn.add_disabler("subobj_lvl", disabler)
 
         label = "No children"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         toggle = (lambda: self.__set_xform_target_type("no_children"), lambda: None)
-        self._toggle_btns.add_button(self, section, btn_sizer, "no_children", toggle, bitmaps,
-                                     "Don't transform child objects", label, sizer_args=sizer_args)
+        btn = self._toggle_btns.add_button(self, section, btn_sizer, "no_children", toggle, bitmaps,
+                                           "Don't transform child objects", label, sizer_args=sizer_args)
+        btn.add_disabler("subobj_lvl", disabler)
 
         # **********************************************************************
 
@@ -135,7 +207,24 @@ class HierarchyPanel(Panel):
 
         wx.CallAfter(finalize)
 
+        def disable_xform_targets():
+
+            self._toggle_btns.disable(show=False)
+            self._btns["reset_geom"].disable(show=False)
+            self._btns["reset_pivot"].disable(show=False)
+
+        def enable_xform_targets():
+
+            self._toggle_btns.enable()
+            self._btns["reset_geom"].enable()
+            self._btns["reset_pivot"].enable()
+
+        Mgr.accept("disable_transform_targets", disable_xform_targets)
+        Mgr.accept("enable_transform_targets", enable_xform_targets)
         Mgr.add_app_updater("object_link_viz", self.__update_link_visibility)
+        Mgr.add_app_updater("group_member_linking", self.__update_group_member_linking)
+        Mgr.add_app_updater("open_group_member_linking", self.__update_open_group_member_linking)
+        Mgr.add_app_updater("group_member_unlink_only", self.__update_group_member_unlink_only)
         Mgr.add_app_updater("transform_target_type", self.__update_xform_target_type)
 
     def get_clipping_rect(self):
@@ -152,35 +241,70 @@ class HierarchyPanel(Panel):
         def enter_linking_mode(prev_state_id, is_active):
 
             Mgr.do("set_viewport_border_color", (255, 128, 255))
-            self._btns["link"].set_active()
+            self._btns[GlobalData["object_linking_mode"]].set_active()
 
         def exit_linking_mode(next_state_id, is_active):
 
             if not is_active:
-                self._btns["link"].set_active(False)
+                self._btns[GlobalData["object_linking_mode"]].set_active(False)
 
         add_state = Mgr.add_state
         add_state("object_linking_mode", -10, enter_linking_mode, exit_linking_mode)
 
-    def __toggle_linking_mode(self):
+    def __toggle_linking_mode(self, linking_mode):
 
-        if self._btns["link"].is_active():
+        current_linking_mode = GlobalData["object_linking_mode"]
+
+        if current_linking_mode and current_linking_mode != linking_mode:
             Mgr.exit_state("object_linking_mode")
+
+        if self._btns[linking_mode].is_active():
+            Mgr.exit_state("object_linking_mode")
+            GlobalData["object_linking_mode"] = ""
         else:
+            GlobalData["object_linking_mode"] = linking_mode
             Mgr.enter_state("object_linking_mode")
 
-    def __unlink_objects(self):
+    def __unlink_selection(self):
 
-        Mgr.update_remotely("object_unlinking")
+        Mgr.update_remotely("selection_unlinking")
 
-    def __toggle_link_visibility(self):
+    def __toggle_link_visibility(self, show_links):
+
+        GlobalData["object_links_shown"] = show_links
+        Mgr.update_remotely("object_link_viz")
+
+    def __update_link_visibility(self):
 
         show_links = GlobalData["object_links_shown"]
-        Mgr.update_app("object_link_viz", not show_links)
+        self._checkboxes["show_links"].check(show_links)
 
-    def __update_link_visibility(self, show):
+    def __toggle_group_member_linking(self, affect_membership):
 
-        self._btns["show_links"].set_active(show)
+        GlobalData["group_member_linking"] = affect_membership
+
+    def __update_group_member_linking(self):
+
+        affect_membership = GlobalData["group_member_linking"]
+        self._checkboxes["group_member_linking"].check(affect_membership)
+
+    def __toggle_open_group_member_linking(self, open_groups_only):
+
+        GlobalData["open_group_member_linking"] = open_groups_only
+
+    def __update_open_group_member_linking(self):
+
+        open_groups_only = GlobalData["open_group_member_linking"]
+        self._checkboxes["open_group_member_linking"].check(open_groups_only)
+
+    def __toggle_group_member_unlink_only(self, unlink_only):
+
+        GlobalData["group_member_unlink_only"] = unlink_only
+
+    def __update_group_member_unlink_only(self):
+
+        unlink_only = GlobalData["group_member_unlink_only"]
+        self._checkboxes["group_member_unlink_only"].check(unlink_only)
 
     def __set_xform_target_type(self, target_type="all"):
 

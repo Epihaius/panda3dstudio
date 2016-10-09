@@ -429,6 +429,8 @@ class GeomHistoryBase(BaseObject):
             task_id = "upd_vert_normals"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
+            self.get_toplevel_object().update_group_bbox()
+
         elif prop_id == "poly_tris":
 
             task = lambda: self._restore_poly_triangle_data(old_time_id, new_time_id)

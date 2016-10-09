@@ -15,6 +15,7 @@ class SphereManager(PrimitiveManager):
         self.set_property_default("smoothness", True)
 
         Mgr.accept("inst_create_sphere", self.create_instantly)
+        Mgr.accept("create_custom_sphere", self.__create_custom)
 
     def setup(self):
 
@@ -69,6 +70,27 @@ class SphereManager(PrimitiveManager):
         point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
         radius = max(.001, (intersection_point - point).length())
         self.get_primitive().update_creation_radius(radius)
+
+    def __create_custom(self, name, radius, segments, origin_pos, rel_to_grid=False, smooth=True):
+
+        model_id = self.generate_object_id()
+        model = Mgr.do("create_model", model_id, name, origin_pos)
+
+        if not rel_to_grid:
+            pivot = model.get_pivot()
+            pivot.clear_transform()
+            pivot.set_pos(self.world, origin_pos)
+
+        next_color = self.get_next_object_color()
+        model.set_color(next_color, update_app=False)
+        prim = Sphere(model)
+        prim.create(segments, smooth)
+        prim.update_creation_radius(radius, finalize=True)
+        prim.get_geom_data_object().finalize_geometry()
+        model.set_geom_object(prim)
+        self.set_next_object_color()
+
+        return model
 
 
 class Sphere(Primitive):
@@ -339,19 +361,14 @@ class Sphere(Primitive):
             change = self.set_segments(value["count"] if restore else value)
 
             if change:
+
                 if restore:
                     task = lambda: self.restore_init_pos_data(value["pos_data"])
                     sort = PendingTasks.get_sort("upd_vert_normals", "object") + 1
                     PendingTasks.add(task, "restore_pos_data", "object", sort, id_prefix=obj_id)
                 else:
-                    task = self.clear_geometry
-                    task_id = "clear_geom_data"
-                    PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
-                    task = self.recreate_geometry
-                    task_id = "set_geom_data"
-                    PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+                    self.recreate_geometry()
 
-            if change:
                 update_app()
 
             return change
@@ -364,6 +381,7 @@ class Sphere(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
+                self.get_model().update_group_bbox()
                 update_app()
 
             return change

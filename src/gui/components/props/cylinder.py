@@ -30,7 +30,7 @@ class CylinderProperties(BaseObject):
         subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
         grp_sizer.Add(subsizer)
 
-        for spec in ("lateral", "height", "caps"):
+        for spec in ("circular", "height", "caps"):
             prop_id = "segments_%s" % spec
             group.add_text("%s:" % spec.title(), subsizer, sizer_args)
             field = PanelInputField(panel, group, subsizer, 80)
@@ -41,7 +41,7 @@ class CylinderProperties(BaseObject):
         self._fields["radius"].set_input_parser("radius", self.__parse_radius)
         self._fields["height"].set_input_parser("height", self.__parse_height)
         parser = lambda segs: self.__parse_segments(segs, 3)
-        self._fields["segments_lateral"].set_input_parser("segments_lateral", parser)
+        self._fields["segments_circular"].set_input_parser("segments_circular", parser)
         parser = lambda segs: self.__parse_segments(segs, 1)
         self._fields["segments_height"].set_input_parser("segments_height", parser)
         parser = lambda segs: self.__parse_segments(segs, 0)

@@ -92,7 +92,7 @@ class TransformCenterManager(BaseObject):
                 self._tc_obj = Mgr.get("coord_sys_obj", check_valid=True)
 
             if not self._tc_obj:
-                self._tc_obj = Mgr.get("selection").get_toplevel_object()
+                self._tc_obj = Mgr.get("selection").get_toplevel_object(get_group=True)
 
         if _tc_type != "object":
 

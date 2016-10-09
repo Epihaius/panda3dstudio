@@ -30,6 +30,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self._uv_registry = {}
         self._uv_data_objs = {}
         self._uv_data_obj_copies = {}
+        self._models = []
 
         UVNavigationBase.__init__(self)
         UVSelectionBase.__init__(self)
@@ -141,6 +142,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
                 Mgr.exit_state("uv_edit_mode")
                 core.close_window(self._window, keepCamera=True)
                 self._window = None
+                self._models = []
 
             return
 
@@ -173,6 +175,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self._reset_view()
         self.cam_node.set_active(True)
         UVMgr.get("picking_cam").set_active()
+        self._models = self._world_sel_mgr.get_models()
 
         UVSelectionBase.setup(self)
         UVNavigationBase.setup(self)
@@ -216,8 +219,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __create_uv_data(self):
 
-        models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
-                  and obj.get_geom_type() != "basic_geom"]
+        models = self._models
         uv_set_id = self._uv_set_id
         self._uv_registry[uv_set_id] = uv_registry = {"vert": {}, "edge": {}, "poly": {}}
         self._uv_data_objs[uv_set_id] = uv_data_objs = {}

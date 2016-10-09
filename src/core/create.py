@@ -126,10 +126,6 @@ class CreationManager(BaseObject):
 
         else:
 
-            if GlobalData["transform_target_type"] != "all":
-                GlobalData["transform_target_type"] = "all"
-                Mgr.update_app("transform_target_type")
-
             GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
             Mgr.update_app("creation", "started")

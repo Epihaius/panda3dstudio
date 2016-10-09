@@ -21,7 +21,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
     def __create(self, geom, name):
 
         model_id = ("basic_geom",) + self._id_generator.next()
-        model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1.))
+        model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1., 1.))
         picking_col_id = self.get_next_picking_color_id()
         basic_geom = BasicGeom(model, geom, picking_col_id)
 
@@ -42,7 +42,7 @@ class BasicGeom(BaseObject):
         np.set_material_off(1)
         np.set_shader_off(1)
         state_flat = np.get_state()
-        np.set_color(1., 1., 1., 1., 1)
+        np.set_color((1., 1., 1., 1.), 1)
         state_flat_white = np.get_state()
         attrib = RenderModeAttrib.make(RenderModeAttrib.M_wireframe)
         state_wire_white = state_flat_white.add_attrib(attrib)
@@ -170,7 +170,7 @@ class BasicGeom(BaseObject):
             self.update_render_mode(False)
             self.set_two_sided(GlobalData["two_sided"])
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = model.get_id()
         PendingTasks.add(update_render_mode, "update_render_mode", "object", 0, obj_id)
 
     def destroy(self):
@@ -196,9 +196,9 @@ class BasicGeom(BaseObject):
 
         return self._model
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._model
+        return self._model.get_toplevel_object(get_group)
 
     def get_picking_color_id(self):
 

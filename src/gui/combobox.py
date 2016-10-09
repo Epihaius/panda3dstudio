@@ -90,7 +90,7 @@ class ComboBox(Button):
             self.set_active(False)
 
     def _draw(self, event):
-        
+
         if not self._has_back_bitmap:
             self._set_back_bitmap()
             return
@@ -207,6 +207,16 @@ class ComboBox(Button):
         if self._is_field_active != is_field_active:
             self._is_field_active = is_field_active
             self.Refresh()
+
+    def select_none(self):
+
+        if self._selected_item_id is not None and self._selected_item_id not in self._persistent_items:
+            index = self._item_ids.index(self._selected_item_id)
+            selected_item = self._items[self._selected_item_id]
+            self._popup_menu.InsertItem(index, selected_item)
+
+        self._selected_item_id = None
+        self.set_label("")
 
     def select_item(self, item_id):
 

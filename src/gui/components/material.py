@@ -1077,6 +1077,10 @@ class MaterialPanel(Panel):
 
         Mgr.update_remotely("extracted_material")
 
+    def __apply_material(self):
+
+        Mgr.update_remotely("applied_material")
+
     def __start_owner_picking(self, picking_op):
 
         prev_picking_op = self._picking_op
@@ -1369,10 +1373,6 @@ class MaterialPanel(Panel):
 
         if select:
             self.__select_material(mat_id)
-
-    def __apply_material(self):
-
-        Mgr.update_remotely("selected_obj_mat", self._selected_mat_id)
 
     def __select_material_owners(self):
 
@@ -1852,7 +1852,7 @@ class MaterialToolbar(Toolbar):
         icon_path = os.path.join(GFX_PATH, "icon_clear.png")
         bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
         tooltip_label = "Clear material"
-        command = lambda: Mgr.update_remotely("selected_obj_prop", "material", None)
+        command = lambda: Mgr.update_remotely("applied_material", None, True)
         btn = Button(self, bitmaps, "", tooltip_label, command)
         sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
         self._btns["clear_material"] = btn

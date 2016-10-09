@@ -18,6 +18,7 @@ from .status import StatusBar
 from .menu import MenuBar
 from .file import FileManager
 from .create import CreationManager
+from .edit import EditManager
 from .view import ViewManager
 from .render import RenderModeToolbar
 from .obj_props import ObjectPropertiesMenu
@@ -126,11 +127,21 @@ class Components(BaseObject):
         menubar = MenuBar(frame, wx.Point(0, 0), 1006)
         components["menubar"] = menubar
 
+        self._uv_editing_initialized = False
+
+        def uv_edit_command():
+
+            if not self._uv_editing_initialized:
+                Mgr.update_app("uv_edit_init")
+                self._uv_editing_initialized = True
+
+            Mgr.enter_state("uv_edit_mode")
+
         self._file_mgr = FileManager(menubar)
-        menubar.add_menu("edit", "Edit")
         self.exit_handler = self._file_mgr.on_exit
-        self._creation_mgr = CreationManager(menubar)
+        self._edit_mgr = EditManager(menubar, uv_edit_command)
         self._view_mgr = ViewManager(menubar, self._viewport)
+        self._creation_mgr = CreationManager(menubar)
 
         self._component_ids = ("menubar", "main_toolbar", "history_toolbar",
                                "panel_stack", "render_mode_toolbar", "grid_toolbar")
@@ -148,29 +159,12 @@ class Components(BaseObject):
             ToolTip.show(bitmap, mouse_pos, use_timer=False)
 
         Mgr.add_app_updater("object_name_tag", update_object_name_tag)
-
-        self._uv_editing_initialized = False
-        btn_id = "edit_uvs"
-        label = "Edit UVs"
-        icon_path = os.path.join(GFX_PATH, "icon_uv.png")
-        btn_props = (label, icon_path)
-
-        def command():
-
-            if not self._uv_editing_initialized:
-                Mgr.update_app("uv_edit_init")
-                self._uv_editing_initialized = True
-
-            Mgr.enter_state("uv_edit_mode")
-
-        hotkey = (ord("U"), wx.MOD_CONTROL)
-        menubar.add_menu_item("edit", "uvs", "Edit UVs\tCTRL+U", command, hotkey)
-
         Mgr.add_app_updater("uv_edit_init", self.__init_uv_editing)
 
     def setup(self):
 
         self._components["main_toolbar"].setup()
+        self._edit_mgr.setup()
         self._creation_mgr.setup()
         self._view_mgr.setup()
         self._components["hierarchy_panel"].setup()

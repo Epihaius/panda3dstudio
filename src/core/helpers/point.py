@@ -133,6 +133,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         picking_color = get_color_vec(picking_col_id, pickable_type_id)
         colors = {"pickable": picking_color, "viz": unselected_color}
         geoms = self._geoms[draw_mode]
+        pos = point_helper.get_origin().get_pos(self.world)
 
         for geom_type in ("pickable", "viz"):
             geom_node = geoms[geom_type].node()
@@ -140,7 +141,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             vertex_data.set_num_rows(count + 1)
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(count)
-            pos_writer.add_data3f(origin_pos)
+            pos_writer.add_data3f(pos)
             col_writer = GeomVertexWriter(vertex_data, "color")
             col_writer.set_row(count)
             col_writer.add_data4f(colors[geom_type])
@@ -464,9 +465,9 @@ class PointHelperViz(BaseObject):
         self._point_helper = point_helper
         self._picking_col_id = picking_col_id
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._point_helper
+        return self._point_helper.get_toplevel_object(get_group)
 
     def get_picking_color_id(self):
 

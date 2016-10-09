@@ -889,12 +889,13 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         render_masks = Mgr.get("render_masks")["all"]
         picking_masks = Mgr.get("picking_masks")["all"]
-        all_masks = render_masks | picking_masks
-
         geoms = self._geoms
 
-        geoms["vert"]["sel_state"].hide(render_masks)
-        geoms["edge"]["sel_state"].hide(render_masks)
+        for lvl in ("vert", "edge"):
+            geoms[lvl]["pickable"].hide(picking_masks)
+            geoms[lvl]["sel_state"].hide(render_masks)
+
+        geoms["poly"]["pickable"].show(picking_masks)
 
         if self._has_poly_tex_proj:
             geoms["poly"]["selected"].show(render_masks)
@@ -953,9 +954,9 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         return self._owner
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._owner.get_toplevel_object()
+        return self._owner.get_toplevel_object(get_group)
 
     def unregister(self):
 
@@ -1025,7 +1026,7 @@ class GeomDataManager(BaseObject):
 
     def setup(self):
 
-        sort = PendingTasks.get_sort("set_geom_data", "object")
+        sort = PendingTasks.get_sort("clear_geom_data", "object")
 
         if sort is None:
             return False

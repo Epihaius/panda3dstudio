@@ -12,8 +12,6 @@ class EditableGeomProperties(BaseObject):
         self._subobj_btns = PanelToggleButtonGroup()
         toggle = (self.__set_topobj_level, lambda: None)
         self._subobj_btns.set_default_toggle("top", toggle)
-        self._prev_obj_lvl = "top"
-        self._subobj_state_ids = {"top": [], "vert": [], "edge": [], "poly": []}
 
         # ************************* Subobject level section *******************
 
@@ -245,12 +243,6 @@ class EditableGeomProperties(BaseObject):
         add_state("diagonal_turning_mode", -10, enter_diagonal_turning_mode,
                   exit_diagonal_turning_mode)
 
-        poly_state_ids = self._subobj_state_ids["poly"]
-        poly_state_ids.append("poly_creation_mode")
-        poly_state_ids.append("smoothing_poly_picking_mode")
-        poly_state_ids.append("unsmoothing_poly_picking_mode")
-        poly_state_ids.append("diagonal_turning_mode")
-
         for subobj_lvl in ("vert", "edge", "poly"):
             self._panel.show_section("%s_props" % subobj_lvl, False, update=False)
 
@@ -269,24 +261,34 @@ class EditableGeomProperties(BaseObject):
 
         if obj_lvl == "top":
             self._subobj_btns.deactivate()
+            Mgr.do("enable_transform_targets")
+            # exit any subobject modes
+            Mgr.enter_state("selection_mode")
         else:
+            Mgr.do("disable_transform_targets")
             self._subobj_btns.set_active_button(obj_lvl)
             self._panel.show_section("%s_props" % obj_lvl, update=False)
-
-        for state_id in self._subobj_state_ids[self._prev_obj_lvl]:
-            Mgr.exit_state(state_id)
-
-        self._prev_obj_lvl = obj_lvl
 
         self._panel.GetSizer().Layout()
         self._panel.update_parent()
 
     def __set_topobj_level(self):
 
+        state_id = Mgr.get_state_id()
         GlobalData["active_obj_level"] = "top"
         Mgr.update_app("active_obj_level")
 
+        if state_id == "navigation_mode":
+            Mgr.enter_state("navigation_mode")
+
     def __set_subobj_level(self, subobj_lvl):
+
+        if Mgr.get_state_id() != "navigation_mode":
+            Mgr.enter_state("selection_mode")
+
+        if GlobalData["transform_target_type"] != "all":
+            GlobalData["transform_target_type"] = "all"
+            Mgr.update_app("transform_target_type")
 
         GlobalData["active_obj_level"] = subobj_lvl
         Mgr.update_app("active_obj_level")

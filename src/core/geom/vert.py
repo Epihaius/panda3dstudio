@@ -80,9 +80,9 @@ class Vertex(BaseObject):
 
         return self._geom_data_obj
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._geom_data_obj.get_toplevel_object()
+        return self._geom_data_obj.get_toplevel_object(get_group)
 
     def get_merged_object(self):
 
@@ -318,9 +318,9 @@ class MergedVertex(object):
 
         return self._geom_data_obj
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._geom_data_obj.get_toplevel_object()
+        return self._geom_data_obj.get_toplevel_object(get_group)
 
     def set_previous_property_time(self, prop_id, time_id):
 

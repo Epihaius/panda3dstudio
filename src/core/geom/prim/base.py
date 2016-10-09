@@ -117,20 +117,28 @@ class Primitive(GeomDataOwner):
         self.update(data)
         geom_data_obj.create_geometry(self._type)
 
-    def clear_geometry(self):
-
-        self.get_geom_data_object().clear_subobjects()
-
     def recreate_geometry(self):
 
+        obj_id = self.get_toplevel_object().get_id()
+        task = self.get_geom_data_object().clear_subobjects
+        task_id = "clear_geom_data"
+        PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
         Mgr.do("update_picking_col_id_ranges")
-        geom_data_obj = self.get_geom_data_object()
-        geom_data = self.define_geom_data()
-        data = geom_data_obj.process_geom_data(geom_data)
-        self.update(data)
-        geom_data_obj.create_subobjects(rebuild=True)
-        self.update_init_pos_data()
-        self.finalize()
+
+        def task():
+
+            geom_data_obj = self.get_geom_data_object()
+            geom_data = self.define_geom_data()
+            data = geom_data_obj.process_geom_data(geom_data)
+            self.update(data)
+            geom_data_obj.create_subobjects(rebuild=True)
+            self.update_init_pos_data()
+            self.finalize()
+
+        task_id = "set_geom_data"
+        PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+
+        self.get_model().update_group_bbox()
 
     def is_valid(self):
 

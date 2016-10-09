@@ -15,7 +15,7 @@ class ModelManager(ObjectManager):
 
         return True
 
-    def __create_model(self, model_id, name, origin_pos, bbox_color=(1., 1., 1.)):
+    def __create_model(self, model_id, name, origin_pos, bbox_color=(1., 1., 1., 1.)):
 
         model = Model(model_id, name, origin_pos, bbox_color)
 
@@ -51,10 +51,6 @@ class Model(TopLevelObject):
 
         self._bbox = Mgr.do("create_bbox", self, bbox_color)
         self._bbox.hide()
-
-    def __del__(self):
-
-        print "Model garbage-collected."
 
     def destroy(self, add_to_hist=True):
 

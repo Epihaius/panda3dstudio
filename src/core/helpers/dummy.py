@@ -80,6 +80,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         dummy_id = dummy.get_id()
         dummy_bases = self._dummy_bases
         dummy_origins = self._dummy_origins
+        change = False
 
         if const_size_state:
             if dummy_id not in dummy_bases:
@@ -99,6 +100,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
                 compass_effect = CompassEffect.make(dummy.get_origin(), self._compass_props)
                 origin_ortho.set_effect(compass_effect)
                 dummy.set_geoms_for_ortho_lens(origin_ortho)
+                change = True
         else:
             if dummy_id in dummy_bases:
                 origin_persp = dummy_origins["persp"][dummy_id]
@@ -112,6 +114,10 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
                 dummy_base.remove_node()
                 del dummy_bases[dummy_id]
                 dummy.set_geoms_for_ortho_lens()
+                change = True
+
+        if change:
+            dummy.update_group_bbox()
 
     def __set_dummy_const_size(self, dummy, const_size):
 
@@ -212,9 +218,9 @@ class DummyEdge(BaseObject):
         self._corner_index = corner_index
         self._picking_col_id = picking_col_id
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
 
-        return self._dummy
+        return self._dummy.get_toplevel_object(get_group)
 
     def get_picking_color_id(self):
 
@@ -590,6 +596,17 @@ class Dummy(TopLevelObject):
         for geom_type in viz - self._viz:
             self._geom_roots[geom_type].show()
 
+        group = self.get_group()
+
+        if group:
+
+            sizes = {"box": self._size, "cross": self._size * self._cross_size * .01}
+            viz_size_old = max(sizes[geom_type] for geom_type in self._viz)
+            viz_size_new = max(sizes[geom_type] for geom_type in viz)
+
+            if viz_size_new != viz_size_old:
+                Mgr.do("update_group_bboxes", [group.get_id()])
+
         self._viz = viz
 
         return True
@@ -606,6 +623,8 @@ class Dummy(TopLevelObject):
         self._size = size
         self._root.set_scale(size)
 
+        self.update_group_bbox()
+
         return True
 
     def get_size(self):
@@ -616,6 +635,21 @@ class Dummy(TopLevelObject):
 
         if self._cross_size == size:
             return False
+
+        if "cross" in self._viz:
+
+            group = self.get_group()
+
+            if group:
+
+                sizes = {"box": self._size, "cross": self._size * self._cross_size * .01}
+                viz = [sizes[geom_type] for geom_type in self._viz]
+                viz_size_old = max(sizes[geom_type] for geom_type in self._viz)
+                sizes["cross"] = self._size * size * .01
+                viz_size_new = max(sizes[geom_type] for geom_type in self._viz)
+
+                if viz_size_new != viz_size_old:
+                    Mgr.do("update_group_bboxes", [group.get_id()])
 
         self._cross_size = size
         self._geom_roots["cross"].set_scale(size * .01)

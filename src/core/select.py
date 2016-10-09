@@ -24,11 +24,11 @@ class Selection(SelectionTransformBase):
 
         return len(self._objs)
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
         """ Return a random top-level object """
 
         if self._objs:
-            return self._objs[0]
+            return self._objs[0].get_toplevel_object(get_group)
 
     def clear_prev_obj_ids(self):
 
@@ -83,7 +83,7 @@ class Selection(SelectionTransformBase):
         self.update_ui()
         self.update_obj_props()
 
-    def add(self, objs, add_to_hist=True):
+    def add(self, objs, add_to_hist=True, update=True):
 
         sel = self._objs
         old_sel = set(sel)
@@ -101,8 +101,9 @@ class Selection(SelectionTransformBase):
         for obj in sel_to_add:
             obj.update_selection_state()
 
-        task = lambda: Mgr.get("selection").update()
-        PendingTasks.add(task, "update_selection", "ui")
+        if update:
+            task = lambda: Mgr.get("selection").update()
+            PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
 
@@ -126,7 +127,7 @@ class Selection(SelectionTransformBase):
 
         return True
 
-    def remove(self, objs, add_to_hist=True):
+    def remove(self, objs, add_to_hist=True, update=True):
 
         sel = self._objs
         old_sel = set(sel)
@@ -140,8 +141,9 @@ class Selection(SelectionTransformBase):
             sel.remove(obj)
             obj.update_selection_state(False)
 
-        task = lambda: Mgr.get("selection").update()
-        PendingTasks.add(task, "update_selection", "ui")
+        if update:
+            task = lambda: Mgr.get("selection").update()
+            PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
 
@@ -165,7 +167,7 @@ class Selection(SelectionTransformBase):
 
         return True
 
-    def replace(self, objs, add_to_hist=True):
+    def replace(self, objs, add_to_hist=True, update=True):
 
         sel = self._objs
         old_sel = set(sel)
@@ -187,8 +189,9 @@ class Selection(SelectionTransformBase):
             sel.append(new_obj)
             new_obj.update_selection_state()
 
-        task = lambda: Mgr.get("selection").update()
-        PendingTasks.add(task, "update_selection", "ui")
+        if update:
+            task = lambda: Mgr.get("selection").update()
+            PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
 
@@ -240,7 +243,7 @@ class Selection(SelectionTransformBase):
 
         return True
 
-    def clear(self, add_to_hist=True):
+    def clear(self, add_to_hist=True, update=True):
 
         sel = self._objs
 
@@ -253,8 +256,9 @@ class Selection(SelectionTransformBase):
         sel = sel[:]
         self._objs = []
 
-        task = lambda: Mgr.get("selection").update()
-        PendingTasks.add(task, "update_selection", "ui")
+        if update:
+            task = lambda: Mgr.get("selection").update()
+            PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
 
@@ -282,15 +286,16 @@ class Selection(SelectionTransformBase):
 
         return True
 
-    def delete(self, add_to_hist=True):
+    def delete(self, add_to_hist=True, update=True):
 
         sel = self._objs
 
         if not sel:
             return False
 
-        task = lambda: Mgr.get("selection").update()
-        PendingTasks.add(task, "update_selection", "ui")
+        if update:
+            task = lambda: Mgr.get("selection").update()
+            PendingTasks.add(task, "update_selection", "ui")
 
         if add_to_hist:
 
@@ -310,14 +315,21 @@ class Selection(SelectionTransformBase):
 
             obj_data = {}
             event_data = {"objects": obj_data}
+            groups = set()
 
             for obj in sel:
+
                 obj_data[obj.get_id()] = obj.get_data_to_store("deletion")
+                group = obj.get_group()
+
+                if group and group not in sel:
+                    groups.add(group)
 
         for obj in sel[:]:
-            obj.destroy()
+            obj.destroy(add_to_hist)
 
         if add_to_hist:
+            Mgr.do("prune_empty_groups", groups, obj_data)
             event_data["object_ids"] = set(Mgr.get("object_ids"))
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -449,10 +461,6 @@ class SelectionManager(BaseObject):
 
         if obj_lvl != "top":
 
-            if GlobalData["transform_target_type"] != "all":
-                GlobalData["transform_target_type"] = "all"
-                Mgr.update_app("transform_target_type")
-
             self._selection.clear_prev_obj_ids()
             Mgr.do("update_selection_" + obj_lvl)
 
@@ -480,7 +488,6 @@ class SelectionManager(BaseObject):
         selection = self.__get_selection()
         selection.delete()
 
-        PendingTasks.handle(["object", "ui"], True)
         Mgr.do("update_picking_col_id_ranges")
 
     def __update_cursor(self, task):
@@ -584,7 +591,7 @@ class SelectionManager(BaseObject):
 
     def __select_toplvl_obj(self, picked_obj, toggle):
 
-        obj = picked_obj.get_toplevel_object() if picked_obj else None
+        obj = picked_obj.get_toplevel_object(get_group=True) if picked_obj else None
         self._obj_id = obj.get_id() if obj else None
 
         if toggle:
@@ -691,7 +698,7 @@ class SelectionManager(BaseObject):
             return
 
         picked_obj = Mgr.get(pickable_type, color_id)
-        obj = picked_obj.get_toplevel_object() if picked_obj else None
+        obj = picked_obj.get_toplevel_object(get_group=True) if picked_obj else None
 
         if obj:
             Mgr.update_remotely("obj_props_access", obj.get_id())

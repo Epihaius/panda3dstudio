@@ -859,7 +859,7 @@ class Material(object):
         owner_id = owner.get_id()
 
         if not force and owner_id in self._owner_ids:
-            return
+            return False
 
         origin = owner.get_origin()
         origin.set_color_off() if self._shows_vert_colors else origin.set_color(self._flat_color)
@@ -932,12 +932,14 @@ class Material(object):
         if not owner_id in self._owner_ids:
             self._owner_ids.append(owner_id)
 
+        return True
+
     def remove(self, owner):
 
         owner_id = owner.get_id()
 
         if not owner_id in self._owner_ids:
-            return
+            return False
 
         owner.get_geom_object().reset_vertex_colors()
         origin = owner.get_origin()
@@ -961,6 +963,8 @@ class Material(object):
 
             if geom_data_obj.has_tangent_space():
                 geom_data_obj.clear_tangent_space()
+
+        return True
 
     def register(self):
 
@@ -1032,6 +1036,7 @@ class MaterialManager(object):
         Mgr.expose("material_library", lambda: self._library)
         Mgr.add_app_updater("new_material", self.__update_new_material)
         Mgr.add_app_updater("extracted_material", self.__extract_material)
+        Mgr.add_app_updater("applied_material", self.__apply_material)
         Mgr.add_app_updater("removed_material", self.__remove_material)
         Mgr.add_app_updater("scene_materials", self.__update_scene)
         Mgr.add_app_updater("material_library", self.__update_library)
@@ -1099,6 +1104,26 @@ class MaterialManager(object):
 
         return "materials_ok"
 
+    def __get_models(self, objs):
+
+        def get_grouped_models(group, models):
+
+            for member in group.get_members():
+                if member.get_type() == "model":
+                    models.append(member)
+                elif member.get_type() == "group" and not member.is_open():
+                    get_grouped_models(member, models)
+
+        models = []
+
+        for obj in objs:
+            if obj.get_type() == "model":
+                models.append(obj)
+            elif obj.get_type() == "group" and not obj.is_open():
+                get_grouped_models(obj, models)
+
+        return models
+
     def __enter_picking_mode(self, prev_state_id, is_active):
 
         if GlobalData["active_obj_level"] != "top":
@@ -1122,22 +1147,13 @@ class MaterialManager(object):
     def __pick_owner(self):
 
         obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+        objs = self.__get_models([obj]) if obj else None
 
-        if obj and obj.get_type() == "model":
-
+        if objs:
             if self._picking_op == "extract":
-
-                self.__extract_material([obj])
-
+                self.__extract_material(objs)
             elif self._picking_op == "apply":
-
-                material = self._materials.get(self._selected_material_id)
-
-                if obj.set_property("material", material):
-                    obj_data = {obj.get_id(): obj.get_data_to_store("prop_change", "material")}
-                    event_descr = 'Change material of "%s"\nto %s' % (obj.get_name(), material)
-                    event_data = {"objects": obj_data}
-                    Mgr.do("add_history", event_descr, event_data)
+                self.__apply_material(objs)
 
     def __update_cursor(self, task):
 
@@ -1202,6 +1218,9 @@ class MaterialManager(object):
     def __unregister_material(self, material, in_library=False):
 
         material_id = material.get_id()
+
+        if material_id not in self._materials:
+            return
 
         if in_library:
             del self._library[material_id]
@@ -1289,7 +1308,7 @@ class MaterialManager(object):
     def __extract_material(self, objs=None):
 
         if not objs:
-            objs = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"]
+            objs = self.__get_models(Mgr.get("selection", "top"))
 
         if not objs:
             return
@@ -1320,6 +1339,48 @@ class MaterialManager(object):
         else:
             if lib_material:
                 Mgr.update_remotely("material_selection", lib_material.get_id())
+
+    def __apply_material(self, objs=None, clear_material=False):
+
+        if not objs:
+            objs = self.__get_models(Mgr.get("selection", "top"))
+
+        if not objs:
+            return
+
+        material = None if clear_material else self._materials.get(self._selected_material_id)
+        changed_objs = [obj for obj in objs if obj.set_property("material", material)]
+
+        if changed_objs:
+
+            obj_data = {}
+            event_data = {"objects": obj_data}
+
+            if len(changed_objs) == 1:
+
+                if clear_material:
+                    event_descr = 'Remove material from "%s"' % changed_objs[0].get_name()
+                else:
+                    args = (changed_objs[0].get_name(), material)
+                    event_descr = 'Change material of "%s"\nto "%s"' % args
+
+            else:
+
+                if clear_material:
+                    event_descr = 'Remove material from objects:\n'
+                else:
+                    event_descr = 'Change material of objects:\n'
+
+                for obj in changed_objs:
+                    event_descr += '\n    "%s"' % obj.get_name()
+
+                if not clear_material:
+                    event_descr += '\n\nto "%s"' % material
+
+            for obj in changed_objs:
+                obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "material")
+
+            Mgr.do("add_history", event_descr, event_data)
 
     def __handle_dupe_material_loading(self, duplicate_handling):
 
@@ -1481,7 +1542,12 @@ class MaterialManager(object):
             Mgr.update_app("active_obj_level")
 
         material = self._library[material_id]
-        owners = [Mgr.get("model", owner_id) for owner_id in material.get_owner_ids()]
+        owners = set()
+
+        for owner_id in material.get_owner_ids():
+            obj = Mgr.get("model", owner_id).get_toplevel_object(get_group=True)
+            owners.add(obj)
+
         sel_mode = self._owner_selection_mode
         selection = Mgr.get("selection", "top")
 
@@ -1517,7 +1583,7 @@ class MaterialManager(object):
 
     def __apply_ready_material_property(self, prop_id):
 
-        selection = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"]
+        selection = self.__get_models(Mgr.get("selection", "top"))
 
         if not selection:
             return
@@ -1590,7 +1656,7 @@ class MaterialManager(object):
 
     def __apply_ready_material_properties(self):
 
-        selection = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"]
+        selection = self.__get_models(Mgr.get("selection", "top"))
 
         if not selection:
             return
@@ -1656,7 +1722,7 @@ class MaterialManager(object):
 
     def __apply_ready_material_texture(self, tex_data):
 
-        selection = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"]
+        selection = self.__get_models(Mgr.get("selection", "top"))
 
         if not selection:
             return

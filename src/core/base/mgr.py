@@ -64,10 +64,10 @@ class CoreManager(object):
         cls._default_light.set_hpr(20., -20., 0.)
         cls.expose("default_light", lambda: cls._default_light)
 
-        picking_col_mgr.init()
         MainObjects.init()
-
         MainObjects.setup()
+
+        picking_col_mgr.init()
 
         cls.get("object_root").set_shader_input("light", cls._default_light)
         cls.get("object_root").set_shader_auto()

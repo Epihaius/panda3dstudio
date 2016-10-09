@@ -577,15 +577,15 @@ class Selection(SelectionTransformBase):
 
         return len(self._objs)
 
-    def get_toplevel_objects(self):
+    def get_toplevel_objects(self, get_group=False):
 
-        return [geom_data_obj.get_toplevel_object() for geom_data_obj in self._groups]
+        return [geom_data_obj.get_toplevel_object(get_group) for geom_data_obj in self._groups]
 
-    def get_toplevel_object(self):
+    def get_toplevel_object(self, get_group=False):
         """ Return a random top-level object """
 
         if self._groups:
-            return self._groups.keys()[0].get_toplevel_object()
+            return self._groups.keys()[0].get_toplevel_object(get_group)
 
     def update(self):
 

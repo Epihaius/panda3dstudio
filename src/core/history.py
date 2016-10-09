@@ -238,7 +238,7 @@ class HistoryManager(BaseObject):
         Mgr.accept("load_history", self.__load_history)
 
         Mgr.add_app_updater("history", self.__manage_history)
-        Mgr.add_task(self.__store_history, "store_history", sort=100)
+        Mgr.add_task(self.__store_history, "store_history", sort=49)
 
     def setup(self):
 
@@ -250,12 +250,8 @@ class HistoryManager(BaseObject):
 
         if update_type in ("undo", "redo", "update"):
 
-            Mgr.update_app("history_change")
-
-        if update_type == "update":
-
             state_id = Mgr.get_state_id()
-            Mgr.enter_state("selection_mode")
+            Mgr.update_app("history_change")
 
             if state_id == "navigation_mode":
                 Mgr.enter_state("navigation_mode")
@@ -377,21 +373,19 @@ class HistoryManager(BaseObject):
             return
 
         if self._event_descr_to_store:
-            self._event_descr_to_store += "\n\n" + event_descr
+            if event_descr:
+                self._event_descr_to_store += "\n\n" + event_descr
         else:
             self._event_descr_to_store = event_descr
 
         evt_data_to_store = self._event_data_to_store
-        evt_data_to_store["objects"].update(event_data["objects"])
+        obj_data = evt_data_to_store["objects"]
+
+        for obj_id, data in event_data["objects"].iteritems():
+            obj_data.setdefault(obj_id, {}).update(data)
 
         if "object_ids" in event_data:
-
-            obj_ids = event_data["object_ids"]
-
-            if "object_ids" in evt_data_to_store:
-                obj_ids += evt_data_to_store["object_ids"]
-
-            evt_data_to_store["object_ids"] = obj_ids
+            evt_data_to_store["object_ids"] = event_data["object_ids"]
 
         if not update_time_id:
             self._update_time_id = False
@@ -457,8 +451,6 @@ class HistoryManager(BaseObject):
 
         hist_file.flush()
         hist_file.close()
-
-        PendingTasks.handle(["object", "ui"], True)
 
         self._event_data_to_store = {"objects": {}}
         self._event_descr_to_store = ""
@@ -531,8 +523,6 @@ class HistoryManager(BaseObject):
             obj.restore_data(data_ids, restore_type="undo", old_time_id=old_time_id,
                              new_time_id=new_time_id)
 
-        PendingTasks.handle(["object", "ui"], True)
-
         Mgr.do("update_picking_col_id_ranges")
 
         if not prev_event.get_previous_event():
@@ -593,8 +583,6 @@ class HistoryManager(BaseObject):
         for obj, data_ids in props_to_restore.iteritems():
             obj.restore_data(data_ids, restore_type="redo", old_time_id=old_time_id,
                              new_time_id=new_time_id)
-
-        PendingTasks.handle(["object", "ui"], True)
 
         Mgr.do("update_picking_col_id_ranges")
 
@@ -657,7 +645,6 @@ class HistoryManager(BaseObject):
             obj.restore_data(["self"], restore_type="redo", old_time_id=(0, 0),
                              new_time_id=self._prev_time_id)
 
-        PendingTasks.handle(["object", "ui"], True)
         Mgr.do("update_picking_col_id_ranges")
 
         GlobalData["history_to_undo"] = True if event.get_previous_event() else False
@@ -821,8 +808,6 @@ class HistoryManager(BaseObject):
         for obj, data_ids in props_to_restore.iteritems():
             obj.restore_data(data_ids, restore_type="undo_redo", old_time_id=old_time_id,
                              new_time_id=time_to_restore)
-
-        PendingTasks.handle(["object", "ui"], True)
 
         Mgr.do("update_picking_col_id_ranges")
 

@@ -152,7 +152,7 @@ class PendingTasks(object):
         """
 
         if cls._is_handling_tasks:
-            return
+            return False
 
         if sort is None:
 
@@ -167,6 +167,8 @@ class PendingTasks(object):
             task_id = "%s_%s" % (id_prefix, task_id)
 
         cls._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = task
+
+        return True
 
     @classmethod
     def remove(cls, task_id, task_type="", sort=None):

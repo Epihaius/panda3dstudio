@@ -174,7 +174,6 @@ class CreationPhaseManager(object):
         if cancel or not self._obj.is_valid():
 
             toplevel_obj.destroy(add_to_hist=False)
-            PendingTasks.handle(["object", "ui"], True)
             Mgr.do("update_picking_col_id_ranges")
 
         else:

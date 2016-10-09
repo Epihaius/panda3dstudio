@@ -15,12 +15,13 @@ class CylinderManager(PrimitiveManager):
 
         self.set_property_default("radius", 1.)
         self.set_property_default("height", 1.)
-        self.set_property_default("segments_lateral", 12)  # minimum = 3
+        self.set_property_default("segments_circular", 12)  # minimum = 3
         self.set_property_default("segments_height", 1)  # minimum = 1
         self.set_property_default("segments_caps", 1)  # minimum = 0: no caps
         self.set_property_default("smoothness", True)
 
         Mgr.accept("inst_create_cylinder", self.create_instantly)
+        Mgr.accept("create_custom_cylinder", self.__create_custom)
 
     def setup(self):
 
@@ -48,7 +49,7 @@ class CylinderManager(PrimitiveManager):
         prop_defaults = self.get_property_defaults()
         segments = {}
 
-        for spec in ("lateral", "height", "caps"):
+        for spec in ("circular", "height", "caps"):
             segments[spec] = prop_defaults["segments_%s" % spec]
 
         prim.create(segments, prop_defaults["smoothness"])
@@ -141,17 +142,38 @@ class CylinderManager(PrimitiveManager):
         height = origin.get_relative_point(self.world, point)[2]
         prim.update_creation_size(height=height)
 
+    def __create_custom(self, name, radius, height, segments, origin_pos, rel_to_grid=False, smooth=True):
+
+        model_id = self.generate_object_id()
+        model = Mgr.do("create_model", model_id, name, origin_pos)
+
+        if not rel_to_grid:
+            pivot = model.get_pivot()
+            pivot.clear_transform()
+            pivot.set_pos(self.world, origin_pos)
+
+        next_color = self.get_next_object_color()
+        model.set_color(next_color, update_app=False)
+        prim = Cylinder(model)
+        prim.create(segments, smooth)
+        prim.update_creation_size(radius, height, finalize=True)
+        prim.get_geom_data_object().finalize_geometry()
+        model.set_geom_object(prim)
+        self.set_next_object_color()
+
+        return model
+
 
 class Cylinder(Primitive):
 
     def __init__(self, model):
 
-        prop_ids = ["segments_lateral", "segments_height", "segments_caps",
+        prop_ids = ["segments_circular", "segments_height", "segments_caps",
                     "radius", "height", "smoothness"]
 
         Primitive.__init__(self, "cylinder", model, prop_ids)
 
-        self._segments = {"lateral": 4, "height": 1, "caps": 1}
+        self._segments = {"circular": 4, "height": 1, "caps": 1}
         self._radius = 0.
         self._height = 0.
         self._is_smooth = True
@@ -164,7 +186,7 @@ class Cylinder(Primitive):
         uvs_main = []
 
         segments = self._segments
-        segs_lat = segments["lateral"]
+        segs_lat = segments["circular"]
         segs_h = segments["height"]
         segs_cap = segments["caps"]
         smooth = self._is_smooth
@@ -536,12 +558,7 @@ class Cylinder(Primitive):
                     sort = PendingTasks.get_sort("upd_vert_normals", "object") + 1
                     PendingTasks.add(task, "restore_pos_data", "object", sort, id_prefix=obj_id)
                 else:
-                    task = self.clear_geometry
-                    task_id = "clear_geom_data"
-                    PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
-                    task = self.recreate_geometry
-                    task_id = "set_geom_data"
-                    PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+                    self.recreate_geometry()
 
                 update_app()
 
@@ -555,6 +572,7 @@ class Cylinder(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
+                self.get_model().update_group_bbox()
                 update_app()
 
             return change
@@ -567,6 +585,7 @@ class Cylinder(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
+                self.get_model().update_group_bbox()
                 update_app()
 
             return change

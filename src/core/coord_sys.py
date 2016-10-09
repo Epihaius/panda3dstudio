@@ -100,7 +100,7 @@ class CoordSysManager(BaseObject):
                     self._cs_obj = Mgr.get("transf_center_obj", check_valid=True)
 
             if not self._cs_obj:
-                self._cs_obj = Mgr.get("selection").get_toplevel_object()
+                self._cs_obj = Mgr.get("selection").get_toplevel_object(get_group=True)
 
             if not self._cs_obj:
                 reset()
