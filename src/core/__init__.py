@@ -34,6 +34,7 @@ class Core(ShowBase):
         def handle_pending_tasks(task):
 
             PendingTasks.handle(["object", "ui"], True)
+            Mgr.update_remotely("pending_tasks")
 
             return task.cont
 

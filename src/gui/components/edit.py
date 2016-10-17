@@ -7,6 +7,15 @@ class EditManager(object):
 
         menubar.add_menu("edit", "Edit")
 
+        handler = lambda: Mgr.update_app("history", "undo")
+        menubar.add_menu_item("edit", "undo", "Undo\tCTRL+Z", handler)
+        handler = lambda: Mgr.update_app("history", "redo")
+        menubar.add_menu_item("edit", "redo", "Redo\tSHIFT+CTRL+Z", handler)
+        handler = lambda: Mgr.update_app("history", "edit")
+        menubar.add_menu_item("edit", "hist", "History...", handler)
+
+        menubar.add_menu_item_separator("edit")
+
         handler = lambda: Mgr.update_remotely("group", "create")
         hotkey = (ord("G"), wx.MOD_CONTROL)
         menubar.add_menu_item("edit", "group", "Create group\tCTRL+G", handler, hotkey)

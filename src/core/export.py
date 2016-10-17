@@ -157,10 +157,13 @@ class ExportManager(BaseObject):
                     coll_solid = None
 
                     if geom_type == "sphere":
+
                         center = origin.get_pos(group_pivot)
                         radius = geom_obj.get_property("radius") * sx
                         coll_solid = CollisionSphere(center, radius)
+
                     elif geom_type == "cylinder":
+
                         pos = origin.get_pos()
                         height_vec = Vec3.up() * geom_obj.get_property("height")
                         height_vec = pivot.get_relative_vector(origin, height_vec)
@@ -168,7 +171,9 @@ class ExportManager(BaseObject):
                         point_b = group_pivot.get_relative_point(pivot, pos + height_vec)
                         radius = geom_obj.get_property("radius") * sx
                         coll_solid = CollisionTube(point_a, point_b, radius)
+
                     elif geom_type == "box":
+
                         # note that a CollisionBox cannot be rotated
                         pos = origin.get_pos()
                         size_x = geom_obj.get_property("size_x") * .5 * sx
@@ -179,6 +184,59 @@ class ExportManager(BaseObject):
                         height_vec = pivot.get_relative_vector(origin, height_vec)
                         center = group_pivot.get_relative_point(pivot, pos + height_vec)
                         coll_solid = CollisionBox(center, size_x, size_y, size_z)
+
+                    else:
+
+                        # CollisionPolygons can be scaled non-uniformly
+                        pivot.set_scale(scale)
+
+                        if geom_type == "basic_geom":
+
+                            mat = pivot.get_mat(group_pivot)
+                            geom = node.node().modify_geom(0)
+                            vertex_data = geom.modify_vertex_data()
+                            vertex_data.transform_vertices(mat)
+                            pos_reader = GeomVertexReader(vertex_data, "vertex")
+                            index_list = geom.get_primitive(0).get_vertex_list()
+                            index_count = len(index_list)
+
+                            for indices in (index_list[i:i+3] for i in xrange(0, len(index_list), 3)):
+
+                                points = []
+
+                                for index in indices:
+                                    pos_reader.set_row(index)
+                                    points.append(pos_reader.get_data3f())
+
+                                coll_poly = CollisionPolygon(*points)
+                                collision_node.add_solid(coll_poly)
+
+                        else:
+
+                            polys = geom_data_obj.get_subobjects("poly").itervalues()
+                            epsilon = 1.e-006
+
+                            for poly in polys:
+
+                                verts = poly.get_vertices(in_winding_order=True)
+                                points = [v.get_pos(group_pivot) for v in verts]
+                                point_count = len(points)
+
+                                if point_count == 4:
+
+                                    triangle = points[:3]
+
+                                    if abs(Plane(*triangle).dist_to_plane(points[-1])) < epsilon:
+                                        coll_poly = CollisionPolygon(*points)
+                                        collision_node.add_solid(coll_poly)
+                                        continue
+
+                                point1 = points.pop(0)
+
+                                for i in range(point_count - 2):
+                                    triangle = [point1] + points[i:i+2]
+                                    coll_poly = CollisionPolygon(*triangle)
+                                    collision_node.add_solid(coll_poly)
 
                     if coll_solid:
                         collision_node.add_solid(coll_solid)

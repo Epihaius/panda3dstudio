@@ -409,6 +409,34 @@ class PosObj(object):
         return self._pos[index]
 
 
+# The following class allows a position (passed in as a tuple or list) to be
+# compared to another position, using a given precision.
+class ImprecisePos(object):
+
+    def __init__(self, pos, epsilon=1.e-010):
+
+        self._pos = pos
+        self._epsilon = epsilon
+
+    def __eq__(self, other):
+
+        x, y, z = self._pos
+        x_, y_, z_ = other
+
+        return max(abs(x - x_), abs(y - y_), abs(z - z_)) < self._epsilon
+
+    def __ne__(self, other):
+
+        x, y, z = self._pos
+        x_, y_, z_ = other
+
+        return max(abs(x - x_), abs(y - y_), abs(z - z_)) >= self._epsilon
+
+    def __getitem__(self, index):
+
+        return self._pos[index]
+
+
 # The following class is a wrapper around Vec3 that uses operator overloading
 # to allow compact vector math
 class V3D(Vec3):

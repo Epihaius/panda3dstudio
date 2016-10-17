@@ -256,21 +256,28 @@ class EditableGeomProperties(BaseObject):
 
         obj_lvl = GlobalData["active_obj_level"]
 
-        for subobj_lvl in ("vert", "edge", "poly"):
-            self._panel.show_section("%s_props" % subobj_lvl, False, update=False)
-
         if obj_lvl == "top":
-            self._subobj_btns.deactivate()
-            Mgr.do("enable_transform_targets")
             # exit any subobject modes
             Mgr.enter_state("selection_mode")
-        else:
-            Mgr.do("disable_transform_targets")
-            self._subobj_btns.set_active_button(obj_lvl)
-            self._panel.show_section("%s_props" % obj_lvl, update=False)
 
-        self._panel.GetSizer().Layout()
-        self._panel.update_parent()
+        def task():
+
+            for subobj_lvl in ("vert", "edge", "poly"):
+                if subobj_lvl != obj_lvl:
+                    self._panel.show_section("%s_props" % subobj_lvl, False, update=False)
+
+            if obj_lvl == "top":
+                self._subobj_btns.deactivate()
+                Mgr.do("enable_transform_targets")
+            else:
+                Mgr.do("disable_transform_targets")
+                self._subobj_btns.set_active_button(obj_lvl)
+                self._panel.show_section("%s_props" % obj_lvl, update=False)
+
+        task_id = "update_subobj_layout"
+        PendingTasks.add(task, task_id, sort=0)
+
+        self._panel.update_layout()
 
     def __set_topobj_level(self):
 

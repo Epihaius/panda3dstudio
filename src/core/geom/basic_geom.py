@@ -82,6 +82,8 @@ class BasicGeom(BaseObject):
     def __getstate__(self):
 
         state = self.__dict__.copy()
+        state["_geom"] = geom = NodePath(self._geom.node().make_copy())
+        geom.set_state(RenderState.make_empty())
         del state["_model"]
         del state["_picking_states"]
         del state["_initial_vertex_colors"]

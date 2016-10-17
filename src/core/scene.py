@@ -18,13 +18,16 @@ class SceneManager(BaseObject):
     def __reset(self):
 
         Mgr.enter_state("selection_mode")
+        obj_lvl = GlobalData["active_obj_level"]
+
+        if obj_lvl != "top":
+            GlobalData["active_obj_level"] = "top"
+            Mgr.update_app("active_obj_level")
 
         for obj in Mgr.get("objects"):
             obj.destroy(add_to_hist=False)
 
         Mgr.do("reset_history")
-        obj_lvl = GlobalData["active_obj_level"]
-        GlobalData["active_obj_level"] = "top"
         PendingTasks.remove("update_selection", "ui")
 
         def task():
@@ -35,9 +38,6 @@ class SceneManager(BaseObject):
 
         PendingTasks.add(task, "update_selection", "ui")
         PendingTasks.handle(["object", "ui"], True)
-
-        if obj_lvl != "top":
-            Mgr.update_app("active_obj_level")
 
         if GlobalData["object_links_shown"]:
             GlobalData["object_links_shown"] = False

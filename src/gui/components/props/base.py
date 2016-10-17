@@ -190,6 +190,17 @@ class PropertyPanel(Panel):
 
         return clipping_rect
 
+    def update_layout(self):
+
+        def task():
+
+            self._parent.Refresh()
+            self.GetSizer().Layout()
+            self.update_parent()
+
+        task_id = "update_props_panel"
+        PendingTasks.add(task, task_id, sort=100)
+
     def __make_editable(self):
 
         Mgr.update_remotely("selected_obj_prop", "editable state", True)
@@ -227,9 +238,7 @@ class PropertyPanel(Panel):
 
             self.show_section("create", False, update=False)
 
-        self._parent.Refresh()
-        self.GetSizer().Layout()
-        self.update_parent()
+        self.update_layout()
 
     def __init_input(self):
 
@@ -330,9 +339,7 @@ class PropertyPanel(Panel):
                     for section_id in extra_section_ids:
                         self.show_section(section_id, True, update=False)
 
-                self._parent.Refresh()
-                self.GetSizer().Layout()
-                self.update_parent()
+                self.update_layout()
 
     def __check_selection_color_count(self):
 
@@ -433,6 +440,4 @@ class PropertyPanel(Panel):
         else:
             self._sel_obj_types = obj_types
 
-        self._parent.Refresh()
-        self.GetSizer().Layout()
-        self.update_parent()
+        self.update_layout()

@@ -72,13 +72,15 @@ class ToggleButtonGroup(ButtonGroup):
 
     def deactivate(self):
 
+        for btn in self.get_buttons():
+            btn.set_active(False)
+
         if self._default_toggle_id is None:
             default_toggle_id = ""
         else:
             default_toggle_id = self._default_toggle_id
 
         if self._toggle_id != default_toggle_id:
-            self._btns[self._toggle_id].set_active(False)
             self._toggle_id = default_toggle_id
 
     def set_active_button(self, toggle_id):

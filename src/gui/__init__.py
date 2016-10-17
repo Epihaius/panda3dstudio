@@ -91,6 +91,7 @@ class GUI(wx.App):
         Mgr.accept("set_scene_label", self.__set_scene_label)
         Mgr.accept("handle_key_down", self.__on_key_down)
         Mgr.accept("handle_key_up", self.__on_key_up)
+        Mgr.add_app_updater("pending_tasks", PendingTasks.handle)
 
         self._components = Components(default_focus_receiver)
         self._exit_handler = self._components.exit_handler

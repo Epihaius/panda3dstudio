@@ -12,6 +12,146 @@ PLATFORM_ID = platform.system()
 GFX_PATH = os.path.join("res", "gui")
 
 
+class PendingTasks(object):
+
+    _tasks = {}
+    _task_ids = {}
+    _is_handling_tasks = False
+
+    @classmethod
+    def add(cls, task, task_id, task_type="", sort=None, id_prefix=None):
+        """
+        Add a task that needs to be handled later - and only once - through a call
+        to handle(), optionally with a type and/or sort value.
+        Additionally, a prefix for the task ID can be given to make it unique (so
+        this task doesn't overwrite a previously added task with the same ID and
+        type), while retaining the sort value associated with the given task_id (if
+        the given sort value is None).
+
+        """
+
+        if cls._is_handling_tasks:
+            return False
+
+        if sort is None:
+
+            task_ids = cls._task_ids.get(task_type, [])
+
+            if task_id in task_ids:
+                sort = task_ids.index(task_id)
+            else:
+                sort = 0
+
+        if id_prefix:
+            task_id = "%s_%s" % (id_prefix, task_id)
+
+        cls._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = task
+
+        return True
+
+    @classmethod
+    def remove(cls, task_id, task_type="", sort=None):
+        """
+        Remove the task with the given ID (and optionally, type and/or sort value)
+        and return it (or None if not found).
+
+        """
+
+        if cls._is_handling_tasks:
+            return
+
+        if sort is None:
+
+            task_ids = cls._task_ids.get(task_type, [])
+
+            if task_id in task_ids:
+                sort = task_ids.index(task_id)
+            else:
+                sort = 0
+
+        return cls._tasks.get(task_type, {}).get(sort, {}).pop(task_id, None)
+
+    @classmethod
+    def clear(cls, task_type=None):
+        """
+        Clear the tasks of the given type if it is specified, or all tasks if it is
+        None.
+
+        """
+
+        if cls._is_handling_tasks:
+            return
+
+        (cls._tasks if task_type is None else cls._tasks.get(task_type, {})).clear()
+
+    @classmethod
+    def handle(cls, task_types=None, sort_by_type=False):
+        """
+        Handle tasks that were added through add(), in an order that corresponds to
+        their sort values (and optionally, their type).
+
+        If a list of task_types is given, only those types of tasks will be handled.
+
+        If sort_by_type is True, tasks will first be processed in the order that
+        their types appear in the list of task_types, and then by sort value.
+        Otherwise, task types are ignored and the tasks are handled in the order
+        given by their sort values only.
+
+        """
+
+        if cls._is_handling_tasks:
+            return
+
+        cls._is_handling_tasks = True
+
+        pending_tasks = cls._tasks
+
+        if task_types is None:
+            task_types = pending_tasks.keys()
+
+        if sort_by_type:
+            sorted_tasks = [task for task_type in task_types for sort, tasks in
+                            sorted(pending_tasks.pop(task_type, {}).iteritems())
+                            for task in tasks.itervalues()]
+        else:
+            sorted_tasks = [task for sort, tasks in sorted([i for task_type in task_types
+                            for i in pending_tasks.pop(task_type, {}).iteritems()])
+                            for task in tasks.itervalues()]
+
+        for task in sorted_tasks:
+            task()
+
+        cls._is_handling_tasks = False
+
+    @classmethod
+    def add_task_id(cls, task_id, task_type="", sort=None):
+        """
+        Add a task ID, optionally associated with a particular task type, and with
+        an optional sort value.
+
+        """
+
+        task_ids = cls._task_ids.setdefault(task_type, [])
+
+        if sort is None:
+            task_ids.append(task_id)
+        else:
+            task_ids.insert(sort, task_id)
+
+    @classmethod
+    def get_sort(cls, task_id, task_type=""):
+        """
+        Return the sort value of the task with the given ID, or None if the task ID
+        is not defined.
+
+        """
+
+        task_ids = cls._task_ids.get(task_type, [])
+
+        if task_id in task_ids:
+            return task_ids.index(task_id)
+
+
 class EventDispatcher(object):
 
     _event_handlers = {}

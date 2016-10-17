@@ -508,6 +508,7 @@ class PointHelper(TopLevelObject):
             return
 
         self.unregister()
+        self._viz = None
 
     def get_viz(self):
 

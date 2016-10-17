@@ -292,8 +292,12 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                         verts_by_pos[pos] = vertex
                         poly_verts.append(vertex)
 
-                        if pos in merged_verts_by_pos:
-                            merged_vert = merged_verts_by_pos[pos]
+                        positions = merged_verts_by_pos.keys()
+
+                        if pos in positions:
+                            index = positions.index(pos)
+                            p = positions[index]
+                            merged_vert = merged_verts_by_pos[p]
                         else:
                             merged_vert = Mgr.do("create_merged_vert", self)
                             merged_verts_by_pos[pos] = merged_vert

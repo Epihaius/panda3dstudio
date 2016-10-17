@@ -164,11 +164,11 @@ class Polygon(BaseObject):
 
         return self._edge_ids
 
-    def get_vertices(self):
+    def get_vertices(self, in_winding_order=False):
 
         verts = self._geom_data_obj.get_subobjects("vert")
 
-        return [verts[vert_id] for vert_id in self._vert_ids]
+        return [verts[vert_id] for vert_id in self.get_vertex_ids(in_winding_order)]
 
     def get_edges(self):
 

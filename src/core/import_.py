@@ -5,6 +5,8 @@ class ImportManager(BaseObject):
 
     def __init__(self):
 
+        self._imported_file_type = ""
+
         Mgr.add_app_updater("import", self.__import)
 
     def __create_point_helper(self, name, transform):
@@ -38,6 +40,45 @@ class ImportManager(BaseObject):
 
         return box
 
+    def __create_editable_model(self, name, polys):
+
+        IPos = ImprecisePos
+        geom_data = []
+
+        for poly in polys:
+
+            points = [IPos(tuple(crd for crd in point), epsilon=1.e-005) for point in poly]
+            plane = Plane(*poly[:3])
+            normal = plane.get_normal()
+            pos = points.pop(0)
+            vert_data1 = {"pos": pos, "normal": normal, "uvs": {0: (0., 0.)}}
+            tris = []
+
+            for positions in (points[i:i+2] for i in range(len(points) - 1)):
+
+                vert_data = [vert_data1]
+
+                for pos in positions:
+                    vert_data.append({"pos": pos, "normal": normal, "uvs": {0: (0., 0.)}})
+
+                tri_data = {"verts": vert_data}
+                tris.append(tri_data)
+
+            poly_data = {"tris": tris, "smoothing": [(0, False)]}
+            geom_data.append(poly_data)
+
+        editable_geom = Mgr.do("create_editable_geom", name=name)
+        model = editable_geom.get_model()
+        r, g, b = [random.random() * .4 + .5 for i in range(3)]
+        color = (r, g, b, 1.)
+        model.set_color(color, update_app=False)
+        geom_data_obj = editable_geom.get_geom_data_object()
+        geom_data_obj.process_geom_data(geom_data)
+        editable_geom.create()
+        model.get_bbox().update(*geom_data_obj.get_origin().get_tight_bounds())
+
+        return model
+
     def __create_model_group(self, name, transform):
 
         model_group = Mgr.do("create_group", name, ["model"], "model", transform)
@@ -59,9 +100,9 @@ class ImportManager(BaseObject):
             if child.is_empty():
                 continue
 
-            obj_name = child_name = child.get_name()
+            obj_name = child_name = child.get_name().strip()
 
-            if not obj_name.strip():
+            if not obj_name:
                 obj_name = "object 0001"
 
             obj_name = get_unique_name(obj_name, GlobalData["obj_names"])
@@ -114,6 +155,7 @@ class ImportManager(BaseObject):
                 elif node_type == "CollisionNode":
 
                     coll_objs = []
+                    coll_polys = []
 
                     for solid in node.get_solids():
 
@@ -144,7 +186,7 @@ class ImportManager(BaseObject):
                             pivot.set_hpr(pivot, -90.)
                             coll_objs.append(cylinder)
 
-                        if coll_type == "CollisionBox":
+                        elif coll_type == "CollisionBox":
 
                             name = "object 0001"
                             name = get_unique_name(name, GlobalData["obj_names"])
@@ -164,9 +206,21 @@ class ImportManager(BaseObject):
                             box = self.__create_box(name, x, y, z, pos)
                             coll_objs.append(box)
 
+                        elif coll_type == "CollisionPolygon":
+
+                            if solid.is_valid():
+                                poly = solid.get_points()
+                                coll_polys.append(poly)
+
                         else:
 
                             continue
+
+                    if coll_polys:
+                        name = "object 0001"
+                        name = get_unique_name(name, GlobalData["obj_names"])
+                        model = self.__create_editable_model(name, coll_polys)
+                        coll_objs.append(model)
 
                     if not coll_objs:
                         continue
@@ -202,10 +256,20 @@ class ImportManager(BaseObject):
         if not model_root:
             return
 
+        children = model_root.get_children()
+
+        if not children:
+            return
+
+        self._imported_file_type = path.get_extension()
         Mgr.do("update_history_time")
         objs_to_store = []
-        self.__import_children(basic_edit, None, model_root.get_children(), objs_to_store)
+        self.__import_children(basic_edit, None, children, objs_to_store)
         model_root.remove_node()
+        self._imported_file_type = ""
+
+        if not objs_to_store:
+            return
 
         # make undo/redoable
 
@@ -215,9 +279,6 @@ class ImportManager(BaseObject):
 
         for obj in objs_to_store:
             obj_data[obj.get_id()] = obj.get_data_to_store("creation")
-
-        if not obj_data:
-            return
 
         event_data["object_ids"] = set(Mgr.get("object_ids"))
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
