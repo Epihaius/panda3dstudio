@@ -102,7 +102,7 @@ class Edge(BaseObject):
 
     def reverse_vertex_order(self):
 
-        self._vert_ids = self._vert_ids[::-1]
+        self._vert_ids.reverse()
 
     def get_center_pos(self, ref_node=None):
 

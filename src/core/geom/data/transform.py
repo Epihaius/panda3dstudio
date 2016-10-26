@@ -274,14 +274,13 @@ class GeomTransformBase(BaseObject):
 
                 i += 1
 
-            common_time_ids = prev_time_ids[:i]
             prev_time_ids = prev_time_ids[i:]
             new_time_ids = new_time_ids[i:]
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
 
-        data_id = "vert_pos_data"
+        data_id = "vert_pos__extra__"
 
         time_ids_to_restore = {}
         prev_prop_times = {}
@@ -379,7 +378,10 @@ class GeomTransformBase(BaseObject):
             vert_ids.extend(poly.get_vertex_ids())
 
         self._vert_normal_change.update(vert_ids)
-        self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
+        bounds = self._origin.get_tight_bounds()
+
+        if bounds:
+            self.get_toplevel_object().get_bbox().update(*bounds)
 
         if self._has_tangent_space:
             self.update_tangent_space(polys_to_update)

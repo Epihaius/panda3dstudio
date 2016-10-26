@@ -316,7 +316,7 @@ class TriangulationBase(BaseObject):
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
 
-        data_id = "tri_data"
+        data_id = "tri__extra__"
 
         time_ids_to_restore = {}
         time_ids = {}

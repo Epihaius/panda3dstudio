@@ -45,7 +45,7 @@ class HistoryToolbar(Toolbar):
 
             if update_type == "show":
                 HistoryWindow(self.GetParent(), *args, **kwargs)
-            elif update_type == "clear":
+            elif update_type == "archive":
                 for btn in self._btns.get_buttons():
                     btn.disable()
             elif update_type == "check":

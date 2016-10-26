@@ -439,13 +439,14 @@ class NodePanel(wx.Panel):
     _old_node_panel = _new_node_panel = _sel_node_panel = None
     _root_node_panel = None
 
+    _merge_range_start = None
+    _unmark_merge_range = False
+    _misc_change = False
+
     _menu_items = {}
     _menu = None
 
     _icons = {}
-
-    _merge_range_start = None
-    _unmark_merge_range = False
 
     _bg_colors = {}
     _fonts = {}
@@ -498,6 +499,16 @@ class NodePanel(wx.Panel):
         cls._old_time_id = time_id
 
     @classmethod
+    def set_miscellaneous_change(cls):
+
+        cls._misc_change = True
+
+    @classmethod
+    def get_miscellaneous_change(cls):
+
+        return cls._misc_change
+
+    @classmethod
     def get_fonts(cls):
 
         return cls._fonts
@@ -508,6 +519,10 @@ class NodePanel(wx.Panel):
         cls._old_entry_id = cls._new_entry_id = cls._sel_entry_id = -1
         cls._old_node_panel = cls._new_node_panel = cls._sel_node_panel = None
         cls._root_node_panel = None
+
+        cls._merge_range_start = None
+        cls._unmark_merge_range = False
+        cls._misc_change = False
 
     @classmethod
     def expand_all(cls):
@@ -537,18 +552,15 @@ class NodePanel(wx.Panel):
     @staticmethod
     def jump_to_entry(entry_location):
 
-        def activate_parent_node_panel(node_panel):
+        node_panel, entry_id = entry_location
+        ancestor_node_panels = [node_panel] + node_panel.get_ancestor_node_panels()
+        ancestor_node_panels.reverse()
 
-            parent_node_panel = node_panel.get_parent_node_panel()
+        for parent, child in zip(ancestor_node_panels[:-1], ancestor_node_panels[1:]):
+            combobox = parent.get_combobox()
+            combobox.reparent_to_panel(child, update=True)
 
-            if parent_node_panel:
-                activate_parent_node_panel(parent_node_panel)
-                combobox = parent_node_panel.get_combobox()
-                combobox.reparent_to_panel(node_panel, update=True)
-
-        panel, entry_id = entry_location
-        activate_parent_node_panel(panel)
-        HistoryPanel.scroll_to_entry(panel, entry_id)
+        HistoryPanel.scroll_to_entry(node_panel, entry_id)
 
     def __init__(self, parent_window, parent_node_panel, child_node_panels, events, entry_offset=0):
 
@@ -856,7 +868,7 @@ class NodePanel(wx.Panel):
 
             if not self._merge_range_start:
 
-                item.SetItemLabel("(Un)mark event for merging as start of range")
+                item.SetItemLabel("(Un)mark range of events for merging")
                 item.Enable(False)
 
             else:
@@ -1098,7 +1110,7 @@ class NodePanel(wx.Panel):
         rect.SetSize(wx.Size(30, self.GetSize()[1]))
         self.RefreshRect(rect)
 
-    def check_entries_to_merge(self):
+    def check_entries_to_merge(self, process_descendants=True):
 
         if self.is_marked_for_deletion():
 
@@ -1106,6 +1118,8 @@ class NodePanel(wx.Panel):
 
             if self._merge_range_start and self._merge_range_start[0] is self:
                 NodePanel._merge_range_start = None
+
+            ret = False
 
         else:
 
@@ -1118,15 +1132,27 @@ class NodePanel(wx.Panel):
                     if self._merge_range_start == (self, i):
                         NodePanel._merge_range_start = None
 
-            for child_node_panel in self._child_node_panels:
-                child_node_panel.check_entries_to_merge()
+            ret = True
+
+            if process_descendants:
+
+                node_panels = self._child_node_panels[::-1]
+
+                while node_panels:
+
+                    node_panel = node_panels.pop()
+
+                    if node_panel.check_entries_to_merge(process_descendants=False):
+                        node_panels.extend(node_panel.get_child_node_panels()[::-1])
 
         if self._entry_count:
             rect = self._sizers["descr"][-1].GetRect()
             rect.SetSize(wx.Size(30, self.GetSize()[1]))
             self.RefreshRect(rect)
 
-    def set_entry_to_delete_from(self, entry_id=None, recurse=True):
+        return ret
+
+    def set_entry_to_delete_from(self, entry_id=None, process_descendants=True):
 
         _entry_id = self._entry_count if entry_id is None else entry_id
 
@@ -1158,31 +1184,46 @@ class NodePanel(wx.Panel):
             self._entries_to_merge = set(i for i in self._entries_to_merge
                                          if i < self._entry_to_del_from)
 
-        if recurse:
-            for child_node_panel in self._child_node_panels:
-                child_node_panel.set_entry_to_delete_from(entry_id)
+        if process_descendants:
+
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+                node_panel = node_panels.pop()
+                node_panel.set_entry_to_delete_from(entry_id, process_descendants=False)
+                node_panels.extend(node_panel.get_child_node_panels()[::-1])
 
         if self._entry_count:
             rect = self._sizers["descr"][-1].GetRect()
             rect.SetSize(wx.Size(30, self.GetSize()[1]))
             self.RefreshRect(rect)
 
-    def get_entries_to_delete_from(self):
+    def get_entries_to_delete_from(self, entry_data, process_descendants=True):
 
-        entry_data = []
+        ret = True
 
         if self._entry_to_del_from < self._entry_count:
+
             timestamp = self._timestamps[self._entry_to_del_from]
             descr_start = self._events[self._entry_to_del_from].get_description_start()
             choice = timestamp + "|" + descr_start
             entry_location = (self, self._entry_to_del_from)
             data = (choice, entry_location)
             entry_data.append(data)
-        else:
-            for child_node_panel in self._child_node_panels:
-                entry_data += child_node_panel.get_entries_to_delete_from()
+            ret = False
 
-        return entry_data
+        elif process_descendants:
+
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+
+                node_panel = node_panels.pop()
+
+                if node_panel.get_entries_to_delete_from(entry_data, process_descendants=False):
+                    node_panels.extend(node_panel.get_child_node_panels()[::-1])
+
+        return ret
 
     def __delete_from(self):
 
@@ -1202,9 +1243,11 @@ class NodePanel(wx.Panel):
             child_node_panel.set_entry_to_delete_from(0)
 
         for ancestor_node_panel in self._ancestor_node_panels:
-            ancestor_node_panel.set_entry_to_delete_from(recurse=False)
+            ancestor_node_panel.set_entry_to_delete_from(process_descendants=False)
 
-        DeletedHistoryComboBox.set_entries(self._root_node_panel.get_entries_to_delete_from())
+        entry_data = []
+        self._root_node_panel.get_entries_to_delete_from(entry_data)
+        DeletedHistoryComboBox.set_entries(entry_data)
 
         if (self._merge_range_start and self._merge_range_start[0] is self
                 and self._merge_range_start[1] >= self._entry_to_del_from):
@@ -1225,9 +1268,11 @@ class NodePanel(wx.Panel):
             child_node_panel.set_entry_to_delete_from()
 
         for ancestor_node_panel in self._ancestor_node_panels:
-            ancestor_node_panel.set_entry_to_delete_from(recurse=False)
+            ancestor_node_panel.set_entry_to_delete_from(process_descendants=False)
 
-        DeletedHistoryComboBox.set_entries(self._root_node_panel.get_entries_to_delete_from())
+        entry_data = []
+        self._root_node_panel.get_entries_to_delete_from(entry_data)
+        DeletedHistoryComboBox.set_entries(entry_data)
 
         self._root_node_panel.check_entries_to_merge()
 
@@ -1244,7 +1289,9 @@ class NodePanel(wx.Panel):
 
         self._entry_to_del_from = max(self._entry_to_del_from, _entry_id)
 
-        DeletedHistoryComboBox.set_entries(self._root_node_panel.get_entries_to_delete_from())
+        entry_data = []
+        self._root_node_panel.get_entries_to_delete_from(entry_data)
+        DeletedHistoryComboBox.set_entries(entry_data)
 
         rect = self._sizers["descr"][-1].GetRect()
         rect.SetSize(wx.Size(30, self.GetSize()[1]))
@@ -1317,6 +1364,7 @@ class NodePanel(wx.Panel):
 
                     self.__expand_entry(self._clicked_entry_id)
 
+        self.set_miscellaneous_change()
         rect = self._sizers["descr"][self._clicked_entry_id].GetRect()
         self.RefreshRect(rect)
 
@@ -1336,6 +1384,7 @@ class NodePanel(wx.Panel):
             MilestoneComboBox.add_milestone(choice, (self, self._clicked_entry_id))
             event.set_as_milestone()
 
+        self.set_miscellaneous_change()
         rect = self._sizers["descr"][self._clicked_entry_id].GetRect()
         self.RefreshRect(rect)
 
@@ -1360,25 +1409,37 @@ class NodePanel(wx.Panel):
         self.GetParent().FitInside()
         self.GetParent().Refresh()
 
-    def expand_all_entries(self):
+    def expand_all_entries(self, process_descendants=True):
 
         for entry_id in self._multiline_entry_ids:
             if entry_id not in self._expanded_entry_ids:
                 self.__expand_entry(entry_id)
 
-        for child_node_panel in self._child_node_panels:
-            child_node_panel.expand_all_entries()
+        if process_descendants:
 
-    def collapse_all_entries(self):
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+                node_panel = node_panels.pop()
+                node_panel.expand_all_entries(process_descendants=False)
+                node_panels.extend(node_panel.get_child_node_panels()[::-1])
+
+    def collapse_all_entries(self, process_descendants=True):
 
         for entry_id in self._multiline_entry_ids:
             if entry_id in self._expanded_entry_ids:
                 self.__expand_entry(entry_id)
 
-        for child_node_panel in self._child_node_panels:
-            child_node_panel.collapse_all_entries()
+        if process_descendants:
 
-    def check_prev_undone_history(self):
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+                node_panel = node_panels.pop()
+                node_panel.collapse_all_entries(process_descendants=False)
+                node_panels.extend(node_panel.get_child_node_panels()[::-1])
+
+    def check_prev_undone_history(self, process_descendants=True):
 
         if self._entry_count:
             if self is self._old_node_panel:
@@ -1388,8 +1449,14 @@ class NodePanel(wx.Panel):
             else:
                 self._prev_undone_hist = xrange(self._entry_count)
 
-        for child_node_panel in self._child_node_panels:
-            child_node_panel.check_prev_undone_history()
+        if process_descendants:
+
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+                node_panel = node_panels.pop()
+                node_panel.check_prev_undone_history(process_descendants=False)
+                node_panels.extend(node_panel.get_child_node_panels()[::-1])
 
     def get_parent_node_panel(self):
 
@@ -1487,19 +1554,29 @@ class NodePanel(wx.Panel):
             events = cls._sel_node_panel.get_redoable_history()
             to_redo += events[:entry_id + 1]
 
-    def get_history_to_delete(self, to_delete):
+    def get_history_to_delete(self, to_delete, process_descendants=True):
 
         if self._entry_to_del_from < self._entry_count:
             to_delete.append(self._events[self._entry_to_del_from])
-            return
+            return False
 
-        for child_node_panel in self._child_node_panels:
-            child_node_panel.get_history_to_delete(to_delete)
+        if process_descendants:
 
-    def get_history_to_merge(self, to_merge):
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+
+                node_panel = node_panels.pop()
+
+                if node_panel.get_history_to_delete(to_delete, process_descendants=False):
+                    node_panels.extend(node_panel.get_child_node_panels()[::-1])
+
+        return True
+
+    def get_history_to_merge(self, to_merge, process_descendants=True):
 
         if self.is_marked_for_deletion():
-            return
+            return False
 
         if self._entries_to_merge:
 
@@ -1517,14 +1594,24 @@ class NodePanel(wx.Panel):
             l.sort()
             m = iter(l[1:] + [None])
             # given l == [1, 2, 3, 5, 6, 8, 9, 10, 11, 17],
-            # l filtered = [3, 6, 11, 17]
+            # l filtered -> [3, 6, 11, 17]
             to_merge += [self._events[i] for i in filter(lambda j: j + 1 != next(m), l)]
 
             for i in self._entries_to_merge:
                 self._events[i].set_to_be_merged()
 
-        for child_node_panel in self._child_node_panels:
-            child_node_panel.get_history_to_merge(to_merge)
+        if process_descendants:
+
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+
+                node_panel = node_panels.pop()
+
+                if node_panel.get_history_to_merge(to_merge, process_descendants=False):
+                    node_panels.extend(node_panel.get_child_node_panels()[::-1])
+
+        return True
 
     @classmethod
     def get_history_to_restore(cls):
@@ -1557,29 +1644,49 @@ class NodePanel(wx.Panel):
 
         return self._is_active
 
-    def show(self):
+    def show(self, process_descendants=True):
 
         if not self._is_active:
-            return
+            return False
 
         if self._entry_count:
             sizer = self.GetContainingSizer()
             self.GetParent().GetSizer().Show(sizer)
 
-        for panel in self._child_node_panels:
-            panel.show()
+        if process_descendants:
 
-    def hide(self):
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+
+                node_panel = node_panels.pop()
+
+                if node_panel.show(process_descendants=False):
+                    node_panels.extend(node_panel.get_child_node_panels()[::-1])
+
+        return True
+
+    def hide(self, process_descendants=True):
 
         if not self._is_active:
-            return
+            return False
 
         if self._entry_count:
             sizer = self.GetContainingSizer()
             self.GetParent().GetSizer().Hide(sizer)
 
-        for panel in self._child_node_panels:
-            panel.hide()
+        if process_descendants:
+
+            node_panels = self._child_node_panels[::-1]
+
+            while node_panels:
+
+                node_panel = node_panels.pop()
+
+                if node_panel.hide(process_descendants=False):
+                    node_panels.extend(node_panel.get_child_node_panels()[::-1])
+
+        return True
 
 
 class HistoryPanel(wx.ScrolledWindow):
@@ -1657,7 +1764,6 @@ class HistoryPanel(wx.ScrolledWindow):
                 to_create.append(child_data)
 
     def __init__(self, parent, history):
-        # sys.setrecursionlimit(50000)
 
         wx.ScrolledWindow.__init__(self, parent, style=wx.SUNKEN_BORDER)
 
@@ -1767,6 +1873,8 @@ class HistoryWindow(wx.Frame):
         wx.Frame.__init__(self, parent, -1, "History", style=style)
 
         self._history = history
+        self._history_root = history[(0, 0)]
+        Mgr.expose("history_event", lambda time_id: self._history.get(time_id))
 
         NodePanel.init()
         NodePanel.set_time_id(time_id)
@@ -1793,7 +1901,7 @@ class HistoryWindow(wx.Frame):
         sizer.Add(combobox, 0, wx.ALL | wx.EXPAND, 14)
         combobox = DeletedHistoryComboBox(main_panel)
         sizer.Add(combobox, 0, wx.ALL | wx.EXPAND, 14)
-        hist_panel = HistoryPanel(main_panel, history)
+        hist_panel = HistoryPanel(main_panel, self._history_root)
         sizer.Add(hist_panel, 1, wx.ALL | wx.EXPAND, 14)
 
         def close():
@@ -1801,18 +1909,19 @@ class HistoryWindow(wx.Frame):
             self.__on_close()
             self.Destroy()
 
-        def clear_history():
+        def archive_history():
 
-            answer = wx.MessageBox("WARNING! You are about to clear the entire history!"
+            answer = wx.MessageBox("WARNING! You are about to archive the entire history!"
                                    "\n\nAll undone history will be deleted and the remaining"
-                                   "\nevents will be merged."
+                                   "\nevents will be merged, making it impossible to undo or"
+                                   "\nredo any of these events."
                                    "\n\nAlso, all edits made in this dialog will be discarded.",
-                                   "Confirm clear history",
+                                   "Confirm archive history",
                                    wx.OK | wx.CANCEL | wx.ICON_EXCLAMATION, main_panel)
 
             if answer == wx.OK:
                 close()
-                Mgr.update_app("history", "clear")
+                Mgr.update_app("history", "archive")
 
         def update_history():
 
@@ -1825,15 +1934,16 @@ class HistoryWindow(wx.Frame):
             root_node.get_history_to_delete(to_delete)
             root_node.get_history_to_merge(to_merge)
             to_restore = NodePanel.get_history_to_restore()
-            self._history.update_user_data()
+            set_unsaved = to_delete or to_merge or NodePanel.get_miscellaneous_change()
+            self._history_root.update_user_data()
             close()
             Mgr.update_app("history", "update", to_undo, to_redo, to_delete,
-                           to_merge, to_restore)
+                           to_merge, to_restore, set_unsaved)
 
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        clear_button = Button(main_panel, -1, "Clear")
-        clear_button.Bind(wx.EVT_BUTTON, lambda event: clear_history())
-        btn_sizer.Add(clear_button, 0, wx.ALL, 3)
+        archive_button = Button(main_panel, -1, "Archive")
+        archive_button.Bind(wx.EVT_BUTTON, lambda event: archive_history())
+        btn_sizer.Add(archive_button, 0, wx.ALL, 3)
         btn_sizer.Add(wx.Size(150, 1), 1, wx.EXPAND)
         ok_button = Button(main_panel, -1, "OK")
         ok_button.Bind(wx.EVT_BUTTON, lambda event: update_history())
@@ -1875,7 +1985,7 @@ class HistoryWindow(wx.Frame):
         DeletedHistoryComboBox.reset()
         NodePanel.reset()
         self.MakeModal(False)
-        self._history.reset_temp_user_data()
+        self._history_root.reset_temp_user_data()
 
         if wx_event:
             wx_event.Skip()

@@ -35,7 +35,7 @@ class GeomHistoryBase(BaseObject):
                 pickled_objs = dict((s_id, cPickle.dumps(s, -1))
                                     for s_id, s in subobjs.iteritems())
 
-                extra_data = {"%s_objs" % subobj_type: {"created": pickled_objs}}
+                extra_data = {"%s__extra__" % subobj_type: {"created": pickled_objs}}
 
                 data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
 
@@ -51,7 +51,7 @@ class GeomHistoryBase(BaseObject):
 
                 subobjs = self._subobjs[subobj_type].iteritems()
                 creation_times = dict((s_id, s.get_creation_time()) for s_id, s in subobjs)
-                extra_data = {"%s_objs" % subobj_type: {"deleted": creation_times}}
+                extra_data = {"%s__extra__" % subobj_type: {"deleted": creation_times}}
 
                 data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
 
@@ -108,7 +108,7 @@ class GeomHistoryBase(BaseObject):
 
                     data_to_store["created"] = pickled_objs
 
-                extra_data = {"%s_objs" % subobj_type: data_to_store}
+                extra_data = {"%s__extra__" % subobj_type: data_to_store}
                 data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
 
             self._subobj_change = {"vert": {}, "edge": {}, "poly": {}}
@@ -145,7 +145,7 @@ class GeomHistoryBase(BaseObject):
             obj_id = self.get_toplevel_object().get_id()
             subobj_lvl = GlobalData["active_obj_level"]
             pos_data = {"prev": {}, "pos": {}}
-            extra_data = {"vert_pos_data": pos_data}
+            extra_data = {"vert_pos__extra__": pos_data}
             cur_time_id = Mgr.do("get_history_time")
             prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id)
             verts = self._subobjs["vert"]
@@ -213,7 +213,7 @@ class GeomHistoryBase(BaseObject):
             obj_id = self.get_toplevel_object().get_id()
             subobj_lvl = GlobalData["active_obj_level"]
             tri_data = {"prev": {}, "tri_data": {}}
-            extra_data = {"tri_data": tri_data}
+            extra_data = {"tri__extra__": tri_data}
             cur_time_id = Mgr.do("get_history_time")
             prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id)
             polys = self._subobjs["poly"]
@@ -273,7 +273,7 @@ class GeomHistoryBase(BaseObject):
 
             obj_id = self.get_toplevel_object().get_id()
             uv_data = {"prev": {}, "uvs": {}}
-            extra_data = {"uv_data": uv_data}
+            extra_data = {"uv__extra__": uv_data}
             cur_time_id = Mgr.do("get_history_time")
             prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id)
             verts = self._subobjs["vert"]
@@ -581,7 +581,7 @@ class GeomHistoryBase(BaseObject):
         subobjs_to_delete = {}
         registered_subobjs = self._subobjs[subobj_type]
 
-        data_id = "%s_objs" % subobj_type
+        data_id = "%s__extra__" % subobj_type
 
         # undo current subobject creation/deletion state
 

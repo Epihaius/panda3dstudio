@@ -8,6 +8,7 @@ loadPrcFileData("", """
                     model-cache-dir
                     geom-cache-size 0
                     window-type none
+                    depth-bits 24
 ##                    show-buffers 1
 ##                    gl-debug true
 ##                    notify-level-glgsg debug

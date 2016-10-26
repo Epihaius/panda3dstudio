@@ -483,7 +483,7 @@ class UVEditBase(BaseObject):
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
 
-        data_id = "uv_data"
+        data_id = "uv__extra__"
 
         time_ids_to_restore = {}
         time_ids = {}
