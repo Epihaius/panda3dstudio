@@ -46,6 +46,7 @@ class HistoryEvent(object):
         self._descr = description
         self._user_descr = ""
         self._is_milestone = False
+        self._milestone_count = 0
         self._user_descr_tmp = None
         self._is_milestone_tmp = None
         self._to_be_merged = False
@@ -83,14 +84,25 @@ class HistoryEvent(object):
         if time_id not in self._next:
             self._next.append(time_id)
 
-    def remove_next_event(self, time_id):
+    def remove_next_event(self, time_id, update_milestone_count=False):
 
         if time_id in self._next:
             self._next.remove(time_id)
 
+        if update_milestone_count:
+            self.update_milestone_count()
+
+    def replace_next_event(self, time_id_old, time_id_new):
+
+        if time_id_old in self._next:
+            index = self._next.index(time_id_old)
+            self._next.remove(time_id_old)
+            self._next.insert(index, time_id_new)
+
     def clear_next_events(self):
 
         self._next = []
+        self._milestone_count = 1 if self.is_milestone() else 0
 
     def get_next_event(self):
 
@@ -100,7 +112,7 @@ class HistoryEvent(object):
 
     def get_next_events(self):
 
-        return [Mgr.get("history_event", time_id) for time_id in self._next]
+        return [evt for evt in (Mgr.get("history_event", time_id) for time_id in self._next) if evt]
 
     def set_description(self, description):
 
@@ -152,8 +164,41 @@ class HistoryEvent(object):
 
     def update_milestone(self):
 
-        if self._is_milestone_tmp is not None:
+        if self._is_milestone_tmp is not self._is_milestone:
             self._is_milestone = self._is_milestone_tmp
+            self.modify_milestone_count(self._is_milestone)
+
+    def update_milestone_count(self, process_previous=True):
+
+        self._milestone_count = 1 if self.is_milestone() else 0
+
+        for event in self.get_next_events():
+            self._milestone_count += event.get_milestone_count()
+
+        if process_previous:
+
+            event = self.get_previous_event()
+
+            while event:
+                event.update_milestone_count(process_previous=False)
+                event = event.get_previous_event()
+
+    def modify_milestone_count(self, increment=True, process_previous=True):
+
+        self._milestone_count += 1 if increment else -1
+
+        if process_previous:
+
+            event = self.get_previous_event()
+
+            while event:
+                event.modify_milestone_count(increment, process_previous=False)
+                event = event.get_previous_event()
+
+    def get_milestone_count(self):
+        """ Return the number of *future* milestone events """
+
+        return self._milestone_count
 
     def reset_temp_user_description(self):
 
@@ -248,8 +293,13 @@ class HistoryManager(BaseObject):
         self._hist_events = {}
         self._prev_time_id = self._next_time_id = self._saved_time_id = (0, 0)
 
+        self._clock = ClockObject()
+
         GlobalData.set_default("history_to_undo", False)
         GlobalData.set_default("history_to_redo", False)
+        automerge_defaults = {"max_event_count": 50, "interval": 120.}
+        copier = dict.copy
+        GlobalData.set_default("automerge_defaults", automerge_defaults, copier)
 
         Mgr.expose("history_event", lambda time_id: self._hist_events.get(time_id))
         Mgr.accept("reset_history", self.__reset_history)
@@ -295,7 +345,8 @@ class HistoryManager(BaseObject):
     def __reset_history(self):
 
         event_data = {"objects": {}, "object_ids": TimeIDRef((0, 0))}
-        self._hist_events = {(0, 0): HistoryEvent((0, 0), event_data)}
+        root_event = HistoryEvent((0, 0), event_data)
+        self._hist_events = {(0, 0): root_event, "root": root_event}
         self._prev_time_id = self._saved_time_id = (0, 0)
 
         hist_file = Multifile()
@@ -313,6 +364,7 @@ class HistoryManager(BaseObject):
         GlobalData["history_to_undo"] = False
         GlobalData["history_to_redo"] = False
         Mgr.update_app("history", "check")
+        self._clock.reset()
 
     def __load_from_history(self, obj_id, data_id, time_id=None):
 
@@ -487,10 +539,82 @@ class HistoryManager(BaseObject):
         GlobalData["history_to_undo"] = True
         GlobalData["history_to_redo"] = False
         Mgr.update_app("history", "check")
+        undo_descr = self.__get_undo_description()
+        redo_descr = self.__get_redo_description()
+        Mgr.update_remotely("history", "set_descriptions", undo_descr, redo_descr)
+        self._saved_time_id = (-1, 0)
         GlobalData["unsaved_scene"] = True
         Mgr.update_app("unsaved_scene")
 
+        if self._clock.get_real_time() >= GlobalData["automerge_defaults"]["interval"]:
+            self.__automerge(event)
+            self._clock.reset()
+
         return task.cont
+
+    def __automerge(self, last_event):
+
+        last_milestone_count = -1
+        event_ranges = []
+        root_event = self._hist_events["root"]
+        event = last_event
+
+        while event is not root_event:
+
+            milestone_count = event.get_milestone_count()
+
+            if milestone_count > last_milestone_count:
+                last_milestone_count = milestone_count
+                event_range = [event]
+                event_ranges.append(event_range)
+                event = event.get_previous_event()
+                continue
+
+            event_range.append(event)
+            event = event.get_previous_event()
+
+        count = len(sum(event_ranges, []))
+        max_event_count = GlobalData["automerge_defaults"]["max_event_count"]
+        num_events_to_merge = max(0, count - max_event_count)
+
+        if num_events_to_merge == 0:
+            return
+
+        def process_event_ranges(event_ranges, end_events, events_to_delete):
+
+            merge_count = 0
+
+            for event_range in reversed(event_ranges):
+
+                event_range.reverse()
+                del event_range[1 + num_events_to_merge - merge_count:]
+                end_event = event_range.pop()
+
+                if event_range:
+
+                    end_events.append(end_event)
+                    start_event = event_range[0]
+
+                    for event in event_range:
+
+                        if event is not start_event:
+                            prev_event = event.get_previous_event()
+                            sibling_events = prev_event.get_next_events()[:]
+                            sibling_events.remove(event)
+                            events_to_delete.extend(sibling_events)
+
+                        event.set_to_be_merged()
+                        merge_count += 1
+
+                        if merge_count == num_events_to_merge:
+                            return
+
+        end_events = []
+        events_to_delete = []
+        process_event_ranges(event_ranges, end_events, events_to_delete)
+
+        if end_events:
+            self.__update_history(None, None, events_to_delete, end_events, None, False, True)
 
     def __load_property_value(self, hist_file, time_id, obj_id, prop_id):
 
@@ -499,9 +623,28 @@ class HistoryManager(BaseObject):
 
         return cPickle.loads(prop_val_pickled)
 
+    def __get_undo_description(self):
+
+        event = self._hist_events[self._prev_time_id]
+
+        if event is self._hist_events["root"]:
+            return ""
+
+        return event.get_description_start()
+
+    def __get_redo_description(self):
+
+        event = self._hist_events[self._prev_time_id]
+        next_event = event.get_next_event()
+
+        if next_event:
+            return next_event.get_description_start()
+
+        return ""
+
     def __undo_history(self):
 
-        if self._prev_time_id == (0, 0):
+        if self._prev_time_id == self._hist_events["root"].get_time_id():
             return
 
         event = self._hist_events[self._prev_time_id]
@@ -559,6 +702,9 @@ class HistoryManager(BaseObject):
 
         GlobalData["history_to_redo"] = True
         Mgr.update_app("history", "check")
+        undo_descr = self.__get_undo_description()
+        redo_descr = self.__get_redo_description()
+        Mgr.update_remotely("history", "set_descriptions", undo_descr, redo_descr)
         GlobalData["unsaved_scene"] = self._prev_time_id != self._saved_time_id
         Mgr.update_app("unsaved_scene")
 
@@ -618,6 +764,9 @@ class HistoryManager(BaseObject):
 
         GlobalData["history_to_undo"] = True
         Mgr.update_app("history", "check")
+        undo_descr = self.__get_undo_description()
+        redo_descr = self.__get_redo_description()
+        Mgr.update_remotely("history", "set_descriptions", undo_descr, redo_descr)
         GlobalData["unsaved_scene"] = self._prev_time_id != self._saved_time_id
         Mgr.update_app("unsaved_scene")
 
@@ -680,20 +829,33 @@ class HistoryManager(BaseObject):
 
     def __edit_history(self):
 
-        if len(self._hist_events) > 1:
+        if len(self._hist_events) > 2:
             Mgr.update_app("history", "show", self._hist_events, self._prev_time_id)
 
-    def __merge_history(self, end_event, subfile_names, subfiles_to_remove, hist_file):
+    def __merge_history(self, end_event, subfile_names, subfiles_to_remove, hist_file, comment=""):
 
         to_merge = [end_event]
         prev_event = end_event.get_previous_event()
 
-        while prev_event.is_to_be_merged():
+        while prev_event and prev_event.is_to_be_merged():
             to_merge.insert(0, prev_event)
             prev_event = prev_event.get_previous_event()
 
-        start_event = prev_event
-        start_event.set_description("MERGED")
+        start_event = to_merge[0]
+
+        if start_event is self._hist_events["root"]:
+            self._hist_events["root"] = end_event
+
+        end_descr = end_event.get_description()
+
+        if "\n\n(Merged)" in end_descr:
+            end_descr = end_descr.replace("\n\n(Merged)", "")
+        elif "\n\n(Automerged)" in end_descr:
+            end_descr = end_descr.replace("\n\n(Automerged)", "")
+
+        description = "%s\n\n(%s)" % (end_descr, comment)
+        end_event.set_description(description)
+
         start_time_id = start_event.get_time_id()
         start_obj_ids = start_event.get_last_object_ids()
         start_obj_ids_time_id = start_obj_ids.get_time_id()
@@ -701,20 +863,22 @@ class HistoryManager(BaseObject):
         prev_event = start_event.get_previous_event()
 
         if prev_event:
+            prev_time_id = prev_event.get_time_id()
             prev_obj_ids_time_id = prev_event.get_last_object_ids().get_time_id()
             subfile_name = "%s/object_ids" % (prev_obj_ids_time_id,)
             data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
             obj_ids_before = cPickle.loads(data_pickled)
         else:
+            prev_time_id = None
             prev_obj_ids_time_id = None
             obj_ids_before = set()
 
+        end_time_id = end_event.get_time_id()
         end_obj_ids = end_event.get_last_object_ids()
         end_obj_ids_time_id = end_obj_ids.get_time_id()
         subfile_name = "%s/object_ids" % (end_obj_ids_time_id,)
         data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
         obj_ids_after = cPickle.loads(data_pickled)
-        obj_ids = obj_ids_before | obj_ids_after
         obsolete_obj_ids = set()
         obj_ids_time_id = prev_obj_ids_time_id
 
@@ -725,68 +889,76 @@ class HistoryManager(BaseObject):
             if time_id != obj_ids_time_id:
                 subfile_name = "%s/object_ids" % (time_id,)
                 data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-                obsolete_obj_ids.update(cPickle.loads(data_pickled) - obj_ids)
+                obsolete_obj_ids.update(cPickle.loads(data_pickled))
                 obj_ids_time_id = time_id
+
+        obsolete_obj_ids -= obj_ids_before | obj_ids_after
+
+        for obj_id in obsolete_obj_ids:
+
+            # the object only exists during the events to be merged, so
+            # all of its data is obsolete and must be removed
+
+            obj_id_str = str(obj_id)
+
+            for subfile_name in subfile_names:
+                if obj_id_str in subfile_name:
+                    subfiles_to_remove.add(subfile_name)
+
+        to_merge.remove(end_event)
+        obj_ids_subfile_to_move = ""
+        end_data = end_event.get_data()["objects"]
 
         for event in to_merge:
 
             time_id = event.get_time_id()
-            event_data = event.get_data()
-            obj_data_to_remove = []
+            obj_data = event.get_data()["objects"]
 
-            for obj_id, obj_props in event_data["objects"].iteritems():
+            if time_id == end_obj_ids_time_id:
+                obj_ids_subfile_to_move = "%s/object_ids" % (time_id,)
 
-                if obj_id in obsolete_obj_ids:
+            for obj_id, obj_props in obj_data.iteritems():
 
-                    # the object only exists during the events to be merged, so
-                    # all of its data is obsolete and must be removed
-
-                    obj_data_to_remove.append(obj_id)
-
-                    obj_id_str = str(obj_id)
-
-                    for subfile_name in subfile_names:
-                        if obj_id_str in subfile_name:
-                            subfiles_to_remove.add(subfile_name)
-
-                else:
+                if obj_id not in obsolete_obj_ids:
 
                     for prop_id in obj_props:
 
                         if prop_id == "object":
                             continue
 
+                        if prop_id in end_data.get(obj_id, {}):
+                            continue
+
                         subfile_name = "%s/%s/%s" % (time_id, obj_id, "object"
                                                      if prop_id == "creation" else prop_id)
                         data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-                        subfile_name = "%s/%s/%s" % (start_time_id, obj_id, "object"
+                        subfile_name = "%s/%s/%s" % (end_time_id, obj_id, "object"
                                                      if prop_id == "creation" else prop_id)
                         data_stream = StringStream(data_pickled)
                         hist_file.add_subfile(subfile_name, data_stream, 6)
                         hist_file.flush()
 
-            for obj_id in obj_data_to_remove:
-                event.remove_object_props(obj_id)
+            start_event.update_object_data(obj_data)
 
-            start_event.update_object_data(event_data["objects"])
+        end_event.update_object_data(start_event.get_data()["objects"])
+        end_event.set_previous_event(prev_time_id)
 
-        start_event.clear_next_events()
+        for obj_id in obsolete_obj_ids:
+            end_event.remove_object_props(obj_id)
 
-        for next_event in end_event.get_next_events():
-            next_event.set_previous_event(start_time_id)
-            start_event.add_next_event(next_event.get_time_id())
+        if prev_event:
+            prev_event.replace_next_event(start_time_id, end_time_id)
 
-        if end_obj_ids_time_id != start_obj_ids_time_id:
-            end_obj_ids.set_time_id(start_time_id)
-            start_event.set_last_object_ids(end_obj_ids)
-            subfile_name = "%s/object_ids" % (end_obj_ids_time_id,)
-            data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-            subfile_name = "%s/object_ids" % (start_time_id,)
+        if obj_ids_subfile_to_move:
+            end_obj_ids.set_time_id(end_time_id)
+            data_pickled = hist_file.read_subfile(hist_file.find_subfile(obj_ids_subfile_to_move))
+            subfile_name = "%s/object_ids" % (end_time_id,)
             data_stream = StringStream(data_pickled)
             hist_file.add_subfile(subfile_name, data_stream, 6)
             hist_file.flush()
 
-    def __update_history(self, to_undo, to_redo, to_delete, to_merge, to_restore, set_unsaved):
+    def __update_history(self, to_undo, to_redo, to_delete, to_merge, to_restore,
+                         set_unsaved, automerge=False):
 
         if set_unsaved:
             self._saved_time_id = (-1, 0)
@@ -798,15 +970,6 @@ class HistoryManager(BaseObject):
 
         time_to_restore = to_restore if to_restore else self._prev_time_id
         event_to_restore = self._hist_events[time_to_restore]
-
-        if event_to_restore in to_merge:
-
-            evt_prev = event_to_restore.get_previous_event()
-
-            while evt_prev.is_to_be_merged():
-                evt_prev = evt_prev.get_previous_event()
-
-            time_to_restore = evt_prev.get_time_id()
 
         hist_file = Multifile()
         hist_file.open_read_write("hist.dat")
@@ -886,7 +1049,7 @@ class HistoryManager(BaseObject):
                         subfiles_to_remove.add(subfile_name)
 
         events_to_remove = set(to_delete)
-        events_to_merge = set(to_merge)
+        events_to_merge = set()
         subfiles_to_remove = set()
         subfile_names = [hist_file.get_subfile_name(i)
                          for i in xrange(hist_file.get_num_subfiles())]
@@ -900,12 +1063,15 @@ class HistoryManager(BaseObject):
 
             prev_event = event.get_previous_event()
 
-            while prev_event.is_to_be_merged():
+            while prev_event and prev_event.is_to_be_merged():
                 events_to_merge.add(prev_event)
                 prev_event = prev_event.get_previous_event()
 
+        comment = "Automerged" if automerge else "Merged"
+
         for event in to_merge:
-            self.__merge_history(event, subfile_names, subfiles_to_remove, hist_file)
+            self.__merge_history(event, subfile_names, subfiles_to_remove,
+                                 hist_file, comment=comment)
 
         for event in events_to_merge:
             add_subfiles_to_remove(event, subfile_names, subfiles_to_remove,
@@ -924,7 +1090,7 @@ class HistoryManager(BaseObject):
             prev_event = event.get_previous_event()
 
             if prev_event:
-                prev_event.remove_next_event(event.get_time_id())
+                prev_event.remove_next_event(event.get_time_id(), update_milestone_count=True)
 
         for name in subfiles_to_remove:
             hist_file.remove_subfile(hist_file.find_subfile(name))
@@ -933,6 +1099,13 @@ class HistoryManager(BaseObject):
             hist_file.repack()
 
         hist_file.close()
+
+        if automerge:
+
+            if time_to_restore != self._prev_time_id:
+                self._prev_time_id = time_to_restore
+
+            return
 
         if time_to_restore != self._prev_time_id:
 
@@ -954,23 +1127,22 @@ class HistoryManager(BaseObject):
         GlobalData["history_to_undo"] = True if event.get_previous_event() else False
         GlobalData["history_to_redo"] = True if event.get_next_event() else False
         Mgr.update_app("history", "check")
+        undo_descr = self.__get_undo_description()
+        redo_descr = self.__get_redo_description()
+        Mgr.update_remotely("history", "set_descriptions", undo_descr, redo_descr)
         GlobalData["unsaved_scene"] = self._prev_time_id != self._saved_time_id
         Mgr.update_app("unsaved_scene")
 
     def __archive_history(self):
 
-        if len(self._hist_events) == 1:
+        if len(self._hist_events) == 2:
             return
 
-        time_id = (0, 0)
-        time_id_str = str(time_id)
-        root_event = self._hist_events[time_id]
-
         event = self._hist_events[self._prev_time_id]
-        prev_event = event.get_previous_event()
         merge_time_ids = set([str(self._prev_time_id)])
+        prev_event = event.get_previous_event()
 
-        while prev_event is not root_event:
+        while prev_event:
             prev_event.set_to_be_merged()
             merge_time_ids.add(str(prev_event.get_time_id()))
             prev_event = prev_event.get_previous_event()
@@ -987,6 +1159,10 @@ class HistoryManager(BaseObject):
 
         self.__merge_history(event, subfile_names, subfiles_to_remove, hist_file)
 
+        root_event = self._hist_events["root"]
+        time_id = root_event.get_time_id()
+        time_id_str = str(time_id)
+
         for subfile_name in subfile_names:
             if not subfile_name.startswith(time_id_str):
                 if not (subfile_name.startswith(merge_time_ids) and "__extra__" in subfile_name):
@@ -1001,7 +1177,7 @@ class HistoryManager(BaseObject):
         self._prev_time_id = time_id
 
         root_event.clear_next_events()
-        self._hist_events = {time_id: root_event}
+        self._hist_events = {time_id: root_event, "root": root_event}
 
         self._saved_time_id = (-1, 0)
         GlobalData["unsaved_scene"] = True

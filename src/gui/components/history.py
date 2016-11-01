@@ -50,6 +50,8 @@ class HistoryToolbar(Toolbar):
                     btn.disable()
             elif update_type == "check":
                 self.__check_undo_redo()
+            elif update_type == "set_descriptions":
+                self.__set_undo_redo_descriptions(*args)
 
         Mgr.add_app_updater("history", update_history)
 
@@ -64,6 +66,14 @@ class HistoryToolbar(Toolbar):
         undo_btn.enable() if to_undo else undo_btn.disable()
         redo_btn.enable() if to_redo else redo_btn.disable()
         edit_btn.enable() if to_undo or to_redo else edit_btn.disable()
+
+    def __set_undo_redo_descriptions(self, undo_descr, redo_descr):
+
+        if undo_descr:
+            self._btns.get_button("undo").set_tooltip("Undo: " + undo_descr)
+
+        if redo_descr:
+            self._btns.get_button("redo").set_tooltip("Redo: " + redo_descr)
 
     def enable(self):
 

@@ -434,7 +434,7 @@ class DescriptionDialog(wx.Dialog):
 
 class NodePanel(wx.Panel):
 
-    _old_time_id = (0, 0)
+    _old_time_id = _root_time_id = (0, 0)
     _old_entry_id = _new_entry_id = _sel_entry_id = -1
     _old_node_panel = _new_node_panel = _sel_node_panel = None
     _root_node_panel = None
@@ -497,6 +497,11 @@ class NodePanel(wx.Panel):
     def set_time_id(cls, time_id):
 
         cls._old_time_id = time_id
+
+    @classmethod
+    def set_root_time_id(cls, time_id):
+
+        cls._root_time_id = time_id
 
     @classmethod
     def set_miscellaneous_change(cls):
@@ -980,7 +985,7 @@ class NodePanel(wx.Panel):
 
         event = self._events[entry_id]
         panel = self._new_node_panel
-        time_id = panel.get_events()[self._new_entry_id].get_time_id() if panel else (0, 0)
+        time_id = panel.get_events()[self._new_entry_id].get_time_id() if panel else self._root_time_id
 
         if event.get_previous_event().get_time_id() == time_id:
             return False
@@ -1585,6 +1590,11 @@ class NodePanel(wx.Panel):
                 prev_event = self._events[0].get_previous_event()
 
                 if prev_event in to_merge:
+                    # to_merge can only contain end-of-range events;
+                    # since prev_event (the last event of the parent panel) is
+                    # followed by another event (the first of the current panel)
+                    # that is to be merged, it is not the end of its range and
+                    # must be removed from to_merge
                     to_merge.remove(prev_event)
 
             # return a list of end-of-range events, with all marked events having
@@ -1595,10 +1605,21 @@ class NodePanel(wx.Panel):
             m = iter(l[1:] + [None])
             # given l == [1, 2, 3, 5, 6, 8, 9, 10, 11, 17],
             # l filtered -> [3, 6, 11, 17]
-            to_merge += [self._events[i] for i in filter(lambda j: j + 1 != next(m), l)]
+            f = filter(lambda j: j + 1 != next(m), l)
+            to_merge += [self._events[i] for i in f]
 
             for i in self._entries_to_merge:
-                self._events[i].set_to_be_merged()
+                if i not in f:
+                    self._events[i].set_to_be_merged()
+
+            # the start-of-range events also need to have their self._to_be_merged
+            # flag set to True
+            l.reverse()
+            m = iter(l[1:] + [None])
+            f = filter(lambda j: j - 1 != next(m), l)
+
+            for event in (self._events[i] for i in f):
+                event.get_previous_event().set_to_be_merged()
 
         if process_descendants:
 
@@ -1622,7 +1643,7 @@ class NodePanel(wx.Panel):
         elif cls._new_node_panel:
             return cls._new_node_panel.get_events()[cls._new_entry_id].get_time_id()
         else:
-            return (0, 0)
+            return cls._root_time_id
 
     def get_combobox_sizer(self):
 
@@ -1873,11 +1894,12 @@ class HistoryWindow(wx.Frame):
         wx.Frame.__init__(self, parent, -1, "History", style=style)
 
         self._history = history
-        self._history_root = history[(0, 0)]
+        self._history_root = history["root"]
         Mgr.expose("history_event", lambda time_id: self._history.get(time_id))
 
         NodePanel.init()
         NodePanel.set_time_id(time_id)
+        NodePanel.set_root_time_id(self._history_root.get_time_id())
 
         w = 700
         h = 500
