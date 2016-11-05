@@ -88,3 +88,19 @@ class ToolTip(object):
         if cls._use_timer:
             cls._timer.Stop()
             cls._use_timer = False
+
+    @classmethod
+    def is_shown(cls):
+
+        return cls._inst.IsShown()
+
+    @classmethod
+    def update(cls, bitmap=None):
+
+        if bitmap:
+            cls.set_bitmap(bitmap)
+        else:
+            cls._inst.Hide()
+
+        if cls._inst.IsShown():
+            cls._inst.Refresh()

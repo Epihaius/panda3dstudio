@@ -141,3 +141,12 @@ class PickingColorIDManager(object):
 
         self._ids_to_recover = set()
         self._ids_to_discard = set()
+
+        # check integrity
+        for rng1, rng2 in zip(id_ranges[:-1], id_ranges[1:]):
+            if rng1[1] >= rng2[0]:
+                # something went wrong; create a file to submit for debugging
+                Mgr.do("make_backup", "corrupt_object_ids.p3ds")
+                msg = "An error occurred with object ID management;\n" \
+                      "a 'corrupt_object_ids.p3ds' file has been created to submit for debugging."
+                raise AssertionError, msg

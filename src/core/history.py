@@ -292,14 +292,17 @@ class HistoryManager(BaseObject):
         self._update_time_id = True
         self._hist_events = {}
         self._prev_time_id = self._next_time_id = self._saved_time_id = (0, 0)
+        self._backup_file_index = 1
 
-        self._clock = ClockObject()
+        self._clocks = {"automerge": ClockObject(), "autobackup": ClockObject()}
 
         GlobalData.set_default("history_to_undo", False)
         GlobalData.set_default("history_to_redo", False)
         automerge_defaults = {"max_event_count": 50, "interval": 120.}
+        autobackup_defaults = {"max_file_count": 5, "interval": 300.}
         copier = dict.copy
         GlobalData.set_default("automerge_defaults", automerge_defaults, copier)
+        GlobalData.set_default("autobackup_defaults", autobackup_defaults, copier)
 
         Mgr.expose("history_event", lambda time_id: self._hist_events.get(time_id))
         Mgr.accept("reset_history", self.__reset_history)
@@ -364,7 +367,7 @@ class HistoryManager(BaseObject):
         GlobalData["history_to_undo"] = False
         GlobalData["history_to_redo"] = False
         Mgr.update_app("history", "check")
-        self._clock.reset()
+        self._clocks["automerge"].reset()
 
     def __load_from_history(self, obj_id, data_id, time_id=None):
 
@@ -546,9 +549,22 @@ class HistoryManager(BaseObject):
         GlobalData["unsaved_scene"] = True
         Mgr.update_app("unsaved_scene")
 
-        if self._clock.get_real_time() >= GlobalData["automerge_defaults"]["interval"]:
+        clock = self._clocks["automerge"]
+
+        if clock.get_real_time() >= GlobalData["automerge_defaults"]["interval"]:
             self.__automerge(event)
-            self._clock.reset()
+            clock.reset()
+
+        clock = self._clocks["autobackup"]
+        backup_defaults = GlobalData["autobackup_defaults"]
+
+        if clock.get_real_time() >= backup_defaults["interval"]:
+            index = self._backup_file_index
+            filename = "autobackup_%d.p3ds" % index
+            Mgr.do("make_backup", filename)
+            index = 1 if index == backup_defaults["max_file_count"] else index + 1
+            self._backup_file_index = index
+            clock.reset()
 
         return task.cont
 
@@ -770,7 +786,7 @@ class HistoryManager(BaseObject):
         GlobalData["unsaved_scene"] = self._prev_time_id != self._saved_time_id
         Mgr.update_app("unsaved_scene")
 
-    def __save_history(self, scene_file):
+    def __save_history(self, scene_file, set_saved_state=True):
 
         hist_file = Multifile()
         hist_file.open_read_write("hist.dat")
@@ -787,7 +803,8 @@ class HistoryManager(BaseObject):
 
         scene_file.add_subfile("hist.dat", Filename.binary_filename("hist.dat"), 0)
 
-        self._saved_time_id = self._prev_time_id
+        if set_saved_state:
+            self._saved_time_id = self._prev_time_id
 
     def __load_history(self, scene_file):
 
@@ -826,6 +843,9 @@ class HistoryManager(BaseObject):
         GlobalData["history_to_undo"] = True if event.get_previous_event() else False
         GlobalData["history_to_redo"] = True if event.get_next_event() else False
         Mgr.update_app("history", "check")
+        undo_descr = self.__get_undo_description()
+        redo_descr = self.__get_redo_description()
+        Mgr.update_remotely("history", "set_descriptions", undo_descr, redo_descr)
 
     def __edit_history(self):
 
@@ -962,10 +982,16 @@ class HistoryManager(BaseObject):
 
         if set_unsaved:
             self._saved_time_id = (-1, 0)
-            GlobalData["unsaved_scene"] = True
-            Mgr.update_app("unsaved_scene")
 
         if not (to_undo or to_redo or to_delete or to_merge or to_restore):
+
+            if set_unsaved:
+                undo_descr = self.__get_undo_description()
+                redo_descr = self.__get_redo_description()
+                Mgr.update_remotely("history", "set_descriptions", undo_descr, redo_descr)
+                GlobalData["unsaved_scene"] = True
+                Mgr.update_app("unsaved_scene")
+
             return
 
         time_to_restore = to_restore if to_restore else self._prev_time_id

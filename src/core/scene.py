@@ -14,6 +14,7 @@ class SceneManager(BaseObject):
         }
         Mgr.add_app_updater("scene", lambda handler_id, *args, **kwargs:
                             self._handlers[handler_id](*args, **kwargs))
+        Mgr.accept("make_backup", self.__make_backup)
 
     def __reset(self):
 
@@ -112,7 +113,7 @@ class SceneManager(BaseObject):
         Mgr.do("set_view_data", scene_data["view_data"])
         Mgr.do("set_material_library", scene_data["material_library"])
 
-    def __save(self, filename):
+    def __save(self, filename, set_saved_state=True):
 
         scene_data = {}
         scene_data["material_library"] = Mgr.get("material_library")
@@ -136,7 +137,7 @@ class SceneManager(BaseObject):
         scene_file.open_write(Filename.from_os_specific(filename))
         scene_data_stream = StringStream(cPickle.dumps(scene_data, -1))
         scene_file.add_subfile("scene/data", scene_data_stream, 6)
-        Mgr.do("save_history", scene_file)
+        Mgr.do("save_history", scene_file, set_saved_state)
 
         if scene_file.needs_repack():
             scene_file.repack()
@@ -144,7 +145,12 @@ class SceneManager(BaseObject):
         scene_file.flush()
         scene_file.close()
 
-        GlobalData["unsaved_scene"] = False
+        if set_saved_state:
+            GlobalData["unsaved_scene"] = False
+
+    def __make_backup(self, filename="autobackup.p3ds"):
+
+        self.__save(filename, set_saved_state=False)
 
 
 MainObjects.add_class(SceneManager)

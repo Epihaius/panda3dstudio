@@ -56,12 +56,12 @@ class Button(wx.PyControl, FocusResetter):
 
     @staticmethod
     def __get_alpha(img, alpha_map):
-    
+
         for y in xrange(img.GetHeight()):
-        
+
             row = []
             alpha_map.append(row)
-            
+
             for x in xrange(img.GetWidth()):
                 row.append(img.GetAlpha(x, y))
 
@@ -90,7 +90,7 @@ class Button(wx.PyControl, FocusResetter):
             w_i, h_i = icon_size if icon_size else icon.GetSize()
             offset_x = (w - w_i) // 2
             offset_y = (h - h_i) // 2
-            
+
             if PLATFORM_ID == "Linux":
                 bitmap = wx.EmptyBitmap(w, h)
             else:
@@ -101,13 +101,13 @@ class Button(wx.PyControl, FocusResetter):
             mem_dc.SelectObject(wx.NullBitmap)
 
             if PLATFORM_ID == "Linux":
-                
+
                 img = bitmap.ConvertToImage()
                 w_i, h_i = icon.GetSize()
 
                 if not img.HasAlpha():
                     img.InitAlpha()
-            
+
                 for y, row in enumerate(alpha_map):
                     for x, alpha in enumerate(row):
                         img.SetAlpha(x + offset_x, y + offset_y, alpha)
@@ -222,7 +222,7 @@ class Button(wx.PyControl, FocusResetter):
             mem_dc.SelectObject(wx.NullBitmap)
 
             if PLATFORM_ID == "Linux":
-                
+
                 img = bitmap.ConvertToImage()
                 offset_x = 0
 
@@ -233,7 +233,7 @@ class Button(wx.PyControl, FocusResetter):
 
                     bitmap_part = bitmap_parts[part]
                     alpha_map = alpha_maps[state][part]
-            
+
                     for y, row in enumerate(alpha_map):
                         for x, alpha in enumerate(row):
                             img.SetAlpha(x + offset_x, y, alpha)
@@ -362,7 +362,7 @@ class Button(wx.PyControl, FocusResetter):
         return self._bitmaps["active"].GetSize()
 
     def _draw(self, event):
-        
+
         if not self._has_back_bitmap:
             return
 
@@ -416,6 +416,11 @@ class Button(wx.PyControl, FocusResetter):
             self._tooltip_bitmap = ToolTip.create_bitmap(tooltip_label)
         else:
             self._tooltip_bitmap = None
+
+        rect = self.GetScreenRect()
+
+        if rect.Contains(wx.GetMousePosition()):
+            ToolTip.update(self._tooltip_bitmap)
 
     def _on_enter_window(self, event):
 
@@ -516,6 +521,7 @@ class Button(wx.PyControl, FocusResetter):
             return
 
         self.Disable()
+        ToolTip.hide()
 
         if show:
             self._is_active = False
