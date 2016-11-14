@@ -1,7 +1,7 @@
 from .base import *
 
 
-class CylinderProperties(BaseObject):
+class ConeProperties(BaseObject):
 
     def __init__(self, panel):
 
@@ -10,19 +10,26 @@ class CylinderProperties(BaseObject):
         self._checkboxes = {}
         self._segments_default = {"circular": 3, "height": 1, "caps": 0}
 
-        section = panel.add_section("cylinder_props", "Cylinder properties")
+        section = panel.add_section("cone_props", "Cone properties")
         sizer = section.get_client_sizer()
 
         subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
         sizer.Add(subsizer)
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
-        for prop_id in ("radius", "height"):
-            section.add_text("%s:" % prop_id.title(), subsizer, sizer_args)
+        for spec in ("bottom", "top"):
+            section.add_text("%s radius:" % spec.title(), subsizer, sizer_args)
             field = PanelInputField(panel, section, subsizer, 80)
+            prop_id = "radius_%s" % spec
             field.add_value(prop_id, "float", handler=self.__handle_value)
             field.show_value(prop_id)
             self._fields[prop_id] = field
+
+        section.add_text("Height:", subsizer, sizer_args)
+        field = PanelInputField(panel, section, subsizer, 80)
+        field.add_value("height", "float", handler=self.__handle_value)
+        field.show_value("height")
+        self._fields["height"] = field
 
         sizer.Add(wx.Size(0, 4))
 
@@ -39,7 +46,12 @@ class CylinderProperties(BaseObject):
             field.show_value(prop_id)
             self._fields[prop_id] = field
 
-        self._fields["radius"].set_input_parser("radius", self.__parse_radius)
+        get_parser = lambda radius_min: lambda radius: self.__parse_radius(radius, radius_min)
+
+        for spec, val_min in (("bottom", .001), ("top", 0.)):
+            prop_id = "radius_%s" % spec
+            self._fields[prop_id].set_input_parser(prop_id, get_parser(val_min))
+
         self._fields["height"].set_input_parser("height", self.__parse_height)
         parser = lambda segs: self.__parse_segments(segs, 3)
         self._fields["segments_circular"].set_input_parser("segments_circular", parser)
@@ -72,15 +84,15 @@ class CylinderProperties(BaseObject):
             val = value
 
         if in_creation_mode:
-            Mgr.update_app("cylinder_prop_default", prop_id, val)
+            Mgr.update_app("cone_prop_default", prop_id, val)
             return
 
         Mgr.update_remotely("selected_obj_prop", prop_id, val)
 
-    def __parse_radius(self, radius):
+    def __parse_radius(self, radius, radius_min):
 
         try:
-            return max(.001, abs(float(eval(radius))))
+            return max(radius_min, abs(float(eval(radius))))
         except:
             return None
 
@@ -108,7 +120,7 @@ class CylinderProperties(BaseObject):
 
     def get_section_ids(self):
 
-        return ["cylinder_props"] + self.get_extra_section_ids()
+        return ["cone_props"] + self.get_extra_section_ids()
 
     def get_extra_section_ids(self):
 
@@ -164,5 +176,5 @@ class CylinderProperties(BaseObject):
         self._checkboxes["smoothness"].set_checkmark_color(color)
 
 
-ObjectTypes.add_type("cylinder", "Cylinder")
-PropertyPanel.add_properties("cylinder", CylinderProperties)
+ObjectTypes.add_type("cone", "Cone")
+PropertyPanel.add_properties("cone", ConeProperties)

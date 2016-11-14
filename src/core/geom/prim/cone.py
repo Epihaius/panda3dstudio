@@ -1,19 +1,115 @@
 from .base import *
 from math import pi, sin, cos
 
+VERT_SHADER = """
+    #version 150 compatibility
 
-class CylinderManager(PrimitiveManager):
+    // Uniform inputs
+    uniform mat4 p3d_ModelViewProjectionMatrix;
+    uniform mat4 p3d_ModelViewMatrix;
+    uniform float bottom_radius;
+    uniform float top_radius;
+    uniform float height;
+
+    // Vertex inputs
+    in vec4 p3d_Vertex;
+    in vec4 p3d_Color;
+    in vec2 p3d_MultiTexCoord0;
+    in vec3 p3d_Normal;
+
+    // Output to fragment shader
+    out vec2 texcoord;
+    out vec3 mynormal;
+    out vec3 v;
+    out vec4 flat_color;
+
+    void main(void)
+    {
+        vec3 pos_old;
+        vec3 pos_new;
+        vec3 normal_new;
+        vec3 up_vec;
+        float height_abs;
+        float z;
+        float delta_radius;
+        float epsilon;
+        float new_dist;
+        float radius;
+        float h;
+
+        // original radii: 1.
+        // original height: 1.
+        pos_old = p3d_Vertex.xyz;
+        height_abs = abs(height);
+        z = pos_old.z * height_abs;
+
+        if (height < 0.) {
+            z -= height_abs;
+            delta_radius = top_radius - bottom_radius;
+        }
+        else {
+            delta_radius = bottom_radius - top_radius;
+        }
+
+        epsilon = 1.e-010;
+
+        if (abs(delta_radius) < epsilon) {
+
+            new_dist = bottom_radius;
+
+        }
+        else {
+
+            if (abs(bottom_radius) >= epsilon) {
+                radius = bottom_radius;
+            }
+            else {
+                radius = top_radius;
+            }
+
+            h = height_abs * radius / delta_radius;
+            new_dist = (h - z) * radius / h;
+
+        }
+
+        pos_new = p3d_Vertex.xyz;
+        pos_new.z = 0.;
+        pos_new *= new_dist;
+        pos_new.z = z;
+        flat_color = p3d_Color;
+
+        gl_Position = p3d_ModelViewProjectionMatrix * vec4(pos_new, 1.);
+        v = (p3d_ModelViewMatrix * vec4(pos_new, 1.)).xyz;
+        texcoord = p3d_MultiTexCoord0;
+        normal_new = p3d_Normal.xyz;
+
+        if (abs(normal_new.z) < epsilon) {
+            normal_new *= height_abs;
+            up_vec = vec3(0., 0., 1.) * delta_radius;
+            normal_new += up_vec;
+            normal_new = normalize(normal_new);
+        }
+
+        mynormal = normalize(gl_NormalMatrix * normal_new);
+    }
+"""
+
+
+class ConeManager(PrimitiveManager):
 
     def __init__(self):
 
-        PrimitiveManager.__init__(self, "cylinder")
+        PrimitiveManager.__init__(self, "cone")
 
         self._height_axis = V3D(0., 0., 1.)
         self._draw_plane = None
         self._draw_plane_normal = V3D()
         self._dragged_point = Point3()
+        self._top = Point3()
+        self._top_radius_vec = V3D()
 
-        self.set_property_default("radius", 1.)
+        self.set_property_default("radius_bottom", 1.)
+        self.set_property_default("radius_top", 0.)
         self.set_property_default("height", 1.)
         self.set_property_default("smoothness", True)
         self.set_property_default("segments", {"circular": 12, "height": 1, "caps": 1})
@@ -21,8 +117,7 @@ class CylinderManager(PrimitiveManager):
         # minimum height segments = 1
         # minimum cap segments = 0: no caps
 
-        Mgr.accept("inst_create_cylinder", self.create_instantly)
-        Mgr.accept("create_custom_cylinder", self.__create_custom)
+        Mgr.accept("inst_create_cone", self.create_instantly)
 
     def setup(self):
 
@@ -31,36 +126,46 @@ class CylinderManager(PrimitiveManager):
         creation_phases.append(creation_phase)
         creation_phase = (self.__start_creation_phase2, self.__creation_phase2)
         creation_phases.append(creation_phase)
+        creation_phase = (self.__start_creation_phase3, self.__creation_phase3)
+        creation_phases.append(creation_phase)
 
         status_text = {}
-        status_text["obj_type"] = "cylinder"
+        status_text["obj_type"] = "cone"
         status_text["phase1"] = "draw out the base"
         status_text["phase2"] = "draw out the height"
+        status_text["phase3"] = "draw out the top"
 
         return PrimitiveManager.setup(self, creation_phases, status_text)
 
     def apply_default_size(self, prim):
 
         prop_defaults = self.get_property_defaults()
-        prim.update_creation_size(prop_defaults["radius"], prop_defaults["height"], finalize=True)
+        prim.update_creation_size(prop_defaults["radius_bottom"], prop_defaults["radius_top"],
+                                  prop_defaults["height"], finalize=True)
 
     def init_primitive(self, model):
 
-        prim = Cylinder(model)
+        prim = Cone(model)
         prop_defaults = self.get_property_defaults()
         prim.create(prop_defaults["segments"], prop_defaults["smoothness"])
 
         return prim
 
     def __start_creation_phase1(self):
-        """ Start drawing out cylinder base """
+        """ Start drawing out cone base """
 
         prim = self.get_primitive()
         origin = prim.get_model().get_origin()
         self._height_axis = self.world.get_relative_vector(origin, V3D(0., 0., 1.))
+        origin = prim.get_origin()
+        shader = Shader.make(Shader.SL_GLSL, VERT_SHADER, FRAG_SHADER)
+        origin.set_shader(shader, 1)
+        origin.set_shader_input("bottom_radius", 1.)
+        origin.set_shader_input("top_radius", 1.)
+        origin.set_shader_input("height", .001)
 
     def __creation_phase1(self):
-        """ Draw out cylinder base """
+        """ Draw out cone base """
 
         screen_pos = self.mouse_watcher.get_mouse()
         point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
@@ -71,10 +176,10 @@ class CylinderManager(PrimitiveManager):
         grid_origin = Mgr.get(("grid", "origin"))
         self._dragged_point = self.world.get_relative_point(grid_origin, point)
         radius = (self.get_origin_pos() - point).length()
-        self.get_primitive().update_creation_size(radius)
+        self.get_primitive().update_creation_size(radius, radius)
 
     def __start_creation_phase2(self):
-        """ Start drawing out cylinder height """
+        """ Start drawing out cone height """
 
         cam = self.cam()
         cam_forward_vec = self.world.get_relative_vector(cam, Vec3.forward())
@@ -89,7 +194,7 @@ class CylinderManager(PrimitiveManager):
             x, y, z = self._height_axis
 
             # if the height axis is nearly vertical, any horizontal vector will
-            # qualify as plane normal, e.g. a vector pointing in the the positive
+            # qualify as plane normal, e.g. a vector pointing in the positive
             # X-direction; otherwise, the plane normal can be computed as
             # perpendicular to the axis
             normal = V3D(1., 0., 0.) if max(abs(x), abs(y)) < .0001 else V3D(y, -x, 0.)
@@ -106,7 +211,7 @@ class CylinderManager(PrimitiveManager):
         self._draw_plane_normal = normal
 
     def __creation_phase2(self):
-        """ Draw out cylinder height """
+        """ Draw out cone height """
 
         if not self.mouse_watcher.has_mouse():
             return
@@ -128,48 +233,69 @@ class CylinderManager(PrimitiveManager):
             if V3D(far_point - near_point) * self._draw_plane_normal < .0001:
                 return
 
-        point = Point3()
-
-        if not self._draw_plane.intersects_line(point, near_point, far_point):
+        if not self._draw_plane.intersects_line(self._dragged_point, near_point, far_point):
             return
 
         prim = self.get_primitive()
         origin = prim.get_model().get_origin()
-        height = origin.get_relative_point(self.world, point)[2]
+        height = origin.get_relative_point(self.world, self._dragged_point)[2]
         prim.update_creation_size(height=height)
 
-    def __create_custom(self, name, radius, height, segments, origin_pos, rel_to_grid=False, smooth=True):
+    def __start_creation_phase3(self):
+        """ Start drawing out cone top """
 
-        model_id = self.generate_object_id()
-        model = Mgr.do("create_model", model_id, name, origin_pos)
+        prim = self.get_primitive()
+        origin = prim.get_model().get_origin()
+        height = prim.get_property("height")
+        self._top = origin.get_pos(self.world) + self._height_axis * height
+        cam = self.cam()
+        cam_pos = cam.get_pos(self.world)
+        cam_forward_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+        self._draw_plane = Plane(cam_forward_vec, self._top)
+        point = Point3()
+        self._draw_plane.intersects_line(point, cam_pos, self._dragged_point)
+        self._top_radius_vec = V3D((point - self._top).normalized())
 
-        if not rel_to_grid:
-            pivot = model.get_pivot()
-            pivot.clear_transform()
-            pivot.set_pos(self.world, origin_pos)
+    def __creation_phase3(self):
+        """ Draw out cone top """
 
-        next_color = self.get_next_object_color()
-        model.set_color(next_color, update_app=False)
-        prim = Cylinder(model)
-        prim.create(segments, smooth)
-        prim.update_creation_size(radius, height, finalize=True)
-        prim.get_geom_data_object().finalize_geometry()
-        model.set_geom_object(prim)
-        self.set_next_object_color()
+        if not self.mouse_watcher.has_mouse():
+            return
 
-        return model
+        screen_pos = self.mouse_watcher.get_mouse()
+        near_point = Point3()
+        far_point = Point3()
+        point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        cam = self.cam()
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
+
+        if not self._draw_plane.intersects_line(point, near_point, far_point):
+            return
+
+        vec = V3D(point - self._top)
+
+        if vec * self._top_radius_vec <= 0.:
+            top_radius = 0.
+        else:
+            top_radius = (vec.project(self._top_radius_vec)).length()
+
+        self.get_primitive().update_creation_size(top_radius=top_radius)
 
 
-class Cylinder(Primitive):
+class Cone(Primitive):
 
     def __init__(self, model):
 
-        prop_ids = ["segments", "radius", "height", "smoothness"]
+        prop_ids = ["segments", "radius_bottom", "radius_top", "height", "smoothness"]
 
-        Primitive.__init__(self, "cylinder", model, prop_ids)
+        Primitive.__init__(self, "cone", model, prop_ids)
 
         self._segments = {"circular": 3, "height": 1, "caps": 0}
-        self._radius = 0.
+        self._bottom_radius = 0.
+        self._top_radius = 0.
         self._height = 0.
         self._is_smooth = True
         self._smoothing = {}
@@ -428,7 +554,6 @@ class Cylinder(Primitive):
 
         Primitive.create(self)
 
-        self.get_origin().set_sz(.001)
         self.update_initial_coords()
 
     def set_segments(self, segments):
@@ -440,56 +565,105 @@ class Cylinder(Primitive):
 
         return True
 
+    def __set_new_vertex_position(self, pos_old):
+
+        # original radii: 1.
+        # original height: 1.
+        height = abs(self._height)
+        z = pos_old.z * height
+
+        if self._height < 0.:
+            z -= height
+            delta_radius = self._top_radius - self._bottom_radius
+        else:
+            delta_radius = self._bottom_radius - self._top_radius
+
+        epsilon = 1.e-010
+
+        if abs(delta_radius) < epsilon:
+
+            new_dist = self._bottom_radius
+
+        else:
+
+            if abs(self._bottom_radius) >= epsilon:
+                radius = self._bottom_radius
+            else:
+                radius = self._top_radius
+
+            h = height * radius / delta_radius
+            new_dist = (h - z) * radius / h
+
+        pos_new = Point3(pos_old)
+        pos_new.z = 0.
+        pos_new *= new_dist
+        pos_new.z = z
+
+        return pos_new
+
     def __update_size(self):
 
-        r = self._radius
-        h = self._height
-        origin = self.get_origin()
-        origin.set_scale(r, r, abs(h))
-        origin.set_z(h if h < 0. else 0.)
         self.reset_initial_coords()
-        self.get_geom_data_object().bake_transform()
+        self.get_geom_data_object().reposition_vertices(self.__set_new_vertex_position)
         self.get_geom_data_object().update_poly_centers()
         self.get_model().get_bbox().update(*self.get_origin().get_tight_bounds())
 
-    def update_creation_size(self, radius=None, height=None, finalize=False):
+    def update_creation_size(self, bottom_radius=None, top_radius=None, height=None, finalize=False):
 
         origin = self.get_origin()
 
-        if radius is not None:
+        if bottom_radius is not None:
 
-            r = max(radius, .001)
+            r = max(bottom_radius, .001)
 
-            if self._radius != r:
+            if self._bottom_radius != r:
 
-                self._radius = r
+                self._bottom_radius = r
 
                 if not finalize:
-                    origin.set_sx(r)
-                    origin.set_sy(r)
+                    origin.set_shader_input("bottom_radius", r)
+
+        if top_radius is not None:
+
+            r = max(top_radius, 0.)
+
+            if self._top_radius != r:
+
+                self._top_radius = r
+
+                if not finalize:
+                    origin.set_shader_input("top_radius", r)
 
         if height is not None:
 
-            sz = max(abs(height), .001)
-            h = -sz if height < 0. else sz
+            abs_h = max(abs(height), .001)
+            h = -abs_h if height < 0. else abs_h
 
             if self._height != h:
 
                 self._height = h
 
                 if not finalize:
-                    origin.set_sz(sz)
-                    origin.set_z(h if h < 0. else 0.)
+                    origin.set_shader_input("height", h)
 
         if finalize:
             self.__update_size()
 
-    def set_radius(self, radius):
+    def set_bottom_radius(self, radius):
 
-        if self._radius == radius:
+        if self._bottom_radius == radius:
             return False
 
-        self._radius = radius
+        self._bottom_radius = radius
+
+        return True
+
+    def set_top_radius(self, radius):
+
+        if self._top_radius == radius:
+            return False
+
+        self._top_radius = radius
 
         return True
 
@@ -524,7 +698,7 @@ class Cylinder(Primitive):
             elif prop_id == "smoothness":
                 data.update(self.get_geom_data_object().get_data_to_store("prop_change",
                                                                           "smoothing"))
-            elif prop_id in ("radius", "height"):
+            elif prop_id in ("radius_bottom", "radius_top", "height"):
                 data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
 
@@ -536,7 +710,7 @@ class Cylinder(Primitive):
 
         def update_app():
 
-            Mgr.update_remotely("selected_obj_prop", "cylinder", prop_id,
+            Mgr.update_remotely("selected_obj_prop", "cone", prop_id,
                                 self.get_property(prop_id, True))
 
         obj_id = self.get_toplevel_object().get_id()
@@ -561,9 +735,9 @@ class Cylinder(Primitive):
 
             return change
 
-        elif prop_id == "radius":
+        elif prop_id == "radius_bottom":
 
-            change = self.set_radius(value)
+            change = self.set_bottom_radius(value)
 
             if change:
                 task = self.__update_size
@@ -571,6 +745,27 @@ class Cylinder(Primitive):
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
+
+                if not restore:
+                    task = self.get_geom_data_object().init_poly_normals
+                    PendingTasks.add(task, "upd_vert_normals", "object", id_prefix=obj_id)
+
+            return change
+
+        elif prop_id == "radius_top":
+
+            change = self.set_top_radius(value)
+
+            if change:
+                task = self.__update_size
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
+                self.get_model().update_group_bbox()
+                update_app()
+
+                if not restore:
+                    task = self.get_geom_data_object().init_poly_normals
+                    PendingTasks.add(task, "upd_vert_normals", "object", id_prefix=obj_id)
 
             return change
 
@@ -579,11 +774,16 @@ class Cylinder(Primitive):
             change = self.set_height(value)
 
             if change:
+
                 task = self.__update_size
                 sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
+
+                if not restore:
+                    task = self.get_geom_data_object().init_poly_normals
+                    PendingTasks.add(task, "upd_vert_normals", "object", id_prefix=obj_id)
 
             return change
 
@@ -612,8 +812,10 @@ class Cylinder(Primitive):
                 return self._segments
             else:
                 return {"count": self._segments, "pos_data": self.get_initial_coords()}
-        elif prop_id == "radius":
-            return self._radius
+        elif prop_id == "radius_bottom":
+            return self._bottom_radius
+        elif prop_id == "radius_top":
+            return self._top_radius
         elif prop_id == "height":
             return self._height
         elif prop_id == "smoothness":
@@ -621,13 +823,21 @@ class Cylinder(Primitive):
 
     def is_valid(self):
 
-        return min(self._radius, abs(self._height)) > .001
+        return min(max(self._bottom_radius, self._top_radius), abs(self._height)) > .001
 
     def finalize(self):
+
+        origin = self.get_origin()
+        render_state = origin.get_state()
+        render_state = render_state.remove_attrib(ShaderAttrib.get_class_type())
+        origin.set_state(render_state)
+        origin.clear_shader_input("bottom_radius")
+        origin.clear_shader_input("top_radius")
+        origin.clear_shader_input("height")
 
         self.__update_size()
 
         Primitive.finalize(self, update_poly_centers=False)
 
 
-MainObjects.add_class(CylinderManager)
+MainObjects.add_class(ConeManager)

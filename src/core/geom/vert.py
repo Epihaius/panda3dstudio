@@ -124,6 +124,15 @@ class Vertex(BaseObject):
 
         return self._pos
 
+    def get_initial_pos(self):
+
+        owner = self._geom_data_obj.get_owner()
+
+        if owner.get_type() != "editable_geom":
+            return owner.get_initial_pos(self._id)
+
+        return self._pos
+
     def get_center_pos(self, ref_node=None):
 
         if ref_node:

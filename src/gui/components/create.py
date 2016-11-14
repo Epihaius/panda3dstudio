@@ -31,8 +31,8 @@ class CreationManager(object):
 
         menubar.add_menu("create", "Create")
 
-        obj_types = ("box", "sphere", "cylinder")
-        accelerators = ("B", "S", "C")
+        obj_types = ("box", "sphere", "cylinder", "torus")
+        accelerators = ("B", "S", "C", "T")
         mod_code = wx.MOD_SHIFT | wx.MOD_CONTROL
         hotkeys = [(ord(accel), mod_code) for accel in accelerators]
 
@@ -40,6 +40,9 @@ class CreationManager(object):
             data = creation_data[obj_type]
             menubar.add_menu_item("create", obj_type, "Create %s\tSHIFT+CTRL+%s" % (data["name"], accel),
                                   data["handler"], hotkey)
+
+        data = creation_data["cone"]
+        menubar.add_menu_item("create", "cone", "Create %s" % data["name"], data["handler"])
 
         menubar.add_menu_item_separator("create")
 

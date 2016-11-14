@@ -149,10 +149,16 @@ class PropertyPanel(Panel):
 
         def set_obj_prop(obj_type, *args, **kwargs):
 
+            if GlobalData["active_creation_type"] != "":
+                return
+
             if obj_type:
                 self._properties[obj_type].set_object_property(*args, **kwargs)
 
         def check_selection_count():
+
+            if GlobalData["active_creation_type"] != "":
+                return
 
             obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
 
@@ -264,6 +270,9 @@ class PropertyPanel(Panel):
 
     def __set_object_name(self, name=None):
 
+        if GlobalData["active_creation_type"] != "":
+            return
+
         if name is None:
             self._name_field.show_text(False)
             return
@@ -291,6 +300,9 @@ class PropertyPanel(Panel):
 
     def __set_object_color(self, color_values):
 
+        if GlobalData["active_creation_type"] != "":
+            return
+
         self._color_picker.set_color(color_values)
 
     def __set_next_object_color(self):
@@ -314,6 +326,9 @@ class PropertyPanel(Panel):
         Mgr.update_remotely("selected_obj_prop", "tangent space", (flip_tan, flip_bitan))
 
     def __check_selection_count(self):
+
+        if GlobalData["active_creation_type"] != "":
+            return
 
         self._sel_obj_count = sel_count = GlobalData["selection_count"]
 
@@ -342,6 +357,9 @@ class PropertyPanel(Panel):
                 self.update_layout()
 
     def __check_selection_color_count(self):
+
+        if GlobalData["active_creation_type"] != "":
+            return
 
         if GlobalData["active_obj_level"] == "top":
             count = GlobalData["sel_color_count"]
@@ -393,10 +411,13 @@ class PropertyPanel(Panel):
 
     def show(self, obj_types):
 
+        creation_type = GlobalData["active_creation_type"]
+        new_types = set([creation_type]) if creation_type else set(obj_types)
+
         obj_type = obj_types[0] if len(obj_types) == 1 else ""
         props = self._properties
 
-        if (obj_type and obj_type not in props) or set(self._obj_types) == set(obj_types):
+        if (obj_type and obj_type not in props) or set(self._obj_types) == new_types:
             return
 
         prev_obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
@@ -404,7 +425,7 @@ class PropertyPanel(Panel):
         next_section_ids = props[obj_type].get_section_ids() if obj_type else []
         extra_section_ids = props[obj_type].get_extra_section_ids() if obj_type else []
 
-        in_creation_mode = GlobalData["active_creation_type"] != ""
+        in_creation_mode = creation_type != ""
 
         for section_id in next_section_ids:
             self.show_section(section_id, update=False)

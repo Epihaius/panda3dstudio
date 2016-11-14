@@ -56,6 +56,10 @@ class GeomDataOwner(BaseObject):
 
         return  self._geom_data_obj.get_selection(subobj_lvl)
 
+    def set_wireframe_color(self, color):
+
+        self._geom_data_obj.set_wireframe_color(color)
+
     def update_selection_state(self, is_selected=True):
 
         self._geom_data_obj.update_selection_state(is_selected)

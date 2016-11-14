@@ -285,9 +285,6 @@ class InputField(wx.PyWindow, FocusResetter):
         old_text = self._texts[self._value_id]
         input_text = t_ctrl.GetValue()
 
-        if input_text == old_text:
-            return
-
         value = self.__parse_input(self._value_id, input_text)
         accept = False
 

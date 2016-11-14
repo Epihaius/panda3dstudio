@@ -228,6 +228,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         del geoms["poly"]["sel_state"]
         geoms["poly"]["selected"] = None
         geoms["poly"]["unselected"] = None
+        self._toplvl_geom = None
+        self._toplvl_node = None
 
     def get_subobjects(self, subobj_type):
 
@@ -640,18 +642,59 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         self._origin = origin
         self.create_subobjects()
 
-    def set_position_data(self, pos_data):
+    def get_vertex_coords(self):
 
+        verts = self._subobjs["vert"]
+
+        return dict((vert_id, vert.get_pos()) for vert_id, vert in verts.iteritems())
+
+    def set_vertex_coords(self, coords):
+
+        verts = self._subobjs["vert"]
         node = self._toplvl_node
-        handle = node.modify_geom(0).modify_vertex_data().modify_array(0).modify_handle()
-        handle.set_data(pos_data)
+        vertex_data_top = node.modify_geom(0).modify_vertex_data()
+        pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
 
-    def get_position_data(self):
+        for vert_id, pos in coords.iteritems():
+            row = verts[vert_id].get_row_index()
+            pos_writer.set_row(row)
+            pos_writer.set_data3f(pos)
 
-        node = self._toplvl_node
-        pos_data = node.get_geom(0).get_vertex_data().get_array(0).get_handle().get_data()
+    def reposition_vertices(self, computation):
+        """ Change the positions of all vertices using the given computation """
 
-        return pos_data
+        verts = self._subobjs["vert"]
+        geoms = self._geoms
+        geom_node_top = self._toplvl_node
+        vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
+        pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
+
+        for vert in self._subobjs["vert"].itervalues():
+            row = vert.get_row_index()
+            old_pos = vert.get_initial_pos()
+            new_pos = computation(Point3(*old_pos))
+            pos_writer.set_row(row)
+            pos_writer.set_data3f(Point3(*new_pos))
+            vert.set_pos(Point3(*new_pos))
+
+        array = vertex_data_top.get_array(0)
+
+        for geom_type in ("poly", "poly_picking"):
+            vertex_data = self._vertex_data[geom_type]
+            vertex_data.set_array(0, array)
+
+        vertex_data = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, array)
+        vertex_data = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, array)
+
+        array = GeomVertexArrayData(array)
+        handle = array.modify_handle()
+        handle.set_data(handle.get_data() * 2)
+        vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, array)
+        vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, array)
 
     def bake_transform(self):
         """ Bake the origin's transform into the vertices and reset it to identity """
@@ -826,6 +869,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         if update_poly_centers:
             self.update_poly_centers()
 
+    def set_wireframe_color(self, color):
+
+        self._geoms["edge"]["pickable"].set_color(color)
+
     def update_selection_state(self, is_selected=True):
 
         geoms = self._geoms
@@ -838,7 +885,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 geoms["poly"]["pickable"].show(picking_masks)
                 geoms["edge"]["pickable"].hide(picking_masks)
 
-            geoms["edge"]["pickable"].set_color(1., 1., 1.)
+            self.set_wireframe_color((1., 1., 1., 1.))
 
         else:
 
@@ -846,7 +893,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 geoms["poly"]["pickable"].hide(picking_masks)
                 geoms["edge"]["pickable"].show(picking_masks)
 
-            geoms["edge"]["pickable"].set_color(self.get_toplevel_object().get_color())
+            self.set_wireframe_color(self.get_toplevel_object().get_color())
 
     def update_render_mode(self, is_selected):
 

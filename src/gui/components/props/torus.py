@@ -1,25 +1,26 @@
 from .base import *
 
 
-class CylinderProperties(BaseObject):
+class TorusProperties(BaseObject):
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
         self._checkboxes = {}
-        self._segments_default = {"circular": 3, "height": 1, "caps": 0}
+        self._segments_default = {"ring": 3, "section": 3}
 
-        section = panel.add_section("cylinder_props", "Cylinder properties")
+        section = panel.add_section("torus_props", "Torus properties")
         sizer = section.get_client_sizer()
 
         subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
         sizer.Add(subsizer)
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
-        for prop_id in ("radius", "height"):
-            section.add_text("%s:" % prop_id.title(), subsizer, sizer_args)
+        for spec in ("ring", "section"):
+            section.add_text("%s radius:" % spec.title(), subsizer, sizer_args)
             field = PanelInputField(panel, section, subsizer, 80)
+            prop_id = "radius_%s" % spec
             field.add_value(prop_id, "float", handler=self.__handle_value)
             field.show_value(prop_id)
             self._fields[prop_id] = field
@@ -31,7 +32,7 @@ class CylinderProperties(BaseObject):
         subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
         grp_sizer.Add(subsizer)
 
-        for spec in ("circular", "height", "caps"):
+        for spec in ("ring", "section"):
             prop_id = "segments_%s" % spec
             group.add_text("%s:" % spec.title(), subsizer, sizer_args)
             field = PanelInputField(panel, group, subsizer, 80)
@@ -39,14 +40,11 @@ class CylinderProperties(BaseObject):
             field.show_value(prop_id)
             self._fields[prop_id] = field
 
-        self._fields["radius"].set_input_parser("radius", self.__parse_radius)
-        self._fields["height"].set_input_parser("height", self.__parse_height)
-        parser = lambda segs: self.__parse_segments(segs, 3)
-        self._fields["segments_circular"].set_input_parser("segments_circular", parser)
-        parser = lambda segs: self.__parse_segments(segs, 1)
-        self._fields["segments_height"].set_input_parser("segments_height", parser)
-        parser = lambda segs: self.__parse_segments(segs, 0)
-        self._fields["segments_caps"].set_input_parser("segments_caps", parser)
+        for spec in ("ring", "section"):
+            prop_id = "radius_%s" % spec
+            self._fields[prop_id].set_input_parser(prop_id, self.__parse_radius)
+            prop_id = "segments_%s" % spec
+            self._fields[prop_id].set_input_parser(prop_id, self.__parse_segments)
 
         sizer.Add(wx.Size(0, 4))
 
@@ -72,7 +70,7 @@ class CylinderProperties(BaseObject):
             val = value
 
         if in_creation_mode:
-            Mgr.update_app("cylinder_prop_default", prop_id, val)
+            Mgr.update_app("torus_prop_default", prop_id, val)
             return
 
         Mgr.update_remotely("selected_obj_prop", prop_id, val)
@@ -84,21 +82,10 @@ class CylinderProperties(BaseObject):
         except:
             return None
 
-    def __parse_height(self, height):
+    def __parse_segments(self, segments):
 
         try:
-            value = float(eval(height))
-        except:
-            return None
-
-        sign = -1. if value < 0. else 1.
-
-        return max(.001, abs(value)) * sign
-
-    def __parse_segments(self, segments, segs_min):
-
-        try:
-            return max(segs_min, abs(int(eval(segments))))
+            return max(3, abs(int(eval(segments))))
         except:
             return None
 
@@ -108,7 +95,7 @@ class CylinderProperties(BaseObject):
 
     def get_section_ids(self):
 
-        return ["cylinder_props"] + self.get_extra_section_ids()
+        return ["torus_props"] + self.get_extra_section_ids()
 
     def get_extra_section_ids(self):
 
@@ -123,7 +110,7 @@ class CylinderProperties(BaseObject):
             self._checkboxes["smoothness"].set_checkmark_color(color.Get())
         elif prop_id == "segments":
             self._segments_default.update(value)
-            for spec in ("circular", "height", "caps"):
+            for spec in ("ring", "section"):
                 value_id = "segments_" + spec
                 field = self._fields[value_id]
                 field.show_text()
@@ -140,7 +127,7 @@ class CylinderProperties(BaseObject):
         if prop_id == "smoothness":
             self._checkboxes["smoothness"].check(value)
         elif prop_id == "segments":
-            for spec in ("circular", "height", "caps"):
+            for spec in ("ring", "section"):
                 value_id = "segments_" + spec
                 field = self._fields[value_id]
                 field.set_value(value_id, value[spec])
@@ -164,5 +151,5 @@ class CylinderProperties(BaseObject):
         self._checkboxes["smoothness"].set_checkmark_color(color)
 
 
-ObjectTypes.add_type("cylinder", "Cylinder")
-PropertyPanel.add_properties("cylinder", CylinderProperties)
+ObjectTypes.add_type("torus", "Torus")
+PropertyPanel.add_properties("torus", TorusProperties)

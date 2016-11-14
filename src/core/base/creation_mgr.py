@@ -58,6 +58,7 @@ class CreationPhaseManager(object):
             bind(state_id, binding_id, "mouse3-up", self.__end_creation)
 
             info_text = "move mouse to %s;" % status_text["phase%s" % (i + 1)]
+            get_command = lambda state_id: lambda: Mgr.enter_state(state_id)
 
             if i == len(creation_phases) - 1:
                 binding_id = "finalize %s creation" % self._obj_type
@@ -67,8 +68,7 @@ class CreationPhaseManager(object):
             else:
                 binding_id = "start %s creation phase %s" % (self._obj_type, i + 2)
                 next_state_id = "%s_creation_phase_%s" % (self._obj_type, i + 2)
-                bind(state_id, binding_id, "mouse1-up",
-                     lambda: Mgr.enter_state(next_state_id))
+                bind(state_id, binding_id, "mouse1-up", get_command(next_state_id))
                 info_text += " release LMB to set;"
 
             info_text += " RMB to cancel"

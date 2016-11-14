@@ -15,9 +15,6 @@ class TopLevelObject(BaseObject):
         state["_group_id"] = None
         del state["_pivot_gizmo"]
 
-        if self._has_color:
-            state["_color"] = None
-
         return state
 
     def __setstate__(self, state):
@@ -37,10 +34,6 @@ class TopLevelObject(BaseObject):
 
         self._prop_ids = ["name", "link", "selection_state", "tags",
                           "transform", "origin_transform"]
-
-        if has_color:
-            self._prop_ids.append("color")
-            self._color = None
 
         self._type = obj_type
         self._id = obj_id
@@ -561,36 +554,6 @@ class TopLevelObject(BaseObject):
 
         return self._pivot_gizmo
 
-    def set_color(self, color, update_app=True, apply_color=True):
-
-        if not self._has_color or self._color == color:
-            return False
-
-        self._color = color
-
-        if apply_color:
-            self._origin.set_color(color)
-
-        if update_app:
-
-            sel_colors = tuple(set(obj.get_color() for obj in Mgr.get("selection")
-                                   if obj.has_color()))
-            sel_color_count = len(sel_colors)
-
-            if sel_color_count == 1:
-                color = sel_colors[0]
-                color_values = [x for x in color][:3]
-                Mgr.update_remotely("selected_obj_color", color_values)
-
-            GlobalData["sel_color_count"] = sel_color_count
-            Mgr.update_app("sel_color_count")
-
-        return True
-
-    def get_color(self):
-
-        return self._color
-
     def has_color(self):
 
         return self._has_color
@@ -674,11 +637,6 @@ class TopLevelObject(BaseObject):
             task_id = "object_linking"
             PendingTasks.add(task, task_id, "object", id_prefix=self._id)
 
-        elif prop_id == "color":
-
-            update = True if restore else False
-            self.set_color(value, update_app=update)
-
         elif prop_id == "selection_state":
 
             if restore:
@@ -747,8 +705,6 @@ class TopLevelObject(BaseObject):
             return self._name.get_value()
         elif prop_id == "link":
             return self._parent_id, self._group_id
-        elif prop_id == "color":
-            return self._color
         elif prop_id == "selection_state":
             return self.is_selected()
         elif prop_id == "transform":

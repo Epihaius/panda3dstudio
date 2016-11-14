@@ -13,14 +13,10 @@ class BoxManager(PrimitiveManager):
         self._base_center = V3D()
         self._dragged_point = Point3()
 
-        axes = "xyz"
-        prop_types = ("size", "segments")
-        defaults = (1., 1)
+        for axis in "xyz":
+            self.set_property_default("size_%s" % axis, 1.)
 
-        for prop_type, value in zip(prop_types, defaults):
-            for axis in axes:
-                prop_id = "%s_%s" % (prop_type, axis)
-                self.set_property_default(prop_id, value)
+        self.set_property_default("segments", {"x": 1, "y": 1, "z": 1})
 
         Mgr.accept("inst_create_box", self.create_instantly)
         Mgr.accept("create_custom_box", self.__create_custom)
@@ -50,12 +46,7 @@ class BoxManager(PrimitiveManager):
 
         prim = Box(model)
         prop_defaults = self.get_property_defaults()
-        segments = {}
-
-        for axis in "xyz":
-            segments[axis] = prop_defaults["segments_%s" % axis]
-
-        prim.create(segments)
+        prim.create(prop_defaults["segments"])
 
         return prim
 
@@ -175,9 +166,8 @@ class Box(Primitive):
 
     def __init__(self, model):
 
-        prop_types = ("size", "segments")
-        axes = "xyz"
-        prop_ids = ["%s_%s" % (prop_type, axis) for prop_type in prop_types for axis in axes]
+        prop_ids = ["size_%s" % axis for axis in "xyz"]
+        prop_ids.append("segments")
 
         Primitive.__init__(self, "box", model, prop_ids)
 
@@ -311,14 +301,14 @@ class Box(Primitive):
         Primitive.create(self)
 
         self.get_origin().set_sz(.001)
-        self.update_init_pos_data()
+        self.update_initial_coords()
 
-    def set_segments(self, axis, segments):
+    def set_segments(self, segments):
 
-        if self._segments[axis] == segments:
+        if self._segments == segments:
             return False
 
-        self._segments[axis] = segments
+        self._segments = segments
 
         return True
 
@@ -331,7 +321,7 @@ class Box(Primitive):
         origin = self.get_origin()
         origin.set_scale(sx, sy, abs(sz))
         origin.set_z(sz if sz < 0. else 0.)
-        self.reset_init_pos_data()
+        self.reset_initial_coords()
         self.get_geom_data_object().bake_transform()
         self.get_geom_data_object().update_poly_centers()
         self.get_model().get_bbox().update(*origin.get_tight_bounds())
@@ -396,7 +386,7 @@ class Box(Primitive):
             data = {}
             data[prop_id] = {"main": self.get_property(prop_id)}
 
-            if "segments" in prop_id:
+            if prop_id == "segments":
                 data.update(self.get_geom_data_object().get_data_to_store("subobj_change",
                                                                           info="rebuild"))
             elif "size" in prop_id:
@@ -416,18 +406,20 @@ class Box(Primitive):
 
         obj_id = self.get_toplevel_object().get_id()
 
-        if "segments" in prop_id:
+        if prop_id == "segments":
 
-            axis = prop_id.split("_")[1]
-            change = self.set_segments(axis, value["count"] if restore else value)
+            if restore:
+                segments = value["count"]
+                self.restore_initial_coords(value["pos_data"])
+            else:
+                segments = self._segments.copy()
+                segments.update(value)
+
+            change = self.set_segments(segments)
 
             if change:
 
-                if restore:
-                    task = lambda: self.restore_init_pos_data(value["pos_data"])
-                    sort = PendingTasks.get_sort("upd_vert_normals", "object") + 1
-                    PendingTasks.add(task, "restore_pos_data","object", sort, id_prefix=obj_id)
-                else:
+                if not restore:
                     self.recreate_geometry()
 
                 update_app()
@@ -441,7 +433,7 @@ class Box(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -454,12 +446,11 @@ class Box(Primitive):
 
     def get_property(self, prop_id, for_remote_update=False):
 
-        if "segments" in prop_id:
-            axis = prop_id.split("_")[1]
+        if prop_id == "segments":
             if for_remote_update:
-                return self._segments[axis]
+                return self._segments
             else:
-                return {"count": self._segments[axis], "pos_data": self.get_init_pos_data()}
+                return {"count": self._segments, "pos_data": self.get_initial_coords()}
         elif "size" in prop_id:
             axis = prop_id.split("_")[1]
             return self._size[axis]

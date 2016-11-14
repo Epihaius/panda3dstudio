@@ -70,6 +70,8 @@ class GeomHistoryBase(BaseObject):
             if info == "rebuild":
 
                 data.update(self.get_property_to_store("smoothing"))
+                toplvl_obj = self.get_toplevel_object()
+                data["tangent space"] = {"main": toplvl_obj.get_property("tangent space")}
 
             elif deleted_polys:
 
@@ -763,7 +765,7 @@ class GeomHistoryBase(BaseObject):
 
             for vert in poly_verts:
                 vert.offset_row_index(row_index_offset)
-                pos = vert.get_pos()
+                pos = vert.get_initial_pos()
                 pos_writer.add_data3f(pos)
                 col_writer.add_data4f(picking_color)
 

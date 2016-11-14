@@ -110,6 +110,7 @@ class SceneManager(BaseObject):
             Mgr.update_locally(x, x_type, obj)
             Mgr.update_remotely(x, x_type, name)
 
+        PendingTasks.handle(["object", "ui"], True)
         Mgr.do("set_view_data", scene_data["view_data"])
         Mgr.do("set_material_library", scene_data["material_library"])
 

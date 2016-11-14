@@ -29,6 +29,7 @@ class Model(TopLevelObject):
         state = TopLevelObject.__getstate__(self)
 
         state["_geom_obj"] = None
+        state["_color"] = None
         state["_material"] = None
 
         return state
@@ -43,7 +44,8 @@ class Model(TopLevelObject):
 
         TopLevelObject.__init__(self, "model", model_id, name, origin_pos, has_color=True)
 
-        self.get_property_ids().extend(["material", "tangent space"])
+        self.get_property_ids().extend(["color", "material", "tangent space"])
+        self._color = None
         self._material = None
         self._geom_obj = None
         self._flip_tangent = False
@@ -68,7 +70,36 @@ class Model(TopLevelObject):
 
     def set_color(self, color, update_app=True):
 
-        return TopLevelObject.set_color(self, color, update_app, not self._material)
+        if self._color == color:
+            return False
+
+        self._color = color
+
+        if not self._material:
+            self.get_origin().set_color(color)
+
+        if not self.is_selected() and self._geom_obj:
+            self._geom_obj.set_wireframe_color(color)
+
+        if update_app:
+
+            sel_colors = tuple(set(obj.get_color() for obj in Mgr.get("selection")
+                                   if obj.has_color()))
+            sel_color_count = len(sel_colors)
+
+            if sel_color_count == 1:
+                color = sel_colors[0]
+                color_values = [x for x in color][:3]
+                Mgr.update_remotely("selected_obj_color", color_values)
+
+            GlobalData["sel_color_count"] = sel_color_count
+            Mgr.update_app("sel_color_count")
+
+        return True
+
+    def get_color(self):
+
+        return self._color
 
     def set_material(self, material, restore=""):
 
@@ -214,42 +245,39 @@ class Model(TopLevelObject):
 
     def set_property(self, prop_id, value, restore=""):
 
-        if prop_id == "material":
+        if prop_id == "color":
+            update = True if restore else False
+            return self.set_color(value, update_app=update)
+        elif prop_id == "material":
             if restore:
                 task = lambda: self.set_material(value, restore)
                 task_id = "set_material"
                 PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
-                return
             else:
                 return self.set_material(value, restore)
-
-        if prop_id == "tangent space":
+        elif prop_id == "tangent space":
             if restore:
-                task = lambda: self.update_tangent_space(*value)
+                task = lambda: self.restore_tangent_space(*value)
                 task_id = "upd_tangent_space"
                 PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
-                return
             else:
                 return self.update_tangent_space(*value)
-
-        if prop_id in TopLevelObject.get_property_ids(self):
+        elif prop_id in TopLevelObject.get_property_ids(self):
             return TopLevelObject.set_property(self, prop_id, value, restore)
-
-        if prop_id in self._geom_obj.get_property_ids() + ["editable state"]:
+        elif prop_id in self._geom_obj.get_property_ids() + ["editable state"]:
             return self._geom_obj.set_property(prop_id, value)
 
     def get_property(self, prop_id, for_remote_update=False):
 
-        if prop_id == "material":
+        if prop_id == "color":
+            return self._color
+        elif prop_id == "material":
             return self._material
-
-        if prop_id == "tangent space":
+        elif prop_id == "tangent space":
             return self._flip_tangent, self._flip_bitangent
-
-        if prop_id in TopLevelObject.get_property_ids(self):
+        elif prop_id in TopLevelObject.get_property_ids(self):
             return TopLevelObject.get_property(self, prop_id, for_remote_update)
-
-        if prop_id in self._geom_obj.get_property_ids():
+        elif prop_id in self._geom_obj.get_property_ids():
             return self._geom_obj.get_property(prop_id, for_remote_update)
 
     def get_type_property_ids(self):
@@ -320,6 +348,14 @@ class Model(TopLevelObject):
             self._geom_obj.update_tangent_space(flip_tangent, flip_bitangent)
 
         return True
+
+    def restore_tangent_space(self, flip_tangent, flip_bitangent):
+
+        self._flip_tangent = flip_tangent
+        self._flip_bitangent = flip_bitangent
+
+        if self._geom_obj:
+            self._geom_obj.update_tangent_space(flip_tangent, flip_bitangent)
 
     def display_link_effect(self):
         """

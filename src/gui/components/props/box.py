@@ -7,6 +7,7 @@ class BoxProperties(BaseObject):
 
         self._panel = panel
         self._fields = {}
+        self._segments_default = {"x": 1, "y": 1, "z": 1}
 
         section = panel.add_section("box_props", "Box properties")
 
@@ -37,11 +38,22 @@ class BoxProperties(BaseObject):
 
     def __handle_value(self, value_id, value):
 
-        if GlobalData["active_creation_type"]:
-            Mgr.update_app("box_prop_default", value_id, value)
+        in_creation_mode = GlobalData["active_creation_type"]
+
+        if "segments" in value_id:
+            prop_id, axis = value_id.split("_")
+            val = self._segments_default if in_creation_mode else {}
+            val[axis] = value
+            val = val.copy()
+        else:
+            prop_id = value_id
+            val = value
+
+        if in_creation_mode:
+            Mgr.update_app("box_prop_default", prop_id, val)
             return
 
-        Mgr.update_remotely("selected_obj_prop", value_id, value)
+        Mgr.update_remotely("selected_obj_prop", prop_id, val)
 
     def __parse_dimension(self, dimension):
 
@@ -82,18 +94,33 @@ class BoxProperties(BaseObject):
 
     def set_object_property_default(self, prop_id, value):
 
-        field = self._fields[prop_id]
-        field.show_text()
-        field.set_value(prop_id, value)
-        field.set_text_color(wx.Colour(255, 255, 0))
+        if prop_id == "segments":
+            self._segments_default.update(value)
+            for axis in "xyz":
+                value_id = "segments_" + axis
+                field = self._fields[value_id]
+                field.show_text()
+                field.set_value(value_id, value[axis])
+                field.set_text_color(wx.Colour(255, 255, 0))
+        else:
+            field = self._fields[prop_id]
+            field.show_text()
+            field.set_value(prop_id, value)
+            field.set_text_color(wx.Colour(255, 255, 0))
 
     def set_object_property(self, prop_id, value):
 
-        if prop_id not in self._fields:
+        if not (prop_id == "segments" or prop_id in self._fields):
             return
 
-        field = self._fields[prop_id]
-        field.set_value(prop_id, value)
+        if prop_id == "segments":
+            for axis in "xyz":
+                value_id = "segments_" + axis
+                field = self._fields[value_id]
+                field.set_value(value_id, value[axis])
+        else:
+            field = self._fields[prop_id]
+            field.set_value(prop_id, value)
 
     def check_selection_count(self):
 

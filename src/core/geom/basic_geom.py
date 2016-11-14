@@ -30,6 +30,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
 class BasicGeom(BaseObject):
 
+    _render_state_ids = {}
     _render_states = {}
 
     @classmethod
@@ -49,21 +50,25 @@ class BasicGeom(BaseObject):
         attrib = RenderModeAttrib.make(RenderModeAttrib.M_filled_wireframe, 1.,
                                        False, (1., 1., 1., 1.))
         state_filled_wire_white = state_empty.add_attrib(attrib)
+        render_state_ids = cls._render_state_ids
+        render_state_ids["shaded"] = {}
+        render_state_ids["shaded"]["unselected"] = "filled_unselected"
+        render_state_ids["shaded"]["selected"] = "filled_selected"
+        render_state_ids["flat"] = "flat"
+        render_state_ids["wire"] = {}
+        render_state_ids["wire"]["unselected"] = "wire_unselected"
+        render_state_ids["wire"]["selected"] = "wire_selected"
+        render_state_ids["shaded+wire"] = {}
+        render_state_ids["shaded+wire"]["unselected"] = "filled_wire_unselected"
+        render_state_ids["shaded+wire"]["selected"] = "filled_wire_selected"
         render_states = cls._render_states
-        render_states["shaded"] = {}
-        render_states["shaded"]["unselected"] = state_empty
-        render_states["shaded"]["selected"] = state_empty
+        render_states["filled_unselected"] = state_empty
+        render_states["filled_selected"] = state_empty
         render_states["flat"] = state_flat
-        render_states["wire"] = {}
-        render_states["wire"]["unselected"] = "wire_unselected"
-        render_states["wire"]["selected"] = state_wire_white
-        render_states["shaded+wire"] = {}
-        render_states["shaded+wire"]["unselected"] = "filled_wire_unselected"
-        render_states["shaded+wire"]["selected"] = state_filled_wire_white
+        render_states["wire_selected"] = state_wire_white
+        render_states["filled_wire_selected"] = state_filled_wire_white
 
-    def __get_render_state(self, render_state_id):
-
-        color = self._model.get_color()
+    def __make_wireframe_render_state(self, render_state_id, color):
 
         if render_state_id == "wire_unselected":
             render_state = self._render_states["flat"]
@@ -365,6 +370,15 @@ class BasicGeom(BaseObject):
 
         return []
 
+    def set_wireframe_color(self, color):
+
+        render_mode = GlobalData["render_mode"]
+        state_id = self._render_state_ids[render_mode]["unselected"]
+
+        if state_id in ("wire_unselected", "filled_wire_unselected"):
+            render_state = self.__make_wireframe_render_state(state_id, color)
+            self._geom.set_state(render_state)
+
     def update_selection_state(self, is_selected=True):
 
         render_mode = GlobalData["render_mode"]
@@ -378,10 +392,13 @@ class BasicGeom(BaseObject):
 
         render_mode = GlobalData["render_mode"]
         selection_state = "selected" if is_selected else "unselected"
-        render_state = self._render_states[render_mode][selection_state]
+        state_id = self._render_state_ids[render_mode][selection_state]
 
-        if render_state in ("wire_unselected", "filled_wire_unselected"):
-            render_state = self.__get_render_state(render_state)
+        if state_id in ("wire_unselected", "filled_wire_unselected"):
+            color = self._model.get_color()
+            render_state = self.__make_wireframe_render_state(state_id, color)
+        else:
+            render_state = self._render_states[state_id]
 
         self._geom.set_state(render_state)
         self._geom.set_two_sided(GlobalData["two_sided"])

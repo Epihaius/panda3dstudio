@@ -283,7 +283,7 @@ class Sphere(Primitive):
 
         Primitive.create(self)
 
-        self.update_init_pos_data()
+        self.update_initial_coords()
 
     def set_segments(self, segments):
 
@@ -298,7 +298,7 @@ class Sphere(Primitive):
 
         r = self._radius
         self.get_origin().set_scale(r)
-        self.reset_init_pos_data()
+        self.reset_initial_coords()
         self.get_geom_data_object().bake_transform()
         self.get_geom_data_object().update_poly_centers()
         self.get_model().get_bbox().update(*self.get_origin().get_tight_bounds())
@@ -358,15 +358,14 @@ class Sphere(Primitive):
 
         if prop_id == "segments":
 
+            if restore:
+                self.restore_initial_coords(value["pos_data"])
+
             change = self.set_segments(value["count"] if restore else value)
 
             if change:
 
-                if restore:
-                    task = lambda: self.restore_init_pos_data(value["pos_data"])
-                    sort = PendingTasks.get_sort("upd_vert_normals", "object") + 1
-                    PendingTasks.add(task, "restore_pos_data", "object", sort, id_prefix=obj_id)
-                else:
+                if not restore:
                     self.recreate_geometry()
 
                 update_app()
@@ -410,7 +409,7 @@ class Sphere(Primitive):
             if for_remote_update:
                 return self._segments
             else:
-                return {"count": self._segments, "pos_data": self.get_init_pos_data()}
+                return {"count": self._segments, "pos_data": self.get_initial_coords()}
         elif prop_id == "radius":
             return self._radius
         elif prop_id == "smoothness":
