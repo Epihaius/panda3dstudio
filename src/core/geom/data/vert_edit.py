@@ -8,7 +8,7 @@ class VertexEditBase(BaseObject):
         selected_vert_ids = self._selected_subobj_ids["vert"]
 
         if not selected_vert_ids:
-            return False
+            return
 
         verts = self._subobjs["vert"]
         merged_verts = self._merged_verts
@@ -56,42 +56,69 @@ class VertexEditBase(BaseObject):
                 new_merged_edge = Mgr.do("create_merged_edge", self, edge_id)
                 merged_edges[edge_id] = new_merged_edge
 
-        if change:
+        if not change:
+            return
 
-            Mgr.do("update_active_selection")
+        progress_steps = len(merged_verts_to_resmooth) // 20
 
-            self._update_vertex_normals(merged_verts_to_resmooth)
+        yield True, progress_steps
 
-            self._update_verts_to_transform("vert")
+        Mgr.do("update_active_selection")
 
-            if update_edges_to_transf:
-                self._update_verts_to_transform("edge")
-            if update_polys_to_transf:
-                self._update_verts_to_transform("poly")
+        for step in self._update_vertex_normals(merged_verts_to_resmooth):
+            yield
 
-        return change
+        self._update_verts_to_transform("vert")
+
+        if update_edges_to_transf:
+            self._update_verts_to_transform("edge")
+        if update_polys_to_transf:
+            self._update_verts_to_transform("poly")
 
 
 class VertexEditManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.add_app_updater("vert_break", self.__break_vertices)
+        Mgr.add_app_updater("vert_break", self.__do_break_vertices)
 
     def __break_vertices(self):
 
         selection = Mgr.get("selection", "top")
         changed_objs = {}
+        progress_steps = 0
+        handlers = []
 
         for model in selection:
 
             geom_data_obj = model.get_geom_object().get_geom_data_object()
+            handler = geom_data_obj.break_vertices()
+            change = False
+            steps = 0
 
-            if geom_data_obj.break_vertices():
+            for result in handler:
+                if result:
+                    change, steps = result
+                    handlers.append(handler)
+                    break
+
+            if change:
                 changed_objs[model.get_id()] = geom_data_obj
+                progress_steps += steps
 
         if not changed_objs:
-            return
+            yield False
+
+        gradual = progress_steps > 20
+
+        if gradual:
+            Mgr.show_screenshot()
+            GlobalData["progress_steps"] = progress_steps
+
+        for handler in handlers:
+            for step in handler:
+                if gradual:
+                    yield True
 
         Mgr.do("update_history_time")
         obj_data = {}
@@ -102,6 +129,16 @@ class VertexEditManager(BaseObject):
         event_descr = "Break vertex selection"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        yield False
+
+    def __do_break_vertices(self):
+
+        process = self.__break_vertices()
+
+        if process.next():
+            descr = "Updating geometry..."
+            Mgr.do_gradually(process, "vert_break", descr)
 
 
 MainObjects.add_class(VertexEditManager)

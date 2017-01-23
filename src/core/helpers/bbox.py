@@ -14,7 +14,7 @@ class BBoxEdgeManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         bbox_edge = BBoxEdge(bbox, axis, corner_index, picking_col_id)
 
-        return bbox_edge, picking_col_id
+        return bbox_edge
 
 
 class BBoxEdge(BaseObject):
@@ -25,6 +25,10 @@ class BBoxEdge(BaseObject):
         self._axis = axis
         self._corner_index = corner_index
         self._picking_col_id = picking_col_id
+
+    def __del__(self):
+
+        logging.debug('BBoxEdge garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -160,6 +164,13 @@ class BoundingBox(BaseObject):
 
     original = property(__get_original)
 
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        state["_is_registered"] = False
+
+        return state
+
     def __init__(self, owner, color):
 
         self._owner = owner
@@ -185,13 +196,34 @@ class BoundingBox(BaseObject):
 
                 self._edges[color_id] = edge
 
-    def destroy(self):
+        self._is_registered = False
 
-        self.unregister()
+    def __del__(self):
+
+        logging.info('BoundingBox garbage-collected.')
+
+    def destroy(self, unregister=True):
+
+        if unregister:
+            self.unregister()
 
         self._edges = {}
         self._origin.remove_node()
         self._origin = None
+
+    def register(self, restore=True):
+
+        if not self._is_registered:
+            obj_type = "bbox_edge"
+            Mgr.do("register_%s_objs" % obj_type, self._edges.itervalues(), restore)
+            self._is_registered = True
+
+    def unregister(self):
+
+        if self._is_registered:
+            obj_type = "bbox_edge"
+            Mgr.do("unregister_%s_objs" % obj_type, self._edges.itervalues())
+            self._is_registered = False
 
     def get_origin(self):
 
@@ -210,16 +242,6 @@ class BoundingBox(BaseObject):
     def get_toplevel_object(self, get_group=False):
 
         return self._owner.get_toplevel_object(get_group)
-
-    def register(self):
-
-        obj_type = "bbox_edge"
-        Mgr.do("register_%s_objs" % obj_type, self._edges.itervalues())
-
-    def unregister(self):
-
-        obj_type = "bbox_edge"
-        Mgr.do("unregister_%s_objs" % obj_type, self._edges.itervalues())
 
     def update(self, point_min, point_max):
 

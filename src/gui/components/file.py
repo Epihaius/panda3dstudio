@@ -5,7 +5,6 @@ class FileManager(object):
 
     def __init__(self, menubar):
 
-        self._filename = ""
         file_data = {}
 
         handlers = {
@@ -62,6 +61,7 @@ class FileManager(object):
         handler = Mgr.get("main_window").Close
         menubar.add_menu_item("file", "exit", "Exit\tALT+F4", handler)
 
+        Mgr.add_app_updater("scene_label", self.__set_scene_label)
         Mgr.add_app_updater("unsaved_scene", self.__set_scene_as_unsaved)
 
     def __reset_scene(self):
@@ -82,8 +82,10 @@ class FileManager(object):
                 return
 
         Mgr.update_app("scene", "reset")
-        self._filename = ""
-        Mgr.do("set_scene_label", "New")
+
+    def __set_scene_label(self, label):
+
+        Mgr.do("set_scene_label", label)
 
     def __load_scene(self):
 
@@ -104,21 +106,22 @@ class FileManager(object):
 
         if filename:
             Mgr.update_app("scene", "load", filename)
-            self._filename = filename
-            Mgr.do("set_scene_label", self._filename)
+            Mgr.do("set_scene_label", filename)
 
         if GlobalData["ctrl_down"]:
             GlobalData["ctrl_down"] = False
 
     def __save_scene(self):
 
-        if self._filename:
+        open_file = GlobalData["open_file"]
+
+        if open_file:
 
             if not GlobalData["unsaved_scene"]:
                 return True
 
-            Mgr.update_app("scene", "save", self._filename)
-            Mgr.do("set_scene_label", self._filename)
+            Mgr.update_app("scene", "save", open_file)
+            Mgr.do("set_scene_label", open_file)
 
             if GlobalData["ctrl_down"]:
                 GlobalData["ctrl_down"] = False
@@ -129,7 +132,8 @@ class FileManager(object):
 
     def __save_scene_as(self):
 
-        default_filename = self._filename if self._filename else ""
+        open_file = GlobalData["open_file"]
+        default_filename = open_file if open_file else ""
         filename = wx.FileSelector("Save scene as",
                                    "", default_filename, "p3ds", "*.p3ds",
                                    wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
@@ -139,8 +143,7 @@ class FileManager(object):
 
         if filename:
             Mgr.update_app("scene", "save", filename)
-            self._filename = filename
-            Mgr.do("set_scene_label", self._filename)
+            Mgr.do("set_scene_label", filename)
             return True
 
         return False
@@ -173,23 +176,26 @@ class FileManager(object):
 
     def __save_scene_incrementally(self):
 
-        if not self._filename:
+        open_file = GlobalData["open_file"]
+
+        if not open_file:
             return
 
-        dirname, tail = os.path.split(self._filename)
+        dirname, tail = os.path.split(open_file)
         basename, ext = os.path.splitext(tail)
         names = [os.path.splitext(name)[0] for name in os.listdir(dirname)
                  if os.path.splitext(name)[1] == ext]
         namestring = "\n".join(names)
         filename = self.__get_incremented_filename(basename, namestring)
-        self._filename = os.path.join(dirname, filename + ext)
+        path = os.path.join(dirname, filename + ext)
 
-        Mgr.update_app("scene", "save", self._filename)
-        Mgr.do("set_scene_label", self._filename)
+        Mgr.update_app("scene", "save", path)
+        Mgr.do("set_scene_label", path)
 
     def __set_scene_as_unsaved(self):
 
-        scene_label = (self._filename if self._filename else "New")
+        open_file = GlobalData["open_file"]
+        scene_label = (open_file if open_file else "New")
 
         if GlobalData["unsaved_scene"]:
             scene_label += "*"
@@ -228,14 +234,26 @@ class FileManager(object):
 
         if GlobalData["unsaved_scene"]:
 
-            answer = wx.MessageBox("Save changes to current scene before exiting?",
-                                   "Save changes",
-                                   wx.YES_NO | wx.CANCEL | wx.ICON_EXCLAMATION)
+            if GlobalData["long_process_running"]:
 
-            if answer == wx.YES:
-                if not self.__save_scene():
+                answer = wx.MessageBox("Changes to the current scene cannot be saved right now!"\
+                                       + "\n\nExit anyway?",
+                                       "Exit",
+                                       wx.YES_NO | wx.ICON_EXCLAMATION)
+
+                if answer == wx.NO:
                     return False
-            elif answer == wx.CANCEL:
-                return False
+
+            else:
+
+                answer = wx.MessageBox("Save changes to current scene before exiting?",
+                                       "Save changes",
+                                       wx.YES_NO | wx.CANCEL | wx.ICON_EXCLAMATION)
+
+                if answer == wx.YES:
+                    if not self.__save_scene():
+                        return False
+                elif answer == wx.CANCEL:
+                    return False
 
         return True

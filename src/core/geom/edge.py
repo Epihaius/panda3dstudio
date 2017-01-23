@@ -16,7 +16,7 @@ class EdgeManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         edge = Edge(edge_id, picking_col_id, geom_data_obj, verts)
 
-        return edge, picking_col_id
+        return edge
 
     def __create_merged_edge(self, geom_data_obj, edge_id=None):
 

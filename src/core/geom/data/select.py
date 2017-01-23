@@ -19,13 +19,18 @@ class GeomSelectionBase(BaseObject):
         self._poly_selection_data = {"selected": [], "unselected": []}
         self._selected_subobj_ids = {"vert": [], "edge": [], "poly": []}
 
-    def set_selected(self, subobj, is_selected=True, update_verts_to_transf=True,
-                     selection_colors=None):
+    def update_selection(self, subobj_type, subobjs_to_select, subobjs_to_deselect,
+                         update_verts_to_transf=True, selection_colors=None):
 
-        subobj_type = subobj.get_type()
-        subobj_id = subobj.get_id()
         selected_subobj_ids = self._selected_subobj_ids[subobj_type]
         geoms = self._geoms[subobj_type]
+        selected_subobjs = [subobj for subobj in subobjs_to_select
+                            if subobj.get_id() not in selected_subobj_ids]
+        deselected_subobjs = [subobj for subobj in subobjs_to_deselect
+                              if subobj.get_id() in selected_subobj_ids]
+
+        if not (selected_subobjs or deselected_subobjs):
+            return False
 
         if subobj_type == "poly":
 
@@ -34,125 +39,111 @@ class GeomSelectionBase(BaseObject):
             sel_data = self._poly_selection_data
             data_selected = sel_data["selected"]
             data_unselected = sel_data["unselected"]
+            prim = geom_selected.node().modify_geom(0).modify_primitive(0)
+            array = prim.modify_vertices()
+            stride = array.get_array_format().get_stride()
+            handle_sel = array.modify_handle()
+            prim = geom_unselected.node().modify_geom(0).modify_primitive(0)
+            handle_unsel = prim.modify_vertices().modify_handle()
+            row_ranges_sel = []
+            row_ranges_unsel = []
+
+            for poly in selected_subobjs:
+                selected_subobj_ids.append(poly.get_id())
+                start = data_unselected.index(poly[0]) * 3
+                size = len(poly)
+                row_ranges_unsel.append((start, size, poly))
+
+            for poly in deselected_subobjs:
+                selected_subobj_ids.remove(poly.get_id())
+                start = data_selected.index(poly[0]) * 3
+                size = len(poly)
+                row_ranges_sel.append((start, size, poly))
+
+            row_ranges_sel.sort(reverse=True)
+            row_ranges_unsel.sort(reverse=True)
+            subdata_sel = ""
+            subdata_unsel = ""
+
+            for start, size, poly in row_ranges_unsel:
+
+                for vert_ids in poly:
+                    data_unselected.remove(vert_ids)
+
+                data_selected.extend(poly[:])
+
+                subdata_unsel += handle_unsel.get_subdata(start * stride, size * stride)
+                handle_unsel.set_subdata(start * stride, size * stride, "")
+
+            handle_sel.set_data(handle_sel.get_data() + subdata_unsel)
+
+            for start, size, poly in row_ranges_sel:
+
+                for vert_ids in poly:
+                    data_selected.remove(vert_ids)
+
+                data_unselected.extend(poly[:])
+
+                subdata_sel += handle_sel.get_subdata(start * stride, size * stride)
+                handle_sel.set_subdata(start * stride, size * stride, "")
+
+            handle_unsel.set_data(handle_unsel.get_data() + subdata_sel)
 
         else:
 
+            merged_subobjs = self._merged_verts if subobj_type == "vert" else self._merged_edges
+            selected_subobjs = set(merged_subobjs[subobj.get_id()] for subobj in selected_subobjs)
+            deselected_subobjs = set(merged_subobjs[subobj.get_id()] for subobj in deselected_subobjs)
+
             sel_state_geom = geoms["sel_state"]
+            vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
+            col_writer = GeomVertexWriter(vertex_data, "color")
 
             if selection_colors:
                 sel_colors = selection_colors
             else:
                 sel_colors = Mgr.get("subobj_selection_colors")[subobj_type]
 
-        if is_selected:
-
-            if subobj_id in selected_subobj_ids:
-                return False
+            color_sel = sel_colors["selected"]
+            color_unsel = sel_colors["unselected"]
 
             if subobj_type == "vert":
 
-                merged_vert = self._merged_verts[subobj_id]
-                selected_subobj_ids.extend(merged_vert[:])
+                for merged_vert in selected_subobjs:
 
-                vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
-                col_writer = GeomVertexWriter(vertex_data, "color")
-                color = sel_colors["selected"]
+                    selected_subobj_ids.extend(merged_vert[:])
 
-                for row_index in merged_vert.get_row_indices():
-                    col_writer.set_row(row_index)
-                    col_writer.set_data4f(color)
+                    for row_index in merged_vert.get_row_indices():
+                        col_writer.set_row(row_index)
+                        col_writer.set_data4f(color_sel)
 
-            elif subobj_type == "edge":
+                for merged_vert in deselected_subobjs:
 
-                merged_edge = self._merged_edges[subobj_id]
-                selected_subobj_ids.extend(merged_edge[:])
+                    for v_id in merged_vert:
+                        selected_subobj_ids.remove(v_id)
 
-                vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
-                col_writer = GeomVertexWriter(vertex_data, "color")
-                color = sel_colors["selected"]
-
-                for row_index in merged_edge.get_row_indices():
-                    col_writer.set_row(row_index)
-                    col_writer.set_data4f(color)
-
-            elif subobj_type == "poly":
-
-                selected_subobj_ids.append(subobj_id)
-
-                start = data_unselected.index(subobj[0]) * 3
-                size = len(subobj)
-
-                for vert_ids in subobj:
-                    data_unselected.remove(vert_ids)
-
-                data_selected.extend(subobj[:])
-                prim = geom_unselected.node().modify_geom(0).modify_primitive(0)
-                array = prim.modify_vertices()
-                stride = array.get_array_format().get_stride()
-                handle = array.modify_handle()
-                data = handle.get_subdata(start * stride, size * stride)
-                handle.set_subdata(start * stride, size * stride, "")
-
-                prim = geom_selected.node().modify_geom(0).modify_primitive(0)
-                handle = prim.modify_vertices().modify_handle()
-                handle.set_data(handle.get_data() + data)
-
-        else:
-
-            if subobj_id not in selected_subobj_ids:
-                return False
-
-            if subobj_type == "vert":
-
-                merged_vert = self._merged_verts[subobj_id]
-
-                for v_id in merged_vert:
-                    selected_subobj_ids.remove(v_id)
-
-                vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
-                col_writer = GeomVertexWriter(vertex_data, "color")
-                color = sel_colors["unselected"]
-
-                for row_index in merged_vert.get_row_indices():
-                    col_writer.set_row(row_index)
-                    col_writer.set_data4f(color)
+                    for row_index in merged_vert.get_row_indices():
+                        col_writer.set_row(row_index)
+                        col_writer.set_data4f(color_unsel)
 
             elif subobj_type == "edge":
 
-                merged_edge = self._merged_edges[subobj_id]
+                for merged_edge in selected_subobjs:
 
-                for e_id in merged_edge:
-                    selected_subobj_ids.remove(e_id)
+                    selected_subobj_ids.extend(merged_edge[:])
 
-                vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
-                col_writer = GeomVertexWriter(vertex_data, "color")
-                color = sel_colors["unselected"]
+                    for row_index in merged_edge.get_row_indices():
+                        col_writer.set_row(row_index)
+                        col_writer.set_data4f(color_sel)
 
-                for row_index in merged_edge.get_row_indices():
-                    col_writer.set_row(row_index)
-                    col_writer.set_data4f(color)
+                for merged_edge in deselected_subobjs:
 
-            elif subobj_type == "poly":
+                    for e_id in merged_edge:
+                        selected_subobj_ids.remove(e_id)
 
-                selected_subobj_ids.remove(subobj_id)
-
-                start = data_selected.index(subobj[0]) * 3
-                size = len(subobj)
-
-                for vert_ids in subobj:
-                    data_selected.remove(vert_ids)
-
-                data_unselected.extend(subobj[:])
-                prim = geom_selected.node().modify_geom(0).modify_primitive(0)
-                array = prim.modify_vertices()
-                stride = array.get_array_format().get_stride()
-                handle = array.modify_handle()
-                data = handle.get_subdata(start * stride, size * stride)
-                handle.set_subdata(start * stride, size * stride, "")
-
-                prim = geom_unselected.node().modify_geom(0).modify_primitive(0)
-                handle = prim.modify_vertices().modify_handle()
-                handle.set_data(handle.get_data() + data)
+                    for row_index in merged_edge.get_row_indices():
+                        col_writer.set_row(row_index)
+                        col_writer.set_data4f(color_unsel)
 
         if update_verts_to_transf:
             self._update_verts_to_transform(subobj_type)
@@ -222,18 +213,6 @@ class GeomSelectionBase(BaseObject):
         edges = subobjs["edge"]
         polys = subobjs["poly"]
         ordered_polys = self._ordered_polys
-        sel_data = self._poly_selection_data
-        geoms = self._geoms
-
-        for state in ("selected", "unselected"):
-            sel_data[state] = []
-            prim = geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
-            prim.modify_vertices().modify_handle().set_data("")
-            # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
-            # remove all data from the primitive, and adding new data through
-            # prim.modify_vertices().modify_handle().set_data(data) will not
-            # internally notify Panda3D that the primitive has now been updated
-            # to contain new data. This will result in an assertion error later on.
 
         selected_subobj_ids = self._selected_subobj_ids
         selected_vert_ids = selected_subobj_ids["vert"]
@@ -270,7 +249,7 @@ class GeomSelectionBase(BaseObject):
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
 
-        subobjs_to_unreg = self._subobjs_to_unreg
+        subobjs_to_unreg = self._subobjs_to_unreg = {"vert": {}, "edge": {}, "poly": {}}
 
         subobj_change = self._subobj_change
         subobj_change["vert"]["deleted"] = vert_change = {}
@@ -296,7 +275,7 @@ class GeomSelectionBase(BaseObject):
             if poly_id in selected_poly_ids:
                 selected_poly_ids.remove(poly_id)
 
-        merged_verts_to_smooth = set()
+        merged_verts_to_resmooth = set()
 
         for vert in verts_to_delete:
 
@@ -311,7 +290,24 @@ class GeomSelectionBase(BaseObject):
                 merged_vert = merged_verts[vert_id]
                 merged_vert.remove(vert_id)
                 del merged_verts[vert_id]
-                merged_verts_to_smooth.add(merged_vert)
+                merged_verts_to_resmooth.add(merged_vert)
+
+        progress_steps = len(merged_verts_to_resmooth) // 20
+
+        yield True, progress_steps
+
+        sel_data = self._poly_selection_data
+        geoms = self._geoms
+
+        for state in ("selected", "unselected"):
+            sel_data[state] = []
+            prim = geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
+            prim.modify_vertices().modify_handle().set_data("")
+            # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
+            # remove all data from the primitive, and adding new data through
+            # prim.modify_vertices().modify_handle().set_data(data) will not
+            # internally notify Panda3D that the primitive has now been updated
+            # to contain new data. This will result in an assertion error later on.
 
         for edge in edges_to_delete:
 
@@ -327,7 +323,7 @@ class GeomSelectionBase(BaseObject):
                 merged_edge.remove(edge_id)
                 del merged_edges[edge_id]
 
-        self.unregister_subobjects(locally=True)
+        self.unregister(locally=True)
 
         row_index_offset = 0
 
@@ -462,31 +458,27 @@ class GeomSelectionBase(BaseObject):
         selected_subobj_ids["edge"] = []
         selected_subobj_ids["poly"] = []
 
-        for vert_id in selected_vert_ids:
-            self.set_selected(verts[vert_id], True, False)
-
         if selected_vert_ids:
-            self._update_verts_to_transform("vert")
-
-        for edge_id in selected_edge_ids:
-            self.set_selected(edges[edge_id], True, False)
+            selected_verts = (verts[vert_id] for vert_id in selected_vert_ids)
+            self.update_selection("vert", selected_verts, [])
 
         if selected_edge_ids:
-            self._update_verts_to_transform("edge")
-
-        for poly_id in selected_poly_ids:
-            self.set_selected(polys[poly_id], True, False)
+            selected_edges = (edges[edge_id] for edge_id in selected_edge_ids)
+            self.update_selection("edge", selected_edges, [])
 
         if selected_poly_ids:
-            self._update_verts_to_transform("poly")
+            selected_polys = (polys[poly_id] for poly_id in selected_poly_ids)
+            self.update_selection("poly", selected_polys, [])
 
-        self._update_vertex_normals(merged_verts_to_smooth)
+        for step in self._update_vertex_normals(merged_verts_to_resmooth):
+            yield
+
         self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
 
     def _restore_subobj_selection(self, time_id):
 
         obj_id = self.get_toplevel_object().get_id()
-        prop_id = "subobj_selection"
+        prop_id = self._unique_prop_ids["subobj_selection"]
         data = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
 
         for subobj_type in ("vert", "edge", "poly"):
@@ -531,11 +523,7 @@ class GeomSelectionBase(BaseObject):
                     merged_subobjs[sel_id] = tmp_merged_subobj
                     sel_subobjs = [subobjs[sel_id]]
 
-            for subobj in unsel_subobjs:
-                self.set_selected(subobj, False, False)
-
-            for subobj in sel_subobjs:
-                self.set_selected(subobj, True, False)
+            self.update_selection(subobj_type, sel_subobjs, unsel_subobjs, False)
 
             if subobj_type in ("vert", "edge"):
                 if unsel_subobjs:
@@ -605,14 +593,16 @@ class Selection(SelectionTransformBase):
         if not sel_to_add:
             return False
 
-        geom_data_objs = set()
+        geom_data_objs = {}
         groups = self._groups
 
         for obj in sel_to_add:
             geom_data_obj = obj.get_geom_data_object()
-            geom_data_obj.set_selected(obj, True)
-            geom_data_objs.add(geom_data_obj)
+            geom_data_objs.setdefault(geom_data_obj, []).append(obj)
             groups.setdefault(geom_data_obj, []).append(obj)
+
+        for geom_data_obj, objs in geom_data_objs.iteritems():
+            geom_data_obj.update_selection(self._obj_level, objs, [])
 
         sel.extend(sel_to_add)
 
@@ -645,20 +635,22 @@ class Selection(SelectionTransformBase):
         if not common:
             return False
 
-        geom_data_objs = set()
+        geom_data_objs = {}
         groups = self._groups
 
         for obj in common:
 
             sel.remove(obj)
             geom_data_obj = obj.get_geom_data_object()
-            geom_data_obj.set_selected(obj, False)
-            geom_data_objs.add(geom_data_obj)
+            geom_data_objs.setdefault(geom_data_obj, []).append(obj)
 
             groups[geom_data_obj].remove(obj)
 
             if not groups[geom_data_obj]:
                 del groups[geom_data_obj]
+
+        for geom_data_obj, objs in geom_data_objs.iteritems():
+            geom_data_obj.update_selection(self._obj_level, [], objs)
 
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
@@ -693,18 +685,19 @@ class Selection(SelectionTransformBase):
         if not (old_sel or new_sel):
             return False
 
-        geom_data_objs = set()
+        geom_data_objs = {}
 
         for old_obj in old_sel:
             sel.remove(old_obj)
             geom_data_obj = old_obj.get_geom_data_object()
-            geom_data_obj.set_selected(old_obj, False)
-            geom_data_objs.add(geom_data_obj)
+            geom_data_objs.setdefault(geom_data_obj, {"sel": [], "desel": []})["desel"].append(old_obj)
 
         for new_obj in new_sel:
             geom_data_obj = new_obj.get_geom_data_object()
-            geom_data_obj.set_selected(new_obj, True)
-            geom_data_objs.add(geom_data_obj)
+            geom_data_objs.setdefault(geom_data_obj, {"sel": [], "desel": []})["sel"].append(new_obj)
+
+        for geom_data_obj, objs in geom_data_objs.iteritems():
+            geom_data_obj.update_selection(self._obj_level, objs["sel"], objs["desel"])
 
         sel.extend(new_sel)
 
@@ -766,16 +759,12 @@ class Selection(SelectionTransformBase):
 
         return True
 
-    def delete(self, add_to_hist=True):
-
-        if not self._objs:
-            return False
+    def __delete(self, add_to_hist=True):
 
         obj_lvl = self._obj_level
-        geom_data_objs = []
-
-        for geom_data_obj in self._groups:
-            geom_data_objs.append(geom_data_obj)
+        geom_data_objs = self._groups.keys()
+        progress_steps = 0
+        handlers = []
 
         self._groups = {}
         self._objs = []
@@ -784,7 +773,30 @@ class Selection(SelectionTransformBase):
         PendingTasks.add(task, "update_selection", "ui")
 
         for geom_data_obj in geom_data_objs:
-            geom_data_obj.delete_selection(obj_lvl)
+
+            handler = geom_data_obj.delete_selection(obj_lvl)
+            change = False
+            steps = 0
+
+            for result in handler:
+                if result:
+                    change, steps = result
+                    handlers.append(handler)
+                    break
+
+            if change:
+                progress_steps += steps
+
+        gradual = progress_steps > 20
+
+        if gradual:
+            Mgr.show_screenshot()
+            GlobalData["progress_steps"] = progress_steps
+
+        for handler in handlers:
+            for step in handler:
+                if gradual:
+                    yield True
 
         if add_to_hist:
 
@@ -801,6 +813,19 @@ class Selection(SelectionTransformBase):
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        yield False
+
+    def delete(self, add_to_hist=True):
+
+        if not self._objs:
+            return False
+
+        process = self.__delete(add_to_hist)
+
+        if process.next():
+            descr = "Updating geometry..."
+            Mgr.do_gradually(process, "poly_deletion", descr)
 
         return True
 

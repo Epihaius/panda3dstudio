@@ -54,7 +54,7 @@ class UVSelection(SelectionTransformBase):
 
         sel.append(obj)
         uv_data_obj = obj.get_uv_data_object()
-        uv_data_obj.set_selected(obj, True)
+        uv_data_obj.update_selection(self._obj_level, [obj], [])
 
         self.update()
 
@@ -69,7 +69,7 @@ class UVSelection(SelectionTransformBase):
 
         sel.remove(obj)
         uv_data_obj = obj.get_uv_data_object()
-        uv_data_obj.set_selected(obj, False)
+        uv_data_obj.update_selection(self._obj_level, [], [obj])
 
         self.update()
 
@@ -87,18 +87,19 @@ class UVSelection(SelectionTransformBase):
         if not (old_sel or new_sel):
             return
 
-        uv_data_objs = set()
+        uv_data_objs = {}
 
         for old_obj in old_sel:
             sel.remove(old_obj)
             uv_data_obj = old_obj.get_uv_data_object()
-            uv_data_obj.set_selected(old_obj, False)
-            uv_data_objs.add(uv_data_obj)
+            uv_data_objs.setdefault(uv_data_obj, {"sel": [], "desel": []})["desel"].append(old_obj)
 
         for new_obj in new_sel:
             uv_data_obj = new_obj.get_uv_data_object()
-            uv_data_obj.set_selected(new_obj, True)
-            uv_data_objs.add(uv_data_obj)
+            uv_data_objs.setdefault(uv_data_obj, {"sel": [], "desel": []})["sel"].append(new_obj)
+
+        for uv_data_obj, objs in uv_data_objs.iteritems():
+            uv_data_obj.update_selection(self._obj_level, objs["sel"], objs["desel"])
 
         sel.extend(new_sel)
 

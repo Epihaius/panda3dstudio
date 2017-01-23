@@ -13,18 +13,37 @@ class GeomDataOwner(BaseObject):
 
     def __init__(self, prop_ids, type_prop_ids, model, geom_data_obj=None):
 
-        self._prop_ids = prop_ids
+        self._prop_ids = prop_ids + ["geom_data"]
         self._type_prop_ids = type_prop_ids
         self._model = model
         self._geom_data_obj = geom_data_obj
+        self._geom_data_backup = None
+        model.set_geom_object(self)
 
         if geom_data_obj:
             geom_data_obj.set_owner(self)
 
-    def destroy(self):
+    def cancel_creation(self):
 
-        self._geom_data_obj.destroy()
+        logging.debug('GeomDataOwner creation cancelled.')
+        self._model = None
+
+        if self._geom_data_obj:
+            self._geom_data_obj.cancel_creation()
+            self._geom_data_obj = None
+
+    def destroy(self, unregister=True):
+
+        self._geom_data_obj.destroy(unregister)
         self._geom_data_obj = None
+
+    def register(self, restore=True):
+
+        self._geom_data_obj.register(restore)
+
+    def unregister(self):
+
+        self._geom_data_obj.unregister()
 
     def get_geom_data_object(self):
 
@@ -33,6 +52,20 @@ class GeomDataOwner(BaseObject):
     def set_geom_data_object(self, geom_data_obj):
 
         self._geom_data_obj = geom_data_obj
+
+    def get_geom_data_backup(self):
+
+        return self._geom_data_backup
+
+    def set_geom_data_backup(self, geom_data_obj):
+
+        self._geom_data_backup = geom_data_obj
+
+    def remove_geom_data_backup(self):
+
+        if self._geom_data_backup:
+            self._geom_data_backup.destroy(unregister=False)
+            self._geom_data_backup = None
 
     def get_toplevel_object(self, get_group=False):
 
@@ -98,13 +131,6 @@ class GeomDataOwner(BaseObject):
 
         self._geom_data_obj.show_top_level()
 
-    def register(self):
-        pass
-
-    def unregister(self):
-
-        self._geom_data_obj.unregister()
-
     def get_data_to_store(self, event_type, prop_id=""):
 
         data = {}
@@ -113,6 +139,7 @@ class GeomDataOwner(BaseObject):
 
             data["geom_obj"] = {"main": self}
             prop_ids = self.get_property_ids()
+            prop_ids.remove("geom_data")
 
             for prop_id in prop_ids:
                 data.update(self.get_property_to_store(prop_id, event_type))
@@ -147,20 +174,20 @@ class GeomDataOwner(BaseObject):
             for prop_id in self.get_property_ids():
                 self.restore_property(prop_id, restore_type, old_time_id, new_time_id)
 
-            geom_data_obj = Mgr.do("load_last_from_history", obj_id, "geom_data", new_time_id)
-            self._geom_data_obj = geom_data_obj
-            geom_data_obj.get_origin().reparent_to(self._model.get_origin())
-            geom_data_obj.set_owner(self)
-            geom_data_obj.restore_data(["self"], restore_type, old_time_id, new_time_id)
-
         else:
 
-            for prop_id in self.get_property_ids():
+            prop_ids = self.get_property_ids()
+            prop_ids.remove("geom_data")
+
+            for prop_id in prop_ids:
                 if prop_id in data_ids:
                     self.restore_property(prop_id, restore_type, old_time_id, new_time_id)
                     data_ids.remove(prop_id)
 
-            if data_ids:
+            if "geom_data" in data_ids:
+                self.restore_property("geom_data", restore_type, old_time_id, new_time_id)
+
+            if data_ids and "geom_data" not in data_ids:
                 self._geom_data_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)
 
     def restore_property(self, prop_id, restore_type, old_time_id, new_time_id):
@@ -170,6 +197,23 @@ class GeomDataOwner(BaseObject):
         """
 
         pass
+
+    def set_property(self, prop_id, value, restore=""):
+
+        if prop_id == "geom_data":
+
+            if self._geom_data_obj:
+
+                if value.get_id() == self._geom_data_obj.get_id():
+                    return False
+
+                self._geom_data_obj.destroy()
+
+            self._geom_data_obj = value
+            value.get_origin().reparent_to(self._model.get_origin())
+            value.set_owner(self)
+
+            return True
 
     def get_property_ids(self, for_hist=False):
 

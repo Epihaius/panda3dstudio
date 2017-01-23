@@ -11,7 +11,7 @@ class PolygonDetachBase(BaseObject):
         selected_poly_ids = selection_ids["poly"]
 
         if not selected_poly_ids:
-            return False
+            return
 
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
@@ -87,41 +87,68 @@ class PolygonDetachBase(BaseObject):
 
             change = True
 
-        if change:
+        if not change:
+            return
 
-            self._update_vertex_normals(merged_verts_to_resmooth)
+        progress_steps = len(merged_verts_to_resmooth) // 20
 
-            if update_verts_to_transf:
-                self._update_verts_to_transform("vert")
+        yield True, progress_steps
 
-            if update_edges_to_transf:
-                self._update_verts_to_transform("edge")
+        for step in self._update_vertex_normals(merged_verts_to_resmooth):
+            yield
 
-            self._update_verts_to_transform("poly")
+        if update_verts_to_transf:
+            self._update_verts_to_transform("vert")
 
-        return change
+        if update_edges_to_transf:
+            self._update_verts_to_transform("edge")
+
+        self._update_verts_to_transform("poly")
 
 
 class PolygonDetachManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.add_app_updater("poly_detach", self.__detach_polygons)
+        Mgr.add_app_updater("poly_detach", self.__do_detach_polygons)
 
     def __detach_polygons(self):
 
         selection = Mgr.get("selection", "top")
         changed_objs = {}
+        progress_steps = 0
+        handlers = []
 
         for model in selection:
 
             geom_data_obj = model.get_geom_object().get_geom_data_object()
+            handler = geom_data_obj.detach_polygons()
+            change = False
+            steps = 0
 
-            if geom_data_obj.detach_polygons():
+            for result in handler:
+                if result:
+                    change, steps = result
+                    handlers.append(handler)
+                    break
+
+            if change:
                 changed_objs[model.get_id()] = geom_data_obj
+                progress_steps += steps
 
         if not changed_objs:
-            return
+            yield False
+
+        gradual = progress_steps > 20
+
+        if gradual:
+            Mgr.show_screenshot()
+            GlobalData["progress_steps"] = progress_steps
+
+        for handler in handlers:
+            for step in handler:
+                if gradual:
+                    yield True
 
         Mgr.do("update_history_time")
         obj_data = {}
@@ -132,3 +159,13 @@ class PolygonDetachManager(BaseObject):
         event_descr = "Detach polygon selection"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        yield False
+
+    def __do_detach_polygons(self):
+
+        process = self.__detach_polygons()
+
+        if process.next():
+            descr = "Updating geometry..."
+            Mgr.do_gradually(process, "poly_detach", descr)

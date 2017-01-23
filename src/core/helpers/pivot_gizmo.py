@@ -15,7 +15,7 @@ class PivotAxisManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         pivot_axis = PivotAxis(pivot_gizmo, axis, picking_col_id)
 
-        return pivot_axis, picking_col_id
+        return pivot_axis
 
 
 class PivotGizmoManager(BaseObject):
@@ -99,6 +99,10 @@ class PivotAxis(BaseObject):
         self._pivot_gizmo = pivot_gizmo
         self._axis = axis
         self._picking_col_id = picking_col_id
+
+    def __del__(self):
+
+        logging.debug('PivotAxis garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -326,10 +330,16 @@ class PivotGizmo(object):
             geom.set_vertex_data(vertex_data.set_color(color))
 
         self.__create_geoms_for_ortho_lens()
+        self._is_registered = False
 
-    def destroy(self):
+    def __del__(self):
 
-        self.unregister()
+        logging.info('PivotGizmo garbage-collected.')
+
+    def destroy(self, unregister=True):
+
+        if unregister:
+            self.unregister()
 
         self._axis_objs = None
 
@@ -342,6 +352,20 @@ class PivotGizmo(object):
         self._axis_nps = None
         self._axis_label_roots = None
         self._axis_labels = None
+
+    def register(self):
+
+        if not self._is_registered:
+            obj_type = "pivot_axis"
+            Mgr.do("register_%s_objs" % obj_type, self._axis_objs.itervalues(), restore=False)
+            self._is_registered = True
+
+    def unregister(self):
+
+        if self._is_registered:
+            obj_type = "pivot_axis"
+            Mgr.do("unregister_%s_objs" % obj_type, self._axis_objs.itervalues())
+            self._is_registered = False
 
     def __create_geoms_for_ortho_lens(self):
 
@@ -373,16 +397,6 @@ class PivotGizmo(object):
     def get_toplevel_object(self, get_group=False):
 
         return self._owner.get_toplevel_object(get_group)
-
-    def register(self):
-
-        obj_type = "pivot_axis"
-        Mgr.do("register_%s_objs" % obj_type, self._axis_objs.itervalues())
-
-    def unregister(self):
-
-        obj_type = "pivot_axis"
-        Mgr.do("unregister_%s_objs" % obj_type, self._axis_objs.itervalues())
 
     def show(self, show=True):
 

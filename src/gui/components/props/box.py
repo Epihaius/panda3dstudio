@@ -102,7 +102,7 @@ class BoxProperties(BaseObject):
                 field.show_text()
                 field.set_value(value_id, value[axis])
                 field.set_text_color(wx.Colour(255, 255, 0))
-        else:
+        elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
             field.set_value(prop_id, value)

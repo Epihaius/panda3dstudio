@@ -16,11 +16,11 @@ class CreationManager(object):
                     GlobalData["active_creation_type"] = object_type
                     Mgr.enter_state("creation_mode")
                 elif GlobalData["active_creation_type"] != object_type:
-                    Mgr.update_app("creation", "changed")
+                    Mgr.update_app("interactive_creation", "changed")
                     GlobalData["active_creation_type"] = object_type
                     Mgr.enter_state("creation_mode")
                     Mgr.update_app("selected_obj_types", (object_type,))
-                    Mgr.update_app("creation", "started")
+                    Mgr.update_app("interactive_creation", "started")
                     Mgr.update_app("status", "create", object_type, "idle")
 
             return handler
@@ -65,7 +65,7 @@ class CreationManager(object):
             Mgr.do("set_viewport_border_color", (220, 220, 100))
             Mgr.do("enable_components")
 
-            if prev_state_id in ("selection_mode", "checking_creation_start"):
+            if prev_state_id in ("selection_mode", "checking_creation_start", "processing"):
                 Mgr.do("display_next_obj_color")
 
         add_state = Mgr.add_state

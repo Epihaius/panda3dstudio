@@ -6,7 +6,7 @@ class CylinderManager(PrimitiveManager):
 
     def __init__(self):
 
-        PrimitiveManager.__init__(self, "cylinder")
+        PrimitiveManager.__init__(self, "cylinder", custom_creation=True)
 
         self._height_axis = V3D(0., 0., 1.)
         self._draw_plane = None
@@ -16,13 +16,11 @@ class CylinderManager(PrimitiveManager):
         self.set_property_default("radius", 1.)
         self.set_property_default("height", 1.)
         self.set_property_default("smoothness", True)
-        self.set_property_default("segments", {"circular": 12, "height": 1, "caps": 1})
+        self.set_property_default("temp_segments", {"circular": 8, "height": 1, "caps": 1})
+        self.set_property_default("segments", {"circular": 12, "height": 4, "caps": 1})
         # minimum circular segments = 3
         # minimum height segments = 1
         # minimum cap segments = 0: no caps
-
-        Mgr.accept("inst_create_cylinder", self.create_instantly)
-        Mgr.accept("create_custom_cylinder", self.__create_custom)
 
     def setup(self):
 
@@ -39,24 +37,44 @@ class CylinderManager(PrimitiveManager):
 
         return PrimitiveManager.setup(self, creation_phases, status_text)
 
-    def apply_default_size(self, prim):
+    def create_temp_primitive(self, color, pos):
 
-        prop_defaults = self.get_property_defaults()
-        prim.update_creation_size(prop_defaults["radius"], prop_defaults["height"], finalize=True)
+        segs = self.get_property_defaults()["segments"]
+        tmp_segs = self.get_property_defaults()["temp_segments"]
+        segments = dict((k, min(segs[k], tmp_segs[k])) for k in ("circular", "height", "caps"))
+        is_smooth = self.get_property_defaults()["smoothness"]
+        tmp_prim = TemporaryCylinder(segments, is_smooth, color, pos)
 
-    def init_primitive(self, model):
+        return tmp_prim
+
+    def create_primitive(self, model):
 
         prim = Cylinder(model)
         prop_defaults = self.get_property_defaults()
-        prim.create(prop_defaults["segments"], prop_defaults["smoothness"])
+        segments = prop_defaults["segments"]
+        poly_count, merged_vert_count = _get_mesh_density(segments)
+        progress_steps = poly_count // 10 + poly_count // 50 + merged_vert_count // 20
+        gradual = progress_steps > 100
 
-        return prim
+        for step in prim.create(segments, prop_defaults["smoothness"]):
+            if gradual:
+                yield
+
+        yield prim, gradual
+
+    def init_primitive_size(self, prim, size=None):
+
+        if size is None:
+            prop_defaults = self.get_property_defaults()
+            prim.init_size(prop_defaults["radius"], prop_defaults["height"])
+        else:
+            prim.init_size(*size)
 
     def __start_creation_phase1(self):
         """ Start drawing out cylinder base """
 
-        prim = self.get_primitive()
-        origin = prim.get_model().get_origin()
+        tmp_prim = self.get_temp_primitive()
+        origin = tmp_prim.get_origin()
         self._height_axis = self.world.get_relative_vector(origin, V3D(0., 0., 1.))
 
     def __creation_phase1(self):
@@ -71,7 +89,7 @@ class CylinderManager(PrimitiveManager):
         grid_origin = Mgr.get(("grid", "origin"))
         self._dragged_point = self.world.get_relative_point(grid_origin, point)
         radius = (self.get_origin_pos() - point).length()
-        self.get_primitive().update_creation_size(radius)
+        self.get_temp_primitive().update_size(radius)
 
     def __start_creation_phase2(self):
         """ Start drawing out cylinder height """
@@ -133,31 +151,390 @@ class CylinderManager(PrimitiveManager):
         if not self._draw_plane.intersects_line(point, near_point, far_point):
             return
 
-        prim = self.get_primitive()
-        origin = prim.get_model().get_origin()
-        height = origin.get_relative_point(self.world, point)[2]
-        prim.update_creation_size(height=height)
+        tmp_prim = self.get_temp_primitive()
+        pivot = tmp_prim.get_pivot()
+        z = pivot.get_relative_point(self.world, point)[2]
+        tmp_prim.update_size(height=z)
 
-    def __create_custom(self, name, radius, height, segments, origin_pos, rel_to_grid=False, smooth=True):
+    def create_custom_primitive(self, name, radius, height, segments, pos, rel_to_grid=False,
+                                smooth=True, gradual=False):
 
         model_id = self.generate_object_id()
-        model = Mgr.do("create_model", model_id, name, origin_pos)
+        model = Mgr.do("create_model", model_id, name, pos)
 
         if not rel_to_grid:
             pivot = model.get_pivot()
             pivot.clear_transform()
-            pivot.set_pos(self.world, origin_pos)
+            pivot.set_pos(self.world, pos)
 
         next_color = self.get_next_object_color()
         model.set_color(next_color, update_app=False)
         prim = Cylinder(model)
-        prim.create(segments, smooth)
-        prim.update_creation_size(radius, height, finalize=True)
-        prim.get_geom_data_object().finalize_geometry()
+
+        for step in prim.create(segments, smooth):
+            if gradual:
+                yield
+
+        prim.init_size(radius, height)
+
+        for step in prim.get_geom_data_object().finalize_geometry():
+            if gradual:
+                yield
+
         model.set_geom_object(prim)
         self.set_next_object_color()
 
-        return model
+        yield model
+
+
+def _get_mesh_density(segments):
+
+    poly_count = segments["circular"] * segments["height"]
+    poly_count += 2 * segments["circular"] * segments["caps"]
+    merged_vert_count = segments["circular"] * (segments["height"] + 1)
+
+    if segments["caps"]:
+        merged_vert_count += 2 * segments["circular"] * (segments["caps"] - 1) + 2
+
+    return poly_count, merged_vert_count
+
+
+def _define_geom_data(segments, smooth, temp=False):
+
+    geom_data = []
+    positions_main = []
+
+    if not temp:
+        uvs_main = []
+        smoothing_ids = [(0, smooth)]
+
+    segs_c = segments["circular"]
+    segs_h = segments["height"]
+    segs_cap = segments["caps"]
+
+    angle = 2 * pi / segs_c
+
+    # Define vertex data
+
+    vert_id = 0
+
+    for i in xrange(segs_h + 1):
+
+        z = 1. - 1. * i / segs_h
+
+        for j in xrange(segs_c + 1):
+
+            angle_h = angle * j
+            x = cos(angle_h)
+            y = sin(angle_h)
+
+            if j < segs_c:
+                pos = (x, y, z)
+                pos_obj = PosObj(pos)
+            else:
+                pos_obj = positions_main[vert_id - segs_c]
+
+            positions_main.append(pos_obj)
+
+            if not temp:
+                u = 1. * j / segs_c
+                uvs_main.append((u, z))
+
+            vert_id += 1
+
+    if segs_cap:
+
+        positions_cap_lower = positions_main[-segs_c - 1:]
+        positions_cap_upper = positions_main[:segs_c + 1]
+        positions_cap_upper.reverse()
+
+        if not temp:
+            uvs_cap_lower = []
+            uvs_cap_upper = []
+
+        def add_cap_data(cap):
+
+            # Add data related to vertices along the cap segments
+
+            if cap == "lower":
+
+                positions = positions_cap_lower
+
+                if not temp:
+                    uvs = uvs_cap_lower
+
+                z = 0.
+                y_factor = 1.
+
+            else:
+
+                positions = positions_cap_upper
+
+                if not temp:
+                    uvs = uvs_cap_upper
+
+                z = 1.
+                y_factor = -1.
+
+            vert_id = segs_c + 1
+
+            if not temp:
+                for j in xrange(segs_c + 1):
+                    angle_h = angle * j
+                    u = .5 + cos(angle_h) * .5
+                    v = .5 - sin(angle_h) * .5
+                    uvs.append((u, v))
+
+            for i in xrange(1, segs_cap):
+
+                r = 1. - 1. * i / segs_cap
+
+                for j in xrange(segs_c + 1):
+
+                    angle_h = angle * j
+                    x = r * cos(angle_h)
+                    y = r * sin(angle_h) * y_factor
+
+                    if j < segs_c:
+                        pos = (x, y, z)
+                        pos_obj = PosObj(pos)
+                    else:
+                        pos_obj = positions[vert_id - segs_c]
+
+                    positions.append(pos_obj)
+
+                    if not temp:
+                        uvs.append((.5 + x * .5, .5 - y * y_factor * .5))
+
+                    vert_id += 1
+
+            # Add data related to center vertex of cap
+
+            pos = (0., 0., z)
+            pos_obj = PosObj(pos)
+            positions.append(pos_obj)
+
+            if not temp:
+                uvs.append((.5, .5))
+
+        add_cap_data("lower")
+        add_cap_data("upper")
+
+    # Define faces
+
+    z_vec = V3D(0., 0., 1.)
+
+    def convert_pos_to_normal(vert_index):
+
+        normal = Vec3(*positions_main[vert_index])
+        normal[2] = 0.
+        normal.normalize()
+
+        return normal
+
+    for i in xrange(segs_h):
+
+        s = segs_c + 1
+        k = i * s
+
+        for j in xrange(segs_c):
+
+            vi1 = k + j
+            vi2 = vi1 + s
+            vi3 = vi2 + 1
+            vi4 = vi1 + 1
+            vert_ids = (vi1, vi2, vi3)
+            tri_data1 = []
+
+            if not smooth:
+                plane = Plane(*[Point3(*positions_main[vi]) for vi in vert_ids])
+                poly_normal = plane.get_normal()
+
+            get_normal = lambda i: convert_pos_to_normal(i) if smooth else poly_normal
+
+            for vi in vert_ids:
+
+                pos = positions_main[vi]
+                normal = get_normal(vi)
+
+                if temp:
+                    tri_data1.append({"pos": pos, "normal": normal})
+                else:
+                    uv = uvs_main[vi]
+                    tri_data1.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+
+            vert_ids = (vi1, vi3, vi4)
+            tri_data2 = []
+
+            for vi in vert_ids:
+
+                pos = positions_main[vi]
+                normal = get_normal(vi)
+
+                if temp:
+                    tri_data2.append({"pos": pos, "normal": normal})
+                else:
+                    uv = uvs_main[vi]
+                    tri_data2.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+
+            if temp:
+                poly_data = (tri_data1, tri_data2)  # quadrangular face
+            else:
+                tris = (tri_data1, tri_data2)  # quadrangular face
+                poly_data = {"tris": tris, "smoothing": smoothing_ids}
+
+            geom_data.append(poly_data)
+
+    if segs_cap:
+
+        def define_cap_faces(cap):
+
+            if cap == "lower":
+
+                positions = positions_cap_lower
+                sign = 1.
+
+                if not temp:
+                    uvs = uvs_cap_lower
+                    smoothing_grp = 1
+
+            else:
+
+                positions = positions_cap_upper
+                sign = -1.
+
+                if not temp:
+                    uvs = uvs_cap_upper
+                    smoothing_grp = 2
+
+            # Define quadrangular faces of cap
+
+            for i in xrange(segs_cap - 1):
+
+                s = segs_c + 1
+                k = i * s
+
+                for j in xrange(segs_c):
+
+                    vi1 = k + j
+                    vi2 = vi1 + s
+                    vi3 = vi2 + 1
+                    vi4 = vi1 + 1
+                    vert_ids = (vi1, vi2, vi3)
+                    tri_data1 = []
+
+                    for vi in vert_ids:
+
+                        pos = positions[vi]
+                        normal = Vec3(0., 0., -1. * sign)
+
+                        if temp:
+                            tri_data1.append({"pos": pos, "normal": normal})
+                        else:
+                            uv = uvs[vi]
+                            tri_data1.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+
+                    vert_ids = (vi1, vi3, vi4)
+                    tri_data2 = []
+
+                    for vi in vert_ids:
+
+                        pos = positions[vi]
+                        normal = Vec3(0., 0., -1. * sign)
+
+                        if temp:
+                            tri_data2.append({"pos": pos, "normal": normal})
+                        else:
+                            uv = uvs[vi]
+                            tri_data2.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+
+                    if temp:
+                        poly_data = (tri_data1, tri_data2)  # quadrangular face
+                    else:
+                        tris = (tri_data1, tri_data2)  # quadrangular face
+                        poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
+
+                    geom_data.append(poly_data)
+
+            # Define triangular faces at center of cap
+
+            s = segs_c + 1
+            vi1 = segs_cap * s
+
+            for j in xrange(segs_c):
+
+                vi2 = vi1 - 1 - j
+                vi3 = vi2 - 1
+                vert_ids = (vi1, vi2, vi3)
+                tri_data = []
+
+                for vi in vert_ids:
+
+                    pos = positions[vi]
+                    normal = Vec3(0., 0., -1. * sign)
+
+                    if temp:
+                        tri_data.append({"pos": pos, "normal": normal})
+                    else:
+                        uv = uvs[vi]
+                        tri_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+
+                if temp:
+                    poly_data = (tri_data,)  # triangular face
+                else:
+                    tris = (tri_data,)  # triangular face
+                    poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
+
+                geom_data.append(poly_data)
+
+        define_cap_faces("lower")
+        define_cap_faces("upper")
+
+    return geom_data
+
+
+class TemporaryCylinder(TemporaryPrimitive):
+
+    def __init__(self, segments, is_smooth, color, pos):
+
+        TemporaryPrimitive.__init__(self, "cylinder", color, pos)
+
+        self._radius = 0.
+        self._height = 0.
+        geom_data = _define_geom_data(segments, is_smooth, True)
+        self.create_geometry(geom_data)
+        self.get_origin().set_sz(.001)
+
+    def update_size(self, radius=None, height=None):
+
+        origin = self.get_origin()
+
+        if radius is not None:
+
+            r = max(radius, .001)
+
+            if self._radius != r:
+                self._radius = r
+                origin.set_sx(r)
+                origin.set_sy(r)
+
+        if height is not None:
+
+            sz = max(abs(height), .001)
+            h = -sz if height < 0. else sz
+
+            if self._height != h:
+                self._height = h
+                origin.set_sz(sz)
+                origin.set_z(h if h < 0. else 0.)
+
+    def get_size(self):
+
+        return self._radius, self._height
+
+    def is_valid(self):
+
+        return min(self._radius, abs(self._height)) > .001
 
 
 class Cylinder(Primitive):
@@ -169,6 +546,7 @@ class Cylinder(Primitive):
         Primitive.__init__(self, "cylinder", model, prop_ids)
 
         self._segments = {"circular": 3, "height": 1, "caps": 0}
+        self._segments_backup = {"circular": 3, "height": 1, "caps": 0}
         self._radius = 0.
         self._height = 0.
         self._is_smooth = True
@@ -176,246 +554,7 @@ class Cylinder(Primitive):
 
     def define_geom_data(self):
 
-        geom_data = []
-        positions_main = []
-        uvs_main = []
-
-        segments = self._segments
-        segs_c = segments["circular"]
-        segs_h = segments["height"]
-        segs_cap = segments["caps"]
-        smooth = self._is_smooth
-        smoothing_ids = [(0, smooth)]
-
-        angle = 2 * pi / segs_c
-
-        # Define vertex data
-
-        vert_id = 0
-
-        for i in xrange(segs_h + 1):
-
-            z = 1. - 1. * i / segs_h
-
-            for j in xrange(segs_c + 1):
-
-                angle_h = angle * j
-                x = cos(angle_h)
-                y = sin(angle_h)
-
-                if j < segs_c:
-                    pos = (x, y, z)
-                    pos_obj = PosObj(pos)
-                else:
-                    pos_obj = positions_main[vert_id - segs_c]
-
-                positions_main.append(pos_obj)
-
-                u = 1. * j / segs_c
-                uvs_main.append((u, z))
-
-                vert_id += 1
-
-        if segs_cap:
-
-            positions_cap_lower = positions_main[-segs_c - 1:]
-            positions_cap_upper = positions_main[:segs_c + 1]
-            positions_cap_upper.reverse()
-            uvs_cap_lower = []
-            uvs_cap_upper = []
-
-            def add_cap_data(cap):
-
-                # Add data related to vertices along the cap segments
-
-                if cap == "lower":
-                    positions = positions_cap_lower
-                    uvs = uvs_cap_lower
-                    z = 0.
-                    y_factor = 1.
-                else:
-                    positions = positions_cap_upper
-                    uvs = uvs_cap_upper
-                    z = 1.
-                    y_factor = -1.
-
-                vert_id = segs_c + 1
-
-                for j in xrange(segs_c + 1):
-                    angle_h = angle * j
-                    u = .5 + cos(angle_h) * .5
-                    v = .5 - sin(angle_h) * .5
-                    uvs.append((u, v))
-
-                for i in xrange(1, segs_cap):
-
-                    r = 1. - 1. * i / segs_cap
-
-                    for j in xrange(segs_c + 1):
-
-                        angle_h = angle * j
-                        x = r * cos(angle_h)
-                        y = r * sin(angle_h) * y_factor
-
-                        if j < segs_c:
-                            pos = (x, y, z)
-                            pos_obj = PosObj(pos)
-                        else:
-                            pos_obj = positions[vert_id - segs_c]
-
-                        positions.append(pos_obj)
-
-                        uvs.append((.5 + x * .5, .5 - y * y_factor * .5))
-
-                        vert_id += 1
-
-                # Add data related to center vertex of cap
-
-                pos = (0., 0., z)
-                pos_obj = PosObj(pos)
-                positions.append(pos_obj)
-                uvs.append((.5, .5))
-
-            add_cap_data("lower")
-            add_cap_data("upper")
-
-        # Define faces
-
-        z_vec = V3D(0., 0., 1.)
-
-        def convert_pos_to_normal(vert_index):
-
-            normal = Vec3(*positions_main[vert_index])
-            normal[2] = 0.
-            normal.normalize()
-
-            return normal
-
-        for i in xrange(segs_h):
-
-            s = segs_c + 1
-            k = i * s
-
-            for j in xrange(segs_c):
-
-                vi1 = k + j
-                vi2 = vi1 + s
-                vi3 = vi2 + 1
-                vi4 = vi1 + 1
-                vert_ids = (vi1, vi2, vi3)
-                vert_data = []
-
-                if not smooth:
-                    plane = Plane(*[Point3(*positions_main[vi]) for vi in vert_ids])
-                    poly_normal = plane.get_normal()
-
-                get_normal = lambda i: convert_pos_to_normal(i) if smooth else poly_normal
-
-                for vi in vert_ids:
-                    pos = positions_main[vi]
-                    normal = get_normal(vi)
-                    uv = uvs_main[vi]
-                    vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
-
-                tri_data1 = {"verts": vert_data}
-
-                vert_ids = (vi1, vi3, vi4)
-                vert_data = []
-
-                for vi in vert_ids:
-                    pos = positions_main[vi]
-                    normal = get_normal(vi)
-                    uv = uvs_main[vi]
-                    vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
-
-                tri_data2 = {"verts": vert_data}
-
-                tris = (tri_data1, tri_data2)  # quadrangular face
-                poly_data = {"tris": tris, "smoothing": smoothing_ids}
-                geom_data.append(poly_data)
-
-        if segs_cap:
-
-            def define_cap_faces(cap):
-
-                if cap == "lower":
-                    positions = positions_cap_lower
-                    uvs = uvs_cap_lower
-                    sign = 1.
-                    smoothing_grp = 1
-                else:
-                    positions = positions_cap_upper
-                    uvs = uvs_cap_upper
-                    sign = -1.
-                    smoothing_grp = 2
-
-                # Define quadrangular faces of cap
-
-                for i in xrange(segs_cap - 1):
-
-                    s = segs_c + 1
-                    k = i * s
-
-                    for j in xrange(segs_c):
-
-                        vi1 = k + j
-                        vi2 = vi1 + s
-                        vi3 = vi2 + 1
-                        vi4 = vi1 + 1
-                        vert_ids = (vi1, vi2, vi3)
-                        vert_data = []
-
-                        for vi in vert_ids:
-                            pos = positions[vi]
-                            normal = Vec3(0., 0., -1. * sign)
-                            uv = uvs[vi]
-                            vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
-
-                        tri_data1 = {"verts": vert_data}
-
-                        vert_ids = (vi1, vi3, vi4)
-                        vert_data = []
-
-                        for vi in vert_ids:
-                            pos = positions[vi]
-                            normal = Vec3(0., 0., -1. * sign)
-                            uv = uvs[vi]
-                            vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
-
-                        tri_data2 = {"verts": vert_data}
-
-                        tris = (tri_data1, tri_data2)  # quadrangular face
-                        poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
-                        geom_data.append(poly_data)
-
-                # Define triangular faces at center of cap
-
-                s = segs_c + 1
-                vi1 = segs_cap * s
-
-                for j in xrange(segs_c):
-
-                    vi2 = vi1 - 1 - j
-                    vi3 = vi2 - 1
-                    vert_ids = (vi1, vi2, vi3)
-                    vert_data = []
-
-                    for vi in vert_ids:
-                        pos = positions[vi]
-                        normal = Vec3(0., 0., -1. * sign)
-                        uv = uvs[vi]
-                        vert_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
-
-                    tri_data = {"verts": vert_data}
-
-                    tris = (tri_data,)  # triangular face
-                    poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
-                    geom_data.append(poly_data)
-
-            define_cap_faces("lower")
-            define_cap_faces("upper")
-
-        return geom_data
+        return _define_geom_data(self._segments, self._is_smooth)
 
     def update(self, data):
 
@@ -426,9 +565,9 @@ class Cylinder(Primitive):
         self._segments = segments
         self._is_smooth = is_smooth
 
-        Primitive.create(self)
+        for step in Primitive.create(self, *_get_mesh_density(segments)):
+            yield
 
-        self.get_origin().set_sz(.001)
         self.update_initial_coords()
 
     def set_segments(self, segments):
@@ -436,6 +575,7 @@ class Cylinder(Primitive):
         if self._segments == segments:
             return False
 
+        self._segments_backup = self._segments
         self._segments = segments
 
         return True
@@ -452,37 +592,13 @@ class Cylinder(Primitive):
         self.get_geom_data_object().update_poly_centers()
         self.get_model().get_bbox().update(*self.get_origin().get_tight_bounds())
 
-    def update_creation_size(self, radius=None, height=None, finalize=False):
+    def init_size(self, radius, height):
 
         origin = self.get_origin()
+        self._radius = max(radius, .001)
+        self._height = max(abs(height), .001) * (-1. if height < 0. else 1.)
 
-        if radius is not None:
-
-            r = max(radius, .001)
-
-            if self._radius != r:
-
-                self._radius = r
-
-                if not finalize:
-                    origin.set_sx(r)
-                    origin.set_sy(r)
-
-        if height is not None:
-
-            sz = max(abs(height), .001)
-            h = -sz if height < 0. else sz
-
-            if self._height != h:
-
-                self._height = h
-
-                if not finalize:
-                    origin.set_sz(sz)
-                    origin.set_z(h if h < 0. else 0.)
-
-        if finalize:
-            self.__update_size()
+        self.__update_size()
 
     def set_radius(self, radius):
 
@@ -519,11 +635,11 @@ class Cylinder(Primitive):
             data[prop_id] = {"main": self.get_property(prop_id)}
 
             if prop_id == "segments":
-                data.update(self.get_geom_data_object().get_data_to_store("subobj_change",
-                                                                          info="rebuild"))
+                data.update(self.get_geom_data_backup().get_data_to_store("deletion"))
+                data.update(self.get_geom_data_object().get_data_to_store("creation"))
+                self.remove_geom_data_backup()
             elif prop_id == "smoothness":
-                data.update(self.get_geom_data_object().get_data_to_store("prop_change",
-                                                                          "smoothing"))
+                data.update(self.get_geom_data_object().get_data_to_store("prop_change", "smoothing"))
             elif prop_id in ("radius", "height"):
                 data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
@@ -531,6 +647,14 @@ class Cylinder(Primitive):
             return data
 
         return Primitive.get_data_to_store(self, event_type, prop_id)
+
+    def cancel_geometry_recreation(self, info):
+
+        Primitive.cancel_geometry_recreation(self, info)
+
+        if info == "creation":
+            self._segments = self._segments_backup
+            Mgr.update_remotely("selected_obj_prop", "cylinder", "segments", self._segments)
 
     def set_property(self, prop_id, value, restore=""):
 
@@ -555,7 +679,7 @@ class Cylinder(Primitive):
             if change:
 
                 if not restore:
-                    self.recreate_geometry()
+                    self.recreate_geometry(*_get_mesh_density(segments))
 
                 update_app()
 
@@ -567,7 +691,7 @@ class Cylinder(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -580,7 +704,7 @@ class Cylinder(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -592,9 +716,12 @@ class Cylinder(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
+                Mgr.schedule_screenshot_removal()
+                descr = "Updating smoothness..."
                 task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
                                                                          if value else None)
-                PendingTasks.add(task, "smooth_polys", "object", id_prefix=obj_id)
+                PendingTasks.add(task, "smooth_polys", "object", id_prefix=obj_id,
+                                 gradual=True, descr=descr)
 
             if change:
                 update_app()
@@ -619,15 +746,12 @@ class Cylinder(Primitive):
         elif prop_id == "smoothness":
             return self._is_smooth
 
-    def is_valid(self):
-
-        return min(self._radius, abs(self._height)) > .001
-
     def finalize(self):
 
         self.__update_size()
 
-        Primitive.finalize(self, update_poly_centers=False)
+        for step in Primitive.finalize(self, update_poly_centers=False):
+            yield
 
 
 MainObjects.add_class(CylinderManager)

@@ -1,3 +1,9 @@
+import logging
+
+logging.basicConfig(filename='p3ds.log', filemode='w',
+                    format='%(asctime)s - %(levelname)s: %(message)s',
+                    datefmt='%Y/%m/%d %H:%M:%S', level=logging.DEBUG)
+
 
 class GlobalMeta(type):
 
@@ -18,8 +24,8 @@ class GlobalMeta(type):
 
         if data_id in cls._data:
             return cls._data[data_id]
-        else:
-            raise KeyError('Global data ID "%s" not defined.' % data_id)
+
+        raise KeyError('Global data ID "%s" not defined.' % data_id)
 
     def __setitem__(cls, data_id, value):
         """
@@ -192,8 +198,7 @@ class EventBinder(object):
             binding = self._bindings[binding_id]
             event_props = binding[1]
             self._active_bindings[event_props] = binding_id
-            method = self._listener.accept_once if binding[
-                0] else self._listener.accept
+            method = self._listener.accept_once if binding[0] else self._listener.accept
             method(*binding[1:])
 
         return binding_ids_found
@@ -308,8 +313,7 @@ class StateManager(object):
 
         """
 
-        self._states[state_id] = StateObject(
-            state_id, persistence, on_enter, on_exit)
+        self._states[state_id] = StateObject(state_id, persistence, on_enter, on_exit)
 
     def set_state_enter_command(self, state_id, on_enter):
 

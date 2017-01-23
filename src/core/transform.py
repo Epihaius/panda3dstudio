@@ -299,14 +299,10 @@ class SelectionTransformBase(BaseObject):
 
                 self._start_mats = [obj.get_pivot().get_mat(grid_origin)
                                     for obj in objs_to_transform]
-                print "\nInitializing rotation"
-                for obj in objs_to_transform:
-                    print "Pos:", obj.get_pivot().get_pos(grid_origin)
 
                 if tc_type != "cs_origin":
                     self._offset_vecs = [Point3() - obj.get_pivot().get_relative_point(self.world, tc_pos)
                                          for obj in objs_to_transform]
-                    print "Offsets:", self._offset_vecs
 
         else:
 
@@ -395,7 +391,6 @@ class SelectionTransformBase(BaseObject):
                         mat = rotation * start_mat
                         obj.get_pivot().set_mat(grid_origin, mat)
                 else:
-                    print "\nRotating..."
                     for obj, start_mat, start_vec in zip(objs_to_transform, self._start_mats,
                                                          self._offset_vecs):
                         pivot = obj.get_pivot()
@@ -404,7 +399,6 @@ class SelectionTransformBase(BaseObject):
                         vec = self.world.get_relative_vector(grid_origin,
                             start_mat.xform_vec(rotation.xform(start_vec)))
                         pivot.set_pos(self.world, tc_pos + vec)
-                        print "New pos:", pivot.get_pos(grid_origin)
 
         else:
 
@@ -735,6 +729,7 @@ class TransformationManager(BaseObject):
         self._screen_axis_vec = V3D()
 
         Mgr.expose("obj_transf_info", lambda: self._obj_transf_info)
+        Mgr.accept("reset_transf_to_restore", self.__reset_transforms_to_restore)
         Mgr.accept("add_transf_to_restore", self.__add_transform_to_restore)
         Mgr.accept("restore_transforms", self.__restore_transforms)
         Mgr.accept("update_obj_transf_info", self.__update_obj_transf_info)
@@ -767,6 +762,10 @@ class TransformationManager(BaseObject):
         bind("transforming", "finalize transform", "mouse1-up", end_transform)
 
         return True
+
+    def __reset_transforms_to_restore(self):
+
+        self._transforms_to_restore = {"pivot": {}, "origin": {}}
 
     def __add_transform_to_restore(self, transf_target, obj, restore_task):
 
@@ -967,7 +966,11 @@ class TransformationManager(BaseObject):
 
         else:
 
-            selection.set_transform_component(transf_type, axis, value, is_rel_value)
+            process = selection.set_transform_component(transf_type, axis, value, is_rel_value)
+
+            if process.next():
+                descr = "Finalizing transformation..."
+                Mgr.do_gradually(process, "subobj_transformation", descr)
 
         if active_obj_lvl == "top":
 
@@ -1075,7 +1078,10 @@ class TransformationManager(BaseObject):
             if active_obj_lvl == "top":
                 self._selection.finalize_transform(self._objs_to_transform)
             else:
-                self._selection.finalize_transform()
+                process = self._selection.finalize_transform()
+                if process.next():
+                    descr = "Finalizing transformation..."
+                    Mgr.do_gradually(process, "subobj_transformation", descr)
 
         if active_obj_lvl == "top":
 

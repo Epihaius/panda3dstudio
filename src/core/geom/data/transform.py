@@ -236,7 +236,15 @@ class GeomTransformBase(BaseObject):
                 vert_ids.extend(poly.get_vertex_ids())
 
             merged_verts = set(self._merged_verts[vert_id] for vert_id in vert_ids)
-            self._update_vertex_normals(merged_verts)
+
+            update = self._update_vertex_normals(merged_verts)
+
+            if update.next():
+
+                yield True
+
+                for step in update:
+                    yield True
 
             if self._has_tangent_space:
                 self.update_tangent_space(polys_to_update)
@@ -246,10 +254,12 @@ class GeomTransformBase(BaseObject):
         start_data.clear()
         self._pos_arrays = {"main": None, "edge": None}
 
+        yield False
+
     def _restore_subobj_transforms(self, old_time_id, new_time_id):
 
         obj_id = self.get_toplevel_object().get_id()
-        prop_id = "subobj_transform"
+        prop_id = self._unique_prop_ids["subobj_transform"]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
         new_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
@@ -280,7 +290,7 @@ class GeomTransformBase(BaseObject):
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
 
-        data_id = "vert_pos__extra__"
+        data_id = self._unique_prop_ids["vert_pos__extra__"]
 
         time_ids_to_restore = {}
         prev_prop_times = {}
@@ -461,15 +471,33 @@ class SelectionTransformBase(BaseObject):
             obj_lvl = self._obj_level
 
             for geom_data_obj in self._groups:
+
                 geom_data_obj.transform_selection(obj_lvl, transf_type, transform)
-                geom_data_obj.finalize_transform()
+
+                finalization = geom_data_obj.finalize_transform()
+
+                if finalization.next():
+
+                    yield True
+
+                    for step in finalization:
+                        yield True
 
         else:
             # set absolute coordinate for selected vertices
 
             for geom_data_obj in self._groups:
+
                 geom_data_obj.set_vert_sel_coordinate(axis, value)
-                geom_data_obj.finalize_transform()
+
+                finalization = geom_data_obj.finalize_transform()
+
+                if finalization.next():
+
+                    yield True
+
+                    for step in finalization:
+                        yield True
 
             if len(self._objs) == 1:
                 grid_origin = Mgr.get(("grid", "origin"))
@@ -483,6 +511,8 @@ class SelectionTransformBase(BaseObject):
             Mgr.do("set_transf_gizmo_pos", self.get_center_pos())
 
         self.__add_history(transf_type)
+
+        yield False
 
     def update_transform_values(self):
 
@@ -540,7 +570,15 @@ class SelectionTransformBase(BaseObject):
     def finalize_transform(self, cancelled=False):
 
         for geom_data_obj in self._groups:
-            geom_data_obj.finalize_transform(cancelled)
+
+            finalization = geom_data_obj.finalize_transform(cancelled)
+
+            if finalization.next():
+
+                yield True
+
+                for step in finalization:
+                    yield True
 
         if not cancelled:
 
@@ -553,6 +591,8 @@ class SelectionTransformBase(BaseObject):
 
             self.update_transform_values()
             self.__add_history(GlobalData["active_transform_type"])
+
+        yield False
 
     def __add_history(self, transf_type):
 
@@ -577,4 +617,5 @@ class SelectionTransformBase(BaseObject):
 
     def cancel_transform(self):
 
-        self.finalize_transform(cancelled=True)
+        for step in self.finalize_transform(cancelled=True):
+            pass

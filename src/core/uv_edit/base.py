@@ -71,8 +71,12 @@ class UVManager(object):
 
         """
 
-        if cls._verbose and task_id not in cls._task_handlers:
-            print 'Core warning: task "%s" is not defined.' % task_id
+        if task_id not in cls._task_handlers:
+
+            logging.warning('CORE: task "%s" is not defined.', task_id)
+
+            if cls._verbose:
+                print 'CORE warning: task "%s" is not defined.' % task_id
 
         task_handler = cls._task_handlers.get(task_id, cls._defaults["task_handler"])
 
@@ -92,11 +96,14 @@ class UVManager(object):
 
         """
 
-        if cls._verbose and data_id not in cls._data_retrievers:
-            print 'Core warning: data "%s" is not defined.' % data_id
+        if data_id not in cls._data_retrievers:
 
-        retriever = cls._data_retrievers.get(
-            data_id, cls._defaults["data_retriever"])
+            logging.warning('CORE: data "%s" is not defined.', data_id)
+
+            if cls._verbose:
+                print 'CORE warning: data "%s" is not defined.' % data_id
+
+        retriever = cls._data_retrievers.get(data_id, cls._defaults["data_retriever"])
 
         return retriever(*args, **kwargs)
 

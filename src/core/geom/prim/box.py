@@ -5,21 +5,18 @@ class BoxManager(PrimitiveManager):
 
     def __init__(self):
 
-        PrimitiveManager.__init__(self, "box")
+        PrimitiveManager.__init__(self, "box", custom_creation=True)
 
         self._height_axis = V3D(0., 0., 1.)
         self._draw_plane = None
         self._draw_plane_normal = V3D()
-        self._base_center = V3D()
         self._dragged_point = Point3()
 
         for axis in "xyz":
             self.set_property_default("size_%s" % axis, 1.)
 
+        self.set_property_default("temp_segments", {"x": 1, "y": 1, "z": 1})
         self.set_property_default("segments", {"x": 1, "y": 1, "z": 1})
-
-        Mgr.accept("inst_create_box", self.create_instantly)
-        Mgr.accept("create_custom_box", self.__create_custom)
 
     def setup(self):
 
@@ -36,25 +33,44 @@ class BoxManager(PrimitiveManager):
 
         return PrimitiveManager.setup(self, creation_phases, status_text)
 
-    def apply_default_size(self, prim):
+    def create_temp_primitive(self, color, pos):
 
-        prop_defaults = self.get_property_defaults()
-        x, y, z = [prop_defaults["size_%s" % axis] for axis in "xyz"]
-        prim.update_creation_size(x, y, z, finalize=True)
+        segs = self.get_property_defaults()["segments"]
+        tmp_segs = self.get_property_defaults()["temp_segments"]
+        segments = dict((axis, min(segs[axis], tmp_segs[axis])) for axis in "xyz")
+        tmp_prim = TemporaryBox(segments, color, pos)
 
-    def init_primitive(self, model):
+        return tmp_prim
+
+    def create_primitive(self, model):
 
         prim = Box(model)
-        prop_defaults = self.get_property_defaults()
-        prim.create(prop_defaults["segments"])
+        segments = self.get_property_defaults()["segments"]
+        poly_count, merged_vert_count = _get_mesh_density(segments)
+        progress_steps = poly_count // 10 + poly_count // 50 + merged_vert_count // 20
+        gradual = progress_steps > 100
 
-        return prim
+        for step in prim.create(segments):
+            if gradual:
+                yield
+
+        yield prim, gradual
+
+    def init_primitive_size(self, prim, size=None):
+
+        if size is None:
+            prop_defaults = self.get_property_defaults()
+            x, y, z = [prop_defaults["size_%s" % axis] for axis in "xyz"]
+        else:
+            x, y, z = [size[axis] for axis in "xyz"]
+
+        prim.init_size(x, y, z)
 
     def __start_creation_phase1(self):
         """ Start drawing out box base """
 
-        prim = self.get_primitive()
-        origin = prim.get_model().get_origin()
+        tmp_prim = self.get_temp_primitive()
+        origin = tmp_prim.get_origin()
         self._height_axis = self.world.get_relative_vector(origin, V3D(0., 0., 1.))
 
     def __creation_phase1(self):
@@ -68,12 +84,10 @@ class BoxManager(PrimitiveManager):
 
         grid_origin = Mgr.get(("grid", "origin"))
         self._dragged_point = self.world.get_relative_point(grid_origin, point)
-        prim = self.get_primitive()
-        origin = prim.get_model().get_origin()
-        x, y, z = origin.get_relative_point(grid_origin, point)
-        prim.update_creation_size(x, y)
-
-        self._base_center = Point3((self.get_origin_pos() + point) * .5)
+        tmp_prim = self.get_temp_primitive()
+        pivot = tmp_prim.get_pivot()
+        x, y, z = pivot.get_relative_point(grid_origin, point)
+        tmp_prim.update_size(x, y)
 
     def __start_creation_phase2(self):
         """ Start drawing out box height """
@@ -135,31 +149,244 @@ class BoxManager(PrimitiveManager):
         if not self._draw_plane.intersects_line(point, near_point, far_point):
             return
 
-        prim = self.get_primitive()
-        origin = prim.get_model().get_origin()
-        z = origin.get_relative_point(self.world, point)[2]
-        prim.update_creation_size(z=z)
+        tmp_prim = self.get_temp_primitive()
+        pivot = tmp_prim.get_pivot()
+        z = pivot.get_relative_point(self.world, point)[2]
+        tmp_prim.update_size(z=z)
 
-    def __create_custom(self, name, x, y, z, segments, origin_pos, rel_to_grid=False):
+    def create_custom_primitive(self, name, x, y, z, segments, pos, rel_to_grid=False, gradual=False):
 
         model_id = self.generate_object_id()
-        model = Mgr.do("create_model", model_id, name, origin_pos)
+        model = Mgr.do("create_model", model_id, name, pos)
 
         if not rel_to_grid:
             pivot = model.get_pivot()
             pivot.clear_transform()
-            pivot.set_pos(self.world, origin_pos)
+            pivot.set_pos(self.world, pos)
 
         next_color = self.get_next_object_color()
         model.set_color(next_color, update_app=False)
         prim = Box(model)
-        prim.create(segments)
-        prim.update_creation_size(x, y, z, finalize=True)
-        prim.get_geom_data_object().finalize_geometry()
+
+        for step in prim.create(segments):
+            if gradual:
+                yield
+
+        prim.init_size(x, y, z)
+
+        for step in prim.get_geom_data_object().finalize_geometry():
+            if gradual:
+                yield
+
         model.set_geom_object(prim)
         self.set_next_object_color()
 
-        return model
+        yield model
+
+
+def _get_mesh_density(segments):
+
+    poly_count = 2 * segments["x"] * segments["y"]
+    poly_count += 2 * segments["x"] * segments["z"]
+    poly_count += 2 * segments["y"] * segments["z"]
+    merged_vert_count = poly_count + 2
+
+    return poly_count, merged_vert_count
+
+
+def _define_geom_data(segments, temp=False):
+
+    geom_data = []
+    # store PosObjs referring to positions along the box edges, so they can be
+    # shared by adjacent sides; this in turn will ensure that the corresponding
+    # Vertex objects will be merged
+    edge_positions = {}
+
+    def get_side_data(i):
+
+        d = {}
+
+        for sign in (-1, 1):
+            d[sign] = {
+                "normal": tuple(map(lambda x: sign * 1. if x == i else 0., range(3))),
+                "vert_data": {}
+            }
+
+        return "xyz"[i - 2] + "xyz"[i - 1], d
+
+    sides = dict(map(get_side_data, range(3)))
+
+    offsets = {"x": -.5, "y": -.5, "z": 0.}
+
+    # Define vertex data
+
+    for plane in sides:
+
+        axis1, axis2 = plane
+        axis3 = "xyz".replace(axis1, "").replace(axis2, "")
+        coords = {"x": 0., "y": 0., "z": 0.}
+        segs1 = segments[axis1]
+        segs2 = segments[axis2]
+        segs3 = segments[axis3]
+        i1 = "xyz".index(axis1)
+        i2 = "xyz".index(axis2)
+        range1 = xrange(segs1 + 1)
+        range2 = xrange(segs2 + 1)
+        side_pair = sides[plane]
+
+        for direction in side_pair:
+
+            vert_id = 0
+            side = side_pair[direction]
+            vert_data = side["vert_data"]
+            normal = side["normal"]
+            coords[axis3] = (0. if direction == -1 else 1.) + offsets[axis3]
+            offset1 = offsets[axis1]
+            offset2 = offsets[axis2]
+
+            for i in range2:
+
+                b = (1. / segs2) * i
+                coords[axis2] = b + offset2
+
+                for j in range1:
+
+                    a = (1. / segs1) * j
+                    coords[axis1] = a + offset1
+                    pos = tuple(coords[axis] for axis in "xyz")
+
+                    if i in (0, segs2) or j in (0, segs1):
+
+                        k = 0 if direction == -1 else segs3
+                        key_components = {axis1: j, axis2: i, axis3: k}
+                        key = tuple(key_components[axis] for axis in "xyz")
+
+                        if key in edge_positions:
+                            pos_obj = edge_positions[key]
+                        else:
+                            pos_obj = PosObj(pos)
+                            edge_positions[key] = pos_obj
+
+                    else:
+
+                        pos_obj = PosObj(pos)
+
+                    if temp:
+                        vert_data[vert_id] = {"pos": pos_obj, "normal": normal}
+                    else:
+                        u = (-b if plane == "zx" else a) * direction
+                        u += (1. if (direction > 0 if plane == "zx" else direction < 0) else 0.)
+                        v = a if plane == "zx" else b
+                        vert_data[vert_id] = {"pos": pos_obj, "normal": normal, "uvs": {0: (u, v)}}
+
+                    vert_id += 1
+
+    if not temp:
+        smoothing_id = 0
+
+    # Define faces
+
+    for plane in sides:
+
+        axis1, axis2 = plane
+        segs1 = segments[axis1]
+        segs2 = segments[axis2]
+        side_pair = sides[plane]
+
+        for direction in side_pair:
+
+            side = side_pair[direction]
+            vert_data = side["vert_data"]
+
+            for i in xrange(segs2):
+
+                for j in xrange(segs1):
+
+                    vi1 = i * (segs1 + 1) + j
+                    vi2 = vi1 + 1
+                    vi3 = vi2 + segs1
+                    vi4 = vi3 + 1
+                    vert_ids = (vi1, vi2, vi4) if direction == 1 else (vi1, vi4, vi2)
+                    tri_data1 = [vert_data[vi] for vi in vert_ids]
+                    vert_ids = (vi1, vi4, vi3) if direction == 1 else (vi1, vi3, vi4)
+                    tri_data2 = [vert_data[vi] for vi in vert_ids]
+
+                    if temp:
+                        poly_data = (tri_data1, tri_data2)
+                    else:
+                        tris = (tri_data1, tri_data2)
+                        poly_data = {"tris": tris, "smoothing": [(smoothing_id, True)]}
+
+                    geom_data.append(poly_data)
+
+            if not temp:
+                smoothing_id += 1
+
+    return geom_data
+
+
+class TemporaryBox(TemporaryPrimitive):
+
+    def __init__(self, segments, color, pos):
+
+        TemporaryPrimitive.__init__(self, "box", color, pos)
+
+        self._size = {"x": 0., "y": 0., "z": 0.}
+        geom_data = _define_geom_data(segments, True)
+        self.create_geometry(geom_data)
+        self.get_origin().set_sz(.001)
+
+    def update_size(self, x=None, y=None, z=None):
+
+        origin = self.get_origin()
+        size = self._size
+
+        if x is not None:
+
+            sx = max(abs(x), .001)
+            sy = max(abs(y), .001)
+
+            origin.set_x((-sx if x < 0. else sx) * .5)
+            origin.set_y((-sy if y < 0. else sy) * .5)
+
+            if size["x"] != sx:
+                size["x"] = sx
+                origin.set_sx(sx)
+
+            if size["y"] != sy:
+                size["y"] = sy
+                origin.set_sy(sy)
+
+        if z is not None:
+
+            sz = max(abs(z), .001)
+            s = -sz if z < 0. else sz
+
+            if size["z"] != s:
+                size["z"] = s
+                origin.set_sz(sz)
+                origin.set_z(s if s < 0. else 0.)
+
+    def get_size(self):
+
+        return self._size
+
+    def is_valid(self):
+
+        return max(self._size.itervalues()) > .001
+
+    def finalize(self):
+
+        pos = self._pivot.get_pos()
+        pivot = self.get_pivot()
+        origin = self.get_origin()
+        x, y, z = origin.get_pos()
+        pos = self.world.get_relative_point(pivot, Point3(x, y, 0.))
+        pivot.set_pos(self.world, pos)
+        origin.set_x(0.)
+        origin.set_y(0.)
+
+        return TemporaryPrimitive.finalize(self)
 
 
 class Box(Primitive):
@@ -172,135 +399,20 @@ class Box(Primitive):
         Primitive.__init__(self, "box", model, prop_ids)
 
         self._segments = {"x": 1, "y": 1, "z": 1}
-        self._size = {"x": 1., "y": 1., "z": 1.}
+        self._segments_backup = {"x": 1, "y": 1, "z": 1}
+        self._size = {"x": 0., "y": 0., "z": 0.}
 
     def define_geom_data(self):
 
-        geom_data = []
-        # store PosObjs referring to positions along the box edges, so they can be
-        # shared by adjacent sides; this in turn will ensure that the corresponding
-        # Vertex objects will be merged
-        edge_positions = {}
-
-        def get_side_data(i):
-
-            d = {}
-
-            for sign in (-1, 1):
-                d[sign] = {
-                    "normal": tuple(map(lambda x: sign * 1. if x == i else 0., range(3))),
-                    "vert_data": {}
-                }
-
-            return "xyz"[i - 2] + "xyz"[i - 1], d
-
-        sides = dict(map(get_side_data, range(3)))
-        segments = self._segments
-
-        offsets = {"x": -.5, "y": -.5, "z": 0.}
-
-        # Define vertex data
-
-        for plane in sides:
-
-            axis1, axis2 = plane
-            axis3 = "xyz".replace(axis1, "").replace(axis2, "")
-            coords = {"x": 0., "y": 0., "z": 0.}
-            segs1 = segments[axis1]
-            segs2 = segments[axis2]
-            segs3 = segments[axis3]
-            i1 = "xyz".index(axis1)
-            i2 = "xyz".index(axis2)
-            range1 = xrange(segs1 + 1)
-            range2 = xrange(segs2 + 1)
-            side_pair = sides[plane]
-
-            for direction in side_pair:
-
-                vert_id = 0
-                side = side_pair[direction]
-                vert_data = side["vert_data"]
-                normal = side["normal"]
-                coords[axis3] = (0. if direction == -1 else 1.) + offsets[axis3]
-                offset1 = offsets[axis1]
-                offset2 = offsets[axis2]
-
-                for i in range2:
-
-                    b = (1. / segs2) * i
-                    coords[axis2] = b + offset2
-
-                    for j in range1:
-
-                        a = (1. / segs1) * j
-                        coords[axis1] = a + offset1
-                        pos = tuple(coords[axis] for axis in "xyz")
-
-                        if i in (0, segs2) or j in (0, segs1):
-
-                            k = 0 if direction == -1 else segs3
-                            key_components = {axis1: j, axis2: i, axis3: k}
-                            key = tuple(key_components[axis] for axis in "xyz")
-
-                            if key in edge_positions:
-                                pos_obj = edge_positions[key]
-                            else:
-                                pos_obj = PosObj(pos)
-                                edge_positions[key] = pos_obj
-
-                        else:
-
-                            pos_obj = PosObj(pos)
-
-                        u = (-b if plane == "zx" else a) * direction
-                        u += (1. if (direction > 0 if plane == "zx" else direction < 0) else 0.)
-                        v = a if plane == "zx" else b
-                        vert_data[vert_id] = {"pos": pos_obj, "normal": normal, "uvs": {0: (u, v)}}
-                        vert_id += 1
-
-        smoothing_id = 0
-
-        # Define faces
-
-        for plane in sides:
-
-            axis1, axis2 = plane
-            segs1 = segments[axis1]
-            segs2 = segments[axis2]
-            side_pair = sides[plane]
-
-            for direction in side_pair:
-
-                side = side_pair[direction]
-                vert_data = side["vert_data"]
-
-                for i in xrange(segs2):
-
-                    for j in xrange(segs1):
-
-                        vi1 = i * (segs1 + 1) + j
-                        vi2 = vi1 + 1
-                        vi3 = vi2 + segs1
-                        vi4 = vi3 + 1
-                        vert_ids = (vi1, vi2, vi4) if direction == 1 else (vi1, vi4, vi2)
-                        tri_data1 = {"verts": [vert_data[vi] for vi in vert_ids]}
-                        vert_ids = (vi1, vi4, vi3) if direction == 1 else (vi1, vi3, vi4)
-                        tri_data2 = {"verts": [vert_data[vi] for vi in vert_ids]}
-                        tris = (tri_data1, tri_data2)
-                        poly_data = {"tris": tris, "smoothing": [(smoothing_id, True)]}
-                        geom_data.append(poly_data)
-
-                smoothing_id += 1
-
-        return geom_data
+        return _define_geom_data(self._segments)
 
     def create(self, segments):
 
         self._segments = segments
 
-        Primitive.create(self)
+        for step in Primitive.create(self, *_get_mesh_density(segments)):
+            yield
 
-        self.get_origin().set_sz(.001)
         self.update_initial_coords()
 
     def set_segments(self, segments):
@@ -308,6 +420,7 @@ class Box(Primitive):
         if self._segments == segments:
             return False
 
+        self._segments_backup = self._segments
         self._segments = segments
 
         return True
@@ -326,49 +439,15 @@ class Box(Primitive):
         self.get_geom_data_object().update_poly_centers()
         self.get_model().get_bbox().update(*origin.get_tight_bounds())
 
-    def update_creation_size(self, x=None, y=None, z=None, finalize=False):
+    def init_size(self, x, y, z):
 
         origin = self.get_origin()
         size = self._size
+        size["x"] = max(abs(x), .001)
+        size["y"] = max(abs(y), .001)
+        size["z"] = max(abs(z), .001) * (-1. if z < 0. else 1.)
 
-        if x is not None:
-
-            sx = max(abs(x), .001)
-            sy = max(abs(y), .001)
-
-            origin.set_x((-sx if x < 0. else sx) * .5)
-            origin.set_y((-sy if y < 0. else sy) * .5)
-
-            if size["x"] != sx:
-
-                size["x"] = sx
-
-                if not finalize:
-                    origin.set_sx(sx)
-
-            if size["y"] != sy:
-
-                size["y"] = sy
-
-                if not finalize:
-                    origin.set_sy(sy)
-
-        if z is not None:
-
-            sz = max(abs(z), .001)
-            s = -sz if z < 0. else sz
-
-            if size["z"] != s:
-
-                size["z"] = s
-
-                if not finalize:
-                    origin.set_sz(sz)
-                    origin.set_z(s if s < 0. else 0.)
-
-        if finalize:
-            self.__center_origin(adjust_pivot=False)
-            self.__update_size()
+        self.__update_size()
 
     def set_dimension(self, axis, value):
 
@@ -387,8 +466,9 @@ class Box(Primitive):
             data[prop_id] = {"main": self.get_property(prop_id)}
 
             if prop_id == "segments":
-                data.update(self.get_geom_data_object().get_data_to_store("subobj_change",
-                                                                          info="rebuild"))
+                data.update(self.get_geom_data_backup().get_data_to_store("deletion"))
+                data.update(self.get_geom_data_object().get_data_to_store("creation"))
+                self.remove_geom_data_backup()
             elif "size" in prop_id:
                 data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
@@ -396,6 +476,14 @@ class Box(Primitive):
             return data
 
         return Primitive.get_data_to_store(self, event_type, prop_id)
+
+    def cancel_geometry_recreation(self, info):
+
+        Primitive.cancel_geometry_recreation(self, info)
+
+        if info == "creation":
+            self._segments = self._segments_backup
+            Mgr.update_remotely("selected_obj_prop", "box", "segments", self._segments)
 
     def set_property(self, prop_id, value, restore=""):
 
@@ -420,7 +508,7 @@ class Box(Primitive):
             if change:
 
                 if not restore:
-                    self.recreate_geometry()
+                    self.recreate_geometry(*_get_mesh_density(segments))
 
                 update_app()
 
@@ -433,7 +521,7 @@ class Box(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -474,11 +562,8 @@ class Box(Primitive):
         self.__center_origin()
         self.__update_size()
 
-        Primitive.finalize(self, update_poly_centers=False)
-
-    def is_valid(self):
-
-        return max(self._size.itervalues()) > .001
+        for step in Primitive.finalize(self, update_poly_centers=False):
+            yield
 
 
 MainObjects.add_class(BoxManager)

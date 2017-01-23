@@ -3,6 +3,8 @@ from .base import *
 
 class CoreManager(object):
 
+    # structure to store handlers for received notifications
+    _notification_handlers = {}
     # structure to store callables through which data can be retrieved by id
     _data_retrievers = {}
     # store handlers of tasks by id
@@ -73,6 +75,32 @@ class CoreManager(object):
         cls.get("object_root").set_shader_auto()
 
     @classmethod
+    def add_notification_handler(cls, notification, obj_id, handler, once=False):
+
+        cls._notification_handlers.setdefault(notification, {})[obj_id] = (handler, once)
+
+    @classmethod
+    def remove_notification_handler(cls, notification, obj_id):
+
+        handlers = cls._notification_handlers.get(notification, {})
+
+        if obj_id in handlers:
+            del handlers[obj_id]
+
+    @classmethod
+    def notify(cls, notification, info=""):
+
+        handlers = cls._notification_handlers.get(notification, {})
+
+        for obj_id, handler_data in handlers.items():
+
+            handler, once = handler_data
+            handler(info)
+
+            if once:
+                del handlers[obj_id]
+
+    @classmethod
     def accept(cls, task_id, task_handler):
         """
         Make the manager accept a task by providing its id and handler (a callable).
@@ -89,12 +117,43 @@ class CoreManager(object):
 
         """
 
-        if cls._verbose and task_id not in cls._task_handlers:
-            print 'Core warning: task "%s" is not defined.' % task_id
+        if task_id not in cls._task_handlers:
+
+            logging.warning('CORE: task "%s" is not defined.', task_id)
+
+            if cls._verbose:
+                print 'CORE warning: task "%s" is not defined.' % task_id
 
         task_handler = cls._task_handlers.get(task_id, cls._defaults["task_handler"])
 
         return task_handler(*args, **kwargs)
+
+    @classmethod
+    def do_gradually(cls, process, process_id="", descr="", cancellable=False):
+        """
+        Spread a time-consuming process over multiple frames.
+
+        """
+
+        return cls._core.do_gradually(process, process_id, descr, cancellable)
+
+    @classmethod
+    def show_screenshot(cls):
+        """
+        Generate and render a screenshot to replace the rendering of the scene.
+
+        """
+
+        cls._core.show_screenshot()
+
+    @classmethod
+    def schedule_screenshot_removal(cls):
+        """
+        Add a PendingTask to remove the screenshot currently replacing the rendering of the scene.
+
+        """
+
+        cls._core.schedule_screenshot_removal()
 
     @classmethod
     def expose(cls, data_id, retriever):
@@ -110,8 +169,12 @@ class CoreManager(object):
 
         """
 
-        if cls._verbose and data_id not in cls._data_retrievers:
-            print 'Core warning: data "%s" is not defined.' % data_id
+        if data_id not in cls._data_retrievers:
+
+            logging.warning('CORE: data "%s" is not defined.', data_id)
+
+            if cls._verbose:
+                print 'CORE warning: data "%s" is not defined.' % data_id
 
         retriever = cls._data_retrievers.get(data_id, cls._defaults["data_retriever"])
 

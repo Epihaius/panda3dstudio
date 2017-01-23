@@ -17,7 +17,7 @@ class TexProjectorEdgeManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         proj_edge = TexProjectorEdge(projector, axis, corner_index, picking_col_id)
 
-        return proj_edge, picking_col_id
+        return proj_edge
 
 
 class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
@@ -41,7 +41,6 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         self._pixel_under_mouse = VBase4()
         self._target_to_projector_ids = {}
 
-        Mgr.accept("inst_create_tex_projector", self.__create_projector_instantly)
         Mgr.accept("register_texproj_targets", self.__register_projection_targets)
         Mgr.accept("unregister_texproj_targets", self.__unregister_projection_targets)
         Mgr.add_app_updater("texproj_prop", self.__set_projector_property,
@@ -172,19 +171,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
             projector.remove_target(target_id, add_to_hist)
             del target_to_proj_ids[target_id]
 
-    def __create_projector_instantly(self, origin_pos):
-
-        projector_id = self.generate_object_id()
-        obj_type = self.get_object_type()
-        name = Mgr.get("next_obj_name", obj_type)
-        projector = Mgr.do("create_tex_projector", projector_id, name, origin_pos)
-        prop_defaults = self.get_property_defaults()
-        projector.set_size(prop_defaults["size"])
-        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
-        # make undo/redoable
-        self.add_history(projector)
-
-    def __create_tex_projector(self, projector_id, name, origin_pos):
+    def __create_object(self, projector_id, name, origin_pos):
 
         prop_defaults = self.get_property_defaults()
         projector = TexProjector(projector_id, name, origin_pos,
@@ -194,17 +181,31 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
                                  prop_defaults["film_h"],
                                  prop_defaults["film_x"],
                                  prop_defaults["film_y"])
+        projector.register(restore=False)
 
-        return projector, projector_id
+        return projector
+
+    def __create_tex_projector(self, origin_pos, size=None):
+
+        projector_id = self.generate_object_id()
+        obj_type = self.get_object_type()
+        name = Mgr.get("next_obj_name", obj_type)
+        projector = self.__create_object(projector_id, name, origin_pos)
+        prop_defaults = self.get_property_defaults()
+        projector.set_size(prop_defaults["size"] if size is None else size)
+        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
+        # make undo/redoable
+        self.add_history(projector)
+
+        yield False
 
     def __start_creation_phase1(self):
         """ start drawing out texture projector """
 
-        projector_id = self.generate_object_id()
-        name = Mgr.get("next_obj_name", self.get_object_type())
         origin_pos = self.get_origin_pos()
-        projector = Mgr.do("create_tex_projector", projector_id, name, origin_pos)
-        self.init_object(projector)
+        projection_type = self.get_property_defaults()["projection_type"]
+        tmp_projector = TemporaryTexProjector(origin_pos, projection_type)
+        self.init_object(tmp_projector)
 
         # Create the plane parallel to the camera and going through the projector
         # origin, used to determine the size drawn by the user.
@@ -330,6 +331,183 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
+class TemporaryTexProjector(object):
+
+    _original_geom = None
+
+    @classmethod
+    def __create_original_geom(cls):
+
+        minmax = (-.5, .5)
+        corners = [(x, y, z) for x in minmax for y in minmax for z in minmax]
+
+        x1, y1, z1 = corners.pop()
+
+        for corner in corners[:]:
+
+            x, y, z = corner
+
+            if (x == x1 and y != y1 and z != z1) \
+                    or (y == y1 and x != x1 and z != z1) \
+                    or (z == z1 and x != x1 and y != y1):
+
+                corners.remove(corner)
+
+                if len(corners) == 4:
+                    break
+
+        tmp_geom = NodePath("tmp_tex_proj_geom")
+        tmp_geom.set_color_scale(.1)
+        tmp_geom.set_bin("fixed", 50)
+        tmp_geom.set_depth_test(False)
+        tmp_geom.set_depth_write(False)
+        cls._original_geom = tmp_geom
+
+        # Create body.
+
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("tex_proj_body_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+        lines = GeomLines(Geom.UH_static)
+        edge_ends = []
+
+        for corner in corners:
+            for coord, axis in zip(corner, "xyz"):
+                pos_writer.add_data3f(corner)
+                coord2 = coord + (1. if coord < 0. else -1.)
+                pos = Point3(*corner)
+                pos["xyz".index(axis)] = coord2
+                pos_writer.add_data3f(pos)
+                lines.add_next_vertices(2)
+                edge_ends.append((corner, pos))
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        node = GeomNode("tex_proj_body")
+        node.add_geom(geom)
+
+        body = tmp_geom.attach_new_node(node)
+        body.set_scale(1.2, 1.8, 1.2)
+        body.set_color(.7, 1., .7)
+
+        # Create lens visualizations.
+
+        def xform_point(point, proj_type):
+
+            if proj_type == "orthographic":
+
+                x, y, z = point
+                y = (y + .5) * .5 + .9
+
+            elif proj_type == "perspective":
+
+                x, y, z = point
+                y = (y + .5) * .5 + .9
+                x *= y * .6666
+                z *= y * .6666
+
+            return (x, y, z)
+
+        for proj_type in ("orthographic", "perspective"):
+
+            vertex_data = GeomVertexData("tex_proj_lens_%s_viz_data" % proj_type,
+                                         vertex_format, Geom.UH_static)
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+            lines = GeomLines(Geom.UH_static)
+
+            for points in edge_ends:
+
+                for point in points:
+                    pos_writer.add_data3f(xform_point(point, proj_type))
+
+                lines.add_next_vertices(2)
+
+            geom = Geom(vertex_data)
+            geom.add_primitive(lines)
+            node = GeomNode("tex_proj_lens_%s_viz" % proj_type)
+            node.add_geom(geom)
+            lens_viz = tmp_geom.attach_new_node(node)
+            lens_viz.hide(Mgr.get("picking_masks")["all"])
+            lens_viz.hide()
+            lens_viz.set_color(.5, .8, .5)
+
+        # Create tripod.
+
+        angle = 2. * pi / 3.
+        positions = [Point3(sin(angle * i), cos(angle * i), -1.5) for i in range(3)]
+
+        vertex_data = GeomVertexData("tex_proj_tripod_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+
+        lines = GeomLines(Geom.UH_static)
+
+        pos_writer.add_data3f(0., 0., 0.)
+
+        for i, pos in enumerate(positions):
+            pos_writer.add_data3f(pos)
+            lines.add_vertices(0, i + 1)
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        node = GeomNode("tex_proj_tripod")
+        node.add_geom(geom)
+
+        tripod = tmp_geom.attach_new_node(node)
+        tripod.hide(Mgr.get("picking_masks")["all"])
+        tripod.set_z(-.6)
+        tripod.set_color(.5, .8, .5)
+
+    def __get_original_geom(self):
+
+        if not self._original_geom:
+            TemporaryTexProjector.__create_original_geom()
+
+        return self._original_geom
+
+    original_geom = property(__get_original_geom)
+
+    def __init__(self, pos, projection_type):
+
+        self._size = 0.
+        object_root = Mgr.get("object_root")
+        self._temp_geom = tmp_geom = self.original_geom.copy_to(object_root)
+        tmp_geom.set_pos(pos)
+        lens_viz = tmp_geom.find("**/tex_proj_lens_%s_viz" % projection_type)
+        lens_viz.show()
+
+    def __del__(self):
+
+        logging.debug('TemporaryTexProjector garbage-collected.')
+
+    def destroy(self):
+
+        self._temp_geom.remove_node()
+        self._temp_geom = None
+
+    def set_size(self, size):
+
+        if self._size == size:
+            return
+
+        self._size = size
+        self._temp_geom.set_scale(size)
+
+    def is_valid(self):
+
+        return self._size > .001
+
+    def finalize(self):
+
+        pos = self._temp_geom.get_pos()
+
+        for step in Mgr.do("create_tex_projector", pos, self._size):
+            pass
+
+        self.destroy()
+
+
 class TexProjectorEdge(BaseObject):
 
     def __init__(self, projector, axis, corner_index, picking_col_id):
@@ -339,9 +517,9 @@ class TexProjectorEdge(BaseObject):
         self._corner_index = corner_index
         self._picking_col_id = picking_col_id
 
-    def destroy(self):
+    def __del__(self):
 
-        Mgr.do("unregister_tex_proj_edge", self._id)
+        logging.debug('TexProjectorEdge garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -645,9 +823,13 @@ class TexProjector(TopLevelObject):
                 col_writer.set_data4f(picking_color)
                 self._edges[color_id] = edge
 
-    def destroy(self, add_to_hist=True):
+    def __del__(self):
 
-        if not TopLevelObject.destroy(self, add_to_hist):
+        logging.info('TexProjector garbage-collected.')
+
+    def destroy(self, unregister=True, add_to_hist=True):
+
+        if not TopLevelObject.destroy(self, unregister, add_to_hist):
             return
 
         if self.is_selected():
@@ -657,12 +839,16 @@ class TexProjector(TopLevelObject):
                 model = Mgr.get("model", target_id)
 
                 if model:
+
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
-                    target = model.get_geom_object().get_geom_data_object()
-                    target.project_uvs(uv_set_ids, False, toplvl=toplvl)
+                    geom_obj = model.get_geom_object()
 
-        self.unregister()
+                    if geom_obj:
+                        target = geom_obj.get_geom_data_object()
+                        target.project_uvs(uv_set_ids, False, toplvl=toplvl)
+
+        self.unregister(unregister)
         self._edges = {}
 
         for np in self._lens_viz.itervalues():
@@ -675,6 +861,21 @@ class TexProjector(TopLevelObject):
         self._subobj_root = None
         self._body = None
         self._tripod = None
+
+    def register(self, restore=True):
+
+        TopLevelObject.register(self)
+
+        obj_type = "tex_proj_edge"
+        Mgr.do("register_%s_objs" % obj_type, self._edges.itervalues(), restore)
+
+    def unregister(self, unregister=True):
+
+        if unregister:
+            obj_type = "tex_proj_edge"
+            Mgr.do("unregister_%s_objs" % obj_type, self._edges.itervalues())
+
+        Mgr.do("unregister_texproj_targets", self._targets.iterkeys())
 
     def get_subobject_root(self):
 
@@ -693,19 +894,6 @@ class TexProjector(TopLevelObject):
     def get_center_pos(self, ref_node):
 
         return self.get_origin().get_pos(ref_node)
-
-    def register(self):
-
-        TopLevelObject.register(self)
-
-        obj_type = "tex_proj_edge"
-        Mgr.do("register_%s_objs" % obj_type, self._edges.itervalues())
-
-    def unregister(self):
-
-        obj_type = "tex_proj_edge"
-        Mgr.do("unregister_%s_objs" % obj_type, self._edges.itervalues())
-        Mgr.do("unregister_texproj_targets", self._targets.iterkeys())
 
     def set_on(self, on):
 
@@ -1167,14 +1355,6 @@ class TexProjector(TopLevelObject):
                     toplvl = target_data["toplvl"]
                     target = model.get_geom_object().get_geom_data_object()
                     target.project_uvs(uv_set_ids, False, toplvl=toplvl)
-
-    def is_valid(self):
-
-        return self._size > .001
-
-    def finalize(self):
-
-        pass
 
     def show(self, *args, **kwargs):
 

@@ -15,7 +15,7 @@ class PolygonManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         polygon = Polygon(poly_id, picking_col_id, geom_data_obj, triangle_data, edges, verts)
 
-        return polygon, picking_col_id
+        return polygon
 
 
 class Polygon(BaseObject):
@@ -210,7 +210,7 @@ class Polygon(BaseObject):
 
     def get_special_selection(self):
 
-        if GlobalData["sel_polys_by_smoothing"]:
+        if GlobalData["subobj_edit_options"]["sel_polys_by_smoothing"]:
             return self._geom_data_obj.get_smoothed_polys(self._id)
 
         return [self]

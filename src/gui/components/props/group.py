@@ -107,46 +107,28 @@ class GroupProperties(BaseObject):
         self._checkboxes["subgroup_selection"] = checkbox
         section.add_text("select groups", subsizer, sizer_args)
 
-        Mgr.add_app_updater("recursive_group_open", self.__update_recursive_open)
-        Mgr.add_app_updater("recursive_group_dissolve", self.__update_recursive_dissolve)
-        Mgr.add_app_updater("recursive_group_member_selection", self.__update_recursive_member_selection)
-        Mgr.add_app_updater("subgroup_selection", self.__update_subgroup_selection)
+        Mgr.add_app_updater("group_options", self.__update_group_options)
+
+    def __update_group_options(self):
+
+        for option, value in GlobalData["group_options"]["main"].iteritems():
+            self._checkboxes[option].check(value)
 
     def __toggle_recursive_open(self, recursive):
 
-        GlobalData["group_options"]["recursive_open"] = recursive
-
-    def __update_recursive_open(self):
-
-        recursive = GlobalData["group_options"]["recursive_open"]
-        self._checkboxes["recursive_open"].check(recursive)
+        GlobalData["group_options"]["main"]["recursive_open"] = recursive
 
     def __toggle_recursive_dissolve(self, recursive):
 
-        GlobalData["group_options"]["recursive_dissolve"] = recursive
-
-    def __update_recursive_dissolve(self):
-
-        recursive = GlobalData["group_options"]["recursive_dissolve"]
-        self._checkboxes["recursive_dissolve"].check(recursive)
+        GlobalData["group_options"]["main"]["recursive_dissolve"] = recursive
 
     def __toggle_recursive_member_selection(self, recursive):
 
-        GlobalData["group_options"]["recursive_member_selection"] = recursive
-
-    def __update_recursive_member_selection(self):
-
-        recursive = GlobalData["group_options"]["recursive_member_selection"]
-        self._checkboxes["recursive_member_selection"].check(recursive)
+        GlobalData["group_options"]["main"]["recursive_member_selection"] = recursive
 
     def __toggle_subgroup_selection(self, select):
 
-        GlobalData["group_options"]["subgroup_selection"] = select
-
-    def __update_subgroup_selection(self):
-
-        select = GlobalData["group_options"]["subgroup_selection"]
-        self._checkboxes["subgroup_selection"].check(select)
+        GlobalData["group_options"]["main"]["subgroup_selection"] = select
 
     def get_base_type(self):
 

@@ -13,14 +13,14 @@ class CreationManager(BaseObject):
         self._interactive_creation_ended = False
         self._mode_status = ""
         self._creation_type = ""
-        Mgr.accept("notify_creation_started", lambda: setattr(self, "_interactive_creation_started", True))
-        Mgr.accept("notify_creation_ended", lambda: setattr(self, "_interactive_creation_ended", True))
+        handler = lambda info: setattr(self, "_interactive_creation_ended", True)
+        Mgr.add_notification_handler("creation_ended", "creation_mgr", handler)
 
         status_data = GlobalData["status_data"]
         status_data["create"] = {}
 
-        Mgr.add_app_updater("creation", self.__update_creation)
-        Mgr.add_app_updater("instant_creation", self.__create_object_instantly)
+        Mgr.add_app_updater("interactive_creation", self.__update_creation)
+        Mgr.add_app_updater("creation", self.__create_object)
 
     def setup(self):
 
@@ -54,7 +54,7 @@ class CreationManager(BaseObject):
         bind("checking_creation_start", "abort creation",
              "mouse1-up", cancel_creation)
         bind("creation_mode", "start object creation", "mouse1",
-             self.__create_object)
+             self.__start_interactive_creation)
 
         return True
 
@@ -128,7 +128,7 @@ class CreationManager(BaseObject):
 
             GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
-            Mgr.update_app("creation", "started")
+            Mgr.update_app("interactive_creation", "started")
             Mgr.set_cursor("create")
 
         creation_type = GlobalData["active_creation_type"]
@@ -150,7 +150,7 @@ class CreationManager(BaseObject):
                 mode_status = "ended"
                 GlobalData["active_creation_type"] = ""
 
-            Mgr.update_app("creation", mode_status)
+            Mgr.update_app("interactive_creation", mode_status)
 
     def __check_creation_start(self, task):
 
@@ -166,7 +166,7 @@ class CreationManager(BaseObject):
 
         return task.cont
 
-    def __create_object(self):
+    def __start_interactive_creation(self):
 
         if not self.mouse_watcher.has_mouse():
             return
@@ -187,7 +187,7 @@ class CreationManager(BaseObject):
         Mgr.enter_state("checking_creation_start")
         Mgr.add_task(self.__check_creation_start, "check_creation_start", sort=3)
 
-    def __create_object_instantly(self, pos_id):
+    def __create_object(self, pos_id):
 
         if pos_id == "grid_pos":
             origin_pos = Point3()
@@ -196,7 +196,11 @@ class CreationManager(BaseObject):
             origin_pos = self.cam.target.get_pos(grid_origin)
 
         object_type = GlobalData["active_creation_type"]
-        Mgr.do("inst_create_%s" % object_type, origin_pos)
+        process = Mgr.do("create_%s" % object_type, origin_pos)
+
+        if process.next():
+            descr = "Creating %s..." % object_type
+            Mgr.do_gradually(process, "creation", descr, cancellable=True)
 
 
 MainObjects.add_class(CreationManager)

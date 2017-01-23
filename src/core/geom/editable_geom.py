@@ -30,7 +30,7 @@ class EditableGeom(GeomDataOwner):
 
         self._type = "editable_geom"
 
-    def create(self, geom_data_obj=None):
+    def create(self, geom_data_obj=None, gradual=False):
 
         if geom_data_obj:
             self.set_geom_data_object(geom_data_obj)
@@ -38,8 +38,15 @@ class EditableGeom(GeomDataOwner):
         else:
             data_obj = self.get_geom_data_object()
 
-        data_obj.create_geometry(self._type)
-        data_obj.finalize_geometry()
+        for step in data_obj.create_geometry(self._type, gradual=gradual):
+            if gradual:
+                yield True
+
+        for step in data_obj.finalize_geometry():
+            if gradual:
+                yield True
+
+        yield False
 
     def is_valid(self):
 
@@ -48,6 +55,15 @@ class EditableGeom(GeomDataOwner):
     def get_type(self):
 
         return self._type
+
+    def restore_property(self, prop_id, restore_type, old_time_id, new_time_id):
+
+        obj_id = self.get_toplevel_object().get_id()
+        val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
+        self.set_property(prop_id, val, restore_type)
+
+        if prop_id == "geom_data":
+            val.restore_data(["self"], restore_type, old_time_id, new_time_id)
 
 
 MainObjects.add_class(EditableGeomManager)

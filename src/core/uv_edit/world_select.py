@@ -118,13 +118,9 @@ class SelectionManager(BaseObject):
         if not is_active:
 
             for geom_data_obj, orig_sel in self._original_sel.iteritems():
-
                 for subobj_lvl in ("vert", "edge", "poly"):
-
                     geom_data_obj.clear_selection(subobj_lvl, False)
-
-                    for subobj in orig_sel[subobj_lvl]:
-                        geom_data_obj.set_selected(subobj, True, False)
+                    geom_data_obj.update_selection(subobj_lvl, orig_sel[subobj_lvl], [], False)
 
             self.__reset()
             selection = Mgr.get("selection", "top")
@@ -256,7 +252,7 @@ class SelectionManager(BaseObject):
             if obj_lvl == "edge":
                 geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, True)
             else:
-                geom_data_obj.set_selected(subobj, True, False)
+                geom_data_obj.update_selection(obj_lvl, [subobj], [], False)
 
             selection.add(subobj)
 
@@ -296,7 +292,7 @@ class SelectionManager(BaseObject):
                 if obj_lvl == "edge":
                     geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, False)
                 else:
-                    geom_data_obj.set_selected(subobj, False, False)
+                    geom_data_obj.update_selection(obj_lvl, [], [subobj], False)
 
                 selection.remove(subobj)
                 ids_to_keep = set([] if obj_lvl == "poly" else [i for x in selection for i in x])
@@ -307,7 +303,7 @@ class SelectionManager(BaseObject):
                 if obj_lvl == "edge":
                     geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, True)
                 else:
-                    geom_data_obj.set_selected(subobj, True, False)
+                    geom_data_obj.update_selection(obj_lvl, [subobj], [], False)
 
                 selection.add(subobj)
                 self._uv_editor.sync_selection(color_ids, "add")
@@ -348,6 +344,8 @@ class SelectionManager(BaseObject):
                     geom_data_obj = model.get_geom_object().get_geom_data_object()
                     geom_data_obj.clear_selection(obj_lvl, False)
 
+        subobj_sel = {}
+
         if op == "remove":
 
             ids_to_keep = keep if keep else set()
@@ -362,8 +360,11 @@ class SelectionManager(BaseObject):
                 for subobj in subobjects:
                     if obj_lvl == "poly" or not ids_to_keep.intersection(subobj[:]):
                         geom_data_obj = subobj.get_geom_data_object()
-                        geom_data_obj.set_selected(subobj, False, False)
+                        subobj_sel.setdefault(geom_data_obj, []).append(subobj)
                         selection.discard(subobj)
+
+            for geom_data_obj, subobjs in subobj_sel.iteritems():
+                geom_data_obj.update_selection(obj_lvl, [], subobjs, False)
 
         else:
 
@@ -375,5 +376,8 @@ class SelectionManager(BaseObject):
             else:
                 for subobj in subobjects:
                     geom_data_obj = subobj.get_geom_data_object()
-                    geom_data_obj.set_selected(subobj, True, False)
+                    subobj_sel.setdefault(geom_data_obj, []).append(subobj)
                     selection.add(subobj)
+
+            for geom_data_obj, subobjs in subobj_sel.iteritems():
+                geom_data_obj.update_selection(obj_lvl, subobjs, [], False)

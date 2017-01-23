@@ -17,7 +17,7 @@ class PolygonFlipBase(BaseObject):
         poly_ids = iter(selected_poly_ids) if selected_only else polys.iterkeys()
 
         if not poly_ids:
-            return False
+            return
 
         vert_indices = {}
         vert_indices_selected = {}
@@ -44,6 +44,10 @@ class PolygonFlipBase(BaseObject):
             poly.set_triangle_data(new_tri_data)
             poly.update_normal()
             merged_verts_to_resmooth.update(merged_verts[v_id] for v_id in poly.get_vertex_ids())
+
+        progress_steps = len(merged_verts_to_resmooth) // 20
+
+        yield True, progress_steps
 
         # Update geometry structures
 
@@ -91,31 +95,53 @@ class PolygonFlipBase(BaseObject):
 
         self._tri_change_all = not selected_only
 
-        self._update_vertex_normals(merged_verts_to_resmooth)
-
-        return True
+        for step in self._update_vertex_normals(merged_verts_to_resmooth):
+            yield
 
 
 class PolygonFlipManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.add_app_updater("poly_flip", self.__flip_poly_normals)
+        Mgr.add_app_updater("poly_flip", self.__do_flip_poly_normals)
 
     def __flip_poly_normals(self, selected_only=True):
 
         selection = Mgr.get("selection", "top")
         changed_objs = {}
+        progress_steps = 0
+        handlers = []
 
         for model in selection:
 
             geom_data_obj = model.get_geom_object().get_geom_data_object()
+            handler = geom_data_obj.flip_polygon_normals(selected_only)
+            change = False
+            steps = 0
 
-            if geom_data_obj.flip_polygon_normals(selected_only):
+            for result in handler:
+                if result:
+                    change, steps = result
+                    handlers.append(handler)
+                    break
+
+            if change:
                 changed_objs[model.get_id()] = geom_data_obj
+                progress_steps += steps
 
         if not changed_objs:
-            return
+            yield False
+
+        gradual = progress_steps > 20
+
+        if gradual:
+            Mgr.show_screenshot()
+            GlobalData["progress_steps"] = progress_steps
+
+        for handler in handlers:
+            for step in handler:
+                if gradual:
+                    yield True
 
         Mgr.do("update_history_time")
         obj_data = {}
@@ -126,3 +152,13 @@ class PolygonFlipManager(BaseObject):
         event_descr = "Flip polygon normals"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        yield False
+
+    def __do_flip_poly_normals(self, selected_only=True):
+
+        process = self.__flip_poly_normals(selected_only)
+
+        if process.next():
+            descr = "Updating geometry..."
+            Mgr.do_gradually(process, "poly_normal_flip", descr)

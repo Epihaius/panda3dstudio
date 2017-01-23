@@ -1,4 +1,5 @@
 import os
+import logging
 
 path = os.path.join("src", "core", "geom", "prim")
 
@@ -11,4 +12,5 @@ for name in names:
     try:
         __import__(package_path + name)
     except ImportError:
-        print "Failed to load module '%s'!" % name
+        logging.critical('Failed to load module "%s"!', name)
+        raise ImportError('Failed to load module "%s"!' % name)

@@ -9,10 +9,10 @@ class GeomHistoryBase(BaseObject):
         self._tri_change_all = False
         self._subobj_change = {"vert": {}, "edge": {}, "poly": {}}
 
-    def get_data_to_store(self, event_type, prop_id="", info=""):
+    def get_data_to_store(self, event_type, prop_id="", info="", unique_id=False):
 
         data = {}
-
+        unique_prop_ids = self._unique_prop_ids
         obj_id = self.get_toplevel_object().get_id()
         cur_time_id = Mgr.do("get_history_time")
 
@@ -20,7 +20,7 @@ class GeomHistoryBase(BaseObject):
 
             data["geom_data"] = {"main": self}
 
-            for prop_id in self.get_property_ids():
+            for prop_id in self._prop_ids:
                 data.update(self.get_property_to_store(prop_id, event_type))
 
             prev_time_ids = (cur_time_id,)
@@ -35,9 +35,9 @@ class GeomHistoryBase(BaseObject):
                 pickled_objs = dict((s_id, cPickle.dumps(s, -1))
                                     for s_id, s in subobjs.iteritems())
 
-                extra_data = {"%s__extra__" % subobj_type: {"created": pickled_objs}}
+                extra_data = {unique_prop_ids["%s__extra__" % subobj_type]: {"created": pickled_objs}}
 
-                data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
+                data[unique_prop_ids["%ss" % subobj_type]] = {"main": prev_time_ids, "extra": extra_data}
 
         elif event_type == "deletion":
 
@@ -46,14 +46,17 @@ class GeomHistoryBase(BaseObject):
 
             for subobj_type in ("vert", "edge", "poly"):
 
-                prev_time_ids = Mgr.do("load_last_from_history", obj_id, "%ss" % subobj_type)
+                prev_time_ids = Mgr.do("load_last_from_history", obj_id, unique_prop_ids["%ss" % subobj_type])
                 prev_time_ids += (cur_time_id,)
 
                 subobjs = self._subobjs[subobj_type].iteritems()
                 creation_times = dict((s_id, s.get_creation_time()) for s_id, s in subobjs)
-                extra_data = {"%s__extra__" % subobj_type: {"deleted": creation_times}}
+                extra_data = {unique_prop_ids["%s__extra__" % subobj_type]: {"deleted": creation_times}}
 
-                data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
+                data[unique_prop_ids["%ss" % subobj_type]] = {"main": prev_time_ids, "extra": extra_data}
+
+            toplvl_obj = self.get_toplevel_object()
+            data["tangent space"] = {"main": toplvl_obj.get_property("tangent space")}
 
         elif event_type == "subobj_change":
 
@@ -67,13 +70,7 @@ class GeomHistoryBase(BaseObject):
 
             deleted_polys = subobj_change["poly"].get("deleted")
 
-            if info == "rebuild":
-
-                data.update(self.get_property_to_store("smoothing"))
-                toplvl_obj = self.get_toplevel_object()
-                data["tangent space"] = {"main": toplvl_obj.get_property("tangent space")}
-
-            elif deleted_polys:
+            if deleted_polys:
 
                 poly_ids = [poly.get_id() for poly in deleted_polys]
 
@@ -82,12 +79,12 @@ class GeomHistoryBase(BaseObject):
                 if self.smooth_polygons(poly_ids, smooth=False, update_normals=False):
                     data.update(self.get_property_to_store("smoothing"))
 
-                # check if all polys have been deleted; if so, this GeomDataObject
+                # TODO: check if all polys have been deleted; if so, this GeomDataObject
                 # needs to be deleted itself also
 
             for subobj_type in ("vert", "edge", "poly"):
 
-                prev_time_ids = Mgr.do("load_last_from_history", obj_id, "%ss" % subobj_type)
+                prev_time_ids = Mgr.do("load_last_from_history", obj_id, unique_prop_ids["%ss" % subobj_type])
                 prev_time_ids += (cur_time_id,)
                 data_to_store = {}
 
@@ -110,15 +107,18 @@ class GeomHistoryBase(BaseObject):
 
                     data_to_store["created"] = pickled_objs
 
-                extra_data = {"%s__extra__" % subobj_type: data_to_store}
-                data["%ss" % subobj_type] = {"main": prev_time_ids, "extra": extra_data}
+                extra_data = {unique_prop_ids["%s__extra__" % subobj_type]: data_to_store}
+                data[unique_prop_ids["%ss" % subobj_type]] = {"main": prev_time_ids, "extra": extra_data}
 
             self._subobj_change = {"vert": {}, "edge": {}, "poly": {}}
 
         elif event_type == "prop_change":
 
-            if prop_id in self._prop_ids:
-                data = self.get_property_to_store(prop_id, event_type, info)
+            unique_prop_id = prop_id if unique_id else (unique_prop_ids[prop_id]
+                                                        if prop_id in unique_prop_ids else None)
+
+            if unique_prop_id in self.get_property_ids(unique=True):
+                data = self.get_property_to_store(unique_prop_id, event_type, info, unique_id=True)
 
             self._uv_change = set()
 
@@ -126,30 +126,33 @@ class GeomHistoryBase(BaseObject):
 
         return data
 
-    def get_property_to_store(self, prop_id, event_type="", info=""):
+    def get_property_to_store(self, prop_id, event_type="", info="", unique_id=False):
 
         data = {}
+        unique_prop_ids = self._unique_prop_ids
+        unique_prop_id = prop_id if unique_id else (unique_prop_ids[prop_id]
+                                                    if prop_id in unique_prop_ids else None)
 
-        if prop_id == "subobj_merge":
+        if unique_prop_id == unique_prop_ids["subobj_merge"]:
 
-            data[prop_id] = {"main": (self._merged_verts, self._merged_edges)}
+            data[unique_prop_id] = {"main": (self._merged_verts, self._merged_edges)}
 
-        if prop_id == "smoothing":
+        elif unique_prop_id == unique_prop_ids["smoothing"]:
 
-            data[prop_id] = {"main": self._poly_smoothing}
+            data[unique_prop_id] = {"main": self._poly_smoothing}
 
-        elif prop_id == "subobj_selection":
+        elif unique_prop_id == unique_prop_ids["subobj_selection"]:
 
-            data[prop_id] = {"main": self._selected_subobj_ids}
+            data[unique_prop_id] = {"main": self._selected_subobj_ids}
 
-        elif prop_id == "subobj_transform":
+        elif unique_prop_id == unique_prop_ids["subobj_transform"]:
 
             obj_id = self.get_toplevel_object().get_id()
             subobj_lvl = GlobalData["active_obj_level"]
             pos_data = {"prev": {}, "pos": {}}
-            extra_data = {"vert_pos__extra__": pos_data}
+            extra_data = {unique_prop_ids["vert_pos__extra__"]: pos_data}
             cur_time_id = Mgr.do("get_history_time")
-            prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id)
+            prev_time_ids = Mgr.do("load_last_from_history", obj_id, unique_prop_id)
             verts = self._subobjs["vert"]
 
             if prev_time_ids:
@@ -208,16 +211,16 @@ class GeomHistoryBase(BaseObject):
 
                     merged_vert.set_previous_property_time("transform", cur_time_id)
 
-            data[prop_id] = {"main": prev_time_ids, "extra": extra_data}
+            data[unique_prop_id] = {"main": prev_time_ids, "extra": extra_data}
 
-        elif prop_id == "poly_tris":
+        elif unique_prop_id == unique_prop_ids["poly_tris"]:
 
             obj_id = self.get_toplevel_object().get_id()
             subobj_lvl = GlobalData["active_obj_level"]
             tri_data = {"prev": {}, "tri_data": {}}
-            extra_data = {"tri__extra__": tri_data}
+            extra_data = {unique_prop_ids["tri__extra__"]: tri_data}
             cur_time_id = Mgr.do("get_history_time")
-            prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id)
+            prev_time_ids = Mgr.do("load_last_from_history", obj_id, unique_prop_id)
             polys = self._subobjs["poly"]
 
             if prev_time_ids:
@@ -269,15 +272,15 @@ class GeomHistoryBase(BaseObject):
                     tri_data["prev"][poly_id] = time_id
                     poly.set_previous_property_time("tri_data", cur_time_id)
 
-            data[prop_id] = {"main": prev_time_ids, "extra": extra_data}
+            data[unique_prop_id] = {"main": prev_time_ids, "extra": extra_data}
 
-        elif prop_id == "uvs":
+        elif unique_prop_id == unique_prop_ids["uvs"]:
 
             obj_id = self.get_toplevel_object().get_id()
             uv_data = {"prev": {}, "uvs": {}}
-            extra_data = {"uv__extra__": uv_data}
+            extra_data = {unique_prop_ids["uv__extra__"]: uv_data}
             cur_time_id = Mgr.do("get_history_time")
-            prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id)
+            prev_time_ids = Mgr.do("load_last_from_history", obj_id, unique_prop_id)
             verts = self._subobjs["vert"]
 
             if prev_time_ids:
@@ -323,7 +326,7 @@ class GeomHistoryBase(BaseObject):
                     uv_data["prev"][vert_id] = time_id
                     vert.set_previous_property_time("uvs", cur_time_id)
 
-            data[prop_id] = {"main": prev_time_ids, "extra": extra_data}
+            data[unique_prop_id] = {"main": prev_time_ids, "extra": extra_data}
 
         return data
 
@@ -333,48 +336,55 @@ class GeomHistoryBase(BaseObject):
 
         if "self" in data_ids:
 
-            self.update_selection_state(self.get_toplevel_object().is_selected())
+            cancellable = True if GlobalData["loading_scene"] else False
 
-            for prop_id in self.get_property_ids():
-                self.__restore_property(prop_id, restore_type, old_time_id, new_time_id)
+            for prop_id in self.get_property_ids(unique=True):
+                self.__restore_property(prop_id, restore_type, old_time_id, new_time_id,
+                                        cancellable)
 
-            task = lambda: self.__restore_subgeometry(old_time_id, new_time_id)
-            task_id = "restore_subobjs"
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+            task = lambda: self.__recreate_geometry(old_time_id, new_time_id)
+            task_id = "restore_geometry"
+            descr = "Creating geometry..."
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
+                             descr=descr, cancellable=cancellable)
 
-            task = self.unregister_subobjects
-            task_id = "unregister_subobjs"
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
-
-            task = self.register_subobjects
+            task = self.register
             task_id = "register_subobjs"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
         else:
 
-            for prop_id in self.get_property_ids():
+            for prop_id in self.get_property_ids(unique=True):
                 if prop_id in data_ids:
                     self.__restore_property(prop_id, restore_type, old_time_id, new_time_id)
 
-            if "polys" in data_ids:
+            if self._unique_prop_ids["polys"] in data_ids:
 
-                task = lambda: self.__restore_subgeometry(old_time_id, new_time_id)
-                task_id = "restore_subobjs"
-                PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+                task = lambda: self.__restore_geometry(old_time_id, new_time_id)
+                task_id = "restore_geometry"
+                descr = "Creating geometry..."
+                PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
+                                 descr=descr)
 
-                task = self.unregister_subobjects
+                task = self.unregister
                 task_id = "unregister_subobjs"
                 PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
-                task = self.register_subobjects
+                task = self.register
                 task_id = "register_subobjs"
                 PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
-    def __restore_property(self, prop_id, restore_type, old_time_id, new_time_id):
+        task = self._origin.show
+        task_id = "show_origin"
+        PendingTasks.add(task, task_id, "object", id_prefix=obj_id, sort=100)
+
+    def __restore_property(self, prop_id, restore_type, old_time_id, new_time_id,
+                           cancellable=False):
 
         obj_id = self.get_toplevel_object().get_id()
+        unique_prop_ids = self._unique_prop_ids
 
-        if prop_id == "subobj_merge":
+        if prop_id == unique_prop_ids["subobj_merge"]:
 
             def update_verts_to_transform():
 
@@ -399,9 +409,11 @@ class GeomHistoryBase(BaseObject):
 
             task = self._restore_vertex_normals
             task_id = "upd_vert_normals"
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+            descr = "Updating vertex normals..."
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
+                             descr=descr, cancellable=cancellable)
 
-        elif prop_id == "smoothing":
+        elif prop_id == unique_prop_ids["smoothing"]:
 
             task = lambda: self._restore_poly_smoothing(new_time_id)
             task_id = "smooth_polys"
@@ -409,9 +421,11 @@ class GeomHistoryBase(BaseObject):
 
             task = self._restore_vertex_normals
             task_id = "upd_vert_normals"
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+            descr = "Updating vertex normals..."
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
+                             descr=descr, cancellable=cancellable)
 
-        elif prop_id == "subobj_selection":
+        elif prop_id == unique_prop_ids["subobj_selection"]:
 
             task = lambda: self._restore_subobj_selection(new_time_id)
             task_id = "set_subobj_sel"
@@ -421,7 +435,7 @@ class GeomHistoryBase(BaseObject):
             task_id = "upd_subobj_sel"
             PendingTasks.add(task, task_id, "object")
 
-        elif prop_id == "subobj_transform":
+        elif prop_id == unique_prop_ids["subobj_transform"]:
 
             task = lambda: self._restore_subobj_transforms(old_time_id, new_time_id)
             task_id = "set_subobj_transf"
@@ -429,11 +443,13 @@ class GeomHistoryBase(BaseObject):
 
             task = self._restore_vertex_normals
             task_id = "upd_vert_normals"
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+            descr = "Updating vertex normals..."
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
+                             descr=descr, cancellable=cancellable)
 
             self.get_toplevel_object().update_group_bbox()
 
-        elif prop_id == "poly_tris":
+        elif prop_id == unique_prop_ids["poly_tris"]:
 
             task = lambda: self._restore_poly_triangle_data(old_time_id, new_time_id)
             task_id = "set_poly_triangles"
@@ -441,9 +457,11 @@ class GeomHistoryBase(BaseObject):
 
             task = self._restore_vertex_normals
             task_id = "upd_vert_normals"
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+            descr = "Updating vertex normals..."
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
+                             descr=descr, cancellable=cancellable)
 
-        elif prop_id == "uvs":
+        elif prop_id == unique_prop_ids["uvs"]:
 
             task = lambda: self._restore_uvs(old_time_id, new_time_id)
             task_id = "set_uvs"
@@ -452,106 +470,123 @@ class GeomHistoryBase(BaseObject):
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
 
-    def __restore_subgeometry(self, old_time_id, new_time_id):
+    def __recreate_geometry(self, old_time_id, new_time_id):
+
+        subobjs = self._subobjs
+
+        for subobj_type in ("vert", "edge", "poly"):
+
+            subobjs[subobj_type] = self.__load_subobjects(subobj_type, old_time_id, new_time_id)[1]
+
+            for subobj in subobjs[subobj_type].itervalues():
+                subobj.set_geom_data_object(self)
+
+        self._ordered_polys = subobjs["poly"].values()
+        poly_count = len(subobjs["poly"])
+        merged_vert_count = len(self._merged_verts)
+        progress_steps = poly_count // 50
+        gradual = progress_steps > 50
+
+        if gradual:
+            GlobalData["progress_steps"] = progress_steps
+
+        for step in self.create_geometry(gradual=gradual, restore=True):
+            if gradual:
+                yield True
+
+        self.init_vertex_colors()
+
+        yield False
+
+    def __restore_geometry(self, old_time_id, new_time_id):
 
         subobjs = self._subobjs
         selected_subobj_ids = self._selected_subobj_ids
-        selected_vert_ids = selected_subobj_ids["vert"]
-        selected_edge_ids = selected_subobj_ids["edge"]
-        selected_poly_ids = selected_subobj_ids["poly"]
 
-        subobjs_to_reg = self._subobjs_to_reg
-        subobjs_to_unreg = self._subobjs_to_unreg
-        verts_to_reg = subobjs_to_reg["vert"]
-        verts_to_unreg = subobjs_to_unreg["vert"]
-        edges_to_reg = subobjs_to_reg["edge"]
-        edges_to_unreg = subobjs_to_unreg["edge"]
-        polys_to_reg = subobjs_to_reg["poly"]
-        polys_to_unreg = subobjs_to_unreg["poly"]
-
-        vert_change = self.__restore_subobjects("vert", old_time_id, new_time_id)
-        edge_change = self.__restore_subobjects("edge", old_time_id, new_time_id)
-        poly_change = self.__restore_subobjects("poly", old_time_id, new_time_id)
-        verts_to_remove, verts_to_restore = vert_change
-        edges_to_remove, edges_to_restore = edge_change
-        polys_to_remove, polys_to_restore = poly_change
-
-        self.__init_subobj_restore()
-
-        if polys_to_remove:
-            self.__remove_polys(polys_to_remove)
-
-        for vert in verts_to_remove:
-
-            vert_id = vert.get_id()
-            del subobjs["vert"][vert_id]
-            verts_to_unreg[vert_id] = vert
-
-            if vert_id in selected_vert_ids:
-                selected_vert_ids.remove(vert_id)
-
-        for vert in verts_to_restore:
-            vert_id = vert.get_id()
-            subobjs["vert"][vert_id] = vert
-            verts_to_reg[vert_id] = vert
-            vert.set_geom_data_object(self)
-            self._vert_normal_change.add(vert_id)
-
-        for edge in edges_to_remove:
-
-            edge_id = edge.get_id()
-            del subobjs["edge"][edge_id]
-            edges_to_unreg[edge_id] = edge
-
-            if edge_id in selected_edge_ids:
-                selected_edge_ids.remove(edge_id)
-
-        for edge in edges_to_restore:
-            edge_id = edge.get_id()
-            subobjs["edge"][edge_id] = edge
-            edges_to_reg[edge_id] = edge
-            edge.set_geom_data_object(self)
-
-        for poly in polys_to_remove:
-
-            poly_id = poly.get_id()
-            del subobjs["poly"][poly_id]
-            polys_to_unreg[poly_id] = poly
-
-            if poly_id in selected_poly_ids:
-                selected_poly_ids.remove(poly_id)
-
-        for poly in polys_to_restore:
-            poly_id = poly.get_id()
-            subobjs["poly"][poly_id] = poly
-            poly.set_geom_data_object(self)
-            polys_to_reg[poly_id] = poly
-
-        if polys_to_restore:
-            self.__restore_polys(polys_to_restore)
-
-        self.__finalize_subobj_restore()
-
-        selected_subobj_ids["vert"] = []
-        selected_subobj_ids["edge"] = []
-        selected_subobj_ids["poly"] = []
-
-        for vert_id in selected_vert_ids:
-            self.set_selected(subobjs["vert"][vert_id], True, False)
-
-        for edge_id in selected_edge_ids:
-            self.set_selected(subobjs["edge"][edge_id], True, False)
-
-        for poly_id in selected_poly_ids:
-            self.set_selected(subobjs["poly"][poly_id], True, False)
+        subobjs_to_reg = self._subobjs_to_reg = {"vert": {}, "edge": {}, "poly": {}}
+        subobjs_to_unreg = self._subobjs_to_unreg = {"vert": {}, "edge": {}, "poly": {}}
+        subobj_change = {}
 
         for subobj_type in ("vert", "edge", "poly"):
-            self._update_verts_to_transform(subobj_type)
+            subobj_change[subobj_type] = self.__load_subobjects(subobj_type, old_time_id, new_time_id)
 
-    def __restore_subobjects(self, subobj_type, old_time_id, new_time_id):
+        polys_to_remove, polys_to_restore = subobj_change["poly"]
+        verts_to_restore = subobj_change["vert"][1]
+
+        progress_steps = 3 + len(polys_to_remove) // 50 + 3 * len(polys_to_restore) // 50
+        progress_steps += (len(self._ordered_polys) - len(polys_to_remove) + len(polys_to_restore)) // 50
+        gradual = progress_steps > 50
+
+        if gradual:
+            GlobalData["progress_steps"] = progress_steps
+
+        self.__init_geometry_restore()
+
+        if polys_to_remove:
+            for step in self.__remove_polys(polys_to_remove.values()):
+                if gradual:
+                    yield True
+
+        for vert_id in verts_to_restore:
+            self._vert_normal_change.add(vert_id)
+
+        for subobj_type in ("vert", "edge", "poly"):
+
+            subobjs_to_remove, subobjs_to_restore = subobj_change[subobj_type]
+            objs = subobjs[subobj_type]
+            objs_to_unreg = subobjs_to_unreg[subobj_type]
+            objs_to_reg = subobjs_to_reg[subobj_type]
+            ids = selected_subobj_ids[subobj_type]
+
+            for subobj_id, subobj in subobjs_to_remove.iteritems():
+
+                del objs[subobj_id]
+                objs_to_unreg[subobj_id] = subobj
+
+                if subobj_id in ids:
+                    ids.remove(subobj_id)
+
+            if gradual:
+                yield True
+
+            for subobj_id, subobj in subobjs_to_restore.iteritems():
+                objs[subobj_id] = subobj
+                objs_to_reg[subobj_id] = subobj
+                subobj.set_geom_data_object(self)
+
+            if gradual:
+                yield True
+
+        if polys_to_restore:
+            for step in self.__restore_polys(polys_to_restore.values()):
+                if gradual:
+                    yield True
+
+        for step in self.__finalize_geometry_restore():
+            if gradual:
+                yield True
+
+        for subobj_type in ("vert", "edge", "poly"):
+
+            ids = selected_subobj_ids[subobj_type]
+            objs = subobjs[subobj_type]
+
+            if ids:
+
+                selected_subobjs = (objs[subobj_id] for subobj_id in ids)
+                self.update_selection(subobj_type, selected_subobjs, [], False)
+
+                if gradual:
+                    yield True
+
+            selected_subobj_ids[subobj_type] = []
+
+        yield False
+
+    def __load_subobjects(self, subobj_type, old_time_id, new_time_id):
 
         obj_id = self.get_toplevel_object().get_id()
-        prop_id = "%ss" % subobj_type
+        prop_id = self._unique_prop_ids["%ss" % subobj_type]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
         new_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
@@ -580,10 +615,10 @@ class GeomHistoryBase(BaseObject):
             new_time_ids = new_time_ids[i:]
 
         subobjs_to_recreate = {}
-        subobjs_to_delete = {}
+        subobjs_to_remove = {}
         registered_subobjs = self._subobjs[subobj_type]
 
-        data_id = "%s__extra__" % subobj_type
+        data_id = self._unique_prop_ids["%s__extra__" % subobj_type]
 
         # undo current subobject creation/deletion state
 
@@ -595,7 +630,7 @@ class GeomHistoryBase(BaseObject):
 
             for subobj_id in created_subobjs:
                 if subobj_id in registered_subobjs:
-                    subobjs_to_delete[subobj_id] = registered_subobjs[subobj_id]
+                    subobjs_to_remove[subobj_id] = registered_subobjs[subobj_id]
 
             data_to_load = {}
 
@@ -623,31 +658,40 @@ class GeomHistoryBase(BaseObject):
                 if subobj_id in subobjs_to_recreate:
                     del subobjs_to_recreate[subobj_id]
                 else:
-                    subobjs_to_delete[subobj_id] = registered_subobjs[subobj_id]
+                    subobjs_to_remove[subobj_id] = registered_subobjs[subobj_id]
 
             subobjs_to_recreate.update(created_subobjs)
 
-        subobjs_to_create = []
+        subobjs_to_restore = {}
 
         for subobj_id, pickled_subobj in subobjs_to_recreate.iteritems():
-            created_subobj = cPickle.loads(pickled_subobj)
-            subobjs_to_create.append(created_subobj)
+            subobj = cPickle.loads(pickled_subobj)
+            subobjs_to_restore[subobj_id] = subobj
 
-        return subobjs_to_delete.values(), subobjs_to_create
+        return subobjs_to_remove, subobjs_to_restore
 
-    def __init_subobj_restore(self):
+    def __init_geometry_restore(self):
 
         sel_data = self._poly_selection_data
+        geoms = self._geoms
+        geoms["top"].node().modify_geom(0).clear_primitives()
+        geoms["poly"]["pickable"].node().modify_geom(0).clear_primitives()
+        geoms["poly"]["unselected"].node().modify_geom(0).clear_primitives()
+
+        for subobj_type in ("vert", "edge"):
+            geoms[subobj_type]["pickable"].node().modify_geom(0).clear_primitives()
+            geoms[subobj_type]["sel_state"].node().modify_geom(0).clear_primitives()
 
         for state in ("selected", "unselected"):
             sel_data[state] = []
-            prim = self._geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
-            prim.modify_vertices().modify_handle().set_data("")
-            # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
-            # remove all data from the primitive, and adding new data through
-            # prim.modify_vertices().modify_handle().set_data(data) will not
-            # internally notify Panda3D that the primitive has now been updated
-            # to contain new data. This will result in an assertion error later on.
+
+        prim = geoms["poly"]["selected"].node().modify_geom(0).modify_primitive(0)
+        prim.modify_vertices().modify_handle().set_data("")
+        # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
+        # remove all data from the primitive, and adding new data through
+        # prim.modify_vertices().modify_handle().set_data(data) will not
+        # internally notify Panda3D that the primitive has now been updated
+        # to contain new data. This will result in an assertion error later on.
 
         self._verts_to_transf["vert"] = {}
         self._verts_to_transf["edge"] = {}
@@ -666,15 +710,23 @@ class GeomHistoryBase(BaseObject):
         vert_count = sum((poly.get_vertex_count() for poly in polys_to_remove))
         old_count = self._data_row_count
         count = old_count - vert_count
+        poly_count = 0
 
         for poly in polys_to_remove:
+
             poly_verts = poly.get_vertices()
             vert = poly_verts[0]
             row = vert.get_row_index()
             row_ranges_to_delete.append((row, len(poly_verts)))
             ordered_polys.remove(poly)
+            poly_count += 1
+
+            if poly_count == 50:
+                yield
+                poly_count = 0
 
         row_index_offset = 0
+        poly_count = 0
 
         for poly in polys_to_offset:
 
@@ -687,13 +739,17 @@ class GeomHistoryBase(BaseObject):
             for vert in poly_verts:
                 vert.offset_row_index(row_index_offset)
 
+            poly_count += 1
+
+            if poly_count == 50:
+                yield
+                poly_count = 0
+
         row_ranges_to_delete.sort(reverse=True)
 
         geoms = self._geoms
-        vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
-        edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
-        vertex_data_vert = vert_geom.modify_vertex_data()
-        vertex_data_edge = edge_geom.modify_vertex_data()
+        vertex_data_vert = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_edge = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data_poly_picking = self._vertex_data["poly_picking"]
 
         geom_node = self._toplvl_node
@@ -713,7 +769,7 @@ class GeomHistoryBase(BaseObject):
         poly_handles = []
         poly_strides = []
 
-        for i in xrange(vertex_data_top.get_num_arrays()):
+        for i in range(vertex_data_top.get_num_arrays()):
             poly_array = vertex_data_top.modify_array(i)
             poly_arrays.append(poly_array)
             poly_handles.append(poly_array.modify_handle())
@@ -756,6 +812,7 @@ class GeomHistoryBase(BaseObject):
         col_writer.set_row(row_index_offset)
 
         pickable_type_id = PickableTypes.get_id("poly")
+        poly_count = 0
 
         for poly in polys_to_restore:
 
@@ -770,15 +827,20 @@ class GeomHistoryBase(BaseObject):
                 col_writer.add_data4f(picking_color)
 
             row_index_offset += len(poly_verts)
+            poly_count += 1
 
-        vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
-        vertex_data_vert = vert_geom.modify_vertex_data()
+            if poly_count == 50:
+                yield
+                poly_count = 0
+
+        vertex_data_vert = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data_vert.reserve_num_rows(count)
         vertex_data_vert.set_num_rows(count)
         vertex_data_tmp = GeomVertexData(vertex_data_vert)
         col_writer = GeomVertexWriter(vertex_data_tmp, "color")
 
         pickable_type_id = PickableTypes.get_id("vert")
+        poly_count = 0
 
         for poly in polys_to_restore:
 
@@ -790,16 +852,30 @@ class GeomHistoryBase(BaseObject):
                 picking_color = get_color_vec(vert.get_picking_color_id(), pickable_type_id)
                 col_writer.add_data4f(picking_color)
 
+            poly_count += 1
+
+            if poly_count == 50:
+                yield
+                poly_count = 0
+
         vertex_data_vert.set_array(1, vertex_data_tmp.get_array(1))
 
         edges_to_restore = {}
         picking_colors1 = {}
         picking_colors2 = {}
         pickable_type_id = PickableTypes.get_id("edge")
+        poly_count = 0
 
         for poly in polys_to_restore:
+
             for edge in poly.get_edges():
                 edges_to_restore[edge.get_picking_color_id()] = edge
+
+            poly_count += 1
+
+            if poly_count == 50:
+                yield
+                poly_count = 0
 
         for picking_color_id, edge in edges_to_restore.iteritems():
             picking_color = get_color_vec(picking_color_id, pickable_type_id)
@@ -808,8 +884,9 @@ class GeomHistoryBase(BaseObject):
             row_index = verts[edge[1]].get_row_index() + count
             picking_colors2[row_index] = picking_color
 
-        edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
-        vertex_data_edge = edge_geom.modify_vertex_data()
+        yield
+
+        vertex_data_edge = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data_tmp = GeomVertexData(vertex_data_edge)
         vertex_data_tmp.set_num_rows(count)
         col_writer = GeomVertexWriter(vertex_data_tmp, "color")
@@ -818,6 +895,8 @@ class GeomHistoryBase(BaseObject):
         for row_index in sorted(picking_colors1.iterkeys()):
             picking_color = picking_colors1[row_index]
             col_writer.add_data4f(picking_color)
+
+        yield
 
         data = vertex_data_tmp.get_array(1).get_handle().get_data()
 
@@ -833,6 +912,8 @@ class GeomHistoryBase(BaseObject):
             picking_color = picking_colors2[row_index]
             col_writer.add_data4f(picking_color)
 
+        yield
+
         data += vertex_data_tmp.get_array(1).get_handle().get_data()
 
         vertex_data_edge.set_num_rows(count * 2)
@@ -840,7 +921,7 @@ class GeomHistoryBase(BaseObject):
 
         self._data_row_count = count
 
-    def __finalize_subobj_restore(self):
+    def __finalize_geometry_restore(self):
 
         count = self._data_row_count
         ordered_polys = self._ordered_polys
@@ -869,7 +950,7 @@ class GeomHistoryBase(BaseObject):
 
         poly_arrays = []
 
-        for i in xrange(vertex_data_top.get_num_arrays()):
+        for i in range(vertex_data_top.get_num_arrays()):
             poly_arrays.append(vertex_data_top.get_array(i))
 
         pos_array = poly_arrays[0]
@@ -900,6 +981,7 @@ class GeomHistoryBase(BaseObject):
         lines_prim = GeomLines(Geom.UH_static)
         lines_prim.reserve_num_vertices(count * 2)
         tris_prim = GeomTriangles(Geom.UH_static)
+        poly_count = 0
 
         for poly in ordered_polys:
 
@@ -911,27 +993,32 @@ class GeomHistoryBase(BaseObject):
                 tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
 
             sel_data.extend(poly[:])
+            poly_count += 1
 
-        geom_node.modify_geom(0).set_primitive(0, tris_prim)
+            if poly_count == 50:
+                yield
+                poly_count = 0
+
+        geom_node.modify_geom(0).add_primitive(tris_prim)
 
         points_prim = GeomPoints(Geom.UH_static)
         points_prim.reserve_num_vertices(count)
         points_prim.add_next_vertices(count)
-        pickable_vert_geom.set_primitive(0, GeomPoints(points_prim))
-        vert_sel_state_geom.set_primitive(0, GeomPoints(points_prim))
+        pickable_vert_geom.add_primitive(GeomPoints(points_prim))
+        vert_sel_state_geom.add_primitive(GeomPoints(points_prim))
 
-        pickable_edge_geom.set_primitive(0, lines_prim)
-        edge_sel_state_geom.set_primitive(0, GeomLines(lines_prim))
+        pickable_edge_geom.add_primitive(lines_prim)
+        edge_sel_state_geom.add_primitive(GeomLines(lines_prim))
 
-        pickable_poly_geom.set_primitive(0, GeomTriangles(tris_prim))
-        poly_unselected_geom.set_primitive(0, GeomTriangles(tris_prim))
+        pickable_poly_geom.add_primitive(GeomTriangles(tris_prim))
+        poly_unselected_geom.add_primitive(GeomTriangles(tris_prim))
 
         self._origin.node().set_bounds(self._toplvl_node.get_bounds())
 
     def __restore_subobj_merge(self, time_id):
 
         obj_id = self.get_toplevel_object().get_id()
-        prop_id = "subobj_merge"
+        prop_id = self._unique_prop_ids["subobj_merge"]
         data = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
 
         self._merged_verts, self._merged_edges = data

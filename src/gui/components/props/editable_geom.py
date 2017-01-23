@@ -148,11 +148,11 @@ class EditableGeomProperties(BaseObject):
 
         def handler(val):
 
-            GlobalData["sel_polys_by_smoothing"] = val
+            GlobalData["subobj_edit_options"]["sel_polys_by_smoothing"] = val
 
         checkbox = PanelCheckBox(panel, group, subsizer, handler)
         checkbox.check(False)
-        self._checkboxes["sel_by_smoothing"] = checkbox
+        self._checkboxes["sel_polys_by_smoothing"] = checkbox
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
         group.add_text("Select by smoothing", subsizer, sizer_args)
 
@@ -187,6 +187,13 @@ class EditableGeomProperties(BaseObject):
         self._btns["turn_diagonals"] = btn
 
         # **************************************************************************
+
+        Mgr.add_app_updater("subobj_edit_options", self.__update_subobj_edit_options)
+
+    def __update_subobj_edit_options(self):
+
+        for option, value in GlobalData["subobj_edit_options"].iteritems():
+            self._checkboxes[option].check(value)
 
     def setup(self):
 

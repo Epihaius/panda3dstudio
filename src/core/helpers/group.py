@@ -10,9 +10,11 @@ class GroupManager(ObjectManager):
         self._id_generator = id_generator()
         self._obj_ids_to_check = set()
 
-        group_options = {"recursive_open": False, "recursive_dissolve": False,
-                         "recursive_member_selection": False, "subgroup_selection": False}
-        copier = dict.copy
+        main_options = {"recursive_open": False, "recursive_dissolve": False,
+                        "recursive_member_selection": False, "subgroup_selection": False}
+        link_options = {"allowed": True, "open_groups_only": True, "unlink_only": True}
+        group_options = {"main": main_options, "member_linking": link_options}
+        copier = lambda d: dict((k, dict.copy(v)) for k, v in d.iteritems())
         GlobalData.set_default("group_options", group_options, copier)
 
         self._bbox_roots = {}
@@ -85,11 +87,12 @@ class GroupManager(ObjectManager):
         group_id = (group_type,) + self._id_generator.next()
         group = Group(set(member_types if member_types else []), member_types_id, group_id,
                       name, color_unsel)
+        group.register(restore=False)
 
         if transform:
             group.get_pivot().set_transform(transform)
 
-        return group, group_id
+        return group
 
     def __make_bbox_const_size(self, bbox, const_size_state=True):
 
@@ -448,6 +451,8 @@ class GroupManager(ObjectManager):
 
     def __update_groups(self, update_type, value=None):
 
+        group_options = GlobalData["group_options"]["main"]
+
         if update_type == "create":
 
             if GlobalData["active_obj_level"] != "top":
@@ -601,7 +606,7 @@ class GroupManager(ObjectManager):
             changed_groups = []
             deselected_members = []
 
-            recursive_group_open = GlobalData["group_options"]["recursive_open"]
+            recursive_group_open = group_options["recursive_open"]
 
             if recursive_group_open:
 
@@ -671,8 +676,8 @@ class GroupManager(ObjectManager):
             groups_to_open = []
             groups_to_deselect = groups[:]
 
-            recursive_selection = GlobalData["group_options"]["recursive_member_selection"]
-            subgroup_selection = GlobalData["group_options"]["subgroup_selection"]
+            recursive_selection = group_options["recursive_member_selection"]
+            subgroup_selection = group_options["subgroup_selection"]
 
             if recursive_selection:
 
@@ -786,7 +791,7 @@ class GroupManager(ObjectManager):
             if not groups:
                 return
 
-            if GlobalData["group_options"]["recursive_dissolve"]:
+            if group_options["recursive_dissolve"]:
 
                 def get_subgroups(group, groups_to_dissolve):
 
@@ -969,9 +974,13 @@ class Group(TopLevelObject):
         self._bbox_is_const_size = False
         self._collision_geoms = {}
 
-    def destroy(self, add_to_hist=True):
+    def __del__(self):
 
-        if not TopLevelObject.destroy(self, add_to_hist):
+        logging.info('Group garbage-collected.')
+
+    def destroy(self, unregister=True, add_to_hist=True):
+
+        if not TopLevelObject.destroy(self, unregister, add_to_hist):
             return
 
         if self._member_types_id == "collision" and not self._is_open:
@@ -985,7 +994,7 @@ class Group(TopLevelObject):
             for member_id in self._member_ids[:]:
                 member = Mgr.get("object", member_id)
                 obj_data[member_id] = member.get_data_to_store("deletion")
-                member.destroy(add_to_hist)
+                member.destroy(unregister, add_to_hist)
 
             if obj_data:
                 Mgr.do("add_history", "", event_data, update_time_id=False)
@@ -993,8 +1002,14 @@ class Group(TopLevelObject):
         if self._bbox_is_const_size:
             Mgr.do("make_group_const_size", self._bbox, False)
 
-        self._bbox.destroy()
+        self._bbox.destroy(unregister)
         self._bbox = None
+
+    def register(self, restore=True):
+
+        TopLevelObject.register(self)
+
+        self._bbox.register(restore)
 
     def __create_collision_geoms(self):
 
@@ -1006,7 +1021,7 @@ class Group(TopLevelObject):
         collision_geoms = self._collision_geoms
         group_pivot = self.get_pivot()
         group_pivot.node().set_final(True)
-        compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+        compass_props = CompassEffect.P_all
 
         for member in members:
 
@@ -1154,12 +1169,6 @@ class Group(TopLevelObject):
                         for member_type in self._member_types], [])
 
         return obj.get_type() in obj_types
-
-    def register(self):
-
-        TopLevelObject.register(self)
-
-        self._bbox.register()
 
     def get_bbox(self):
 

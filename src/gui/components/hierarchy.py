@@ -100,7 +100,7 @@ class HierarchyPanel(Panel):
                                  self.__toggle_group_member_linking,
                                  sizer_args=sizer_args)
         checkbox.check()
-        self._checkboxes["group_member_linking"] = checkbox
+        self._checkboxes["group_member_linking_allowed"] = checkbox
         subsizer.Add(wx.Size(5, 0))
         section.add_text("Affect group membership", subsizer, sizer_args)
 
@@ -112,7 +112,7 @@ class HierarchyPanel(Panel):
                                  self.__toggle_open_group_member_linking,
                                  sizer_args=sizer_args)
         checkbox.check()
-        self._checkboxes["open_group_member_linking"] = checkbox
+        self._checkboxes["group_member_linking_open_groups_only"] = checkbox
         subsizer.Add(wx.Size(5, 0))
         section.add_text("Affect open groups only", subsizer, sizer_args)
 
@@ -124,7 +124,7 @@ class HierarchyPanel(Panel):
                                  self.__toggle_group_member_unlink_only,
                                  sizer_args=sizer_args)
         checkbox.check()
-        self._checkboxes["group_member_unlink_only"] = checkbox
+        self._checkboxes["group_member_linking_unlink_only"] = checkbox
         subsizer.Add(wx.Size(5, 0))
         section.add_text("Unlink only", subsizer, sizer_args)
 
@@ -222,10 +222,13 @@ class HierarchyPanel(Panel):
         Mgr.accept("disable_transform_targets", disable_xform_targets)
         Mgr.accept("enable_transform_targets", enable_xform_targets)
         Mgr.add_app_updater("object_link_viz", self.__update_link_visibility)
-        Mgr.add_app_updater("group_member_linking", self.__update_group_member_linking)
-        Mgr.add_app_updater("open_group_member_linking", self.__update_open_group_member_linking)
-        Mgr.add_app_updater("group_member_unlink_only", self.__update_group_member_unlink_only)
+        Mgr.add_app_updater("group_options", self.__update_group_member_linking)
         Mgr.add_app_updater("transform_target_type", self.__update_xform_target_type)
+
+    def __update_group_member_linking(self):
+
+        for option, value in GlobalData["group_options"]["member_linking"].iteritems():
+            self._checkboxes["group_member_linking_%s" % option].check(value)
 
     def get_clipping_rect(self):
 
@@ -269,42 +272,27 @@ class HierarchyPanel(Panel):
 
         Mgr.update_remotely("selection_unlinking")
 
-    def __toggle_link_visibility(self, show_links):
+    def __toggle_link_visibility(self, links_shown):
 
-        GlobalData["object_links_shown"] = show_links
+        GlobalData["object_links_shown"] = links_shown
         Mgr.update_remotely("object_link_viz")
 
     def __update_link_visibility(self):
 
-        show_links = GlobalData["object_links_shown"]
-        self._checkboxes["show_links"].check(show_links)
+        links_shown = GlobalData["object_links_shown"]
+        self._checkboxes["show_links"].check(links_shown)
 
-    def __toggle_group_member_linking(self, affect_membership):
+    def __toggle_group_member_linking(self, allowed):
 
-        GlobalData["group_member_linking"] = affect_membership
-
-    def __update_group_member_linking(self):
-
-        affect_membership = GlobalData["group_member_linking"]
-        self._checkboxes["group_member_linking"].check(affect_membership)
+        GlobalData["group_options"]["member_linking"]["allowed"] = allowed
 
     def __toggle_open_group_member_linking(self, open_groups_only):
 
-        GlobalData["open_group_member_linking"] = open_groups_only
-
-    def __update_open_group_member_linking(self):
-
-        open_groups_only = GlobalData["open_group_member_linking"]
-        self._checkboxes["open_group_member_linking"].check(open_groups_only)
+        GlobalData["group_options"]["member_linking"]["open_groups_only"] = open_groups_only
 
     def __toggle_group_member_unlink_only(self, unlink_only):
 
-        GlobalData["group_member_unlink_only"] = unlink_only
-
-    def __update_group_member_unlink_only(self):
-
-        unlink_only = GlobalData["group_member_unlink_only"]
-        self._checkboxes["group_member_unlink_only"].check(unlink_only)
+        GlobalData["group_options"]["member_linking"]["unlink_only"] = unlink_only
 
     def __set_xform_target_type(self, target_type="all"):
 

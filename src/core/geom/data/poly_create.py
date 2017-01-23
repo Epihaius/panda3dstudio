@@ -554,6 +554,9 @@ class PolygonCreationBase(BaseObject):
             merged_edges[edge_id] = merged_edge
 
         polygon = Mgr.do("create_poly", self, triangles, poly_edges, poly_verts)
+        Mgr.do("register_vert_objs", polygon.get_vertices(), restore=False)
+        Mgr.do("register_edge_objs", polygon.get_edges(), restore=False)
+        Mgr.do("register_poly", polygon, restore=False)
         ordered_polys.append(polygon)
         poly_id = polygon.get_id()
         polys[poly_id] = polygon
@@ -755,17 +758,17 @@ class PolygonCreationBase(BaseObject):
                 subobj = subobjs_to_select[subobj_type][0]
                 subobj_id = subobj.get_id()
                 merged_subobj = merged_subobjs[subobj_type][subobj_id]
-                # since set_selected(...) processes *all* subobjects referenced by the
+                # since update_selection(...) processes *all* subobjects referenced by the
                 # merged subobject, it is replaced by a temporary merged subobject that
                 # only references the newly created subobjects;
-                # as an optimization, one temporary merged subobject references all
-                # newly created subobjects, so self.set_selected() needs to be called
-                # only once
+                # as an optimization, one temporary merged subobject references all newly
+                # created subobjects, so self.update_selection() needs to be called only
+                # once
                 tmp_merged_subobj = Mgr.do("create_merged_%s" % subobj_type, self)
                 for s in subobjs_to_select[subobj_type]:
                     tmp_merged_subobj.append(s.get_id())
                 merged_subobjs[subobj_type][subobj_id] = tmp_merged_subobj
-                self.set_selected(subobj, True, False)
+                self.update_selection(subobj_type, [subobj], [], False)
                 # the original merged subobject can now be restored
                 merged_subobjs[subobj_type][subobj_id] = merged_subobj
                 subobj_change.setdefault("selection", []).append(subobj_type)

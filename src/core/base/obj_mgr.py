@@ -17,7 +17,10 @@ class GeneralObjectManager(BaseObject):
         self._obj_lvl_before_hist_change = "top"
         self._sel_before_hist_change = set()
 
+        self._registry_backups_created = False
+
         GlobalData.set_default("active_obj_level", "top")
+        GlobalData.set_default("temp_toplevel", False)
         GlobalData.set_default("render_mode", "shaded")
         GlobalData.set_default("next_obj_color", None)
         GlobalData.set_default("obj_names", [], lambda l: l[:])
@@ -32,6 +35,8 @@ class GeneralObjectManager(BaseObject):
         Mgr.expose("object_types", lambda level="all": self._obj_types["top"] + self._obj_types["sub"]
                    if level == "all" else self._obj_types[level])
         Mgr.expose("next_obj_name", self.__get_next_object_name)
+        Mgr.accept("reset_registries", self.__reset_registries)
+        Mgr.accept("create_registry_backups", self.__create_registry_backups)
         Mgr.add_app_updater("custom_obj_name", self.__set_custom_object_name)
         Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
         Mgr.add_app_updater("selected_obj_color", self.__set_object_color)
@@ -41,6 +46,8 @@ class GeneralObjectManager(BaseObject):
         Mgr.add_app_updater("two_sided", self.__toggle_two_sided)
         Mgr.add_app_updater("active_obj_level", self.__update_object_level)
         Mgr.add_app_updater("history_change", self.__start_selection_check)
+        Mgr.add_notification_handler("long_process_cancelled", "obj_mgr",
+                                     self.__restore_registry_backups)
 
     def setup(self):
 
@@ -284,17 +291,7 @@ class GeneralObjectManager(BaseObject):
             event_data = {"objects": obj_data}
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-    def __set_object_property(self, prop_id, value):
-        """ Set the *type-specific* property given by prop_id to the given value """
-
-        selection = Mgr.get("selection", "top")
-
-        if not selection:
-            return
-
-        changed_objs = [obj for obj in selection if obj.set_property(prop_id, value)]
-
-        PendingTasks.handle(["object", "ui"], True)
+    def __add_to_history(self, changed_objs, prop_id, value):
 
         Mgr.do("update_history_time")
 
@@ -302,9 +299,6 @@ class GeneralObjectManager(BaseObject):
 
         for obj in changed_objs:
             obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", prop_id)
-
-        if not changed_objs:
-            return
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
@@ -317,6 +311,23 @@ class GeneralObjectManager(BaseObject):
         event_data = {"objects": obj_data}
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __set_object_property(self, prop_id, value):
+        """ Set the *type-specific* property given by prop_id to the given value """
+
+        selection = Mgr.get("selection", "top")
+
+        if not selection:
+            return
+
+        changed_objs = [obj for obj in selection if obj.set_property(prop_id, value)]
+
+        if not changed_objs:
+            return
+
+        get_task = lambda objs: lambda: self.__add_to_history(objs, prop_id, value)
+        task = get_task(changed_objs)
+        PendingTasks.add(task, "add_history", "object", 100)
 
     def __update_render_mode(self):
 
@@ -387,7 +398,10 @@ class GeneralObjectManager(BaseObject):
 
         if set_sublvl:
             GlobalData["active_obj_level"] = obj_lvl
-            Mgr.update_app("active_obj_level", restore=True)
+            Mgr.update_locally("active_obj_level", restore=True)
+
+        GlobalData["temp_toplevel"] = False
+        Mgr.update_remotely("active_obj_level")
 
         self._obj_lvl_before_hist_change = "top"
         self._sel_before_hist_change = set()
@@ -409,7 +423,52 @@ class GeneralObjectManager(BaseObject):
         task_id = "set_obj_level"
         PendingTasks.add(task, task_id, "object")
         GlobalData["active_obj_level"] = "top"
-        Mgr.update_app("active_obj_level", restore=True)
+        GlobalData["temp_toplevel"] = True
+        Mgr.update_locally("active_obj_level", restore=True)
+        Mgr.enter_state("selection_mode")
+
+    def __reset_registries(self):
+
+        for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
+            Mgr.do("reset_%s_registry" % obj_type)
+
+        logging.info('Registries reset.')
+
+    def __create_registry_backups(self):
+
+        if self._registry_backups_created:
+            return
+
+        for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
+            Mgr.do("create_%s_registry_backup" % obj_type)
+
+        task = self.__remove_registry_backups
+        task_id = "remove_registry_backups"
+        PendingTasks.add(task, task_id, "object", sort=100)
+        self._registry_backups_created = True
+        logging.info('Registry backups created.')
+
+    def __restore_registry_backups(self, info=""):
+
+        if not self._registry_backups_created:
+            return
+
+        for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
+            Mgr.do("restore_%s_registry_backup" % obj_type)
+
+        logging.info('Registry backups restored;\ninfo: %s', info)
+        self.__remove_registry_backups()
+
+    def __remove_registry_backups(self):
+
+        if not self._registry_backups_created:
+            return
+
+        for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
+            Mgr.do("remove_%s_registry_backup" % obj_type)
+
+        self._registry_backups_created = False
+        logging.info('Registry backups removed.')
 
 
 class ObjectManager(BaseObject):
@@ -423,9 +482,10 @@ class ObjectManager(BaseObject):
 
         self._objects = {}
         self._object_id = 0
+        self._objects_backup = None
+        self._object_id_backup = None
 
-        obj_creator = self.__get_object_creator(create_func)
-        Mgr.accept("create_%s" % obj_type, obj_creator)
+        Mgr.accept("create_%s" % obj_type, create_func)
         Mgr.accept("register_%s" % obj_type, self.__register_object)
         Mgr.accept("unregister_%s" % obj_type, self.__unregister_object)
         Mgr.accept("register_%s_objs" % obj_type, self.__register_objects)
@@ -435,6 +495,10 @@ class ObjectManager(BaseObject):
         Mgr.expose("%s_obj_ids" % obj_type, lambda: self._objects.keys())
         Mgr.expose("last_%s_obj_id" % obj_type, lambda: self._object_id)
         Mgr.accept("set_last_%s_obj_id" % obj_type, self.__set_last_id)
+        Mgr.accept("reset_%s_registry" % obj_type, self.__reset_registry)
+        Mgr.accept("create_%s_registry_backup" % obj_type, self.__create_registry_backup)
+        Mgr.accept("restore_%s_registry_backup" % obj_type, self.__restore_registry_backup)
+        Mgr.accept("remove_%s_registry_backup" % obj_type, self.__remove_registry_backup)
 
     def get_managed_object_type(self):
 
@@ -450,18 +514,7 @@ class ObjectManager(BaseObject):
 
         self._object_id = obj_id
 
-    def __get_object_creator(self, main_create_func):
-
-        def create_object(*args, **kwargs):
-
-            obj, obj_id = main_create_func(*args, **kwargs)
-            self._objects[obj_id] = obj
-
-            return obj
-
-        return create_object
-
-    def __register_object(self, obj):
+    def __register_object(self, obj, restore=True):
 
         if self._pickable:
             key = obj.get_picking_color_id()
@@ -470,10 +523,10 @@ class ObjectManager(BaseObject):
 
         self._objects[key] = obj
 
-        if self._pickable:
+        if self._pickable and restore:
             self.discard_picking_color_id(key)
 
-    def __register_objects(self, objects):
+    def __register_objects(self, objects, restore=True):
 
         if self._pickable:
             d = dict((obj.get_picking_color_id(), obj) for obj in objects)
@@ -482,7 +535,7 @@ class ObjectManager(BaseObject):
 
         self._objects.update(d)
 
-        if self._pickable:
+        if self._pickable and restore:
             self.discard_picking_color_ids(d)
 
     def __unregister_object(self, obj):
@@ -509,6 +562,28 @@ class ObjectManager(BaseObject):
 
         if self._pickable:
             self.recover_picking_color_ids(ids)
+
+    def __reset_registry(self):
+
+        self._objects = {}
+        self._object_id = 0
+        self._objects_backup = None
+        self._object_id_backup = None
+
+    def __create_registry_backup(self):
+
+        self._objects_backup = self._objects.copy()
+        self._object_id_backup = self._object_id
+
+    def __restore_registry_backup(self):
+
+        self._objects = self._objects_backup
+        self._object_id = self._object_id_backup
+
+    def __remove_registry_backup(self):
+
+        self._objects_backup = None
+        self._object_id_backup = None
 
 
 MainObjects.add_class(GeneralObjectManager)

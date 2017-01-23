@@ -17,7 +17,7 @@ class PointHelperVizManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         point_helper_viz = PointHelperViz(point_helper, picking_col_id)
 
-        return point_helper_viz, picking_col_id
+        return point_helper_viz
 
 
 class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
@@ -38,8 +38,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         self._point_helpers_to_transf = {"normal": [], "on_top": []}
         self._transf_start_arrays = {"normal": None, "on_top": None}
 
-        Mgr.accept("inst_create_point_helper", self.__create_point_instantly)
-        Mgr.accept("create_custom_point_helper", self.__create_custom_point)
+        Mgr.accept("create_custom_point_helper", self.__create_custom_point_helper)
         Mgr.accept("add_point_helper", self.__add_point_helper)
         Mgr.accept("remove_point_helper", self.__remove_point_helper)
         Mgr.accept("set_point_helper_sel_state", self.__set_point_helper_sel_state)
@@ -108,10 +107,11 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         status_text["phase1"] = "create the point helper"
 
         CreationPhaseManager.setup(self, creation_phases, status_text)
+        TemporaryPointHelper.init()
 
         return True
 
-    def __create_point_helper(self, name, origin_pos):
+    def __create_object(self, name, origin_pos):
 
         point_id = self.generate_object_id()
         prop_defaults = self.get_property_defaults()
@@ -153,21 +153,24 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             prim.reserve_num_vertices(count + 1)
             prim.add_next_vertices(count + 1)
 
-        return point_helper, point_id
+        point_helper.register(restore=False)
 
-    def __create_point_instantly(self, origin_pos):
+        return point_helper
+
+    def __create_point_helper(self, origin_pos):
 
         obj_type = self.get_object_type()
         name = Mgr.get("next_obj_name", obj_type)
-        point_helper = Mgr.do("create_%s" % obj_type, name, origin_pos)
+        point_helper = self.__create_object(name, origin_pos)
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(point_helper)
 
-    def __create_custom_point(self, name, size, on_top, colors, transform=None):
+        yield False
 
-        obj_type = self.get_object_type()
-        point_helper = Mgr.do("create_%s" % obj_type, name, Point3())
+    def __create_custom_point_helper(self, name, size, on_top, colors, transform=None):
+
+        point_helper = self.__create_object(name, Point3())
         point_helper.set_size(size)
         point_helper.draw_on_top(on_top)
 
@@ -182,11 +185,13 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
     def __start_creation_phase(self):
 
-        obj_type = self.get_object_type()
-        name = Mgr.get("next_obj_name", obj_type)
         origin_pos = self.get_origin_pos()
-        point_helper = Mgr.do("create_%s" % obj_type, name, origin_pos)
-        self.init_object(point_helper)
+        prop_defaults = self.get_property_defaults()
+        color = prop_defaults["unselected_color"]
+        size = prop_defaults["size"]
+        on_top = prop_defaults["on_top"]
+        tmp_point_helper = TemporaryPointHelper(origin_pos, color, size, on_top)
+        self.init_object(tmp_point_helper)
 
     def __rebuild_geoms(self):
 
@@ -458,12 +463,92 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         PendingTasks.add(task, task_id, "object", sort)
 
 
+class TemporaryPointHelper(object):
+
+    _original_geom = None
+
+    @classmethod
+    def init(cls):
+
+        array = GeomVertexArrayFormat()
+        array.add_column(InternalName.make("vertex"), 3, Geom.NT_float32, Geom.C_point)
+        array.add_column(InternalName.make("color"), 4, Geom.NT_float32, Geom.C_color)
+        array.add_column(InternalName.make("size"), 1, Geom.NT_float32, Geom.C_other)
+        vertex_format = GeomVertexFormat()
+        vertex_format.add_array(array)
+        vertex_format_point = GeomVertexFormat.register_format(vertex_format)
+        vertex_data = GeomVertexData("point_data", vertex_format_point, Geom.UH_static)
+
+        prim = GeomPoints(Geom.UH_static)
+        geom = Geom(vertex_data)
+        geom.add_primitive(prim)
+        geom_node = GeomNode("tmp_point_helper_geom")
+        geom_node.add_geom(geom)
+        tmp_geom = NodePath(geom_node)
+        tmp_geom.set_light_off()
+        tmp_geom.set_color_off()
+        tmp_geom.set_texture_off()
+        tmp_geom.set_material_off()
+        tmp_geom.set_shader_off()
+        tmp_geom.set_transparency(TransparencyAttrib.M_none)
+        tmp_geom.hide(Mgr.get("picking_masks")["all"])
+        cls._original_geom = tmp_geom
+
+    def __init__(self, pos, color, size, on_top):
+
+        self._size = size
+        object_root = Mgr.get("object_root")
+        self._temp_geom = tmp_geom = self._original_geom.copy_to(object_root)
+        tmp_geom.set_pos(pos)
+        geom = tmp_geom.node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        pos_writer.add_data3f(0., 0., 0.)
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        col_writer.add_data4f(color)
+        size_writer = GeomVertexWriter(vertex_data, "size")
+        size_writer.add_data1f(size)
+        prim = geom.modify_primitive(0)
+        prim.add_vertex(0)
+
+        if on_top:
+            tmp_geom.set_bin("fixed", 51)
+            tmp_geom.set_depth_test(False)
+            tmp_geom.set_depth_write(False)
+
+    def __del__(self):
+
+        logging.debug('TemporaryPointHelper garbage-collected.')
+
+    def destroy(self):
+
+        self._temp_geom.remove_node()
+        self._temp_geom = None
+
+    def is_valid(self):
+
+        return self._size >= 1
+
+    def finalize(self):
+
+        pos = self._temp_geom.get_pos()
+
+        for step in Mgr.do("create_point_helper", pos):
+            pass
+
+        self.destroy()
+
+
 class PointHelperViz(BaseObject):
 
     def __init__(self, point_helper, picking_col_id):
 
         self._point_helper = point_helper
         self._picking_col_id = picking_col_id
+
+    def __del__(self):
+
+        logging.debug('PointHelperViz garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -502,13 +587,35 @@ class PointHelper(TopLevelObject):
         self._colors = {"unselected": None, "selected": None}
         self._viz = Mgr.do("create_point_helper_viz", self)
 
-    def destroy(self, add_to_hist=True):
+    def __del__(self):
 
-        if not TopLevelObject.destroy(self, add_to_hist):
+        logging.info('PointHelper garbage-collected.')
+
+    def destroy(self, unregister=True, add_to_hist=True):
+
+        if not TopLevelObject.destroy(self, unregister, add_to_hist):
             return
 
-        self.unregister()
+        self.unregister(unregister)
         self._viz = None
+
+    def register(self, restore=True):
+
+        TopLevelObject.register(self)
+
+        obj_type = "point_helper_viz"
+        Mgr.do("register_%s" % obj_type, self._viz, restore)
+
+        if restore:
+            Mgr.do("add_point_helper", self)
+
+    def unregister(self, unregister=True):
+
+        if unregister:
+            obj_type = "point_helper_viz"
+            Mgr.do("unregister_%s" % obj_type, self._viz)
+
+        Mgr.do("remove_point_helper", self)
 
     def get_viz(self):
 
@@ -620,32 +727,10 @@ class PointHelper(TopLevelObject):
 
         return self._type_prop_ids
 
-    def register(self):
-
-        TopLevelObject.register(self)
-
-        obj_type = "point_helper_viz"
-        Mgr.do("register_%s" % obj_type, self._viz)
-        Mgr.do("add_point_helper", self)
-
-    def unregister(self):
-
-        obj_type = "point_helper_viz"
-        Mgr.do("unregister_%s" % obj_type, self._viz)
-        Mgr.do("remove_point_helper", self)
-
     def update_selection_state(self, is_selected=True):
 
         TopLevelObject.update_selection_state(self, is_selected)
         Mgr.do("set_point_helper_sel_state", self, is_selected)
-
-    def is_valid(self):
-
-        return self._size > .001
-
-    def finalize(self):
-
-        pass
 
     def display_link_effect(self):
         """

@@ -1,4 +1,4 @@
-from .base import EventBinder, StateManager, StateBinder
+from .base import logging, EventBinder, StateManager, StateBinder
 
 
 # the AppManager is responsible for unifying the two main components of the
@@ -24,10 +24,8 @@ class AppManager(object):
 
         self._key_handlers[""] = {"CORE": core_key_handlers, "GUI": gui_key_handlers}
 
-        self._keymap["CORE"] = dict((v, core_key_evt_ids[k])
-                                    for k, v in gui_key_evt_ids.iteritems())
-        self._keymap["GUI"] = dict((v, gui_key_evt_ids[k])
-                                   for k, v in core_key_evt_ids.iteritems())
+        self._keymap["CORE"] = dict((v, core_key_evt_ids[k]) for k, v in gui_key_evt_ids.iteritems())
+        self._keymap["GUI"] = dict((v, gui_key_evt_ids[k]) for k, v in core_key_evt_ids.iteritems())
 
         self._mod_key_codes = gui_mod_key_codes
 
@@ -193,10 +191,8 @@ class AppManager(object):
         """
 
         dest = "GUI" if component_id == "CORE" else "CORE"
-        local_updaters = self._updaters.get(interface_id, {}).get(
-            component_id, {}).get(update_id, [])
-        remote_updaters = self._updaters.get(
-            interface_id, {}).get(dest, {}).get(update_id, [])
+        local_updaters = self._updaters.get(interface_id, {}).get(component_id, {}).get(update_id, [])
+        remote_updaters = self._updaters.get(interface_id, {}).get(dest, {}).get(update_id, [])
 
         if locally:
             for updater, param_ids in local_updaters:
@@ -233,8 +229,12 @@ class AppManager(object):
 
         if key_code not in self._keymap[dest]:
 
-            if self._verbose:
-                print "The pressed key is not defined:", key_code
+            if "mouse" not in key_code:
+
+                logging.warning('The pressed key "%s" is not defined.', str(key_code))
+
+                if self._verbose:
+                    print "The pressed key is not defined:", key_code
 
             return
 
@@ -246,8 +246,12 @@ class AppManager(object):
 
         if key_code not in self._keymap[dest]:
 
-            if self._verbose:
-                print "The released key is not defined:", key_code
+            if "mouse" not in key_code:
+
+                logging.warning('The released key "%s" is not defined.', str(key_code))
+
+                if self._verbose:
+                    print "The released key is not defined:", key_code
 
             return
 

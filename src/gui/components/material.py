@@ -1980,8 +1980,26 @@ class MaterialToolbar(Toolbar):
 
     def enable(self):
 
+        for combobox in self._comboboxes.itervalues():
+            combobox.enable()
+
+        for btn in self._btns.itervalues():
+            btn.enable()
+
+        for picker in self._color_pickers.itervalues():
+            picker.enable()
+
         self.__enable_fields()
 
     def disable(self, show=True):
+
+        for combobox in self._comboboxes.itervalues():
+            combobox.disable(show)
+
+        for btn in self._btns.itervalues():
+            btn.disable(show)
+
+        for picker in self._color_pickers.itervalues():
+            picker.disable(show)
 
         self.__enable_fields(False)

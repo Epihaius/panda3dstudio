@@ -25,7 +25,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         basic_geom = BasicGeom(model, geom, picking_col_id)
 
-        return basic_geom, picking_col_id
+        return basic_geom
 
 
 class BasicGeom(BaseObject):
@@ -180,12 +180,27 @@ class BasicGeom(BaseObject):
         obj_id = model.get_id()
         PendingTasks.add(update_render_mode, "update_render_mode", "object", 0, obj_id)
 
-    def destroy(self):
+    def __del__(self):
+
+        logging.debug('BasicGeom garbage-collected.')
+
+    def destroy(self, unregister=True):
 
         self._geom.remove_node()
         self._geom = None
-        Mgr.do("unregister_basic_geom", self)
+
+        if unregister:
+            Mgr.do("unregister_basic_geom", self)
+
         Mgr.do("clear_basic_geom_picking_color", str(self._picking_col_id))
+
+    def register(self, restore=True):
+
+        Mgr.do("register_basic_geom", self, restore)
+
+    def unregister(self):
+
+        Mgr.do("unregister_basic_geom", self)
 
     def get_type(self):
 
@@ -410,14 +425,6 @@ class BasicGeom(BaseObject):
     def set_two_sided(self, two_sided=True):
 
         self._geom.set_two_sided(two_sided)
-
-    def register(self):
-
-        Mgr.do("register_basic_geom", self)
-
-    def unregister(self):
-
-        Mgr.do("unregister_basic_geom", self)
 
     def get_data_to_store(self, event_type, prop_id=""):
 

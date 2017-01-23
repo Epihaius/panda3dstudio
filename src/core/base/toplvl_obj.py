@@ -61,6 +61,19 @@ class TopLevelObject(BaseObject):
 
         self._pivot_gizmo = Mgr.do("create_pivot_gizmo", self)
 
+    def cancel_creation(self):
+
+        logging.info('Creation of object "%s" has been cancelled.', self.get_name())
+
+        self._name.remove_updater("global_obj_names", final_update=True)
+        self.set_name("")
+        self._pivot_gizmo.destroy(unregister=False)
+        self._pivot_gizmo = None
+        self._origin.remove_node()
+        self._origin = None
+        self._pivot.remove_node()
+        self._pivot = None
+
     def __update_obj_names(self, name=None):
 
         obj_names = GlobalData["obj_names"]
@@ -75,7 +88,7 @@ class TopLevelObject(BaseObject):
         elif name not in obj_names:
             obj_names.append(name)
 
-    def destroy(self, add_to_hist=True):
+    def destroy(self, unregister=True, add_to_hist=True):
 
         if not self._origin:
             return False
@@ -88,7 +101,7 @@ class TopLevelObject(BaseObject):
             for child_id in self._child_ids[:]:
                 child = Mgr.get("object", child_id)
                 obj_data[child_id] = child.get_data_to_store("deletion")
-                child.destroy(add_to_hist)
+                child.destroy(unregister, add_to_hist)
 
             if obj_data:
                 Mgr.do("add_history", "", event_data, update_time_id=False)
@@ -98,14 +111,15 @@ class TopLevelObject(BaseObject):
 
         self._name.remove_updater("global_obj_names", final_update=True)
         self.set_name("")
-        self._pivot_gizmo.destroy()
+        self._pivot_gizmo.destroy(unregister)
         self._pivot_gizmo = None
         self._origin.remove_node()
         self._origin = None
         self._pivot.remove_node()
         self._pivot = None
 
-        Mgr.do("unregister_%s" % self._type, self)
+        if unregister:
+            Mgr.do("unregister_%s" % self._type, self)
 
         task = lambda: self.__remove_references(add_to_hist)
         task_id = "object_removal"
@@ -132,6 +146,11 @@ class TopLevelObject(BaseObject):
         Mgr.update_app("object_removal", self._id, add_to_hist)
         Mgr.do("update_obj_transf_info", self._id)
 
+    def register(self):
+
+        Mgr.do("register_%s" % self._type, self)
+        self._pivot_gizmo.register()
+
     def recreate(self):
         """
         Recreate the object geometry and ID after unpickling during merge.
@@ -152,10 +171,6 @@ class TopLevelObject(BaseObject):
                 return group.get_toplevel_object(get_group)
 
         return self
-
-    def register(self):
-
-        Mgr.do("register_%s" % self._type, self)
 
     def display_link_effect(self):
         """
@@ -238,9 +253,15 @@ class TopLevelObject(BaseObject):
 
     def restore_link(self, parent_id, group_id):
 
+        logging.debug('Restoring link for "%s"...', self.get_name())
+
         old_parent = Mgr.get("object", self._parent_id)
         old_group = Mgr.get("group", self._group_id)
         link_restored = False
+        logging.debug('Old parent ID: %s', str(self._parent_id))
+        logging.debug('Old group ID: %s', str(self._group_id))
+        logging.debug('New parent ID: %s', str(parent_id))
+        logging.debug('New group ID: %s', str(group_id))
 
         if parent_id is None and group_id is None:
             restore_parent = self._parent_id != parent_id
@@ -271,6 +292,7 @@ class TopLevelObject(BaseObject):
                 Mgr.do("remove_obj_link_viz", self._id)
 
             link_restored = True
+            logging.debug('New parent for "%s": "%s"', self.get_name(), str(parent_id))
 
         if restore_group:
 
@@ -289,11 +311,15 @@ class TopLevelObject(BaseObject):
                 Mgr.do("remove_obj_link_viz", self._id)
 
             link_restored = True
+            logging.debug('New group for "%s": "%s"', self.get_name(), str(group_id))
 
         self._parent_id = parent_id
         self._group_id = group_id
 
         if link_restored:
+
+            logging.debug('Reparented "%s"', self.get_name())
+
             if old_parent:
                 old_parent.remove_child(self._id)
             elif old_group:

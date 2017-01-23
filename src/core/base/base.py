@@ -1,4 +1,4 @@
-from ...base import GlobalData, ObjectName
+from ...base import logging, GlobalData, ObjectName
 from panda3d.core import *
 import weakref
 import sys
@@ -71,8 +71,12 @@ class BaseObject(object):
 
         """
 
-        if self._verbose and data_id not in self._data_retrievers:
-            print 'Core warning: data "%s" is not defined.' % data_id
+        if data_id not in self._data_retrievers:
+
+            logging.warning('CORE: data "%s" is not defined.', data_id)
+
+            if self._verbose:
+                print 'CORE warning: data "%s" is not defined.' % data_id
 
         retriever = self._data_retrievers.get(data_id, self._defaults["data_retriever"])
 
@@ -118,7 +122,10 @@ class MainObjects(object):
                     setup_successful = True
                     objs_to_setup.remove(obj)
 
-            assert setup_successful, "Setup failed for one or more main objects!"
+            if not setup_successful:
+                msg = 'Setup failed for one or more main objects!'
+                logging.critical(msg)
+                raise AssertionError(msg)
 
         del cls._setup_results[interface_id]
 
@@ -133,14 +140,50 @@ class MainObjects(object):
         return cls._setup_results.get(interface_id, [])
 
 
+class _PendingTask(object):
+
+    _long_process_handler = None
+
+    @classmethod
+    def init(cls, long_process_handler):
+
+        cls._long_process_handler = long_process_handler
+
+    def __init__(self, func, gradual=False, process_id="", descr="", cancellable=False):
+
+        self._func = func
+        self._process_id = process_id
+        self._descr = descr
+        self._cancellable = cancellable
+        self.gradual = gradual
+
+    def __call__(self):
+
+        if self.gradual:
+
+            process = self._func()
+
+            if process.next():
+                self._long_process_handler(process, self._process_id, self._descr, self._cancellable)
+            else:
+                self.gradual = False
+
+        else:
+
+            self._func()
+
+
 class PendingTasks(object):
 
     _tasks = {}
+    _sorted_tasks = []
     _task_ids = {}
     _is_handling_tasks = False
+    _is_suspended = False
 
     @classmethod
-    def add(cls, task, task_id, task_type="", sort=None, id_prefix=None):
+    def add(cls, task, task_id, task_type="", sort=None, id_prefix=None,
+            gradual=False, process_id="", descr="", cancellable=False):
         """
         Add a task that needs to be handled later - and only once - through a call
         to handle(), optionally with a type and/or sort value.
@@ -166,7 +209,8 @@ class PendingTasks(object):
         if id_prefix:
             task_id = "%s_%s" % (id_prefix, task_id)
 
-        cls._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = task
+        pending_task = _PendingTask(task, gradual, process_id, descr, cancellable)
+        cls._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = pending_task
 
         return True
 
@@ -200,6 +244,10 @@ class PendingTasks(object):
 
         """
 
+        if cls._sorted_tasks:
+            cls._sorted_tasks = []
+            cls._is_handling_tasks = False
+
         if cls._is_handling_tasks:
             return
 
@@ -220,27 +268,52 @@ class PendingTasks(object):
 
         """
 
-        if cls._is_handling_tasks:
+        if cls._is_suspended:
+            return
+
+        if cls._is_handling_tasks and not cls._sorted_tasks:
             return
 
         cls._is_handling_tasks = True
 
-        pending_tasks = cls._tasks
+        if cls._sorted_tasks:
 
-        if task_types is None:
-            task_types = pending_tasks.keys()
+            sorted_tasks = cls._sorted_tasks
+            cls._sorted_tasks = []
 
-        if sort_by_type:
-            sorted_tasks = [task for task_type in task_types for sort, tasks in
-                            sorted(pending_tasks.pop(task_type, {}).iteritems())
-                            for task in tasks.itervalues()]
         else:
-            sorted_tasks = [task for sort, tasks in sorted([i for task_type in task_types
-                            for i in pending_tasks.pop(task_type, {}).iteritems()])
-                            for task in tasks.itervalues()]
 
-        for task in sorted_tasks:
+            if not cls._tasks:
+                cls._is_handling_tasks = False
+                return
+
+            pending_tasks = cls._tasks
+
+            if task_types is None:
+                task_types = pending_tasks.keys()
+
+            if sort_by_type:
+                sorted_tasks = [task for task_type in task_types for sort, tasks in
+                                sorted(pending_tasks.pop(task_type, {}).iteritems())
+                                for task in tasks.itervalues()]
+            else:
+                sorted_tasks = [task for sort, tasks in sorted([i for task_type in task_types
+                                for i in pending_tasks.pop(task_type, {}).iteritems()])
+                                for task in tasks.itervalues()]
+
+        while sorted_tasks:
+
+            task = sorted_tasks.pop(0)
             task()
+
+            if task.gradual:
+
+                if not sorted_tasks:
+                    dummy_task = _PendingTask(lambda: None)
+                    sorted_tasks.append(dummy_task)
+
+                cls._sorted_tasks = sorted_tasks
+                return
 
         cls._is_handling_tasks = False
 
@@ -271,6 +344,15 @@ class PendingTasks(object):
 
         if task_id in task_ids:
             return task_ids.index(task_id)
+
+    @classmethod
+    def suspend(cls, is_suspended=True):
+        """
+        Set whether the handling of tasks should be suspended or resumed.
+
+        """
+
+        cls._is_suspended = is_suspended
 
 
 # All pickable object types should be registered through the following class;
@@ -437,8 +519,83 @@ class ImprecisePos(object):
         return self._pos[index]
 
 
+class ProgressBar(BaseObject):
+
+    def __init__(self, task_mgr, pos, scale, descr, back_color=None, fill_color=None):
+
+        self._rate = 0.
+        self._progress = 0.
+        self._clock = ClockObject()
+        self._alpha = 0.
+
+        cm = CardMaker("progress_bar_back")
+        cm.set_frame(-.5, .5, 0., 1.)
+        cm.set_has_normals(False)
+        root = self.screen.attach_new_node("progress_bar")
+        root.set_alpha_scale(0.)
+        root.set_pos(pos)
+        back_geom = root.attach_new_node(cm.generate())
+        cm.set_name("progress_bar_fill")
+        cm.set_frame(0., 1., 0., 1.)
+        fill_geom = back_geom.attach_new_node(cm.generate())
+        fill_geom.set_x(-.5)
+        fill_geom.hide()
+        sx, sz = scale
+        back_geom.set_sx(sx)
+        back_geom.set_sz(sz)
+        color = (0., 0., 0., 1.) if back_color is None else back_color
+        back_geom.set_transparency(TransparencyAttrib.M_alpha)
+        back_geom.set_color(color)
+        color = (1., 0., 0., 1.) if fill_color is None else fill_color
+        fill_geom.set_transparency(TransparencyAttrib.M_alpha)
+        fill_geom.set_color(color)
+
+        if descr:
+            label_node = TextNode("process_descr")
+            label_node.set_text(descr)
+            label_node.set_align(TextNode.A_center)
+            self._label = label = root.attach_new_node(label_node)
+            label.set_scale(sz * .8)
+            label.set_pos(0., -.01, .3 * sz * .8)
+
+        self._root = root
+        self._fill_geom = fill_geom
+        task_mgr.add(self.__fade_in, "fade-in progressbar")
+        self._task_mgr = task_mgr
+
+    def destroy(self):
+
+        self._task_mgr.remove("fade-in progressbar")
+        self._root.remove_node()
+
+    def get_root(self):
+
+        return self._root
+
+    def __fade_in(self, task):
+
+        alpha = min(1., self._clock.get_real_time())
+        self._root.set_alpha_scale(alpha)
+
+        if alpha == 1.:
+            return
+
+        return task.cont
+
+    def set_rate(self, rate):
+
+        self._rate = rate
+        self._fill_geom.show()
+
+    def advance(self):
+
+        if self._rate:
+            self._progress = min(1., self._progress + self._rate)
+            self._fill_geom.set_sx(self._progress)
+
+
 # The following class is a wrapper around Vec3 that uses operator overloading
-# to allow compact vector math
+# to allow concise vector math
 class V3D(Vec3):
 
     def __str__(self):

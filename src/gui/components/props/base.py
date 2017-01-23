@@ -174,7 +174,7 @@ class PropertyPanel(Panel):
         Mgr.add_app_updater("selected_obj_prop", set_obj_prop)
         Mgr.add_app_updater("selection_count", check_selection_count)
         Mgr.add_app_updater("obj_prop_default", set_obj_prop_default)
-        Mgr.add_app_updater("creation", self.__update_sections)
+        Mgr.add_app_updater("interactive_creation", self.__update_sections)
         Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
         Mgr.add_app_updater("selected_obj_color", self.__set_object_color)
         Mgr.add_app_updater("selection_count", self.__check_selection_count)
@@ -309,7 +309,7 @@ class PropertyPanel(Panel):
 
         obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
 
-        if not obj_type:
+        if not obj_type or obj_type == "editable_geom":
             return
 
         next_color = GlobalData["next_%s_color" % obj_type]
@@ -327,7 +327,7 @@ class PropertyPanel(Panel):
 
     def __check_selection_count(self):
 
-        if GlobalData["active_creation_type"] != "":
+        if GlobalData["active_creation_type"] != "" or GlobalData["temp_toplevel"]:
             return
 
         self._sel_obj_count = sel_count = GlobalData["selection_count"]
@@ -372,7 +372,7 @@ class PropertyPanel(Panel):
     def __create_object(self):
 
         pos_id = self._radio_btns.get_selected_button()
-        Mgr.update_app("instant_creation", pos_id)
+        Mgr.update_app("creation", pos_id)
         self.__set_next_object_color()
 
     def get_active_object_type(self):

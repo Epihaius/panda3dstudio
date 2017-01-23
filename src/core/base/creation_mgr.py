@@ -6,11 +6,12 @@ class CreationPhaseManager(object):
 
     _id_generator = id_generator()
 
-    def __init__(self, obj_type, has_color=False):
+    def __init__(self, obj_type, has_color=False, add_to_hist=False):
 
         self._obj = None
         self._obj_type = obj_type
         self._has_color = has_color
+        self._add_to_hist = add_to_hist
         self._custom_obj_name = ""
 
         self._origin_pos = Point3()
@@ -167,29 +168,56 @@ class CreationPhaseManager(object):
 
     def __end_creation(self, cancel=True):
 
-        toplevel_obj = self._obj.get_toplevel_object()
-
         Mgr.remove_task("draw_object")
+        process = None
 
         if cancel or not self._obj.is_valid():
 
-            toplevel_obj.destroy(add_to_hist=False)
-            Mgr.do("update_picking_col_id_ranges")
+            self._obj.destroy()
 
         else:
 
-            obj_type = self._obj_type
-            Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
+            finalization = self._obj.finalize()
 
-            if self._has_color:
-                self.set_next_object_color()
+            if finalization:
 
-            self._obj.finalize()
-            # make undo/redoable
-            self.add_history(toplevel_obj)
+                def finalize():
+
+                    finalization.next()
+
+                    for step in finalization:
+                        yield True
+
+                    obj_type = self._obj_type
+                    name = Mgr.get("next_obj_name", obj_type)
+                    Mgr.update_remotely("next_obj_name", name)
+
+                    if self._add_to_hist:
+                        self.add_history(self._obj.get_toplevel_object())
+
+                    yield False
+
+                process = finalize()
+
+            else:
+
+                obj_type = self._obj_type
+                name = Mgr.get("next_obj_name", obj_type)
+                Mgr.update_remotely("next_obj_name", name)
+
+                if self._has_color:
+                    self.set_next_object_color()
+
+                if self._add_to_hist:
+                    self.add_history(self._obj.get_toplevel_object())
 
         self._obj = None
         self._current_creation_phase = 0
 
-        Mgr.do("notify_creation_ended")
+        Mgr.notify("creation_ended")
         Mgr.enter_state("creation_mode")
+
+        if process and process.next():
+            Mgr.show_screenshot()
+            descr = "Creating %s..." % self._obj_type
+            Mgr.do_gradually(process, "creation", descr, cancellable=True)

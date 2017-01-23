@@ -16,7 +16,7 @@ class VertexManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         vertex = Vertex(vert_id, picking_col_id, geom_data_obj, pos)
 
-        return vertex, picking_col_id
+        return vertex
 
     def __create_merged_vertex(self, geom_data_obj, vert_id=None):
 

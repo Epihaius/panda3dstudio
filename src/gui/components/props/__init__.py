@@ -1,5 +1,6 @@
 from .base import PropertyPanel
 import os
+import logging
 
 path = os.path.join("src", "gui", "components", "props")
 
@@ -12,4 +13,5 @@ for name in names:
     try:
         __import__(package_path + name)
     except ImportError:
-        print "Failed to load module '%s'!" % name
+        logging.critical('Failed to load module "%s"!', name)
+        raise ImportError('Failed to load module "%s"!' % name)

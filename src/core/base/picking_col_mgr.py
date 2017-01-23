@@ -1,18 +1,29 @@
 from .mgr import CoreManager as Mgr
-from .base import PendingTasks
+from .base import logging, PendingTasks
 
 
 # All managers of pickable objects should derive from the following class
 class PickingColorIDManager(object):
 
     _mgrs = {}
+    _id_range_backups_created = False
 
     @classmethod
     def init(cls):
 
         sort = PendingTasks.get_sort("register_subobjs", "object")
         PendingTasks.add_task_id("update_picking_col_id_ranges", "object", sort + 1)
+        Mgr.accept("reset_picking_col_id_ranges", cls.__reset_id_ranges)
         Mgr.accept("update_picking_col_id_ranges", cls.__update_id_ranges)
+        Mgr.accept("create_id_range_backups", cls.__create_id_range_backups)
+        Mgr.add_notification_handler("long_process_cancelled", "picking_col_mgr",
+                                     cls.__restore_id_range_backups)
+
+    @classmethod
+    def __reset_id_ranges(cls):
+
+        for mgr in cls._mgrs.itervalues():
+            mgr.reset()
 
     @classmethod
     def __update_id_ranges(cls):
@@ -25,6 +36,44 @@ class PickingColorIDManager(object):
         task_id = "update_picking_col_id_ranges"
         PendingTasks.add(task, task_id, "object")
 
+    @classmethod
+    def __create_id_range_backups(cls):
+
+        if cls._id_range_backups_created:
+            return
+
+        for mgr in cls._mgrs.itervalues():
+            mgr.create_id_ranges_backup()
+
+        task = cls.__remove_id_range_backups
+        task_id = "remove_id_range_backups"
+        PendingTasks.add(task, task_id, "object", sort=100)
+        cls._id_range_backups_created = True
+
+    @classmethod
+    def __restore_id_range_backups(cls, info=""):
+
+        if not cls._id_range_backups_created:
+            return
+
+        logging.info('Restoring ID ranges;\ninfo: %s', info)
+
+        for mgr in cls._mgrs.itervalues():
+            mgr.restore_id_ranges_backup()
+
+        cls.__remove_id_range_backups()
+
+    @classmethod
+    def __remove_id_range_backups(cls):
+
+        if not cls._id_range_backups_created:
+            return
+
+        for mgr in cls._mgrs.itervalues():
+            mgr.remove_id_ranges_backup()
+
+        cls._id_range_backups_created = False
+
     def __init__(self):
 
         self._mgrs[self.get_managed_object_type()] = self
@@ -32,6 +81,15 @@ class PickingColorIDManager(object):
         self._id_ranges = [(1, 2 ** 24)]
         self._ids_to_recover = set()
         self._ids_to_discard = set()
+        self._id_ranges_backup = None
+
+    def reset(self):
+
+        self._id_ranges = [(1, 2 ** 24)]
+        self._ids_to_recover = set()
+        self._ids_to_discard = set()
+        self._id_ranges_backup = None
+        logging.debug('"%s" picking color IDs reset.', self.get_managed_object_type())
 
     def __get_ranges(self, lst):
 
@@ -101,6 +159,8 @@ class PickingColorIDManager(object):
         """ Recover the given color IDs, so they can be used again. """
 
         self._ids_to_recover.update(color_ids)
+        logging.debug('****** %s picking color IDs recovered:\n%s', self.get_managed_object_type(),
+                      self.__get_ranges(sorted(self._ids_to_recover)))
 
     def discard_picking_color_id(self, color_id):
         """ Discard the given color ID, so it can no longer be used """
@@ -111,6 +171,8 @@ class PickingColorIDManager(object):
         """ Discard the given color IDs, so they can no longer be used. """
 
         self._ids_to_discard.update(color_ids)
+        logging.debug('****** %s picking color IDs discarded:\n%s', self.get_managed_object_type(),
+                      self.__get_ranges(sorted(self._ids_to_discard)))
 
     def update_picking_color_id_ranges(self):
 
@@ -121,6 +183,9 @@ class PickingColorIDManager(object):
         if not (set_to_recover or set_to_discard):
             return
 
+        logging.debug('++++++ Updating %s picking color IDs ranges, starting with:\n%s',
+                      self.get_managed_object_type(), id_ranges)
+
         # remove the common IDs from both sets
         if not set_to_recover.isdisjoint(set_to_discard):
             set_to_recover ^= set_to_discard
@@ -128,25 +193,53 @@ class PickingColorIDManager(object):
             set_to_recover -= set_to_discard
 
         if set_to_recover:
-            ids_to_recover = sorted(set_to_recover)
-            id_ranges += self.__get_ranges(ids_to_recover)
+            id_ranges_to_recover = self.__get_ranges(sorted(set_to_recover))
+            logging.debug('++++++ Recovering %s picking color IDs:\n%s',
+                          self.get_managed_object_type(), id_ranges_to_recover)
+            id_ranges += id_ranges_to_recover
             id_ranges.sort()
             id_ranges[:] = reduce(self.__merge_ranges, id_ranges[:], [])
 
         if set_to_discard:
-            ids_to_discard = sorted(set_to_discard)
-            id_ranges += self.__get_ranges(ids_to_discard)
+            id_ranges_to_discard = self.__get_ranges(sorted(set_to_discard))
+            logging.debug('++++++ Discarding %s picking color IDs:\n%s',
+                          self.get_managed_object_type(), id_ranges_to_discard)
+            id_ranges += id_ranges_to_discard
             id_ranges.sort()
             id_ranges[:] = reduce(self.__split_ranges, id_ranges[:], [])
 
         self._ids_to_recover = set()
         self._ids_to_discard = set()
+        logging.debug('++++++ New %s picking color ID ranges:\n%s',
+                      self.get_managed_object_type(), id_ranges)
 
         # check integrity
         for rng1, rng2 in zip(id_ranges[:-1], id_ranges[1:]):
             if rng1[1] >= rng2[0]:
-                # something went wrong; create a file to submit for debugging
-                Mgr.do("make_backup", "corrupt_object_ids.p3ds")
+                # something went wrong; create scene and log files to submit for debugging
+                logging.critical('An error occurred with %s object ID management:\n%s',
+                                 self.get_managed_object_type(), id_ranges)
+                import shutil
+                shutil.copy("p3ds.log", "corrupt_object_ids.log")
+                Mgr.update_locally("scene", "save", "corrupt_object_ids.p3ds", set_saved_state=False)
                 msg = "An error occurred with object ID management;\n" \
-                      "a 'corrupt_object_ids.p3ds' file has been created to submit for debugging."
-                raise AssertionError, msg
+                      "files 'corrupt_object_ids.p3ds' and 'corrupt_object_ids.log' have\n" \
+                      "been created to submit for debugging."
+                raise AssertionError(msg)
+
+    def create_id_ranges_backup(self):
+
+        self._id_ranges_backup = self._id_ranges[:]
+        logging.debug('"%s" picking color IDs backup created:\n%s', self.get_managed_object_type(),
+                      self._id_ranges_backup)
+
+    def restore_id_ranges_backup(self):
+
+        self._id_ranges = self._id_ranges_backup
+        logging.debug('"%s" picking color IDs backup restored:\n%s', self.get_managed_object_type(),
+                      self._id_ranges)
+
+    def remove_id_ranges_backup(self):
+
+        self._id_ranges_backup = None
+        logging.debug('"%s" picking color IDs backup removed.', self.get_managed_object_type())

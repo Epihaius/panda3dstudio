@@ -15,7 +15,7 @@ class DummyEdgeManager(ObjectManager, PickingColorIDManager):
         picking_col_id = self.get_next_picking_color_id()
         dummy_edge = DummyEdge(dummy, axis, corner_index, picking_col_id)
 
-        return dummy_edge, picking_col_id
+        return dummy_edge
 
 
 class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
@@ -42,7 +42,6 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
         Mgr.accept("make_dummy_const_size", self.__make_dummy_const_size)
         Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
-        Mgr.accept("inst_create_dummy", self.__create_dummy_instantly)
         Mgr.accept("create_custom_dummy", self.__create_custom_dummy)
 
     def setup(self):
@@ -127,7 +126,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
             for origins in self._dummy_origins.itervalues():
                 origins[dummy_id].set_scale(const_size)
 
-    def __create_dummy(self, dummy_id, name, origin_pos):
+    def __create_object(self, dummy_id, name, origin_pos):
 
         prop_defaults = self.get_property_defaults()
         dummy = Dummy(dummy_id, name, origin_pos)
@@ -136,31 +135,34 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         dummy.make_const_size(prop_defaults["const_size_state"])
         dummy.set_const_size(prop_defaults["const_size"])
         dummy.draw_on_top(prop_defaults["on_top"])
+        dummy.register(restore=False)
 
-        return dummy, dummy_id
+        return dummy
 
-    def __create_dummy_instantly(self, origin_pos):
+    def __create_dummy(self, origin_pos, size=None, cross_size=None, const_size=None):
 
         dummy_id = self.generate_object_id()
         obj_type = self.get_object_type()
         name = Mgr.get("next_obj_name", obj_type)
-        dummy = Mgr.do("create_dummy", dummy_id, name, origin_pos)
+        dummy = self.__create_object(dummy_id, name, origin_pos)
         prop_defaults = self.get_property_defaults()
         dummy.set_viz(prop_defaults["viz"])
-        dummy.set_size(prop_defaults["size"])
-        dummy.set_cross_size(prop_defaults["cross_size"])
+        dummy.set_size(prop_defaults["size"] if size is None else size)
+        dummy.set_cross_size(prop_defaults["cross_size"] if cross_size is None else cross_size)
         dummy.make_const_size(prop_defaults["const_size_state"])
-        dummy.set_const_size(prop_defaults["const_size"])
+        dummy.set_const_size(prop_defaults["const_size"] if const_size is None else const_size)
         dummy.draw_on_top(prop_defaults["on_top"])
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(dummy)
 
+        yield False
+
     def __create_custom_dummy(self, name, viz, size, cross_size, is_const_size,
                               const_size, on_top, transform=None):
 
         dummy_id = self.generate_object_id()
-        dummy = Mgr.do("create_dummy", dummy_id, name, Point3())
+        dummy = self.__create_object(dummy_id, name, Point3())
         dummy.set_viz(viz)
         dummy.set_size(size)
         dummy.set_cross_size(cross_size)
@@ -176,18 +178,22 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
     def __start_creation_phase1(self):
         """ Start drawing out dummy """
 
-        dummy_id = self.generate_object_id()
-        name = Mgr.get("next_obj_name", self.get_object_type())
-        origin_pos = self.get_origin_pos()
-        dummy = Mgr.do("create_dummy", dummy_id, name, origin_pos)
-        self.init_object(dummy)
+        pos = self.get_origin_pos()
+        prop_defaults = self.get_property_defaults()
+        viz = prop_defaults["viz"]
+        cross_size = prop_defaults["cross_size"]
+        is_const_size = prop_defaults["const_size_state"]
+        const_size = prop_defaults["const_size"]
+        on_top = prop_defaults["on_top"]
+        tmp_dummy = TemporaryDummy(pos, viz, cross_size, is_const_size, const_size, on_top)
+        self.init_object(tmp_dummy)
 
         # Create the plane parallel to the camera and going through the dummy
         # origin, used to determine the size drawn by the user.
 
         normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
         grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, origin_pos)
+        point = self.world.get_relative_point(grid_origin, pos)
         self._draw_plane = Plane(normal, point)
 
     def __creation_phase1(self):
@@ -217,6 +223,10 @@ class DummyEdge(BaseObject):
         self._axis = axis
         self._corner_index = corner_index
         self._picking_col_id = picking_col_id
+
+    def __del__(self):
+
+        logging.debug('DummyEdge garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -260,6 +270,220 @@ class DummyEdge(BaseObject):
             return
 
         return intersection_point
+
+
+class TemporaryDummy(BaseObject):
+
+    _original_geom = None
+
+    @classmethod
+    def __create_original_geom(cls):
+
+        minmax = (-.5, .5)
+        corners = [(x, y, z) for x in minmax for y in minmax for z in minmax]
+
+        x1, y1, z1 = corners.pop()
+
+        for corner in corners[:]:
+
+            x, y, z = corner
+
+            if (x == x1 and y != y1 and z != z1) \
+                    or (y == y1 and x != x1 and z != z1) \
+                    or (z == z1 and x != x1 and y != y1):
+
+                corners.remove(corner)
+
+                if len(corners) == 4:
+                    break
+
+        tmp_geom = NodePath("tmp_dummy_geom")
+        tmp_geom.set_light_off()
+        tmp_geom.set_color_off()
+        cls._original_geom = tmp_geom
+
+        # Create box.
+
+        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_data = GeomVertexData("dummy_helper_box_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        col_writer = GeomVertexWriter(vertex_data, "color")
+
+        lines = GeomLines(Geom.UH_static)
+        vert_index = 0
+
+        for corner in corners:
+
+            for coord, axis in zip(corner, "xyz"):
+
+                pos_writer.add_data3f(corner)
+                sign = 1. if coord < 0. else -1.
+                index = "xyz".index(axis)
+                col_writer.add_data4f(0., .15, .15, 1.)
+
+                vert_index += 1
+
+                coord2 = coord + .5 * sign
+                pos = Point3(*corner)
+                pos[index] = coord2
+                pos_writer.add_data3f(pos)
+                # create a gray center vertex
+                col_writer.add_data4f(.5, .5, .5, 1.)
+                lines.add_vertices(vert_index - 1, vert_index)
+
+                vert_index += 1
+
+                coord2 = coord + 1. * sign
+                pos = Point3(*corner)
+                pos[index] = coord2
+                pos_writer.add_data3f(pos)
+                col_writer.add_data4f(0., .15, .15, 1.)
+                lines.add_vertices(vert_index - 1, vert_index)
+
+                vert_index += 1
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        node = GeomNode("box_geom")
+        node.add_geom(geom)
+        np = tmp_geom.attach_new_node(node)
+        np.hide(Mgr.get("picking_masks")["all"])
+        np.hide()
+
+        # Create cross.
+
+        vertex_data = GeomVertexData("dummy_helper_cross_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        col_writer = GeomVertexWriter(vertex_data, "color")
+
+        lines = GeomLines(Geom.UH_static)
+        vert_index = 0
+
+        for axis in "xyz":
+
+            pos = Point3()
+            index = "xyz".index(axis)
+            pos[index] = -.5
+            pos_writer.add_data3f(pos)
+            col_writer.add_data4f(.5, .5, .5, 1.)
+
+            vert_index += 1
+
+            pos_writer.add_data3f(0., 0., 0.)
+            col_writer.add_data4f(0., .15, .15, 1.)
+            lines.add_vertices(vert_index - 1, vert_index)
+
+            vert_index += 1
+
+            pos = Point3()
+            pos[index] = .5
+            pos_writer.add_data3f(pos)
+            col_writer.add_data4f(.5, .5, .5, 1.)
+            lines.add_vertices(vert_index - 1, vert_index)
+
+            vert_index += 1
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        node = GeomNode("cross_geom")
+        node.add_geom(geom)
+        np = tmp_geom.attach_new_node(node)
+        np.hide(Mgr.get("picking_masks")["all"])
+        np.hide()
+
+    def __get_original_geom(self):
+
+        if not self._original_geom:
+            TemporaryDummy.__create_original_geom()
+
+        return self._original_geom
+
+    original_geom = property(__get_original_geom)
+
+    def __init__(self, pos, viz, cross_size, is_const_size, const_size, on_top):
+
+        self._size = 0.
+        self._is_const_size = is_const_size
+        self._drawn_on_top = on_top
+        object_root = Mgr.get("object_root")
+        self._temp_geom = tmp_geom = self.original_geom.copy_to(object_root)
+        tmp_geom.set_pos(pos)
+        geoms = {"box": tmp_geom.find("**/box_geom"), "cross": tmp_geom.find("**/cross_geom")}
+
+        for geom_type in viz:
+            geoms[geom_type].show()
+
+        if "cross" in viz:
+            geoms["cross"].set_scale(cross_size * .01)
+
+        if is_const_size:
+            root = self.cam().attach_new_node("dummy_helper_root")
+            root.set_bin("fixed", 50)
+            root.set_depth_test(False)
+            root.set_depth_write(False)
+            root.node().set_bounds(OmniBoundingVolume())
+            root.node().set_final(True)
+            self._root = root
+            render_masks = Mgr.get("render_masks")
+            picking_masks = Mgr.get("picking_masks")
+            root_persp = root.attach_new_node("dummy_helper_root_persp")
+            root_persp.hide(render_masks["ortho"] | picking_masks["all"])
+            root_ortho = root.attach_new_node("dummy_helper_root_ortho")
+            root_ortho.set_scale(20.)
+            root_ortho.hide(render_masks["persp"] | picking_masks["all"])
+            dummy_base = root_persp.attach_new_node("dummy_base")
+            dummy_base.set_billboard_point_world(tmp_geom, 2000.)
+            pivot = dummy_base.attach_new_node("dummy_pivot")
+            pivot.set_scale(100.)
+            origin_persp = pivot.attach_new_node("dummy_origin_persp")
+            tmp_geom.get_children().reparent_to(origin_persp)
+            origin_persp.set_scale(const_size)
+            origin_ortho = origin_persp.copy_to(root_ortho)
+            origin_persp.set_compass(tmp_geom)
+            compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+            compass_effect = CompassEffect.make(tmp_geom, compass_props)
+            origin_ortho.set_effect(compass_effect)
+        else:
+            self._root = None
+
+        if on_top:
+            tmp_geom.set_bin("fixed", 50)
+            tmp_geom.set_depth_test(False)
+            tmp_geom.set_depth_write(False)
+
+    def __del__(self):
+
+        logging.debug('TemporaryDummy garbage-collected.')
+
+    def destroy(self):
+
+        self._temp_geom.remove_node()
+        self._temp_geom = None
+
+        if self._is_const_size:
+            self._root.remove_node()
+            self._root = None
+
+    def set_size(self, size):
+
+        if self._size == size:
+            return
+
+        self._size = size
+        self._temp_geom.set_scale(size)
+
+    def is_valid(self):
+
+        return self._size > .001
+
+    def finalize(self):
+
+        pos = self._temp_geom.get_pos()
+
+        for step in Mgr.do("create_dummy", pos, self._size):
+            pass
+
+        self.destroy()
 
 
 class Dummy(TopLevelObject):
@@ -541,18 +765,36 @@ class Dummy(TopLevelObject):
             col_writer.set_data4f(picking_color)
             self._edges[color_id] = edge
 
-    def destroy(self, add_to_hist=True):
+    def __del__(self):
+
+        logging.info('Dummy garbage-collected.')
+
+    def destroy(self, unregister=True, add_to_hist=True):
 
         if self._is_const_size:
             Mgr.do("make_dummy_const_size", self, False)
 
-        if not TopLevelObject.destroy(self, add_to_hist):
+        if not TopLevelObject.destroy(self, unregister, add_to_hist):
             return
 
-        self.unregister()
+        if unregister:
+            self.unregister()
+
         self._edges = {}
         self._root.remove_node()
         self._root = None
+
+    def register(self, restore=True):
+
+        TopLevelObject.register(self)
+
+        obj_type = "dummy_edge"
+        Mgr.do("register_%s_objs" % obj_type, self._edges.itervalues(), restore)
+
+    def unregister(self):
+
+        obj_type = "dummy_edge"
+        Mgr.do("unregister_%s_objs" % obj_type, self._edges.itervalues())
 
     def set_geoms_for_ortho_lens(self, root=None):
         """
@@ -766,18 +1008,6 @@ class Dummy(TopLevelObject):
 
         return self._type_prop_ids
 
-    def register(self):
-
-        TopLevelObject.register(self)
-
-        obj_type = "dummy_edge"
-        Mgr.do("register_%s_objs" % obj_type, self._edges.itervalues())
-
-    def unregister(self):
-
-        obj_type = "dummy_edge"
-        Mgr.do("unregister_%s_objs" % obj_type, self._edges.itervalues())
-
     def update_selection_state(self, is_selected=True):
 
         TopLevelObject.update_selection_state(self, is_selected)
@@ -794,14 +1024,6 @@ class Dummy(TopLevelObject):
             for geom_type in ("box", "cross"):
                 geoms[geom_type]["unselected" if is_selected else "selected"].hide()
                 geoms[geom_type]["selected" if is_selected else "unselected"].show()
-
-    def is_valid(self):
-
-        return self._size > .001
-
-    def finalize(self):
-
-        pass
 
     def display_link_effect(self):
         """

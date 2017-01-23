@@ -67,12 +67,12 @@ class TriangulationBase(BaseObject):
     def set_pickable(self, is_pickable=True):
 
         picking_masks = Mgr.get("picking_masks")["all"]
-        geom_poly_picking = self._geoms["poly_picking"]
+        geom_poly_pickable = self._geoms["poly"]["pickable"]
 
         if is_pickable:
-            geom_poly_picking.show_through(picking_masks)
+            geom_poly_pickable.show_through(picking_masks)
         else:
-            geom_poly_picking.show(picking_masks)
+            geom_poly_pickable.show(picking_masks)
 
     def create_triangulation_data(self):
 
@@ -178,13 +178,12 @@ class TriangulationBase(BaseObject):
         # are connected by the new diagonal and whose apexes are the endpoints of
         # the old diagonal.
 
-        selected_poly_ids = self._selected_subobj_ids["poly"]
-        poly_id = diagonal.get_polygon_id()
-        poly_index = selected_poly_ids.index(poly_id)
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
-        poly_start = sum([len(polys[p_id]) for p_id in selected_poly_ids[:poly_index]])
+        poly_id = diagonal.get_polygon_id()
         poly = polys[poly_id]
+        sel_data = self._poly_selection_data["selected"]
+        poly_start = sel_data.index(poly[0]) * 3
         tris = self._tmp_tris[poly_id]
         old_vert_ids = list(diagonal.get_vertex_ids())
         new_vert_ids = tris[diagonal]
@@ -239,7 +238,6 @@ class TriangulationBase(BaseObject):
         diagonals_geom = self._tmp_geom
         geom_poly_selected = self._geoms["poly"]["selected"]
         geom_node_top = self._toplvl_node
-        sel_data = self._poly_selection_data["selected"]
         start_row = diagonal.get_start_row_index()
 
         # Update the temporary diagonals geom
@@ -279,12 +277,18 @@ class TriangulationBase(BaseObject):
         poly.set_triangle_data(new_tri_data)
         poly.update_normal()
         merged_verts = set(self._merged_verts[v_id] for v_id in poly.get_vertex_ids())
-        self._update_vertex_normals(merged_verts)
+
+        progress_steps = len(merged_verts) // 20
+
+        yield True, progress_steps
+
+        for step in self._update_vertex_normals(merged_verts):
+            yield
 
     def _restore_poly_triangle_data(self, old_time_id, new_time_id):
 
         obj_id = self.get_toplevel_object().get_id()
-        prop_id = "poly_tris"
+        prop_id = self._unique_prop_ids["poly_tris"]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
         new_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
@@ -316,7 +320,7 @@ class TriangulationBase(BaseObject):
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
 
-        data_id = "tri__extra__"
+        data_id = self._unique_prop_ids["tri__extra__"]
 
         time_ids_to_restore = {}
         time_ids = {}
@@ -480,7 +484,7 @@ class TriangulationManager(BaseObject):
         bind("diagonal_turning_mode", "cancel diagonal turning", "mouse3-up",
              lambda: Mgr.exit_state("diagonal_turning_mode"))
         bind("diagonal_turning_mode", "turn diagonal", "mouse1",
-             self.__turn_diagonal)
+             self.__do_turn_diagonal)
 
         status_data = GlobalData["status_data"]
         mode_text = "Turn polygon diagonal"
@@ -507,6 +511,10 @@ class TriangulationManager(BaseObject):
                 data_obj.set_pickable(False)
 
             Mgr.enter_state("diagonal_turning_mode")
+
+        else:
+
+            self._excluded_geom_data_objs = []
 
     def __enter_diagonal_turning_mode(self, prev_state_id, is_active):
 
@@ -541,11 +549,27 @@ class TriangulationManager(BaseObject):
         color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
 
         if color_id == 0:
-            return
+            yield False
 
         diagonal = self._diagonals[color_id - 1]
         geom_data_obj = diagonal.get_geom_data_object()
-        geom_data_obj.turn_diagonal(diagonal)
+        handler = geom_data_obj.turn_diagonal(diagonal)
+
+        for result in handler:
+            if result:
+                change, progress_steps = result
+                break
+
+        gradual = progress_steps > 20
+
+        if gradual:
+            Mgr.show_screenshot()
+            GlobalData["progress_steps"] = progress_steps
+
+        for step in handler:
+            if gradual:
+                yield True
+
         obj = geom_data_obj.get_toplevel_object()
         obj_id = obj.get_id()
         obj_name = obj.get_name()
@@ -555,3 +579,13 @@ class TriangulationManager(BaseObject):
         event_descr = 'Turn polygon diagonal of object:\n\n    "%s"' % obj_name
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        yield False
+
+    def __do_turn_diagonal(self):
+
+        process = self.__turn_diagonal()
+
+        if process.next():
+            descr = "Updating geometry..."
+            Mgr.do_gradually(process, "diagonal_turning", descr)

@@ -16,10 +16,11 @@ FRAG_SHADER = """
         vec4 ambient;
     } p3d_LightModel;
 
-    in vec4 flat_color;
-    in vec3 mynormal;
-    in vec3 v;
-    in vec2 texcoord;
+    uniform vec4 p3d_Color;
+    in vec3 eye_vec;
+    in vec3 eye_normal;
+
+    out vec4 f_color;
 
     #define MAX_LIGHTS 1 // to be modified when needed
 
@@ -27,8 +28,7 @@ FRAG_SHADER = """
 
     void main() {
 
-        vec3 texcolor = texture(p3d_Texture0, texcoord).rgb;
-        vec3 EyeDir = normalize(-v); // we are in Eye Coordinates, so EyePos is (0., 0., 0.)
+        vec3 EyeDir = normalize(-eye_vec); // we are in Eye Coordinates, so EyePos is (0., 0., 0.)
         float attenuation;
 
         // Lights
@@ -52,7 +52,7 @@ FRAG_SHADER = """
             }
             else // point or spot light?
             {
-                LightDir = normalize(gl_LightSource[lm].position.xyz - v);
+                LightDir = normalize(gl_LightSource[lm].position.xyz - eye_vec);
                 // Diffuse and Specular Attenuation for point and spotlight
                 attenuation = 1. / (gl_LightSource[lm].constantAttenuation
                                     + gl_LightSource[lm].linearAttenuation * length(LightDir)
@@ -73,10 +73,10 @@ FRAG_SHADER = """
                 }
             }
 
-            vec3 ReflectDir = normalize(-reflect(LightDir, mynormal));
+            vec3 ReflectDir = normalize(-reflect(LightDir, eye_normal));
 
             // Diffuse
-            float NdotL = dot(normalize(mynormal), LightDir);
+            float NdotL = dot(normalize(eye_normal), LightDir);
             vec3 diffuseandspec = clamp(p3d_Material.diffuse.rgb * gl_LightSource[lm].diffuse.rgb
                                         * NdotL, 0., 1.);
 
@@ -91,11 +91,8 @@ FRAG_SHADER = """
             lightcolor += diffuseandspec;
         }
 
-        // TexColor combined with LightColor
-        texcolor *= lightcolor;
-
         // Final Color
-        gl_FragColor = vec4(texcolor, 1.) * flat_color;
+        f_color = vec4(lightcolor, 1.) * p3d_Color;
 
     }
 """
@@ -103,10 +100,15 @@ FRAG_SHADER = """
 
 class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager):
 
-    def __init__(self, prim_type):
+    def __init__(self, prim_type, custom_creation=False):
 
         CreationPhaseManager.__init__(self, prim_type, has_color=True)
         ObjPropDefaultsManager.__init__(self, prim_type)
+
+        Mgr.accept("create_%s" % prim_type, self.__create)
+
+        if custom_creation:
+            Mgr.accept("create_custom_%s" % prim_type, self.create_custom_primitive)
 
     def setup(self, creation_phases, status_text):
 
@@ -127,49 +129,265 @@ class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager)
 
         def start_primitive_creation():
 
-            model_id = self.generate_object_id()
-            name = Mgr.get("next_obj_name", self.get_object_type())
-            model = Mgr.do("create_model", model_id, name, self.get_origin_pos())
             next_color = self.get_next_object_color()
-            model.set_color(next_color, update_app=False)
-            prim = self.init_primitive(model)
-            self.init_object(prim)
-            model.set_geom_object(prim)
+            tmp_prim = self.create_temp_primitive(next_color, self.get_origin_pos())
+            self.init_object(tmp_prim)
 
             main_creation_func()
 
         return start_primitive_creation
 
-    def get_primitive(self):
+    def get_temp_primitive(self):
 
         return self.get_object()
 
-    def init_primitive(self, model):
+    def create_temp_primitive(self, color, pos):
         """ Override in derived class """
 
         return None
 
-    def apply_default_size(self, prim):
+    def create_primitive(self, model):
+        """ Override in derived class """
+
+        yield None
+
+    def init_primitive_size(self, prim, size=None):
         """ Override in derived class """
 
         pass
 
-    def create_instantly(self, origin_pos):
+    def __create(self, origin_pos, size=None):
 
+        Mgr.do("create_registry_backups")
+        Mgr.do("create_id_range_backups")
         model_id = self.generate_object_id()
         obj_type = self.get_object_type()
         name = Mgr.get("next_obj_name", obj_type)
         model = Mgr.do("create_model", model_id, name, origin_pos)
         next_color = self.get_next_object_color()
         model.set_color(next_color, update_app=False)
-        prim = self.init_primitive(model)
-        self.apply_default_size(prim)
-        prim.get_geom_data_object().finalize_geometry()
-        model.set_geom_object(prim)
-        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
+        prim = None
+        gradual = True
+
+        for result in self.create_primitive(model):
+            if result:
+                prim, gradual = result
+            if gradual:
+                yield True
+
+        self.init_primitive_size(prim, size)
+        geom_data_obj = prim.get_geom_data_object()
+
+        for step in geom_data_obj.finalize_geometry():
+            if gradual:
+                yield True
+
         self.set_next_object_color()
+        Mgr.exit_state("processing")
+        model.register(restore=False)
+        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(model)
+
+        yield False
+
+    def create_custom_primitive(self, *args, **kwargs):
+        """ Override in derived class """
+
+        yield None
+
+
+class TemporaryPrimitive(BaseObject):
+
+    def __init__(self, prim_type, color, pos):
+
+        self._type = prim_type
+        pivot = Mgr.get("object_root").attach_new_node("temp_prim_pivot")
+        origin = pivot.attach_new_node("temp_prim_origin")
+        origin.set_color(color)
+        self._pivot = pivot
+        self._origin = origin
+
+        active_grid_plane = Mgr.get(("grid", "plane"))
+        grid_origin = Mgr.get(("grid", "origin"))
+
+        if active_grid_plane == "xz":
+            pivot.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
+        elif active_grid_plane == "yz":
+            pivot.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 90.))
+        else:
+            pivot.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
+
+        obj_id = "temp_" + prim_type + "_prim"
+        Mgr.add_notification_handler("long_process_cancelled", obj_id, self.destroy, once=True)
+
+    def __del__(self):
+
+        logging.debug('TemporaryPrimitive garbage-collected.')
+
+    def destroy(self, info=None):
+
+        if info is None:
+            obj_id = "temp_" + self._type + "_prim"
+            Mgr.remove_notification_handler("long_process_cancelled", obj_id)
+        elif info and info != "creation":
+            return
+
+        self._pivot.remove_node()
+        self._pivot = None
+        self._origin = None
+
+    def get_pivot(self):
+
+        return self._pivot
+
+    def get_origin(self):
+
+        return self._origin
+
+    def define_geom_data(self):
+        """
+        Define the low-poly geometry of this temporary object; the vertex properties
+        and how those vertices are combined into triangles and polygons.
+
+        Override in derived class.
+
+        """
+
+    def create_geometry(self, geom_data):
+
+        vertex_format_basic = Mgr.get("vertex_format_basic")
+        vertex_format_full = Mgr.get("vertex_format_full")
+        vertex_data_poly = GeomVertexData("poly_data", vertex_format_full, Geom.UH_dynamic)
+
+        pos_writer = GeomVertexWriter(vertex_data_poly, "vertex")
+        normal_writer = GeomVertexWriter(vertex_data_poly, "normal")
+
+        polys = []
+        vert_count = 0
+        tri_vert_count = 0
+
+        for poly_data in geom_data:
+
+            verts_by_pos = {}
+            edge_vert_ids = []
+            tri_vert_ids = []
+
+            for tri_data in poly_data:
+
+                tri_vert_count += 3
+                vert_ids = []
+
+                for vert_data in tri_data:
+
+                    pos = vert_data["pos"]
+
+                    if pos in verts_by_pos:
+                        vert_id = verts_by_pos[pos]
+                    else:
+                        pos_writer.add_data3f(*pos)
+                        normal_writer.add_data3f(vert_data["normal"])
+                        vert_id = vert_count
+                        verts_by_pos[pos] = vert_count
+                        vert_count += 1
+
+                    vert_ids.append(vert_id)
+
+                for i, j in ((0, 1), (1, 2), (0, 2)):
+
+                    v_ids = sorted([vert_ids[i], vert_ids[j]])
+
+                    if v_ids in edge_vert_ids:
+                        edge_vert_ids.remove(v_ids)
+                    else:
+                        edge_vert_ids.append(v_ids)
+
+                tri_vert_ids.append(tuple(vert_ids))
+
+            polygon = {"edge_vert_ids": edge_vert_ids, "tri_vert_ids": tri_vert_ids}
+            polys.append(polygon)
+
+        origin = self._origin
+
+        picking_masks = Mgr.get("picking_masks")["all"]
+
+        render_mode = GlobalData["render_mode"]
+        create_wire = "wire" in render_mode
+        create_shaded = "shaded" in render_mode
+
+        if create_wire:
+            lines_prim = GeomLines(Geom.UH_static)
+            lines_prim.reserve_num_vertices(vert_count)
+
+        if create_shaded:
+            tris_prim = GeomTriangles(Geom.UH_static)
+            tris_prim.reserve_num_vertices(tri_vert_count)
+
+        for poly in polys:
+
+            if create_wire:
+                for edge_vert_ids in poly["edge_vert_ids"]:
+                    lines_prim.add_vertices(*edge_vert_ids)
+
+            if create_shaded:
+                for tri_vert_ids in poly["tri_vert_ids"]:
+                    tris_prim.add_vertices(*tri_vert_ids)
+
+        if create_wire:
+
+            pos_array = vertex_data_poly.get_array(0)
+            vertex_data_edge = GeomVertexData("edge_data", vertex_format_basic, Geom.UH_dynamic)
+            vertex_data_edge.reserve_num_rows(vert_count)
+            vertex_data_edge.set_num_rows(vert_count)
+            vertex_data_edge.set_array(0, pos_array)
+
+            state_np = NodePath("state")
+            state_np.set_light_off()
+            state_np.set_texture_off()
+            state_np.set_material_off()
+            state_np.set_shader_off()
+            state_np.set_transparency(TransparencyAttrib.M_none)
+            state_np.set_attrib(DepthTestAttrib.make(RenderAttrib.M_less_equal))
+            state_np.set_bin("fixed", 1)
+            wire_state = state_np.get_state()
+
+            lines_geom = Geom(vertex_data_edge)
+            lines_geom.add_primitive(lines_prim)
+            geom_node = GeomNode("wire_geom")
+            geom_node.add_geom(lines_geom)
+            wire_geom = origin.attach_new_node(geom_node)
+            wire_geom.set_state(wire_state)
+            wire_geom.hide(picking_masks)
+
+        if create_shaded:
+
+            tris_geom = Geom(vertex_data_poly)
+            tris_geom.add_primitive(tris_prim)
+            geom_node = GeomNode("shaded_geom")
+            geom_node.add_geom(tris_geom)
+            shaded_geom = origin.attach_new_node(geom_node)
+            shaded_geom.hide(picking_masks)
+
+            if GlobalData["two_sided"]:
+                origin.set_two_sided(True)
+
+    def finalize(self):
+
+        def create_primitive():
+
+            pos = self._pivot.get_pos()
+            size = self.get_size()
+
+            for step in Mgr.do("create_%s" % self._type, pos, size):
+                yield
+
+            self.destroy()
+
+        return create_primitive()
+
+    def is_valid(self):
+
+        return False
 
 
 class Primitive(GeomDataOwner):
@@ -206,35 +424,104 @@ class Primitive(GeomDataOwner):
 
         pass
 
-    def create(self):
+    def create(self, poly_count, merged_vert_count):
+
+        progress_steps = poly_count // 10 + poly_count // 50 + merged_vert_count // 20
+        gradual = progress_steps > 100
+
+        if gradual:
+            GlobalData["progress_steps"] = progress_steps
 
         geom_data_obj = Mgr.do("create_geom_data", self)
         self.set_geom_data_object(geom_data_obj)
         geom_data = self.define_geom_data()
-        data = geom_data_obj.process_geom_data(geom_data)
-        self.update(data)
-        geom_data_obj.create_geometry(self._type)
 
-    def recreate_geometry(self):
+        for data in geom_data_obj.process_geom_data(geom_data, gradual=gradual):
+            if gradual:
+                yield
+
+        self.update(data)
+
+        for step in geom_data_obj.create_geometry(self._type, gradual=gradual):
+            if gradual:
+                yield
+
+    def cancel_geometry_recreation(self, info):
+
+        if info == "creation":
+
+            geom_data_backup = self.get_geom_data_backup()
+
+            if not geom_data_backup:
+                return
+
+            self.get_geom_data_object().cancel_creation()
+            model = self.get_model()
+            geom_data_backup.get_origin().reparent_to(model.get_origin())
+            self.set_geom_data_object(geom_data_backup)
+            self.set_geom_data_backup(None)
+            model.get_bbox().update(*self.get_origin().get_tight_bounds())
+
+    def recreate_geometry(self, poly_count, merged_vert_count):
 
         obj_id = self.get_toplevel_object().get_id()
-        task = self.get_geom_data_object().clear_subobjects
-        task_id = "clear_geom_data"
-        PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+        id_str = str(obj_id) + "_geom_data"
+        handler = self.cancel_geometry_recreation
+        Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
+        task = lambda: Mgr.remove_notification_handler("long_process_cancelled", id_str)
+        task_id = "remove_notification_handler"
+        PendingTasks.add(task, task_id, "object", id_prefix=id_str, sort=100)
+
+        Mgr.do("create_registry_backups")
+        Mgr.do("create_id_range_backups")
+        geom_data_obj = self.get_geom_data_object()
+        geom_data_obj.unregister()
         Mgr.do("update_picking_col_id_ranges")
+        Mgr.schedule_screenshot_removal()
 
         def task():
 
+            progress_steps = poly_count // 10 + poly_count // 50 + merged_vert_count // 20
+            gradual = progress_steps > 100
+
+            if gradual:
+                Mgr.show_screenshot()
+                GlobalData["progress_steps"] = progress_steps
+
             geom_data_obj = self.get_geom_data_object()
+            self.set_geom_data_backup(geom_data_obj)
+            self.get_geom_data_backup().get_origin().detach_node()
+            geom_data_obj = Mgr.do("create_geom_data", self)
+            self.set_geom_data_object(geom_data_obj)
             geom_data = self.define_geom_data()
-            data = geom_data_obj.process_geom_data(geom_data)
+
+            for data in geom_data_obj.process_geom_data(geom_data, gradual=gradual):
+                if gradual:
+                    yield True
+
             self.update(data)
-            geom_data_obj.create_subobjects(rebuild=True)
+
+            for step in geom_data_obj.create_geometry(self._type, gradual=gradual):
+                if gradual:
+                    yield True
+
             self.update_initial_coords()
-            self.finalize()
+
+            for step in self.finalize():
+                if gradual:
+                    yield True
+
+            geom_data_obj.register(restore=False)
+
+            if self.get_geom_data_backup().has_tangent_space():
+                geom_data_obj.init_tangent_space()
+
+            yield False
 
         task_id = "set_geom_data"
-        PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+        descr = "Updating geometry..."
+        PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
+                         process_id="creation", descr=descr, cancellable=True)
 
         self.get_model().update_group_bbox()
 
@@ -279,22 +566,8 @@ class Primitive(GeomDataOwner):
 
     def finalize(self, update_poly_centers=True):
 
-        self.get_geom_data_object().finalize_geometry(update_poly_centers)
-
-    def set_property(self, prop_id, value, restore=""):
-
-        if prop_id == "editable state":
-
-            obj_type = "editable_geom"
-            geom_data_obj = self.get_geom_data_object()
-            Mgr.do("create_%s" % obj_type, self.get_model(), geom_data_obj)
-            Mgr.update_remotely("selected_obj_types", (obj_type,))
-
-            return True
-
-        else:
-
-            return self.get_geom_data_object().set_property(prop_id, value, restore)
+        for step in self.get_geom_data_object().finalize_geometry(update_poly_centers):
+            yield
 
     def get_property_to_store(self, prop_id, event_type=""):
 
@@ -307,3 +580,25 @@ class Primitive(GeomDataOwner):
         obj_id = self.get_toplevel_object().get_id()
         val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
         self.set_property(prop_id, val, restore_type)
+
+        if prop_id == "geom_data":
+            val.restore_data(["self"], restore_type, old_time_id, new_time_id)
+
+    def set_property(self, prop_id, value, restore=""):
+
+        if prop_id == "geom_data":
+
+            return GeomDataOwner.set_property(self, prop_id, value, restore)
+
+        elif prop_id == "editable state":
+
+            obj_type = "editable_geom"
+            geom_data_obj = self.get_geom_data_object()
+            Mgr.do("create_%s" % obj_type, self.get_model(), geom_data_obj)
+            Mgr.update_remotely("selected_obj_types", (obj_type,))
+
+            return True
+
+        else:
+
+            return self.get_geom_data_object().set_property(prop_id, value, restore)

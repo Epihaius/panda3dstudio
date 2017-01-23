@@ -186,10 +186,14 @@ class Components(BaseObject):
         add_state = Mgr.add_state
         add_state("selection_mode", 0, enter_selection_mode)
         add_state("navigation_mode", -100, enter_navigation_mode)
+        enter_state = lambda prev_state_id, is_active: self.__disable(show=False)
+        exit_state = lambda next_state_id, is_active: self.__enable()
 
         for state in nav_states:
-            add_state(state, -110, lambda prev_state_id, is_active: self.__disable(show=False),
-                      lambda next_state_id, is_active: self.__enable())
+            add_state(state, -110, enter_state, exit_state)
+
+        add_state("processing", -200, enter_state, exit_state)
+        add_state("processing_no_cancel", -200, enter_state, exit_state)
 
     def __init_uv_editing(self):
 

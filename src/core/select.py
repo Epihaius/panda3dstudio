@@ -24,6 +24,10 @@ class Selection(SelectionTransformBase):
 
         return len(self._objs)
 
+    def reset(self):
+
+        self._objs = []
+
     def get_toplevel_object(self, get_group=False):
         """ Return a random top-level object """
 
@@ -326,7 +330,7 @@ class Selection(SelectionTransformBase):
                     groups.add(group)
 
         for obj in sel[:]:
-            obj.destroy(add_to_hist)
+            obj.destroy(add_to_hist=add_to_hist)
 
         if add_to_hist:
             Mgr.do("prune_empty_groups", groups, obj_data)

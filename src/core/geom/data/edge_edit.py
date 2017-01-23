@@ -9,7 +9,7 @@ class EdgeEditBase(BaseObject):
         selected_edge_ids = selection_ids["edge"]
 
         if not selected_edge_ids:
-            return False
+            return
 
         selected_vert_ids = selection_ids["vert"]
         merged_verts = self._merged_verts
@@ -101,64 +101,90 @@ class EdgeEditBase(BaseObject):
 
                 change = True
 
-        if change:
+        if not change:
+            return
 
-            merged_verts_to_resmooth = set(verts_to_split.iterkeys())
+        merged_verts_to_resmooth = set(verts_to_split.iterkeys())
+        progress_steps = len(merged_verts_to_resmooth) // 20
 
-            for merged_vert in verts_to_split:
+        yield True, progress_steps
 
-                for vert_ids_to_separate in verts_to_split[merged_vert]:
+        for merged_vert in verts_to_split:
 
-                    new_merged_vert = Mgr.do("create_merged_vert", self)
-                    merged_verts_to_resmooth.add(new_merged_vert)
+            for vert_ids_to_separate in verts_to_split[merged_vert]:
 
-                    for id_to_separate in vert_ids_to_separate:
+                new_merged_vert = Mgr.do("create_merged_vert", self)
+                merged_verts_to_resmooth.add(new_merged_vert)
 
-                        merged_vert.remove(id_to_separate)
-                        new_merged_vert.append(id_to_separate)
-                        merged_verts[id_to_separate] = new_merged_vert
+                for id_to_separate in vert_ids_to_separate:
 
-                        if id_to_separate in selected_vert_ids:
-                            update_verts_to_transf = True
+                    merged_vert.remove(id_to_separate)
+                    new_merged_vert.append(id_to_separate)
+                    merged_verts[id_to_separate] = new_merged_vert
 
-                        if merged_vert in poly_verts_to_transf:
-                            update_polys_to_transf = True
+                    if id_to_separate in selected_vert_ids:
+                        update_verts_to_transf = True
 
-            Mgr.do("update_active_selection")
+                    if merged_vert in poly_verts_to_transf:
+                        update_polys_to_transf = True
 
-            self._update_vertex_normals(merged_verts_to_resmooth)
+        Mgr.do("update_active_selection")
 
-            if update_verts_to_transf:
-                self._update_verts_to_transform("vert")
+        for step in self._update_vertex_normals(merged_verts_to_resmooth):
+            yield
 
-            self._update_verts_to_transform("edge")
+        if update_verts_to_transf:
+            self._update_verts_to_transform("vert")
 
-            if update_polys_to_transf:
-                self._update_verts_to_transform("poly")
+        self._update_verts_to_transform("edge")
 
-        return change
+        if update_polys_to_transf:
+            self._update_verts_to_transform("poly")
 
 
 class EdgeEditManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.add_app_updater("edge_split", self.__split_edges)
+        Mgr.add_app_updater("edge_split", self.__do_split_edges)
 
     def __split_edges(self):
 
         selection = Mgr.get("selection", "top")
         changed_objs = {}
+        progress_steps = 0
+        handlers = []
 
         for model in selection:
 
             geom_data_obj = model.get_geom_object().get_geom_data_object()
+            handler = geom_data_obj.split_edges()
+            change = False
+            steps = 0
 
-            if geom_data_obj.split_edges():
+            for result in handler:
+                if result:
+                    change, steps = result
+                    handlers.append(handler)
+                    break
+
+            if change:
                 changed_objs[model.get_id()] = geom_data_obj
+                progress_steps += steps
 
         if not changed_objs:
-            return
+            yield False
+
+        gradual = progress_steps > 20
+
+        if gradual:
+            Mgr.show_screenshot()
+            GlobalData["progress_steps"] = progress_steps
+
+        for handler in handlers:
+            for step in handler:
+                if gradual:
+                    yield True
 
         Mgr.do("update_history_time")
         obj_data = {}
@@ -169,6 +195,16 @@ class EdgeEditManager(BaseObject):
         event_descr = "Split edge selection"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        yield False
+
+    def __do_split_edges(self):
+
+        process = self.__split_edges()
+
+        if process.next():
+            descr = "Updating geometry..."
+            Mgr.do_gradually(process, "edge_split", descr)
 
 
 MainObjects.add_class(EdgeEditManager)

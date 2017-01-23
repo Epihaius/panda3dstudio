@@ -72,11 +72,23 @@ class SmoothingBase(BaseObject):
                 for poly_id in smoothing_grp:
                     poly_smoothing.setdefault(poly_id, set()).add(smoothing_grp)
 
-            self._update_vertex_normals(set(self._merged_verts.itervalues()))
+            merged_verts = set(self._merged_verts.itervalues())
+            progress_steps = len(merged_verts) // 20
+            gradual = progress_steps > 20
+
+            if gradual:
+                Mgr.show_screenshot()
+                GlobalData["progress_steps"] = progress_steps
+
+            for step in self._update_vertex_normals(merged_verts):
+                if gradual:
+                    yield True
 
         else:
 
             self.set_smooth_shaded(False)
+
+        yield False
 
     def get_smoothed_polys(self, poly_id):
 
@@ -191,7 +203,7 @@ class SmoothingBase(BaseObject):
 
         return self.smooth_polygons(selected_poly_ids, smooth, poly_id)
 
-    def smooth_polygons(self, poly_ids, smooth=True, src_poly_id=None, update_normals=True):
+    def __smooth_polygons(self, poly_ids, smooth=True, src_poly_id=None, update_normals=True):
 
         polys = self._subobjs["poly"]
         poly_smoothing = self._poly_smoothing
@@ -204,7 +216,7 @@ class SmoothingBase(BaseObject):
 
                 # smoothing a single poly doesn't make much sense
                 if len(poly_ids) == 1:
-                    return False
+                    return False, None
 
                 poly_id = poly_ids[0]
 
@@ -212,7 +224,7 @@ class SmoothingBase(BaseObject):
                 if poly_id in poly_smoothing:
                     for smoothing_grp in poly_smoothing[poly_id]:
                         if set(poly_ids).issubset(smoothing_grp):
-                            return False
+                            return False, None
 
                 new_smoothing_grp = SmoothingGroup(poly_ids)
 
@@ -255,7 +267,7 @@ class SmoothingBase(BaseObject):
             # source poly by adding or removing it.
 
             if src_poly_id not in polys:
-                return False
+                return False, None
 
             smoothing_change = poly_smoothing.get(src_poly_id)
 
@@ -265,7 +277,7 @@ class SmoothingBase(BaseObject):
                 # polys.
 
                 if poly_ids == [src_poly_id]:
-                    return False
+                    return False, None
 
                 change = False
                 polys_to_smooth = set()
@@ -299,7 +311,7 @@ class SmoothingBase(BaseObject):
                 # target polys.
 
                 if not smoothing_change:
-                    return False
+                    return False, None
 
                 change = False
                 polys_to_smooth = set()
@@ -334,15 +346,45 @@ class SmoothingBase(BaseObject):
                             change = True
 
         if not change:
-            return False
+            return False, None
 
         if update_normals:
             vert_ids = [vert_id for p_id in polys_to_smooth
                         for vert_id in polys[p_id].get_vertex_ids()]
             merged_verts = set(self._merged_verts[vert_id] for vert_id in vert_ids)
-            self._update_vertex_normals(merged_verts)
+        else:
+            merged_verts = None
 
-        return True
+        return True, merged_verts
+
+    def smooth_polygons(self, poly_ids, smooth=True, src_poly_id=None, update_normals=True):
+
+        change, merged_verts = self.__smooth_polygons(poly_ids, smooth, src_poly_id, update_normals)
+
+        if merged_verts:
+
+            def update_vertex_normals():
+
+                progress_steps = len(merged_verts) // 20
+                gradual = progress_steps > 20
+
+                if gradual:
+                    Mgr.show_screenshot()
+                    GlobalData["progress_steps"] = progress_steps
+
+                for step in self._update_vertex_normals(merged_verts):
+                    if gradual:
+                        yield True
+
+                yield False
+
+            process = update_vertex_normals()
+
+            if process.next():
+                descr = "%smoothing polygons..." % ("S" if smooth else "Uns")
+                Mgr.do_gradually(process, "poly_smoothing", descr)
+
+        return change
 
     def _update_vertex_normals(self, merged_verts):
 
@@ -357,6 +399,14 @@ class SmoothingBase(BaseObject):
 
         poly_smoothing = self._poly_smoothing
         processed_verts = []
+
+        progress_steps = len(merged_verts) // 20
+        gradual = progress_steps > 20
+
+        if gradual:
+            Mgr.show_screenshot()
+            GlobalData["progress_steps"] = progress_steps
+            vert_count = 0
 
         for merged_vert in merged_verts:
 
@@ -437,19 +487,32 @@ class SmoothingBase(BaseObject):
                     vert.set_normal(normal)
                     processed_verts.append(vert)
 
+            if gradual:
+
+                vert_count += 1
+
+                if vert_count == 20:
+                    vert_count = 0
+                    yield True
+
         array = vertex_data_copy.get_array(1)
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly.set_array(1, GeomVertexArrayData(array))
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(1, GeomVertexArrayData(array))
 
+        if gradual:
+            yield True
+
         if self._has_tangent_space:
             self.update_tangent_space()
+
+        yield False
 
     def _restore_poly_smoothing(self, time_id):
 
         obj_id = self.get_toplevel_object().get_id()
-        prop_id = "smoothing"
+        prop_id = self._unique_prop_ids["smoothing"]
         self._poly_smoothing, last_time_id = Mgr.do("load_last_from_history", obj_id,
                                                     prop_id, time_id, return_last_time_id=True)
 
@@ -457,10 +520,17 @@ class SmoothingBase(BaseObject):
 
     def _restore_vertex_normals(self):
 
-        merged_verts = set(self._merged_verts[vert_id]
-                           for vert_id in self._vert_normal_change)
+        merged_verts = set(self._merged_verts[vert_id] for vert_id in self._vert_normal_change)
         self._vert_normal_change = set()
-        self._update_vertex_normals(merged_verts)
+
+        progress_steps = len(merged_verts) // 20
+        gradual = progress_steps > 20
+
+        for step in self._update_vertex_normals(merged_verts):
+            if gradual:
+                yield True
+
+        yield False
 
 
 class SmoothingManager(BaseObject):

@@ -19,7 +19,7 @@ class ModelManager(ObjectManager):
 
         model = Model(model_id, name, origin_pos, bbox_color)
 
-        return model, model_id
+        return model
 
 
 class Model(TopLevelObject):
@@ -54,19 +54,50 @@ class Model(TopLevelObject):
         self._bbox = Mgr.do("create_bbox", self, bbox_color)
         self._bbox.hide()
 
-    def destroy(self, add_to_hist=True):
+        id_str = str(self.get_id())
+        handler = lambda info: self.cancel_creation() if info == "creation" else None
+        Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
+        task = lambda: Mgr.remove_notification_handler("long_process_cancelled", id_str)
+        task_id = "remove_notification_handler"
+        PendingTasks.add(task, task_id, "object", id_prefix=id_str, sort=100)
 
-        if not TopLevelObject.destroy(self, add_to_hist):
+    def __del__(self):
+
+        logging.info('Model "%s" garbage-collected.', self.get_id())
+
+    def cancel_creation(self):
+
+        TopLevelObject.cancel_creation(self)
+
+        if self._geom_obj:
+            self._geom_obj.cancel_creation()
+            self._geom_obj = None
+
+        self._bbox.destroy(unregister=False)
+        self._bbox = None
+
+    def destroy(self, unregister=True, add_to_hist=True):
+
+        if not TopLevelObject.destroy(self, unregister, add_to_hist):
             return
 
         if self._material:
             self._material.remove(self)
 
-        self._geom_obj.destroy()
+        self._geom_obj.destroy(unregister)
         self._geom_obj.set_model(None)
         self._geom_obj = None
-        self._bbox.destroy()
+        self._bbox.destroy(unregister)
         self._bbox = None
+
+    def register(self, restore=True):
+
+        TopLevelObject.register(self)
+
+        self._bbox.register(restore)
+
+        if self._geom_obj:
+            self._geom_obj.register(restore)
 
     def set_color(self, color, update_app=True):
 
@@ -99,7 +130,7 @@ class Model(TopLevelObject):
 
     def get_color(self):
 
-        return self._color
+        return (1., 1., 1., 1.) if self._color is None else self._color
 
     def set_material(self, material, restore=""):
 
@@ -234,6 +265,10 @@ class Model(TopLevelObject):
                 geom_obj = Mgr.do("load_last_from_history", obj_id, "geom_obj", new_time_id)
                 self.replace_geom_object(geom_obj)
                 prop_ids = geom_obj.get_property_ids()
+
+                if "geom_data" in prop_ids:
+                    prop_ids.remove("geom_data")
+
                 geom_obj.restore_data(prop_ids, restore_type, old_time_id, new_time_id)
 
                 for prop_id in prop_ids:
@@ -287,15 +322,6 @@ class Model(TopLevelObject):
     def get_subobj_selection(self, subobj_lvl):
 
         return self._geom_obj.get_subobj_selection(subobj_lvl)
-
-    def register(self):
-
-        TopLevelObject.register(self)
-
-        self._bbox.register()
-
-        if self._geom_obj:
-            self._geom_obj.register()
 
     def get_bbox(self):
 

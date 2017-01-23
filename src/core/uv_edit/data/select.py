@@ -43,138 +43,138 @@ class UVDataSelectionBase(BaseObject):
 
         return data_copy
 
-    def set_selected(self, subobj, is_selected=True, update_verts_to_transf=True):
+    def update_selection(self, subobj_type, subobjs_to_select, subobjs_to_deselect,
+                         update_verts_to_transf=True):
 
-        subobj_type = subobj.get_type()
-        subobj_id = subobj.get_id()
         selected_subobj_ids = self._selected_subobj_ids[subobj_type]
         geoms = self._geoms[subobj_type]
         sel_state_geom = geoms["sel_state"]
+        selected_subobjs = [subobj for subobj in subobjs_to_select
+                            if subobj.get_id() not in selected_subobj_ids]
+        deselected_subobjs = [subobj for subobj in subobjs_to_deselect
+                              if subobj.get_id() in selected_subobj_ids]
+
+        if not (selected_subobjs or deselected_subobjs):
+            return False
 
         if subobj_type == "poly":
+
             sel_data = self._poly_selection_data
             data_selected = sel_data["selected"]
             data_unselected = sel_data["unselected"]
-        else:
-            sel_colors = UVMgr.get("uv_selection_colors")[subobj_type]
+            prim = sel_state_geom.node().modify_geom(1).modify_primitive(0)
+            array = prim.modify_vertices()
+            stride = array.get_array_format().get_stride()
+            handle_sel = array.modify_handle()
+            prim = sel_state_geom.node().modify_geom(0).modify_primitive(0)
+            handle_unsel = prim.modify_vertices().modify_handle()
+            row_ranges_sel = []
+            row_ranges_unsel = []
 
-        if is_selected:
+            for poly in selected_subobjs:
+                selected_subobj_ids.append(poly.get_id())
+                start = data_unselected.index(poly[0]) * 3
+                size = len(poly)
+                row_ranges_unsel.append((start, size, poly))
 
-            if subobj_id in selected_subobj_ids:
-                return False
+            for poly in deselected_subobjs:
+                selected_subobj_ids.remove(poly.get_id())
+                start = data_selected.index(poly[0]) * 3
+                size = len(poly)
+                row_ranges_sel.append((start, size, poly))
 
-            if subobj_type == "vert":
+            row_ranges_sel.sort(reverse=True)
+            row_ranges_unsel.sort(reverse=True)
+            subdata_sel = ""
+            subdata_unsel = ""
 
-                merged_vert = self._merged_verts[subobj_id]
-                selected_subobj_ids.extend(merged_vert[:])
+            for start, size, poly in row_ranges_unsel:
 
-                vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
-                col_writer = GeomVertexWriter(vertex_data, "color")
-                color = sel_colors["selected"]
-
-                for row_index in merged_vert.get_row_indices():
-                    col_writer.set_row(row_index)
-                    col_writer.set_data4f(color)
-
-            elif subobj_type == "edge":
-
-                if subobj_id in self._seam_edge_ids:
-                    color = UVMgr.get("uv_selection_colors")["seam"]["selected"]
-                else:
-                    color = sel_colors["selected"]
-
-                merged_edge = self._merged_edges[subobj_id]
-                selected_subobj_ids.extend(merged_edge[:])
-
-                vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
-                col_writer = GeomVertexWriter(vertex_data, "color")
-
-                for row_index in merged_edge.get_row_indices():
-                    col_writer.set_row(row_index)
-                    col_writer.set_data4f(color)
-
-            elif subobj_type == "poly":
-
-                selected_subobj_ids.append(subobj_id)
-
-                start = data_unselected.index(subobj[0]) * 3
-                size = len(subobj)
-
-                for vert_ids in subobj:
+                for vert_ids in poly:
                     data_unselected.remove(vert_ids)
 
-                data_selected.extend(subobj[:])
-                prim = sel_state_geom.node().modify_geom(0).modify_primitive(0)
-                array = prim.modify_vertices()
-                stride = array.get_array_format().get_stride()
-                handle = array.modify_handle()
-                data = handle.get_subdata(start * stride, size * stride)
-                handle.set_subdata(start * stride, size * stride, "")
+                data_selected.extend(poly[:])
 
-                prim = sel_state_geom.node().modify_geom(1).modify_primitive(0)
-                handle = prim.modify_vertices().modify_handle()
-                handle.set_data(handle.get_data() + data)
+                subdata_unsel += handle_unsel.get_subdata(start * stride, size * stride)
+                handle_unsel.set_subdata(start * stride, size * stride, "")
+
+            handle_sel.set_data(handle_sel.get_data() + subdata_unsel)
+
+            for start, size, poly in row_ranges_sel:
+
+                for vert_ids in poly:
+                    data_selected.remove(vert_ids)
+
+                data_unselected.extend(poly[:])
+
+                subdata_sel += handle_sel.get_subdata(start * stride, size * stride)
+                handle_sel.set_subdata(start * stride, size * stride, "")
+
+            handle_unsel.set_data(handle_unsel.get_data() + subdata_sel)
 
         else:
 
-            if subobj_id not in selected_subobj_ids:
-                return False
+            merged_subobjs = self._merged_verts if subobj_type == "vert" else self._merged_edges
+            selected_subobjs = set(merged_subobjs[subobj.get_id()] for subobj in selected_subobjs)
+            deselected_subobjs = set(merged_subobjs[subobj.get_id()] for subobj in deselected_subobjs)
+
+            vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
+            col_writer = GeomVertexWriter(vertex_data, "color")
+            sel_colors = UVMgr.get("uv_selection_colors")[subobj_type]
+            color_sel = sel_colors["selected"]
+            color_unsel = sel_colors["unselected"]
 
             if subobj_type == "vert":
 
-                merged_vert = self._merged_verts[subobj_id]
+                for merged_vert in selected_subobjs:
 
-                for v_id in merged_vert:
-                    selected_subobj_ids.remove(v_id)
+                    selected_subobj_ids.extend(merged_vert[:])
 
-                vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
-                col_writer = GeomVertexWriter(vertex_data, "color")
-                color = sel_colors["unselected"]
+                    for row_index in merged_vert.get_row_indices():
+                        col_writer.set_row(row_index)
+                        col_writer.set_data4f(color_sel)
 
-                for row_index in merged_vert.get_row_indices():
-                    col_writer.set_row(row_index)
-                    col_writer.set_data4f(color)
+                for merged_vert in deselected_subobjs:
+
+                    for v_id in merged_vert:
+                        selected_subobj_ids.remove(v_id)
+
+                    for row_index in merged_vert.get_row_indices():
+                        col_writer.set_row(row_index)
+                        col_writer.set_data4f(color_unsel)
 
             elif subobj_type == "edge":
 
-                if subobj_id in self._seam_edge_ids:
-                    color = UVMgr.get("uv_selection_colors")["seam"]["unselected"]
-                else:
-                    color = sel_colors["unselected"]
+                seam_colors = UVMgr.get("uv_selection_colors")["seam"]
+                seam_color_sel = seam_colors["selected"]
+                seam_color_unsel = seam_colors["unselected"]
 
-                merged_edge = self._merged_edges[subobj_id]
+                for merged_edge in selected_subobjs:
 
-                for e_id in merged_edge:
-                    selected_subobj_ids.remove(e_id)
+                    selected_subobj_ids.extend(merged_edge[:])
 
-                vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
-                col_writer = GeomVertexWriter(vertex_data, "color")
+                    if merged_edge.get_id() in self._seam_edge_ids:
+                        color = seam_color_sel
+                    else:
+                        color = color_sel
 
-                for row_index in merged_edge.get_row_indices():
-                    col_writer.set_row(row_index)
-                    col_writer.set_data4f(color)
+                    for row_index in merged_edge.get_row_indices():
+                        col_writer.set_row(row_index)
+                        col_writer.set_data4f(color)
 
-            elif subobj_type == "poly":
+                for merged_edge in deselected_subobjs:
 
-                selected_subobj_ids.remove(subobj_id)
+                    for e_id in merged_edge:
+                        selected_subobj_ids.remove(e_id)
 
-                start = data_selected.index(subobj[0]) * 3
-                size = len(subobj)
+                    if merged_edge.get_id() in self._seam_edge_ids:
+                        color = seam_color_unsel
+                    else:
+                        color = color_unsel
 
-                for vert_ids in subobj:
-                    data_selected.remove(vert_ids)
-
-                data_unselected.extend(subobj[:])
-                prim = sel_state_geom.node().modify_geom(1).modify_primitive(0)
-                array = prim.modify_vertices()
-                stride = array.get_array_format().get_stride()
-                handle = array.modify_handle()
-                data = handle.get_subdata(start * stride, size * stride)
-                handle.set_subdata(start * stride, size * stride, "")
-
-                prim = sel_state_geom.node().modify_geom(0).modify_primitive(0)
-                handle = prim.modify_vertices().modify_handle()
-                handle.set_data(handle.get_data() + data)
+                    for row_index in merged_edge.get_row_indices():
+                        col_writer.set_row(row_index)
+                        col_writer.set_data4f(color)
 
         if update_verts_to_transf:
             self._update_verts_to_transform(subobj_type)

@@ -144,7 +144,7 @@ class UVEditBase(BaseObject):
         else:
             sel_colors = None
 
-        self.set_selected(edge, is_selected, False, sel_colors)
+        self.update_selection("edge", [edge], [], False, sel_colors)
 
     def clear_tex_seam_selection(self, uv_set_id, color):
 
@@ -451,7 +451,7 @@ class UVEditBase(BaseObject):
     def _restore_uvs(self, old_time_id, new_time_id):
 
         obj_id = self.get_toplevel_object().get_id()
-        prop_id = "uvs"
+        prop_id = self._unique_prop_ids["uvs"]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
         new_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
@@ -483,7 +483,7 @@ class UVEditBase(BaseObject):
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
 
-        data_id = "uv__extra__"
+        data_id = self._unique_prop_ids["uv__extra__"]
 
         time_ids_to_restore = {}
         time_ids = {}

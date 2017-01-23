@@ -43,10 +43,12 @@ class RenderModeToolbar(Toolbar):
     def enable(self):
 
         self._btns.enable()
+        self._btn_two_sided.enable()
 
     def disable(self, show=True):
 
         self._btns.disable(show)
+        self._btn_two_sided.disable(show)
 
 
 class RenderModeButtons(ToggleButtonGroup):

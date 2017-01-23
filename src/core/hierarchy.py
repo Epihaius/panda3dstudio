@@ -29,9 +29,6 @@ class HierarchyManager(BaseObject):
 
         GlobalData.set_default("object_links_shown", False)
         GlobalData.set_default("object_linking_mode", "")
-        GlobalData.set_default("group_member_linking", True)
-        GlobalData.set_default("open_group_member_linking", True)
-        GlobalData.set_default("group_member_unlink_only", True)
         GlobalData.set_default("transform_target_type", "all")
         Mgr.accept("add_obj_link_viz", self.__add_obj_link_viz)
         Mgr.accept("remove_obj_link_viz", self.__remove_obj_link_viz)
@@ -120,10 +117,11 @@ class HierarchyManager(BaseObject):
 
         target_is_group = target_obj and target_obj.get_type() == "group"
         objs = obj_to_link.get_descendants() + [obj_to_link]
+        member_linking = GlobalData["group_options"]["member_linking"]
 
-        if (target_is_group and GlobalData["group_member_linking"]
-                and not GlobalData["group_member_unlink_only"]
-                and (target_obj.is_open() or not GlobalData["open_group_member_linking"])):
+        if (target_is_group and member_linking["allowed"]
+                and not member_linking["unlink_only"]
+                and (target_obj.is_open() or not member_linking["open_groups_only"])):
             objs += [obj_to_link.get_group()]
             linkable = target_obj.can_contain(obj_to_link) and target_obj not in objs
             link_type = "member"
@@ -625,7 +623,7 @@ class HierarchyManager(BaseObject):
         if not obj:
             return
 
-        affect_group_members = GlobalData["group_member_linking"]
+        affect_group_members = GlobalData["group_options"]["member_linking"]["allowed"]
         ungrouped = False
         unlinked = False
 
@@ -669,7 +667,7 @@ class HierarchyManager(BaseObject):
             return
 
         groups = set()
-        affect_group_members = GlobalData["group_member_linking"]
+        affect_group_members = GlobalData["group_options"]["member_linking"]["allowed"]
         ungrouped_members = []
         unlinked_children = []
 

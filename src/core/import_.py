@@ -6,8 +6,10 @@ class ImportManager(BaseObject):
     def __init__(self):
 
         self._imported_file_type = ""
+        self._imported_objs = []
+        self._progress_steps = 0
 
-        Mgr.add_app_updater("import", self.__import)
+        Mgr.add_app_updater("import", self.__do_import)
 
     def __create_point_helper(self, name, transform):
 
@@ -19,28 +21,32 @@ class ImportManager(BaseObject):
 
         return point_helper
 
-    def __create_sphere(self, name, radius, pos):
+    def __create_collision_primitive(self, obj_type, *args):
 
-        segments = 16
-        sphere = Mgr.do("create_custom_sphere", name, radius, segments, pos)
+        if obj_type == "CollisionSphere":
+            name, radius, pos = args
+            segments = 16
+            creator = Mgr.do("create_custom_sphere", name, radius, segments, pos)
+        elif obj_type == "CollisionTube":
+            name, radius, height, pos, hpr = args
+            segments = {"circular": 12, "height": 1, "caps": 1}
+            creator = Mgr.do("create_custom_cylinder", name, radius, height, segments, pos)
+        elif obj_type == "CollisionBox":
+            name, x, y, z, pos = args
+            segments = {"x": 1, "y": 1, "z": 1}
+            creator = Mgr.do("create_custom_box", name, x, y, z, segments, pos)
 
-        return sphere
+        model = creator.next()
+        model.register(restore=False)
 
-    def __create_cylinder(self, name, radius, height, pos):
+        if obj_type == "CollisionTube":
+            pivot = model.get_pivot()
+            pivot.set_hpr(hpr)
+            pivot.set_p(pivot, -90.)
 
-        segments = {"circular": 12, "height": 1, "caps": 1}
-        cylinder = Mgr.do("create_custom_cylinder", name, radius, height, segments, pos)
+        return model
 
-        return cylinder
-
-    def __create_box(self, name, x, y, z, pos):
-
-        segments = {"x": 1, "y": 1, "z": 1}
-        box = Mgr.do("create_custom_box", name, x, y, z, segments, pos)
-
-        return box
-
-    def __create_editable_model(self, name, polys):
+    def __create_collision_model(self, name, polys):
 
         IPos = ImprecisePos
         geom_data = []
@@ -56,12 +62,11 @@ class ImportManager(BaseObject):
 
             for positions in (points[i:i+2] for i in range(len(points) - 1)):
 
-                vert_data = [vert_data1]
+                tri_data = [vert_data1]
 
                 for pos in positions:
-                    vert_data.append({"pos": pos, "normal": normal, "uvs": {0: (0., 0.)}})
+                    tri_data.append({"pos": pos, "normal": normal, "uvs": {0: (0., 0.)}})
 
-                tri_data = {"verts": vert_data}
                 tris.append(tri_data)
 
             poly_data = {"tris": tris, "smoothing": [(0, False)]}
@@ -69,15 +74,28 @@ class ImportManager(BaseObject):
 
         editable_geom = Mgr.do("create_editable_geom", name=name)
         model = editable_geom.get_model()
+
+        id_str = str(model.get_id())
+        handler = lambda info: model.cancel_creation() if info == "import" else None
+        Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
+
         r, g, b = [random.random() * .4 + .5 for i in range(3)]
         color = (r, g, b, 1.)
-        model.set_color(color, update_app=False)
         geom_data_obj = editable_geom.get_geom_data_object()
-        geom_data_obj.process_geom_data(geom_data)
-        editable_geom.create()
-        model.get_bbox().update(*geom_data_obj.get_origin().get_tight_bounds())
+        yield
 
-        return model
+        for step in geom_data_obj.process_geom_data(geom_data, gradual=True):
+            yield
+
+        for step in editable_geom.create(gradual=True):
+            yield
+
+        model.set_color(color, update_app=False)
+        model.get_bbox().update(*geom_data_obj.get_origin().get_tight_bounds())
+        model.register(restore=False)
+        Mgr.remove_notification_handler("long_process_cancelled", id_str)
+
+        yield model
 
     def __create_model_group(self, name, transform):
 
@@ -91,7 +109,7 @@ class ImportManager(BaseObject):
 
         return coll_group
 
-    def __import_children(self, basic_edit, parent_id, children, objs_to_store):
+    def __import_children(self, basic_edit, parent_id, children):
 
         children.detach()
 
@@ -123,17 +141,17 @@ class ImportManager(BaseObject):
 
                         for i in range(geom_count):
                             state = node.get_geom_state(i)
-                            new_node = GeomNode("basic_geom_part")
-                            new_node.add_geom(node.modify_geom(i))
+                            new_node = GeomNode("basic_geom")
+                            new_node.add_geom(node.modify_geom(i).decompose())
                             new_geom = NodePath(new_node)
                             new_geom.set_state(state)
-                            part_name = "object 0001"
-                            part_name = get_unique_name(part_name, GlobalData["obj_names"])
-                            new_geom.node().modify_geom(0).decompose_in_place()
-                            part = Mgr.do("create_basic_geom", new_geom, part_name).get_model()
-                            Mgr.do("add_group_member", part, obj, restore="import")
-                            part.get_bbox().update(*new_geom.get_tight_bounds())
-                            objs_to_store.append(part)
+                            member_name = "object 0001"
+                            member_name = get_unique_name(member_name, GlobalData["obj_names"])
+                            member = Mgr.do("create_basic_geom", new_geom, member_name).get_model()
+                            member.register(restore=False)
+                            Mgr.do("add_group_member", member, obj, restore="import")
+                            member.get_bbox().update(*new_geom.get_tight_bounds())
+                            self._imported_objs.append(member)
 
                     else:
 
@@ -151,6 +169,7 @@ class ImportManager(BaseObject):
                         new_geom.node().modify_geom(0).decompose_in_place()
                         basic_geom = Mgr.do("create_basic_geom", new_geom, obj_name)
                         obj = basic_geom.get_model()
+                        obj.register(restore=False)
 
                 elif node_type == "CollisionNode":
 
@@ -159,54 +178,13 @@ class ImportManager(BaseObject):
 
                     for solid in node.get_solids():
 
-                        coll_type = solid.get_class_type().get_name()
+                        obj_type = solid.get_class_type().get_name()
 
-                        if coll_type == "CollisionSphere":
+                        if obj_type not in ("CollisionSphere", "CollisionTube",
+                                            "CollisionBox", "CollisionPolygon"):
+                            continue
 
-                            name = "object 0001"
-                            name = get_unique_name(name, GlobalData["obj_names"])
-                            radius = solid.get_radius()
-                            pos = solid.get_center()
-                            sphere = self.__create_sphere(name, radius, pos)
-                            coll_objs.append(sphere)
-
-                        elif coll_type == "CollisionTube":
-
-                            name = "object 0001"
-                            name = get_unique_name(name, GlobalData["obj_names"])
-                            radius = solid.get_radius()
-                            a = solid.get_point_a()
-                            b = solid.get_point_b()
-                            height_vec = V3D(b - a)
-                            height = height_vec.length()
-                            hpr = height_vec.get_hpr()
-                            cylinder = self.__create_cylinder(name, radius, height, a)
-                            pivot = cylinder.get_pivot()
-                            pivot.set_hpr(hpr)
-                            pivot.set_hpr(pivot, -90.)
-                            coll_objs.append(cylinder)
-
-                        elif coll_type == "CollisionBox":
-
-                            name = "object 0001"
-                            name = get_unique_name(name, GlobalData["obj_names"])
-                            pos = Point3(solid.get_center())
-                            size = {"x": 0., "y": 0., "z": 0.}
-
-                            for i in range(6):
-                                plane = solid.get_plane(i)
-                                x, y, z = plane.get_normal()
-                                dist = abs(plane.dist_to_plane(pos))
-                                size["x" if abs(x) else ("y" if abs(y) else "z")] = dist * 2.
-
-                            x = size["x"]
-                            y = size["y"]
-                            z = size["z"]
-                            pos += Vec3.up() * z * -.5
-                            box = self.__create_box(name, x, y, z, pos)
-                            coll_objs.append(box)
-
-                        elif coll_type == "CollisionPolygon":
+                        if obj_type == "CollisionPolygon":
 
                             if solid.is_valid():
                                 poly = solid.get_points()
@@ -214,13 +192,56 @@ class ImportManager(BaseObject):
 
                         else:
 
-                            continue
+                            name = "object 0001"
+                            name = get_unique_name(name, GlobalData["obj_names"])
+
+                            if obj_type == "CollisionSphere":
+
+                                radius = solid.get_radius()
+                                pos = solid.get_center()
+                                args = (name, radius, pos)
+
+                            elif obj_type == "CollisionTube":
+
+                                radius = solid.get_radius()
+                                a = solid.get_point_a()
+                                b = solid.get_point_b()
+                                height_vec = V3D(b - a)
+                                height = height_vec.length()
+                                hpr = height_vec.get_hpr()
+                                args = (name, radius, height, a, hpr)
+
+                            elif obj_type == "CollisionBox":
+
+                                pos = Point3(solid.get_center())
+                                size = {"x": 0., "y": 0., "z": 0.}
+
+                                for i in range(6):
+                                    plane = solid.get_plane(i)
+                                    x, y, z = plane.get_normal()
+                                    dist = abs(plane.dist_to_plane(pos))
+                                    size["x" if abs(x) else ("y" if abs(y) else "z")] = dist * 2.
+
+                                x = size["x"]
+                                y = size["y"]
+                                z = size["z"]
+                                pos += Vec3.up() * z * -.5
+                                args = (name, x, y, z, pos)
+
+                            coll_objs.append(self.__create_collision_primitive(obj_type, *args))
+
+                    self._imported_objs.extend(coll_objs)
 
                     if coll_polys:
+
                         name = "object 0001"
                         name = get_unique_name(name, GlobalData["obj_names"])
-                        model = self.__create_editable_model(name, coll_polys)
+
+                        for model in self.__create_collision_model(name, coll_polys):
+                            yield
+
                         coll_objs.append(model)
+                        self._imported_objs.append(model)
 
                     if not coll_objs:
                         continue
@@ -228,7 +249,6 @@ class ImportManager(BaseObject):
                     obj_name = child_name if child_name else "collision object 0001"
                     obj_name = get_unique_name(obj_name, GlobalData["obj_names"])
                     obj = self.__create_collision_group(obj_name, child.get_transform())
-                    objs_to_store.extend(coll_objs)
                     Mgr.do("add_group_members", coll_objs, obj, add_to_hist=False, restore="import")
 
                 else:
@@ -237,13 +257,55 @@ class ImportManager(BaseObject):
 
                 obj.restore_link(parent_id, None)
 
-                self.__import_children(basic_edit, obj.get_id(), child.get_children(),
-                                       objs_to_store)
-
                 if obj.get_type() == "model":
                     obj.get_bbox().update(*bounds_node.get_tight_bounds())
 
-                objs_to_store.append(obj)
+                self._imported_objs.append(obj)
+
+                for step in self.__import_children(basic_edit, obj.get_id(), child.get_children()):
+                    yield
+
+                yield
+                continue
+
+    def __update_progress_steps(self, basic_edit, children):
+
+        for child in children:
+
+            if child.is_empty():
+                continue
+
+            node = child.node()
+
+            if basic_edit:
+
+                node_type = node.get_class_type().get_name()
+
+                if node_type == "CollisionNode":
+
+                    coll_poly_count = 0
+
+                    for solid in node.get_solids():
+
+                        obj_type = solid.get_class_type().get_name()
+
+                        if obj_type == "CollisionSphere":
+                            pass
+                        elif obj_type == "CollisionTube":
+                            pass
+                        elif obj_type == "CollisionBox":
+                            pass
+                        elif obj_type == "CollisionPolygon":
+                            if solid.is_valid():
+                                coll_poly_count += 1
+                        else:
+                            continue
+
+                    self._progress_steps += coll_poly_count // 10
+                    self._progress_steps += coll_poly_count // 50
+                    self._progress_steps += coll_poly_count // 20
+
+                self.__update_progress_steps(basic_edit, child.get_children())
 
                 continue
 
@@ -261,15 +323,29 @@ class ImportManager(BaseObject):
         if not children:
             return
 
+        self.__update_progress_steps(basic_edit, children)
+        gradual = self._progress_steps > 100
+
+        yield True
+
+        if gradual:
+            Mgr.show_screenshot()
+            GlobalData["progress_steps"] = self._progress_steps
+
+        self._progress_steps = 0
+
         self._imported_file_type = path.get_extension()
         Mgr.do("update_history_time")
-        objs_to_store = []
-        self.__import_children(basic_edit, None, children, objs_to_store)
+
+        for step in self.__import_children(basic_edit, None, children):
+            if gradual:
+                yield True
+
         model_root.remove_node()
         self._imported_file_type = ""
 
-        if not objs_to_store:
-            return
+        if not self._imported_objs:
+            yield False
 
         # make undo/redoable
 
@@ -277,11 +353,45 @@ class ImportManager(BaseObject):
         event_data = {"objects": obj_data}
         event_descr = 'Import "%s"' % os.path.basename(filename)
 
-        for obj in objs_to_store:
+        for obj in self._imported_objs:
             obj_data[obj.get_id()] = obj.get_data_to_store("creation")
 
+        self._imported_objs = []
         event_data["object_ids"] = set(Mgr.get("object_ids"))
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        yield False
+
+    def __cancel_import(self, info):
+
+        if info == "import":
+
+            for obj in self._imported_objs:
+                obj.destroy(unregister=False, add_to_hist=False)
+
+        self._imported_objs = []
+        Mgr.do("clear_added_history")
+
+    def __do_import(self, filename, basic_edit=True):
+
+        Mgr.do("create_registry_backups")
+        Mgr.do("create_id_range_backups")
+        do_import = False
+        process = self.__import(filename, basic_edit)
+
+        for step in process:
+            if step:
+                do_import = True
+                break
+
+        if do_import and process.next():
+            handler = self.__cancel_import
+            Mgr.add_notification_handler("long_process_cancelled", "import_mgr", handler, once=True)
+            task = lambda: Mgr.remove_notification_handler("long_process_cancelled", "import_mgr")
+            task_id = "remove_notification_handler"
+            PendingTasks.add(task, task_id, "object", id_prefix="import_mgr", sort=100)
+            descr = "Importing..."
+            Mgr.do_gradually(process, "import", descr, cancellable=True)
 
 
 MainObjects.add_class(ImportManager)

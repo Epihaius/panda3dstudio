@@ -1,4 +1,4 @@
-from ...base import GlobalData
+from ...base import logging, GlobalData
 import platform
 import math
 import os
@@ -314,8 +314,12 @@ class BaseObject(object):
 
         """
 
-        if self._verbose and data_id not in self._data_retrievers:
-            print 'GUI warning: data "%s" is not defined.' % data_id
+        if data_id not in self._data_retrievers:
+
+            logging.warning('GUI: data "%s" is not defined.', data_id)
+
+            if self._verbose:
+                print 'GUI warning: data "%s" is not defined.' % data_id
 
         retriever = self._data_retrievers.get(data_id, self._default_data_retriever)
 
