@@ -1,4 +1,4 @@
-from ...base import logging, GlobalData, ObjectName
+from ...base import logging, re, GlobalData, ObjectName, get_unique_name
 from panda3d.core import *
 import weakref
 import sys
@@ -8,7 +8,6 @@ import random
 import time
 import datetime
 import cPickle
-import re
 
 GFX_PATH = "res/core/"
 
@@ -177,7 +176,51 @@ class PendingTasks(object):
 
     _tasks = {}
     _sorted_tasks = []
-    _task_ids = {}
+    _task_ids = {
+        "object": (
+            "set_geom_obj",
+            "merge_subobjs",
+            "restore_geometry",
+            "unregister_subobjs",
+            "register_subobjs",
+            "update_picking_col_id_ranges",
+            "set_subobj_sel",
+            "upd_subobj_sel",
+            "upd_verts_to_transf",
+            "set_subobj_transf",
+            "set_uvs",
+            "set_poly_triangles",
+            "smooth_polys",
+            "upd_vert_normals",
+            "upd_tangent_space",
+            "set_material",
+            "set_geom_data",
+            "make_editable",
+            "update_selection",
+            "set_obj_level",
+            "update_texproj",
+            "object_removal",
+            "object_linking",
+            "pivot_transform",
+            "origin_transform",
+            "center_group_pivot",
+            "update_group_bboxes",
+            "set_group_member_types",
+            "obj_link_viz_update",
+            "obj_transf_info_reset"
+        ),
+        "ui": (
+            "coord_sys_update",
+            "transf_center_update",
+            "update_selection"
+        ),
+        "uv_object": (
+            "update_selection"
+        ),
+        "uv_ui": (
+            "update_selection"
+        )
+    }
     _is_handling_tasks = False
     _is_suspended = False
 
@@ -199,7 +242,7 @@ class PendingTasks(object):
 
         if sort is None:
 
-            task_ids = cls._task_ids.get(task_type, [])
+            task_ids = cls._task_ids.get(task_type, ())
 
             if task_id in task_ids:
                 sort = task_ids.index(task_id)
@@ -227,7 +270,7 @@ class PendingTasks(object):
 
         if sort is None:
 
-            task_ids = cls._task_ids.get(task_type, [])
+            task_ids = cls._task_ids.get(task_type, ())
 
             if task_id in task_ids:
                 sort = task_ids.index(task_id)
@@ -318,21 +361,6 @@ class PendingTasks(object):
         cls._is_handling_tasks = False
 
     @classmethod
-    def add_task_id(cls, task_id, task_type="", sort=None):
-        """
-        Add a task ID, optionally associated with a particular task type, and with
-        an optional sort value.
-
-        """
-
-        task_ids = cls._task_ids.setdefault(task_type, [])
-
-        if sort is None:
-            task_ids.append(task_id)
-        else:
-            task_ids.insert(sort, task_id)
-
-    @classmethod
     def get_sort(cls, task_id, task_type=""):
         """
         Return the sort value of the task with the given ID, or None if the task ID
@@ -340,7 +368,7 @@ class PendingTasks(object):
 
         """
 
-        task_ids = cls._task_ids.get(task_type, [])
+        task_ids = cls._task_ids.get(task_type, ())
 
         if task_id in task_ids:
             return task_ids.index(task_id)
@@ -421,61 +449,6 @@ def get_color_vec(color_id, alpha):
     return VBase4(r, g, b, alpha) / 255.
 
 
-def get_unique_name(requested_name, namelist, default_search_pattern="",
-                    default_naming_pattern="", default_min_index=1):
-
-    namestring = "\n".join(namelist)
-    search_pattern = default_search_pattern
-    naming_pattern = default_naming_pattern
-    min_index = default_min_index
-
-    if requested_name:
-
-        pattern = r"(.*?)(\s*)(\d*)$"
-        basename, space, index_str = re.search(pattern, requested_name).groups()
-
-        if index_str:
-
-            min_index = int(index_str)
-            search_pattern = r"^%s\s*(\d+)$" % re.escape(basename)
-            zero_padding = len(index_str) if index_str.startswith("0") else 0
-            naming_pattern = basename + space + "%0" + str(zero_padding) + "d"
-
-        else:
-
-            # also search for "(<index>)" at the end
-            pattern = r"(.*?)(\s*)(?:\((\d*)\))*$"
-            basename, space, index_str = re.search(pattern, requested_name).groups()
-
-            if index_str:
-
-                min_index = int(index_str)
-                search_pattern = r"^%s\s*\((\d+)\)$" % re.escape(basename)
-                zero_padding = len(index_str) if index_str.startswith("0") else 0
-                naming_pattern = basename + space + "(%0" + str(zero_padding) + "d)"
-
-            else:
-
-                search_pattern = r"^%s$" % re.escape(basename)
-
-                if re.findall(search_pattern, namestring, re.M):
-                    min_index = 2
-                    search_pattern = r"^%s\s*\((\d+)\)$" % re.escape(basename)
-                    naming_pattern = basename + " (%d)"
-                else:
-                    return basename
-
-    names = re.finditer(search_pattern, namestring, re.M)
-    inds = [int(name.group(1)) for name in names]
-    max_index = min_index + len(inds)
-
-    for i in xrange(min_index, max_index):
-        if i not in inds:
-            return naming_pattern % i
-
-    return naming_pattern % max_index
-
-
 # The following class allows a position (passed in as a tuple or list) to be
 # used as a dictionary key when 2 identical positions should still be treated
 # as different keys (e.g. to differentiate between two vertices that share the
@@ -485,6 +458,12 @@ class PosObj(object):
     def __init__(self, pos):
 
         self._pos = pos
+
+    def __repr__(self):
+
+        x, y, z = self._pos
+
+        return "PosObj(%f, %f, %f)" % (x, y, z)
 
     def __getitem__(self, index):
 
@@ -499,6 +478,12 @@ class ImprecisePos(object):
 
         self._pos = pos
         self._epsilon = epsilon
+
+    def __repr__(self):
+
+        x, y, z = self._pos
+
+        return "ImprecisePos(%f, %f, %f)" % (x, y, z)
 
     def __eq__(self, other):
 
@@ -584,8 +569,9 @@ class ProgressBar(BaseObject):
 
     def set_rate(self, rate):
 
-        self._rate = rate
-        self._fill_geom.show()
+        if not self._rate:
+            self._rate = rate
+            self._fill_geom.show()
 
     def advance(self):
 

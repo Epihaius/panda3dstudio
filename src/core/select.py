@@ -365,9 +365,6 @@ class SelectionManager(BaseObject):
         Mgr.accept("select_top", self.__select_toplvl_obj)
         Mgr.accept("select_single_top", self.__select_single)
 
-        PendingTasks.add_task_id("update_selection", "object")
-        PendingTasks.add_task_id("update_selection", "ui")
-
         def force_cursor_update(transf_type):
 
             self._pixel_under_mouse = VBase4() # force an update of the cursor

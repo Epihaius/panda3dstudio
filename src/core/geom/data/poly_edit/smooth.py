@@ -7,6 +7,10 @@ class SmoothingGroup(object):
 
         self._poly_ids = set([] if poly_ids is None else poly_ids)
 
+    def __repr__(self):
+
+        return "SmoothingGroup(%s)" % self._poly_ids
+
     def __eq__(self, other):
 
         return self._poly_ids == other.get()
@@ -61,6 +65,82 @@ class SmoothingBase(BaseObject):
     def __init__(self):
 
         self._poly_smoothing = {}
+
+    def recompute_smoothing(self):
+        """ Derive smoothing groups from the vertex normals """
+
+        verts = self._subobjs["vert"]
+        polys = self._subobjs["poly"]
+        merged_verts = self._merged_verts
+        poly_smoothing = self._poly_smoothing
+        creases = {}
+
+        for merged_vert in set(merged_verts.itervalues()):
+
+            if len(merged_vert) < 2:
+                continue
+
+            for vert_id in merged_vert:
+
+                vert = verts[vert_id]
+                normal = vert.get_normal()
+                poly_id = vert.get_polygon_id()
+                other_vert_ids = merged_vert[:]
+                other_vert_ids.remove(vert_id)
+
+                for other_vert_id in other_vert_ids:
+
+                    other_vert = verts[other_vert_id]
+                    other_poly_id = other_vert.get_polygon_id()
+
+                    if other_vert.get_normal() != normal:
+                        creases.setdefault(poly_id, set()).add(other_poly_id)
+                        creases.setdefault(other_poly_id, set()).add(poly_id)
+
+        polys_to_process = set(polys.iterkeys())
+        smoothing = []
+
+        while polys_to_process:
+
+            poly_id = polys_to_process.pop()
+            polys_to_smooth = set([poly_id])
+            neighbor_ids = set([poly_id])
+
+            while neighbor_ids:
+
+                neighbor_id = neighbor_ids.pop()
+                polys_to_process.discard(neighbor_id)
+
+                for vert_id in polys[neighbor_id].get_vertex_ids():
+
+                    other_vert_ids = merged_verts[vert_id][:]
+                    other_vert_ids.remove(vert_id)
+
+                    for other_vert_id in other_vert_ids:
+
+                        other_poly_id = verts[other_vert_id].get_polygon_id()
+
+                        for poly_id in creases.get(other_poly_id, set()):
+
+                            if poly_id in polys_to_smooth:
+                                break
+
+                        else:
+
+                            polys_to_smooth.add(other_poly_id)
+
+                            if other_poly_id in polys_to_process:
+                                neighbor_ids.add(other_poly_id)
+
+            if len(polys_to_smooth) > 1:
+                smoothing.append(polys_to_smooth)
+
+        for polys_to_smooth in smoothing:
+
+            smoothing_group = SmoothingGroup(polys_to_smooth)
+
+            for poly_id in polys_to_smooth:
+                poly_smoothing.setdefault(poly_id, set()).add(smoothing_group)
 
     def set_smoothing(self, smoothing=None):
 

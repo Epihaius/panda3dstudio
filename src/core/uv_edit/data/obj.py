@@ -312,19 +312,8 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
                     tris_prim.add_vertex(vert.get_row_index())
 
-            start_row_indices = []
-            end_row_indices = []
-
             for edge in poly.get_edges():
-
                 row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
-
-                if row1 in start_row_indices or row2 in end_row_indices:
-                    row1, row2 = row2, row1
-                    edge.reverse_vertex_order()
-
-                start_row_indices.append(row1)
-                end_row_indices.append(row2)
                 lines_prim.add_vertices(row1, row2 + count)
                 picking_color_edge = get_color_vec(edge.get_picking_color_id(),
                                                    pickable_id_edge)

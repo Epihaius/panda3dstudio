@@ -494,7 +494,10 @@ class GeomHistoryBase(BaseObject):
             if gradual:
                 yield True
 
-        self.init_vertex_colors()
+        self.init_picking_colors()
+
+        if self._owner.has_vertex_colors():
+            self.set_initial_vertex_colors()
 
         yield False
 
@@ -892,7 +895,7 @@ class GeomHistoryBase(BaseObject):
         col_writer = GeomVertexWriter(vertex_data_tmp, "color")
         col_writer.set_row(old_count)
 
-        for row_index in sorted(picking_colors1.iterkeys()):
+        for row_index in sorted(picking_colors1):
             picking_color = picking_colors1[row_index]
             col_writer.add_data4f(picking_color)
 
@@ -908,7 +911,7 @@ class GeomHistoryBase(BaseObject):
         col_writer = GeomVertexWriter(vertex_data_tmp, "color")
         col_writer.set_row(old_count)
 
-        for row_index in sorted(picking_colors2.iterkeys()):
+        for row_index in sorted(picking_colors2):
             picking_color = picking_colors2[row_index]
             col_writer.add_data4f(picking_color)
 

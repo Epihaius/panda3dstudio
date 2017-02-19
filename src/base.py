@@ -1,4 +1,5 @@
 import logging
+import re
 
 logging.basicConfig(filename='p3ds.log', filemode='w',
                     format='%(asctime)s - %(levelname)s: %(message)s',
@@ -126,6 +127,61 @@ class ObjectName(object):
 
         if update:
             self.update(update_id)
+
+
+def get_unique_name(requested_name, namelist, default_search_pattern="",
+                    default_naming_pattern="", default_min_index=1):
+
+    namestring = "\n".join(namelist)
+    search_pattern = default_search_pattern
+    naming_pattern = default_naming_pattern
+    min_index = default_min_index
+
+    if requested_name:
+
+        pattern = r"(.*?)(\s*)(\d*)$"
+        basename, space, index_str = re.search(pattern, requested_name).groups()
+
+        if index_str:
+
+            min_index = int(index_str)
+            search_pattern = r"^%s\s*(\d+)$" % re.escape(basename)
+            zero_padding = len(index_str) if index_str.startswith("0") else 0
+            naming_pattern = basename + space + "%0" + str(zero_padding) + "d"
+
+        else:
+
+            # also search for "(<index>)" at the end
+            pattern = r"(.*?)(\s*)(?:\((\d*)\))*$"
+            basename, space, index_str = re.search(pattern, requested_name).groups()
+
+            if index_str:
+
+                min_index = int(index_str)
+                search_pattern = r"^%s\s*\((\d+)\)$" % re.escape(basename)
+                zero_padding = len(index_str) if index_str.startswith("0") else 0
+                naming_pattern = basename + space + "(%0" + str(zero_padding) + "d)"
+
+            else:
+
+                search_pattern = r"^%s$" % re.escape(basename)
+
+                if re.findall(search_pattern, namestring, re.M):
+                    min_index = 2
+                    search_pattern = r"^%s\s*\((\d+)\)$" % re.escape(basename)
+                    naming_pattern = basename + " (%d)"
+                else:
+                    return basename
+
+    names = re.finditer(search_pattern, namestring, re.M)
+    inds = [int(name.group(1)) for name in names]
+    max_index = min_index + len(inds)
+
+    for i in xrange(min_index, max_index):
+        if i not in inds:
+            return naming_pattern % i
+
+    return naming_pattern % max_index
 
 
 # The following class allows predefining specific bindings of events to their

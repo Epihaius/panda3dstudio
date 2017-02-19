@@ -464,9 +464,12 @@ class PolygonCreationBase(BaseObject):
 
         row_index = 0
         verts_by_pos = {}
+        tmp_edges = []
+        poly_edges_by_vert_id = {}
+
         poly_verts = []
-        edge_data = []
-        triangles = []
+        poly_edges = []
+        poly_tris = []
 
         for tri_data in indices:
 
@@ -492,7 +495,6 @@ class PolygonCreationBase(BaseObject):
                     vert_id = vertex.get_id()
                     verts[vert_id] = vertex
                     verts_by_pos[pos_index] = vertex
-                    poly_verts.append(vertex)
 
                     if pos_index in owned_verts:
                         merged_vert = owned_verts[pos_index]
@@ -509,16 +511,18 @@ class PolygonCreationBase(BaseObject):
 
                 tri_vert_ids.append(vert_id)
 
-            for i, j in ((0, 1), (1, 2), (0, 2)):
+            for i, j in ((0, 1), (1, 2), (2, 0)):
 
-                edge_verts = sorted([verts[tri_vert_ids[i]], verts[tri_vert_ids[j]]])
+                edge_vert_ids = (tri_vert_ids[i], tri_vert_ids[j])
+                reversed_vert_ids = edge_vert_ids[::-1]
 
-                if edge_verts in edge_data:
-                    edge_data.remove(edge_verts)
+                if reversed_vert_ids in tmp_edges:
+                    # if the edge appears twice, it's actually a diagonal
+                    tmp_edges.remove(reversed_vert_ids)
                 else:
-                    edge_data.append(edge_verts)
+                    tmp_edges.append(edge_vert_ids)
 
-            triangles.append(tuple(tri_vert_ids))
+            poly_tris.append(tuple(tri_vert_ids))
 
         owned_verts = owned_verts.values()
 
@@ -532,16 +536,48 @@ class PolygonCreationBase(BaseObject):
                     merged_edge = merged_edges[edge_id]
                     merged_edges_tmp[merged_edge_verts] = merged_edge
 
-        poly_edges = []
+        for edge_vert_ids in tmp_edges:
+            poly_edges_by_vert_id[edge_vert_ids[0]] = edge_vert_ids
 
-        for edge_verts in edge_data:
+        # Define verts and edges in winding order
 
-            edge = Mgr.do("create_edge", self, edge_verts)
+        vert1_id, vert2_id = edge_vert_ids = poly_edges_by_vert_id[poly_tris[0][0]]
+        vert1 = verts[vert1_id]
+        vert2 = verts[vert2_id]
+        poly_verts.append(vert1)
+        edge = Mgr.do("create_edge", self, edge_vert_ids)
+        edge1_id = edge.get_id()
+        vert2.add_edge_id(edge1_id)
+        edges[edge1_id] = edge
+        poly_edges.append(edge)
+
+        merged_edge_verts = tuple(sorted([merged_verts[v_id] for v_id in edge_vert_ids]))
+
+        if merged_edge_verts in merged_edges_tmp:
+            merged_edge = merged_edges_tmp[merged_edge_verts]
+            if merged_edge[0] in sel_edge_ids:
+                subobjs_to_select["edge"].append(edge)
+        else:
+            merged_edge = Mgr.do("create_merged_edge", self)
+
+        merged_edge.append(edge1_id)
+        merged_edges[edge1_id] = merged_edge
+
+        while vert2_id != vert1_id:
+
+            poly_verts.append(vert2)
+            vert1 = vert2
+            edge_vert_ids = poly_edges_by_vert_id[vert2_id]
+            vert2_id = edge_vert_ids[1]
+            vert2 = verts[vert2_id]
+            edge = Mgr.do("create_edge", self, edge_vert_ids)
             edge_id = edge.get_id()
+            vert1.add_edge_id(edge_id)
+            vert2.add_edge_id(edge_id)
             edges[edge_id] = edge
             poly_edges.append(edge)
-            vert_ids = [vert.get_id() for vert in edge_verts]
-            merged_edge_verts = tuple(sorted([merged_verts[v_id] for v_id in vert_ids]))
+
+            merged_edge_verts = tuple(sorted([merged_verts[v_id] for v_id in edge_vert_ids]))
 
             if merged_edge_verts in merged_edges_tmp:
                 merged_edge = merged_edges_tmp[merged_edge_verts]
@@ -553,9 +589,11 @@ class PolygonCreationBase(BaseObject):
             merged_edge.append(edge_id)
             merged_edges[edge_id] = merged_edge
 
-        polygon = Mgr.do("create_poly", self, triangles, poly_edges, poly_verts)
-        Mgr.do("register_vert_objs", polygon.get_vertices(), restore=False)
-        Mgr.do("register_edge_objs", polygon.get_edges(), restore=False)
+        vert2.add_edge_id(edge1_id)
+
+        polygon = Mgr.do("create_poly", self, poly_tris, poly_edges, poly_verts)
+        Mgr.do("register_vert_objs", poly_verts, restore=False)
+        Mgr.do("register_edge_objs", poly_edges, restore=False)
         Mgr.do("register_poly", polygon, restore=False)
         ordered_polys.append(polygon)
         poly_id = polygon.get_id()
@@ -590,8 +628,15 @@ class PolygonCreationBase(BaseObject):
         picking_col_id = polygon.get_picking_color_id()
         picking_color = get_color_vec(picking_col_id, pickable_type_id)
 
+        verts_by_row = {}
+
         for vert in poly_verts:
             vert.offset_row_index(old_count)
+            row = vert.get_row_index()
+            verts_by_row[row] = vert
+
+        for row in sorted(verts_by_row):
+            vert = verts_by_row[row]
             pos = vert.get_pos()
             pos_writer.add_data3f(pos)
             col_writer.add_data4f(picking_color)
@@ -610,7 +655,8 @@ class PolygonCreationBase(BaseObject):
         color = sel_colors["vert"]["unselected"]
         pickable_type_id = PickableTypes.get_id("vert")
 
-        for vert in poly_verts:
+        for row in sorted(verts_by_row):
+            vert = verts_by_row[row]
             picking_color = get_color_vec(vert.get_picking_color_id(), pickable_type_id)
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
@@ -618,23 +664,12 @@ class PolygonCreationBase(BaseObject):
         sel_data = self._poly_selection_data
         sel_data["unselected"].extend(polygon[:])
 
-        start_row_indices = []
-        end_row_indices = []
         picking_colors1 = {}
         picking_colors2 = {}
         pickable_type_id = PickableTypes.get_id("edge")
 
         for edge in poly_edges:
-
             row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
-
-            if row1 in start_row_indices or row2 in end_row_indices:
-                row1, row2 = row2, row1
-                edge.reverse_vertex_order()
-
-            start_row_indices.append(row1)
-            end_row_indices.append(row2)
-
             picking_color = get_color_vec(edge.get_picking_color_id(), pickable_type_id)
             picking_colors1[row1] = picking_color
             picking_colors2[row2 + count] = picking_color
@@ -650,7 +685,7 @@ class PolygonCreationBase(BaseObject):
         col_writer2.set_row(old_count)
         color = sel_colors["edge"]["unselected"]
 
-        for row_index in sorted(picking_colors1.iterkeys()):
+        for row_index in sorted(picking_colors1):
             picking_color = picking_colors1[row_index]
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
@@ -666,7 +701,7 @@ class PolygonCreationBase(BaseObject):
         col_writer1.set_row(old_count)
         col_writer2.set_row(count + old_count)
 
-        for row_index in sorted(picking_colors2.iterkeys()):
+        for row_index in sorted(picking_colors2):
             picking_color = picking_colors2[row_index]
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
@@ -714,7 +749,7 @@ class PolygonCreationBase(BaseObject):
         tris_prim = geom_node_top.modify_geom(0).modify_primitive(0)
         start = tris_prim.get_num_vertices()
 
-        for vert_ids in triangles:
+        for vert_ids in poly_tris:
             tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
 
         array = tris_prim.get_vertices()
@@ -777,6 +812,9 @@ class PolygonCreationBase(BaseObject):
         self._update_verts_to_transform("poly")
         self._origin.node().set_bounds(geom_node_top.get_bounds())
         self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
+
+        if self._has_tangent_space:
+            self.update_tangent_space([polygon])
 
         return True
 

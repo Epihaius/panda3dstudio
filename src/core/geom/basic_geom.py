@@ -129,9 +129,6 @@ class BasicGeom(BaseObject):
         model_orig = model.get_origin()
         render_state = geom.get_state()
         geom.set_state(RenderState.make_empty())
-
-        material, uv_set_names = render_state_to_material(render_state)
-
         src_vert_data = geom.node().get_geom(0).get_vertex_data()
         src_format = src_vert_data.get_format()
         dest_format = Mgr.get("vertex_format_full")
@@ -140,6 +137,8 @@ class BasicGeom(BaseObject):
         geom.node().modify_geom(0).set_vertex_data(dest_vert_data)
         dest_vert_data = geom.node().modify_geom(0).modify_vertex_data()
         num_rows = src_vert_data.get_num_rows()
+
+        material, uv_set_names = render_state_to_material(render_state, src_format)
 
         for src_uv_set, dest_uv_set in uv_set_names.iteritems():
 

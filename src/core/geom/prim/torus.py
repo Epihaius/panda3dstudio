@@ -105,7 +105,7 @@ class TorusManager(PrimitiveManager):
         prop_defaults = self.get_property_defaults()
         segments = prop_defaults["segments"]
         poly_count, merged_vert_count = _get_mesh_density(segments)
-        progress_steps = poly_count // 10 + poly_count // 50 + merged_vert_count // 20
+        progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
         gradual = progress_steps > 100
 
         for step in prim.create(segments, prop_defaults["smoothness"]):
@@ -535,7 +535,7 @@ class Torus(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -548,7 +548,7 @@ class Torus(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()

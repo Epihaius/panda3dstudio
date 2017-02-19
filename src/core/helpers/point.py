@@ -499,7 +499,17 @@ class TemporaryPointHelper(object):
         self._size = size
         object_root = Mgr.get("object_root")
         self._temp_geom = tmp_geom = self._original_geom.copy_to(object_root)
-        tmp_geom.set_pos(pos)
+
+        active_grid_plane = Mgr.get(("grid", "plane"))
+        grid_origin = Mgr.get(("grid", "origin"))
+
+        if active_grid_plane == "xz":
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
+        elif active_grid_plane == "yz":
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 90.))
+        else:
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
+
         geom = tmp_geom.node().modify_geom(0)
         vertex_data = geom.modify_vertex_data()
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -531,7 +541,7 @@ class TemporaryPointHelper(object):
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos()
+        pos = self._temp_geom.get_pos(Mgr.get(("grid", "origin")))
 
         for step in Mgr.do("create_point_helper", pos):
             pass

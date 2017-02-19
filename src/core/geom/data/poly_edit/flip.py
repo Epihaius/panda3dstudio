@@ -55,7 +55,7 @@ class PolygonFlipBase(BaseObject):
         poly_selected_geom = geoms["poly"]["selected"].node().modify_geom(0)
         prim_selected = GeomTriangles(Geom.UH_static)
 
-        for i in sorted(vert_indices_selected.iterkeys()):
+        for i in sorted(vert_indices_selected):
             for indices in vert_indices_selected[i]:
                 prim_selected.add_vertices(*indices)
 
@@ -80,7 +80,7 @@ class PolygonFlipBase(BaseObject):
             poly_unselected_geom = geoms["poly"]["unselected"].node().modify_geom(0)
             prim_unselected = GeomTriangles(Geom.UH_static)
 
-            for i in sorted(vert_indices_unselected.iterkeys()):
+            for i in sorted(vert_indices_unselected):
                 for indices in vert_indices_unselected[i]:
                     prim_unselected.add_vertices(*indices)
 

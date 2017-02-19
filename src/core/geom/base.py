@@ -11,13 +11,15 @@ class GeomDataOwner(BaseObject):
 
         return state
 
-    def __init__(self, prop_ids, type_prop_ids, model, geom_data_obj=None):
+    def __init__(self, prop_ids, type_prop_ids, model, geom_data_obj=None, has_vert_colors=False):
 
         self._prop_ids = prop_ids + ["geom_data"]
         self._type_prop_ids = type_prop_ids
         self._model = model
         self._geom_data_obj = geom_data_obj
         self._geom_data_backup = None
+        # the following refers to the vertex colors of imported geometry
+        self._has_vert_colors = has_vert_colors
         model.set_geom_object(self)
 
         if geom_data_obj:
@@ -79,6 +81,15 @@ class GeomDataOwner(BaseObject):
 
         self._model = model
 
+    def get_origin(self):
+
+        if self._geom_data_obj:
+            return self._geom_data_obj.get_origin()
+
+    def set_origin(self, origin):
+
+        self._geom_data_obj.set_origin(origin)
+
     def replace(self, geom_obj):
 
         geom_data_obj = self._geom_data_obj
@@ -115,9 +126,16 @@ class GeomDataOwner(BaseObject):
 
         self._geom_data_obj.bake_texture(texture)
 
+    def has_vertex_colors(self):
+
+        return self._has_vert_colors
+
     def reset_vertex_colors(self):
 
-        self._geom_data_obj.reset_vertex_colors()
+        if self._has_vert_colors:
+            self._geom_data_obj.set_initial_vertex_colors()
+        else:
+            self._geom_data_obj.clear_vertex_colors()
 
     def set_two_sided(self, two_sided=True):
 

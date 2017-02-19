@@ -152,7 +152,7 @@ class ConeManager(PrimitiveManager):
         prop_defaults = self.get_property_defaults()
         segments = prop_defaults["segments"]
         poly_count, merged_vert_count = _get_mesh_density(segments)
-        progress_steps = poly_count // 10 + poly_count // 50 + merged_vert_count // 20
+        progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
         gradual = progress_steps > 100
 
         for step in prim.create(segments, prop_defaults["smoothness"]):
@@ -758,6 +758,9 @@ class Cone(Primitive):
 
         self.__update_size()
 
+        for step in self.get_geom_data_object().init_poly_normals():
+            pass
+
     def set_bottom_radius(self, radius):
 
         if self._bottom_radius == radius:
@@ -858,12 +861,13 @@ class Cone(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
 
                 if not restore:
+                    Mgr.show_screenshot()
                     task = self.get_geom_data_object().init_poly_normals
                     descr = "Updating geometry..."
                     PendingTasks.add(task, "upd_vert_normals", "object", id_prefix=obj_id,
@@ -877,12 +881,13 @@ class Cone(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
 
                 if not restore:
+                    Mgr.show_screenshot()
                     task = self.get_geom_data_object().init_poly_normals
                     descr = "Updating geometry..."
                     PendingTasks.add(task, "upd_vert_normals", "object", id_prefix=obj_id,
@@ -897,12 +902,13 @@ class Cone(Primitive):
             if change:
 
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") + 2
+                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
 
                 if not restore:
+                    Mgr.show_screenshot()
                     task = self.get_geom_data_object().init_poly_normals
                     descr = "Updating geometry..."
                     PendingTasks.add(task, "upd_vert_normals", "object", id_prefix=obj_id,
@@ -952,6 +958,9 @@ class Cone(Primitive):
         self.__update_size()
 
         for step in Primitive.finalize(self, update_poly_centers=False):
+            yield
+
+        for step in self.get_geom_data_object().init_poly_normals():
             yield
 
 

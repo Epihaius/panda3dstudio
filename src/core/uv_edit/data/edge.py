@@ -100,10 +100,6 @@ class Edge(BaseObject):
 
         return [r1, r2 + count]
 
-    def reverse_vertex_order(self):
-
-        self._vert_ids.reverse()
-
     def get_center_pos(self, ref_node=None):
 
         verts = self._uv_data_obj.get_subobjects("vert")

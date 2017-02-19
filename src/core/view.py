@@ -1448,9 +1448,11 @@ class ViewManager(BaseObject):
     def __enable_view_tiles(self, enable=True):
 
         self._view_tiles_icon_region.set_active(enable)
-        self._view_tiles_region.set_active(enable)
 
         if self._view_tiles_shown:
+
+            self._view_tiles_region.set_active(enable)
+
             for region in self._view_tile_region_group:
                 region.set_active(enable)
 

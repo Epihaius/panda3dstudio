@@ -42,15 +42,6 @@ class HierarchyManager(BaseObject):
 
     def setup(self):
 
-        sort = PendingTasks.get_sort("obj_transf_info_reset", "object")
-
-        if sort is None:
-            return False
-
-        PendingTasks.add_task_id("obj_link_viz_update", "object", sort)
-        sort = PendingTasks.get_sort("pivot_transform", "object")
-        PendingTasks.add_task_id("object_linking", "object", sort)
-
         add_state = Mgr.add_state
         add_state("object_linking_mode", -10, self.__enter_linking_mode,
                   self.__exit_linking_mode)

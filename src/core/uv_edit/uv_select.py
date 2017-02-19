@@ -152,9 +152,6 @@ class UVSelectionBase(BaseObject):
         UVMgr.accept("update_sel_obj_ids", self.__update_selected_object_ids)
         UVMgr.accept("update_active_selection", self.__update_active_selection)
 
-        PendingTasks.add_task_id("update_selection", "uv_object")
-        PendingTasks.add_task_id("update_selection", "uv_ui")
-
     def setup(self):
 
         add_state = Mgr.add_state

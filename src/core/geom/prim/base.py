@@ -112,13 +112,6 @@ class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager)
 
     def setup(self, creation_phases, status_text):
 
-        sort = PendingTasks.get_sort("clear_geom_data", "object")
-
-        if sort is None:
-            PendingTasks.add_task_id("clear_geom_data", "object", 1)
-            PendingTasks.add_task_id("set_geom_data", "object", 2)
-            PendingTasks.add_task_id("make_editable", "object", 3)
-
         phase_starter, phase_handler = creation_phases.pop(0)
         creation_starter = self.__get_prim_creation_starter(phase_starter)
         creation_phases.insert(0, (creation_starter, phase_handler))
@@ -375,7 +368,7 @@ class TemporaryPrimitive(BaseObject):
 
         def create_primitive():
 
-            pos = self._pivot.get_pos()
+            pos = self._pivot.get_pos(Mgr.get(("grid", "origin")))
             size = self.get_size()
 
             for step in Mgr.do("create_%s" % self._type, pos, size):
@@ -426,7 +419,7 @@ class Primitive(GeomDataOwner):
 
     def create(self, poly_count, merged_vert_count):
 
-        progress_steps = poly_count // 10 + poly_count // 50 + merged_vert_count // 20
+        progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
         gradual = progress_steps > 100
 
         if gradual:
@@ -481,7 +474,7 @@ class Primitive(GeomDataOwner):
 
         def task():
 
-            progress_steps = poly_count // 10 + poly_count // 50 + merged_vert_count // 20
+            progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
             gradual = progress_steps > 100
 
             if gradual:
@@ -552,17 +545,6 @@ class Primitive(GeomDataOwner):
     def get_initial_pos(self, vertex_id):
 
         return self._initial_coords[vertex_id]
-
-    def set_origin(self, origin):
-
-        self.get_geom_data_object().set_origin(origin)
-
-    def get_origin(self):
-
-        geom_data_obj = self.get_geom_data_object()
-
-        if geom_data_obj:
-            return geom_data_obj.get_origin()
 
     def finalize(self, update_poly_centers=True):
 

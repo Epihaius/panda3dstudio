@@ -37,7 +37,7 @@ class Edge(BaseObject):
 
         return state
 
-    def __init__(self, edge_id, picking_col_id, geom_data_obj, verts):
+    def __init__(self, edge_id, picking_col_id, geom_data_obj, vert_ids):
 
         self._type = "edge"
         self._id = edge_id
@@ -45,10 +45,7 @@ class Edge(BaseObject):
         self._geom_data_obj = geom_data_obj
         self._creation_time = None
         self._poly_id = None
-        self._vert_ids = [vert.get_id() for vert in verts]
-
-        for vert in verts:
-            vert.add_edge_id(edge_id)
+        self._vert_ids = vert_ids
 
     def __getitem__(self, index):
 
@@ -126,10 +123,6 @@ class Edge(BaseObject):
         r1, r2 = (verts[vert_id].get_row_index() for vert_id in self._vert_ids)
 
         return [r1, r2 + count]
-
-    def reverse_vertex_order(self):
-
-        self._vert_ids.reverse()
 
     def get_center_pos(self, ref_node=None):
 

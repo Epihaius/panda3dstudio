@@ -739,15 +739,6 @@ class TransformationManager(BaseObject):
 
     def setup(self):
 
-        sort = PendingTasks.get_sort("object_removal", "object")
-
-        if sort is None:
-            return False
-
-        PendingTasks.add_task_id("pivot_transform", "object", sort + 1)
-        PendingTasks.add_task_id("origin_transform", "object", sort + 2)
-        PendingTasks.add_task_id("obj_transf_info_reset", "object", sort + 3)
-
         add_state = Mgr.add_state
         add_state("transforming", -1)
 

@@ -119,15 +119,18 @@ class SceneManager(BaseObject):
         else:
             Mgr.update_app("status", "select", "")
 
-        for x in ("coord_sys", "transf_center"):
-            x_type = scene_data[x]["type"]
-            obj = Mgr.get("object", scene_data[x]["obj_id"])
-            name = obj.get_name(as_object=True) if obj else None
-            Mgr.update_locally(x, x_type, obj)
-            Mgr.update_remotely(x, x_type, name)
+        def task():
 
-        task = lambda: Mgr.do("set_view_data", scene_data["view_data"])
-        task_id = "set_view_data"
+            for x in ("coord_sys", "transf_center"):
+                x_type = scene_data[x]["type"]
+                obj = Mgr.get("object", scene_data[x]["obj_id"])
+                name = obj.get_name(as_object=True) if obj else None
+                Mgr.update_locally(x, x_type, obj)
+                Mgr.update_remotely(x, x_type, name)
+
+            Mgr.do("set_view_data", scene_data["view_data"])
+
+        task_id = "scene_task"
         PendingTasks.add(task, task_id, "ui", sort=100)
 
         PendingTasks.handle(["object", "ui"], True)

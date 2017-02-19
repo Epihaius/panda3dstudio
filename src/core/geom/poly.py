@@ -119,11 +119,7 @@ class Polygon(BaseObject):
 
         self._tri_data = triangle_data
 
-    def get_vertex_ids(self, in_winding_order=False):
-
-        if not in_winding_order:
-            return self._vert_ids
-
+    def get_vertex_ids(self):
         """
         Return the IDs of the vertices belonging to this polygon, in an order that
         can be used to define the winding of a new triangulation, consistent
@@ -131,44 +127,23 @@ class Polygon(BaseObject):
 
         """
 
-        tri_data = self._tri_data
-        tri_sides = {}
-        vert_ids = []
-
-        for tri_vert_ids in tri_data:
-
-            for i in range(3):
-
-                side_vert1_id = tri_vert_ids[i]
-                side_vert2_id = tri_vert_ids[i - 2]
-                tri_side = (side_vert1_id, side_vert2_id)
-                tri_side_reversed = (side_vert2_id, side_vert1_id)
-
-                if tri_side_reversed in tri_sides.get(side_vert2_id, ()):
-                    tri_sides[side_vert2_id].remove(tri_side_reversed)
-                else:
-                    tri_sides.setdefault(side_vert1_id, []).append(tri_side)
-
-        side_vert1_id, tri_side_list = tri_sides.popitem()
-        vert_ids.append(side_vert1_id)
-        side_vert2_id = tri_side_list[0][1]
-
-        while tri_sides:
-            tri_side_list = tri_sides.pop(side_vert2_id)
-            side_vert1_id, side_vert2_id = tri_side_list[0]
-            vert_ids.append(side_vert1_id)
-
-        return vert_ids
+        return self._vert_ids
 
     def get_edge_ids(self):
+        """
+        Return the IDs of the edges belonging to this polygon, in an order that
+        can be used to define the winding of a new triangulation, consistent
+        with the winding direction of the existing triangles.
+
+        """
 
         return self._edge_ids
 
-    def get_vertices(self, in_winding_order=False):
+    def get_vertices(self):
 
         verts = self._geom_data_obj.get_subobjects("vert")
 
-        return [verts[vert_id] for vert_id in self.get_vertex_ids(in_winding_order)]
+        return [verts[vert_id] for vert_id in self._vert_ids]
 
     def get_edges(self):
 

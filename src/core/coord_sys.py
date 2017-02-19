@@ -20,13 +20,6 @@ class CoordSysManager(BaseObject):
 
     def setup(self):
 
-        sort = PendingTasks.get_sort("update_selection", "ui")
-
-        if sort is None:
-            return False
-
-        PendingTasks.add_task_id("coord_sys_update", "ui", sort)
-
         add_state = Mgr.add_state
         add_state("coord_sys_picking_mode", -80, self.__enter_picking_mode,
                   self.__exit_picking_mode)

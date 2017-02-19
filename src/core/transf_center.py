@@ -20,13 +20,6 @@ class TransformCenterManager(BaseObject):
 
     def setup(self):
 
-        sort = PendingTasks.get_sort("coord_sys_update", "ui")
-
-        if sort is None:
-            return False
-
-        PendingTasks.add_task_id("transf_center_update", "ui", sort + 1)
-
         add_state = Mgr.add_state
         add_state("transf_center_picking_mode", -80,
                   self.__enter_picking_mode, self.__exit_picking_mode)

@@ -407,7 +407,17 @@ class TemporaryDummy(BaseObject):
         self._drawn_on_top = on_top
         object_root = Mgr.get("object_root")
         self._temp_geom = tmp_geom = self.original_geom.copy_to(object_root)
-        tmp_geom.set_pos(pos)
+
+        active_grid_plane = Mgr.get(("grid", "plane"))
+        grid_origin = Mgr.get(("grid", "origin"))
+
+        if active_grid_plane == "xz":
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
+        elif active_grid_plane == "yz":
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 90.))
+        else:
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
+
         geoms = {"box": tmp_geom.find("**/box_geom"), "cross": tmp_geom.find("**/cross_geom")}
 
         for geom_type in viz:
@@ -478,7 +488,7 @@ class TemporaryDummy(BaseObject):
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos()
+        pos = self._temp_geom.get_pos(Mgr.get(("grid", "origin")))
 
         for step in Mgr.do("create_dummy", pos, self._size):
             pass

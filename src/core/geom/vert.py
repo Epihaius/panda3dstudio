@@ -192,6 +192,14 @@ class Vertex(BaseObject):
 
         return self._data["uvs"].get(uv_set_id, (0., 0.))
 
+    def set_color(self, color):
+
+        self._data["color"] = color
+
+    def get_color(self):
+
+        return self._data.get("color")
+
     def set_normal(self, normal):
 
         self._data["normal"] = normal

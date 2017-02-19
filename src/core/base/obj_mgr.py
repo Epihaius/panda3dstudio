@@ -51,10 +51,6 @@ class GeneralObjectManager(BaseObject):
 
     def setup(self):
 
-        sort = PendingTasks.get_sort("update_selection", "object")
-        PendingTasks.add_task_id("object_removal", "object", sort + 1)
-        PendingTasks.add_task_id("set_obj_level", "object", sort + 1)
-
         self._obj_root.set_light(Mgr.get("default_light"))
 
         Mgr.add_task(self.__check_object_name, "check_object_name", sort=3)

@@ -488,7 +488,7 @@ class Material(object):
 
         d = dict((l.get_sort(), l) for group in self._layers.itervalues() for l in group)
 
-        return [d[i] for i in sorted(d.iterkeys())]
+        return [d[i] for i in sorted(d)]
 
     def add_layer(self, layer):
 
@@ -839,7 +839,7 @@ class Material(object):
                 if map_type == "vertex color":
 
                     for owner in owners:
-                        owner.reset_vertex_colors()
+                        owner.get_geom_object().reset_vertex_colors()
 
                     continue
 
@@ -1011,6 +1011,8 @@ class MaterialManager(object):
     def __init__(self):
 
         self._materials = {}
+        self._materials_backup = None
+        self._registry_backup_created = False
         self._library = {}
         self._selected_material_id = None
         self._base_props = {}
@@ -1031,6 +1033,7 @@ class MaterialManager(object):
         Mgr.accept("register_material", self.__register_material)
         Mgr.accept("unregister_material", self.__unregister_material)
         Mgr.accept("set_material_library", self.__set_library)
+        Mgr.accept("create_material_registry_backup", self.__create_registry_backup)
         Mgr.expose("material", lambda material_id: self._materials.get(material_id))
         Mgr.expose("materials", lambda: self._materials)
         Mgr.expose("material_library", lambda: self._library)
@@ -1051,6 +1054,8 @@ class MaterialManager(object):
         Mgr.add_app_updater("selected_obj_mat_props", self.__apply_ready_material_properties)
         Mgr.add_app_updater("selected_obj_tex", self.__apply_ready_material_texture)
         Mgr.add_app_updater("dupe_material_handling", self.__handle_dupe_material_loading)
+        Mgr.add_notification_handler("long_process_cancelled", "material_mgr",
+                                     self.__restore_registry_backup)
 
         prop_ids = ("diffuse", "ambient", "emissive", "specular", "shininess", "alpha")
         white = {"value": (1., 1., 1., 1.), "on": False}
@@ -1209,11 +1214,10 @@ class MaterialManager(object):
     def __register_material(self, material, in_library=False):
 
         material_id = material.get_id()
+        self._materials[material_id] = material
 
         if in_library:
             self._library[material_id] = material
-        else:
-            self._materials[material_id] = material
 
     def __unregister_material(self, material, in_library=False):
 
@@ -1223,9 +1227,45 @@ class MaterialManager(object):
             return
 
         if in_library:
+
             del self._library[material_id]
+
+            if not material.get_owner_ids():
+                del self._materials[material_id]
+
         elif material_id not in self._library:
+
             del self._materials[material_id]
+
+    def __create_registry_backup(self):
+
+        if self._registry_backup_created:
+            return
+
+        self._materials_backup = self._materials.copy()
+        task = self.__remove_registry_backup
+        task_id = "remove_material_registry_backup"
+        PendingTasks.add(task, task_id, "object", sort=100)
+        self._registry_backup_created = True
+        logging.info('Material registry backup created.')
+
+    def __restore_registry_backup(self, info=""):
+
+        if not self._registry_backup_created:
+            return
+
+        self._materials = self._materials_backup
+        logging.info('Material registry backup restored;\ninfo: %s', info)
+        self.__remove_registry_backup()
+
+    def __remove_registry_backup(self):
+
+        if not self._registry_backup_created:
+            return
+
+        self._materials_backup = None
+        self._registry_backup_created = False
+        logging.info('Material registry backup removed.')
 
     def __select_material(self, material_id):
 
@@ -1487,11 +1527,7 @@ class MaterialManager(object):
         materials = self._library.values()
 
         for material in materials:
-
             material.unregister()
-
-            if not material.get_owner_ids():
-                del self._materials[material.get_id()]
 
         self.__init_new_material(self._base_props, select=True)
 
@@ -1524,9 +1560,6 @@ class MaterialManager(object):
 
         material = self._library[material_id]
         material.unregister()
-
-        if not material.get_owner_ids():
-            del self._materials[material_id]
 
         if not self._library:
             self.__init_new_material(self._base_props, select=True)

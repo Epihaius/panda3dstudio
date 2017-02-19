@@ -187,11 +187,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         polys = subobjs["poly"]
         ordered_polys = self._ordered_polys
         merged_verts = self._merged_verts
-        merged_verts_by_pos = {}
         merged_edges = self._merged_edges
-        merged_edges_tmp = {}
         self._poly_smoothing = poly_smoothing = {}
         smoothing_by_id = {}
+
+        connectivity = {}
+        normals = {}
+        verts_by_pos = {}
+        edges_by_pos = {}
+        polys_by_edge = {}
 
         if gradual:
             poly_count = 0
@@ -199,10 +203,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         for poly_data in data:
 
             row_index = 0
-            verts_by_pos = {}
+            tmp_edges = []
+            positions = {}
+            poly_verts_by_pos = {}
+            poly_edges_by_pos = {}
+            poly_edges_by_vert_id = {}
+
             poly_verts = []
-            edge_data = []
-            triangles = []
+            poly_edges = []
+            poly_tris = []
 
             for tri_data in poly_data["tris"]:
 
@@ -212,73 +221,85 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
                     pos = vert_data["pos"]
 
-                    if pos in verts_by_pos:
+                    if pos in poly_verts_by_pos:
 
-                        vertex = verts_by_pos[pos]
-                        vert_id = vertex.get_id()
+                        vert_id = poly_verts_by_pos[pos]
 
                     else:
 
-                        vertex = Mgr.do("create_vert", self, pos[:])
+                        vertex = Mgr.do("create_vert", self, pos)
                         vertex.set_row_index(row_index)
                         row_index += 1
                         vertex.set_normal(vert_data["normal"])
                         vertex.set_uvs(vert_data["uvs"])
+
+                        if "color" in vert_data:
+                            vertex.set_color(vert_data["color"])
+
                         vert_id = vertex.get_id()
                         verts[vert_id] = vertex
-                        verts_by_pos[pos] = vertex
-                        poly_verts.append(vertex)
-
-                        positions = merged_verts_by_pos.keys()
-
-                        if pos in positions:
-                            index = positions.index(pos)
-                            p = positions[index]
-                            merged_vert = merged_verts_by_pos[p]
-                        else:
-                            merged_vert = Mgr.do("create_merged_vert", self)
-                            merged_verts_by_pos[pos] = merged_vert
-
-                        merged_vert.append(vert_id)
-                        merged_verts[vert_id] = merged_vert
+                        poly_verts_by_pos[pos] = vert_id
+                        positions[vert_id] = pos
 
                     tri_vert_ids.append(vert_id)
 
-                for i, j in ((0, 1), (1, 2), (0, 2)):
+                poly_tris.append(tuple(tri_vert_ids))
 
-                    edge_verts = sorted([verts[tri_vert_ids[i]], verts[tri_vert_ids[j]]])
+                for i, j in ((0, 1), (1, 2), (2, 0)):
 
-                    if edge_verts in edge_data:
-                        edge_data.remove(edge_verts)
+                    edge_vert_ids = (tri_vert_ids[i], tri_vert_ids[j])
+                    reversed_vert_ids = edge_vert_ids[::-1]
+
+                    if reversed_vert_ids in tmp_edges:
+                        # if the edge appears twice, it's actually a diagonal
+                        tmp_edges.remove(reversed_vert_ids)
                     else:
-                        edge_data.append(edge_verts)
+                        tmp_edges.append(edge_vert_ids)
 
-                triangles.append(tuple(tri_vert_ids))
+            for edge_vert_ids in tmp_edges:
+                poly_edges_by_vert_id[edge_vert_ids[0]] = edge_vert_ids
 
-            poly_edges = []
+            # Define verts and edges in winding order
 
-            for edge_verts in edge_data:
+            vert1_id, vert2_id = edge_vert_ids = poly_edges_by_vert_id[poly_tris[0][0]]
+            vert1 = verts[vert1_id]
+            vert2 = verts[vert2_id]
+            poly_verts.append(vert1)
+            edge = Mgr.do("create_edge", self, edge_vert_ids)
+            edge1_id = edge.get_id()
+            vert2.add_edge_id(edge1_id)
+            edges[edge1_id] = edge
+            poly_edges.append(edge)
+            pos1 = positions[vert1_id]
+            pos2 = positions[vert2_id]
+            poly_edges_by_pos[(pos1, pos2)] = edge1_id
 
-                edge = Mgr.do("create_edge", self, edge_verts)
+            while vert2_id != vert1_id:
+                poly_verts.append(vert2)
+                vert1 = vert2
+                edge_vert_ids = poly_edges_by_vert_id[vert2_id]
+                vert2_id = edge_vert_ids[1]
+                vert2 = verts[vert2_id]
+                edge = Mgr.do("create_edge", self, edge_vert_ids)
                 edge_id = edge.get_id()
+                vert1.add_edge_id(edge_id)
+                vert2.add_edge_id(edge_id)
                 edges[edge_id] = edge
                 poly_edges.append(edge)
-                vert_ids = [vert.get_id() for vert in edge_verts]
-                merged_edge_verts = tuple(sorted([merged_verts[v_id] for v_id in vert_ids]))
+                pos1 = pos2
+                pos2 = positions[vert2_id]
+                poly_edges_by_pos[(pos1, pos2)] = edge_id
 
-                if merged_edge_verts in merged_edges_tmp:
-                    merged_edge = merged_edges_tmp[merged_edge_verts]
-                else:
-                    merged_edge = Mgr.do("create_merged_edge", self)
-                    merged_edges_tmp[merged_edge_verts] = merged_edge
+            vert2.add_edge_id(edge1_id)
 
-                merged_edge.append(edge_id)
-                merged_edges[edge_id] = merged_edge
-
-            polygon = Mgr.do("create_poly", self, triangles, poly_edges, poly_verts)
+            polygon = Mgr.do("create_poly", self, poly_tris, poly_edges, poly_verts)
+            polygon.update_normal()
             ordered_polys.append(polygon)
             poly_id = polygon.get_id()
+            normals[poly_id] = normal = V3D(polygon.get_normal().normalized())
             polys[poly_id] = polygon
+            verts_by_pos[poly_id] = poly_verts_by_pos
+            edges_by_pos[poly_id] = poly_edges_by_pos
 
             for smoothing_id, use in poly_data["smoothing"]:
 
@@ -293,19 +314,159 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 if use:
                     poly_smoothing.setdefault(poly_id, set()).add(smoothing_grp)
 
+            neighbor_count = {}
+            poly_connections = {"neighbors": {}, "neighbor_count": neighbor_count}
+
+            for edge_pos in poly_edges_by_pos:
+
+                poly_connections["neighbors"][edge_pos] = neighbors = []
+                reversed_edge_pos = edge_pos[::-1]
+
+                if reversed_edge_pos in polys_by_edge:
+
+                    # one or more other polys form a continuous surface with this one
+
+                    for other_poly_id in polys_by_edge[reversed_edge_pos]:
+
+                        other_connections = connectivity[other_poly_id]
+                        other_neighbors = other_connections["neighbors"][reversed_edge_pos]
+
+                        if normal * normals[other_poly_id] > -.99:
+                            # the other poly's normal is not the inverse of this one's
+                            neighbors.append(other_poly_id)
+                            other_neighbors.append(poly_id)
+                            neighbor_count.setdefault(other_poly_id, 0)
+                            neighbor_count[other_poly_id] += 1
+                            other_neighbor_count = other_connections["neighbor_count"]
+                            other_neighbor_count.setdefault(poly_id, 0)
+                            other_neighbor_count[poly_id] += 1
+
+                polys_by_edge.setdefault(edge_pos, []).append(poly_id)
+
+            connectivity[poly_id] = poly_connections
+
             if gradual:
 
                 poly_count += 1
 
-                if poly_count == 10:
+                if poly_count == 20:
                     yield
                     poly_count = 0
 
-        logging.debug('New mesh has %d polys.', len(ordered_polys))
+        if gradual:
+            poly_count = 0
 
-        processed_data = {"smoothing": smoothing_by_id}
+        for poly_id, connections in connectivity.iteritems():
 
-        yield processed_data
+            for edge_pos, neighbors in connections["neighbors"].iteritems():
+
+                edge_id = edges_by_pos[poly_id][edge_pos]
+
+                if edge_id in merged_edges:
+                    continue
+
+                merged_edge = Mgr.do("create_merged_edge", self, edge_id)
+                merged_edges[edge_id] = merged_edge
+
+                if neighbors:
+
+                    neighbor_to_keep = neighbors[0]
+
+                    if len(neighbors) > 1:
+
+                        neighbor_count = connections["neighbor_count"]
+
+                        for neighbor_id in neighbors:
+                            if neighbor_count[neighbor_id] > neighbor_count[neighbor_to_keep]:
+                                neighbor_to_keep = neighbor_id
+
+                        neighbors_to_discard = neighbors[:]
+                        neighbors_to_discard.remove(neighbor_to_keep)
+
+                        for neighbor_id in neighbors_to_discard:
+                            connectivity[neighbor_id]["neighbors"][edge_pos[::-1]].remove(poly_id)
+                            connectivity[neighbor_id]["neighbor_count"][poly_id] -= 1
+
+                    neighbor_edge_id = edges_by_pos[neighbor_to_keep][edge_pos[::-1]]
+                    merged_edge.append(neighbor_edge_id)
+                    merged_edges[neighbor_edge_id] = merged_edge
+
+            if gradual:
+
+                poly_count += 1
+
+                if poly_count == 20:
+                    yield
+                    poly_count = 0
+
+        if gradual:
+            poly_count = 0
+
+        for poly in ordered_polys:
+
+            for edge_id in poly.get_edge_ids():
+
+                merged_edge = merged_edges[edge_id]
+                vert1_id, vert2_id = edges[edge_id]
+
+                if vert1_id in merged_verts:
+                    merged_vert1 = merged_verts[vert1_id]
+                else:
+                    merged_vert1 = Mgr.do("create_merged_vert", self, vert1_id)
+                    merged_verts[vert1_id] = merged_vert1
+
+                if vert2_id in merged_verts:
+                    merged_vert2 = merged_verts[vert2_id]
+                else:
+                    merged_vert2 = Mgr.do("create_merged_vert", self, vert2_id)
+                    merged_verts[vert2_id] = merged_vert2
+
+                if len(merged_edge) > 1:
+
+                    neighbor_edge_id = merged_edge[0 if merged_edge[1] == edge_id else 1]
+                    neighbor_vert1_id, neighbor_vert2_id = edges[neighbor_edge_id]
+
+                    if neighbor_vert1_id not in merged_vert2:
+
+                        if neighbor_vert1_id in merged_verts:
+
+                            merged_vert = merged_verts[neighbor_vert1_id]
+
+                            for vert_id in merged_vert:
+                                merged_vert2.append(vert_id)
+                                merged_verts[vert_id] = merged_vert2
+
+                        else:
+
+                            merged_vert2.append(neighbor_vert1_id)
+                            merged_verts[neighbor_vert1_id] = merged_vert2
+
+                    if neighbor_vert2_id not in merged_vert1:
+
+                        if neighbor_vert2_id in merged_verts:
+
+                            merged_vert = merged_verts[neighbor_vert2_id]
+
+                            for vert_id in merged_vert:
+                                merged_vert1.append(vert_id)
+                                merged_verts[vert_id] = merged_vert1
+
+                        else:
+
+                            merged_vert1.append(neighbor_vert2_id)
+                            merged_verts[neighbor_vert2_id] = merged_vert1
+
+            if gradual:
+
+                poly_count += 1
+
+                if poly_count == 20:
+                    yield
+                    poly_count = 0
+
+        smoothing_data = {"smoothing": smoothing_by_id}
+
+        yield smoothing_data
 
     def create_geometry(self, obj_type="", gradual=False, restore=False):
 
@@ -384,23 +545,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
                     tris_prim.add_vertex(vert.get_row_index())
 
-            if not restore:
-                start_row_indices = []
-                end_row_indices = []
-
             for edge in poly.get_edges():
-
                 row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
-
-                if not restore:
-
-                    if row1 in start_row_indices or row2 in end_row_indices:
-                        row1, row2 = row2, row1
-                        edge.reverse_vertex_order()
-
-                    start_row_indices.append(row1)
-                    end_row_indices.append(row2)
-
                 lines_prim.add_vertices(row1, row2 + count)
 
             row_index_offset += poly.get_vertex_count()
@@ -656,7 +802,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         self._vertex_data["poly"].set_array(2, array)
         vertex_data.set_array(2, GeomVertexArrayData(array))
 
-    def reset_vertex_colors(self):
+    def clear_vertex_colors(self):
 
         vertex_data_copy = self._vertex_data["poly"].set_color((1., 1., 1., 1.))
         array = vertex_data_copy.get_array(2)
@@ -664,7 +810,22 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data.set_array(2, GeomVertexArrayData(array))
 
-    def init_vertex_colors(self):
+    def set_initial_vertex_colors(self):
+
+        vertex_data_copy = GeomVertexData(self._vertex_data["poly"])
+        col_writer = GeomVertexWriter(vertex_data_copy, "color")
+
+        for vert in self._subobjs["vert"].itervalues():
+            row = vert.get_row_index()
+            col_writer.set_row(row)
+            col_writer.set_data4f(vert.get_color())
+
+        array = vertex_data_copy.get_array(2)
+        self._vertex_data["poly"].set_array(2, GeomVertexArrayData(array))
+        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(2, GeomVertexArrayData(array))
+
+    def init_picking_colors(self):
 
         pickable_id_vert = PickableTypes.get_id("vert")
         pickable_id_edge = PickableTypes.get_id("edge")
@@ -700,19 +861,22 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             row_index = vert_subobjs[edge[1]].get_row_index() + count
             picking_colors[row_index] = picking_color
 
-        for row_index in sorted(picking_colors.iterkeys()):
+        for row_index in sorted(picking_colors):
             picking_color = picking_colors[row_index]
             col_writer_edge.add_data4f(picking_color)
 
-    def init_poly_normals(self):
+    def init_poly_normals(self, update_poly_normals=True):
 
-        for poly in self._ordered_polys:
-            poly.update_normal()
+        if update_poly_normals:
 
-        yield True
+            for poly in self._ordered_polys:
+                poly.update_normal()
 
-        for step in self._update_vertex_normals(set(self._merged_verts.itervalues())):
-            yield True
+        updater = self._update_vertex_normals(set(self._merged_verts.itervalues()))
+
+        if updater.next():
+            for step in updater:
+                yield True
 
         yield False
 
@@ -777,10 +941,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def finalize_geometry(self, update_poly_centers=True):
 
-        self.init_vertex_colors()
+        self.init_picking_colors()
         self.init_uvs()
 
-        for step in self.init_poly_normals():
+        for step in self.init_poly_normals(update_poly_normals=False):
             yield
 
         if update_poly_centers:
@@ -961,31 +1125,6 @@ class GeomDataManager(ObjectManager):
         Mgr.expose("subobj_selection_colors", lambda: self._subobj_sel_colors)
 
     def setup(self):
-
-        sort = PendingTasks.get_sort("clear_geom_data", "object")
-
-        if sort is None:
-            return False
-
-        task_ids = (
-            "merge_subobjs",
-            "restore_geometry",
-            "unregister_subobjs",
-            "register_subobjs",
-            "set_subobj_sel",
-            "upd_subobj_sel",
-            "upd_verts_to_transf",
-            "set_subobj_transf",
-            "set_uvs",
-            "set_poly_triangles",
-            "smooth_polys",
-            "upd_vert_normals",
-            "upd_tangent_space",
-            "set_material"
-        )
-
-        for task_id in reversed(task_ids):
-            PendingTasks.add_task_id(task_id, "object", sort + 1)
 
         np = NodePath("poly_sel_state")
         poly_sel_state_off = np.get_state()

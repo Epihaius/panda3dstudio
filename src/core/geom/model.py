@@ -9,12 +9,6 @@ class ModelManager(ObjectManager):
         ObjectManager.__init__(self, "model", self.__create_model)
         GlobalData.set_default("two_sided", False)
 
-    def setup(self):
-
-        PendingTasks.add_task_id("set_geom_obj", "object", 0)
-
-        return True
-
     def __create_model(self, model_id, name, origin_pos, bbox_color=(1., 1., 1., 1.)):
 
         model = Model(model_id, name, origin_pos, bbox_color)

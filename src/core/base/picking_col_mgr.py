@@ -11,8 +11,6 @@ class PickingColorIDManager(object):
     @classmethod
     def init(cls):
 
-        sort = PendingTasks.get_sort("register_subobjs", "object")
-        PendingTasks.add_task_id("update_picking_col_id_ranges", "object", sort + 1)
         Mgr.accept("reset_picking_col_id_ranges", cls.__reset_id_ranges)
         Mgr.accept("update_picking_col_id_ranges", cls.__update_id_ranges)
         Mgr.accept("create_id_range_backups", cls.__create_id_range_backups)

@@ -24,6 +24,7 @@ class ExportManager(BaseObject):
                 pos1 = vert1.get_pos()
                 normal1 = vert1.get_normal()
                 uv1 = vert1.get_uvs()
+                col1 = vert1.get_color()
                 row1 = vert1.get_row_index()
 
                 if row1 in dupes:
@@ -37,8 +38,9 @@ class ExportManager(BaseObject):
                     pos2 = vert2.get_pos()
                     normal2 = vert2.get_normal()
                     uv2 = vert2.get_uvs()
+                    col2 = vert2.get_color()
 
-                    if pos2 == pos1 and normal2 == normal1 and uv2 == uv1:
+                    if pos2 == pos1 and normal2 == normal1 and uv2 == uv1 and col2 == col1:
                         row2 = vert2.get_row_index()
                         rows.remove(row2)
                         verts2.remove(vert2)
@@ -104,12 +106,11 @@ class ExportManager(BaseObject):
                 node.set_name(child.get_name())
                 node.set_state(origin.get_state())
                 material = child.get_material()
-                r, g, b, a = origin.get_color()
 
                 if material and not material.has_base_properties():
                     node.clear_material()
 
-                if not material or r == g == b == a == 1.:
+                if not material:
                     node.clear_color()
 
                 if origin.get_transparency() == TransparencyAttrib.M_none:
@@ -214,28 +215,42 @@ class ExportManager(BaseObject):
                         else:
 
                             polys = geom_data_obj.get_subobjects("poly").itervalues()
-                            epsilon = 1.e-006
+                            verts = geom_data_obj.get_subobjects("vert")
+                            epsilon = 1.e-005
 
                             for poly in polys:
 
-                                verts = poly.get_vertices(in_winding_order=True)
-                                points = [v.get_pos(group_pivot) for v in verts]
-                                point_count = len(points)
+                                is_quad = False
 
-                                if point_count == 4:
+                                if poly.get_vertex_count() == 4:
 
-                                    triangle = points[:3]
+                                    is_quad = True
+                                    is_planar = False
+                                    tri_vert_ids = poly[0]
+                                    tri_verts = (verts[v_id] for v_id in tri_vert_ids)
+                                    points = [v.get_pos(group_pivot) for v in tri_verts]
 
-                                    if abs(Plane(*triangle).dist_to_plane(points[-1])) < epsilon:
-                                        coll_poly = CollisionPolygon(*points)
-                                        collision_node.add_solid(coll_poly)
+                                    for i, v_id in enumerate(poly[1]):
+                                        if v_id not in tri_vert_ids:
+                                            point = verts[v_id].get_pos(group_pivot)
+                                            preceding_v_id = poly[1][i - 1]
+                                            index = tri_vert_ids.index(preceding_v_id) + 1
+                                            break
+
+                                    if abs(Plane(*points).dist_to_plane(point)) < epsilon:
+                                        points.insert(index, point)
+                                        is_planar = True
+
+                                    coll_poly = CollisionPolygon(*points)
+                                    collision_node.add_solid(coll_poly)
+
+                                    if is_planar:
                                         continue
 
-                                point1 = points.pop(0)
-
-                                for i in range(point_count - 2):
-                                    triangle = [point1] + points[i:i+2]
-                                    coll_poly = CollisionPolygon(*triangle)
+                                for tri_vert_ids in poly[1 if is_quad else 0:]:
+                                    tri_verts = (verts[v_id] for v_id in tri_vert_ids)
+                                    points = [v.get_pos(group_pivot) for v in tri_verts]
+                                    coll_poly = CollisionPolygon(*points)
                                     collision_node.add_solid(coll_poly)
 
                     if coll_solid:

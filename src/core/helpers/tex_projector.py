@@ -52,13 +52,6 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
     def setup(self):
 
-        sort = PendingTasks.get_sort("set_obj_level", "object")
-
-        if sort is None:
-            return False
-
-        PendingTasks.add_task_id("update_texproj", "object", sort + 1)
-
         creation_phases = []
         creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
         creation_phases.append(creation_phase)
@@ -473,7 +466,17 @@ class TemporaryTexProjector(object):
         self._size = 0.
         object_root = Mgr.get("object_root")
         self._temp_geom = tmp_geom = self.original_geom.copy_to(object_root)
-        tmp_geom.set_pos(pos)
+
+        active_grid_plane = Mgr.get(("grid", "plane"))
+        grid_origin = Mgr.get(("grid", "origin"))
+
+        if active_grid_plane == "xz":
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
+        elif active_grid_plane == "yz":
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 90.))
+        else:
+            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
+
         lens_viz = tmp_geom.find("**/tex_proj_lens_%s_viz" % projection_type)
         lens_viz.show()
 
@@ -500,7 +503,7 @@ class TemporaryTexProjector(object):
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos()
+        pos = self._temp_geom.get_pos(Mgr.get(("grid", "origin")))
 
         for step in Mgr.do("create_tex_projector", pos, self._size):
             pass

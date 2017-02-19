@@ -174,7 +174,7 @@ def __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms):
         layer.set_blend_mode(dict(zip(BLEND_MODES, BLEND_MODE_IDS))[mode])
 
 
-def render_state_to_material(render_state):
+def render_state_to_material(render_state, geom_vertex_format, for_basic_geom=True):
 
     default_uv_set_name = InternalName.get_texcoord()
     uv_set_list = [default_uv_set_name]
@@ -185,6 +185,17 @@ def render_state_to_material(render_state):
     if render_state.is_empty():
 
         material = None
+
+        src_uv_set_names = list(geom_vertex_format.get_texcoords())
+
+        for uv_set_name in uv_set_list[:]:
+            if uv_set_name in src_uv_set_names:
+                uv_set_list.remove(uv_set_name)
+                src_uv_set_names.remove(uv_set_name)
+                uv_set_names[uv_set_name] = uv_set_name
+
+        for src_uv_set_name, dest_uv_set_name in zip(src_uv_set_names, uv_set_list):
+            uv_set_names[src_uv_set_name] = dest_uv_set_name
 
     else:
 
@@ -275,7 +286,7 @@ def render_state_to_material(render_state):
                 stage = colormap_stages[0]
                 uv_set_name = stage.get_texcoord_name()
 
-                if uv_set_name != default_uv_set_name:
+                if uv_set_name != default_uv_set_name or not for_basic_geom:
                     uv_set_names[uv_set_name] = default_uv_set_name
 
                 texture = tex_attrib.get_on_texture(stage)
@@ -358,9 +369,14 @@ def render_state_to_material(render_state):
 
                 src_uv_set_names = set(stages_by_uv_set.iterkeys())
                 dest_uv_set_names = set(uv_set_list[:len(stages_by_uv_set)])
-                common = src_uv_set_names & dest_uv_set_names
-                src_uv_set_names -= common
-                dest_uv_set_names -= common
+
+                if for_basic_geom:
+                    common = src_uv_set_names & dest_uv_set_names
+                    src_uv_set_names -= common
+                    dest_uv_set_names -= common
+                else:
+                    common = set()
+
                 uv_set_names = dict(zip(src_uv_set_names, dest_uv_set_names))
 
                 stage = layer_stages.pop(0)

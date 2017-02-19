@@ -1,4 +1,4 @@
-from ...base import logging, GlobalData
+from ...base import logging, re, GlobalData, get_unique_name
 import platform
 import math
 import os
@@ -122,21 +122,6 @@ class PendingTasks(object):
             task()
 
         cls._is_handling_tasks = False
-
-    @classmethod
-    def add_task_id(cls, task_id, task_type="", sort=None):
-        """
-        Add a task ID, optionally associated with a particular task type, and with
-        an optional sort value.
-
-        """
-
-        task_ids = cls._task_ids.setdefault(task_type, [])
-
-        if sort is None:
-            task_ids.append(task_id)
-        else:
-            task_ids.insert(sort, task_id)
 
     @classmethod
     def get_sort(cls, task_id, task_type=""):

@@ -40,15 +40,6 @@ class GroupManager(ObjectManager):
 
     def setup(self):
 
-        sort = PendingTasks.get_sort("origin_transform", "object")
-
-        if sort is None:
-            return False
-
-        PendingTasks.add_task_id("center_group_pivot", "object", sort + 1)
-        PendingTasks.add_task_id("update_group_bboxes", "object", sort + 2)
-        PendingTasks.add_task_id("set_group_member_types", "object", sort + 3)
-
         bbox_root = self.cam().attach_new_node("group_bbox_root")
         bbox_root.set_bin("fixed", 52)
         bbox_root.set_depth_test(False)

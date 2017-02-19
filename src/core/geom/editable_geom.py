@@ -8,24 +8,25 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
         self._id_generator = id_generator()
         Mgr.accept("create_editable_geom", self.__create)
 
-    def __create(self, model=None, geom_data_obj=None, name="", origin_pos=None):
+    def __create(self, model=None, geom_data_obj=None, name="", origin_pos=None,
+                 has_vert_colors=False):
 
         if not model:
             pos = Point3() if origin_pos is None else origin_pos
             model_id = ("editable_geom",) + self._id_generator.next()
             model = Mgr.do("create_model", model_id, name, pos)
 
-        obj = EditableGeom(model, geom_data_obj)
+        obj = EditableGeom(model, geom_data_obj, has_vert_colors)
 
         return obj
 
 
 class EditableGeom(GeomDataOwner):
 
-    def __init__(self, model, geom_data_obj):
+    def __init__(self, model, geom_data_obj, has_vert_colors):
 
         data_obj = geom_data_obj if geom_data_obj else Mgr.do("create_geom_data", self)
-        GeomDataOwner.__init__(self, [], [], model, data_obj)
+        GeomDataOwner.__init__(self, [], [], model, data_obj, has_vert_colors)
         model.set_geom_object(self)
 
         self._type = "editable_geom"
