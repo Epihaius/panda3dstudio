@@ -63,16 +63,7 @@ class TriangulationBase(BaseObject):
         # a dict of (TriangleSide:[apex1_id, apex2_id]) pairs
         self._tmp_tris = {}
         self._tmp_geom = None
-
-    def set_pickable(self, is_pickable=True):
-
-        picking_masks = Mgr.get("picking_masks")["all"]
-        geom_poly_pickable = self._geoms["poly"]["pickable"]
-
-        if is_pickable:
-            geom_poly_pickable.show_through(picking_masks)
-        else:
-            geom_poly_pickable.show(picking_masks)
+        self._tri_change = set()
 
     def create_triangulation_data(self):
 
@@ -275,15 +266,11 @@ class TriangulationBase(BaseObject):
         top_handle.set_data(top_data)
 
         poly.set_triangle_data(new_tri_data)
-        poly.update_normal()
-        merged_verts = set(self._merged_verts[v_id] for v_id in poly.get_vertex_ids())
+        self._tri_change = set(self._selected_subobj_ids["poly"])
 
-        progress_steps = len(merged_verts) // 20
-
-        yield True, progress_steps
-
-        for step in self._update_vertex_normals(merged_verts):
-            yield
+        prim = self._toplvl_node.get_geom(0).get_primitive(0)
+        poly_picking_geom = self._geoms["poly"]["pickable"].node().modify_geom(0)
+        poly_picking_geom.set_primitive(0, GeomTriangles(prim))
 
     def _restore_poly_triangle_data(self, old_time_id, new_time_id):
 
@@ -440,18 +427,9 @@ class TriangulationBase(BaseObject):
 
             row_offset += len(poly)
 
-        vert_ids = []
-
-        for poly in polys_to_update:
-            poly.update_center_pos()
-            poly.update_normal()
-            vert_ids.extend(poly.get_vertex_ids())
-
-        self._vert_normal_change.update(vert_ids)
-
-        if self._tmp_geom:
-            self.clear_triangulation_data()
-            self.create_triangulation_data()
+        prim = self._toplvl_node.get_geom(0).get_primitive(0)
+        poly_picking_geom = geoms["poly"]["pickable"].node().modify_geom(0)
+        poly_picking_geom.set_primitive(0, GeomTriangles(prim))
 
 
 class TriangulationManager(BaseObject):
@@ -470,8 +448,6 @@ class TriangulationManager(BaseObject):
         self._diagonals.append(diagonal)
         diagonal.set_id(len(self._diagonals))
 
-    def setup(self):
-
         add_state = Mgr.add_state
         add_state("diagonal_turning_mode", -10, self.__enter_diagonal_turning_mode,
                   self.__exit_diagonal_turning_mode)
@@ -484,14 +460,12 @@ class TriangulationManager(BaseObject):
         bind("diagonal_turning_mode", "cancel diagonal turning", "mouse3-up",
              lambda: Mgr.exit_state("diagonal_turning_mode"))
         bind("diagonal_turning_mode", "turn diagonal", "mouse1",
-             self.__do_turn_diagonal)
+             self.__turn_diagonal)
 
         status_data = GlobalData["status_data"]
         mode_text = "Turn polygon diagonal"
         info_text = "LMB to pick a polygon diagonal to turn; RMB to cancel"
         status_data["turn_diagonal"] = {"mode": mode_text, "info": info_text}
-
-        return True
 
     def __init_diagonal_turning_mode(self):
 
@@ -549,27 +523,11 @@ class TriangulationManager(BaseObject):
         color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
 
         if color_id == 0:
-            yield False
+            return
 
         diagonal = self._diagonals[color_id - 1]
         geom_data_obj = diagonal.get_geom_data_object()
-        handler = geom_data_obj.turn_diagonal(diagonal)
-
-        for result in handler:
-            if result:
-                change, progress_steps = result
-                break
-
-        gradual = progress_steps > 20
-
-        if gradual:
-            Mgr.show_screenshot()
-            GlobalData["progress_steps"] = progress_steps
-
-        for step in handler:
-            if gradual:
-                yield True
-
+        geom_data_obj.turn_diagonal(diagonal)
         obj = geom_data_obj.get_toplevel_object()
         obj_id = obj.get_id()
         obj_name = obj.get_name()
@@ -579,13 +537,3 @@ class TriangulationManager(BaseObject):
         event_descr = 'Turn polygon diagonal of object:\n\n    "%s"' % obj_name
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
-
-        yield False
-
-    def __do_turn_diagonal(self):
-
-        process = self.__turn_diagonal()
-
-        if process.next():
-            descr = "Updating geometry..."
-            Mgr.do_gradually(process, "diagonal_turning", descr)

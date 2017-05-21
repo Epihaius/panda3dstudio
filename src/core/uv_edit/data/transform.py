@@ -15,6 +15,63 @@ class UVDataTransformBase(BaseObject):
         self._transf_start_data = {"bounds": None, "pos_array": None}
         self._pos_arrays = {"main": None, "edge": None}
 
+    def update_vertex_positions(self, vertex_ids):
+
+        verts = self._subobjs["vert"]
+        polys = self._subobjs["poly"]
+        merged_verts = self._merged_verts
+        geoms = self._geoms
+        uv_set_id = UVMgr.get("active_uv_set")
+        geom_data_obj = self._geom_data_obj
+        geom_verts = geom_data_obj.get_subobjects("vert")
+        polys_to_update = set()
+        vertex_data = self._vertex_data_poly
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        pos_writer = GeomVertexWriter(tmp_vertex_data, "vertex")
+
+        for vert_id in vertex_ids:
+            vert = verts[vert_id]
+            poly = polys[vert.get_polygon_id()]
+            polys_to_update.add(poly)
+            row = vert.get_row_index()
+            pos = vert.get_pos()
+            pos_writer.set_row(row)
+            pos_writer.set_data3f(pos)
+            u, v = pos[0], pos[2]
+            geom_verts[vert_id].set_uvs((u, v), uv_set_id)
+
+        pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
+        vertex_data.set_array(0, pos_array)
+        vertex_data = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        vertex_data = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+
+        pos_array = GeomVertexArrayData(pos_array)
+        handle = pos_array.modify_handle()
+        handle.set_data(handle.get_data() * 2)
+        vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+        vertex_data = geoms["seam"].node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(0, pos_array)
+
+        for poly in polys_to_update:
+            poly.update_center_pos()
+
+        geom = geoms["vert"]["sel_state"]
+        geom.node().modify_geom(0).modify_vertex_data() # updates bounds
+        bounds = geom.node().get_bounds()
+
+        if bounds.get_radius() == 0.:
+            center = bounds.get_center()
+            bounds = BoundingSphere(center, .1)
+
+        self._origin.node().set_bounds(bounds)
+
+        geom_data_obj.apply_uv_edits(vertex_ids, uv_set_id)
+
     def _update_verts_to_transform(self, subobj_lvl):
 
         selected_subobj_ids = self._selected_subobj_ids[subobj_lvl]
@@ -204,7 +261,7 @@ class UVDataTransformBase(BaseObject):
                 pos = Point3(pos_reader.get_data3f())
                 merged_vert.set_pos(pos)
                 u, v = pos[0], pos[2]
-                vert_ids.extend(merged_vert[:])
+                vert_ids.extend(merged_vert)
 
                 for vert_id in merged_vert:
                     geom_verts[vert_id].set_uvs((u, v), uv_set_id)
@@ -217,6 +274,10 @@ class UVDataTransformBase(BaseObject):
                 poly.update_center_pos()
 
             geom_data_obj.apply_uv_edits(vert_ids, uv_set_id)
+
+        if bounds.get_radius() == 0.:
+            center = bounds.get_center()
+            bounds = BoundingSphere(center, .1)
 
         self._origin.node().set_bounds(bounds)
         start_data.clear()

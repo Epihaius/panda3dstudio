@@ -1,5 +1,76 @@
 from ..base import *
 
+VERT_SHADER_NORMALS = """
+    #version 330
+
+    // Vertex inputs
+    in vec4 p3d_Vertex;
+    in vec3 p3d_Normal;
+    in vec4 p3d_Color;
+
+    out Vertex
+    {
+        vec3 normal;
+        vec4 color;
+    } vertex;
+
+    void main()
+    {
+        gl_Position = p3d_Vertex;
+        vertex.normal = p3d_Normal;
+        vertex.color = p3d_Color;
+    }
+"""
+
+GEOM_SHADER_NORMALS = """
+    #version 330
+
+    layout(points) in;
+
+    // Three lines will be generated: 6 vertices
+    layout(line_strip, max_vertices=2) out;
+
+    uniform mat4 p3d_ModelViewProjectionMatrix;
+    uniform float normal_length;
+
+    in Vertex
+    {
+        vec3 normal;
+        vec4 color;
+    } vertex[];
+
+    out vec4 vertex_color;
+
+    void main()
+    {
+
+        vec3 P = gl_in[0].gl_Position.xyz;
+        vec3 N = vertex[0].normal;
+
+        gl_Position = p3d_ModelViewProjectionMatrix * vec4(P, 1.0);
+        vertex_color = vertex[0].color;
+        EmitVertex();
+
+        gl_Position = p3d_ModelViewProjectionMatrix * vec4(P + N * normal_length, 1.0);
+        EmitVertex();
+
+        EndPrimitive();
+
+    }
+"""
+
+FRAG_SHADER_NORMALS = """
+    #version 330
+
+    in vec4 vertex_color;
+    out vec4 out_color;
+
+    void main()
+    {
+        out_color = vertex_color;
+    }
+"""
+
 
 class GeomDataOwner(BaseObject):
 
@@ -8,18 +79,20 @@ class GeomDataOwner(BaseObject):
         state = self.__dict__.copy()
         state["_model"] = None
         state["_geom_data_obj"] = None
+        state["_normals_flipped"] = False
 
         return state
 
     def __init__(self, prop_ids, type_prop_ids, model, geom_data_obj=None, has_vert_colors=False):
 
         self._prop_ids = prop_ids + ["geom_data"]
-        self._type_prop_ids = type_prop_ids
+        self._type_prop_ids = type_prop_ids + ["normal_flip"]
         self._model = model
         self._geom_data_obj = geom_data_obj
         self._geom_data_backup = None
         # the following refers to the vertex colors of imported geometry
         self._has_vert_colors = has_vert_colors
+        self._normals_flipped = False
         model.set_geom_object(self)
 
         if geom_data_obj:
@@ -90,11 +163,12 @@ class GeomDataOwner(BaseObject):
 
         self._geom_data_obj.set_origin(origin)
 
-    def replace(self, geom_obj):
+    def replace(self, other):
 
         geom_data_obj = self._geom_data_obj
-        geom_data_obj.set_owner(geom_obj)
-        geom_obj.set_geom_data_object(geom_data_obj)
+        geom_data_obj.set_owner(other)
+        other.set_geom_data_object(geom_data_obj)
+        other.set_flipped_normals(self._normals_flipped)
 
     def get_subobj_selection(self, subobj_lvl):
 
@@ -112,11 +186,13 @@ class GeomDataOwner(BaseObject):
 
         self._geom_data_obj.update_render_mode(is_selected)
 
-    def update_tangent_space(self, flip_tangent, flip_bitangent):
+    def update_tangent_space(self, tangent_flip, bitangent_flip):
 
-        self._geom_data_obj.flip_tangent(flip_tangent)
-        self._geom_data_obj.flip_bitangent(flip_bitangent)
-        self._geom_data_obj.update_tangent_space()
+        self._geom_data_obj.update_tangent_space(tangent_flip, bitangent_flip)
+
+    def init_tangent_space(self):
+
+        self._geom_data_obj.init_tangent_space()
 
     def is_tangent_space_initialized(self):
 
@@ -137,9 +213,32 @@ class GeomDataOwner(BaseObject):
         else:
             self._geom_data_obj.clear_vertex_colors()
 
+    def flip_normals(self, flip=True, restore=""):
+
+        if self._normals_flipped == flip:
+            return False
+
+        self._geom_data_obj.flip_normals(flip)
+        self._normals_flipped = flip
+
+        return True
+
+    def set_flipped_normals(self, flipped=True):
+
+        self._normals_flipped = flipped
+
+    def has_flipped_normals(self):
+
+        return self._normals_flipped
+
     def set_two_sided(self, two_sided=True):
 
-        self._geom_data_obj.get_origin().set_two_sided(two_sided)
+        origin = self._model.get_origin()
+
+        if two_sided:
+            origin.set_two_sided(True)
+        else:
+            origin.clear_two_sided()
 
     def show_subobj_level(self, obj_lvl):
 
@@ -164,9 +263,7 @@ class GeomDataOwner(BaseObject):
 
         elif event_type == "prop_change":
 
-            if prop_id == "editable state":
-                data["geom_obj"] = {"main": self}
-            elif prop_id in self.get_property_ids():
+            if prop_id in self.get_property_ids():
                 data.update(self.get_property_to_store(prop_id, event_type))
 
         data.update(self._geom_data_obj.get_data_to_store(event_type, prop_id))
@@ -231,7 +328,24 @@ class GeomDataOwner(BaseObject):
             value.get_origin().reparent_to(self._model.get_origin())
             value.set_owner(self)
 
+            if self._normals_flipped:
+                value.flip_normals()
+
             return True
+
+        elif prop_id == "normal_flip":
+
+            Mgr.update_remotely("selected_obj_prop", "basic_geom", prop_id, value)
+            return self.flip_normals(value, restore)
+
+    def get_property(self, prop_id, for_remote_update=False):
+
+        if prop_id == "normal_flip":
+            return self._normals_flipped
+
+        obj_lvl = GlobalData["active_obj_level"]
+
+        return self._geom_data_obj.get_property(prop_id, for_remote_update, obj_lvl)
 
     def get_property_ids(self, for_hist=False):
 
@@ -239,4 +353,6 @@ class GeomDataOwner(BaseObject):
 
     def get_type_property_ids(self):
 
-        return self._type_prop_ids
+        obj_lvl = GlobalData["active_obj_level"]
+
+        return self._type_prop_ids + self._geom_data_obj.get_type_property_ids(obj_lvl)

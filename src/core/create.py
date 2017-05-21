@@ -22,8 +22,6 @@ class CreationManager(BaseObject):
         Mgr.add_app_updater("interactive_creation", self.__update_creation)
         Mgr.add_app_updater("creation", self.__create_object)
 
-    def setup(self):
-
         add_state = Mgr.add_state
         add_state("creation_mode", -10, self.__enter_creation_mode, self.__exit_creation_mode)
 
@@ -55,8 +53,6 @@ class CreationManager(BaseObject):
              "mouse1-up", cancel_creation)
         bind("creation_mode", "start object creation", "mouse1",
              self.__start_interactive_creation)
-
-        return True
 
     def __update_creation(self, mode_status):
 

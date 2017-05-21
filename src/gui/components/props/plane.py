@@ -1,18 +1,18 @@
 from .base import *
 
 
-class BoxProperties(BaseObject):
+class PlaneProperties(BaseObject):
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
-        self._segments_default = {"x": 1, "y": 1, "z": 1}
+        self._segments_default = {"x": 1, "y": 1}
 
-        section = panel.add_section("box_props", "Box properties")
+        section = panel.add_section("plane_props", "Plane properties")
 
-        axes = "xyz"
-        dimensions = ("width", "depth", "height")
+        axes = "xy"
+        dimensions = ("length", "width")
         prop_types = ("size", "segments")
         val_types = ("float", "int")
         parsers = (self.__parse_dimension, self.__parse_segments)
@@ -34,19 +34,6 @@ class BoxProperties(BaseObject):
                 self._fields[prop_id] = field
                 field.set_input_parser(prop_id, parser)
 
-        self._fields["size_z"].set_input_parser("size_z", self.__parse_height)
-
-        sizer = section.get_client_sizer()
-        sizer_args = (0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
-
-        bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
-
-        label = "Convert to planes"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        PanelButton(panel, section, sizer, bitmaps, label,
-                    "Turn sides into separate plane primitives",
-                    self.__replace_with_planes, sizer_args)
-
     def __handle_value(self, value_id, value):
 
         in_creation_mode = GlobalData["active_creation_type"]
@@ -61,7 +48,7 @@ class BoxProperties(BaseObject):
             val = value
 
         if in_creation_mode:
-            Mgr.update_app("box_prop_default", prop_id, val)
+            Mgr.update_app("plane_prop_default", prop_id, val)
             return
 
         Mgr.update_remotely("selected_obj_prop", prop_id, val)
@@ -73,17 +60,6 @@ class BoxProperties(BaseObject):
         except:
             return None
 
-    def __parse_height(self, height):
-
-        try:
-            value = float(eval(height))
-        except:
-            return None
-
-        sign = -1. if value < 0. else 1.
-
-        return max(.001, abs(value)) * sign
-
     def __parse_segments(self, segments):
 
         try:
@@ -91,20 +67,13 @@ class BoxProperties(BaseObject):
         except:
             return None
 
-    def __replace_with_planes(self):
-
-        if GlobalData["active_creation_type"] != "":
-            return
-
-        Mgr.update_remotely("box_to_planes")
-
     def get_base_type(self):
 
         return "primitive"
 
     def get_section_ids(self):
 
-        return ["box_props"] + self.get_extra_section_ids()
+        return ["plane_props"] + self.get_extra_section_ids()
 
     def get_extra_section_ids(self):
 
@@ -114,7 +83,7 @@ class BoxProperties(BaseObject):
 
         if prop_id == "segments":
             self._segments_default.update(value)
-            for axis in "xyz":
+            for axis in "xy":
                 value_id = "segments_" + axis
                 field = self._fields[value_id]
                 field.show_text()
@@ -132,7 +101,7 @@ class BoxProperties(BaseObject):
             return
 
         if prop_id == "segments":
-            for axis in "xyz":
+            for axis in "xy":
                 value_id = "segments_" + axis
                 field = self._fields[value_id]
                 field.set_value(value_id, value[axis])
@@ -151,5 +120,5 @@ class BoxProperties(BaseObject):
             field.show_text(not multi_sel)
 
 
-ObjectTypes.add_type("box", "Box")
-PropertyPanel.add_properties("box", BoxProperties)
+ObjectTypes.add_type("plane", "Plane")
+PropertyPanel.add_properties("plane", PlaneProperties)

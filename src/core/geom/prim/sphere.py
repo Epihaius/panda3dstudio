@@ -2,126 +2,11 @@ from .base import *
 from math import pi, sin, cos
 
 
-class SphereManager(PrimitiveManager):
-
-    def __init__(self):
-
-        PrimitiveManager.__init__(self, "sphere", custom_creation=True)
-
-        self._draw_plane = None
-
-        self.set_property_default("radius", 1.)
-        self.set_property_default("temp_segments", 8)  # minimum = 4
-        self.set_property_default("segments", 12)  # minimum = 4
-        self.set_property_default("smoothness", True)
-
-    def setup(self):
-
-        creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
-        creation_phases.append(creation_phase)
-
-        status_text = {}
-        status_text["obj_type"] = "sphere"
-        status_text["phase1"] = "draw out the sphere"
-
-        return PrimitiveManager.setup(self, creation_phases, status_text)
-
-    def create_temp_primitive(self, color, pos):
-
-        segs = self.get_property_defaults()["segments"]
-        tmp_segs = self.get_property_defaults()["temp_segments"]
-        segments = segs if segs < tmp_segs else tmp_segs
-        is_smooth = self.get_property_defaults()["smoothness"]
-        tmp_prim = TemporarySphere(segments, is_smooth, color, pos)
-
-        return tmp_prim
-
-    def create_primitive(self, model):
-
-        prim = Sphere(model)
-        segments = self.get_property_defaults()["segments"]
-        poly_count, merged_vert_count = _get_mesh_density(segments)
-        progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
-        gradual = progress_steps > 100
-
-        for step in prim.create(segments, self.get_property_defaults()["smoothness"]):
-            if gradual:
-                yield
-
-        yield prim, gradual
-
-    def init_primitive_size(self, prim, size=None):
-
-        prop_defaults = self.get_property_defaults()
-        radius = prop_defaults["radius"] if size is None else size
-        prim.init_radius(radius)
-
-    def __start_creation_phase1(self):
-        """ Start drawing out sphere """
-
-        # Create the plane parallel to the camera and going through the sphere
-        # center, used to determine the radius drawn out by the user.
-
-        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        self._draw_plane = Plane(normal, point)
-
-    def __creation_phase1(self):
-        """ Draw out sphere """
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(self.cam(), point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
-        intersection_point = Point3()
-        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        radius = max(.001, (intersection_point - point).length())
-        self.get_temp_primitive().update_radius(radius)
-
-    def create_custom_primitive(self, name, radius, segments, pos, rel_to_grid=False,
-                                smooth=True, gradual=False):
-
-        model_id = self.generate_object_id()
-        model = Mgr.do("create_model", model_id, name, pos)
-
-        if not rel_to_grid:
-            pivot = model.get_pivot()
-            pivot.clear_transform()
-            pivot.set_pos(self.world, pos)
-
-        next_color = self.get_next_object_color()
-        model.set_color(next_color, update_app=False)
-        prim = Sphere(model)
-
-        for step in prim.create(segments, smooth):
-            if gradual:
-                yield
-
-        prim.init_radius(radius)
-
-        for step in prim.get_geom_data_object().finalize_geometry():
-            if gradual:
-                yield
-
-        model.set_geom_object(prim)
-        self.set_next_object_color()
-
-        yield model
-
-
 def _get_mesh_density(segments):
 
     poly_count = segments * (segments // 2)
-    merged_vert_count = (segments - 2) // 2 * segments + 2
 
-    return poly_count, merged_vert_count
+    return poly_count
 
 
 def _define_geom_data(segments, smooth, temp=False):
@@ -205,12 +90,12 @@ def _define_geom_data(segments, smooth, temp=False):
 
                 pos = positions_main[vi]
                 normal = get_normal(vi)
+                vert_props = {"pos": pos, "normal": normal}
 
-                if temp:
-                    tri_data1.append({"pos": pos, "normal": normal})
-                else:
-                    uv = uvs_main[vi]
-                    tri_data1.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+                if not temp:
+                    vert_props["uvs"] = {0: uvs_main[vi]}
+
+                tri_data1.append(vert_props)
 
             vert_ids = (vi1, vi3, vi4)
             tri_data2 = []
@@ -219,12 +104,12 @@ def _define_geom_data(segments, smooth, temp=False):
 
                 pos = positions_main[vi]
                 normal = get_normal(vi)
+                vert_props = {"pos": pos, "normal": normal}
 
-                if temp:
-                    tri_data2.append({"pos": pos, "normal": normal})
-                else:
-                    uv = uvs_main[vi]
-                    tri_data2.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+                if not temp:
+                    vert_props["uvs"] = {0: uvs_main[vi]}
+
+                tri_data2.append(vert_props)
 
             if temp:
                 poly_data = (tri_data1, tri_data2)  # quadrangular face
@@ -275,7 +160,7 @@ def _define_geom_data(segments, smooth, temp=False):
 
             for vi in vert_ids:
                 tri_data.append({"pos": positions_upper[vi], "normal": get_normal(vi),
-                                  "uvs": {0: uvs_upper[vi]}})
+                                 "uvs": {0: uvs_upper[vi]}})
 
             tris = (tri_data,)  # triangular face
             poly_data = {"tris": tris, "smoothing": smoothing_ids}
@@ -323,7 +208,7 @@ def _define_geom_data(segments, smooth, temp=False):
 
             for vi in vert_ids:
                 tri_data.append({"pos": positions_lower[vi], "normal": get_normal(vi),
-                                  "uvs": {0: uvs_lower[vi]}})
+                                 "uvs": {0: uvs_lower[vi]}})
 
             tris = (tri_data,)  # triangular face
             poly_data = {"tris": tris, "smoothing": smoothing_ids}
@@ -387,7 +272,7 @@ class Sphere(Primitive):
         self._segments = segments
         self._is_smooth = is_smooth
 
-        for step in Primitive.create(self, *_get_mesh_density(segments)):
+        for step in Primitive.create(self, _get_mesh_density(segments)):
             yield
 
         self.update_initial_coords()
@@ -408,8 +293,6 @@ class Sphere(Primitive):
         self.get_origin().set_scale(r)
         self.reset_initial_coords()
         self.get_geom_data_object().bake_transform()
-        self.get_geom_data_object().update_poly_centers()
-        self.get_model().get_bbox().update(*self.get_origin().get_tight_bounds())
 
     def init_radius(self, radius):
 
@@ -447,7 +330,7 @@ class Sphere(Primitive):
                 data.update(self.get_geom_data_object().get_data_to_store("creation"))
                 self.remove_geom_data_backup()
             elif prop_id == "smoothness":
-                data.update(self.get_geom_data_object().get_data_to_store("prop_change", "smoothing"))
+                data.update(self.get_geom_data_object().get_data_to_store())
             elif prop_id == "radius":
                 data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
@@ -482,7 +365,7 @@ class Sphere(Primitive):
             if change:
 
                 if not restore:
-                    self.recreate_geometry(*_get_mesh_density(value))
+                    self.recreate_geometry(_get_mesh_density(value))
 
                 update_app()
 
@@ -494,7 +377,7 @@ class Sphere(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -506,12 +389,9 @@ class Sphere(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                Mgr.schedule_screenshot_removal()
-                descr = "Updating smoothness..."
                 task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
                                                                          if value else None)
-                PendingTasks.add(task, "smooth_polys", "object", id_prefix=obj_id,
-                                 gradual=True, descr=descr)
+                PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
 
             if change:
                 update_app()
@@ -533,13 +413,127 @@ class Sphere(Primitive):
             return self._radius
         elif prop_id == "smoothness":
             return self._is_smooth
+        else:
+            return Primitive.get_property(self, prop_id, for_remote_update)
 
     def finalize(self):
 
         self.__update_size()
 
-        for step in Primitive.finalize(self, update_poly_centers=False):
-            yield
+        Primitive.finalize(self)
+
+
+class SphereManager(PrimitiveManager):
+
+    def __init__(self):
+
+        PrimitiveManager.__init__(self, "sphere", custom_creation=True)
+
+        self._draw_plane = None
+
+        self.set_property_default("radius", 1.)
+        self.set_property_default("temp_segments", 8)  # minimum = 4
+        self.set_property_default("segments", 12)  # minimum = 4
+        self.set_property_default("smoothness", True)
+
+    def setup(self):
+
+        creation_phases = []
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phases.append(creation_phase)
+
+        status_text = {}
+        status_text["obj_type"] = "sphere"
+        status_text["phase1"] = "draw out the sphere"
+
+        return PrimitiveManager.setup(self, creation_phases, status_text)
+
+    def create_temp_primitive(self, color, pos):
+
+        segs = self.get_property_defaults()["segments"]
+        tmp_segs = self.get_property_defaults()["temp_segments"]
+        segments = segs if segs < tmp_segs else tmp_segs
+        is_smooth = self.get_property_defaults()["smoothness"]
+        tmp_prim = TemporarySphere(segments, is_smooth, color, pos)
+
+        return tmp_prim
+
+    def create_primitive(self, model):
+
+        prim = Sphere(model)
+        segments = self.get_property_defaults()["segments"]
+        poly_count = _get_mesh_density(segments)
+        progress_steps = (poly_count // 20) * 4
+        gradual = progress_steps > 80
+
+        for step in prim.create(segments, self.get_property_defaults()["smoothness"]):
+            if gradual:
+                yield
+
+        yield prim, gradual
+
+    def init_primitive_size(self, prim, size=None):
+
+        prop_defaults = self.get_property_defaults()
+        radius = prop_defaults["radius"] if size is None else size
+        prim.init_radius(radius)
+
+    def __start_creation_phase1(self):
+        """ Start drawing out sphere """
+
+        # Create the plane parallel to the camera and going through the sphere
+        # center, used to determine the radius drawn out by the user.
+
+        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
+        grid_origin = Mgr.get(("grid", "origin"))
+        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        self._draw_plane = Plane(normal, point)
+
+    def __creation_phase1(self):
+        """ Draw out sphere """
+
+        screen_pos = self.mouse_watcher.get_mouse()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(self.cam(), point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
+        intersection_point = Point3()
+        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
+        grid_origin = Mgr.get(("grid", "origin"))
+        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        radius = max(.001, (intersection_point - point).length())
+        self.get_temp_primitive().update_radius(radius)
+
+    def create_custom_primitive(self, name, radius, segments, pos, inverted=False,
+                                rel_to_grid=False, smooth=True, gradual=False):
+
+        model_id = self.generate_object_id()
+        model = Mgr.do("create_model", model_id, name, pos)
+
+        if not rel_to_grid:
+            pivot = model.get_pivot()
+            pivot.clear_transform()
+            pivot.set_pos(self.world, pos)
+
+        next_color = self.get_next_object_color()
+        model.set_color(next_color, update_app=False)
+        prim = Sphere(model)
+
+        for step in prim.create(segments, smooth):
+            if gradual:
+                yield
+
+        prim.init_radius(radius)
+        prim.get_geom_data_object().finalize_geometry()
+        model.set_geom_object(prim)
+        self.set_next_object_color()
+
+        if inverted:
+            prim.set_property("normal_flip", True)
+
+        yield model
 
 
 MainObjects.add_class(SphereManager)

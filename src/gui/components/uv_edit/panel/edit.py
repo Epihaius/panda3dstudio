@@ -60,23 +60,52 @@ class SubobjectPanel(Panel):
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(self, section, sizer, bitmaps, label, "Break selected vertices",
                           self.__break_vertices, sizer_args, focus_receiver=focus_receiver)
-        self._btns["break_vert"] = btn
+        self._btns["break_verts"] = btn
 
         # ************************* Edge section ******************************
 
         edge_section = section = self.add_section("edge_props", "Edges")
         sizer = section.get_client_sizer()
 
+        btn_sizer = wx.BoxSizer()
+        sizer.Add(btn_sizer, 0, wx.ALL, 4)
+        sizer_args = (0, wx.RIGHT, 5)
+
         label = "Split"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, sizer, bitmaps, label, "Split selected edges",
+        btn = PanelButton(self, section, btn_sizer, bitmaps, label, "Split selected edges",
                           self.__split_edges, sizer_args, focus_receiver=focus_receiver)
-        self._btns["split_edge"] = btn
+        self._btns["split_edges"] = btn
+
+        label = "Stitch"
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+        btn = PanelButton(self, section, btn_sizer, bitmaps, label, "Stitch selected seam edges",
+                          self.__stitch_edges, focus_receiver=focus_receiver)
+        self._btns["stitch_edges"] = btn
 
         # ************************* Polygon section ***************************
 
         poly_section = section = self.add_section("poly_props", "Polygons")
         sizer = section.get_client_sizer()
+
+        btn_sizer = wx.BoxSizer()
+        sizer.Add(btn_sizer, 0, wx.ALL, 4)
+        sizer_args = (0, wx.RIGHT, 5)
+
+        label = "Detach"
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+        btn = PanelButton(self, section, btn_sizer, bitmaps, label, "Detach selected polygons",
+                          self.__detach_polygons, sizer_args, focus_receiver=focus_receiver)
+        self._btns["detach_polys"] = btn
+
+        label = "Stitch"
+        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+        btn = PanelButton(self, section, btn_sizer, bitmaps, label,
+                          "Stitch selected polygon seam edges",
+                          self.__stitch_polygons, focus_receiver=focus_receiver)
+        self._btns["stitch_polys"] = btn
+
+        sizer.Add(wx.Size(0, 5))
 
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
@@ -127,15 +156,6 @@ class SubobjectPanel(Panel):
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         self._fields[val_id] = field
-
-        sizer.Add(wx.Size(0, 4))
-        sizer_args = (0, wx.ALL, 5)
-
-        label = "Detach"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, sizer, bitmaps, label, "Detach selected polygons",
-                          self.__detach_polygons, sizer_args, focus_receiver=focus_receiver)
-        self._btns["detach_poly"] = btn
 
         # **************************************************************************
 
@@ -193,9 +213,17 @@ class SubobjectPanel(Panel):
 
         Mgr.update_interface_remotely("uv_window", "edge_split")
 
+    def __stitch_edges(self):
+
+        Mgr.update_interface_remotely("uv_window", "edge_stitch")
+
     def __detach_polygons(self):
 
         Mgr.update_interface_remotely("uv_window", "poly_detach")
+
+    def __stitch_polygons(self):
+
+        Mgr.update_interface_remotely("uv_window", "poly_stitch")
 
     def __handle_poly_rgb(self, sel_state, color):
 

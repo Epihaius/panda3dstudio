@@ -367,8 +367,9 @@ class TransformToolbar(Toolbar):
         transf_type = self._transform_btns.get_active_button_id()
         obj_lvl = GlobalData["active_obj_level"]
 
-        if obj_lvl in ("vert", "edge", "poly"):
-            if not (obj_lvl == "vert" and transf_type == "translate"):
+        if obj_lvl in ("vert", "edge", "poly", "normal"):
+            if not ((obj_lvl == "vert" and transf_type == "translate")
+                    or (obj_lvl == "normal" and transf_type == "rotate")):
                 return
 
         rel_values = GlobalData["rel_transform_values"][obj_lvl]

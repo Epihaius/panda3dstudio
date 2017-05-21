@@ -405,14 +405,14 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         value = {"rgb": (r, g, b), "alpha": a}[channels]
         Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, channels, value)
 
-    def _set_cursor(self, cursor_name):
+    def _set_cursor(self, cursor_id):
 
         win_props = WindowProperties()
 
-        if cursor_name == "main":
+        if cursor_id == "main":
             win_props.set_cursor_filename(Filename())
         else:
-            win_props.set_cursor_filename(Mgr.get("cursors")[cursor_name])
+            win_props.set_cursor_filename(Mgr.get("cursors")[cursor_id])
 
         self._window.request_properties(win_props)
 

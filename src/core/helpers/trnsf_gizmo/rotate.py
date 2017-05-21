@@ -481,7 +481,7 @@ class RotationGizmo(TransformationGizmo):
 
             self._screen_plane = Plane(normal, point)
 
-            return
+            return Point3()
 
         if self._selected_axes == "screen":
 

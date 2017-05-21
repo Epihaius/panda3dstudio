@@ -5,16 +5,16 @@ class GeomHistoryBase(BaseObject):
 
     def __init__(self):
 
-        self._vert_normal_change = set()
-        self._tri_change_all = False
         self._subobj_change = {"vert": {}, "edge": {}, "poly": {}}
 
-    def get_data_to_store(self, event_type, prop_id="", info="", unique_id=False):
+    def get_data_to_store(self, event_type="", prop_id="", info="", unique_id=False):
 
         data = {}
         unique_prop_ids = self._unique_prop_ids
         obj_id = self.get_toplevel_object().get_id()
         cur_time_id = Mgr.do("get_history_time")
+        extra_normal_data = None
+        extra_normal_lock_data = None
 
         if event_type == "creation":
 
@@ -22,6 +22,8 @@ class GeomHistoryBase(BaseObject):
 
             for prop_id in self._prop_ids:
                 data.update(self.get_property_to_store(prop_id, event_type))
+
+            self._normal_change = set()
 
             prev_time_ids = (cur_time_id,)
 
@@ -41,7 +43,7 @@ class GeomHistoryBase(BaseObject):
 
         elif event_type == "deletion":
 
-            for prop_id in ("subobj_transform", "poly_tris", "uvs"):
+            for prop_id in ("subobj_transform", "poly_tris", "uvs", "normals", "normal_lock"):
                 data.update(self.get_property_to_store(prop_id, event_type))
 
             for subobj_type in ("vert", "edge", "poly"):
@@ -60,27 +62,22 @@ class GeomHistoryBase(BaseObject):
 
         elif event_type == "subobj_change":
 
-            for prop_id in ("subobj_merge", "subobj_transform", "poly_tris", "uvs"):
+            for prop_id in ("subobj_merge", "subobj_transform", "subobj_selection", "poly_tris", "uvs"):
                 data.update(self.get_property_to_store(prop_id, event_type))
 
             subobj_change = self._subobj_change
+            deleted_verts = subobj_change["vert"].get("deleted")
 
-            if "selection" in subobj_change:
-                data.update(self.get_property_to_store("subobj_selection"))
+            if deleted_verts:
+                normal_data = self.get_property_to_store("normals", event_type)
+                data.update(normal_data)
+                extra_normal_data = normal_data.values()[0]["extra"][unique_prop_ids["normal__extra__"]]
+                normal_lock_data = self.get_property_to_store("normal_lock", event_type)
+                data.update(normal_lock_data)
+                extra_normal_lock_data = normal_lock_data.values()[0]["extra"][unique_prop_ids["normal_lock__extra__"]]
 
-            deleted_polys = subobj_change["poly"].get("deleted")
-
-            if deleted_polys:
-
-                poly_ids = [poly.get_id() for poly in deleted_polys]
-
-                # check if the smoothing of this object has changed (by deleting
-                # smoothed polys, which is equivalent to flattening them)
-                if self.smooth_polygons(poly_ids, smooth=False, update_normals=False):
-                    data.update(self.get_property_to_store("smoothing"))
-
-                # TODO: check if all polys have been deleted; if so, this GeomDataObject
-                # needs to be deleted itself also
+            # TODO: check if all polys have been deleted; if so, this GeomDataObject
+            # needs to be deleted itself also
 
             for subobj_type in ("vert", "edge", "poly"):
 
@@ -120,9 +117,33 @@ class GeomHistoryBase(BaseObject):
             if unique_prop_id in self.get_property_ids(unique=True):
                 data = self.get_property_to_store(unique_prop_id, event_type, info, unique_id=True)
 
-            self._uv_change = set()
+        if self._normal_change:
 
-        self._vert_normal_change = set()
+            normal_data = self.get_property_to_store("normals", "prop_change")
+
+            if extra_normal_data:
+                extra_data = normal_data.values()[0]["extra"][unique_prop_ids["normal__extra__"]]
+                extra_normal_data["prev"].update(extra_data["prev"])
+                extra_normal_data["normals"].update(extra_data["normals"])
+            else:
+                data.update(normal_data)
+
+        if self._normal_lock_change:
+
+            normal_lock_data = self.get_property_to_store("normal_lock", "prop_change")
+
+            if extra_normal_lock_data:
+                extra_data = normal_lock_data.values()[0]["extra"][unique_prop_ids["normal_lock__extra__"]]
+                extra_normal_lock_data["prev"].update(extra_data["prev"])
+                extra_normal_lock_data["normals"].update(extra_data["normal_lock"])
+            else:
+                data.update(normal_lock_data)
+
+        if self._normal_sharing_change:
+            data.update(self.get_property_to_store("normal_sharing"))
+
+        if self._poly_smoothing_change:
+            data.update(self.get_property_to_store("smoothing"))
 
         return data
 
@@ -137,13 +158,25 @@ class GeomHistoryBase(BaseObject):
 
             data[unique_prop_id] = {"main": (self._merged_verts, self._merged_edges)}
 
+        elif unique_prop_id == unique_prop_ids["normal_length"]:
+
+            data[unique_prop_id] = {"main": self._normal_length}
+
+        elif unique_prop_id == unique_prop_ids["normal_sharing"]:
+
+            data[unique_prop_id] = {"main": self._shared_normals}
+            self._normal_sharing_change = False
+
         elif unique_prop_id == unique_prop_ids["smoothing"]:
 
             data[unique_prop_id] = {"main": self._poly_smoothing}
+            self._poly_smoothing_change = False
 
         elif unique_prop_id == unique_prop_ids["subobj_selection"]:
 
-            data[unique_prop_id] = {"main": self._selected_subobj_ids}
+            sel_subobj_ids = copy.deepcopy(self._selected_subobj_ids)
+            sel_subobj_ids.update(self._sel_subobj_ids_backup)
+            data[unique_prop_id] = {"main": sel_subobj_ids}
 
         elif unique_prop_id == unique_prop_ids["subobj_transform"]:
 
@@ -192,6 +225,9 @@ class GeomHistoryBase(BaseObject):
 
                 if info == "all":
                     xformed_verts = set(self._merged_verts.itervalues())
+                elif info == "check":
+                    xformed_verts = set(self._transformed_verts)
+                    self._transformed_verts = set()
                 else:
                     xformed_verts = self._verts_to_transf[subobj_lvl]
 
@@ -258,19 +294,15 @@ class GeomHistoryBase(BaseObject):
 
             elif event_type == "prop_change":
 
-                if self._tri_change_all:
-                    poly_ids = polys.iterkeys()
-                    self._tri_change_all = False
-                else:
-                    poly_ids = self._selected_subobj_ids["poly"]
-
-                for poly_id in poly_ids:
+                for poly_id in self._tri_change:
                     poly = polys[poly_id]
                     tris = poly[:]
                     time_id = poly.get_previous_property_time("tri_data")
                     tri_data["tri_data"][poly_id] = tris
                     tri_data["prev"][poly_id] = time_id
                     poly.set_previous_property_time("tri_data", cur_time_id)
+
+                self._tri_change = set()
 
             data[unique_prop_id] = {"main": prev_time_ids, "extra": extra_data}
 
@@ -326,6 +358,130 @@ class GeomHistoryBase(BaseObject):
                     uv_data["prev"][vert_id] = time_id
                     vert.set_previous_property_time("uvs", cur_time_id)
 
+                self._uv_change = set()
+
+            data[unique_prop_id] = {"main": prev_time_ids, "extra": extra_data}
+
+        elif unique_prop_id == unique_prop_ids["normals"]:
+
+            obj_id = self.get_toplevel_object().get_id()
+            normal_data = {"prev": {}, "normals": {}}
+            extra_data = {unique_prop_ids["normal__extra__"]: normal_data}
+            cur_time_id = Mgr.do("get_history_time")
+            prev_time_ids = Mgr.do("load_last_from_history", obj_id, unique_prop_id)
+            verts = self._subobjs["vert"]
+
+            if prev_time_ids:
+                prev_time_ids += (cur_time_id,)
+            else:
+                prev_time_ids = (cur_time_id,)
+
+            if event_type == "creation":
+
+                for vert_id, vert in verts.iteritems():
+                    normal = vert.get_normal()
+                    normal_data["normals"][vert_id] = normal
+                    vert.set_previous_property_time("normal", cur_time_id)
+
+            elif event_type == "deletion":
+
+                for vert_id, vert in verts.iteritems():
+                    time_id = vert.get_previous_property_time("normal")
+                    normal_data["prev"][vert_id] = time_id
+
+            elif event_type == "subobj_change":
+
+                created_verts = self._subobj_change["vert"].get("created", [])
+
+                for vert in created_verts:
+                    normal = vert.get_normal()
+                    normal_data["normals"][vert.get_id()] = normal
+                    vert.set_previous_property_time("normal", cur_time_id)
+
+                deleted_verts = self._subobj_change["vert"].get("deleted", [])
+
+                for vert in deleted_verts:
+                    time_id = vert.get_previous_property_time("normal")
+                    normal_data["prev"][vert.get_id()] = time_id
+
+            elif event_type == "prop_change":
+
+                if info == "all":
+                    normal_change = verts
+                else:
+                    normal_change = self._normal_change
+
+                for vert_id in normal_change:
+                    vert = verts[vert_id]
+                    normal = vert.get_normal()
+                    time_id = vert.get_previous_property_time("normal")
+                    normal_data["normals"][vert_id] = normal
+                    normal_data["prev"][vert_id] = time_id
+                    vert.set_previous_property_time("normal", cur_time_id)
+
+                self._normal_change = set()
+
+            data[unique_prop_id] = {"main": prev_time_ids, "extra": extra_data}
+
+        elif unique_prop_id == unique_prop_ids["normal_lock"]:
+
+            obj_id = self.get_toplevel_object().get_id()
+            lock_data = {"prev": {}, "normal_lock": {}}
+            extra_data = {unique_prop_ids["normal_lock__extra__"]: lock_data}
+            cur_time_id = Mgr.do("get_history_time")
+            prev_time_ids = Mgr.do("load_last_from_history", obj_id, unique_prop_id)
+            verts = self._subobjs["vert"]
+
+            if prev_time_ids:
+                prev_time_ids += (cur_time_id,)
+            else:
+                prev_time_ids = (cur_time_id,)
+
+            if event_type == "creation":
+
+                for vert_id, vert in verts.iteritems():
+                    locked = vert.has_locked_normal()
+                    lock_data["normal_lock"][vert_id] = locked
+                    vert.set_previous_property_time("normal_lock", cur_time_id)
+
+            elif event_type == "deletion":
+
+                for vert_id, vert in verts.iteritems():
+                    time_id = vert.get_previous_property_time("normal_lock")
+                    lock_data["prev"][vert_id] = time_id
+
+            elif event_type == "subobj_change":
+
+                created_verts = self._subobj_change["vert"].get("created", [])
+
+                for vert in created_verts:
+                    locked = vert.has_locked_normal()
+                    lock_data["normal_lock"][vert.get_id()] = locked
+                    vert.set_previous_property_time("normal_lock", cur_time_id)
+
+                deleted_verts = self._subobj_change["vert"].get("deleted", [])
+
+                for vert in deleted_verts:
+                    time_id = vert.get_previous_property_time("normal_lock")
+                    lock_data["prev"][vert.get_id()] = time_id
+
+            elif event_type == "prop_change":
+
+                if info == "all":
+                    lock_change = verts
+                else:
+                    lock_change = self._normal_lock_change
+
+                for vert_id in lock_change:
+                    vert = verts[vert_id]
+                    locked = vert.has_locked_normal()
+                    time_id = vert.get_previous_property_time("normal_lock")
+                    lock_data["normal_lock"][vert_id] = locked
+                    lock_data["prev"][vert_id] = time_id
+                    vert.set_previous_property_time("normal_lock", cur_time_id)
+
+                self._normal_lock_change = set()
+
             data[unique_prop_id] = {"main": prev_time_ids, "extra": extra_data}
 
         return data
@@ -351,6 +507,8 @@ class GeomHistoryBase(BaseObject):
             task = self.register
             task_id = "register_subobjs"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+
+            self.__restore_tangent_space()
 
         else:
 
@@ -403,27 +561,24 @@ class GeomHistoryBase(BaseObject):
             task_id = "upd_verts_to_transf"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
-            task = lambda: self._restore_poly_smoothing(new_time_id)
-            task_id = "smooth_polys"
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+        elif prop_id == unique_prop_ids["normal_length"]:
 
-            task = self._restore_vertex_normals
-            task_id = "upd_vert_normals"
-            descr = "Updating vertex normals..."
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
-                             descr=descr, cancellable=cancellable)
+            task = lambda: self._restore_normal_length(new_time_id)
+            task_id = "set_normal_length"
+            sort = PendingTasks.get_sort("set_normals", "object") + 1
+            PendingTasks.add(task, task_id, "object", sort, id_prefix=obj_id)
+
+        elif prop_id == unique_prop_ids["normal_sharing"]:
+
+            task = lambda: self._restore_normal_sharing(new_time_id)
+            task_id = "share_normals"
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
         elif prop_id == unique_prop_ids["smoothing"]:
 
             task = lambda: self._restore_poly_smoothing(new_time_id)
-            task_id = "smooth_polys"
+            task_id = "set_poly_smoothing"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
-
-            task = self._restore_vertex_normals
-            task_id = "upd_vert_normals"
-            descr = "Updating vertex normals..."
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
-                             descr=descr, cancellable=cancellable)
 
         elif prop_id == unique_prop_ids["subobj_selection"]:
 
@@ -441,12 +596,6 @@ class GeomHistoryBase(BaseObject):
             task_id = "set_subobj_transf"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
-            task = self._restore_vertex_normals
-            task_id = "upd_vert_normals"
-            descr = "Updating vertex normals..."
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
-                             descr=descr, cancellable=cancellable)
-
             self.get_toplevel_object().update_group_bbox()
 
         elif prop_id == unique_prop_ids["poly_tris"]:
@@ -455,16 +604,24 @@ class GeomHistoryBase(BaseObject):
             task_id = "set_poly_triangles"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
-            task = self._restore_vertex_normals
-            task_id = "upd_vert_normals"
-            descr = "Updating vertex normals..."
-            PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
-                             descr=descr, cancellable=cancellable)
-
         elif prop_id == unique_prop_ids["uvs"]:
 
             task = lambda: self._restore_uvs(old_time_id, new_time_id)
             task_id = "set_uvs"
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+            self.__restore_tangent_space()
+
+        elif prop_id == unique_prop_ids["normals"]:
+
+            task = lambda: self._restore_vertex_normals(old_time_id, new_time_id)
+            task_id = "set_normals"
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+            self.__restore_tangent_space()
+
+        elif prop_id == unique_prop_ids["normal_lock"]:
+
+            task = lambda: self._restore_normal_lock(old_time_id, new_time_id)
+            task_id = "set_normal_lock"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
 
         task = lambda: Mgr.get("selection").update()
@@ -483,9 +640,8 @@ class GeomHistoryBase(BaseObject):
 
         self._ordered_polys = subobjs["poly"].values()
         poly_count = len(subobjs["poly"])
-        merged_vert_count = len(self._merged_verts)
-        progress_steps = poly_count // 50
-        gradual = progress_steps > 50
+        progress_steps = poly_count // 20
+        gradual = progress_steps > 20
 
         if gradual:
             GlobalData["progress_steps"] = progress_steps
@@ -514,10 +670,9 @@ class GeomHistoryBase(BaseObject):
             subobj_change[subobj_type] = self.__load_subobjects(subobj_type, old_time_id, new_time_id)
 
         polys_to_remove, polys_to_restore = subobj_change["poly"]
-        verts_to_restore = subobj_change["vert"][1]
 
-        progress_steps = 3 + len(polys_to_remove) // 50 + 3 * len(polys_to_restore) // 50
-        progress_steps += (len(self._ordered_polys) - len(polys_to_remove) + len(polys_to_restore)) // 50
+        progress_steps = 3 + 2 * len(polys_to_remove) // 20 + 3 * len(polys_to_restore) // 20
+        progress_steps += (len(self._ordered_polys) - len(polys_to_remove) + len(polys_to_restore)) // 20
         gradual = progress_steps > 50
 
         if gradual:
@@ -530,24 +685,16 @@ class GeomHistoryBase(BaseObject):
                 if gradual:
                     yield True
 
-        for vert_id in verts_to_restore:
-            self._vert_normal_change.add(vert_id)
-
         for subobj_type in ("vert", "edge", "poly"):
 
             subobjs_to_remove, subobjs_to_restore = subobj_change[subobj_type]
             objs = subobjs[subobj_type]
             objs_to_unreg = subobjs_to_unreg[subobj_type]
             objs_to_reg = subobjs_to_reg[subobj_type]
-            ids = selected_subobj_ids[subobj_type]
 
             for subobj_id, subobj in subobjs_to_remove.iteritems():
-
                 del objs[subobj_id]
                 objs_to_unreg[subobj_id] = subobj
-
-                if subobj_id in ids:
-                    ids.remove(subobj_id)
 
             if gradual:
                 yield True
@@ -569,19 +716,7 @@ class GeomHistoryBase(BaseObject):
             if gradual:
                 yield True
 
-        for subobj_type in ("vert", "edge", "poly"):
-
-            ids = selected_subobj_ids[subobj_type]
-            objs = subobjs[subobj_type]
-
-            if ids:
-
-                selected_subobjs = (objs[subobj_id] for subobj_id in ids)
-                self.update_selection(subobj_type, selected_subobjs, [], False)
-
-                if gradual:
-                    yield True
-
+        for subobj_type in ("vert", "edge", "poly", "normal"):
             selected_subobj_ids[subobj_type] = []
 
         yield False
@@ -681,7 +816,7 @@ class GeomHistoryBase(BaseObject):
         geoms["poly"]["pickable"].node().modify_geom(0).clear_primitives()
         geoms["poly"]["unselected"].node().modify_geom(0).clear_primitives()
 
-        for subobj_type in ("vert", "edge"):
+        for subobj_type in ("vert", "edge", "normal"):
             geoms[subobj_type]["pickable"].node().modify_geom(0).clear_primitives()
             geoms[subobj_type]["sel_state"].node().modify_geom(0).clear_primitives()
 
@@ -724,7 +859,7 @@ class GeomHistoryBase(BaseObject):
             ordered_polys.remove(poly)
             poly_count += 1
 
-            if poly_count == 50:
+            if poly_count == 20:
                 yield
                 poly_count = 0
 
@@ -744,7 +879,7 @@ class GeomHistoryBase(BaseObject):
 
             poly_count += 1
 
-            if poly_count == 50:
+            if poly_count == 20:
                 yield
                 poly_count = 0
 
@@ -768,13 +903,11 @@ class GeomHistoryBase(BaseObject):
         picking_handle = picking_array.modify_handle()
         picking_stride = picking_array.get_array_format().get_stride()
 
-        poly_arrays = []
         poly_handles = []
         poly_strides = []
 
         for i in range(vertex_data_top.get_num_arrays()):
             poly_array = vertex_data_top.modify_array(i)
-            poly_arrays.append(poly_array)
             poly_handles.append(poly_array.modify_handle())
             poly_strides.append(poly_array.get_array_format().get_stride())
 
@@ -832,7 +965,7 @@ class GeomHistoryBase(BaseObject):
             row_index_offset += len(poly_verts)
             poly_count += 1
 
-            if poly_count == 50:
+            if poly_count == 20:
                 yield
                 poly_count = 0
 
@@ -857,11 +990,17 @@ class GeomHistoryBase(BaseObject):
 
             poly_count += 1
 
-            if poly_count == 50:
+            if poly_count == 20:
                 yield
                 poly_count = 0
 
-        vertex_data_vert.set_array(1, vertex_data_tmp.get_array(1))
+        col_array = vertex_data_tmp.get_array(1)
+        vertex_data_vert.set_array(1, col_array)
+
+        vertex_data_normal = geoms["normal"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_normal.reserve_num_rows(count)
+        vertex_data_normal.set_num_rows(count)
+        vertex_data_normal.set_array(1, GeomVertexArrayData(col_array))
 
         edges_to_restore = {}
         picking_colors1 = {}
@@ -876,7 +1015,7 @@ class GeomHistoryBase(BaseObject):
 
             poly_count += 1
 
-            if poly_count == 50:
+            if poly_count == 20:
                 yield
                 poly_count = 0
 
@@ -924,6 +1063,8 @@ class GeomHistoryBase(BaseObject):
 
         self._data_row_count = count
 
+        self.__restore_tangent_space()
+
     def __finalize_geometry_restore(self):
 
         count = self._data_row_count
@@ -934,15 +1075,19 @@ class GeomHistoryBase(BaseObject):
         geoms = self._geoms
         sel_colors = Mgr.get("subobj_selection_colors")
 
-        pickable_vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
-        pickable_edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
-        pickable_poly_geom = geoms["poly"]["pickable"].node().modify_geom(0)
+        vert_picking_geom = geoms["vert"]["pickable"].node().modify_geom(0)
+        edge_picking_geom = geoms["edge"]["pickable"].node().modify_geom(0)
+        poly_picking_geom = geoms["poly"]["pickable"].node().modify_geom(0)
+        normal_picking_geom = geoms["normal"]["pickable"].node().modify_geom(0)
         vert_sel_state_geom = geoms["vert"]["sel_state"].node().modify_geom(0)
         edge_sel_state_geom = geoms["edge"]["sel_state"].node().modify_geom(0)
+        normal_sel_state_geom = geoms["normal"]["sel_state"].node().modify_geom(0)
         poly_unselected_geom = geoms["poly"]["unselected"].node().modify_geom(0)
-        vertex_data_vert = pickable_vert_geom.modify_vertex_data()
+        vertex_data_vert = vert_picking_geom.modify_vertex_data()
         vertex_data_vert.set_num_rows(count)
-        vertex_data_edge = pickable_edge_geom.modify_vertex_data()
+        vertex_data_normal = normal_picking_geom.modify_vertex_data()
+        vertex_data_normal.set_num_rows(count)
+        vertex_data_edge = edge_picking_geom.modify_vertex_data()
         vertex_data_edge.set_num_rows(count * 2)
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly.set_num_rows(count)
@@ -958,12 +1103,21 @@ class GeomHistoryBase(BaseObject):
 
         pos_array = poly_arrays[0]
         vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_normal.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
 
         vertex_data_vert = vert_sel_state_geom.modify_vertex_data()
         vertex_data_vert.set_num_rows(count)
         vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
         new_data = vertex_data_vert.set_color(sel_colors["vert"]["unselected"])
         vertex_data_vert.set_array(1, new_data.get_array(1))
+
+        vertex_data_normal = normal_sel_state_geom.modify_vertex_data()
+        vertex_data_normal.set_num_rows(count)
+        vertex_data_normal.set_array(0, GeomVertexArrayData(pos_array))
+        new_data = vertex_data_normal.set_color(sel_colors["normal"]["unselected"])
+        vertex_data_normal.set_array(1, new_data.get_array(1))
+        vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
 
         pos_data = pos_array.get_handle().get_data()
         array = GeomVertexArrayData(pos_array)
@@ -995,10 +1149,10 @@ class GeomHistoryBase(BaseObject):
             for vert_ids in poly:
                 tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
 
-            sel_data.extend(poly[:])
+            sel_data.extend(poly)
             poly_count += 1
 
-            if poly_count == 50:
+            if poly_count == 20:
                 yield
                 poly_count = 0
 
@@ -1007,13 +1161,15 @@ class GeomHistoryBase(BaseObject):
         points_prim = GeomPoints(Geom.UH_static)
         points_prim.reserve_num_vertices(count)
         points_prim.add_next_vertices(count)
-        pickable_vert_geom.add_primitive(GeomPoints(points_prim))
+        vert_picking_geom.add_primitive(GeomPoints(points_prim))
         vert_sel_state_geom.add_primitive(GeomPoints(points_prim))
+        normal_picking_geom.add_primitive(GeomPoints(points_prim))
+        normal_sel_state_geom.add_primitive(GeomPoints(points_prim))
 
-        pickable_edge_geom.add_primitive(lines_prim)
+        edge_picking_geom.add_primitive(lines_prim)
         edge_sel_state_geom.add_primitive(GeomLines(lines_prim))
 
-        pickable_poly_geom.add_primitive(GeomTriangles(tris_prim))
+        poly_picking_geom.add_primitive(GeomTriangles(tris_prim))
         poly_unselected_geom.add_primitive(GeomTriangles(tris_prim))
 
         self._origin.node().set_bounds(self._toplvl_node.get_bounds())
@@ -1025,8 +1181,21 @@ class GeomHistoryBase(BaseObject):
         data = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
 
         self._merged_verts, self._merged_edges = data
-        merged_subobjs = set(self._merged_verts.values())
-        merged_subobjs.update(self._merged_edges.values())
+        merged_subobjs = set(self._merged_verts.itervalues())
+        merged_subobjs.update(self._merged_edges.itervalues())
 
         for merged_subobj in merged_subobjs:
             merged_subobj.set_geom_data_object(self)
+
+    def __restore_tangent_space(self):
+
+        def task():
+
+            model = self.get_toplevel_object()
+
+            if model.has_tangent_space():
+                model.update_tangent_space()
+
+        model = self.get_toplevel_object()
+        task_id = "update_tangent_space"
+        PendingTasks.add(task, task_id, "object", id_prefix=model.get_id())

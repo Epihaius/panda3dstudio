@@ -325,7 +325,6 @@ class PickingCamera(BaseObject):
         state_np = NodePath("picking_color_state")
         state_np.set_texture_off(1)
         state_np.set_material_off(1)
-        state_np.set_shader_off(1)
         state_np.set_light_off(1)
         state_np.set_color_off(1)
         state_np.set_color_scale_off(1)
@@ -334,7 +333,7 @@ class PickingCamera(BaseObject):
         state = state_np.get_state()
         node.set_initial_state(state)
 
-        # for rendering BasicGeoms
+        # For rendering BasicGeoms as pickable geometry
         node.set_tag_state_key("picking_color")
         Mgr.accept("set_basic_geom_picking_color", node.set_tag_state)
         Mgr.accept("clear_basic_geom_picking_color", node.clear_tag_state)

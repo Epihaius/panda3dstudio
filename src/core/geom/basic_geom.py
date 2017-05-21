@@ -1,31 +1,5 @@
-from ..base import *
+from .base import *
 from .material import render_state_to_material
-
-
-class BasicGeomManager(ObjectManager, PickingColorIDManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "basic_geom", self.__create, "sub", pickable=True)
-        PickingColorIDManager.__init__(self)
-        PickableTypes.add("basic_geom")
-
-        self._id_generator = id_generator()
-
-    def setup(self):
-
-        BasicGeom.init_render_states()
-
-        return True
-
-    def __create(self, geom, name):
-
-        model_id = ("basic_geom",) + self._id_generator.next()
-        model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1., 1.))
-        picking_col_id = self.get_next_picking_color_id()
-        basic_geom = BasicGeom(model, geom, picking_col_id)
-
-        return basic_geom
 
 
 class BasicGeom(BaseObject):
@@ -38,12 +12,12 @@ class BasicGeom(BaseObject):
 
         state_empty = RenderState.make_empty()
         np = NodePath("render_state")
-        np.set_light_off(1)
-        np.set_texture_off(1)
-        np.set_material_off(1)
-        np.set_shader_off(1)
+        np.set_light_off()
+        np.set_texture_off()
+        np.set_material_off()
+        np.set_shader_off()
         state_flat = np.get_state()
-        np.set_color((1., 1., 1., 1.), 1)
+        np.set_color((1., 1., 1., 1.))
         state_flat_white = np.get_state()
         attrib = RenderModeAttrib.make(RenderModeAttrib.M_wireframe)
         state_wire_white = state_flat_white.add_attrib(attrib)
@@ -92,6 +66,7 @@ class BasicGeom(BaseObject):
         del state["_model"]
         del state["_picking_states"]
         del state["_initial_vertex_colors"]
+        del state["_is_tangent_space_initialized"]
 
         return state
 
@@ -110,18 +85,27 @@ class BasicGeom(BaseObject):
         picking_states["wire"] = np.get_state()
         self._picking_states = picking_states
         vertex_data = self._geom.node().get_geom(0).get_vertex_data()
-        array = GeomVertexArrayData(vertex_data.get_array(2))
+        array = GeomVertexArrayData(vertex_data.get_array(1))
         self._initial_vertex_colors = array
+        self._is_tangent_space_initialized = False
 
-    def __init__(self, model, geom, picking_col_id):
+    def __init__(self, model, geom, picking_col_id, materials=None):
 
         self._prop_ids = []
-        self._type_prop_ids = []
+        self._type_prop_ids = ["normal_flip", "normal_viz", "normal_color", "normal_length"]
         self._type = "basic_geom"
         self._model = model
         self._geom = geom
         self._picking_col_id = picking_col_id
         self._is_tangent_space_initialized = False
+        self._normals_flipped = False
+        self._normals_shown = False
+        self._normal_color = (.75, .75, 0., 1.)
+        prim_count = geom.node().get_geom(0).get_primitive(0).get_num_primitives()
+        p1, p2 = geom.get_tight_bounds()
+        x, y, z = p2 - p1
+        a = (x + y + z) / 3.
+        self._normal_length = min(a * .25, max(.001, 500. * a / prim_count))
 
         model.set_geom_object(self)
         model.get_pivot().set_transform(geom.get_transform())
@@ -133,12 +117,12 @@ class BasicGeom(BaseObject):
         src_format = src_vert_data.get_format()
         dest_format = Mgr.get("vertex_format_full")
         dest_vert_data = src_vert_data.convert_to(dest_format)
-        self._initial_vertex_colors = dest_vert_data.get_array(2)
+        self._initial_vertex_colors = dest_vert_data.get_array(1)
         geom.node().modify_geom(0).set_vertex_data(dest_vert_data)
         dest_vert_data = geom.node().modify_geom(0).modify_vertex_data()
         num_rows = src_vert_data.get_num_rows()
 
-        material, uv_set_names = render_state_to_material(render_state, src_format)
+        material, uv_set_names = render_state_to_material(render_state, src_format, materials)
 
         for src_uv_set, dest_uv_set in uv_set_names.iteritems():
 
@@ -174,7 +158,6 @@ class BasicGeom(BaseObject):
         def update_render_mode():
 
             self.update_render_mode(False)
-            self.set_two_sided(GlobalData["two_sided"])
 
         obj_id = model.get_id()
         PendingTasks.add(update_render_mode, "update_render_mode", "object", 0, obj_id)
@@ -358,6 +341,12 @@ class BasicGeom(BaseObject):
 
         self._is_tangent_space_initialized = True
 
+    def init_tangent_space(self):
+
+        if not self._is_tangent_space_initialized:
+            flip_tangent, flip_bitangent = self._model.get_tangent_space_flip()
+            self.update_tangent_space(flip_tangent, flip_bitangent)
+
     def is_tangent_space_initialized(self):
 
         return self._is_tangent_space_initialized
@@ -371,14 +360,15 @@ class BasicGeom(BaseObject):
         geom_copy.flatten_light()
         geom_copy.apply_texture_colors()
         vertex_data_copy = geom_copy.node().modify_geom(0).modify_vertex_data()
-        array = vertex_data_copy.modify_array(10)
-        vertex_data.set_array(2, array)
+        index = vertex_data_copy.get_format().get_array_with("color")
+        array = vertex_data_copy.modify_array(index)
+        vertex_data.set_array(1, array)
 
     def reset_vertex_colors(self):
 
         vertex_data = self._geom.node().modify_geom(0).modify_vertex_data()
         array = GeomVertexArrayData(self._initial_vertex_colors)
-        vertex_data.set_array(2, array)
+        vertex_data.set_array(1, array)
 
     def get_subobj_selection(self, subobj_lvl):
 
@@ -415,15 +405,84 @@ class BasicGeom(BaseObject):
             render_state = self._render_states[state_id]
 
         self._geom.set_state(render_state)
-        self._geom.set_two_sided(GlobalData["two_sided"])
 
         state_id = "filled" if (is_selected or render_mode != "wire") else "wire"
         picking_state = self._picking_states[state_id]
         Mgr.do("set_basic_geom_picking_color", str(self._picking_col_id), picking_state)
 
-    def set_two_sided(self, two_sided=True):
+    def show_normals(self, show=True):
 
-        self._geom.set_two_sided(two_sided)
+        if self._normals_shown == show:
+            return False
+
+        if show:
+            points_geom = self._geom.node().get_geom(0).make_points()
+            node = GeomNode("normals_geom")
+            node.add_geom(points_geom)
+            node.set_bounds(OmniBoundingVolume())
+            node.set_final(True)
+            normal_geom = self._geom.attach_new_node(node)
+            shader = Shader.make(Shader.SL_GLSL, VERT_SHADER_NORMALS, FRAG_SHADER_NORMALS,
+                                 GEOM_SHADER_NORMALS)
+            normal_geom.set_shader(shader)
+            normal_geom.set_shader_input("normal_length", self._normal_length)
+            normal_geom.set_color(self._normal_color)
+            normal_geom.hide(Mgr.get("picking_masks")["all"])
+        else:
+            normal_geom = self._geom.find("**/normals_geom")
+            normal_geom.remove_node()
+
+        self._normals_shown = show
+
+        return True
+
+    def flip_normals(self, flip=True):
+
+        if self._normals_flipped == flip:
+            return False
+
+        geom = self._geom.node().modify_geom(0)
+        geom.reverse_in_place()
+        vertex_data = geom.get_vertex_data().reverse_normals()
+        geom.set_vertex_data(vertex_data)
+
+        if self._normals_shown:
+            self.show_normals(False)
+            self.show_normals()
+
+        self._normals_flipped = flip
+
+        return True
+
+    def has_flipped_normals(self):
+
+        return self._normals_flipped
+
+    def set_normal_color(self, color):
+
+        if self._normal_color == color:
+            return False
+
+        if self._normals_shown:
+            normal_geom = self._geom.find("**/normals_geom")
+            normal_geom.set_color(color)
+
+        self._normal_color = color
+
+        return True
+
+    def set_normal_length(self, length):
+
+        if self._normal_length == length:
+            return False
+
+        if self._normals_shown:
+            normal_geom = self._geom.find("**/normals_geom")
+            normal_geom.set_shader_input("normal_length", length)
+
+        self._normal_length = length
+
+        return True
 
     def get_data_to_store(self, event_type, prop_id=""):
 
@@ -439,9 +498,7 @@ class BasicGeom(BaseObject):
 
         elif event_type == "prop_change":
 
-            if prop_id == "editable state":
-                data["geom_obj"] = {"main": self}
-            elif prop_id in self.get_property_ids():
+            if prop_id in self.get_property_ids():
                 data[prop_id] = {"main": self.get_property(prop_id)}
 
         return data
@@ -459,7 +516,6 @@ class BasicGeom(BaseObject):
             self._geom.reparent_to(self._model.get_origin())
             self.register()
             self.update_render_mode(self._model.is_selected())
-            self.set_two_sided(GlobalData["two_sided"])
 
         else:
 
@@ -476,6 +532,126 @@ class BasicGeom(BaseObject):
     def get_type_property_ids(self):
 
         return self._type_prop_ids
+
+    def get_property(self, prop_id, for_remote_update=False):
+
+        if prop_id == "normal_flip":
+            return self._normals_flipped
+        elif prop_id == "normal_viz":
+            return self._normals_shown
+        elif prop_id == "normal_color":
+            if for_remote_update:
+                return [x for x in self._normal_color][:3]
+            else:
+                return self._normal_color
+        elif prop_id == "normal_length":
+            return self._normal_length
+
+    def set_property(self, prop_id, value, restore=""):
+
+        if prop_id == "normal_flip":
+            ret = self.flip_normals(value)
+        elif prop_id == "normal_viz":
+            ret = self.show_normals(value)
+        elif prop_id == "normal_color":
+            if restore:
+                self.set_normal_color(value)
+            else:
+                r, g, b = value
+                color = (r, g, b, 1.)
+                ret = self.set_normal_color(color)
+                Mgr.update_remotely("selected_obj_prop", "basic_geom", prop_id, value)
+        elif prop_id == "normal_length":
+            ret = self.set_normal_length(value)
+
+        if restore:
+            Mgr.update_remotely("selected_obj_prop", "basic_geom", prop_id, value)
+        else:
+            return ret
+
+
+class BasicGeomManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "basic_geom", self.__create, "sub", pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("basic_geom")
+
+        self._id_generator = id_generator()
+
+        Mgr.add_app_updater("normal_viz", self.__show_normals)
+        Mgr.add_app_updater("normal_color", self.__set_normal_color)
+
+        BasicGeom.init_render_states()
+
+    def __create(self, geom, name, materials=None):
+
+        model_id = ("basic_geom",) + self._id_generator.next()
+        model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1., 1.))
+        picking_col_id = self.get_next_picking_color_id()
+        basic_geom = BasicGeom(model, geom, picking_col_id, materials)
+
+        return basic_geom
+
+    def __show_normals(self, show=True):
+
+        selection = Mgr.get("selection", "top")
+        changed_objs = []
+
+        for obj in selection:
+            if obj.get_geom_object().show_normals(show):
+                changed_objs.append(obj)
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj in changed_objs:
+            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "normal_viz")
+
+        if len(changed_objs) == 1:
+            obj = changed_objs[0]
+            event_descr = '%s normals of "%s"' % ("Show" if show else "Hide", obj.get_name())
+        else:
+            event_descr = '%s normals of objects:\n' % ("Show" if show else "Hide")
+            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __set_normal_color(self, color_values):
+
+        r, g, b = color_values
+        selection = Mgr.get("selection", "top")
+        changed_objs = []
+
+        for obj in selection:
+            if obj.get_geom_object().set_property("normal_color", color_values):
+                changed_objs.append(obj)
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj in changed_objs:
+            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "normal_color")
+
+        if len(changed_objs) == 1:
+            obj = changed_objs[0]
+            event_descr = 'Change normal color of "%s"' % obj.get_name()
+            event_descr += '\nto R:%.3f | G:%.3f | B:%.3f' % (r, g, b)
+        else:
+            event_descr = 'Change normal color of objects:\n'
+            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+            event_descr += '\n\nto R:%.3f | G:%.3f | B:%.3f' % (r, g, b)
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
 MainObjects.add_class(BasicGeomManager)

@@ -2,201 +2,12 @@ from .base import *
 from math import pi, sin, cos
 
 
-class CylinderManager(PrimitiveManager):
-
-    def __init__(self):
-
-        PrimitiveManager.__init__(self, "cylinder", custom_creation=True)
-
-        self._height_axis = V3D(0., 0., 1.)
-        self._draw_plane = None
-        self._draw_plane_normal = V3D()
-        self._dragged_point = Point3()
-
-        self.set_property_default("radius", 1.)
-        self.set_property_default("height", 1.)
-        self.set_property_default("smoothness", True)
-        self.set_property_default("temp_segments", {"circular": 8, "height": 1, "caps": 1})
-        self.set_property_default("segments", {"circular": 12, "height": 4, "caps": 1})
-        # minimum circular segments = 3
-        # minimum height segments = 1
-        # minimum cap segments = 0: no caps
-
-    def setup(self):
-
-        creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
-        creation_phases.append(creation_phase)
-        creation_phase = (self.__start_creation_phase2, self.__creation_phase2)
-        creation_phases.append(creation_phase)
-
-        status_text = {}
-        status_text["obj_type"] = "cylinder"
-        status_text["phase1"] = "draw out the base"
-        status_text["phase2"] = "draw out the height"
-
-        return PrimitiveManager.setup(self, creation_phases, status_text)
-
-    def create_temp_primitive(self, color, pos):
-
-        segs = self.get_property_defaults()["segments"]
-        tmp_segs = self.get_property_defaults()["temp_segments"]
-        segments = dict((k, min(segs[k], tmp_segs[k])) for k in ("circular", "height", "caps"))
-        is_smooth = self.get_property_defaults()["smoothness"]
-        tmp_prim = TemporaryCylinder(segments, is_smooth, color, pos)
-
-        return tmp_prim
-
-    def create_primitive(self, model):
-
-        prim = Cylinder(model)
-        prop_defaults = self.get_property_defaults()
-        segments = prop_defaults["segments"]
-        poly_count, merged_vert_count = _get_mesh_density(segments)
-        progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
-        gradual = progress_steps > 100
-
-        for step in prim.create(segments, prop_defaults["smoothness"]):
-            if gradual:
-                yield
-
-        yield prim, gradual
-
-    def init_primitive_size(self, prim, size=None):
-
-        if size is None:
-            prop_defaults = self.get_property_defaults()
-            prim.init_size(prop_defaults["radius"], prop_defaults["height"])
-        else:
-            prim.init_size(*size)
-
-    def __start_creation_phase1(self):
-        """ Start drawing out cylinder base """
-
-        tmp_prim = self.get_temp_primitive()
-        origin = tmp_prim.get_origin()
-        self._height_axis = self.world.get_relative_vector(origin, V3D(0., 0., 1.))
-
-    def __creation_phase1(self):
-        """ Draw out cylinder base """
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
-
-        if not point:
-            return
-
-        grid_origin = Mgr.get(("grid", "origin"))
-        self._dragged_point = self.world.get_relative_point(grid_origin, point)
-        radius = (self.get_origin_pos() - point).length()
-        self.get_temp_primitive().update_size(radius)
-
-    def __start_creation_phase2(self):
-        """ Start drawing out cylinder height """
-
-        cam = self.cam()
-        cam_forward_vec = self.world.get_relative_vector(cam, Vec3.forward())
-        normal = V3D(cam_forward_vec - cam_forward_vec.project(self._height_axis))
-
-        # If the plane normal is the null vector, the axis must be parallel to
-        # the forward camera direction. In this case, a new normal can be chosen
-        # arbitrarily, e.g. a horizontal vector perpendicular to the axis.
-
-        if normal.length_squared() < .0001:
-
-            x, y, z = self._height_axis
-
-            # if the height axis is nearly vertical, any horizontal vector will
-            # qualify as plane normal, e.g. a vector pointing in the the positive
-            # X-direction; otherwise, the plane normal can be computed as
-            # perpendicular to the axis
-            normal = V3D(1., 0., 0.) if max(abs(x), abs(y)) < .0001 else V3D(y, -x, 0.)
-
-        self._draw_plane = Plane(normal, self._dragged_point)
-
-        if self.cam.lens_type == "persp":
-
-            cam_pos = cam.get_pos(self.world)
-
-            if normal * V3D(self._draw_plane.project(cam_pos) - cam_pos) < .0001:
-                normal *= -1.
-
-        self._draw_plane_normal = normal
-
-    def __creation_phase2(self):
-        """ Draw out cylinder height """
-
-        if not self.mouse_watcher.has_mouse():
-            return
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
-        lens_type = self.cam.lens_type
-
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
-
-        if lens_type == "persp":
-            # the height cannot be calculated if the cursor points away from the plane
-            # in which it is drawn out
-            if V3D(far_point - near_point) * self._draw_plane_normal < .0001:
-                return
-
-        point = Point3()
-
-        if not self._draw_plane.intersects_line(point, near_point, far_point):
-            return
-
-        tmp_prim = self.get_temp_primitive()
-        pivot = tmp_prim.get_pivot()
-        z = pivot.get_relative_point(self.world, point)[2]
-        tmp_prim.update_size(height=z)
-
-    def create_custom_primitive(self, name, radius, height, segments, pos, rel_to_grid=False,
-                                smooth=True, gradual=False):
-
-        model_id = self.generate_object_id()
-        model = Mgr.do("create_model", model_id, name, pos)
-
-        if not rel_to_grid:
-            pivot = model.get_pivot()
-            pivot.clear_transform()
-            pivot.set_pos(self.world, pos)
-
-        next_color = self.get_next_object_color()
-        model.set_color(next_color, update_app=False)
-        prim = Cylinder(model)
-
-        for step in prim.create(segments, smooth):
-            if gradual:
-                yield
-
-        prim.init_size(radius, height)
-
-        for step in prim.get_geom_data_object().finalize_geometry():
-            if gradual:
-                yield
-
-        model.set_geom_object(prim)
-        self.set_next_object_color()
-
-        yield model
-
-
 def _get_mesh_density(segments):
 
     poly_count = segments["circular"] * segments["height"]
     poly_count += 2 * segments["circular"] * segments["caps"]
-    merged_vert_count = segments["circular"] * (segments["height"] + 1)
 
-    if segments["caps"]:
-        merged_vert_count += 2 * segments["circular"] * (segments["caps"] - 1) + 2
-
-    return poly_count, merged_vert_count
+    return poly_count
 
 
 def _define_geom_data(segments, smooth, temp=False):
@@ -565,7 +376,7 @@ class Cylinder(Primitive):
         self._segments = segments
         self._is_smooth = is_smooth
 
-        for step in Primitive.create(self, *_get_mesh_density(segments)):
+        for step in Primitive.create(self, _get_mesh_density(segments)):
             yield
 
         self.update_initial_coords()
@@ -589,8 +400,6 @@ class Cylinder(Primitive):
         origin.set_z(h if h < 0. else 0.)
         self.reset_initial_coords()
         self.get_geom_data_object().bake_transform()
-        self.get_geom_data_object().update_poly_centers()
-        self.get_model().get_bbox().update(*self.get_origin().get_tight_bounds())
 
     def init_size(self, radius, height):
 
@@ -639,7 +448,7 @@ class Cylinder(Primitive):
                 data.update(self.get_geom_data_object().get_data_to_store("creation"))
                 self.remove_geom_data_backup()
             elif prop_id == "smoothness":
-                data.update(self.get_geom_data_object().get_data_to_store("prop_change", "smoothing"))
+                data.update(self.get_geom_data_object().get_data_to_store())
             elif prop_id in ("radius", "height"):
                 data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
@@ -679,7 +488,7 @@ class Cylinder(Primitive):
             if change:
 
                 if not restore:
-                    self.recreate_geometry(*_get_mesh_density(segments))
+                    self.recreate_geometry(_get_mesh_density(segments))
 
                 update_app()
 
@@ -691,7 +500,7 @@ class Cylinder(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -704,7 +513,7 @@ class Cylinder(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -716,12 +525,9 @@ class Cylinder(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                Mgr.schedule_screenshot_removal()
-                descr = "Updating smoothness..."
                 task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
                                                                          if value else None)
-                PendingTasks.add(task, "smooth_polys", "object", id_prefix=obj_id,
-                                 gradual=True, descr=descr)
+                PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
 
             if change:
                 update_app()
@@ -745,13 +551,195 @@ class Cylinder(Primitive):
             return self._height
         elif prop_id == "smoothness":
             return self._is_smooth
+        else:
+            return Primitive.get_property(self, prop_id, for_remote_update)
 
     def finalize(self):
 
         self.__update_size()
 
-        for step in Primitive.finalize(self, update_poly_centers=False):
-            yield
+        Primitive.finalize(self)
+
+
+class CylinderManager(PrimitiveManager):
+
+    def __init__(self):
+
+        PrimitiveManager.__init__(self, "cylinder", custom_creation=True)
+
+        self._height_axis = V3D(0., 0., 1.)
+        self._draw_plane = None
+        self._draw_plane_normal = V3D()
+        self._dragged_point = Point3()
+
+        self.set_property_default("radius", 1.)
+        self.set_property_default("height", 1.)
+        self.set_property_default("smoothness", True)
+        self.set_property_default("temp_segments", {"circular": 8, "height": 1, "caps": 1})
+        self.set_property_default("segments", {"circular": 12, "height": 4, "caps": 1})
+        # minimum circular segments = 3
+        # minimum height segments = 1
+        # minimum cap segments = 0: no caps
+
+    def setup(self):
+
+        creation_phases = []
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phases.append(creation_phase)
+        creation_phase = (self.__start_creation_phase2, self.__creation_phase2)
+        creation_phases.append(creation_phase)
+
+        status_text = {}
+        status_text["obj_type"] = "cylinder"
+        status_text["phase1"] = "draw out the base"
+        status_text["phase2"] = "draw out the height"
+
+        return PrimitiveManager.setup(self, creation_phases, status_text)
+
+    def create_temp_primitive(self, color, pos):
+
+        segs = self.get_property_defaults()["segments"]
+        tmp_segs = self.get_property_defaults()["temp_segments"]
+        segments = dict((k, min(segs[k], tmp_segs[k])) for k in ("circular", "height", "caps"))
+        is_smooth = self.get_property_defaults()["smoothness"]
+        tmp_prim = TemporaryCylinder(segments, is_smooth, color, pos)
+
+        return tmp_prim
+
+    def create_primitive(self, model):
+
+        prim = Cylinder(model)
+        prop_defaults = self.get_property_defaults()
+        segments = prop_defaults["segments"]
+        poly_count = _get_mesh_density(segments)
+        progress_steps = (poly_count // 20) * 4
+        gradual = progress_steps > 80
+
+        for step in prim.create(segments, prop_defaults["smoothness"]):
+            if gradual:
+                yield
+
+        yield prim, gradual
+
+    def init_primitive_size(self, prim, size=None):
+
+        if size is None:
+            prop_defaults = self.get_property_defaults()
+            prim.init_size(prop_defaults["radius"], prop_defaults["height"])
+        else:
+            prim.init_size(*size)
+
+    def __start_creation_phase1(self):
+        """ Start drawing out cylinder base """
+
+        tmp_prim = self.get_temp_primitive()
+        origin = tmp_prim.get_origin()
+        self._height_axis = self.world.get_relative_vector(origin, V3D(0., 0., 1.))
+
+    def __creation_phase1(self):
+        """ Draw out cylinder base """
+
+        screen_pos = self.mouse_watcher.get_mouse()
+        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
+
+        if not point:
+            return
+
+        grid_origin = Mgr.get(("grid", "origin"))
+        self._dragged_point = self.world.get_relative_point(grid_origin, point)
+        radius = (self.get_origin_pos() - point).length()
+        self.get_temp_primitive().update_size(radius)
+
+    def __start_creation_phase2(self):
+        """ Start drawing out cylinder height """
+
+        cam = self.cam()
+        cam_forward_vec = self.world.get_relative_vector(cam, Vec3.forward())
+        normal = V3D(cam_forward_vec - cam_forward_vec.project(self._height_axis))
+
+        # If the plane normal is the null vector, the axis must be parallel to
+        # the forward camera direction. In this case, a new normal can be chosen
+        # arbitrarily, e.g. a horizontal vector perpendicular to the axis.
+
+        if normal.length_squared() < .0001:
+
+            x, y, z = self._height_axis
+
+            # if the height axis is nearly vertical, any horizontal vector will
+            # qualify as plane normal, e.g. a vector pointing in the the positive
+            # X-direction; otherwise, the plane normal can be computed as
+            # perpendicular to the axis
+            normal = V3D(1., 0., 0.) if max(abs(x), abs(y)) < .0001 else V3D(y, -x, 0.)
+
+        self._draw_plane = Plane(normal, self._dragged_point)
+
+        if self.cam.lens_type == "persp":
+
+            cam_pos = cam.get_pos(self.world)
+
+            if normal * V3D(self._draw_plane.project(cam_pos) - cam_pos) < .0001:
+                normal *= -1.
+
+        self._draw_plane_normal = normal
+
+    def __creation_phase2(self):
+        """ Draw out cylinder height """
+
+        if not self.mouse_watcher.has_mouse():
+            return
+
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        lens_type = self.cam.lens_type
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
+
+        if lens_type == "persp":
+            # the height cannot be calculated if the cursor points away from the plane
+            # in which it is drawn out
+            if V3D(far_point - near_point) * self._draw_plane_normal < .0001:
+                return
+
+        point = Point3()
+
+        if not self._draw_plane.intersects_line(point, near_point, far_point):
+            return
+
+        tmp_prim = self.get_temp_primitive()
+        pivot = tmp_prim.get_pivot()
+        z = pivot.get_relative_point(self.world, point)[2]
+        tmp_prim.update_size(height=z)
+
+    def create_custom_primitive(self, name, radius, height, segments, pos, rel_to_grid=False,
+                                smooth=True, gradual=False):
+
+        model_id = self.generate_object_id()
+        model = Mgr.do("create_model", model_id, name, pos)
+
+        if not rel_to_grid:
+            pivot = model.get_pivot()
+            pivot.clear_transform()
+            pivot.set_pos(self.world, pos)
+
+        next_color = self.get_next_object_color()
+        model.set_color(next_color, update_app=False)
+        prim = Cylinder(model)
+
+        for step in prim.create(segments, smooth):
+            if gradual:
+                yield
+
+        prim.init_size(radius, height)
+        prim.get_geom_data_object().finalize_geometry()
+        model.set_geom_object(prim)
+        self.set_next_object_color()
+
+        yield model
 
 
 MainObjects.add_class(CylinderManager)

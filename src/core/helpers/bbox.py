@@ -1,22 +1,6 @@
 from ..base import *
 
 
-class BBoxEdgeManager(ObjectManager, PickingColorIDManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "bbox_edge", self.__create_bbox_edge, "sub", pickable=True)
-        PickingColorIDManager.__init__(self)
-        PickableTypes.add("bbox_edge")
-
-    def __create_bbox_edge(self, bbox, axis, corner_index):
-
-        picking_col_id = self.get_next_picking_color_id()
-        bbox_edge = BBoxEdge(bbox, axis, corner_index, picking_col_id)
-
-        return bbox_edge
-
-
 class BBoxEdge(BaseObject):
 
     def __init__(self, bbox, axis, corner_index, picking_col_id):
@@ -279,6 +263,22 @@ class BoundingBox(BaseObject):
             return task.again if data["flash_count"] < 4 else None
 
         Mgr.add_task(.2, do_flash, "do_flash")
+
+
+class BBoxEdgeManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "bbox_edge", self.__create_bbox_edge, "sub", pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("bbox_edge")
+
+    def __create_bbox_edge(self, bbox, axis, corner_index):
+
+        picking_col_id = self.get_next_picking_color_id()
+        bbox_edge = BBoxEdge(bbox, axis, corner_index, picking_col_id)
+
+        return bbox_edge
 
 
 Mgr.accept("create_bbox", lambda owner, color: BoundingBox(owner, color))

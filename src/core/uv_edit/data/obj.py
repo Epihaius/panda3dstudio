@@ -77,7 +77,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         if uv_set_id is not None:
             color = UVMgr.get("uv_selection_colors")["seam"]["unselected"]
-            geom_data_obj.create_tex_seams(uv_set_id, seam_edge_ids, color)
+            geom_data_obj.create_tex_seams(uv_set_id, seam_edge_ids[:], color)
 
     def copy(self, uv_set_id=None):
 
@@ -324,7 +324,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
             row_index_offset += poly.get_vertex_count()
 
-            sel_data.extend(poly[:])
+            sel_data.extend(poly)
 
             poly_center = sum(poly_corners, Point3()) / len(poly_corners)
             poly.set_center_pos(poly_center)
@@ -411,6 +411,13 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         poly_sel_state_geom.set_tag("uv_template", "poly")
         geoms["poly"]["sel_state"] = poly_sel_state_geom
 
+        bounds = origin.get_bounds()
+
+        if bounds.get_radius() == 0.:
+            center = bounds.get_center()
+            bounds = BoundingSphere(center, .1)
+            origin.node().set_bounds(bounds)
+
         Mgr.do_next_frame(self.__clear_selected_polys, "clear_sel_polys")
 
     def __clear_selected_polys(self, task):
@@ -487,8 +494,36 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
     def remove_seam_edges(self, edge_ids):
 
+        seam_edge_ids = self._seam_edge_ids
+        selected_edge_ids = self._selected_subobj_ids["edge"]
+        merged_edges = self._merged_edges
+        tmp_merged_edge1 = MergedEdge(self)
+        tmp_merged_edge2 = MergedEdge(self)
+
         for edge_id in edge_ids:
-            self._seam_edge_ids.remove(edge_id)
+
+            seam_edge_ids.remove(edge_id)
+
+            if edge_id in selected_edge_ids:
+                selected_edge_ids.remove(edge_id)
+                tmp_merged_edge1.append(edge_id)
+            else:
+                selected_edge_ids.append(edge_id)
+                tmp_merged_edge2.append(edge_id)
+
+        if tmp_merged_edge1[:]:
+            edge_id = tmp_merged_edge1.get_id()
+            orig_merged_edge = merged_edges[edge_id]
+            merged_edges[edge_id] = tmp_merged_edge1
+            self.update_selection("edge", [tmp_merged_edge1], [], False)
+            merged_edges[edge_id] = orig_merged_edge
+
+        if tmp_merged_edge2[:]:
+            edge_id = tmp_merged_edge2.get_id()
+            orig_merged_edge = merged_edges[edge_id]
+            merged_edges[edge_id] = tmp_merged_edge2
+            self.update_selection("edge", [], [tmp_merged_edge2], False)
+            merged_edges[edge_id] = orig_merged_edge
 
         edges = self._subobjs["edge"]
         row_indices = [edges[edge_id].get_start_row_index() for edge_id in edge_ids]

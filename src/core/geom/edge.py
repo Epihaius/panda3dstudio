@@ -1,30 +1,6 @@
 from ..base import *
 
 
-class EdgeManager(ObjectManager, PickingColorIDManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "edge", self.__create_edge, "sub", pickable=True)
-        PickingColorIDManager.__init__(self)
-        PickableTypes.add("edge")
-        Mgr.accept("create_merged_edge", self.__create_merged_edge)
-
-    def __create_edge(self, geom_data_obj, verts):
-
-        edge_id = self.get_next_id()
-        picking_col_id = self.get_next_picking_color_id()
-        edge = Edge(edge_id, picking_col_id, geom_data_obj, verts)
-
-        return edge
-
-    def __create_merged_edge(self, geom_data_obj, edge_id=None):
-
-        edge = MergedEdge(geom_data_obj, edge_id)
-
-        return edge
-
-
 class Edge(BaseObject):
 
     def __getstate__(self):
@@ -197,6 +173,10 @@ class MergedEdge(object):
 
         self._ids.append(edge_id)
 
+    def extend(self, edge_ids):
+
+        self._ids.extend(edge_ids)
+
     def remove(self, edge_id):
 
         self._ids.remove(edge_id)
@@ -229,7 +209,12 @@ class MergedEdge(object):
 
     def get_special_selection(self):
 
-        return [self]
+        edges = [self]
+
+        if GlobalData["subobj_edit_options"]["sel_edges_by_border"] and len(self._ids) == 1:
+            edges = self._geom_data_obj.get_border_edges(self)
+
+        return edges
 
     def get_start_row_indices(self):
 
@@ -296,6 +281,30 @@ class MergedEdge(object):
                 return True
 
         return False
+
+
+class EdgeManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "edge", self.__create_edge, "sub", pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("edge")
+        Mgr.accept("create_merged_edge", self.__create_merged_edge)
+
+    def __create_edge(self, geom_data_obj, verts):
+
+        edge_id = self.get_next_id()
+        picking_col_id = self.get_next_picking_color_id()
+        edge = Edge(edge_id, picking_col_id, geom_data_obj, verts)
+
+        return edge
+
+    def __create_merged_edge(self, geom_data_obj, edge_id=None):
+
+        edge = MergedEdge(geom_data_obj, edge_id)
+
+        return edge
 
 
 MainObjects.add_class(EdgeManager)

@@ -75,6 +75,49 @@ class TextureMap(object):
 
         return tex_map
 
+    def equals(self, other):
+
+        if self._is_active != other.is_active():
+            return False
+
+        if not self._is_active:
+            return True
+
+        if self.get_tex_filenames() != other.get_tex_filenames():
+            return False
+
+        if not self._texture:
+            return True
+
+        other_tex_stage = TextureStage(other.get_tex_stage())
+        other_tex_stage.set_name(self._tex_stage.get_name())
+
+        if self._tex_stage != other_tex_stage:
+            return False
+
+        if self._border_color != other.get_border_color():
+            return False
+
+        for axis in "uv":
+            if self._wrap_mode_ids[axis] != other.get_wrap_mode(axis):
+                return False
+
+        if self._wrap_modes_locked != other.are_wrap_modes_locked():
+            return False
+
+        for minmag in ("min", "mag"):
+            if self._filter_ids[minmag] != other.get_filter_type(minmag):
+                return False
+
+        if self._anisotropic_degree != other.get_anisotropic_degree():
+            return False
+
+        for transf_type in ("offset", "rotate", "scale"):
+            if self._transform[transf_type] != other.get_transform(transf_type):
+                return False
+
+        return True
+
     def get_type(self):
 
         return self._type
@@ -706,7 +749,7 @@ class TexMapManager(object):
             stage.set_mode(mode)
             stages[map_type] = stage
 
-        stages["vertex_colors"] = TextureStage.get_default()
+        stages["vertex_colors"] = TS.get_default()
 
         Mgr.accept("create_tex_map", self.__create_tex_map)
         Mgr.accept("create_tex_layer", self.__create_layer)

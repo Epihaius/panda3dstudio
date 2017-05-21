@@ -1,97 +1,6 @@
 from ..base import *
 
 
-class PivotAxisManager(ObjectManager, PickingColorIDManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "pivot_axis", self.__create_pivot_axis,
-                               "sub", pickable=True)
-        PickingColorIDManager.__init__(self)
-        PickableTypes.add("pivot_axis")
-
-    def __create_pivot_axis(self, pivot_gizmo, axis):
-
-        picking_col_id = self.get_next_picking_color_id()
-        pivot_axis = PivotAxis(pivot_gizmo, axis, picking_col_id)
-
-        return pivot_axis
-
-
-class PivotGizmoManager(BaseObject):
-
-    def __init__(self):
-
-        self._pivot_gizmo_root = None
-        self._pivot_gizmo_roots = {}
-        self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
-        Mgr.expose("pivot_gizmo_roots", lambda: self._pivot_gizmo_roots)
-        Mgr.accept("create_pivot_gizmo", self.__create_pivot_gizmo)
-        Mgr.accept("show_pivot_gizmos", self.__show_pivot_gizmos)
-
-    def setup(self):
-
-        pivot_gizmo_root = self.cam().attach_new_node("pivot_gizmo_root")
-        pivot_gizmo_root.set_bin("fixed", 50)
-        pivot_gizmo_root.set_depth_test(False)
-        pivot_gizmo_root.set_depth_write(False)
-        pivot_gizmo_root.node().set_bounds(OmniBoundingVolume())
-        pivot_gizmo_root.node().set_final(True)
-        pivot_gizmo_root.hide()
-        self._pivot_gizmo_root = pivot_gizmo_root
-        render_masks = Mgr.get("render_masks")
-        picking_masks = Mgr.get("picking_masks")
-        root_persp = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_persp")
-        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
-        root_ortho = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_ortho")
-        root_ortho.set_scale(50.)
-        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
-        self._pivot_gizmo_roots["persp"] = root_persp
-        self._pivot_gizmo_roots["ortho"] = root_ortho
-
-        return True
-
-    def __create_pivot_gizmo(self, owner):
-
-        pivot_gizmo = PivotGizmo(owner)
-        pivot_gizmo.show(False)
-
-        if not self._pivot_gizmo_root.is_hidden():
-            pivot = owner.get_pivot()
-            pivot_gizmo.get_base().set_billboard_point_world(pivot, 8.)
-            pivot_gizmo.get_origin().set_compass(pivot)
-            compass_effect = CompassEffect.make(pivot, self._compass_props)
-            pivot_gizmo.get_origin("ortho").set_effect(compass_effect)
-
-        return pivot_gizmo
-
-    def __show_pivot_gizmos(self, show=True):
-
-        objs = Mgr.get("objects")
-
-        if show:
-
-            for obj in objs:
-                pivot = obj.get_pivot()
-                pivot_gizmo = obj.get_pivot_gizmo()
-                pivot_gizmo.get_base().set_billboard_point_world(pivot, 8.)
-                pivot_gizmo.get_origin().set_compass(pivot)
-                compass_effect = CompassEffect.make(pivot, self._compass_props)
-                pivot_gizmo.get_origin("ortho").set_effect(compass_effect)
-
-            self._pivot_gizmo_root.show()
-
-        else:
-
-            self._pivot_gizmo_root.hide()
-
-            for obj in objs:
-                pivot_gizmo = obj.get_pivot_gizmo()
-                pivot_gizmo.get_base().clear_billboard()
-                pivot_gizmo.get_origin().clear_compass()
-                pivot_gizmo.get_origin("ortho").clear_effect(CompassEffect.get_class_type())
-
-
 class PivotAxis(BaseObject):
 
     def __init__(self, pivot_gizmo, axis, picking_col_id):
@@ -402,6 +311,97 @@ class PivotGizmo(object):
 
         for origin in self._origins.itervalues():
             origin.show() if show else origin.hide()
+
+
+class PivotAxisManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "pivot_axis", self.__create_pivot_axis,
+                               "sub", pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("pivot_axis")
+
+    def __create_pivot_axis(self, pivot_gizmo, axis):
+
+        picking_col_id = self.get_next_picking_color_id()
+        pivot_axis = PivotAxis(pivot_gizmo, axis, picking_col_id)
+
+        return pivot_axis
+
+
+class PivotGizmoManager(BaseObject):
+
+    def __init__(self):
+
+        self._pivot_gizmo_root = None
+        self._pivot_gizmo_roots = {}
+        self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+        Mgr.expose("pivot_gizmo_roots", lambda: self._pivot_gizmo_roots)
+        Mgr.accept("create_pivot_gizmo", self.__create_pivot_gizmo)
+        Mgr.accept("show_pivot_gizmos", self.__show_pivot_gizmos)
+
+    def setup(self):
+
+        pivot_gizmo_root = self.cam().attach_new_node("pivot_gizmo_root")
+        pivot_gizmo_root.set_bin("fixed", 50)
+        pivot_gizmo_root.set_depth_test(False)
+        pivot_gizmo_root.set_depth_write(False)
+        pivot_gizmo_root.node().set_bounds(OmniBoundingVolume())
+        pivot_gizmo_root.node().set_final(True)
+        pivot_gizmo_root.hide()
+        self._pivot_gizmo_root = pivot_gizmo_root
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
+        root_persp = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_persp")
+        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
+        root_ortho = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_ortho")
+        root_ortho.set_scale(50.)
+        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
+        self._pivot_gizmo_roots["persp"] = root_persp
+        self._pivot_gizmo_roots["ortho"] = root_ortho
+
+        return True
+
+    def __create_pivot_gizmo(self, owner):
+
+        pivot_gizmo = PivotGizmo(owner)
+        pivot_gizmo.show(False)
+
+        if not self._pivot_gizmo_root.is_hidden():
+            pivot = owner.get_pivot()
+            pivot_gizmo.get_base().set_billboard_point_world(pivot, 8.)
+            pivot_gizmo.get_origin().set_compass(pivot)
+            compass_effect = CompassEffect.make(pivot, self._compass_props)
+            pivot_gizmo.get_origin("ortho").set_effect(compass_effect)
+
+        return pivot_gizmo
+
+    def __show_pivot_gizmos(self, show=True):
+
+        objs = Mgr.get("objects")
+
+        if show:
+
+            for obj in objs:
+                pivot = obj.get_pivot()
+                pivot_gizmo = obj.get_pivot_gizmo()
+                pivot_gizmo.get_base().set_billboard_point_world(pivot, 8.)
+                pivot_gizmo.get_origin().set_compass(pivot)
+                compass_effect = CompassEffect.make(pivot, self._compass_props)
+                pivot_gizmo.get_origin("ortho").set_effect(compass_effect)
+
+            self._pivot_gizmo_root.show()
+
+        else:
+
+            self._pivot_gizmo_root.hide()
+
+            for obj in objs:
+                pivot_gizmo = obj.get_pivot_gizmo()
+                pivot_gizmo.get_base().clear_billboard()
+                pivot_gizmo.get_origin().clear_compass()
+                pivot_gizmo.get_origin("ortho").clear_effect(CompassEffect.get_class_type())
 
 
 MainObjects.add_class(PivotAxisManager)

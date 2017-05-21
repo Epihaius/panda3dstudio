@@ -372,14 +372,14 @@ class CoreManager(object):
         cls._core.graphicsEngine.render_frame()
 
     @classmethod
-    def set_cursor(cls, cursor_name):
+    def set_cursor(cls, cursor_id):
         """ Set a cursor image loaded from file """
 
         win_props = WindowProperties()
 
-        if cursor_name == "main":
+        if cursor_id == "main":
             win_props.set_cursor_filename(Filename())
         else:
-            win_props.set_cursor_filename(cls._cursors[cursor_name])
+            win_props.set_cursor_filename(cls._cursors[cursor_id])
 
         cls._core.win.request_properties(win_props)

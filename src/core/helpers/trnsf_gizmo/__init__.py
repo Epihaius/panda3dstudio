@@ -117,6 +117,10 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         self._active_gizmo = self._gizmos[transf_type]
         self._active_gizmo.show()
 
+        if (transf_type and GlobalData["active_obj_level"] in ("vert", "edge", "normal")
+                and GlobalData["selection_via_poly"]):
+            Mgr.update_app("selection_via_poly")
+
     def __update_active_axes(self, transf_type, axes):
 
         GlobalData["axis_constraints"][transf_type] = axes

@@ -18,8 +18,6 @@ class TransformCenterManager(BaseObject):
         Mgr.expose("transf_center_pos", self.__get_transform_center_pos)
         Mgr.add_app_updater("transf_center", self.__set_transform_center)
 
-    def setup(self):
-
         add_state = Mgr.add_state
         add_state("transf_center_picking_mode", -80,
                   self.__enter_picking_mode, self.__exit_picking_mode)
@@ -42,8 +40,6 @@ class TransformCenterManager(BaseObject):
         mode = "Pick transform center"
         info = "LMB to pick object; RMB to end"
         status_data["pick_transf_center"] = {"mode": mode, "info": info}
-
-        return True
 
     def __get_adaptive_transf_center(self):
 

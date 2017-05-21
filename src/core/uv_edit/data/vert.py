@@ -161,6 +161,10 @@ class MergedVertex(object):
 
         self._ids.append(vert_id)
 
+    def extend(self, vert_ids):
+
+        self._ids.extend(vert_ids)
+
     def remove(self, vert_id):
 
         self._ids.remove(vert_id)

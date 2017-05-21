@@ -2,20 +2,6 @@ from ..base import *
 import random
 
 
-class ModelManager(ObjectManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "model", self.__create_model)
-        GlobalData.set_default("two_sided", False)
-
-    def __create_model(self, model_id, name, origin_pos, bbox_color=(1., 1., 1., 1.)):
-
-        model = Model(model_id, name, origin_pos, bbox_color)
-
-        return model
-
-
 class Model(TopLevelObject):
 
     def __getstate__(self):
@@ -34,19 +20,26 @@ class Model(TopLevelObject):
 
         self._bbox.get_origin().reparent_to(self.get_origin())
 
+        if GlobalData["two_sided"]:
+            self.get_origin().set_two_sided(True)
+
     def __init__(self, model_id, name, origin_pos, bbox_color):
 
         TopLevelObject.__init__(self, "model", model_id, name, origin_pos, has_color=True)
 
-        self.get_property_ids().extend(["color", "material", "tangent space"])
+        self.get_property_ids().extend(["color", "material", "tangent_flip", "bitangent_flip"])
         self._color = None
         self._material = None
         self._geom_obj = None
-        self._flip_tangent = False
-        self._flip_bitangent = False
+        self._has_tangent_space = False
+        self._tangent_flip = False
+        self._bitangent_flip = False
 
         self._bbox = Mgr.do("create_bbox", self, bbox_color)
         self._bbox.hide()
+
+        if GlobalData["two_sided"]:
+            self.get_origin().set_two_sided(True)
 
         id_str = str(self.get_id())
         handler = lambda info: self.cancel_creation() if info == "creation" else None
@@ -126,6 +119,13 @@ class Model(TopLevelObject):
 
         return (1., 1., 1., 1.) if self._color is None else self._color
 
+    def set_two_sided(self, two_sided=True):
+
+        if two_sided:
+            self.get_origin().set_two_sided(True)
+        else:
+            self.get_origin().clear_two_sided()
+
     def set_material(self, material, restore=""):
 
         old_material = self._material
@@ -137,39 +137,17 @@ class Model(TopLevelObject):
             old_material.remove(self)
 
         if not material:
-
             self._material = material
-
             return True
 
         material_id = material.get_id()
         registered_material = Mgr.get("material", material_id)
 
         if registered_material:
-
             self._material = registered_material
-
         else:
-
             self._material = material
             Mgr.do("register_material", material)
-            owner_ids = material.get_owner_ids()
-
-            for owner_id in owner_ids[:]:
-
-                if owner_id == self._id:
-                    continue
-
-                owner = Mgr.get("object", owner_id)
-
-                if not owner:
-                    owner_ids.remove(owner_id)
-                    continue
-
-                m = owner.get_material()
-
-                if not m or m.get_id() != material_id:
-                    owner_ids.remove(owner_id)
 
         force = True if restore else False
         self._material.apply(self, force=force)
@@ -284,16 +262,31 @@ class Model(TopLevelObject):
                 PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
             else:
                 return self.set_material(value, restore)
-        elif prop_id == "tangent space":
-            if restore:
-                task = lambda: self.restore_tangent_space(*value)
-                task_id = "upd_tangent_space"
-                PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
-            else:
-                return self.update_tangent_space(*value)
+        elif prop_id == "tangent_flip":
+            change = self.set_tangent_flip(value)
+            if change:
+                if restore:
+                    Mgr.update_remotely("selected_obj_prop", self.get_geom_type(), prop_id, value)
+                    task = lambda: self.update_tangent_space()
+                    task_id = "update_tangent_space"
+                    PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
+                else:
+                    self.update_tangent_space()
+            return change
+        elif prop_id == "bitangent_flip":
+            change = self.set_bitangent_flip(value)
+            if change:
+                if restore:
+                    Mgr.update_remotely("selected_obj_prop", self.get_geom_type(), prop_id, value)
+                    task = lambda: self.update_tangent_space()
+                    task_id = "update_tangent_space"
+                    PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
+                else:
+                    self.update_tangent_space()
+            return change
         elif prop_id in TopLevelObject.get_property_ids(self):
             return TopLevelObject.set_property(self, prop_id, value, restore)
-        elif prop_id in self._geom_obj.get_property_ids() + ["editable state"]:
+        elif prop_id in self._geom_obj.get_property_ids():
             return self._geom_obj.set_property(prop_id, value)
 
     def get_property(self, prop_id, for_remote_update=False):
@@ -302,16 +295,18 @@ class Model(TopLevelObject):
             return self._color
         elif prop_id == "material":
             return self._material
-        elif prop_id == "tangent space":
-            return self._flip_tangent, self._flip_bitangent
+        elif prop_id == "tangent_flip":
+            return self._tangent_flip
+        elif prop_id == "bitangent_flip":
+            return self._bitangent_flip
         elif prop_id in TopLevelObject.get_property_ids(self):
             return TopLevelObject.get_property(self, prop_id, for_remote_update)
-        elif prop_id in self._geom_obj.get_property_ids():
-            return self._geom_obj.get_property(prop_id, for_remote_update)
+
+        return self._geom_obj.get_property(prop_id, for_remote_update)
 
     def get_type_property_ids(self):
 
-        return self._geom_obj.get_type_property_ids()
+        return self._geom_obj.get_type_property_ids() + ["tangent_flip", "bitangent_flip"]
 
     def get_subobj_selection(self, subobj_lvl):
 
@@ -337,6 +332,8 @@ class Model(TopLevelObject):
                 self._bbox.show()
             else:
                 self._bbox.hide()
+        else:
+            self._bbox.hide()
 
         if self._geom_obj:
             self._geom_obj.update_selection_state(is_selected)
@@ -354,28 +351,61 @@ class Model(TopLevelObject):
         if self._geom_obj:
             self._geom_obj.update_render_mode(is_selected)
 
-    def update_tangent_space(self, flip_tangent, flip_bitangent):
+    def set_tangent_space(self):
 
-        if self._flip_tangent == flip_tangent and self._flip_bitangent == flip_bitangent:
-            if self._geom_obj and not self._geom_obj.is_tangent_space_initialized():
-                self._geom_obj.update_tangent_space(flip_tangent, flip_bitangent)
+        self._has_tangent_space = True
+
+    def clear_tangent_space(self):
+
+        self._has_tangent_space = False
+
+    def has_tangent_space(self):
+
+        return self._has_tangent_space
+
+    def set_tangent_flip(self, flip=True):
+
+        if self._tangent_flip == flip:
             return False
 
-        self._flip_tangent = flip_tangent
-        self._flip_bitangent = flip_bitangent
-
-        if self._geom_obj:
-            self._geom_obj.update_tangent_space(flip_tangent, flip_bitangent)
+        self._tangent_flip = flip
 
         return True
 
-    def restore_tangent_space(self, flip_tangent, flip_bitangent):
+    def set_bitangent_flip(self, flip=True):
 
-        self._flip_tangent = flip_tangent
-        self._flip_bitangent = flip_bitangent
+        if self._bitangent_flip == flip:
+            return False
+
+        self._bitangent_flip = flip
+
+        return True
+
+    def get_tangent_space_flip(self):
+
+        return self._tangent_flip, self._bitangent_flip
+
+    def update_tangent_space(self):
 
         if self._geom_obj:
-            self._geom_obj.update_tangent_space(flip_tangent, flip_bitangent)
+            self._geom_obj.update_tangent_space(self._tangent_flip, self._bitangent_flip)
+
+        self._has_tangent_space = True
+
+        return True
+
+    def init_tangent_space(self):
+
+        if self._geom_obj:
+            self._geom_obj.init_tangent_space()
+            self._has_tangent_space = True
+
+    def is_tangent_space_initialized(self):
+
+        if self._geom_obj:
+            return self._geom_obj.is_tangent_space_initialized()
+
+        return False
 
     def display_link_effect(self):
         """
@@ -385,6 +415,56 @@ class Model(TopLevelObject):
         """
 
         self._bbox.flash()
+
+
+class ModelManager(ObjectManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "model", self.__create_model)
+
+        GlobalData.set_default("two_sided", False)
+        updater = lambda flip: self.__set_tangent_space_vector_flip("tangent", flip)
+        Mgr.add_app_updater("tangent_flip", updater)
+        updater = lambda flip: self.__set_tangent_space_vector_flip("bitangent", flip)
+        Mgr.add_app_updater("bitangent_flip", updater)
+
+    def __create_model(self, model_id, name, origin_pos, bbox_color=(1., 1., 1., 1.)):
+
+        model = Model(model_id, name, origin_pos, bbox_color)
+
+        return model
+
+    def __set_tangent_space_vector_flip(self, vector, flip):
+
+        selection = Mgr.get("selection", "top")
+        changed_objs = []
+        prop_id = "%s_flip" % vector
+
+        for obj in selection:
+            if obj.set_property(prop_id, flip):
+                changed_objs.append(obj)
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+        prop_data = {prop_id: {"main": flip}}
+
+        for obj in changed_objs:
+            obj_data[obj.get_id()] = prop_data
+
+        if len(changed_objs) == 1:
+            obj = changed_objs[0]
+            event_descr = '%s %s vectors of "%s"' % ("Flip" if flip else "Unflip",
+                                                     vector, obj.get_name())
+        else:
+            event_descr = '%s %s vectors of objects:\n' % ("Flip" if flip else "Unflip", vector)
+            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
 MainObjects.add_class(ModelManager)

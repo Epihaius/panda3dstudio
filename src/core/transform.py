@@ -705,7 +705,7 @@ class TransformationManager(BaseObject):
         for obj_lvl in ("top",):
             rel_values[obj_lvl] = {"translate": False, "rotate": False, "scale": False}
 
-        for obj_lvl in ("vert", "edge", "poly"):
+        for obj_lvl in ("vert", "edge", "poly", "normal"):
             rel_values[obj_lvl] = {"translate": True, "rotate": True, "scale": True}
 
         copier = lambda data: dict((key, value.copy()) for key, value in data.iteritems())
@@ -737,8 +737,6 @@ class TransformationManager(BaseObject):
         Mgr.accept("init_transform", self.__init_transform)
         Mgr.add_app_updater("transf_component", self.__set_transform_component)
 
-    def setup(self):
-
         add_state = Mgr.add_state
         add_state("transforming", -1)
 
@@ -751,8 +749,6 @@ class TransformationManager(BaseObject):
         bind("transforming", "cancel transform",
              "mouse3-up", lambda: end_transform(cancel=True))
         bind("transforming", "finalize transform", "mouse1-up", end_transform)
-
-        return True
 
     def __reset_transforms_to_restore(self):
 
@@ -957,11 +953,7 @@ class TransformationManager(BaseObject):
 
         else:
 
-            process = selection.set_transform_component(transf_type, axis, value, is_rel_value)
-
-            if process.next():
-                descr = "Finalizing transformation..."
-                Mgr.do_gradually(process, "subobj_transformation", descr)
+            selection.set_transform_component(transf_type, axis, value, is_rel_value)
 
         if active_obj_lvl == "top":
 
@@ -1069,10 +1061,7 @@ class TransformationManager(BaseObject):
             if active_obj_lvl == "top":
                 self._selection.finalize_transform(self._objs_to_transform)
             else:
-                process = self._selection.finalize_transform()
-                if process.next():
-                    descr = "Finalizing transformation..."
-                    Mgr.do_gradually(process, "subobj_transformation", descr)
+                self._selection.finalize_transform()
 
         if active_obj_lvl == "top":
 

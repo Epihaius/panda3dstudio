@@ -28,8 +28,9 @@ class InputField(wx.PyWindow, FocusResetter):
         def accept_input():
 
             if cls._active_inst:
-                cls._active_inst.accept_input()
+                active_inst = cls._active_inst
                 cls._active_inst = None
+                active_inst.accept_input()
 
         def reject_input():
 
@@ -208,8 +209,8 @@ class InputField(wx.PyWindow, FocusResetter):
 
     def __on_enter(self, event):
 
-        self.accept_input()
         self.set_active_input_field(None)
+        self.accept_input()
         self.reset_focus()
 
     def __on_escape(self, event):

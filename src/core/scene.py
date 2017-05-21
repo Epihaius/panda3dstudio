@@ -63,8 +63,11 @@ class SceneManager(BaseObject):
         Mgr.update_app("status", "select", "")
 
         GlobalData.reset()
+        Mgr.update_remotely("two_sided")
         Mgr.update_app("group_options")
         Mgr.update_app("subobj_edit_options")
+        Mgr.update_app("selection_via_poly")
+        Mgr.update_app("normal_preserve")
 
         for transf_type, axes in GlobalData["axis_constraints"].iteritems():
             Mgr.update_app("axis_constraints", transf_type, axes)
@@ -96,9 +99,10 @@ class SceneManager(BaseObject):
         scene_file = Multifile()
         scene_file.open_read(Filename.from_os_specific(filename))
         scene_data_str = scene_file.read_subfile(scene_file.find_subfile("scene/data"))
+        scene_data = cPickle.loads(scene_data_str)
+        Mgr.do("set_material_library", scene_data["material_library"])
         Mgr.do("load_history", scene_file)
         scene_file.close()
-        scene_data = cPickle.loads(scene_data_str)
 
         for obj_type in Mgr.get("object_types"):
             data_id = "last_%s_obj_id" % obj_type
@@ -134,7 +138,6 @@ class SceneManager(BaseObject):
         PendingTasks.add(task, task_id, "ui", sort=100)
 
         PendingTasks.handle(["object", "ui"], True)
-        Mgr.do("set_material_library", scene_data["material_library"])
         GlobalData["open_file"] = filename
 
     def __save(self, filename, set_saved_state=True):

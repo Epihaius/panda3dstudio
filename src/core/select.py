@@ -384,7 +384,7 @@ class SelectionManager(BaseObject):
         bind = Mgr.bind_state
         bind("selection_mode", "select -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
-        bind("selection_mode", "normal select", "mouse1", self.__select)
+        bind("selection_mode", "default select", "mouse1", self.__select)
         mod_ctrl = Mgr.get("mod_ctrl")
         bind("selection_mode", "toggle-select", "%d|mouse1" % mod_ctrl,
              lambda: self.__select(toggle=True))
@@ -392,7 +392,7 @@ class SelectionManager(BaseObject):
         bind("selection_mode", "del selection",
              "delete", self.__delete_selection)
         bind("selection_mode", "transf off", "q",
-             lambda: self.__set_active_transform_type(""))
+             self.__set_active_transform_off)
 
         def cancel_mouse_check():
 
@@ -446,15 +446,11 @@ class SelectionManager(BaseObject):
 
         Mgr.do("disable_transf_gizmo")
 
-    def __set_active_transform_type(self, transf_type):
+    def __set_active_transform_off(self):
 
-        GlobalData["active_transform_type"] = transf_type
-        Mgr.update_app("active_transform_type", transf_type)
-
-        if transf_type:
-            Mgr.update_app("status", "select", transf_type, "idle")
-        else:
-            Mgr.update_app("status", "select", "")
+        GlobalData["active_transform_type"] = ""
+        Mgr.update_app("active_transform_type", "")
+        Mgr.update_app("status", "select", "")
 
     def __update_active_selection(self, restore=False):
 
@@ -487,9 +483,9 @@ class SelectionManager(BaseObject):
     def __delete_selection(self):
 
         selection = self.__get_selection()
-        selection.delete()
 
-        Mgr.do("update_picking_col_id_ranges")
+        if selection.delete():
+            Mgr.do("update_picking_col_id_ranges")
 
     def __update_cursor(self, task):
 
@@ -501,8 +497,8 @@ class SelectionManager(BaseObject):
                 Mgr.set_cursor("main")
             else:
                 active_transform_type = GlobalData["active_transform_type"]
-                cursor_name = "select" if not active_transform_type else active_transform_type
-                Mgr.set_cursor(cursor_name)
+                cursor_id = "select" if not active_transform_type else active_transform_type
+                Mgr.set_cursor(cursor_id)
 
             self._pixel_under_mouse = pixel_under_mouse
 
@@ -521,8 +517,9 @@ class SelectionManager(BaseObject):
         mouse_start_x, mouse_start_y = self._mouse_start_pos
 
         if max(abs(mouse_x - mouse_start_x), abs(mouse_y - mouse_start_y)) > 3:
-            Mgr.do("init_transform", self._picked_point)
-            return task.done
+            if self._picked_point:
+                Mgr.do("init_transform", self._picked_point)
+                return task.done
 
         return task.cont
 
@@ -598,11 +595,11 @@ class SelectionManager(BaseObject):
         if toggle:
             ret = self.__toggle_select()
         else:
-            ret = self.__normal_select()
+            ret = self.__default_select()
 
         selection = self._selection
 
-        if obj not in selection:
+        if not (obj and obj in selection):
             obj = selection[0] if selection else None
 
         if obj:
@@ -618,7 +615,7 @@ class SelectionManager(BaseObject):
 
         return ret
 
-    def __normal_select(self):
+    def __default_select(self):
 
         obj = Mgr.get("object", self._obj_id)
         selection = self._selection

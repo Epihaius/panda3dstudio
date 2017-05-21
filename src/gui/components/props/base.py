@@ -89,6 +89,21 @@ class PropertyPanel(Panel):
         # ********************** Surface properties section ********************
 
         surface_section = section = self.add_section("surface_props", "Surface properties")
+        sizer = section.get_client_sizer()
+
+        sizer.Add(wx.Size(0, 4))
+
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
+        command = lambda on: Mgr.update_remotely("normal_flip", on)
+        checkbox = PanelCheckBox(self, self, subsizer, command, sizer_args=sizer_args)
+        checkbox.check(False)
+        self._checkboxes["normal_flip"] = checkbox
+        section.add_text("Flip (inside out)", subsizer, sizer_args)
+
+        sizer.Add(wx.Size(0, 8))
 
         group = section.add_group("Tangent space")
         grp_sizer = group.get_client_sizer()
@@ -96,31 +111,23 @@ class PropertyPanel(Panel):
 
         subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
         grp_sizer.Add(subsizer)
-        checkbox = PanelCheckBox(self, group, subsizer, lambda on: None)
+        command = lambda on: Mgr.update_remotely("tangent_flip", on)
+        checkbox = PanelCheckBox(self, group, subsizer, command)
         checkbox.check(False)
-        self._checkboxes["flip_tan"] = checkbox
-        group.add_text("Flip tangent", subsizer, sizer_args)
-        checkbox = PanelCheckBox(self, group, subsizer, lambda on: None)
+        self._checkboxes["tangent_flip"] = checkbox
+        group.add_text("Flip tangent vectors", subsizer, sizer_args)
+        command = lambda on: Mgr.update_remotely("bitangent_flip", on)
+        checkbox = PanelCheckBox(self, group, subsizer, command)
         checkbox.check(False)
-        self._checkboxes["flip_bitan"] = checkbox
-        group.add_text("Flip bitangent", subsizer, sizer_args)
-
-        grp_sizer.Add(wx.Size(0, 5))
-
-        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
-
-        label = "Recompute"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, grp_sizer, bitmaps, label,
-                          "Recompute tangent space using above options",
-                          self.__update_tangent_space, sizer_args)
+        self._checkboxes["bitangent_flip"] = checkbox
+        group.add_text("Flip bitangent vectors", subsizer, sizer_args)
 
         # **********************************************************************
 
         sizer = self.get_bottom_ctrl_sizer()
         sizer_args = (0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
 
-        label = "Make editable"
+        label = "Make geometry editable"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         PanelButton(self, create_section, sizer, bitmaps, label, "Turn into editable geometry",
                     self.__make_editable, sizer_args)
@@ -147,32 +154,23 @@ class PropertyPanel(Panel):
 
         wx.CallAfter(finalize_sections)
 
-        def set_obj_prop(obj_type, *args, **kwargs):
+        def set_obj_prop(obj_type, prop_id, value):
 
             if GlobalData["active_creation_type"] != "":
                 return
 
-            if obj_type:
-                self._properties[obj_type].set_object_property(*args, **kwargs)
+            if prop_id in self._checkboxes:
+                self._checkboxes[prop_id].check(value)
+            elif obj_type:
+                self._properties[obj_type].set_object_property(prop_id, value)
 
-        def check_selection_count():
-
-            if GlobalData["active_creation_type"] != "":
-                return
-
-            obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
+        def set_obj_prop_default(obj_type, prop_id, value):
 
             if obj_type:
-                self._properties[obj_type].check_selection_count()
-
-        def set_obj_prop_default(obj_type, *args, **kwargs):
-
-            if obj_type:
-                self._properties[obj_type].set_object_property_default(*args, **kwargs)
+                self._properties[obj_type].set_object_property_default(prop_id, value)
 
         Mgr.add_app_updater("selected_obj_types", self.show)
         Mgr.add_app_updater("selected_obj_prop", set_obj_prop)
-        Mgr.add_app_updater("selection_count", check_selection_count)
         Mgr.add_app_updater("obj_prop_default", set_obj_prop_default)
         Mgr.add_app_updater("interactive_creation", self.__update_sections)
         Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
@@ -209,7 +207,7 @@ class PropertyPanel(Panel):
 
     def __make_editable(self):
 
-        Mgr.update_remotely("selected_obj_prop", "editable state", True)
+        Mgr.update_remotely("geometry_access")
 
     def __update_sections(self, creation_status):
 
@@ -319,13 +317,7 @@ class PropertyPanel(Panel):
         if next_color:
             self._color_picker.set_color(next_color)
 
-    def __update_tangent_space(self):
-
-        flip_tan = self._checkboxes["flip_tan"].is_checked()
-        flip_bitan = self._checkboxes["flip_bitan"].is_checked()
-        Mgr.update_remotely("selected_obj_prop", "tangent space", (flip_tan, flip_bitan))
-
-    def __check_selection_count(self):
+    def __check_selection_count(self, on_enable=False):
 
         if GlobalData["active_creation_type"] != "" or GlobalData["temp_toplevel"]:
             return
@@ -333,15 +325,33 @@ class PropertyPanel(Panel):
         self._sel_obj_count = sel_count = GlobalData["selection_count"]
 
         if GlobalData["active_obj_level"] == "top":
+
+            multi_sel = sel_count > 1
+            color = self._colors["disabled"] if multi_sel else None
+
+            if not on_enable:
+
+                if multi_sel:
+                    for checkbox in self._checkboxes.itervalues():
+                        checkbox.check(False)
+
+                for checkbox in self._checkboxes.itervalues():
+                    checkbox.set_checkmark_color(color)
+
             self._name_field.enable(sel_count > 0)
             self._name_field.show_text(sel_count > 0)
-            self._name_field.set_text_color(self._colors["disabled"] if sel_count > 1 else None)
+            self._name_field.set_text_color(color)
+
         else:
+
             self._name_field.enable(False)
 
         obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
 
         if obj_type:
+
+            if not on_enable:
+                self._properties[obj_type].check_selection_count()
 
             extra_section_ids = self._properties[obj_type].get_extra_section_ids()
 
@@ -390,7 +400,7 @@ class PropertyPanel(Panel):
             self._name_field.enable()
             self._color_picker.enable()
         else:
-            self.__check_selection_count()
+            self.__check_selection_count(on_enable=True)
             self.__check_selection_color_count()
 
     def disable(self, show=True):

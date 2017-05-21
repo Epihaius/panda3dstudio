@@ -10,10 +10,10 @@ class SelectionManager(BaseObject):
         self._mouse_start_pos = ()
         self._pixel_under_mouse = VBase4()
         self._obj_lvl = "top"
-        self._obj_id = None
+        self._color_id = None
         self._models = []
         self._selections = {"vert": set(), "edge": set(), "poly": set()}
-        self._original_sel = {}
+        self._restore_sel_via_poly = False
 
     def setup(self):
 
@@ -86,6 +86,11 @@ class SelectionManager(BaseObject):
 
         if not is_active:
 
+            if GlobalData["selection_via_poly"]:
+                GlobalData["selection_via_poly"] = False
+                Mgr.update_app("selection_via_poly")
+                self._restore_sel_via_poly = True
+
             if GlobalData["active_obj_level"] != "top":
                 GlobalData["active_obj_level"] = "top"
                 Mgr.update_app("active_obj_level")
@@ -96,18 +101,21 @@ class SelectionManager(BaseObject):
 
             selection = Mgr.get("selection", "top")
             models = self._models = self.__get_models(selection)
-            original_selections = self._original_sel
 
             for model in models:
 
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
-                original_selections[geom_data_obj] = orig_sel = {}
 
                 for subobj_lvl in ("vert", "edge", "poly"):
-                    orig_sel[subobj_lvl] = geom_data_obj.get_selection(subobj_lvl)
+                    geom_data_obj.create_selection_backup(subobj_lvl)
                     geom_data_obj.clear_selection(subobj_lvl, False)
 
             self.__make_grouped_models_accessible(selection)
+
+            if prev_state_id == "navigation_mode":
+                task = lambda: Mgr.enter_state("navigation_mode")
+                task_id = "enter_nav_mode"
+                PendingTasks.add(task, task_id, "ui", sort=100)
 
         Mgr.add_task(self.__update_cursor, "update_cursor")
 
@@ -117,10 +125,17 @@ class SelectionManager(BaseObject):
 
         if not is_active:
 
-            for geom_data_obj, orig_sel in self._original_sel.iteritems():
+            for model in self._models:
+
+                geom_data_obj = model.get_geom_object().get_geom_data_object()
+
                 for subobj_lvl in ("vert", "edge", "poly"):
-                    geom_data_obj.clear_selection(subobj_lvl, False)
-                    geom_data_obj.update_selection(subobj_lvl, orig_sel[subobj_lvl], [], False)
+                    geom_data_obj.clear_selection(subobj_lvl, force=True)
+                    geom_data_obj.restore_selection_backup(subobj_lvl)
+
+            if self._restore_sel_via_poly:
+                GlobalData["selection_via_poly"] = True
+                Mgr.update_remotely("selection_via_poly")
 
             self.__reset()
             selection = Mgr.get("selection", "top")
@@ -135,9 +150,9 @@ class SelectionManager(BaseObject):
         self._pixel_under_mouse = VBase4()
         self._obj_lvl = "top"
         self._color_id = None
-        self._selections = {"vert": set(), "edge": set(), "poly": set()}
-        self._original_sel = {}
         self._models = []
+        self._selections = {"vert": set(), "edge": set(), "poly": set()}
+        self._restore_sel_via_poly = False
 
     def set_object_level(self, obj_lvl):
 
@@ -216,9 +231,9 @@ class SelectionManager(BaseObject):
         if toggle:
             self.__toggle_select()
         else:
-            self.__normal_select()
+            self.__default_select()
 
-    def __normal_select(self):
+    def __default_select(self):
 
         obj_lvl = self._obj_lvl
         models = self._models
@@ -352,13 +367,13 @@ class SelectionManager(BaseObject):
 
             if obj_lvl == "edge":
                 for subobj in subobjects:
-                    if not ids_to_keep.intersection(subobj[:]):
+                    if not ids_to_keep.intersection(subobj):
                         geom_data_obj = subobj.get_geom_data_object()
                         geom_data_obj.set_selected_tex_seam_edge(uv_set_id, colors, subobj, False)
                         selection.discard(subobj)
             else:
                 for subobj in subobjects:
-                    if obj_lvl == "poly" or not ids_to_keep.intersection(subobj[:]):
+                    if obj_lvl == "poly" or not ids_to_keep.intersection(subobj):
                         geom_data_obj = subobj.get_geom_data_object()
                         subobj_sel.setdefault(geom_data_obj, []).append(subobj)
                         selection.discard(subobj)

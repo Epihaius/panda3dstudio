@@ -229,7 +229,7 @@ class AppManager(object):
 
         if key_code not in self._keymap[dest]:
 
-            if "mouse" not in key_code:
+            if "mouse" not in str(key_code):
 
                 logging.warning('The pressed key "%s" is not defined.', str(key_code))
 

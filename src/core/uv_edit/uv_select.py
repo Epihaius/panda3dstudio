@@ -201,10 +201,10 @@ class UVSelectionBase(BaseObject):
                 self._set_cursor("main")
             else:
                 active_transf_type = GlobalData["active_uv_transform_type"]
-                default_cursor_name = "select" if not active_transf_type else active_transf_type
-                cursor_name = GlobalData["uv_cursor"]
-                cursor_name = cursor_name if cursor_name else default_cursor_name
-                self._set_cursor(cursor_name)
+                default_cursor_id = "select" if not active_transf_type else active_transf_type
+                cursor_id = GlobalData["uv_cursor"]
+                cursor_id = cursor_id if cursor_id else default_cursor_id
+                self._set_cursor(cursor_id)
 
             self._pixel_under_mouse = pixel_under_mouse
 
@@ -316,9 +316,9 @@ class UVSelectionBase(BaseObject):
         if toggle:
             self.__toggle_select()
         else:
-            self.__normal_select()
+            self.__default_select()
 
-    def __normal_select(self):
+    def __default_select(self):
 
         obj_lvl = self._obj_lvl
         uv_set_id = self._uv_set_id
@@ -448,7 +448,7 @@ class UVSelectionBase(BaseObject):
             ids_to_keep = keep if keep else set()
 
             for subobj in subobjects:
-                if obj_lvl == "poly" or not ids_to_keep.intersection(subobj[:]):
+                if obj_lvl == "poly" or not ids_to_keep.intersection(subobj):
                     selection.remove(subobj)
 
         else:

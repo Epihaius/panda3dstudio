@@ -12,12 +12,17 @@ class GeomSelectionBase(BaseObject):
     def __setstate__(self, state):
 
         self._poly_selection_data = {"selected": [], "unselected": []}
-        self._selected_subobj_ids = {"vert": [], "edge": [], "poly": []}
+        self._selected_subobj_ids = {"vert": [], "edge": [], "poly": [], "normal": []}
 
     def __init__(self):
 
         self._poly_selection_data = {"selected": [], "unselected": []}
-        self._selected_subobj_ids = {"vert": [], "edge": [], "poly": []}
+        self._selected_subobj_ids = {"vert": [], "edge": [], "poly": [], "normal": []}
+        self._sel_subobj_ids_backup = {}
+        self._selection_backup = {}
+        self._tmp_geom_pickable = None
+        self._tmp_geom_sel_state = None
+        self._tmp_row_indices = {}
 
     def update_selection(self, subobj_type, subobjs_to_select, subobjs_to_deselect,
                          update_verts_to_transf=True, selection_colors=None):
@@ -70,7 +75,7 @@ class GeomSelectionBase(BaseObject):
                 for vert_ids in poly:
                     data_unselected.remove(vert_ids)
 
-                data_selected.extend(poly[:])
+                data_selected.extend(poly)
 
                 subdata_unsel += handle_unsel.get_subdata(start * stride, size * stride)
                 handle_unsel.set_subdata(start * stride, size * stride, "")
@@ -82,7 +87,7 @@ class GeomSelectionBase(BaseObject):
                 for vert_ids in poly:
                     data_selected.remove(vert_ids)
 
-                data_unselected.extend(poly[:])
+                data_unselected.extend(poly)
 
                 subdata_sel += handle_sel.get_subdata(start * stride, size * stride)
                 handle_sel.set_subdata(start * stride, size * stride, "")
@@ -91,9 +96,15 @@ class GeomSelectionBase(BaseObject):
 
         else:
 
-            merged_subobjs = self._merged_verts if subobj_type == "vert" else self._merged_edges
-            selected_subobjs = set(merged_subobjs[subobj.get_id()] for subobj in selected_subobjs)
-            deselected_subobjs = set(merged_subobjs[subobj.get_id()] for subobj in deselected_subobjs)
+            if subobj_type == "vert":
+                combined_subobjs = self._merged_verts
+            elif subobj_type == "edge":
+                combined_subobjs = self._merged_edges
+            elif subobj_type == "normal":
+                combined_subobjs = self._shared_normals
+
+            selected_subobjs = set(combined_subobjs[subobj.get_id()] for subobj in selected_subobjs)
+            deselected_subobjs = set(combined_subobjs[subobj.get_id()] for subobj in deselected_subobjs)
 
             sel_state_geom = geoms["sel_state"]
             vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
@@ -107,86 +118,182 @@ class GeomSelectionBase(BaseObject):
             color_sel = sel_colors["selected"]
             color_unsel = sel_colors["unselected"]
 
-            if subobj_type == "vert":
+            for combined_subobj in selected_subobjs:
 
-                for merged_vert in selected_subobjs:
+                selected_subobj_ids.extend(combined_subobj)
 
-                    selected_subobj_ids.extend(merged_vert[:])
+                for row_index in combined_subobj.get_row_indices():
+                    col_writer.set_row(row_index)
+                    col_writer.set_data4f(color_sel)
 
-                    for row_index in merged_vert.get_row_indices():
-                        col_writer.set_row(row_index)
-                        col_writer.set_data4f(color_sel)
+            for combined_subobj in deselected_subobjs:
 
-                for merged_vert in deselected_subobjs:
+                for subobj_id in combined_subobj:
+                    selected_subobj_ids.remove(subobj_id)
 
-                    for v_id in merged_vert:
-                        selected_subobj_ids.remove(v_id)
+                for row_index in combined_subobj.get_row_indices():
+                    col_writer.set_row(row_index)
+                    col_writer.set_data4f(color_unsel)
 
-                    for row_index in merged_vert.get_row_indices():
-                        col_writer.set_row(row_index)
-                        col_writer.set_data4f(color_unsel)
+            if subobj_type == "normal":
 
-            elif subobj_type == "edge":
+                selected_normal_ids = []
+                deselected_normal_ids = []
 
-                for merged_edge in selected_subobjs:
+                for combined_subobj in selected_subobjs:
+                    selected_normal_ids.extend(combined_subobj)
 
-                    selected_subobj_ids.extend(merged_edge[:])
+                for combined_subobj in deselected_subobjs:
+                    deselected_normal_ids.extend(combined_subobj)
 
-                    for row_index in merged_edge.get_row_indices():
-                        col_writer.set_row(row_index)
-                        col_writer.set_data4f(color_sel)
-
-                for merged_edge in deselected_subobjs:
-
-                    for e_id in merged_edge:
-                        selected_subobj_ids.remove(e_id)
-
-                    for row_index in merged_edge.get_row_indices():
-                        col_writer.set_row(row_index)
-                        col_writer.set_data4f(color_unsel)
+                self.update_locked_normal_selection(selected_normal_ids, deselected_normal_ids)
 
         if update_verts_to_transf:
             self._update_verts_to_transform(subobj_type)
 
         return True
 
+    def init_subobject_select(self, subobj_lvl):
+
+        geoms = self._geoms
+
+        if GlobalData["selection_via_poly"]:
+
+            if GlobalData["active_transform_type"]:
+                GlobalData["active_transform_type"] = ""
+                Mgr.update_app("active_transform_type", "")
+                Mgr.update_app("status", "select", "")
+
+            self.create_selection_backup("poly")
+            geoms["poly"]["selected"].set_state(Mgr.get("temp_poly_selection_state"))
+            self.init_subobject_select_via_poly(subobj_lvl)
+
+        else:
+
+            render_masks = Mgr.get("render_masks")["all"]
+            picking_masks = Mgr.get("picking_masks")["all"]
+            geoms[subobj_lvl]["pickable"].show_through(picking_masks)
+            geoms["poly"]["pickable"].show(picking_masks)
+            geoms["poly"]["selected"].hide(render_masks)
+
+            if not geoms["poly"]["unselected"].is_hidden(render_masks):
+                geoms["poly"]["unselected"].hide(render_masks)
+                geoms["top"].show(render_masks)
+
+    def init_subobject_select_via_poly(self, subobj_type):
+
+        self.clear_selection("poly", False)
+
+        # clean up temporary vertex data
+        if self._tmp_geom_pickable:
+            self._tmp_geom_pickable.remove_node()
+            self._tmp_geom_pickable = None
+            self._tmp_geom_sel_state.remove_node()
+            self._tmp_geom_sel_state = None
+            self._tmp_row_indices = {}
+
+        # Allow picking polys instead of the subobjects of the given type;
+        # as soon as a poly is clicked, its subobjects (of the given type) become
+        # pickable instead of polys.
+
+        render_masks = Mgr.get("render_masks")["all"]
+        picking_masks = Mgr.get("picking_masks")["all"]
+        geoms = self._geoms
+        geoms[subobj_type]["pickable"].hide(picking_masks)
+        geoms["poly"]["pickable"].show_through(picking_masks)
+        geoms["poly"]["selected"].show(render_masks)
+
+        if not geoms["top"].is_hidden(render_masks):
+            geoms["top"].hide(render_masks)
+            geoms["poly"]["unselected"].show(render_masks)
+
+    def subobject_select_via_poly(self, subobj_lvl, picked_poly):
+
+        if subobj_lvl == "vert":
+            self.vertex_select_via_poly(picked_poly)
+        elif subobj_lvl == "edge":
+            self.edge_select_via_poly(picked_poly)
+        elif subobj_lvl == "normal":
+            self.normal_select_via_poly(picked_poly)
+
+    def select_temp_subobject(self, subobj_lvl, color_id):
+
+        row = self._tmp_row_indices.get(color_id)
+
+        if row is None:
+            return False
+
+        colors = Mgr.get("subobj_selection_colors")[subobj_lvl]
+        geom = self._tmp_geom_sel_state.node().modify_geom(0)
+        vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
+        geom.set_vertex_data(vertex_data)
+        col_writer = GeomVertexWriter(geom.modify_vertex_data(), "color")
+        col_writer.set_row(row)
+        col_writer.set_data4f(colors["selected"])
+
+        if subobj_lvl == "edge":
+            col_writer.set_data4f(colors["selected"])
+
+        return True
+
     def is_selected(self, subobj):
 
-        subobj_type = subobj.get_type()
-        subobj_id = subobj.get_id()
-        selected_subobj_ids = self._selected_subobj_ids[subobj_type]
-
-        return subobj_id in selected_subobj_ids
+        return subobj.get_id() in self._selected_subobj_ids[subobj.get_type()]
 
     def get_selection(self, subobj_lvl):
 
-        subobjs = self._subobjs[subobj_lvl]
         selected_subobj_ids = self._selected_subobj_ids[subobj_lvl]
 
+        if subobj_lvl == "poly":
+            polys = self._subobjs["poly"]
+            return [polys[poly_id] for poly_id in selected_subobj_ids]
+
         if subobj_lvl == "vert":
-
-            merged_verts = self._merged_verts
-            verts = set(merged_verts[vert_id] for vert_id in selected_subobj_ids)
-            selection = list(verts)
-
+            combined_subobjs = self._merged_verts
         elif subobj_lvl == "edge":
+            combined_subobjs = self._merged_edges
+        elif subobj_lvl == "normal":
+            combined_subobjs = self._shared_normals
 
-            merged_edges = self._merged_edges
-            edges = set(merged_edges[edge_id] for edge_id in selected_subobj_ids)
-            selection = list(edges)
+        return list(set(combined_subobjs[subobj_id] for subobj_id in selected_subobj_ids))
 
-        elif subobj_lvl == "poly":
+    def create_selection_backup(self, subobj_lvl):
 
-            selection = [subobjs[i] for i in selected_subobj_ids]
+        if subobj_lvl in self._selection_backup:
+            return
 
-        return selection
+        self._sel_subobj_ids_backup[subobj_lvl] = self._selected_subobj_ids[subobj_lvl][:]
+        self._selection_backup[subobj_lvl] = self.get_selection(subobj_lvl)
 
-    def clear_selection(self, subobj_lvl, update_verts_to_transf=True):
+    def restore_selection_backup(self, subobj_lvl):
 
-        self._selected_subobj_ids[subobj_lvl] = []
+        sel_backup = self._selection_backup
+
+        if subobj_lvl not in sel_backup:
+            return
+
+        self.clear_selection(subobj_lvl, False)
+        self.update_selection(subobj_lvl, sel_backup[subobj_lvl], [], False)
+        del sel_backup[subobj_lvl]
+        del self._sel_subobj_ids_backup[subobj_lvl]
+
+    def remove_selection_backup(self, subobj_lvl):
+
+        sel_backup = self._selection_backup
+
+        if subobj_lvl in sel_backup:
+            del sel_backup[subobj_lvl]
+            del self._sel_subobj_ids_backup[subobj_lvl]
+
+    def clear_selection(self, subobj_lvl, update_verts_to_transf=True, force=False):
+
+        if not (force or self._selected_subobj_ids[subobj_lvl]):
+            return
+
         geoms = self._geoms[subobj_lvl]
 
         if subobj_lvl == "poly":
+
             geom_selected = geoms["selected"]
             geom_unselected = geoms["unselected"]
             sel_data = self._poly_selection_data
@@ -197,11 +304,30 @@ class GeomSelectionBase(BaseObject):
             handle.set_data("")
             handle = geom_unselected.node().modify_geom(0).modify_primitive(0).modify_vertices().modify_handle()
             handle.set_data(handle.get_data() + data)
-        else:
+
+        elif subobj_lvl == "normal":
+
+            color = Mgr.get("subobj_selection_colors")["normal"]["unselected"]
+            color_locked = Mgr.get("subobj_selection_colors")["normal"]["locked_unsel"]
             vertex_data = geoms["sel_state"].node().modify_geom(0).modify_vertex_data()
-            colors = Mgr.get("subobj_selection_colors")[subobj_lvl]
-            new_data = vertex_data.set_color(colors["unselected"])
+            col_writer = GeomVertexWriter(vertex_data, "color")
+            verts = self._subobjs["vert"]
+
+            for vert_id in self._selected_subobj_ids["normal"]:
+                vert = verts[vert_id]
+                row = vert.get_row_index()
+                col = color_locked if vert.has_locked_normal() else color
+                col_writer.set_row(row)
+                col_writer.set_data4f(col)
+
+        else:
+
+            vertex_data = geoms["sel_state"].node().modify_geom(0).modify_vertex_data()
+            color = Mgr.get("subobj_selection_colors")[subobj_lvl]["unselected"]
+            new_data = vertex_data.set_color(color)
             vertex_data.set_array(1, new_data.get_array(1))
+
+        self._selected_subobj_ids[subobj_lvl] = []
 
         if update_verts_to_transf:
             self._verts_to_transf[subobj_lvl] = {}
@@ -218,11 +344,13 @@ class GeomSelectionBase(BaseObject):
         selected_vert_ids = selected_subobj_ids["vert"]
         selected_edge_ids = selected_subobj_ids["edge"]
         selected_poly_ids = selected_subobj_ids["poly"]
+        selected_normal_ids = selected_subobj_ids["normal"]
         self._verts_to_transf["vert"] = {}
         self._verts_to_transf["edge"] = {}
         self._verts_to_transf["poly"] = {}
         verts_to_delete = []
         edges_to_delete = []
+        border_edges = []
 
         if subobj_lvl == "vert":
 
@@ -248,6 +376,7 @@ class GeomSelectionBase(BaseObject):
         row_ranges_to_delete = []
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
+        shared_normals = self._shared_normals
 
         subobjs_to_unreg = self._subobjs_to_unreg = {"vert": {}, "edge": {}, "poly": {}}
 
@@ -255,7 +384,6 @@ class GeomSelectionBase(BaseObject):
         subobj_change["vert"]["deleted"] = vert_change = {}
         subobj_change["edge"]["deleted"] = edge_change = {}
         subobj_change["poly"]["deleted"] = poly_change = {}
-        subobj_change["selection"] = ["vert", "edge", "poly"]
 
         for poly in polys_to_delete:
 
@@ -266,6 +394,15 @@ class GeomSelectionBase(BaseObject):
 
             verts_to_delete.extend(poly_verts)
             edges_to_delete.extend(poly.get_edges())
+
+            for edge_id in poly.get_edge_ids():
+
+                merged_edge = merged_edges[edge_id]
+
+                if merged_edge in border_edges:
+                    border_edges.remove(merged_edge)
+                else:
+                    border_edges.append(merged_edge)
 
             ordered_polys.remove(poly)
             poly_id = poly.get_id()
@@ -286,15 +423,19 @@ class GeomSelectionBase(BaseObject):
             if vert_id in selected_vert_ids:
                 selected_vert_ids.remove(vert_id)
 
+            if vert_id in selected_normal_ids:
+                selected_normal_ids.remove(vert_id)
+
             if vert_id in merged_verts:
                 merged_vert = merged_verts[vert_id]
                 merged_vert.remove(vert_id)
                 del merged_verts[vert_id]
                 merged_verts_to_resmooth.add(merged_vert)
 
-        progress_steps = len(merged_verts_to_resmooth) // 20
-
-        yield True, progress_steps
+            if vert_id in shared_normals:
+                shared_normal = shared_normals[vert_id]
+                shared_normal.discard(vert_id)
+                del shared_normals[vert_id]
 
         sel_data = self._poly_selection_data
         geoms = self._geoms
@@ -319,9 +460,21 @@ class GeomSelectionBase(BaseObject):
                 selected_edge_ids.remove(edge_id)
 
             if edge_id in merged_edges:
+
                 merged_edge = merged_edges[edge_id]
                 merged_edge.remove(edge_id)
                 del merged_edges[edge_id]
+
+                if not merged_edge[:] and merged_edge in border_edges:
+                    border_edges.remove(merged_edge)
+
+        if border_edges:
+
+            new_merged_verts = self.fix_borders(border_edges)
+
+            if new_merged_verts:
+                self.update_normal_sharing(new_merged_verts)
+                merged_verts_to_resmooth.update(new_merged_verts)
 
         self.unregister(locally=True)
 
@@ -342,8 +495,10 @@ class GeomSelectionBase(BaseObject):
 
         vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
         edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
+        normal_geom = geoms["normal"]["pickable"].node().modify_geom(0)
         vertex_data_vert = vert_geom.modify_vertex_data()
         vertex_data_edge = edge_geom.modify_vertex_data()
+        vertex_data_normal = normal_geom.modify_vertex_data()
         vertex_data_poly = self._vertex_data["poly"]
         vertex_data_poly_picking = self._vertex_data["poly_picking"]
 
@@ -388,13 +543,24 @@ class GeomSelectionBase(BaseObject):
 
         vertex_data_vert.set_num_rows(count)
         vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_normal.set_num_rows(count)
         vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_normal.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_normal.set_array(1, GeomVertexArrayData(vert_array))
+        vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
 
         vertex_data_vert = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data_vert.set_num_rows(count)
         vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
         new_data = vertex_data_vert.set_color(sel_colors["vert"]["unselected"])
         vertex_data_vert.set_array(1, new_data.get_array(1))
+
+        vertex_data_normal = geoms["normal"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_normal.set_num_rows(count)
+        vertex_data_normal.set_array(0, GeomVertexArrayData(pos_array))
+        new_data = vertex_data_normal.set_color(sel_colors["normal"]["unselected"])
+        vertex_data_normal.set_array(1, new_data.get_array(1))
+        vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
 
         tmp_array = GeomVertexArrayData(pos_array)
         handle = tmp_array.modify_handle()
@@ -411,13 +577,16 @@ class GeomSelectionBase(BaseObject):
         data_unselected = sel_data["unselected"]
 
         for poly in ordered_polys:
-            data_unselected.extend(poly[:])
+            data_unselected.extend(poly)
 
         points_prim = GeomPoints(Geom.UH_static)
         points_prim.reserve_num_vertices(count)
         points_prim.add_next_vertices(count)
         vert_geom.set_primitive(0, points_prim)
+        normal_geom.set_primitive(0, GeomPoints(points_prim))
         geom_node = geoms["vert"]["sel_state"].node()
+        geom_node.modify_geom(0).set_primitive(0, GeomPoints(points_prim))
+        geom_node = geoms["normal"]["sel_state"].node()
         geom_node.modify_geom(0).set_primitive(0, GeomPoints(points_prim))
 
         lines_prim = GeomLines(Geom.UH_static)
@@ -454,9 +623,8 @@ class GeomSelectionBase(BaseObject):
 
         geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
 
-        selected_subobj_ids["vert"] = []
-        selected_subobj_ids["edge"] = []
-        selected_subobj_ids["poly"] = []
+        for subobj_type in ("vert", "edge", "poly", "normal"):
+            selected_subobj_ids[subobj_type] = []
 
         if selected_vert_ids:
             selected_verts = (verts[vert_id] for vert_id in selected_vert_ids)
@@ -470,9 +638,14 @@ class GeomSelectionBase(BaseObject):
             selected_polys = (polys[poly_id] for poly_id in selected_poly_ids)
             self.update_selection("poly", selected_polys, [])
 
-        for step in self._update_vertex_normals(merged_verts_to_resmooth):
-            yield
+        if selected_normal_ids:
+            selected_normals = (shared_normals[normal_id] for normal_id in selected_normal_ids)
+            self.update_selection("normal", selected_normals, [])
 
+        poly_ids = [poly.get_id() for poly in polys_to_delete]
+        self.smooth_polygons(poly_ids, smooth=False, update_normals=False)
+        self._normal_sharing_change = True
+        self.update_vertex_normals(merged_verts_to_resmooth)
         self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
 
     def _restore_subobj_selection(self, time_id):
@@ -481,17 +654,55 @@ class GeomSelectionBase(BaseObject):
         prop_id = self._unique_prop_ids["subobj_selection"]
         data = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
 
+        verts = self._subobjs["vert"]
+        normal_ids = data["normal"]
+        old_sel_normal_ids = set(self._selected_subobj_ids["normal"])
+        new_sel_normal_ids = set(normal_ids)
+        sel_normal_ids = new_sel_normal_ids - old_sel_normal_ids
+        unsel_normal_ids = old_sel_normal_ids - new_sel_normal_ids
+        unsel_normal_ids.intersection_update(verts)
+        shared_normals = self._shared_normals
+        original_shared_normals = {}
+
+        if unsel_normal_ids:
+            tmp_shared_normal = Mgr.do("create_shared_normal", self, unsel_normal_ids)
+            unsel_id = tmp_shared_normal.get_id()
+            original_shared_normals[unsel_id] = shared_normals[unsel_id]
+            shared_normals[unsel_id] = tmp_shared_normal
+            unsel_normals = [tmp_shared_normal]
+        else:
+            unsel_normals = []
+
+        if sel_normal_ids:
+            tmp_shared_normal = Mgr.do("create_shared_normal", self, sel_normal_ids)
+            sel_id = tmp_shared_normal.get_id()
+            original_shared_normals[sel_id] = shared_normals[sel_id]
+            shared_normals[sel_id] = tmp_shared_normal
+            sel_normals = [tmp_shared_normal]
+        else:
+            sel_normals = []
+
+        self.update_selection("normal", sel_normals, unsel_normals, False)
+
+        if unsel_normals:
+            shared_normals[unsel_id] = original_shared_normals[unsel_id]
+        if sel_normals:
+            shared_normals[sel_id] = original_shared_normals[sel_id]
+
+        self._update_verts_to_transform("normal")
+
         for subobj_type in ("vert", "edge", "poly"):
+
+            subobjs = self._subobjs[subobj_type]
 
             subobj_ids = data[subobj_type]
             old_sel_subobj_ids = set(self._selected_subobj_ids[subobj_type])
             new_sel_subobj_ids = set(subobj_ids)
             sel_subobj_ids = new_sel_subobj_ids - old_sel_subobj_ids
             unsel_subobj_ids = old_sel_subobj_ids - new_sel_subobj_ids
+            unsel_subobj_ids.intersection_update(subobjs)
 
-            subobjs = self._subobjs[subobj_type]
-
-            unsel_subobjs = [subobjs[i] for i in unsel_subobj_ids if i in subobjs]
+            unsel_subobjs = [subobjs[i] for i in unsel_subobj_ids]
             sel_subobjs = [subobjs[i] for i in sel_subobj_ids]
 
             if subobj_type in ("vert", "edge"):
@@ -506,7 +717,7 @@ class GeomSelectionBase(BaseObject):
                     for subobj_id in unsel_subobj_ids:
                         tmp_merged_subobj.append(subobj_id)
 
-                    unsel_id = unsel_subobj_ids.pop()
+                    unsel_id = tmp_merged_subobj.get_id()
                     original_merged_subobjs[unsel_id] = merged_subobjs[unsel_id]
                     merged_subobjs[unsel_id] = tmp_merged_subobj
                     unsel_subobjs = [subobjs[unsel_id]]
@@ -518,7 +729,7 @@ class GeomSelectionBase(BaseObject):
                     for subobj_id in sel_subobj_ids:
                         tmp_merged_subobj.append(subobj_id)
 
-                    sel_id = sel_subobj_ids.pop()
+                    sel_id = tmp_merged_subobj.get_id()
                     original_merged_subobjs[sel_id] = merged_subobjs[sel_id]
                     merged_subobjs[sel_id] = tmp_merged_subobj
                     sel_subobjs = [subobjs[sel_id]]
@@ -532,10 +743,6 @@ class GeomSelectionBase(BaseObject):
                     merged_subobjs[sel_id] = original_merged_subobjs[sel_id]
 
             self._update_verts_to_transform(subobj_type)
-
-        if self._tmp_geom:
-            self.clear_triangulation_data()
-            self.create_triangulation_data()
 
 
 class Selection(SelectionTransformBase):
@@ -611,7 +818,7 @@ class Selection(SelectionTransformBase):
 
         if add_to_hist:
 
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
             event_descr = 'Add to %s selection' % subobj_descr[self._obj_level]
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -657,7 +864,7 @@ class Selection(SelectionTransformBase):
 
         if add_to_hist:
 
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
             event_descr = 'Remove from %s selection' % subobj_descr[self._obj_level]
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -711,7 +918,7 @@ class Selection(SelectionTransformBase):
 
         if add_to_hist and geom_data_objs:
 
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
             event_descr = 'Replace %s selection' % subobj_descr[self._obj_level]
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -745,7 +952,7 @@ class Selection(SelectionTransformBase):
 
         if add_to_hist:
 
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
             event_descr = 'Clear %s selection' % subobj_descr[obj_lvl]
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -759,12 +966,17 @@ class Selection(SelectionTransformBase):
 
         return True
 
-    def __delete(self, add_to_hist=True):
+    def delete(self, add_to_hist=True):
 
         obj_lvl = self._obj_level
+
+        if obj_lvl == "normal":
+            return False
+
+        if not self._objs:
+            return False
+
         geom_data_objs = self._groups.keys()
-        progress_steps = 0
-        handlers = []
 
         self._groups = {}
         self._objs = []
@@ -773,36 +985,13 @@ class Selection(SelectionTransformBase):
         PendingTasks.add(task, "update_selection", "ui")
 
         for geom_data_obj in geom_data_objs:
-
-            handler = geom_data_obj.delete_selection(obj_lvl)
-            change = False
-            steps = 0
-
-            for result in handler:
-                if result:
-                    change, steps = result
-                    handlers.append(handler)
-                    break
-
-            if change:
-                progress_steps += steps
-
-        gradual = progress_steps > 20
-
-        if gradual:
-            Mgr.show_screenshot()
-            GlobalData["progress_steps"] = progress_steps
-
-        for handler in handlers:
-            for step in handler:
-                if gradual:
-                    yield True
+            geom_data_obj.delete_selection(obj_lvl)
 
         if add_to_hist:
 
             Mgr.do("update_history_time")
 
-            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon"}
+            subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
             event_descr = 'Delete %s selection' % subobj_descr[obj_lvl]
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -813,19 +1002,6 @@ class Selection(SelectionTransformBase):
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
-
-        yield False
-
-    def delete(self, add_to_hist=True):
-
-        if not self._objs:
-            return False
-
-        process = self.__delete(add_to_hist)
-
-        if process.next():
-            descr = "Updating geometry..."
-            Mgr.do_gradually(process, "poly_deletion", descr)
 
         return True
 
@@ -839,28 +1015,105 @@ class SelectionManager(BaseObject):
         self._selections = {}
         self._prev_obj_lvl = None
 
+        # the following variables are used to select a subobject using its polygon
+        self._picked_poly = None
+        self._tmp_color_id = None
+        self._toggle_select = False
+        self._pixel_under_mouse = VBase4()
+
+        np = NodePath("poly_sel_state")
+        poly_sel_state_off = np.get_state()
+        tex_stage = TextureStage("poly_selection")
+        tex_stage.set_sort(100)
+        tex_stage.set_priority(-1)
+        tex_stage.set_mode(TextureStage.M_add)
+        np.set_transparency(TransparencyAttrib.M_none)
+        np.set_tex_gen(tex_stage, RenderAttrib.M_world_position)
+        np.set_tex_projector(tex_stage, self.world, self.cam())
+        tex = Texture()
+        tex.read(Filename(GFX_PATH + "sel_tex.png"))
+        np.set_texture(tex_stage, tex)
+        np.set_tex_scale(tex_stage, 100.)
+        red = VBase4(1., 0., 0., 1.)
+        material = Material("poly_selection")
+        material.set_diffuse(red)
+        material.set_emission(red * .3)
+        np.set_material(material)
+        poly_sel_state = np.get_state()
+        poly_sel_effects = np.get_effects()
+        green = VBase4(0., 1., 0., 1.)
+        material = Material("temp_poly_selection")
+        material.set_diffuse(green)
+        material.set_emission(green * .3)
+        np.set_material(material)
+        tmp_poly_sel_state = np.get_state()
+        Mgr.expose("poly_selection_state_off", lambda: poly_sel_state_off)
+        Mgr.expose("poly_selection_state", lambda: poly_sel_state)
+        Mgr.expose("poly_selection_effects", lambda: poly_sel_effects)
+        Mgr.expose("temp_poly_selection_state", lambda: tmp_poly_sel_state)
+
+        GlobalData.set_default("selection_via_poly", False)
+
+        vert_colors = {"selected": (1., 0., 0., 1.), "unselected": (.5, .5, 1., 1.)}
+        edge_colors = {"selected": (1., 0., 0., 1.), "unselected": (1., 1., 1., 1.)}
+        normal_colors = {"selected": (1., 0.3, 0.3, 1.), "unselected": (.75, .75, 0., 1.),
+                         "locked_sel": (0.75, 0.3, 1., 1.), "locked_unsel": (0.3, 0.5, 1., 1.)}
+        subobj_sel_colors = {"vert": vert_colors, "edge": edge_colors, "normal": normal_colors}
+
+        Mgr.expose("subobj_selection_colors", lambda: subobj_sel_colors)
+
         Mgr.expose("selection_vert", lambda: self._selections["vert"])
         Mgr.expose("selection_edge", lambda: self._selections["edge"])
         Mgr.expose("selection_poly", lambda: self._selections["poly"])
+        Mgr.expose("selection_normal", lambda: self._selections["normal"])
         Mgr.accept("update_selection_vert", lambda: self.__update_selection("vert"))
         Mgr.accept("update_selection_edge", lambda: self.__update_selection("edge"))
         Mgr.accept("update_selection_poly", lambda: self.__update_selection("poly"))
+        Mgr.accept("update_selection_normal", lambda: self.__update_selection("normal"))
         Mgr.accept("select_vert", lambda *args: self.__select("vert", *args))
         Mgr.accept("select_edge", lambda *args: self.__select("edge", *args))
         Mgr.accept("select_poly", lambda *args: self.__select("poly", *args))
+        Mgr.accept("select_normal", lambda *args: self.__select("normal", *args))
         Mgr.accept("select_single_vert", lambda: self.__select_single("vert"))
         Mgr.accept("select_single_edge", lambda: self.__select_single("edge"))
         Mgr.accept("select_single_poly", lambda: self.__select_single("poly"))
+        Mgr.accept("select_single_normal", lambda: self.__select_single("normal"))
         Mgr.add_app_updater("active_obj_level", lambda: self.__clear_prev_selection(True))
+        Mgr.add_app_updater("selection_via_poly", self.__set_subobject_select_via_poly)
+
+        add_state = Mgr.add_state
+        add_state("selection_via_poly", -1, self.__start_subobj_picking)
+
+        bind = Mgr.bind_state
+        bind("selection_via_poly", "select subobj",
+             "mouse1-up", self.__select_subobj)
+        bind("selection_via_poly", "cancel subobj selection",
+             "mouse3-up", self.__cancel_select)
+
+        status_data = GlobalData["status_data"]
+        info = "LMB-drag over subobject to select it; RMB to cancel"
+        status_data["selection_via_poly"] = {"mode": "Select subobject", "info": info}
 
     def __clear_prev_selection(self, check_top=False):
 
-        if check_top and GlobalData["active_obj_level"] != "top":
+        obj_lvl = GlobalData["active_obj_level"]
+
+        if check_top and obj_lvl != "top":
             return
 
         if self._prev_obj_lvl:
             self._selections[self._prev_obj_lvl] = None
             self._prev_obj_lvl = None
+
+        selection = Mgr.get("selection", "top")
+        sel_count = len(selection)
+        obj = selection[0]
+        geom_data_obj = obj.get_geom_object().get_geom_data_object()
+
+        for prop_id in geom_data_obj.get_type_property_ids(obj_lvl):
+            value = geom_data_obj.get_property(prop_id, for_remote_update=True, obj_lvl=obj_lvl)
+            value = (value, sel_count)
+            Mgr.update_remotely("selected_obj_prop", "editable_geom", prop_id, value)
 
     def __update_selection(self, obj_lvl):
 
@@ -877,22 +1130,43 @@ class SelectionManager(BaseObject):
     def __select(self, obj_lvl, picked_obj, toggle):
 
         if obj_lvl == "vert":
-            obj = picked_obj.get_merged_vertex() if picked_obj else None
+            if GlobalData["selection_via_poly"]:
+                obj = picked_obj if picked_obj and picked_obj.get_type() == "poly" else None
+                self._picked_poly = obj
+            else:
+                obj = picked_obj.get_merged_vertex() if picked_obj else None
         elif obj_lvl == "edge":
-            obj = picked_obj.get_merged_edge() if picked_obj else None
+            if GlobalData["selection_via_poly"]:
+                obj = picked_obj if picked_obj and picked_obj.get_type() == "poly" else None
+                self._picked_poly = obj
+            else:
+                obj = picked_obj.get_merged_edge() if picked_obj else None
+                if obj and GlobalData["subobj_edit_options"]["sel_edges_by_border"] and len(obj) > 1:
+                    obj = None
+        elif obj_lvl == "normal":
+            if GlobalData["selection_via_poly"]:
+                obj = picked_obj if picked_obj and picked_obj.get_type() == "poly" else None
+                self._picked_poly = obj
+            else:
+                obj = picked_obj.get_shared_normal() if picked_obj else None
         elif obj_lvl == "poly":
             obj = picked_obj
+
+        if self._picked_poly:
+            self._toggle_select = toggle
+            Mgr.enter_state("selection_via_poly")
+            return False, False
 
         self._color_id = obj.get_picking_color_id() if obj else None
 
         if toggle:
             ret = self.__toggle_select(obj_lvl)
         else:
-            ret = self.__normal_select(obj_lvl)
+            ret = self.__default_select(obj_lvl)
 
         selection = self._selections[obj_lvl]
 
-        if obj not in selection:
+        if not (obj and obj in selection):
             obj = selection[0] if selection else None
 
         if obj:
@@ -909,14 +1183,19 @@ class SelectionManager(BaseObject):
 
         return ret
 
-    def __normal_select(self, obj_lvl):
+    def __default_select(self, obj_lvl):
 
-        obj = Mgr.get(obj_lvl, self._color_id)
+        if obj_lvl == "normal":
+            obj = Mgr.get("vert", self._color_id)
+        else:
+            obj = Mgr.get(obj_lvl, self._color_id)
 
         if obj_lvl == "vert":
             obj = obj.get_merged_vertex() if obj else None
         elif obj_lvl == "edge":
             obj = obj.get_merged_edge() if obj else None
+        elif obj_lvl == "normal":
+            obj = obj.get_shared_normal() if obj else None
 
         selection = self._selections[obj_lvl]
         can_select_single = False
@@ -958,23 +1237,33 @@ class SelectionManager(BaseObject):
         # If multiple objects were selected and no transformation occurred, a single
         # object has been selected out of that previous selection.
 
-        obj = Mgr.get(obj_lvl, self._color_id)
+        if obj_lvl == "normal":
+            obj = Mgr.get("vert", self._color_id)
+        else:
+            obj = Mgr.get(obj_lvl, self._color_id)
 
         if obj_lvl == "vert":
             obj = obj.get_merged_vertex() if obj else None
         elif obj_lvl == "edge":
             obj = obj.get_merged_edge() if obj else None
+        elif obj_lvl == "normal":
+            obj = obj.get_shared_normal() if obj else None
 
         self._selections[obj_lvl].replace(obj)
 
     def __toggle_select(self, obj_lvl):
 
-        obj = Mgr.get(obj_lvl, self._color_id)
+        if obj_lvl == "normal":
+            obj = Mgr.get("vert", self._color_id)
+        else:
+            obj = Mgr.get(obj_lvl, self._color_id)
 
         if obj_lvl == "vert":
             obj = obj.get_merged_vertex() if obj else None
         elif obj_lvl == "edge":
             obj = obj.get_merged_edge() if obj else None
+        elif obj_lvl == "normal":
+            obj = obj.get_shared_normal() if obj else None
 
         selection = self._selections[obj_lvl]
         start_mouse_checking = False
@@ -992,6 +1281,137 @@ class SelectionManager(BaseObject):
                 start_mouse_checking = True
 
         return False, start_mouse_checking
+
+    def __set_subobject_select_via_poly(self, via_poly=False):
+
+        if not via_poly:
+
+            models = Mgr.get("model_objs")
+
+            for model in models:
+                if model.get_geom_type() == "editable_geom":
+                    geom_data_obj = model.get_geom_object().get_geom_data_object()
+                    geom_data_obj.restore_selection_backup("poly")
+
+        obj_lvl = GlobalData["active_obj_level"]
+
+        if obj_lvl not in ("vert", "edge", "normal"):
+            return
+
+        GlobalData["selection_via_poly"] = via_poly
+        selection = Mgr.get("selection", "top")
+
+        for obj in selection:
+            obj.get_geom_object().get_geom_data_object().init_subobject_select(obj_lvl)
+
+    def __start_subobj_picking(self, prev_state_id, is_active):
+
+        Mgr.add_task(self.__pick_subobj, "pick_subobj")
+        Mgr.remove_task("update_cursor")
+        subobj_lvl = GlobalData["active_obj_level"]
+
+        for model in Mgr.get("selection", "top"):
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj.subobject_select_via_poly(subobj_lvl, self._picked_poly)
+
+        # temporarily select picked poly
+        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj.update_selection("poly", [self._picked_poly], [], False)
+
+        Mgr.update_app("status", "selection_via_poly")
+
+        cs_type = GlobalData["coord_sys_type"]
+        tc_type = GlobalData["transf_center_type"]
+        toplvl_obj = self._picked_poly.get_toplevel_object()
+
+        if cs_type == "local":
+            Mgr.update_locally("coord_sys", cs_type, toplvl_obj)
+
+        if tc_type == "pivot":
+            Mgr.update_locally("transf_center", tc_type, toplvl_obj)
+
+    def __pick_subobj(self, task):
+
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
+
+        if self._pixel_under_mouse != pixel_under_mouse:
+
+            if pixel_under_mouse == VBase4():
+
+                Mgr.set_cursor("main")
+
+            else:
+
+                Mgr.set_cursor("select")
+                r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
+                color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+                geom_data_obj = self._picked_poly.get_geom_data_object()
+                subobj_lvl = GlobalData["active_obj_level"]
+
+                # temporarily select vertex
+                if geom_data_obj.select_temp_subobject(subobj_lvl, color_id):
+                    self._tmp_color_id = color_id
+
+            self._pixel_under_mouse = pixel_under_mouse
+
+        return task.cont
+
+    def __select_subobj(self):
+
+        Mgr.remove_task("pick_subobj")
+        Mgr.enter_state("selection_mode")
+        subobj_lvl = GlobalData["active_obj_level"]
+
+        if self._tmp_color_id is None:
+
+            obj = None
+
+        else:
+
+            geom_data_obj = self._picked_poly.get_geom_data_object()
+
+            if subobj_lvl == "vert":
+                vert_id = Mgr.get("vert", self._tmp_color_id).get_id()
+                obj = geom_data_obj.get_merged_vertex(vert_id)
+            elif subobj_lvl == "edge":
+                edge_id = Mgr.get("edge", self._tmp_color_id).get_id()
+                obj = geom_data_obj.get_merged_edge(edge_id)
+                obj = (None if GlobalData["subobj_edit_options"]["sel_edges_by_border"]
+                       and len(obj) > 1 else obj)
+            elif subobj_lvl == "normal":
+                vert_id = Mgr.get("vert", self._tmp_color_id).get_id()
+                obj = geom_data_obj.get_shared_normal(vert_id)
+
+        self._color_id = obj.get_picking_color_id() if obj else None
+
+        if self._toggle_select:
+            self.__toggle_select(subobj_lvl)
+        else:
+            self.__default_select(subobj_lvl)
+
+        for model in Mgr.get("selection", "top"):
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj.init_subobject_select_via_poly(subobj_lvl)
+
+        self._picked_poly = None
+        self._tmp_color_id = None
+        self._toggle_select = False
+        self._pixel_under_mouse = VBase4()
+
+    def __cancel_select(self):
+
+        Mgr.remove_task("pick_subobj")
+        Mgr.enter_state("selection_mode")
+        subobj_lvl = GlobalData["active_obj_level"]
+
+        for model in Mgr.get("selection", "top"):
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj.init_subobject_select_via_poly(subobj_lvl)
+
+        self._picked_poly = None
+        self._tmp_color_id = None
+        self._toggle_select = False
+        self._pixel_under_mouse = VBase4()
 
 
 MainObjects.add_class(SelectionManager)

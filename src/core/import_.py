@@ -13,6 +13,7 @@ class ImportManager(BaseObject):
         self._obj_names = []
         self._imported_file = ""
         self._imported_file_type = ""
+        self._imported_materials = []
         self._imported_objs = []
 
         Mgr.add_app_updater("import", self.__update_import)
@@ -28,6 +29,8 @@ class ImportManager(BaseObject):
             return
 
         self._imported_file_type = path.get_extension()
+
+        model_root.ls()
         self._model_root = model_root
         hierarchy = self._hierarchy
 
@@ -47,7 +50,6 @@ class ImportManager(BaseObject):
             node_data = {"node_path": node_path, "children": child_indices}
             hierarchy[index] = node_data
             children = node_path.get_children()
-            children.detach()
 
             for child in children:
                 self._obj_index += 1
@@ -101,6 +103,7 @@ class ImportManager(BaseObject):
         self._obj_names = []
         self._imported_file = ""
         self._imported_file_type = ""
+        self._imported_materials = []
 
     def __create_point_helper(self, name, transform):
 
@@ -112,12 +115,155 @@ class ImportManager(BaseObject):
 
         return point_helper
 
+    def __create_collision_planes(self, plane_data, obj_names):
+
+        # check if the given planes form an inverted box
+        if len(plane_data) == 6:
+
+            data_to_process = plane_data[:]
+            opposite_sides = []
+            side_normals = []
+
+            while data_to_process:
+
+                side_plane = data_to_process.pop()
+                point = side_plane.get_point()
+                normal = V3D(side_plane.get_normal())
+
+                # check if side is perpendicular to previous sides
+                for other_normal in side_normals:
+                    if abs(normal * other_normal) > .001:
+                        break
+
+                # check if there is a side facing this one
+                for other_side_plane in data_to_process:
+
+                    other_normal = V3D(other_side_plane.get_normal())
+
+                    # check if planes are facing opposite directions
+                    if normal * other_normal < -.99:
+
+                        dist = other_side_plane.dist_to_plane(point)
+
+                        # check if planes are facing each other
+                        # ("inner" half-spaces do not intersect)
+                        if dist > 0.:
+                            opposite_sides.append((side_plane, other_side_plane, dist))
+                            side_normals.append(normal)
+                            data_to_process.remove(other_side_plane)
+                            break
+
+                else:
+
+                    break
+
+            if len(side_normals) == 3:
+
+                up_vec = V3D(Vec3.up())
+                dot_prod = 0.
+                z_vec = None
+                xy_plane_data = None
+
+                # use the normal closest to the world Z vector as the local Z vector
+                for normal, side_data in zip(side_normals, opposite_sides):
+
+                    dot_prod_tmp = up_vec * normal
+
+                    if abs(dot_prod_tmp) > abs(dot_prod):
+                        dot_prod = dot_prod_tmp
+                        z_vec = normal
+                        xy_plane_data = side_data
+
+                side_normals.remove(z_vec)
+                opposite_sides.remove(xy_plane_data)
+
+                if dot_prod < 0.:
+                    z_vec *= -1.
+                    xy_plane = xy_plane_data[1]
+                else:
+                    xy_plane = xy_plane_data[0]
+
+                x_vec = side_normals[0]
+                y_vec = z_vec ** x_vec
+                yz_plane_data, xz_plane_data = opposite_sides
+                yz_plane = yz_plane_data[0]
+
+                x = yz_plane_data[2]
+                y = xz_plane_data[2]
+                z = xy_plane_data[2]
+
+                point = Point3()
+                xy_plane.intersects_plane(point, Vec3(), yz_plane)
+                corners = [xz_plane.project(point) for xz_plane in xz_plane_data[:2]]
+                pos = sum(corners, Point3()) * .5 + x_vec * .5 * x
+
+                quat = Quat()
+                look_at(quat, y_vec, z_vec)
+                hpr = quat.get_hpr()
+
+                name = "object 0001"
+                name = get_unique_name(name, obj_names)
+                obj_names.append(name)
+
+                segments = {"x": 1, "y": 1, "z": 1}
+                creator = Mgr.do("create_custom_box", name, x, y, z, segments, pos, inverted=True)
+                model = creator.next()
+                model.register(restore=False)
+                model.get_pivot().set_hpr(hpr)
+
+                return [model]
+
+        plane_models = []
+
+        for plane in plane_data:
+
+            pos = plane.project(Point3(0., 0., 0.))
+            normal = plane.get_normal()
+
+            if normal.x < -.999:
+                hpr = VBase3(0., 0., 90.)
+            elif normal.x > .999:
+                hpr = VBase3(0., 0., -90.)
+            elif normal.y < -.999:
+                hpr = VBase3(0., -90., 0.)
+            elif normal.y > .999:
+                hpr = VBase3(0., 90., 0.)
+            elif normal.z < -.999:
+                hpr = VBase3(0., 180., 0.)
+            elif normal.z > .999:
+                hpr = VBase3(0., 0., 0.)
+            else:
+                point = Point3(normal)
+                # project the normal onto the world XY-plane...
+                point.z = 0.
+                # ...and project that projected point onto the given plane
+                # to compute its local forward vector
+                y_vec = plane.project(point) - pos
+                quat = Quat()
+                look_at(quat, y_vec, normal)
+                hpr = quat.get_hpr()
+
+            name = "object 0001"
+            name = get_unique_name(name, obj_names)
+            obj_names.append(name)
+
+            x = y = 10.
+            segments = {"x": 1, "y": 1}
+            creator = Mgr.do("create_custom_plane", name, x, y, segments, pos)
+            model = creator.next()
+            model.register(restore=False)
+            model.get_pivot().set_hpr(hpr)
+            plane_models.append(model)
+
+        return plane_models
+
     def __create_collision_primitive(self, obj_type, *args):
 
-        if obj_type == "CollisionSphere":
+        if obj_type in ("CollisionSphere", "CollisionInvSphere"):
             name, radius, pos = args
             segments = 16
-            creator = Mgr.do("create_custom_sphere", name, radius, segments, pos)
+            inverted = obj_type == "CollisionInvSphere"
+            creator = Mgr.do("create_custom_sphere", name, radius, segments, pos, inverted)
         elif obj_type == "CollisionTube":
             name, radius, height, pos, hpr = args
             segments = {"circular": 12, "height": 1, "caps": 1}
@@ -139,8 +285,7 @@ class ImportManager(BaseObject):
 
     def __create_collision_model(self, name, polys, editing):
 
-        IPos = ImprecisePos
-        impr_coords = []
+        coords = []
         poly_count = 0
 
         if editing == "basic":
@@ -154,16 +299,16 @@ class ImportManager(BaseObject):
 
             for poly in polys:
 
-                points = [IPos(tuple(crd for crd in point), epsilon=1.e-005) for point in poly]
+                points = [point for point in poly]
                 rows_by_pos = {}
 
                 for i, point in enumerate(points):
-                    for impr_crd in impr_coords:
+                    for impr_crd in coords:
                         if point == impr_crd:
                             points[i] = impr_crd
                             break
                     else:
-                        impr_coords.append(point)
+                        coords.append(point)
 
                 plane = Plane(*poly[:3])
                 normal = plane.get_normal()
@@ -207,15 +352,15 @@ class ImportManager(BaseObject):
 
             for poly in polys:
 
-                points = [IPos(tuple(crd for crd in point), epsilon=1.e-005) for point in poly]
+                points = [point for point in poly]
 
                 for i, point in enumerate(points):
-                    for impr_crd in impr_coords:
+                    for impr_crd in coords:
                         if point == impr_crd:
                             points[i] = impr_crd
                             break
                     else:
-                        impr_coords.append(point)
+                        coords.append(point)
 
                 plane = Plane(*poly[:3])
                 normal = plane.get_normal()
@@ -256,6 +401,8 @@ class ImportManager(BaseObject):
             for step in editable_geom.create(gradual=True):
                 yield
 
+            geom_data_obj.init_normal_length()
+            geom_data_obj.init_normal_sharing(share=False)
             model.get_bbox().update(*geom_data_obj.get_origin().get_tight_bounds())
             Mgr.remove_notification_handler("long_process_cancelled", id_str)
 
@@ -268,8 +415,7 @@ class ImportManager(BaseObject):
 
     def __create_editable_model(self, name, src_geom, render_state):
 
-        IPos = ImprecisePos
-        impr_coords = []
+        coords = []
         geom_data = []
         poly_count = 0
 
@@ -293,7 +439,11 @@ class ImportManager(BaseObject):
         uv_set_list += [InternalName.get_texcoord_name(str(i)) for i in range(1, 8)]
         uv_readers = {}
         material, uv_set_names = render_state_to_material(render_state, vertex_format,
+                                                          self._imported_materials,
                                                           for_basic_geom=False)
+
+        if material and material not in self._imported_materials:
+            self._imported_materials.append(material)
 
         for src_uv_set, dest_uv_set in uv_set_names.iteritems():
             uv_reader = GeomVertexReader(vertex_data, src_uv_set)
@@ -317,14 +467,14 @@ class ImportManager(BaseObject):
 
                     vert_data = {}
                     pos_reader.set_row(row)
-                    pos = IPos(tuple(crd for crd in pos_reader.get_data3f()), epsilon=1.e-005)
+                    pos = Point3(pos_reader.get_data3f())
 
-                    for impr_crd in impr_coords:
-                        if pos == impr_crd:
-                            pos = impr_crd
+                    for crd in coords:
+                        if pos == crd:
+                            pos = crd
                             break
                     else:
-                        impr_coords.append(pos)
+                        coords.append(pos)
 
                     vert_data["pos"] = pos
 
@@ -379,10 +529,12 @@ class ImportManager(BaseObject):
         for step in geom_data_obj.process_geom_data(geom_data, gradual=True):
             yield
 
-        geom_data_obj.recompute_smoothing()
-
         for step in editable_geom.create(gradual=True):
             yield
+
+        geom_data_obj.init_normal_length()
+        geom_data_obj.init_normal_sharing()
+        geom_data_obj.update_smoothing()
 
         if col_reader:
             geom_data_obj.set_initial_vertex_colors()
@@ -431,7 +583,6 @@ class ImportManager(BaseObject):
                 node = node_path.node()
                 node_type = node.get_class_type().get_name()
                 editing = node_data["data"].get("editing", "")
-                node_state = node_path.get_state()
 
                 if node_type == "GeomNode" and Geom.PT_polygons in [geom.get_primitive_type()
                         for geom in node.get_geoms()]:
@@ -443,6 +594,8 @@ class ImportManager(BaseObject):
 
                     if editing == "basic":
 
+                        materials = self._imported_materials
+
                         if geom_count > 1:
 
                             obj = self.__create_model_group(obj_name, node_path.get_transform())
@@ -451,6 +604,10 @@ class ImportManager(BaseObject):
 
                             for i in geom_indices:
                                 state = node.get_geom_state(i)
+                                tmp_np = node_path.attach_new_node("temp")
+                                tmp_np.set_state(state)
+                                state = tmp_np.get_net_state()
+                                tmp_np.remove_node()
                                 new_node = GeomNode("basic_geom")
                                 new_node.add_geom(node.modify_geom(i).decompose().unify(1000000, False))
                                 new_geom = NodePath(new_node)
@@ -458,32 +615,39 @@ class ImportManager(BaseObject):
                                 member_name = "object 0001"
                                 member_name = get_unique_name(member_name, obj_names)
                                 obj_names.append(member_name)
-                                member = Mgr.do("create_basic_geom", new_geom, member_name).get_model()
+                                member = Mgr.do("create_basic_geom", new_geom, member_name, materials).get_model()
                                 member.register(restore=False)
                                 Mgr.do("add_group_member", member, obj, restore="import")
                                 member.get_bbox().update(*new_geom.get_tight_bounds())
                                 self._imported_objs.append(member)
+                                material = member.get_material()
+
+                                if material and material not in materials:
+                                    materials.append(material)
 
                         else:
 
                             index = geom_indices[0]
                             state = node.get_geom_state(index)
-
-                            if state.is_empty():
-                                new_geom = node_path
-                                new_node = node_path.node()
-                            else:
-                                new_node = GeomNode("basic_geom")
-                                new_node.add_geom(node.modify_geom(index))
-                                new_geom = NodePath(new_node)
-                                new_geom.set_state(state)
-                                new_geom.set_transform(node_path.get_transform())
-                                bounds_node = new_geom
+                            tmp_np = node_path.attach_new_node("temp")
+                            tmp_np.set_state(state)
+                            state = tmp_np.get_net_state()
+                            tmp_np.remove_node()
+                            new_node = GeomNode("basic_geom")
+                            new_node.add_geom(node.modify_geom(index))
+                            new_geom = NodePath(new_node)
+                            new_geom.set_state(state)
+                            new_geom.set_transform(node_path.get_transform())
+                            bounds_node = new_geom
 
                             new_node.decompose()
                             new_node.unify(1000000, False)
-                            obj = Mgr.do("create_basic_geom", new_geom, obj_name).get_model()
+                            obj = Mgr.do("create_basic_geom", new_geom, obj_name, materials).get_model()
                             obj.register(restore=False)
+                            material = obj.get_material()
+
+                            if material and material not in materials:
+                                materials.append(material)
 
                     else:
 
@@ -496,10 +660,10 @@ class ImportManager(BaseObject):
                             for i in geom_indices:
 
                                 state = node.get_geom_state(i)
-
-                                if state.is_empty():
-                                    state = node_state
-
+                                tmp_np = node_path.attach_new_node("temp")
+                                tmp_np.set_state(state)
+                                state = tmp_np.get_net_state()
+                                tmp_np.remove_node()
                                 member_name = "object 0001"
                                 member_name = get_unique_name(member_name, obj_names)
                                 obj_names.append(member_name)
@@ -517,12 +681,13 @@ class ImportManager(BaseObject):
 
                         else:
 
-                            state = node.get_geom_state(0)
-
-                            if state.is_empty():
-                                state = node_state
-
-                            src_geom = node.modify_geom(0)
+                            index = geom_indices[0]
+                            state = node.get_geom_state(index)
+                            tmp_np = node_path.attach_new_node("temp")
+                            tmp_np.set_state(state)
+                            state = tmp_np.get_net_state()
+                            tmp_np.remove_node()
+                            src_geom = node.modify_geom(index)
 
                             for obj in self.__create_editable_model(obj_name, src_geom, state):
                                 yield
@@ -535,14 +700,15 @@ class ImportManager(BaseObject):
 
                     coll_objs = []
                     coll_polys = []
+                    coll_planes = []
                     obj_names = GlobalData["obj_names"] + self._obj_names
 
                     for solid in node.get_solids():
 
                         obj_type = solid.get_class_type().get_name()
 
-                        if obj_type not in ("CollisionSphere", "CollisionTube",
-                                            "CollisionBox", "CollisionPolygon"):
+                        if obj_type not in ("CollisionSphere", "CollisionInvSphere", "CollisionTube",
+                                            "CollisionBox", "CollisionPlane", "CollisionPolygon"):
                             continue
 
                         if obj_type == "CollisionPolygon":
@@ -551,13 +717,17 @@ class ImportManager(BaseObject):
                                 poly = solid.get_points()
                                 coll_polys.append(poly)
 
+                        elif obj_type == "CollisionPlane":
+
+                            coll_planes.append(solid.get_plane())
+
                         else:
 
                             name = "object 0001"
                             name = get_unique_name(name, obj_names)
                             obj_names.append(name)
 
-                            if obj_type == "CollisionSphere":
+                            if obj_type in ("CollisionSphere", "CollisionInvSphere"):
 
                                 radius = solid.get_radius()
                                 pos = solid.get_center()
@@ -605,6 +775,11 @@ class ImportManager(BaseObject):
 
                         coll_objs.append(model)
                         self._imported_objs.append(model)
+
+                    if coll_planes:
+                        plane_models = self.__create_collision_planes(coll_planes, obj_names)
+                        coll_objs.extend(plane_models)
+                        self._imported_objs.extend(plane_models)
 
                     if not coll_objs:
                         continue
@@ -658,7 +833,6 @@ class ImportManager(BaseObject):
                     geom.unify_in_place(1000000, False)
                     poly_count = len(geom.get_primitive(0).get_vertex_list()) / 3
                     progress_steps += (poly_count // 20) * 5
-                    progress_steps += poly_count // 50
 
         for index, data in obj_data["collision"].iteritems():
 
@@ -675,7 +849,7 @@ class ImportManager(BaseObject):
                     coll_poly_count += 1
 
             if data["editing"] == "full":
-                progress_steps += (coll_poly_count // 20) * 5 + coll_poly_count // 50
+                progress_steps += (coll_poly_count // 20) * 5
             else:
                 progress_steps += coll_poly_count // 20
 
@@ -684,7 +858,7 @@ class ImportManager(BaseObject):
     def __import(self):
 
         progress_steps = self.__get_progress_steps()
-        gradual = progress_steps > 100
+        gradual = progress_steps > 80
 
         yield True
 
@@ -704,6 +878,7 @@ class ImportManager(BaseObject):
         self._obj_index = 0
         self._obj_data = {"geom": {}, "collision": {}, "other": {}}
         self._imported_file_type = ""
+        self._imported_materials = []
 
         if not self._imported_objs:
             yield False
@@ -731,16 +906,17 @@ class ImportManager(BaseObject):
             for obj in self._imported_objs:
                 obj.destroy(unregister=False, add_to_hist=False)
 
-        self._model_root.remove_node()
-        self._model_root = None
-        self._hierarchy = {}
-        self._obj_index = 0
-        self._obj_data = {"geom": {}, "collision": {}, "other": {}}
-        self._obj_names = []
-        self._imported_file = ""
-        self._imported_file_type = ""
-        self._imported_objs = []
-        Mgr.do("clear_added_history")
+            self._model_root.remove_node()
+            self._model_root = None
+            self._hierarchy = {}
+            self._obj_index = 0
+            self._obj_data = {"geom": {}, "collision": {}, "other": {}}
+            self._obj_names = []
+            self._imported_file = ""
+            self._imported_file_type = ""
+            self._imported_materials = []
+            self._imported_objs = []
+            Mgr.do("clear_added_history")
 
     def __start_import(self):
 

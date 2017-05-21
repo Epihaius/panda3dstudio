@@ -1081,9 +1081,9 @@ class NodePanel(wx.Panel):
         id_range = xrange(entry_id_min, entry_id_max + 1)
 
         if self._unmark_merge_range:
-            self._entries_to_merge.difference_update(set([i for i in id_range]))
+            self._entries_to_merge.difference_update(set(i for i in id_range))
         else:
-            self._entries_to_merge.update(set([i for i in id_range if self.__entry_can_be_merged(i)]))
+            self._entries_to_merge.update(set(i for i in id_range if self.__entry_can_be_merged(i)))
 
         NodePanel._merge_range_start = None
 

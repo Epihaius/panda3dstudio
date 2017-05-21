@@ -329,14 +329,8 @@ class HistoryManager(BaseObject):
     def __manage_history(self, update_type, *args, **kwargs):
 
         if update_type in ("undo", "redo", "update"):
-
             Mgr.show_screenshot()
-
-            state_id = Mgr.get_state_id()
             Mgr.update_app("history_change")
-
-            if state_id == "navigation_mode":
-                Mgr.enter_state("navigation_mode")
 
         if update_type == "undo":
             self.__undo_history()

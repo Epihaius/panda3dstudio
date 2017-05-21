@@ -8,118 +8,172 @@ class VertexEditBase(BaseObject):
         selected_vert_ids = self._selected_subobj_ids["vert"]
 
         if not selected_vert_ids:
-            return
+            return False
 
         verts = self._subobjs["vert"]
         merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
         verts_to_break = set(merged_verts[v_id] for v_id in selected_vert_ids)
-        edges_to_split = set()
+        edge_ids = set(e_id for v in verts_to_break for v_id in v
+                       for e_id in verts[v_id].get_edge_ids())
 
-        change = False
-        update_edges_to_transf = False
-        update_polys_to_transf = False
-        edge_verts_to_transf = self._verts_to_transf["edge"]
-        poly_verts_to_transf = self._verts_to_transf["poly"]
+        return self.split_edges(edge_ids)
+
+    def smooth_vertices(self, smooth=True):
+
+        selected_vert_ids = self._selected_subobj_ids["vert"]
+
+        if not selected_vert_ids:
+            return False, False
+
+        merged_verts = self._merged_verts
+        shared_normals = self._shared_normals
+        verts_to_update = set(merged_verts[v_id] for v_id in selected_vert_ids)
         merged_verts_to_resmooth = set()
+        normals_to_sel = False
 
-        for merged_vert in verts_to_break:
+        if smooth:
 
-            if len(merged_vert) == 1:
-                continue
+            selected_normal_ids = set(self._selected_subobj_ids["normal"])
 
-            for vert_id in merged_vert[1:]:
+            for merged_vert in verts_to_update:
 
-                merged_vert.remove(vert_id)
-                new_merged_vert = Mgr.do("create_merged_vert", self, vert_id)
-                merged_verts[vert_id] = new_merged_vert
-                merged_verts_to_resmooth.add(new_merged_vert)
+                if len(shared_normals[merged_vert[0]]) == len(merged_vert):
+                    continue
 
-                for edge_id in verts[vert_id].get_edge_ids():
-                    edges_to_split.add(merged_edges[edge_id])
+                shared_normal = Mgr.do("create_shared_normal", self, set(merged_vert))
 
-            change = True
-            merged_verts_to_resmooth.add(merged_vert)
+                for vert_id in merged_vert:
+                    shared_normals[vert_id] = shared_normal
 
-            if merged_vert in edge_verts_to_transf:
-                update_edges_to_transf = True
-            if merged_vert in poly_verts_to_transf:
-                update_polys_to_transf = True
+                merged_verts_to_resmooth.add(merged_vert)
 
-        for merged_edge in edges_to_split:
+                # Make sure that all normals in the same merged vertex become
+                # selected if at least one of them is already selected.
 
-            if len(merged_edge) == 1:
-                continue
+                ids = set(merged_vert)
+                sel_ids = selected_normal_ids.intersection(ids)
 
-            for edge_id in merged_edge[1:]:
-                merged_edge.remove(edge_id)
-                new_merged_edge = Mgr.do("create_merged_edge", self, edge_id)
-                merged_edges[edge_id] = new_merged_edge
+                if not sel_ids or len(sel_ids) == len(ids):
+                    continue
 
-        if not change:
-            return
+                tmp_normal = Mgr.do("create_shared_normal", self, ids.difference(sel_ids))
+                tmp_id = tmp_normal.get_id()
+                orig_normal = shared_normals[tmp_id]
+                shared_normals[tmp_id] = tmp_normal
+                self.update_selection("normal", [tmp_normal], [])
+                shared_normals[tmp_id] = orig_normal
+                normals_to_sel = True
 
-        progress_steps = len(merged_verts_to_resmooth) // 20
+        else:
 
-        yield True, progress_steps
+            for merged_vert in verts_to_update:
 
-        Mgr.do("update_active_selection")
+                if len(merged_vert) == 1:
+                    continue
 
-        for step in self._update_vertex_normals(merged_verts_to_resmooth):
-            yield
+                for vert_id in merged_vert:
 
-        self._update_verts_to_transform("vert")
+                    if len(shared_normals[vert_id]) == 1:
+                        continue
 
-        if update_edges_to_transf:
-            self._update_verts_to_transform("edge")
-        if update_polys_to_transf:
-            self._update_verts_to_transform("poly")
+                    shared_normals[vert_id] = Mgr.do("create_shared_normal", self, [vert_id])
+                    merged_verts_to_resmooth.add(merged_vert)
+
+        if not merged_verts_to_resmooth:
+            return False, False
+
+        self._normal_sharing_change = True
+        self.update_vertex_normals(merged_verts_to_resmooth)
+
+        return True, normals_to_sel
+
+    def vertex_select_via_poly(self, poly):
+
+        picking_masks = Mgr.get("picking_masks")["all"]
+
+        if poly.get_id() in self._subobjs["poly"]:
+
+            # Allow picking the vertices of the poly picked in the previous step
+            # (see init_subobject_select_via_poly) instead of other vertices;
+            # as soon as the mouse is released over a vertex, it gets selected and
+            # polys become pickable again.
+
+            verts = self._subobjs["vert"]
+            count = poly.get_vertex_count()
+            vertex_format = Mgr.get("vertex_format_basic")
+            vertex_data = GeomVertexData("vert_data", vertex_format, Geom.UH_dynamic)
+            vertex_data.reserve_num_rows(count)
+            vertex_data.set_num_rows(count)
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+            col_writer = GeomVertexWriter(vertex_data, "color")
+            pickable_id = PickableTypes.get_id("vert")
+            rows = self._tmp_row_indices
+
+            for i, vert_id in enumerate(poly.get_vertex_ids()):
+                vertex = verts[vert_id]
+                pos = vertex.get_pos()
+                pos_writer.add_data3f(pos)
+                color_id = vertex.get_picking_color_id()
+                picking_color = get_color_vec(color_id, pickable_id)
+                col_writer.add_data4f(picking_color)
+                rows[color_id] = i
+
+            tmp_prim = GeomPoints(Geom.UH_static)
+            tmp_prim.reserve_num_vertices(count)
+            tmp_prim.add_next_vertices(count)
+            geom = Geom(vertex_data)
+            geom.add_primitive(tmp_prim)
+            node = GeomNode("tmp_geom_pickable")
+            node.add_geom(geom)
+            geom_pickable = self._origin.attach_new_node(node)
+            geom_pickable.set_bin("fixed", 51)
+            geom_pickable.set_depth_test(False)
+            geom_pickable.set_depth_write(False)
+            geom_sel_state = geom_pickable.copy_to(self._origin)
+            geom_sel_state.set_name("tmp_geom_sel_state")
+            geom_sel_state.set_light_off()
+            geom_sel_state.set_color_off()
+            geom_sel_state.set_texture_off()
+            geom_sel_state.set_material_off()
+            geom_sel_state.set_transparency(TransparencyAttrib.M_alpha)
+            geom_sel_state.set_render_mode_thickness(7)
+            geom = geom_sel_state.node().modify_geom(0)
+            vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
+            geom.set_vertex_data(vertex_data)
+            self._tmp_geom_pickable = geom_pickable
+            self._tmp_geom_sel_state = geom_sel_state
+
+            render_masks = Mgr.get("render_masks")["all"]
+            geom_pickable.hide(render_masks)
+            geom_pickable.show_through(picking_masks)
+
+        geoms = self._geoms
+        geoms["poly"]["pickable"].show(picking_masks)
 
 
 class VertexEditManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.add_app_updater("vert_break", self.__do_break_vertices)
+        Mgr.add_app_updater("vert_break", self.__break_vertices)
+        Mgr.add_app_updater("vert_smoothing", self.__smooth_vertices)
 
     def __break_vertices(self):
 
         selection = Mgr.get("selection", "top")
         changed_objs = {}
-        progress_steps = 0
-        handlers = []
 
         for model in selection:
 
             geom_data_obj = model.get_geom_object().get_geom_data_object()
-            handler = geom_data_obj.break_vertices()
-            change = False
-            steps = 0
 
-            for result in handler:
-                if result:
-                    change, steps = result
-                    handlers.append(handler)
-                    break
-
-            if change:
+            if geom_data_obj.break_vertices():
                 changed_objs[model.get_id()] = geom_data_obj
-                progress_steps += steps
 
         if not changed_objs:
-            yield False
+            return
 
-        gradual = progress_steps > 20
-
-        if gradual:
-            Mgr.show_screenshot()
-            GlobalData["progress_steps"] = progress_steps
-
-        for handler in handlers:
-            for step in handler:
-                if gradual:
-                    yield True
-
+        Mgr.do("update_active_selection")
         Mgr.do("update_history_time")
         obj_data = {}
 
@@ -130,15 +184,40 @@ class VertexEditManager(BaseObject):
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-        yield False
+    def __smooth_vertices(self, smooth):
 
-    def __do_break_vertices(self):
+        selection = Mgr.get("selection", "top")
+        changed_objs = {}
+        changed_selections = []
 
-        process = self.__break_vertices()
+        for model in selection:
 
-        if process.next():
-            descr = "Updating geometry..."
-            Mgr.do_gradually(process, "vert_break", descr)
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            change, normals_to_sel = geom_data_obj.smooth_vertices(smooth)
+
+            if change:
+
+                changed_objs[model.get_id()] = geom_data_obj
+
+                if normals_to_sel:
+                    changed_selections.append(model.get_id())
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj_id, geom_data_obj in changed_objs.iteritems():
+
+            obj_data[obj_id] = geom_data_obj.get_data_to_store()
+
+            if obj_id in changed_selections:
+                obj_data[obj_id].update(geom_data_obj.get_property_to_store("subobj_selection"))
+
+        event_descr = "%s vertex selection" % ("Smooth" if smooth else "Sharpen")
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
 MainObjects.add_class(VertexEditManager)

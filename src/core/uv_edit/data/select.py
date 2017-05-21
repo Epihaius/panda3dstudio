@@ -93,7 +93,7 @@ class UVDataSelectionBase(BaseObject):
                 for vert_ids in poly:
                     data_unselected.remove(vert_ids)
 
-                data_selected.extend(poly[:])
+                data_selected.extend(poly)
 
                 subdata_unsel += handle_unsel.get_subdata(start * stride, size * stride)
                 handle_unsel.set_subdata(start * stride, size * stride, "")
@@ -105,7 +105,7 @@ class UVDataSelectionBase(BaseObject):
                 for vert_ids in poly:
                     data_selected.remove(vert_ids)
 
-                data_unselected.extend(poly[:])
+                data_unselected.extend(poly)
 
                 subdata_sel += handle_sel.get_subdata(start * stride, size * stride)
                 handle_sel.set_subdata(start * stride, size * stride, "")
@@ -128,7 +128,7 @@ class UVDataSelectionBase(BaseObject):
 
                 for merged_vert in selected_subobjs:
 
-                    selected_subobj_ids.extend(merged_vert[:])
+                    selected_subobj_ids.extend(merged_vert)
 
                     for row_index in merged_vert.get_row_indices():
                         col_writer.set_row(row_index)
@@ -151,7 +151,7 @@ class UVDataSelectionBase(BaseObject):
 
                 for merged_edge in selected_subobjs:
 
-                    selected_subobj_ids.extend(merged_edge[:])
+                    selected_subobj_ids.extend(merged_edge)
 
                     if merged_edge.get_id() in self._seam_edge_ids:
                         color = seam_color_sel

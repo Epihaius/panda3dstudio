@@ -1,30 +1,6 @@
 from ..base import *
 
 
-class VertexManager(ObjectManager, PickingColorIDManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "vert", self.__create_vertex, "sub", pickable=True)
-        PickingColorIDManager.__init__(self)
-        PickableTypes.add("vert")
-        Mgr.accept("create_merged_vert", self.__create_merged_vertex)
-
-    def __create_vertex(self, geom_data_obj, pos):
-
-        vert_id = self.get_next_id()
-        picking_col_id = self.get_next_picking_color_id()
-        vertex = Vertex(vert_id, picking_col_id, geom_data_obj, pos)
-
-        return vertex
-
-    def __create_merged_vertex(self, geom_data_obj, vert_id=None):
-
-        vertex = MergedVertex(geom_data_obj, vert_id)
-
-        return vertex
-
-
 class Vertex(BaseObject):
 
     def __getstate__(self):
@@ -44,7 +20,12 @@ class Vertex(BaseObject):
         self._picking_col_id = picking_col_id
         self._geom_data_obj = geom_data_obj
         self._creation_time = None
-        self._prev_prop_time = {"transform": None, "uvs": None, "normal": None}
+        self._prev_prop_time = {
+            "transform": None,
+            "uvs": None,
+            "normal": None,
+            "normal_lock": None
+        }
         self._pos = Point3(*pos)  # in local space
         self._edge_ids = []
         self._poly_id = None
@@ -53,6 +34,7 @@ class Vertex(BaseObject):
             "row_offset": 0,
             "uvs": {},
             "normal": None,
+            "normal_is_locked": False,
             "tangent_space": (Vec3(), Vec3())
         }
 
@@ -208,6 +190,23 @@ class Vertex(BaseObject):
 
         return self._data["normal"]
 
+    def get_shared_normal(self):
+
+        return self._geom_data_obj.get_shared_normal(self._id)
+
+    def lock_normal(self, locked=True):
+
+        if self._data["normal_is_locked"] == locked:
+            return False
+
+        self._data["normal_is_locked"] = locked
+
+        return True
+
+    def has_locked_normal(self):
+
+        return self._data["normal_is_locked"]
+
     def get_polygon_normal(self):
 
         poly = Mgr.get("poly", self._poly_id)
@@ -274,6 +273,10 @@ class MergedVertex(object):
     def append(self, vert_id):
 
         self._ids.append(vert_id)
+
+    def extend(self, vert_ids):
+
+        self._ids.extend(vert_ids)
 
     def remove(self, vert_id):
 
@@ -389,6 +392,30 @@ class MergedVertex(object):
                 return True
 
         return False
+
+
+class VertexManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "vert", self.__create_vertex, "sub", pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("vert")
+        Mgr.accept("create_merged_vert", self.__create_merged_vertex)
+
+    def __create_vertex(self, geom_data_obj, pos):
+
+        vert_id = self.get_next_id()
+        picking_col_id = self.get_next_picking_color_id()
+        vertex = Vertex(vert_id, picking_col_id, geom_data_obj, pos)
+
+        return vertex
+
+    def __create_merged_vertex(self, geom_data_obj, vert_id=None):
+
+        vertex = MergedVertex(geom_data_obj, vert_id)
+
+        return vertex
 
 
 MainObjects.add_class(VertexManager)

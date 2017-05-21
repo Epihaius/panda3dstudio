@@ -342,7 +342,7 @@ class ImportDialog(wx.Dialog):
                 if obj_type != "other":
                     all_editing = set()
 
-                for index in sorted(obj_data[obj_type].iterkeys()):
+                for index in sorted(obj_data[obj_type]):
 
                     data = obj_data[obj_type][index]
                     parent_index = data["parent_index"]
@@ -450,7 +450,7 @@ class ImportDialog(wx.Dialog):
         data = self._obj_data[obj_type]
         data[index]["editing"] = "full" if is_checked else "basic"
         self._panel.SetFocusIgnoringChildren()
-        all_editing = set([v["editing"] for v in data.itervalues()])
+        all_editing = set(v["editing"] for v in data.itervalues())
 
         if len(all_editing) > 1:
             self._checkboxes[obj_type].Set3StateValue(wx.CHK_UNDETERMINED)

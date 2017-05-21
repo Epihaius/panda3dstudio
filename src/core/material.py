@@ -93,6 +93,42 @@ class Material(object):
 
         return material
 
+    def equals(self, other):
+
+        if self._shows_vert_colors != other.shows_vertex_colors():
+            return False
+
+        if self._flat_color != other.get_flat_color():
+            return False
+
+        other_base_mat = BaseMaterial(other.get_base_material())
+        other_base_mat.set_name(self._base_mat.get_name())
+
+        if self._base_mat != other_base_mat:
+            return False
+
+        if not other.is_property_equal_to("alpha", self._base_props["alpha"]):
+            return False
+
+        for map_type, tex_map in other.get_tex_maps():
+            if not self._tex_maps[map_type].equals(tex_map):
+                return False
+
+        if self._uses_layers != other.uses_layers():
+            return False
+
+        if self._uses_layers:
+
+            if set(self._layers) != set(other.get_uv_sets()):
+                return False
+
+            for uv_set_id, layers in self._layers.iteritems():
+                for layer_index, layer in enumerate(layers):
+                    if not other.get_layer(uv_set_id, layer_index).equals(layer):
+                        return False
+
+        return True
+
     def get_id(self):
 
         return self._id
@@ -634,15 +670,9 @@ class Material(object):
                     owner.get_origin().set_texture(tex_stage, texture)
 
                 if "normal" in map_type and tex_map.is_active():
-
                     for owner in owners:
-
-                        if owner.get_geom_type() != "basic_geom":
-
-                            geom_data_obj = owner.get_geom_object().get_geom_data_object()
-
-                            if not geom_data_obj.has_tangent_space():
-                                geom_data_obj.init_tangent_space()
+                        if not owner.has_tangent_space():
+                            owner.init_tangent_space()
 
             else:
 
@@ -793,15 +823,9 @@ class Material(object):
                 handle_transform(origin)
 
             if is_active and "normal" in map_type:
-
                 for owner in owners:
-
-                    if owner.get_geom_type() != "basic_geom":
-
-                        geom_data_obj = owner.get_geom_object().get_geom_data_object()
-
-                        if not geom_data_obj.has_tangent_space():
-                            geom_data_obj.init_tangent_space()
+                    if not owner.has_tangent_space():
+                        owner.init_tangent_space()
 
     def is_map_active(self, map_type, layer_id=None):
 
@@ -901,13 +925,8 @@ class Material(object):
                 origin.set_tex_transform(tex_stage, tr_state)
 
             if "normal" in map_type and texture:
-
-                if owner.get_geom_type() != "basic_geom":
-
-                    geom_data_obj = owner.get_geom_object().get_geom_data_object()
-
-                    if not geom_data_obj.has_tangent_space():
-                        geom_data_obj.init_tangent_space()
+                if not owner.has_tangent_space():
+                    owner.init_tangent_space()
 
         if self._uses_layers:
 
@@ -958,11 +977,8 @@ class Material(object):
             Mgr.do("unregister_material", self)
 
         if owner.get_geom_type() != "basic_geom":
-
-            geom_data_obj = owner.get_geom_object().get_geom_data_object()
-
-            if geom_data_obj.has_tangent_space():
-                geom_data_obj.clear_tangent_space()
+            if owner.has_tangent_space():
+                owner.clear_tangent_space()
 
         return True
 
@@ -996,11 +1012,8 @@ class Material(object):
             origin.set_color(owner.get_color())
 
             if owner.get_geom_type() != "basic_geom":
-
-                geom_data_obj = owner.get_geom_object().get_geom_data_object()
-
-                if geom_data_obj.has_tangent_space():
-                    geom_data_obj.clear_tangent_space()
+                if owner.has_tangent_space():
+                    owner.clear_tangent_space()
 
         self._owner_ids = []
         Mgr.do("unregister_material", self)

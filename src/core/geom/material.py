@@ -31,6 +31,13 @@ COMBINE_MODE_SRC_CHANNELS = (TS.CO_src_color, TS.CO_one_minus_src_color,
                              TS.CO_src_alpha, TS.CO_one_minus_src_alpha)
 COMBINE_MODE_SRC_CHANNEL_IDS = ("rgb", "1-rgb", "alpha", "1-alpha")
 
+COLOR_ATTR_TYPE = ColorAttrib.get_class_type()
+COLOR_SCALE_ATTR_TYPE = ColorScaleAttrib.get_class_type()
+MATERIAL_ATTR_TYPE = MaterialAttrib.get_class_type()
+TRANSP_ATTR_TYPE = TransparencyAttrib.get_class_type()
+TEX_ATTR_TYPE = TextureAttrib.get_class_type()
+TEX_MATRIX_ATTR_TYPE = TexMatrixAttrib.get_class_type()
+
 
 def __set_texmap_properties(tex_map, texture, stage, tex_xforms):
 
@@ -174,7 +181,8 @@ def __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms):
         layer.set_blend_mode(dict(zip(BLEND_MODES, BLEND_MODE_IDS))[mode])
 
 
-def render_state_to_material(render_state, geom_vertex_format, for_basic_geom=True):
+def render_state_to_material(render_state, geom_vertex_format, other_materials=None,
+                             for_basic_geom=True):
 
     default_uv_set_name = InternalName.get_texcoord()
     uv_set_list = [default_uv_set_name]
@@ -184,75 +192,75 @@ def render_state_to_material(render_state, geom_vertex_format, for_basic_geom=Tr
 
     if render_state.is_empty():
 
-        material = None
-
-        src_uv_set_names = list(geom_vertex_format.get_texcoords())
-
-        for uv_set_name in uv_set_list[:]:
-            if uv_set_name in src_uv_set_names:
-                uv_set_list.remove(uv_set_name)
-                src_uv_set_names.remove(uv_set_name)
-                uv_set_names[uv_set_name] = uv_set_name
-
-        for src_uv_set_name, dest_uv_set_name in zip(src_uv_set_names, uv_set_list):
-            uv_set_names[src_uv_set_name] = dest_uv_set_name
+        create_material = False
 
     else:
 
+        if render_state.has_attrib(COLOR_ATTR_TYPE):
+            color_attrib = render_state.get_attrib(COLOR_ATTR_TYPE)
+        else:
+            color_attrib = ColorAttrib.make_off()
+
+        if render_state.has_attrib(COLOR_SCALE_ATTR_TYPE):
+            color_scale_attrib = render_state.get_attrib(COLOR_SCALE_ATTR_TYPE)
+        else:
+            color_scale_attrib = ColorScaleAttrib.make_off()
+
+        if render_state.has_attrib(MATERIAL_ATTR_TYPE):
+            mat_attrib = render_state.get_attrib(MATERIAL_ATTR_TYPE)
+        else:
+            mat_attrib = MaterialAttrib.make_off()
+
+        if render_state.has_attrib(TEX_ATTR_TYPE):
+            tex_attrib = render_state.get_attrib(TEX_ATTR_TYPE)
+        else:
+            tex_attrib = TextureAttrib.make_off()
+
+        if render_state.has_attrib(TRANSP_ATTR_TYPE):
+            transp_attrib = render_state.get_attrib(TRANSP_ATTR_TYPE)
+        else:
+            transp_attrib = TransparencyAttrib.make(TransparencyAttrib.M_none)
+
+        if (color_attrib.get_color_type() == ColorAttrib.T_off
+                and color_scale_attrib.is_off() and mat_attrib.is_off()
+                and tex_attrib.is_off()
+                and transp_attrib.get_mode() == TransparencyAttrib.M_none):
+            create_material = False
+        else:
+            create_material = True
+
+    if create_material:
+
         material = Mgr.do("create_material")
-        color_attr_type = ColorAttrib.get_class_type()
-        color_scale_attr_type = ColorScaleAttrib.get_class_type()
-        material_attr_type = MaterialAttrib.get_class_type()
-        transp_attr_type = TransparencyAttrib.get_class_type()
-        tex_attr_type = TextureAttrib.get_class_type()
-        tex_matrix_attr_type = TexMatrixAttrib.get_class_type()
 
-        if render_state.has_attrib(color_attr_type):
+        if color_attrib.get_color_type() == ColorAttrib.T_vertex:
+            material.set_property("show_vert_colors", True)
+        elif color_attrib.get_color_type() == ColorAttrib.T_flat:
+            color = color_attrib.get_color()
+            material.set_property("flat_color", tuple(color))
 
-            color_attrib = render_state.get_attrib(color_attr_type)
+        if not mat_attrib.is_off():
 
-            if color_attrib.get_color_type() == ColorAttrib.T_vertex:
-                material.set_property("show_vert_colors", True)
-            elif color_attrib.get_color_type() == ColorAttrib.T_flat:
-                color = color_attrib.get_color()
-                material.set_property("flat_color", tuple(color))
+            m = mat_attrib.get_material()
+            diffuse = {"value": tuple(m.get_diffuse()), "on": m.has_diffuse()}
+            ambient = {"value": tuple(m.get_ambient()), "on": m.has_ambient()}
+            emissive = {"value": tuple(m.get_emission()), "on": m.has_emission()}
+            specular = {"value": tuple(m.get_specular()), "on": m.has_specular()}
+            shininess = {"value": m.get_shininess(), "on": True}
 
-        if render_state.has_attrib(material_attr_type):
+            material.set_property("diffuse", diffuse, apply_base_mat=False)
+            material.set_property("ambient", ambient, apply_base_mat=False)
+            material.set_property("emissive", emissive, apply_base_mat=False)
+            material.set_property("specular", specular, apply_base_mat=False)
+            material.set_property("shininess", shininess, apply_base_mat=False)
 
-            mat_attrib = render_state.get_attrib(material_attr_type)
+        alpha_value = color_scale_attrib.get_scale()[3]
+        alpha_on = transp_attrib.get_mode() != TransparencyAttrib.M_none
+        alpha = {"value": alpha_value, "on": alpha_on}
+        material.set_property("alpha", alpha, apply_base_mat=False)
 
-            if not mat_attrib.is_off():
+        if not tex_attrib.is_off():
 
-                m = mat_attrib.get_material()
-                diffuse = {"value": tuple(m.get_diffuse()), "on": m.has_diffuse()}
-                ambient = {"value": tuple(m.get_ambient()), "on": m.has_ambient()}
-                emissive = {"value": tuple(m.get_emission()), "on": m.has_emission()}
-                specular = {"value": tuple(m.get_specular()), "on": m.has_specular()}
-                shininess = {"value": m.get_shininess(), "on": True}
-
-                material.set_property("diffuse", diffuse, apply_base_mat=False)
-                material.set_property("ambient", ambient, apply_base_mat=False)
-                material.set_property("emissive", emissive, apply_base_mat=False)
-                material.set_property("specular", specular, apply_base_mat=False)
-                material.set_property("shininess", shininess, apply_base_mat=False)
-
-        if render_state.has_attrib(transp_attr_type):
-
-            transp_attrib = render_state.get_attrib(transp_attr_type)
-
-            if render_state.has_attrib(color_scale_attr_type):
-                color_scale_attrib = render_state.get_attrib(color_scale_attr_type)
-                alpha_value = color_scale_attrib.get_scale()[3]
-            else:
-                alpha_value = 1.
-
-            alpha_on = transp_attrib.get_mode() != TransparencyAttrib.M_none
-            alpha = {"value": alpha_value, "on": alpha_on}
-            material.set_property("alpha", alpha, apply_base_mat=False)
-
-        if render_state.has_attrib(tex_attr_type):
-
-            tex_attrib = render_state.get_attrib(tex_attr_type)
             colormap_stages = []
             layer_stages = []
             fxmap_stages = []
@@ -260,9 +268,9 @@ def render_state_to_material(render_state, geom_vertex_format, for_basic_geom=Tr
             all_stages = off_stages + tex_attrib.get_on_stages()
             tex_xforms = {}
 
-            if render_state.has_attrib(tex_matrix_attr_type):
+            if render_state.has_attrib(TEX_MATRIX_ATTR_TYPE):
 
-                tex_matrix_attrib = render_state.get_attrib(tex_matrix_attr_type)
+                tex_matrix_attrib = render_state.get_attrib(TEX_MATRIX_ATTR_TYPE)
 
                 for stage in tex_matrix_attrib.get_stages():
                     tex_xforms[stage] = tex_matrix_attrib.get_transform(stage)
@@ -367,7 +375,7 @@ def render_state_to_material(render_state, geom_vertex_format, for_basic_geom=Tr
                 for i, stage in enumerate(layer_stages):
                     stage.set_sort(i)
 
-                src_uv_set_names = set(stages_by_uv_set.iterkeys())
+                src_uv_set_names = set(stages_by_uv_set)
                 dest_uv_set_names = set(uv_set_list[:len(stages_by_uv_set)])
 
                 if for_basic_geom:
@@ -403,5 +411,27 @@ def render_state_to_material(render_state, geom_vertex_format, for_basic_geom=Tr
         else:
 
             material.set_map_active("color", is_active=False)
+
+        if other_materials:
+            for other_material in other_materials:
+                if material.equals(other_material):
+                    Mgr.do("unregister_material", material)
+                    material = other_material
+                    break
+
+    else:
+
+        material = None
+
+        src_uv_set_names = list(geom_vertex_format.get_texcoords())
+
+        for uv_set_name in uv_set_list[:]:
+            if uv_set_name in src_uv_set_names:
+                uv_set_list.remove(uv_set_name)
+                src_uv_set_names.remove(uv_set_name)
+                uv_set_names[uv_set_name] = uv_set_name
+
+        for src_uv_set_name, dest_uv_set_name in zip(src_uv_set_names, uv_set_list):
+            uv_set_names[src_uv_set_name] = dest_uv_set_name
 
     return material, uv_set_names

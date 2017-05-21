@@ -1,6 +1,565 @@
 from ..base import *
 
 
+class Group(TopLevelObject):
+
+    # the following maps group member types to the actual object types
+    # compatible with those member types; e.g. "collision" includes "model",
+    # but this might be extended with line geometry like "ray" etc. in the
+    # future
+    _compatible_types = {"model": ["model"], "collision": ["model"], "dummy": ["dummy"],
+                         "point": ["point_helper"], "tex_projector": ["tex_projector"],
+                         "helper": ["dummy", "point_helper", "tex_projector"]}
+
+    def __getstate__(self):
+
+        state = TopLevelObject.__getstate__(self)
+
+        state["_member_ids"] = []
+        state["_collision_geoms"] = {}
+
+        return state
+
+    def __setstate__(self, state):
+
+        TopLevelObject.__setstate__(self, state)
+
+        self._bbox.get_origin().reparent_to(self.get_origin())
+        self._bbox.set_color(self._color_unsel)
+        self._bbox.hide()
+        Mgr.do("update_group_bboxes", [self.get_id()])
+
+        if self._bbox_is_const_size:
+            Mgr.do("make_group_const_size", self._bbox)
+            self._bbox.get_origin().detach_node()
+
+    def __init__(self, member_types, member_types_id, group_id, name, color_unsel):
+
+        TopLevelObject.__init__(self, "group", group_id, name, Point3())
+
+        self._type_prop_ids = ["member_types", "open"]
+        self._member_types = member_types
+        self._member_types_id = member_types_id
+        self._member_ids = []
+        self._is_open = False
+        self._color_unsel = color_unsel
+        self._bbox = Mgr.do("create_bbox", self, color_unsel)
+        self._bbox.hide()
+        self._bbox_is_const_size = False
+        self._collision_geoms = {}
+
+    def __del__(self):
+
+        logging.info('Group garbage-collected.')
+
+    def destroy(self, unregister=True, add_to_hist=True):
+
+        if not TopLevelObject.destroy(self, unregister, add_to_hist):
+            return
+
+        if self._member_types_id == "collision" and not self._is_open:
+            self.__destroy_collision_geoms()
+
+        if add_to_hist:
+
+            obj_data = {}
+            event_data = {"objects": obj_data}
+
+            for member_id in self._member_ids[:]:
+                member = Mgr.get("object", member_id)
+                obj_data[member_id] = member.get_data_to_store("deletion")
+                member.destroy(unregister, add_to_hist)
+
+            if obj_data:
+                Mgr.do("add_history", "", event_data, update_time_id=False)
+
+        if self._bbox_is_const_size:
+            Mgr.do("make_group_const_size", self._bbox, False)
+
+        self._bbox.destroy(unregister)
+        self._bbox = None
+
+    def register(self, restore=True):
+
+        TopLevelObject.register(self)
+
+        self._bbox.register(restore)
+
+    def __create_collision_geoms(self):
+
+        members = self.get_members()
+
+        if not members:
+            return
+
+        collision_geoms = self._collision_geoms
+        group_pivot = self.get_pivot()
+        group_pivot.node().set_final(True)
+        compass_props = CompassEffect.P_all
+
+        for member in members:
+
+            member_id = member.get_id()
+
+            if member.get_type() == "model" and member_id not in collision_geoms:
+
+                if member.get_geom_type() == "basic_geom":
+                    geom = member.get_geom_object().get_geom()
+                else:
+                    geom = member.get_geom_object().get_geom_data_object().get_toplevel_geom()
+
+                coll_geom = geom.instance_under_node(group_pivot, "collision_geom")
+                coll_geom.set_material_off()
+                coll_geom.set_texture_off()
+                coll_geom.set_shader_off()
+                coll_geom.set_light_off()
+                coll_geom.set_transparency(TransparencyAttrib.M_alpha)
+                coll_geom.set_color((1., 1., 1., .5))
+                compass_effect = CompassEffect.make(member.get_pivot(), compass_props)
+                coll_geom.set_effect(compass_effect)
+                collision_geoms[member_id] = coll_geom
+                geom.detach_node()
+
+    def __destroy_collision_geoms(self):
+
+        for coll_geom in self._collision_geoms.itervalues():
+            coll_geom.remove_node()
+
+        for member in self.get_members():
+            if member.get_type() == "model":
+                if member.get_geom_type() == "basic_geom":
+                    geom = member.get_geom_object().get_geom()
+                    geom.reparent_to(member.get_origin())
+                else:
+                    geom_data_obj = member.get_geom_object().get_geom_data_object()
+                    geom = geom_data_obj.get_toplevel_geom()
+                    geom.reparent_to(geom_data_obj.get_origin())
+
+        self._collision_geoms.clear()
+        pivot = self.get_pivot()
+
+        if pivot:
+            pivot.node().set_final(False)
+
+    def set_member_types(self, member_types, member_types_id, check_outer_group=True,
+                         removed_members=None):
+
+        if self._member_types_id == member_types_id:
+            return False
+
+        if check_outer_group:
+
+            group = self.get_group()
+
+            if group and not group.can_contain(member_types=member_types):
+                return False
+
+        old_member_types = self._member_types
+        old_member_types_id = self._member_types_id
+        self._member_types = member_types
+        members_to_remove = []
+
+        for member in self.get_members():
+            if not self.can_contain(member):
+                members_to_remove.append(member)
+
+        if members_to_remove and len(members_to_remove) == len(self._member_ids):
+            self._member_types = old_member_types
+            return False
+
+        self._member_types_id = member_types_id
+
+        if members_to_remove:
+
+            outer_group = self.get_group()
+
+            if outer_group:
+
+                outer_group_id = outer_group.get_id()
+
+                for member in members_to_remove:
+                    member.set_group(outer_group_id)
+
+            else:
+
+                parent = self.get_parent()
+                parent_id = parent.get_id() if parent else None
+
+                for member in members_to_remove:
+                    member.set_parent(parent_id)
+
+            if removed_members is not None:
+                removed_members.update(members_to_remove)
+
+        if member_types_id == "collision" and not self._is_open:
+            self.__create_collision_geoms()
+        elif old_member_types_id == "collision":
+            self.__destroy_collision_geoms()
+
+        return True
+
+    def __restore_member_types(self, member_types, member_types_id):
+
+        old_member_types = self._member_types
+        old_member_types_id = self._member_types_id
+        self._member_types = member_types
+        self._member_types_id = member_types_id
+
+        if member_types_id == "collision" and not self._is_open:
+            self.__create_collision_geoms()
+        elif old_member_types_id == "collision":
+            self.__destroy_collision_geoms()
+
+    def get_member_types(self):
+
+        return self._member_types
+
+    def get_member_types_id(self):
+
+        return self._member_types_id
+
+    def can_contain(self, obj=None, member_types=None):
+
+        if not self._member_types:
+            return True
+
+        if obj is None:
+
+            if not member_types:
+                return False
+
+            return member_types.issubset(self._member_types)
+
+        if obj.get_type() == "group":
+
+            other_types = obj.get_member_types()
+
+            if not other_types:
+                return False
+
+            return other_types.issubset(self._member_types)
+
+        obj_types = sum([self._compatible_types[member_type]
+                        for member_type in self._member_types], [])
+
+        return obj.get_type() in obj_types
+
+    def get_bbox(self):
+
+        return self._bbox
+
+    def get_center_pos(self, ref_node):
+
+        if self._bbox_is_const_size:
+            return self.get_origin().get_pos(ref_node)
+
+        return self._bbox.get_center_pos(ref_node)
+
+    def update_selection_state(self, is_selected=True):
+
+        TopLevelObject.update_selection_state(self, is_selected)
+
+        if self._bbox_is_const_size:
+
+            bbox_origins = Mgr.get("const_sized_group_bbox", self.get_id())
+
+            if not bbox_origins:
+                return
+
+            for origin in bbox_origins:
+
+                if is_selected:
+                    origin.set_color((1., 1., 0., 1.) if self._is_open else (1., 1., 1., 1.))
+                else:
+                    origin.set_color(self._color_unsel)
+
+                if not self._is_open:
+                    if is_selected:
+                        origin.show()
+                    else:
+                        origin.hide()
+
+        bbox = self._bbox
+
+        if not bbox:
+            return
+
+        if is_selected:
+            bbox.set_color((1., 1., 0., 1.) if self._is_open else (1., 1., 1., 1.))
+        else:
+            bbox.set_color(self._color_unsel)
+
+        if not self._is_open:
+            if is_selected:
+                bbox.show()
+            else:
+                bbox.hide()
+
+    def update_bbox(self):
+
+        if not self._bbox:
+            return
+
+        members = self.get_members()
+
+        if not members:
+            return
+
+        group_orig = self.get_origin()
+        group_pivot = self.get_pivot()
+        parents = {}
+
+        for member in members:
+            member_orig = member.get_origin()
+            parents[member_orig] = member_orig.get_parent()
+            member_orig.wrt_reparent_to(group_orig)
+
+        bbox_orig = self._bbox.get_origin()
+        bbox_orig.detach_node()
+        transform = group_orig.get_transform()
+        group_orig.clear_transform()
+        bounds = group_orig.get_tight_bounds()
+
+        member = members[0]
+        x_min, y_min, z_min = x_max, y_max, z_max = member.get_center_pos(group_orig)
+
+        for member in members[1:]:
+            x, y, z = member.get_center_pos(group_orig)
+            x_min = min(x_min, x)
+            y_min = min(y_min, y)
+            z_min = min(z_min, z)
+            x_max = max(x_max, x)
+            y_max = max(y_max, y)
+            z_max = max(z_max, z)
+
+        bbox_orig.reparent_to(group_orig)
+        group_orig.set_transform(transform)
+
+        for member, parent in parents.iteritems():
+            member.wrt_reparent_to(parent)
+
+        if bounds:
+
+            for point in bounds:
+                x, y, z = point
+                x_min = min(x_min, x)
+                y_min = min(y_min, y)
+                z_min = min(z_min, z)
+                x_max = max(x_max, x)
+                y_max = max(y_max, y)
+                z_max = max(z_max, z)
+
+        epsilon = 1.e-010
+
+        if max(x_max - x_min, y_max - y_min, z_max - z_min) > epsilon:
+
+            if self._bbox_is_const_size:
+                Mgr.do("make_group_const_size", self._bbox, False)
+                bbox_orig.reparent_to(group_orig)
+                self._bbox_is_const_size = False
+
+            point_min = Point3(x_min, y_min, z_min)
+            point_max = Point3(x_max, y_max, z_max)
+            vec = (point_max - point_min) * .5
+            center_pos = point_min + vec
+            center_pos = group_pivot.get_relative_point(group_orig, center_pos)
+            group_orig.set_pos(center_pos)
+            self._bbox.update(Point3(-vec), Point3(vec))
+
+        else:
+
+            pos = Point3(x_min, y_min, z_min)
+            center_pos = group_pivot.get_relative_point(group_orig, pos)
+            group_orig.set_pos(center_pos)
+            bbox_orig.clear_transform()
+            bbox_orig.detach_node()
+
+            if not self._bbox_is_const_size:
+                Mgr.do("make_group_const_size", self._bbox)
+                self._bbox_is_const_size = True
+
+    def center_pivot(self):
+
+        pivot = self.get_pivot()
+        obj_root = Mgr.get("object_root")
+        objs = self.get_members() + self.get_children()
+
+        for obj in objs:
+            obj.get_pivot().wrt_reparent_to(obj_root)
+
+        origin = self.get_origin()
+        origin.set_hpr(self.get_parent_pivot(), 0., 0., 0.)
+        self.update_bbox()
+        pivot.clear_transform(origin)
+        origin.clear_transform()
+
+        for obj in objs:
+            obj.get_pivot().wrt_reparent_to(pivot)
+
+        obj_data = {}
+        event_data = {"objects": obj_data}
+
+        data = self.get_data_to_store("prop_change", "transform")
+        obj_data[self.get_id()] = data
+
+        for obj in objs:
+            data = obj.get_data_to_store("prop_change", "transform")
+            obj_data[obj.get_id()] = data
+
+        Mgr.do("add_history", "", event_data, update_time_id=False)
+
+    def add_member(self, member_id):
+
+        if member_id in self._member_ids:
+            return False
+
+        self._member_ids.append(member_id)
+        Mgr.do("update_group_bboxes", [self.get_id()])
+
+        if self._member_types_id == "collision" and not self._is_open:
+
+            member = Mgr.get("object", member_id)
+
+            if member.get_type() == "model" and member_id not in self._collision_geoms:
+
+                group_pivot = self.get_pivot()
+
+                if member.get_geom_type() == "basic_geom":
+                    geom = member.get_geom_object().get_geom()
+                else:
+                    geom = member.get_geom_object().get_geom_data_object().get_toplevel_geom()
+
+                coll_geom = geom.instance_under_node(group_pivot, "collision_geom")
+                coll_geom.set_material_off()
+                coll_geom.set_texture_off()
+                coll_geom.set_shader_off()
+                coll_geom.set_light_off()
+                coll_geom.set_transparency(TransparencyAttrib.M_alpha)
+                coll_geom.set_color((1., 1., 1., .5))
+                compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+                compass_effect = CompassEffect.make(member.get_pivot(), compass_props)
+                coll_geom.set_effect(compass_effect)
+                self._collision_geoms[member_id] = coll_geom
+                geom.detach_node()
+
+        return True
+
+    def remove_member(self, member_id):
+
+        if member_id not in self._member_ids:
+            return False
+
+        self._member_ids.remove(member_id)
+        Mgr.do("update_group_bboxes", [self.get_id()])
+
+        if member_id in self._collision_geoms:
+
+            coll_geom = self._collision_geoms[member_id]
+            coll_geom.remove_node()
+            del self._collision_geoms[member_id]
+            member = Mgr.get("object", member_id)
+
+            if member:
+                if member.get_geom_type() == "basic_geom":
+                    geom = member.get_geom_object().get_geom()
+                    geom.reparent_to(member.get_origin())
+                else:
+                    geom_data_obj = member.get_geom_object().get_geom_data_object()
+                    geom = geom_data_obj.get_toplevel_geom()
+                    geom.reparent_to(geom_data_obj.get_origin())
+
+        return True
+
+    def get_members(self):
+
+        objs = (Mgr.get("object", member_id) for member_id in self._member_ids)
+
+        return [obj for obj in objs if obj]
+
+    def open(self, is_open=True):
+
+        if self._is_open == is_open:
+            return False
+
+        if self._bbox_is_const_size:
+
+            bbox_origins = Mgr.get("const_sized_group_bbox", self.get_id())
+
+            for origin in bbox_origins:
+
+                if self.is_selected():
+                    origin.set_color((1., 1., 0., 1.) if is_open else (1., 1., 1., 1.))
+                else:
+                    if is_open:
+                        origin.show()
+                    else:
+                        origin.hide()
+
+        if self.is_selected():
+            self._bbox.set_color((1., 1., 0., 1.) if is_open else (1., 1., 1., 1.))
+        else:
+            if is_open:
+                self._bbox.show()
+            else:
+                self._bbox.hide()
+
+        self._is_open = is_open
+
+        if self._member_types_id == "collision":
+            if is_open:
+                self.__destroy_collision_geoms()
+            else:
+                self.__create_collision_geoms()
+
+        return True
+
+    def is_open(self):
+
+        return self._is_open
+
+    def set_property(self, prop_id, value, restore=""):
+
+        if prop_id == "member_types":
+            Mgr.update_remotely("selected_obj_prop", "group", "member_types", value[1])
+            if restore:
+                task = lambda: self.__restore_member_types(*value)
+                task_id = "set_group_member_types"
+                PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
+            else:
+                return self.set_member_types(*value)
+        elif prop_id == "open":
+            return self.open(value)
+        else:
+            return TopLevelObject.set_property(self, prop_id, value, restore)
+
+    def get_property(self, prop_id, for_remote_update=False):
+
+        if prop_id == "member_types":
+            return self._member_types_id if for_remote_update else (self._member_types,
+                                                                    self._member_types_id)
+        elif prop_id == "open":
+            return self._is_open
+
+        return TopLevelObject.get_property(self, prop_id, for_remote_update)
+
+    def get_property_ids(self):
+
+        return TopLevelObject.get_property_ids(self) + self._type_prop_ids
+
+    def get_type_property_ids(self):
+
+        return self._type_prop_ids
+
+    def display_link_effect(self):
+        """
+        Visually indicate that another object has been successfully reparented
+        to this group.
+
+        """
+
+        self._bbox.flash()
+
+
 class GroupManager(ObjectManager):
 
     def __init__(self):
@@ -38,8 +597,6 @@ class GroupManager(ObjectManager):
         Mgr.accept("close_groups", self.__close_groups)
         Mgr.accept("prune_empty_groups", self.__prune_empty_groups)
 
-    def setup(self):
-
         bbox_root = self.cam().attach_new_node("group_bbox_root")
         bbox_root.set_bin("fixed", 52)
         bbox_root.set_depth_test(False)
@@ -67,8 +624,6 @@ class GroupManager(ObjectManager):
         bind("grouping_mode", "grouping mode -> select", "escape", exit_mode)
         bind("grouping_mode", "exit grouping mode", "mouse3-up", exit_mode)
         bind("grouping_mode", "add members", "mouse1", self.__add_members)
-
-        return True
 
     def __create_group(self, name, member_types=None, member_types_id="any", transform=None,
                        color_unsel=(1., .5, .25, 1.)):
@@ -916,565 +1471,6 @@ class GroupManager(ObjectManager):
                 event_data["object_ids"] = set(Mgr.get("object_ids"))
 
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
-
-
-class Group(TopLevelObject):
-
-    # the following maps group member types to the actual object types
-    # compatible with those member types; e.g. "collision" includes "model",
-    # but this might be extended with line geometry like "ray" etc. in the
-    # future
-    _compatible_types = {"model": ["model"], "collision": ["model"], "dummy": ["dummy"],
-                         "point": ["point_helper"], "tex_projector": ["tex_projector"],
-                         "helper": ["dummy", "point_helper", "tex_projector"]}
-
-    def __getstate__(self):
-
-        state = TopLevelObject.__getstate__(self)
-
-        state["_member_ids"] = []
-        state["_collision_geoms"] = {}
-
-        return state
-
-    def __setstate__(self, state):
-
-        TopLevelObject.__setstate__(self, state)
-
-        self._bbox.get_origin().reparent_to(self.get_origin())
-        self._bbox.set_color(self._color_unsel)
-        self._bbox.hide()
-        Mgr.do("update_group_bboxes", [self.get_id()])
-
-        if self._bbox_is_const_size:
-            Mgr.do("make_group_const_size", self._bbox)
-            self._bbox.get_origin().detach_node()
-
-    def __init__(self, member_types, member_types_id, group_id, name, color_unsel):
-
-        TopLevelObject.__init__(self, "group", group_id, name, Point3())
-
-        self._type_prop_ids = ["member_types", "open"]
-        self._member_types = member_types
-        self._member_types_id = member_types_id
-        self._member_ids = []
-        self._is_open = False
-        self._color_unsel = color_unsel
-        self._bbox = Mgr.do("create_bbox", self, color_unsel)
-        self._bbox.hide()
-        self._bbox_is_const_size = False
-        self._collision_geoms = {}
-
-    def __del__(self):
-
-        logging.info('Group garbage-collected.')
-
-    def destroy(self, unregister=True, add_to_hist=True):
-
-        if not TopLevelObject.destroy(self, unregister, add_to_hist):
-            return
-
-        if self._member_types_id == "collision" and not self._is_open:
-            self.__destroy_collision_geoms()
-
-        if add_to_hist:
-
-            obj_data = {}
-            event_data = {"objects": obj_data}
-
-            for member_id in self._member_ids[:]:
-                member = Mgr.get("object", member_id)
-                obj_data[member_id] = member.get_data_to_store("deletion")
-                member.destroy(unregister, add_to_hist)
-
-            if obj_data:
-                Mgr.do("add_history", "", event_data, update_time_id=False)
-
-        if self._bbox_is_const_size:
-            Mgr.do("make_group_const_size", self._bbox, False)
-
-        self._bbox.destroy(unregister)
-        self._bbox = None
-
-    def register(self, restore=True):
-
-        TopLevelObject.register(self)
-
-        self._bbox.register(restore)
-
-    def __create_collision_geoms(self):
-
-        members = self.get_members()
-
-        if not members:
-            return
-
-        collision_geoms = self._collision_geoms
-        group_pivot = self.get_pivot()
-        group_pivot.node().set_final(True)
-        compass_props = CompassEffect.P_all
-
-        for member in members:
-
-            member_id = member.get_id()
-
-            if member.get_type() == "model" and member_id not in collision_geoms:
-
-                if member.get_geom_type() == "basic_geom":
-                    geom = member.get_geom_object().get_geom()
-                else:
-                    geom = member.get_geom_object().get_geom_data_object().get_toplevel_geom()
-
-                coll_geom = geom.instance_under_node(group_pivot, "collision_geom")
-                coll_geom.set_material_off()
-                coll_geom.set_texture_off()
-                coll_geom.set_shader_off()
-                coll_geom.set_light_off()
-                coll_geom.set_transparency(TransparencyAttrib.M_alpha)
-                coll_geom.set_color((1., 1., 1., .5))
-                compass_effect = CompassEffect.make(member.get_pivot(), compass_props)
-                coll_geom.set_effect(compass_effect)
-                collision_geoms[member_id] = coll_geom
-                geom.detach_node()
-
-    def __destroy_collision_geoms(self):
-
-        for coll_geom in self._collision_geoms.itervalues():
-            coll_geom.remove_node()
-
-        for member in self.get_members():
-            if member.get_type() == "model":
-                if member.get_geom_type() == "basic_geom":
-                    geom = member.get_geom_object().get_geom()
-                    geom.reparent_to(member.get_origin())
-                else:
-                    geom_data_obj = member.get_geom_object().get_geom_data_object()
-                    geom = geom_data_obj.get_toplevel_geom()
-                    geom.reparent_to(geom_data_obj.get_origin())
-
-        self._collision_geoms.clear()
-        pivot = self.get_pivot()
-
-        if pivot:
-            pivot.node().set_final(False)
-
-    def set_member_types(self, member_types, member_types_id, check_outer_group=True,
-                         removed_members=None):
-
-        if self._member_types_id == member_types_id:
-            return False
-
-        if check_outer_group:
-
-            group = self.get_group()
-
-            if group and not group.can_contain(member_types=member_types):
-                return False
-
-        old_member_types = self._member_types
-        old_member_types_id = self._member_types_id
-        self._member_types = member_types
-        members_to_remove = []
-
-        for member in self.get_members():
-            if not self.can_contain(member):
-                members_to_remove.append(member)
-
-        if members_to_remove and len(members_to_remove) == len(self._member_ids):
-            self._member_types = old_member_types
-            return False
-
-        self._member_types_id = member_types_id
-
-        if members_to_remove:
-
-            outer_group = self.get_group()
-
-            if outer_group:
-
-                outer_group_id = outer_group.get_id()
-
-                for member in members_to_remove:
-                    member.set_group(outer_group_id)
-
-            else:
-
-                parent = self.get_parent()
-                parent_id = parent.get_id() if parent else None
-
-                for member in members_to_remove:
-                    member.set_parent(parent_id)
-
-            if removed_members is not None:
-                removed_members.update(members_to_remove)
-
-        if member_types_id == "collision" and not self._is_open:
-            self.__create_collision_geoms()
-        elif old_member_types_id == "collision":
-            self.__destroy_collision_geoms()
-
-        return True
-
-    def __restore_member_types(self, member_types, member_types_id):
-
-        old_member_types = self._member_types
-        old_member_types_id = self._member_types_id
-        self._member_types = member_types
-        self._member_types_id = member_types_id
-
-        if member_types_id == "collision" and not self._is_open:
-            self.__create_collision_geoms()
-        elif old_member_types_id == "collision":
-            self.__destroy_collision_geoms()
-
-    def get_member_types(self):
-
-        return self._member_types
-
-    def get_member_types_id(self):
-
-        return self._member_types_id
-
-    def can_contain(self, obj=None, member_types=None):
-
-        if not self._member_types:
-            return True
-
-        if obj is None:
-
-            if not member_types:
-                return False
-
-            return member_types.issubset(self._member_types)
-
-        if obj.get_type() == "group":
-
-            other_types = obj.get_member_types()
-
-            if not other_types:
-                return False
-
-            return other_types.issubset(self._member_types)
-
-        obj_types = sum([self._compatible_types[member_type]
-                        for member_type in self._member_types], [])
-
-        return obj.get_type() in obj_types
-
-    def get_bbox(self):
-
-        return self._bbox
-
-    def get_center_pos(self, ref_node):
-
-        if self._bbox_is_const_size:
-            return self.get_origin().get_pos(ref_node)
-
-        return self._bbox.get_center_pos(ref_node)
-
-    def update_selection_state(self, is_selected=True):
-
-        TopLevelObject.update_selection_state(self, is_selected)
-
-        if self._bbox_is_const_size:
-
-            bbox_origins = Mgr.get("const_sized_group_bbox", self.get_id())
-
-            if not bbox_origins:
-                return
-
-            for origin in bbox_origins:
-
-                if is_selected:
-                    origin.set_color((1., 1., 0., 1.) if self._is_open else (1., 1., 1., 1.))
-                else:
-                    origin.set_color(self._color_unsel)
-
-                if not self._is_open:
-                    if is_selected:
-                        origin.show()
-                    else:
-                        origin.hide()
-
-        bbox = self._bbox
-
-        if not bbox:
-            return
-
-        if is_selected:
-            bbox.set_color((1., 1., 0., 1.) if self._is_open else (1., 1., 1., 1.))
-        else:
-            bbox.set_color(self._color_unsel)
-
-        if not self._is_open:
-            if is_selected:
-                bbox.show()
-            else:
-                bbox.hide()
-
-    def update_bbox(self):
-
-        if not self._bbox:
-            return
-
-        members = self.get_members()
-
-        if not members:
-            return
-
-        group_orig = self.get_origin()
-        group_pivot = self.get_pivot()
-        parents = {}
-
-        for member in members:
-            member_orig = member.get_origin()
-            parents[member_orig] = member_orig.get_parent()
-            member_orig.wrt_reparent_to(group_orig)
-
-        bbox_orig = self._bbox.get_origin()
-        bbox_orig.detach_node()
-        transform = group_orig.get_transform()
-        group_orig.clear_transform()
-        bounds = group_orig.get_tight_bounds()
-
-        member = members[0]
-        x_min, y_min, z_min = x_max, y_max, z_max = member.get_center_pos(group_orig)
-
-        for member in members[1:]:
-            x, y, z = member.get_center_pos(group_orig)
-            x_min = min(x_min, x)
-            y_min = min(y_min, y)
-            z_min = min(z_min, z)
-            x_max = max(x_max, x)
-            y_max = max(y_max, y)
-            z_max = max(z_max, z)
-
-        bbox_orig.reparent_to(group_orig)
-        group_orig.set_transform(transform)
-
-        for member, parent in parents.iteritems():
-            member.wrt_reparent_to(parent)
-
-        if bounds:
-
-            for point in bounds:
-                x, y, z = point
-                x_min = min(x_min, x)
-                y_min = min(y_min, y)
-                z_min = min(z_min, z)
-                x_max = max(x_max, x)
-                y_max = max(y_max, y)
-                z_max = max(z_max, z)
-
-        epsilon = 1.e-010
-
-        if max(x_max - x_min, y_max - y_min, z_max - z_min) > epsilon:
-
-            if self._bbox_is_const_size:
-                Mgr.do("make_group_const_size", self._bbox, False)
-                bbox_orig.reparent_to(group_orig)
-                self._bbox_is_const_size = False
-
-            point_min = Point3(x_min, y_min, z_min)
-            point_max = Point3(x_max, y_max, z_max)
-            vec = (point_max - point_min) * .5
-            center_pos = point_min + vec
-            center_pos = group_pivot.get_relative_point(group_orig, center_pos)
-            group_orig.set_pos(center_pos)
-            self._bbox.update(Point3(-vec), Point3(vec))
-
-        else:
-
-            pos = Point3(x_min, y_min, z_min)
-            center_pos = group_pivot.get_relative_point(group_orig, pos)
-            group_orig.set_pos(center_pos)
-            bbox_orig.clear_transform()
-            bbox_orig.detach_node()
-
-            if not self._bbox_is_const_size:
-                Mgr.do("make_group_const_size", self._bbox)
-                self._bbox_is_const_size = True
-
-    def center_pivot(self):
-
-        pivot = self.get_pivot()
-        obj_root = Mgr.get("object_root")
-        objs = self.get_members() + self.get_children()
-
-        for obj in objs:
-            obj.get_pivot().wrt_reparent_to(obj_root)
-
-        origin = self.get_origin()
-        origin.set_hpr(self.get_parent_pivot(), 0., 0., 0.)
-        self.update_bbox()
-        pivot.clear_transform(origin)
-        origin.clear_transform()
-
-        for obj in objs:
-            obj.get_pivot().wrt_reparent_to(pivot)
-
-        obj_data = {}
-        event_data = {"objects": obj_data}
-
-        data = self.get_data_to_store("prop_change", "transform")
-        obj_data[self.get_id()] = data
-
-        for obj in objs:
-            data = obj.get_data_to_store("prop_change", "transform")
-            obj_data[obj.get_id()] = data
-
-        Mgr.do("add_history", "", event_data, update_time_id=False)
-
-    def add_member(self, member_id):
-
-        if member_id in self._member_ids:
-            return False
-
-        self._member_ids.append(member_id)
-        Mgr.do("update_group_bboxes", [self.get_id()])
-
-        if self._member_types_id == "collision" and not self._is_open:
-
-            member = Mgr.get("object", member_id)
-
-            if member.get_type() == "model" and member_id not in self._collision_geoms:
-
-                group_pivot = self.get_pivot()
-
-                if member.get_geom_type() == "basic_geom":
-                    geom = member.get_geom_object().get_geom()
-                else:
-                    geom = member.get_geom_object().get_geom_data_object().get_toplevel_geom()
-
-                coll_geom = geom.instance_under_node(group_pivot, "collision_geom")
-                coll_geom.set_material_off()
-                coll_geom.set_texture_off()
-                coll_geom.set_shader_off()
-                coll_geom.set_light_off()
-                coll_geom.set_transparency(TransparencyAttrib.M_alpha)
-                coll_geom.set_color((1., 1., 1., .5))
-                compass_props = CompassEffect.P_pos | CompassEffect.P_rot
-                compass_effect = CompassEffect.make(member.get_pivot(), compass_props)
-                coll_geom.set_effect(compass_effect)
-                self._collision_geoms[member_id] = coll_geom
-                geom.detach_node()
-
-        return True
-
-    def remove_member(self, member_id):
-
-        if member_id not in self._member_ids:
-            return False
-
-        self._member_ids.remove(member_id)
-        Mgr.do("update_group_bboxes", [self.get_id()])
-
-        if member_id in self._collision_geoms:
-
-            coll_geom = self._collision_geoms[member_id]
-            coll_geom.remove_node()
-            del self._collision_geoms[member_id]
-            member = Mgr.get("object", member_id)
-
-            if member:
-                if member.get_geom_type() == "basic_geom":
-                    geom = member.get_geom_object().get_geom()
-                    geom.reparent_to(member.get_origin())
-                else:
-                    geom_data_obj = member.get_geom_object().get_geom_data_object()
-                    geom = geom_data_obj.get_toplevel_geom()
-                    geom.reparent_to(geom_data_obj.get_origin())
-
-        return True
-
-    def get_members(self):
-
-        objs = (Mgr.get("object", member_id) for member_id in self._member_ids)
-
-        return [obj for obj in objs if obj]
-
-    def open(self, is_open=True):
-
-        if self._is_open == is_open:
-            return False
-
-        if self._bbox_is_const_size:
-
-            bbox_origins = Mgr.get("const_sized_group_bbox", self.get_id())
-
-            for origin in bbox_origins:
-
-                if self.is_selected():
-                    origin.set_color((1., 1., 0., 1.) if is_open else (1., 1., 1., 1.))
-                else:
-                    if is_open:
-                        origin.show()
-                    else:
-                        origin.hide()
-
-        if self.is_selected():
-            self._bbox.set_color((1., 1., 0., 1.) if is_open else (1., 1., 1., 1.))
-        else:
-            if is_open:
-                self._bbox.show()
-            else:
-                self._bbox.hide()
-
-        self._is_open = is_open
-
-        if self._member_types_id == "collision":
-            if is_open:
-                self.__destroy_collision_geoms()
-            else:
-                self.__create_collision_geoms()
-
-        return True
-
-    def is_open(self):
-
-        return self._is_open
-
-    def set_property(self, prop_id, value, restore=""):
-
-        if prop_id == "member_types":
-            Mgr.update_remotely("selected_obj_prop", "group", "member_types", value[1])
-            if restore:
-                task = lambda: self.__restore_member_types(*value)
-                task_id = "set_group_member_types"
-                PendingTasks.add(task, task_id, "object", id_prefix=self.get_id())
-            else:
-                return self.set_member_types(*value)
-        elif prop_id == "open":
-            return self.open(value)
-        else:
-            return TopLevelObject.set_property(self, prop_id, value, restore)
-
-    def get_property(self, prop_id, for_remote_update=False):
-
-        if prop_id == "member_types":
-            return self._member_types_id if for_remote_update else (self._member_types,
-                                                                    self._member_types_id)
-        elif prop_id == "open":
-            return self._is_open
-
-        return TopLevelObject.get_property(self, prop_id, for_remote_update)
-
-    def get_property_ids(self):
-
-        return TopLevelObject.get_property_ids(self) + self._type_prop_ids
-
-    def get_type_property_ids(self):
-
-        return self._type_prop_ids
-
-    def display_link_effect(self):
-        """
-        Visually indicate that another object has been successfully reparented
-        to this group.
-
-        """
-
-        self._bbox.flash()
 
 
 MainObjects.add_class(GroupManager)

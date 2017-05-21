@@ -9,16 +9,13 @@ class CoordSysManager(BaseObject):
         self._cs_obj_picked = None
         self._cs_transformed = False
         self._user_obj_id = None
+        self._pixel_under_mouse = VBase4()
 
         GlobalData.set_default("coord_sys_type", "world")
         Mgr.expose("coord_sys_obj", self.__get_coord_sys_object)
         Mgr.accept("update_coord_sys", self.__update_coord_sys)
         Mgr.accept("notify_coord_sys_transformed", self.__notify_coord_sys_transformed)
         Mgr.add_app_updater("coord_sys", self.__set_coord_sys)
-
-        self._pixel_under_mouse = VBase4()
-
-    def setup(self):
 
         add_state = Mgr.add_state
         add_state("coord_sys_picking_mode", -80, self.__enter_picking_mode,
@@ -41,8 +38,6 @@ class CoordSysManager(BaseObject):
         mode_text = "Pick coordinate system"
         info_text = "LMB to pick object; RMB to end"
         status_data["pick_coord_sys"] = {"mode": mode_text, "info": info_text}
-
-        return True
 
     def __get_coord_sys_object(self, check_valid=False):
 

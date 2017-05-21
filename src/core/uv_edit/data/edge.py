@@ -137,6 +137,10 @@ class MergedEdge(object):
 
         self._ids.append(edge_id)
 
+    def extend(self, edge_ids):
+
+        self._ids.extend(edge_ids)
+
     def remove(self, edge_id):
 
         self._ids.remove(edge_id)

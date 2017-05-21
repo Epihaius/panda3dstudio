@@ -336,7 +336,7 @@ class GeneralObjectManager(BaseObject):
         GlobalData["two_sided"] = two_sided
 
         for model in Mgr.get("model_objs"):
-            model.get_geom_object().set_two_sided(two_sided)
+            model.set_two_sided(two_sided)
 
         Mgr.update_remotely("two_sided")
 
@@ -413,6 +413,7 @@ class GeneralObjectManager(BaseObject):
         if obj_lvl == "top":
             return
 
+        state_id = Mgr.get_state_id()
         self._obj_lvl_before_hist_change = obj_lvl
         self._sel_before_hist_change = set(obj.get_id() for obj in Mgr.get("selection", "top"))
         task = self.__check_selection
@@ -422,6 +423,12 @@ class GeneralObjectManager(BaseObject):
         GlobalData["temp_toplevel"] = True
         Mgr.update_locally("active_obj_level", restore=True)
         Mgr.enter_state("selection_mode")
+
+        if state_id == "navigation_mode":
+            Mgr.enter_state("navigation_mode")
+            task = lambda: Mgr.enter_state("navigation_mode")
+            task_id = "enter_navigation_mode"
+            PendingTasks.add(task, task_id, "ui", sort=100)
 
     def __reset_registries(self):
 

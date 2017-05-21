@@ -8,6 +8,7 @@ import random
 import time
 import datetime
 import cPickle
+import copy
 
 GFX_PATH = "res/core/"
 
@@ -180,6 +181,7 @@ class PendingTasks(object):
         "object": (
             "set_geom_obj",
             "merge_subobjs",
+            "share_normals",
             "restore_geometry",
             "unregister_subobjs",
             "register_subobjs",
@@ -190,10 +192,12 @@ class PendingTasks(object):
             "set_subobj_transf",
             "set_uvs",
             "set_poly_triangles",
-            "smooth_polys",
-            "upd_vert_normals",
-            "upd_tangent_space",
+            "set_poly_smoothing",
+            "flip_normals",
+            "set_normals",
+            "set_normal_lock",
             "set_material",
+            "update_tangent_space",
             "set_geom_data",
             "make_editable",
             "update_selection",
@@ -470,40 +474,6 @@ class PosObj(object):
         return self._pos[index]
 
 
-# The following class allows a position (passed in as a tuple or list) to be
-# compared to another position, using a given precision.
-class ImprecisePos(object):
-
-    def __init__(self, pos, epsilon=1.e-010):
-
-        self._pos = pos
-        self._epsilon = epsilon
-
-    def __repr__(self):
-
-        x, y, z = self._pos
-
-        return "ImprecisePos(%f, %f, %f)" % (x, y, z)
-
-    def __eq__(self, other):
-
-        x, y, z = self._pos
-        x_, y_, z_ = other
-
-        return max(abs(x - x_), abs(y - y_), abs(z - z_)) < self._epsilon
-
-    def __ne__(self, other):
-
-        x, y, z = self._pos
-        x_, y_, z_ = other
-
-        return max(abs(x - x_), abs(y - y_), abs(z - z_)) >= self._epsilon
-
-    def __getitem__(self, index):
-
-        return self._pos[index]
-
-
 class ProgressBar(BaseObject):
 
     def __init__(self, task_mgr, pos, scale, descr, back_color=None, fill_color=None):
@@ -531,7 +501,7 @@ class ProgressBar(BaseObject):
         color = (0., 0., 0., 1.) if back_color is None else back_color
         back_geom.set_transparency(TransparencyAttrib.M_alpha)
         back_geom.set_color(color)
-        color = (1., 0., 0., 1.) if fill_color is None else fill_color
+        color = (.3, .3, 1., 1.) if fill_color is None else fill_color
         fill_geom.set_transparency(TransparencyAttrib.M_alpha)
         fill_geom.set_color(color)
 

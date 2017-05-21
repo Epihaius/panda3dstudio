@@ -1,0 +1,1383 @@
+from ..base import *
+
+
+class SharedNormal(object):
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        state["_geom_data_obj"] = None
+
+        return state
+
+    def __init__(self, geom_data_obj, vert_ids=None):
+
+        self._type = "normal"
+        self._full_type = "shared_normal"
+        self._geom_data_obj = geom_data_obj
+        # the IDs associated with this SharedNormal are actually Vertex IDs,
+        # since there is one normal for every vertex
+        self._ids = set() if vert_ids is None else set(vert_ids)
+
+    def __deepcopy__(self, memo):
+
+        return SharedNormal(self._geom_data_obj, self._ids)
+
+    def __eq__(self, other):
+
+        return self._ids == set(other)
+
+    def __ne__(self, other):
+
+        return not self._ids == set(other)
+
+    def __getitem__(self, index):
+
+        try:
+            return list(self._ids)[index]
+        except IndexError:
+            raise IndexError("Index out of range.")
+        except TypeError:
+            raise TypeError("Index must be an integer value.")
+
+    def __iter__(self):
+
+        return iter(self._ids)
+
+    def __len__(self):
+
+        return len(self._ids)
+
+    def copy(self):
+
+        return SharedNormal(self._geom_data_obj, self._ids)
+
+    def add(self, vert_id):
+
+        self._ids.add(vert_id)
+
+    def discard(self, vert_id):
+
+        self._ids.discard(vert_id)
+
+    def update(self, vert_ids):
+
+        self._ids.update(vert_ids)
+
+    def extend(self, vert_ids):
+
+        self._ids.update(vert_ids)
+
+    def difference(self, vert_ids):
+
+        return SharedNormal(self._geom_data_obj, self._ids.difference(vert_ids))
+
+    def difference_update(self, vert_ids):
+
+        self._ids.difference_update(vert_ids)
+
+    def intersection(self, vert_ids):
+
+        return SharedNormal(self._geom_data_obj, self._ids.intersection(vert_ids))
+
+    def intersection_update(self, vert_ids):
+
+        self._ids.intersection_update(vert_ids)
+
+    def pop(self):
+
+        return self._ids.pop()
+
+    def issubset(self, vert_ids):
+
+        return self._ids.issubset(vert_ids)
+
+    def get_type(self):
+
+        return self._type
+
+    def get_full_type(self):
+
+        return self._full_type
+
+    def get_id(self):
+
+        vert = self._geom_data_obj.get_subobject("vert", sorted(self._ids)[0])
+
+        return vert.get_id() if vert else None
+
+    def get_picking_color_id(self):
+
+        vert = self._geom_data_obj.get_subobject("vert", self[0])
+
+        return vert.get_picking_color_id() if vert else None
+
+    def get_special_selection(self):
+
+        return [self]
+
+    def get_row_indices(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+
+        return [verts[v_id].get_row_index() for v_id in self._ids]
+
+    def set_geom_data_object(self, geom_data_obj):
+
+        self._geom_data_obj = geom_data_obj
+
+    def get_geom_data_object(self):
+
+        return self._geom_data_obj
+
+    def get_toplevel_object(self, get_group=False):
+
+        return self._geom_data_obj.get_toplevel_object(get_group)
+
+    def get_hpr(self, ref_node):
+
+        geom_data_obj = self._geom_data_obj
+        vert = geom_data_obj.get_subobject("vert", self[0])
+        normal = vert.get_normal()
+        sign = -1. if geom_data_obj.get_owner().has_flipped_normals() else 1.
+        origin = geom_data_obj.get_origin()
+        normal = V3D(ref_node.get_relative_vector(origin, normal * sign))
+
+        return normal.get_hpr()
+
+    def get_center_pos(self, ref_node=None):
+
+        vert = self._geom_data_obj.get_subobject("vert", self[0])
+
+        return vert.get_pos(ref_node)
+
+    def get_point_at_screen_pos(self, screen_pos):
+
+        vert = self._geom_data_obj.get_subobject("vert", self[0])
+
+        return vert.get_point_at_screen_pos(screen_pos)
+
+
+class NormalEditBase(BaseObject):
+
+    def __init__(self):
+
+        self._shared_normals = {}
+        self._normal_sharing_change = False
+        self._normal_lock_change = set()
+        self._normal_change = set()
+        self._normal_length = 1.
+
+    def _reset_normal_sharing(self, share=False):
+
+        self._shared_normals = shared_normals = {}
+        self._normal_sharing_change = True
+
+        for merged_vert in set(self._merged_verts.itervalues()):
+
+            vert_ids = merged_vert[:]
+
+            while vert_ids:
+
+                vert_id = vert_ids.pop()
+                shared_normal = SharedNormal(self, [vert_id])
+                shared_normals[vert_id] = shared_normal
+
+                if share:
+                    for other_vert_id in vert_ids[:]:
+                        shared_normal.add(other_vert_id)
+                        shared_normals[other_vert_id] = shared_normal
+                        vert_ids.remove(other_vert_id)
+
+    def init_normal_sharing(self, share=True):
+        """ Derive normal sharing from initial vertex normals """
+
+        if not share:
+            self._reset_normal_sharing()
+            return
+
+        verts = self._subobjs["vert"]
+        shared_normals = self._shared_normals
+
+        for merged_vert in set(self._merged_verts.itervalues()):
+
+            vert_ids = merged_vert[:]
+
+            while vert_ids:
+
+                vert_id = vert_ids.pop()
+                shared_normal = SharedNormal(self, [vert_id])
+                shared_normals[vert_id] = shared_normal
+                vert = verts[vert_id]
+                normal = vert.get_normal()
+
+                for other_vert_id in vert_ids[:]:
+
+                    other_vert = verts[other_vert_id]
+
+                    if other_vert.get_normal() == normal:
+                        shared_normal.add(other_vert_id)
+                        shared_normals[other_vert_id] = shared_normal
+                        vert_ids.remove(other_vert_id)
+
+    def update_normal_sharing(self, merged_verts, from_smoothing_groups=False,
+                              update_selection=True):
+        """
+        Call this method after splitting merged vertices to keep normal sharing
+        limited to vertices that are merged together, or after merging vertices
+        to derive normal sharing from smoothing groups.
+
+        """
+
+        verts = self._subobjs["vert"]
+        shared_normals = self._shared_normals
+        change = False
+
+        if from_smoothing_groups:
+
+            poly_smoothing = self._poly_smoothing
+            selection_change = False
+
+            if update_selection:
+                selected_normal_ids = self._selected_subobj_ids["normal"]
+
+            for merged_vert in merged_verts:
+
+                vert_ids_by_smoothing = {}
+
+                for vert_id in merged_vert:
+
+                    vert = verts[vert_id]
+                    poly_id = vert.get_polygon_id()
+                    smoothing = poly_smoothing.get(poly_id)
+
+                    if smoothing:
+
+                        smoothing_grp_orig = smoothing.pop()
+                        smoothing_grp = smoothing_grp_orig.copy()
+
+                        for other_smoothing_grp in smoothing:
+                            smoothing_grp.update(other_smoothing_grp)
+
+                        smoothing.add(smoothing_grp_orig)
+
+                    else:
+
+                        smoothing_grp = None
+
+                    smoothing_grps = vert_ids_by_smoothing.keys()
+
+                    if smoothing_grp in smoothing_grps:
+                        index = smoothing_grps.index(smoothing_grp)
+                        smoothing_grp = smoothing_grps[index]
+                        vert_ids_by_smoothing[smoothing_grp].append(vert_id)
+                    else:
+                        vert_ids_by_smoothing[smoothing_grp] = [vert_id]
+
+                for smoothing_grp, vert_ids in vert_ids_by_smoothing.iteritems():
+
+                    if smoothing_grp:
+
+                        if shared_normals[vert_ids[0]] != vert_ids:
+
+                            if update_selection:
+
+                                id_set = set(vert_ids)
+
+                                if not (id_set.isdisjoint(selected_normal_ids)
+                                        or id_set.issubset(selected_normal_ids)):
+                                    id_set.difference_update(selected_normal_ids)
+                                    tmp_shared_normal = SharedNormal(self, id_set)
+                                    normal_id = tmp_shared_normal.get_id()
+                                    shared_normals[normal_id] = tmp_shared_normal
+                                    self.update_selection("normal", [tmp_shared_normal], [])
+                                    selection_change = True
+
+                            shared_normal = SharedNormal(self, vert_ids)
+
+                            for vert_id in vert_ids:
+                                shared_normals[vert_id] = shared_normal
+
+                            change = True
+
+                    else:
+
+                        for vert_id in vert_ids:
+                            if shared_normals[vert_id] != [vert_id]:
+                                shared_normals[vert_id] = SharedNormal(self, [vert_id])
+                                change = True
+
+            self._normal_sharing_change = change
+
+            return selection_change
+
+        for merged_vert in merged_verts:
+
+            # Compare merged vert IDs with shared normal IDs.
+
+            shared_normals_tmp = []
+            vert_ids = set(merged_vert)
+
+            for vert_id in merged_vert:
+
+                shared_normal = shared_normals[vert_id]
+
+                if shared_normal not in shared_normals_tmp:
+                    shared_normals_tmp.append(shared_normal)
+
+            for shared_normal in shared_normals_tmp:
+
+                if not shared_normal.issubset(vert_ids):
+
+                    change = True
+                    new_shared_normal = shared_normal.difference(vert_ids)
+                    shared_normal.intersection_update(vert_ids)
+
+                    for vert_id in new_shared_normal.copy():
+                        # if this method is called after deleting polygons, their
+                        # vertex IDs have to be removed from normal sharing
+                        if vert_id in verts:
+                            shared_normals[vert_id] = new_shared_normal
+                        else:
+                            new_shared_normal.discard(vert_id)
+                            del shared_normals[vert_id]
+
+        # if this method is called after deleting polygons, their vertex IDs have
+        # to be removed from normal sharing
+        for vert_id in set(shared_normals).difference(verts):
+            del shared_normals[vert_id]
+            change = True
+
+        self._normal_sharing_change = change
+
+    def flip_normals(self, flip=True, delay=True):
+
+        def task():
+
+            origin = self._origin
+
+            if not origin:
+                return
+
+            if flip:
+                state = origin.get_state()
+                cull_attr = CullFaceAttrib.make_reverse()
+                state = state.add_attrib(cull_attr)
+                origin.set_state(state)
+            else:
+                origin.clear_two_sided()
+
+            node = self._toplvl_node
+            geom = node.modify_geom(0)
+            vertex_data = geom.get_vertex_data().reverse_normals()
+            geom.set_vertex_data(vertex_data)
+            normal_array = GeomVertexArrayData(vertex_data.get_array(2))
+            self._vertex_data["poly"].set_array(2, normal_array)
+            self._owner.set_flipped_normals(flip)
+
+            for geom_type in ("pickable", "sel_state"):
+                geom = self._geoms["normal"][geom_type].node().modify_geom(0)
+                vertex_data = geom.modify_vertex_data()
+                vertex_data.set_array(2, normal_array)
+
+            if GlobalData["active_obj_level"] == "normal":
+                Mgr.get("selection").update_transform_values()
+
+        if delay:
+            task_id = "flip_normals"
+            obj_id = self.get_toplevel_object().get_id()
+            PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+        else:
+            task()
+
+    def unify_normals(self, unify=True):
+
+        sel_ids = set(self._selected_subobj_ids["normal"])
+
+        if len(sel_ids) < 2:
+            return False
+
+        shared_normals = self._shared_normals
+        merged_verts = self._merged_verts
+        merged_verts_to_update = set()
+        change = False
+
+        if unify:
+
+            while sel_ids:
+
+                vert_id = sel_ids.pop()
+                normal = shared_normals[vert_id]
+                merged_vert = merged_verts[vert_id]
+
+                for v_id in normal:
+                    sel_ids.discard(v_id)
+
+                for other_vert_id in sel_ids.copy():
+
+                    if other_vert_id in merged_vert:
+
+                        other_normal = shared_normals[other_vert_id]
+                        normal.update(other_normal)
+
+                        for v_id in other_normal:
+                            sel_ids.discard(v_id)
+                            shared_normals[v_id] = normal
+
+                        merged_verts_to_update.add(merged_vert)
+                        change = True
+
+        else:
+
+            while sel_ids:
+
+                vert_id = sel_ids.pop()
+                normal = shared_normals[vert_id]
+
+                if len(normal) == 1:
+                    continue
+
+                merged_vert = merged_verts[vert_id]
+                merged_verts_to_update.add(merged_vert)
+
+                for v_id in normal:
+                    sel_ids.discard(v_id)
+                    shared_normals[v_id] = SharedNormal(self, [v_id])
+
+                change = True
+
+        if change:
+            self.update_vertex_normals(merged_verts_to_update)
+            self._normal_sharing_change = True
+
+        return change
+
+    def lock_normals(self, lock=True, normal_ids=None):
+
+        if normal_ids is None:
+            sel_ids = set(self._selected_subobj_ids["normal"])
+        else:
+            sel_ids = normal_ids
+
+        if not sel_ids:
+            return False
+
+        verts = self._subobjs["vert"]
+        shared_normals = self._shared_normals
+        merged_verts = self._merged_verts
+        merged_verts_to_update = set()
+        lock_change = self._normal_lock_change
+        change = False
+
+        while sel_ids:
+
+            vert_id = sel_ids.pop()
+            normal = shared_normals[vert_id]
+            merged_vert = merged_verts[vert_id]
+
+            for v_id in normal:
+
+                sel_ids.discard(v_id)
+
+                if verts[v_id].lock_normal(lock):
+
+                    if not lock:
+                        merged_verts_to_update.add(merged_vert)
+
+                    lock_change.add(v_id)
+                    change = True
+
+        if merged_verts_to_update:
+            self.update_vertex_normals(merged_verts_to_update)
+
+        locked_normal_ids = list(lock_change) if lock else []
+        unlocked_normal_ids = [] if lock else list(lock_change)
+        self.update_locked_normal_selection(None, None, locked_normal_ids, unlocked_normal_ids)
+
+        return change
+
+    def get_vertex_normals(self):
+
+        verts = self._subobjs["vert"]
+        normals = {}
+
+        for vert_id, vert in verts.iteritems():
+            normals[vert_id] = vert.get_normal()
+
+        return normals
+
+    def get_shared_normal(self, normal_id):
+
+        return self._shared_normals.get(normal_id)
+
+    def update_vertex_normals(self, merged_verts=None, update_tangent_space=True):
+        """ Update the normals of the given merged vertices """
+
+        if merged_verts is None:
+            merged_verts = set(self._merged_verts.itervalues())
+
+        verts = self._subobjs["vert"]
+        polys = self._subobjs["poly"]
+
+        shared_normals = self._shared_normals
+        verts_to_process = set(v_id for merged_vert in merged_verts for v_id in merged_vert)
+        locked_normals = set(v_id for v_id in verts_to_process if verts[v_id].has_locked_normal())
+        verts_to_process.difference_update(locked_normals)
+
+        if not verts_to_process:
+            return
+
+        self._normal_change = verts_to_process
+
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        normal_writer = GeomVertexWriter(vertex_data_top, "normal")
+        sign = -1. if self._owner.has_flipped_normals() else 1.
+        shared_normals_tmp = [s.difference(locked_normals) for s in
+                              set(shared_normals[v_id] for v_id in verts_to_process)]
+
+        for shared_normal in shared_normals_tmp:
+
+            vert = verts[shared_normal.pop()]
+            verts_to_update = [vert]
+            poly = polys[vert.get_polygon_id()]
+            normal = Vec3(poly.get_normal())
+
+            for vert_id in shared_normal:
+
+                vert = verts[vert_id]
+                verts_to_update.append(vert)
+                poly = polys[vert.get_polygon_id()]
+                normal += poly.get_normal()
+
+            normal.normalize()
+
+            for vert in verts_to_update:
+                normal_writer.set_row(vert.get_row_index())
+                normal_writer.set_data3f(normal * sign)
+                vert.set_normal(normal)
+
+        normal_array = vertex_data_top.get_array(2)
+        vertex_data_poly = self._vertex_data["poly"]
+        vertex_data_poly.set_array(2, GeomVertexArrayData(normal_array))
+        normal_geoms = self._geoms["normal"]
+
+        for geom_type in ("pickable", "sel_state"):
+            vertex_data = normal_geoms[geom_type].node().modify_geom(0).modify_vertex_data()
+            vertex_data.set_array(2, normal_array)
+
+        if update_tangent_space:
+
+            model = self.get_toplevel_object()
+
+            if model.has_tangent_space():
+                polys_to_update = set(verts[v_id].get_polygon_id() for v_id in verts_to_process)
+                tangent_flip, bitangent_flip = model.get_tangent_space_flip()
+                self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
+            else:
+                self._is_tangent_space_initialized = False
+
+    def _restore_normal_length(self, time_id):
+
+        obj_id = self.get_toplevel_object().get_id()
+        prop_id = self._unique_prop_ids["normal_length"]
+        normal_length = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
+        self._normal_length = normal_length
+        self._geoms["normal"]["pickable"].set_shader_input("normal_length", normal_length)
+        self._geoms["normal"]["sel_state"].set_shader_input("normal_length", normal_length)
+
+    def _restore_normal_sharing(self, time_id):
+
+        obj_id = self.get_toplevel_object().get_id()
+        prop_id = self._unique_prop_ids["normal_sharing"]
+        shared_normals = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
+        self._shared_normals = shared_normals
+
+        for shared_normal in set(shared_normals.itervalues()):
+            shared_normal.set_geom_data_object(self)
+
+    def _restore_vertex_normals(self, old_time_id, new_time_id):
+
+        obj_id = self.get_toplevel_object().get_id()
+        prop_id = self._unique_prop_ids["normals"]
+
+        prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
+        new_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
+
+        if prev_time_ids is None:
+            prev_time_ids = ()
+
+        if new_time_ids is None:
+            new_time_ids = ()
+
+        if not (prev_time_ids or new_time_ids):
+            return
+
+        if prev_time_ids and new_time_ids:
+
+            i = 0
+
+            for time_id in new_time_ids:
+
+                if time_id not in prev_time_ids:
+                    break
+
+                i += 1
+
+            common_time_ids = prev_time_ids[:i]
+            prev_time_ids = prev_time_ids[i:]
+            new_time_ids = new_time_ids[i:]
+
+        verts = self._subobjs["vert"]
+
+        data_id = self._unique_prop_ids["normal__extra__"]
+
+        time_ids_to_restore = {}
+        time_ids = {}
+        normals = {}
+
+        # to undo normal changes, determine the time IDs of the changes that
+        # need to be restored by checking the data that was stored when changes
+        # occurred, at times leading up to the time that is being replaced (the old
+        # time)
+
+        for time_id in reversed(prev_time_ids):
+            subobj_data = Mgr.do("load_from_history", obj_id, data_id, time_id)
+            time_ids_to_restore.update(subobj_data.get("prev", {}))
+
+        vert_ids = {}
+
+        for vert_id, time_id in time_ids_to_restore.iteritems():
+            if vert_id in verts:
+                time_ids[vert_id] = time_id
+                vert_ids.setdefault(time_id, []).append(vert_id)
+
+        for time_id, ids in vert_ids.iteritems():
+
+            if time_id:
+
+                normal_data = Mgr.do("load_from_history", obj_id, data_id, time_id)["normals"]
+
+                for vert_id in ids:
+                    if vert_id in normal_data:
+                        normals[vert_id] = normal_data[vert_id]
+
+        # to redo normal changes, retrieve the mappings that need to be restored
+        # from the data that was stored when changes occurred, at times leading
+        # up to the time that is being restored (the new time)
+
+        for time_id in new_time_ids:
+
+            subobj_data = Mgr.do("load_from_history", obj_id, data_id, time_id)
+            normals.update(subobj_data.get("normals", {}))
+
+            for vert_id in subobj_data.get("prev", {}):
+                if vert_id in verts:
+                    time_ids[vert_id] = time_id
+
+        # restore the verts' previous normal change time IDs
+        for vert_id, time_id in time_ids.iteritems():
+            verts[vert_id].set_previous_property_time("normal", time_id)
+
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        normal_writer = GeomVertexWriter(vertex_data_top, "normal")
+        sign = -1. if self._owner.has_flipped_normals() else 1.
+
+        for vert_id, normal in normals.iteritems():
+
+            if vert_id not in verts:
+                continue
+
+            vert = verts[vert_id]
+            normal_writer.set_row(vert.get_row_index())
+            normal_writer.set_data3f(normal * sign)
+            vert.set_normal(normal)
+
+        normal_array = vertex_data_top.get_array(2)
+        vertex_data_poly = self._vertex_data["poly"]
+        vertex_data_poly.set_array(2, GeomVertexArrayData(normal_array))
+        normal_geoms = self._geoms["normal"]
+
+        for geom_type in ("pickable", "sel_state"):
+            vertex_data = normal_geoms[geom_type].node().modify_geom(0).modify_vertex_data()
+            vertex_data.set_array(2, normal_array)
+
+    def _restore_normal_lock(self, old_time_id, new_time_id):
+
+        obj_id = self.get_toplevel_object().get_id()
+        prop_id = self._unique_prop_ids["normal_lock"]
+
+        prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
+        new_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
+
+        if prev_time_ids is None:
+            prev_time_ids = ()
+
+        if new_time_ids is None:
+            new_time_ids = ()
+
+        if not (prev_time_ids or new_time_ids):
+            return
+
+        if prev_time_ids and new_time_ids:
+
+            i = 0
+
+            for time_id in new_time_ids:
+
+                if time_id not in prev_time_ids:
+                    break
+
+                i += 1
+
+            common_time_ids = prev_time_ids[:i]
+            prev_time_ids = prev_time_ids[i:]
+            new_time_ids = new_time_ids[i:]
+
+        verts = self._subobjs["vert"]
+
+        data_id = self._unique_prop_ids["normal_lock__extra__"]
+
+        time_ids_to_restore = {}
+        time_ids = {}
+        normal_lock = {}
+
+        # to undo normal lock changes, determine the time IDs of the changes that
+        # need to be restored by checking the data that was stored when changes
+        # occurred, at times leading up to the time that is being replaced (the old
+        # time)
+
+        for time_id in reversed(prev_time_ids):
+            subobj_data = Mgr.do("load_from_history", obj_id, data_id, time_id)
+            time_ids_to_restore.update(subobj_data.get("prev", {}))
+
+        vert_ids = {}
+
+        for vert_id, time_id in time_ids_to_restore.iteritems():
+            if vert_id in verts:
+                time_ids[vert_id] = time_id
+                vert_ids.setdefault(time_id, []).append(vert_id)
+
+        for time_id, ids in vert_ids.iteritems():
+
+            if time_id:
+
+                lock_data = Mgr.do("load_from_history", obj_id, data_id, time_id)["normal_lock"]
+
+                for vert_id in ids:
+                    if vert_id in lock_data:
+                        normal_lock[vert_id] = lock_data[vert_id]
+
+        # to redo normal lock changes, retrieve the mappings that need to be restored
+        # from the data that was stored when changes occurred, at times leading
+        # up to the time that is being restored (the new time)
+
+        for time_id in new_time_ids:
+
+            subobj_data = Mgr.do("load_from_history", obj_id, data_id, time_id)
+            normal_lock.update(subobj_data.get("normal_lock", {}))
+
+            for vert_id in subobj_data.get("prev", {}):
+                if vert_id in verts:
+                    time_ids[vert_id] = time_id
+
+        # restore the verts' previous normal lock change time IDs
+        for vert_id, time_id in time_ids.iteritems():
+            verts[vert_id].set_previous_property_time("normal_lock", time_id)
+
+        locked_normal_ids = []
+        unlocked_normal_ids = []
+
+        for vert_id, locked in normal_lock.iteritems():
+
+            if vert_id not in verts:
+                continue
+
+            vert = verts[vert_id]
+            vert.lock_normal(locked)
+
+            if locked:
+                locked_normal_ids.append(vert_id)
+            else:
+                unlocked_normal_ids.append(vert_id)
+
+        self.update_locked_normal_selection(None, None, locked_normal_ids, unlocked_normal_ids)
+
+    def update_locked_normal_selection(self, selected_normal_ids=None, deselected_normal_ids=None,
+                                       locked_normal_ids=None, unlocked_normal_ids=None):
+
+        if not (selected_normal_ids or deselected_normal_ids
+                or locked_normal_ids or unlocked_normal_ids):
+            return
+
+        verts = self._subobjs["vert"]
+        sel_state_geom = self._geoms["normal"]["sel_state"]
+        vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        sel_colors = Mgr.get("subobj_selection_colors")["normal"]
+
+        if locked_normal_ids is not None:
+
+            sel_ids = self._selected_subobj_ids["normal"]
+
+            color_sel = sel_colors["locked_sel"]
+            color_unsel = sel_colors["locked_unsel"]
+
+            for vert_id in locked_normal_ids:
+                vert = verts[vert_id]
+                row = vert.get_row_index()
+                col_writer.set_row(row)
+                col_writer.set_data4f(color_sel if vert_id in sel_ids else color_unsel)
+
+            color_sel = sel_colors["selected"]
+            color_unsel = sel_colors["unselected"]
+
+            for vert_id in unlocked_normal_ids:
+                vert = verts[vert_id]
+                row = vert.get_row_index()
+                col_writer.set_row(row)
+                col_writer.set_data4f(color_sel if vert_id in sel_ids else color_unsel)
+
+            return
+
+        color_sel = sel_colors["locked_sel"]
+        color_unsel = sel_colors["locked_unsel"]
+
+        for vert_id in selected_normal_ids:
+
+            vert = verts[vert_id]
+
+            if vert.has_locked_normal():
+                row = vert.get_row_index()
+                col_writer.set_row(row)
+                col_writer.set_data4f(color_sel)
+
+        for vert_id in deselected_normal_ids:
+
+            vert = verts[vert_id]
+
+            if vert.has_locked_normal():
+                row = vert.get_row_index()
+                col_writer.set_row(row)
+                col_writer.set_data4f(color_unsel)
+
+    def init_normal_length(self):
+
+        geom = self._toplvl_node.get_geom(0)
+        prim_count = geom.get_primitive(0).get_num_primitives()
+        p1, p2 = self._origin.get_tight_bounds()
+        x, y, z = p2 - p1
+        a = (x + y + z) / 3.
+        normal_length = min(a * .25, max(.001, 500. * a / prim_count))
+        self._geoms["normal"]["pickable"].set_shader_input("normal_length", normal_length)
+        self._geoms["normal"]["sel_state"].set_shader_input("normal_length", normal_length)
+        self._normal_length = normal_length
+
+    def set_normal_length(self, normal_length):
+
+        if self._normal_length == normal_length:
+            return False
+
+        polys = self._subobjs["poly"]
+        self._geoms["normal"]["pickable"].set_shader_input("normal_length", normal_length)
+        self._geoms["normal"]["sel_state"].set_shader_input("normal_length", normal_length)
+        self._normal_length = normal_length
+
+        return True
+
+    def set_normal_shader(self, set_shader=True):
+
+        if set_shader:
+            shader = Shader.make(Shader.SL_GLSL, VERT_SHADER_NORMALS, FRAG_SHADER_NORMALS,
+                                 GEOM_SHADER_NORMALS)
+            self._geoms["normal"]["pickable"].set_shader(shader)
+            self._geoms["normal"]["sel_state"].set_shader(shader)
+        else:
+            self._geoms["normal"]["pickable"].clear_shader()
+            self._geoms["normal"]["sel_state"].clear_shader()
+
+    def normal_select_via_poly(self, poly):
+
+        picking_masks = Mgr.get("picking_masks")["all"]
+
+        if poly.get_id() in self._subobjs["poly"]:
+
+            # Allow picking the vertex normals of the poly picked in the previous step
+            # (see init_subobject_select_via_poly) instead of other normals;
+            # as soon as the mouse is released over a normal, it gets selected and
+            # polys become pickable again.
+
+            verts = self._subobjs["vert"]
+            count = poly.get_vertex_count()
+            vertex_format = Mgr.get("vertex_format_normal")
+            vertex_data = GeomVertexData("vert_data", vertex_format, Geom.UH_dynamic)
+            vertex_data.reserve_num_rows(count)
+            vertex_data.set_num_rows(count)
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+            col_writer = GeomVertexWriter(vertex_data, "color")
+            normal_writer = GeomVertexWriter(vertex_data, "normal")
+            pickable_id = PickableTypes.get_id("vert")
+            rows = self._tmp_row_indices
+            sign = -1. if self._owner.has_flipped_normals() else 1.
+
+            for i, vert_id in enumerate(poly.get_vertex_ids()):
+                vertex = verts[vert_id]
+                pos = vertex.get_pos()
+                pos_writer.add_data3f(pos)
+                color_id = vertex.get_picking_color_id()
+                picking_color = get_color_vec(color_id, pickable_id)
+                col_writer.add_data4f(picking_color)
+                rows[color_id] = i
+                normal = vertex.get_normal()
+                normal_writer.add_data3f(normal * sign)
+
+            tmp_prim = GeomPoints(Geom.UH_static)
+            tmp_prim.reserve_num_vertices(count)
+            tmp_prim.add_next_vertices(count)
+            geom = Geom(vertex_data)
+            geom.add_primitive(tmp_prim)
+            node = GeomNode("tmp_geom_pickable")
+            node.add_geom(geom)
+            geom_pickable = self._origin.attach_new_node(node)
+            geom_pickable.set_bin("fixed", 51)
+            geom_pickable.set_depth_test(False)
+            geom_pickable.set_depth_write(False)
+            shader = Shader.make(Shader.SL_GLSL, VERT_SHADER_NORMALS, FRAG_SHADER_NORMALS,
+                                 GEOM_SHADER_NORMALS)
+            geom_pickable.set_shader(shader)
+            normal_length = self._normal_length
+            geom_pickable.set_shader_input("normal_length", normal_length)
+            geom_sel_state = geom_pickable.copy_to(self._origin)
+            geom_sel_state.set_name("tmp_geom_sel_state")
+            geom_sel_state.set_light_off()
+            geom_sel_state.set_color_off()
+            geom_sel_state.set_texture_off()
+            geom_sel_state.set_material_off()
+            geom_sel_state.set_transparency(TransparencyAttrib.M_alpha)
+            geom = geom_sel_state.node().modify_geom(0)
+            vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
+            geom.set_vertex_data(vertex_data)
+            self._tmp_geom_pickable = geom_pickable
+            self._tmp_geom_sel_state = geom_sel_state
+
+            render_masks = Mgr.get("render_masks")["all"]
+            geom_pickable.hide(render_masks)
+            geom_pickable.show_through(picking_masks)
+
+        geoms = self._geoms
+        geoms["poly"]["pickable"].show(picking_masks)
+
+    def init_normal_transform(self):
+
+        normals_geom = self._geoms["normal"]["pickable"].node().get_geom(0)
+        normal_array = normals_geom.get_vertex_data().get_array(2)
+        self._transf_start_data["pos_array"] = GeomVertexArrayData(normal_array)
+
+    def set_normal_sel_angle(self, axis, angle):
+
+        sel_ids = self._selected_subobj_ids["normal"]
+
+        if not sel_ids:
+            return
+
+        origin = self._origin
+        ref_node = self._get_ref_node()
+        geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        index = "zxy".index(axis)
+        normal_rewriter = GeomVertexRewriter(tmp_vertex_data, "normal")
+        verts = self._subobjs["vert"]
+
+        for sel_id in sel_ids:
+            vert = verts[sel_id]
+            row = vert.get_row_index()
+            normal_rewriter.set_row(row)
+            normal = normal_rewriter.get_data3f()
+            normal = V3D(ref_node.get_relative_vector(origin, normal))
+            hpr = normal.get_hpr()
+            hpr[index] = angle
+            quat = Quat()
+            quat.set_hpr(hpr)
+            normal = quat.xform(Vec3.forward())
+            normal = origin.get_relative_vector(ref_node, normal)
+            normal_rewriter.set_data3f(normal.normalized())
+
+        normal_array = tmp_vertex_data.get_array(2)
+        vertex_data.set_array(2, normal_array)
+        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._vertex_data["poly"]
+        vertex_data.set_array(2, normal_array)
+
+    def transform_normals(self, transf_type, value):
+
+        rows = self._rows_to_transf["normal"]
+
+        if not rows:
+            return
+
+        ref_node = self._get_ref_node()
+        geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
+
+        if transf_type == "translate":
+
+            vec = self._origin.get_relative_vector(ref_node, value)
+            mat = Mat4.translate_mat(vec)
+
+        elif transf_type == "rotate":
+
+            quat = self._origin.get_quat(ref_node) * value * ref_node.get_quat(self._origin)
+            mat = Mat4()
+            quat.extract_to_matrix(mat)
+
+        elif transf_type == "scale":
+
+            scale_mat = Mat4.scale_mat(value)
+            mat = self._origin.get_mat(ref_node) * scale_mat * ref_node.get_mat(self._origin)
+            # remove translation component
+            mat.set_row(3, VBase3())
+
+        tmp_vertex_data.transform_vertices(mat, rows)
+        pos_array = tmp_vertex_data.get_array(0)
+        pos_reader = GeomVertexReader(pos_array, 0)
+        normal_writer = GeomVertexWriter(vertex_data, "normal")
+        verts = self._subobjs["vert"]
+        sel_ids = self._selected_subobj_ids["normal"]
+
+        for sel_id in sel_ids:
+            vert = verts[sel_id]
+            row = vert.get_row_index()
+            pos_reader.set_row(row)
+            pos = pos_reader.get_data3f()
+            normal = Vec3(pos).normalized()
+            normal_writer.set_row(row)
+            normal_writer.set_data3f(normal)
+
+        normal_array = vertex_data.get_array(2)
+        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._vertex_data["poly"]
+        vertex_data.set_array(2, normal_array)
+
+    def finalize_normal_transform(self, cancelled=False):
+
+        start_data = self._transf_start_data
+        geom_node_top = self._toplvl_node
+        vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
+
+        if cancelled:
+
+            normal_array = start_data["pos_array"]
+            vertex_data_top.set_array(2, normal_array)
+            self._vertex_data["poly"].set_array(2, normal_array)
+            geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
+            geom.modify_vertex_data().set_array(2, normal_array)
+            geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
+            geom.modify_vertex_data().set_array(2, normal_array)
+
+        else:
+
+            verts = self._subobjs["vert"]
+            polys_to_update = set()
+            normal_reader = GeomVertexReader(vertex_data_top, "normal")
+            sign = -1. if self._owner.has_flipped_normals() else 1.
+            sel_ids = self._selected_subobj_ids["normal"]
+
+            for sel_id in sel_ids:
+                vert = verts[sel_id]
+                polys_to_update.add(vert.get_polygon_id())
+                row = vert.get_row_index()
+                normal_reader.set_row(row)
+                normal = Vec3(normal_reader.get_data3f()) * sign
+                vert.set_normal(normal)
+
+            self._normal_change = set(sel_ids)
+            model = self.get_toplevel_object()
+
+            if model.has_tangent_space():
+                tangent_flip, bitangent_flip = model.get_tangent_space_flip()
+                self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
+            else:
+                self._is_tangent_space_initialized = False
+
+            self.lock_normals()
+
+        start_data.clear()
+
+    def copy_vertex_normal(self, normal):
+
+        sel_ids = self._selected_subobj_ids["normal"]
+
+        if not sel_ids:
+            return False
+
+        geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        normal_writer = GeomVertexWriter(tmp_vertex_data, "normal")
+        verts = self._subobjs["vert"]
+        polys_to_update = set()
+        sign = -1. if self._owner.has_flipped_normals() else 1.
+
+        for sel_id in sel_ids:
+            vert = verts[sel_id]
+            polys_to_update.add(vert.get_polygon_id())
+            row = vert.get_row_index()
+            normal_writer.set_row(row)
+            normal_writer.set_data3f(normal * sign)
+            vert.set_normal(Vec3(normal))
+
+        normal_array = tmp_vertex_data.get_array(2)
+        vertex_data.set_array(2, normal_array)
+        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._vertex_data["poly"]
+        vertex_data.set_array(2, normal_array)
+
+        self._normal_change = set(sel_ids)
+        model = self.get_toplevel_object()
+
+        if model.has_tangent_space():
+            tangent_flip, bitangent_flip = model.get_tangent_space_flip()
+            self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
+        else:
+            self._is_tangent_space_initialized = False
+
+        self.lock_normals()
+
+        return True
+
+
+class NormalManager(BaseObject):
+
+    def __init__(self):
+
+        self._pixel_under_mouse = VBase4()
+
+        GlobalData.set_default("normal_preserve", False)
+        Mgr.accept("create_shared_normal", lambda *args, **kwargs: SharedNormal(*args, **kwargs))
+        Mgr.add_app_updater("normal_length", self.__set_normal_length)
+        Mgr.add_app_updater("normal_flip", self.__flip_normals)
+        Mgr.add_app_updater("normal_unification", self.__unify_normals)
+        Mgr.add_app_updater("normal_lock", self.__lock_normals)
+
+        add_state = Mgr.add_state
+        add_state("normal_dir_copy_mode", -10, self.__enter_picking_mode,
+                  self.__exit_picking_mode)
+
+        def exit_mode():
+
+            Mgr.exit_state("normal_dir_copy_mode")
+
+        bind = Mgr.bind_state
+        bind("normal_dir_copy_mode", "normal dir copy -> navigate", "space",
+             lambda: Mgr.enter_state("navigation_mode"))
+        bind("normal_dir_copy_mode", "normal dir copy -> select", "escape", exit_mode)
+        bind("normal_dir_copy_mode", "exit normal dir copy mode", "mouse3-up", exit_mode)
+        bind("normal_dir_copy_mode", "copy normal dir", "mouse1", self.__pick)
+
+        status_data = GlobalData["status_data"]
+        mode_text = "Copy normal direction"
+        info_text = "Pick normal to copy direction to selected normals;" \
+                    " RMB or <Escape> to end"
+        status_data["normal_dir_copy_mode"] = {"mode": mode_text, "info": info_text}
+
+    def __set_normal_length(self, normal_length):
+
+        selection = Mgr.get("selection", "top")
+        changed_objs = []
+
+        for obj in selection:
+            if obj.get_geom_object().set_normal_length(normal_length):
+                changed_objs.append(obj)
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj in changed_objs:
+            if obj.get_geom_type() == "basic_geom":
+                geom_obj = obj.get_geom_object()
+                obj_data[obj.get_id()] = geom_obj.get_data_to_store("prop_change", "normal_length")
+            elif obj.get_geom_type() == "editable_geom":
+                geom_data_obj = obj.get_geom_object().get_geom_data_object()
+                obj_data[obj.get_id()] = geom_data_obj.get_property_to_store("normal_length")
+
+        if len(changed_objs) == 1:
+            obj = changed_objs[0]
+            event_descr = 'Change normal length of "%s"\nto %s' % (obj.get_name(), normal_length)
+        else:
+            event_descr = 'Change normal length of objects:\n'
+            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+            event_descr += '\n\nto %s' % normal_length
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __flip_normals(self, flip=True):
+
+        selection = Mgr.get("selection", "top")
+        changed_objs = []
+
+        for obj in selection:
+            if obj.get_geom_object().flip_normals(flip):
+                changed_objs.append(obj)
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj in changed_objs:
+            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "normal_flip")
+
+        if len(changed_objs) == 1:
+            obj = changed_objs[0]
+            event_descr = '%s normals of "%s"' % ("Flip" if flip else "Unflip", obj.get_name())
+        else:
+            event_descr = '%s normals of objects:\n' % ("Flip" if flip else "Unflip")
+            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __unify_normals(self, unify=True):
+
+        selection = Mgr.get("selection", "top")
+        changed_objs = {}
+
+        for model in selection:
+
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if geom_data_obj.unify_normals(unify):
+                changed_objs[model.get_id()] = geom_data_obj
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_active_selection")
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj_id, geom_data_obj in changed_objs.iteritems():
+            obj_data[obj_id] = geom_data_obj.get_data_to_store()
+
+        event_descr = "%s normals" % ("Unify" if unify else "Separate")
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __lock_normals(self, lock=True):
+
+        selection = Mgr.get("selection", "top")
+        changed_objs = {}
+
+        for model in selection:
+
+            geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if geom_data_obj.lock_normals(lock):
+                changed_objs[model.get_id()] = geom_data_obj
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_active_selection")
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj_id, geom_data_obj in changed_objs.iteritems():
+            obj_data[obj_id] = geom_data_obj.get_data_to_store()
+
+        event_descr = "%s normals" % ("Lock" if lock else "Unlock")
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __enter_picking_mode(self, prev_state_id, is_active):
+
+        if GlobalData["selection_via_poly"]:
+            Mgr.update_locally("selection_via_poly")
+            GlobalData["selection_via_poly"] = True
+
+        if GlobalData["active_transform_type"]:
+            GlobalData["active_transform_type"] = ""
+            Mgr.update_app("active_transform_type", "")
+
+        Mgr.add_task(self.__update_cursor, "update_normal_picking_cursor")
+        Mgr.update_app("status", "normal_dir_copy_mode")
+
+    def __exit_picking_mode(self, next_state_id, is_active):
+
+        if GlobalData["selection_via_poly"]:
+            Mgr.update_locally("selection_via_poly", True)
+            Mgr.update_remotely("selection_via_poly")
+
+        self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                           # next time self.__update_cursor()
+                                           # is called
+        Mgr.remove_task("update_normal_picking_cursor")
+        Mgr.set_cursor("main")
+
+    def __pick(self):
+
+        r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
+
+        if PickableTypes.get(a) != "vert":
+            return
+
+        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        vert = Mgr.get("vert", color_id)
+
+        if not vert:
+            return
+
+        normal = vert.get_normal()
+        changed_objs = {}
+
+        for obj in Mgr.get("selection", "top"):
+
+            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+
+            if geom_data_obj.copy_vertex_normal(normal):
+                changed_objs[obj.get_id()] = geom_data_obj
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj_id, geom_data_obj in changed_objs.iteritems():
+            obj_data[obj_id] = geom_data_obj.get_data_to_store()
+
+        event_descr = "Copy normal direction"
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __update_cursor(self, task):
+
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
+
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
+
+        return task.cont
+
+
+MainObjects.add_class(NormalManager)

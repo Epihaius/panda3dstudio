@@ -1,23 +1,6 @@
 from ..base import *
 
 
-class PolygonManager(ObjectManager, PickingColorIDManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "poly", self.__create_polygon, "sub", pickable=True)
-        PickingColorIDManager.__init__(self)
-        PickableTypes.add("poly")
-
-    def __create_polygon(self, geom_data_obj, triangle_data, edges, verts):
-
-        poly_id = self.get_next_id()
-        picking_col_id = self.get_next_picking_color_id()
-        polygon = Polygon(poly_id, picking_col_id, geom_data_obj, triangle_data, edges, verts)
-
-        return polygon
-
-
 class Polygon(BaseObject):
 
     def __getstate__(self):
@@ -119,6 +102,18 @@ class Polygon(BaseObject):
 
         self._tri_data = triangle_data
 
+    def get_neighbor_ids(self):
+
+        merged_verts = self._geom_data_obj.get_merged_vertices()
+        neighbor_ids = set()
+
+        for vert_id in self._vert_ids:
+            neighbor_ids.update(merged_verts[vert_id].get_polygon_ids())
+
+        neighbor_ids.remove(self._id)
+
+        return neighbor_ids
+
     def get_vertex_ids(self):
         """
         Return the IDs of the vertices belonging to this polygon, in an order that
@@ -175,6 +170,10 @@ class Polygon(BaseObject):
         normals = [self.get_triangle_normal(i) for i in xrange(tri_count)]
         self._normal = sum(normals, Vec3()) / tri_count
 
+    def reverse_normal(self):
+
+        self._normal *= -1.
+
     def get_normal(self, ref_node=None):
 
         if ref_node:
@@ -185,10 +184,22 @@ class Polygon(BaseObject):
 
     def get_special_selection(self):
 
-        if GlobalData["subobj_edit_options"]["sel_polys_by_smoothing"]:
-            return self._geom_data_obj.get_smoothed_polys(self._id)
+        polys = [self]
 
-        return [self]
+        if GlobalData["subobj_edit_options"]["sel_polys_by_region"]:
+            polys = self._geom_data_obj.get_polygon_region(self._id)
+
+        if GlobalData["subobj_edit_options"]["sel_polys_by_smoothing"]:
+
+            geom_data_obj = self._geom_data_obj
+            poly_set = set(polys)
+
+            for poly in polys:
+                poly_set.update(geom_data_obj.get_smoothed_polys(poly.get_id()))
+
+            polys = list(poly_set)
+
+        return polys
 
     def update_center_pos(self):
 
@@ -329,6 +340,23 @@ class Polygon(BaseObject):
                 tangent_space = (tangent, bitangent)
                 vert.set_tangent_space(tangent_space)
                 processed_verts.append(vert_id)
+
+
+class PolygonManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "poly", self.__create_polygon, "sub", pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("poly")
+
+    def __create_polygon(self, geom_data_obj, triangle_data, edges, verts):
+
+        poly_id = self.get_next_id()
+        picking_col_id = self.get_next_picking_color_id()
+        polygon = Polygon(poly_id, picking_col_id, geom_data_obj, triangle_data, edges, verts)
+
+        return polygon
 
 
 MainObjects.add_class(PolygonManager)

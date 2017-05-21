@@ -1,220 +1,6 @@
 from ..base import *
 
 
-class DummyEdgeManager(ObjectManager, PickingColorIDManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "dummy_edge", self.__create_dummy_edge,
-                               "sub", pickable=True)
-        PickingColorIDManager.__init__(self)
-        PickableTypes.add("dummy_edge")
-
-    def __create_dummy_edge(self, dummy, axis, corner_index):
-
-        picking_col_id = self.get_next_picking_color_id()
-        dummy_edge = DummyEdge(dummy, axis, corner_index, picking_col_id)
-
-        return dummy_edge
-
-
-class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "dummy", self.__create_dummy)
-        CreationPhaseManager.__init__(self, "dummy")
-        ObjPropDefaultsManager.__init__(self, "dummy")
-
-        self.set_property_default("viz", set(["box", "cross"]))
-        self.set_property_default("size", 1.)
-        self.set_property_default("cross_size", 100.)
-        self.set_property_default("const_size_state", False)
-        self.set_property_default("const_size", 1.)
-        self.set_property_default("on_top", True)
-
-        self._draw_plane = None
-
-        self._dummy_roots = {}
-        self._dummy_bases = {}
-        self._dummy_origins = {"persp": {}, "ortho": {}}
-        self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
-
-        Mgr.accept("make_dummy_const_size", self.__make_dummy_const_size)
-        Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
-        Mgr.accept("create_custom_dummy", self.__create_custom_dummy)
-
-    def setup(self):
-
-        dummy_root = self.cam().attach_new_node("dummy_helper_root")
-        dummy_root.set_bin("fixed", 50)
-        dummy_root.set_depth_test(False)
-        dummy_root.set_depth_write(False)
-        dummy_root.node().set_bounds(OmniBoundingVolume())
-        dummy_root.node().set_final(True)
-        render_masks = Mgr.get("render_masks")
-        picking_masks = Mgr.get("picking_masks")
-        root_persp = dummy_root.attach_new_node("dummy_helper_root_persp")
-        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
-        root_ortho = dummy_root.attach_new_node("dummy_helper_root_ortho")
-        root_ortho.set_scale(20.)
-        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
-        self._dummy_roots["persp"] = root_persp
-        self._dummy_roots["ortho"] = root_ortho
-
-        creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
-        creation_phases.append(creation_phase)
-
-        status_text = {}
-        status_text["obj_type"] = "dummy helper"
-        status_text["phase1"] = "draw out the dummy"
-
-        CreationPhaseManager.setup(self, creation_phases, status_text)
-
-        return True
-
-    def __make_dummy_const_size(self, dummy, const_size_state=True):
-
-        dummy_id = dummy.get_id()
-        dummy_bases = self._dummy_bases
-        dummy_origins = self._dummy_origins
-        change = False
-
-        if const_size_state:
-            if dummy_id not in dummy_bases:
-                dummy_roots = self._dummy_roots
-                dummy_base = dummy_roots["persp"].attach_new_node("dummy_base")
-                dummy_base.set_billboard_point_world(dummy.get_origin(), 2000.)
-                pivot = dummy_base.attach_new_node("dummy_pivot")
-                pivot.set_scale(100.)
-                origin_persp = pivot.attach_new_node("dummy_origin_persp")
-                dummy_origins["persp"][dummy_id] = origin_persp
-                dummy.get_geom_root().get_children().reparent_to(origin_persp)
-                origin_persp.set_scale(dummy.get_const_size())
-                origin_ortho = origin_persp.copy_to(dummy_roots["ortho"])
-                dummy_origins["ortho"][dummy_id] = origin_ortho
-                origin_persp.set_compass(dummy.get_origin())
-                dummy_bases[dummy_id] = dummy_base
-                compass_effect = CompassEffect.make(dummy.get_origin(), self._compass_props)
-                origin_ortho.set_effect(compass_effect)
-                dummy.set_geoms_for_ortho_lens(origin_ortho)
-                change = True
-        else:
-            if dummy_id in dummy_bases:
-                origin_persp = dummy_origins["persp"][dummy_id]
-                origin_persp.get_children().reparent_to(dummy.get_geom_root())
-                origin_persp.remove_node()
-                del dummy_origins["persp"][dummy_id]
-                origin_ortho = dummy_origins["ortho"][dummy_id]
-                origin_ortho.remove_node()
-                del dummy_origins["ortho"][dummy_id]
-                dummy_base = dummy_bases[dummy_id]
-                dummy_base.remove_node()
-                del dummy_bases[dummy_id]
-                dummy.set_geoms_for_ortho_lens()
-                change = True
-
-        if change:
-            dummy.update_group_bbox()
-
-    def __set_dummy_const_size(self, dummy, const_size):
-
-        dummy_id = dummy.get_id()
-
-        if dummy_id in self._dummy_bases:
-            for origins in self._dummy_origins.itervalues():
-                origins[dummy_id].set_scale(const_size)
-
-    def __create_object(self, dummy_id, name, origin_pos):
-
-        prop_defaults = self.get_property_defaults()
-        dummy = Dummy(dummy_id, name, origin_pos)
-        dummy.set_viz(prop_defaults["viz"])
-        dummy.set_cross_size(prop_defaults["cross_size"])
-        dummy.make_const_size(prop_defaults["const_size_state"])
-        dummy.set_const_size(prop_defaults["const_size"])
-        dummy.draw_on_top(prop_defaults["on_top"])
-        dummy.register(restore=False)
-
-        return dummy
-
-    def __create_dummy(self, origin_pos, size=None, cross_size=None, const_size=None):
-
-        dummy_id = self.generate_object_id()
-        obj_type = self.get_object_type()
-        name = Mgr.get("next_obj_name", obj_type)
-        dummy = self.__create_object(dummy_id, name, origin_pos)
-        prop_defaults = self.get_property_defaults()
-        dummy.set_viz(prop_defaults["viz"])
-        dummy.set_size(prop_defaults["size"] if size is None else size)
-        dummy.set_cross_size(prop_defaults["cross_size"] if cross_size is None else cross_size)
-        dummy.make_const_size(prop_defaults["const_size_state"])
-        dummy.set_const_size(prop_defaults["const_size"] if const_size is None else const_size)
-        dummy.draw_on_top(prop_defaults["on_top"])
-        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
-        # make undo/redoable
-        self.add_history(dummy)
-
-        yield False
-
-    def __create_custom_dummy(self, name, viz, size, cross_size, is_const_size,
-                              const_size, on_top, transform=None):
-
-        dummy_id = self.generate_object_id()
-        dummy = self.__create_object(dummy_id, name, Point3())
-        dummy.set_viz(viz)
-        dummy.set_size(size)
-        dummy.set_cross_size(cross_size)
-        dummy.make_const_size(is_const_size)
-        dummy.set_const_size(const_size)
-        dummy.draw_on_top(on_top)
-
-        if transform:
-            dummy.get_pivot().set_transform(transform)
-
-        return dummy
-
-    def __start_creation_phase1(self):
-        """ Start drawing out dummy """
-
-        pos = self.get_origin_pos()
-        prop_defaults = self.get_property_defaults()
-        viz = prop_defaults["viz"]
-        cross_size = prop_defaults["cross_size"]
-        is_const_size = prop_defaults["const_size_state"]
-        const_size = prop_defaults["const_size"]
-        on_top = prop_defaults["on_top"]
-        tmp_dummy = TemporaryDummy(pos, viz, cross_size, is_const_size, const_size, on_top)
-        self.init_object(tmp_dummy)
-
-        # Create the plane parallel to the camera and going through the dummy
-        # origin, used to determine the size drawn by the user.
-
-        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, pos)
-        self._draw_plane = Plane(normal, point)
-
-    def __creation_phase1(self):
-        """ Draw out dummy """
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
-        intersection_point = Point3()
-        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        size = max(.001, (intersection_point - point).length())
-        self.get_object().set_size(size)
-
-
 class DummyEdge(BaseObject):
 
     def __init__(self, dummy, axis, corner_index, picking_col_id):
@@ -1057,5 +843,219 @@ class Dummy(TopLevelObject):
         Mgr.add_task(.2, do_flash, "do_flash")
 
 
-MainObjects.add_class(DummyManager)
+class DummyEdgeManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "dummy_edge", self.__create_dummy_edge,
+                               "sub", pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("dummy_edge")
+
+    def __create_dummy_edge(self, dummy, axis, corner_index):
+
+        picking_col_id = self.get_next_picking_color_id()
+        dummy_edge = DummyEdge(dummy, axis, corner_index, picking_col_id)
+
+        return dummy_edge
+
+
+class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "dummy", self.__create_dummy)
+        CreationPhaseManager.__init__(self, "dummy")
+        ObjPropDefaultsManager.__init__(self, "dummy")
+
+        self.set_property_default("viz", set(["box", "cross"]))
+        self.set_property_default("size", 1.)
+        self.set_property_default("cross_size", 100.)
+        self.set_property_default("const_size_state", False)
+        self.set_property_default("const_size", 1.)
+        self.set_property_default("on_top", True)
+
+        self._draw_plane = None
+
+        self._dummy_roots = {}
+        self._dummy_bases = {}
+        self._dummy_origins = {"persp": {}, "ortho": {}}
+        self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+
+        Mgr.accept("make_dummy_const_size", self.__make_dummy_const_size)
+        Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
+        Mgr.accept("create_custom_dummy", self.__create_custom_dummy)
+
+    def setup(self):
+
+        dummy_root = self.cam().attach_new_node("dummy_helper_root")
+        dummy_root.set_bin("fixed", 50)
+        dummy_root.set_depth_test(False)
+        dummy_root.set_depth_write(False)
+        dummy_root.node().set_bounds(OmniBoundingVolume())
+        dummy_root.node().set_final(True)
+        render_masks = Mgr.get("render_masks")
+        picking_masks = Mgr.get("picking_masks")
+        root_persp = dummy_root.attach_new_node("dummy_helper_root_persp")
+        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
+        root_ortho = dummy_root.attach_new_node("dummy_helper_root_ortho")
+        root_ortho.set_scale(20.)
+        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
+        self._dummy_roots["persp"] = root_persp
+        self._dummy_roots["ortho"] = root_ortho
+
+        creation_phases = []
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phases.append(creation_phase)
+
+        status_text = {}
+        status_text["obj_type"] = "dummy helper"
+        status_text["phase1"] = "draw out the dummy"
+
+        CreationPhaseManager.setup(self, creation_phases, status_text)
+
+        return True
+
+    def __make_dummy_const_size(self, dummy, const_size_state=True):
+
+        dummy_id = dummy.get_id()
+        dummy_bases = self._dummy_bases
+        dummy_origins = self._dummy_origins
+        change = False
+
+        if const_size_state:
+            if dummy_id not in dummy_bases:
+                dummy_roots = self._dummy_roots
+                dummy_base = dummy_roots["persp"].attach_new_node("dummy_base")
+                dummy_base.set_billboard_point_world(dummy.get_origin(), 2000.)
+                pivot = dummy_base.attach_new_node("dummy_pivot")
+                pivot.set_scale(100.)
+                origin_persp = pivot.attach_new_node("dummy_origin_persp")
+                dummy_origins["persp"][dummy_id] = origin_persp
+                dummy.get_geom_root().get_children().reparent_to(origin_persp)
+                origin_persp.set_scale(dummy.get_const_size())
+                origin_ortho = origin_persp.copy_to(dummy_roots["ortho"])
+                dummy_origins["ortho"][dummy_id] = origin_ortho
+                origin_persp.set_compass(dummy.get_origin())
+                dummy_bases[dummy_id] = dummy_base
+                compass_effect = CompassEffect.make(dummy.get_origin(), self._compass_props)
+                origin_ortho.set_effect(compass_effect)
+                dummy.set_geoms_for_ortho_lens(origin_ortho)
+                change = True
+        else:
+            if dummy_id in dummy_bases:
+                origin_persp = dummy_origins["persp"][dummy_id]
+                origin_persp.get_children().reparent_to(dummy.get_geom_root())
+                origin_persp.remove_node()
+                del dummy_origins["persp"][dummy_id]
+                origin_ortho = dummy_origins["ortho"][dummy_id]
+                origin_ortho.remove_node()
+                del dummy_origins["ortho"][dummy_id]
+                dummy_base = dummy_bases[dummy_id]
+                dummy_base.remove_node()
+                del dummy_bases[dummy_id]
+                dummy.set_geoms_for_ortho_lens()
+                change = True
+
+        if change:
+            dummy.update_group_bbox()
+
+    def __set_dummy_const_size(self, dummy, const_size):
+
+        dummy_id = dummy.get_id()
+
+        if dummy_id in self._dummy_bases:
+            for origins in self._dummy_origins.itervalues():
+                origins[dummy_id].set_scale(const_size)
+
+    def __create_object(self, dummy_id, name, origin_pos):
+
+        prop_defaults = self.get_property_defaults()
+        dummy = Dummy(dummy_id, name, origin_pos)
+        dummy.set_viz(prop_defaults["viz"])
+        dummy.set_cross_size(prop_defaults["cross_size"])
+        dummy.make_const_size(prop_defaults["const_size_state"])
+        dummy.set_const_size(prop_defaults["const_size"])
+        dummy.draw_on_top(prop_defaults["on_top"])
+        dummy.register(restore=False)
+
+        return dummy
+
+    def __create_dummy(self, origin_pos, size=None, cross_size=None, const_size=None):
+
+        dummy_id = self.generate_object_id()
+        obj_type = self.get_object_type()
+        name = Mgr.get("next_obj_name", obj_type)
+        dummy = self.__create_object(dummy_id, name, origin_pos)
+        prop_defaults = self.get_property_defaults()
+        dummy.set_viz(prop_defaults["viz"])
+        dummy.set_size(prop_defaults["size"] if size is None else size)
+        dummy.set_cross_size(prop_defaults["cross_size"] if cross_size is None else cross_size)
+        dummy.make_const_size(prop_defaults["const_size_state"])
+        dummy.set_const_size(prop_defaults["const_size"] if const_size is None else const_size)
+        dummy.draw_on_top(prop_defaults["on_top"])
+        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
+        # make undo/redoable
+        self.add_history(dummy)
+
+        yield False
+
+    def __create_custom_dummy(self, name, viz, size, cross_size, is_const_size,
+                              const_size, on_top, transform=None):
+
+        dummy_id = self.generate_object_id()
+        dummy = self.__create_object(dummy_id, name, Point3())
+        dummy.set_viz(viz)
+        dummy.set_size(size)
+        dummy.set_cross_size(cross_size)
+        dummy.make_const_size(is_const_size)
+        dummy.set_const_size(const_size)
+        dummy.draw_on_top(on_top)
+
+        if transform:
+            dummy.get_pivot().set_transform(transform)
+
+        return dummy
+
+    def __start_creation_phase1(self):
+        """ Start drawing out dummy """
+
+        pos = self.get_origin_pos()
+        prop_defaults = self.get_property_defaults()
+        viz = prop_defaults["viz"]
+        cross_size = prop_defaults["cross_size"]
+        is_const_size = prop_defaults["const_size_state"]
+        const_size = prop_defaults["const_size"]
+        on_top = prop_defaults["on_top"]
+        tmp_dummy = TemporaryDummy(pos, viz, cross_size, is_const_size, const_size, on_top)
+        self.init_object(tmp_dummy)
+
+        # Create the plane parallel to the camera and going through the dummy
+        # origin, used to determine the size drawn by the user.
+
+        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
+        grid_origin = Mgr.get(("grid", "origin"))
+        point = self.world.get_relative_point(grid_origin, pos)
+        self._draw_plane = Plane(normal, point)
+
+    def __creation_phase1(self):
+        """ Draw out dummy """
+
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
+        intersection_point = Point3()
+        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
+        grid_origin = Mgr.get(("grid", "origin"))
+        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        size = max(.001, (intersection_point - point).length())
+        self.get_object().set_size(size)
+
+
 MainObjects.add_class(DummyEdgeManager)
+MainObjects.add_class(DummyManager)

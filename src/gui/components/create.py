@@ -31,6 +31,9 @@ class CreationManager(object):
 
         menubar.add_menu("create", "Create")
 
+        data = creation_data["plane"]
+        menubar.add_menu_item("create", "plane", "Create %s" % data["name"], data["handler"])
+
         obj_types = ("box", "sphere", "cylinder", "torus")
         accelerators = ("B", "S", "C", "T")
         mod_code = wx.MOD_SHIFT | wx.MOD_CONTROL

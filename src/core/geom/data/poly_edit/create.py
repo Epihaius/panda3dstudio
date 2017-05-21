@@ -1,7 +1,7 @@
-from ...base import *
+from ....base import *
 
 
-class PolygonCreationBase(BaseObject):
+class CreationBase(BaseObject):
 
     def prepare_poly_creation(self):
 
@@ -50,6 +50,9 @@ class PolygonCreationBase(BaseObject):
         new_vert_geom.show_through(render_masks["all"])
         new_vert_geom.set_color(1., 1., 0., 1.)
         new_vert_geom.set_render_mode_thickness(7)
+        new_vert_geom.set_light_off()
+        new_vert_geom.set_texture_off()
+        new_vert_geom.set_material_off()
         tmp_geoms["vert"] = new_vert_geom
 
         # Create a temporary geom for edges
@@ -79,6 +82,7 @@ class PolygonCreationBase(BaseObject):
         geom_node = GeomNode("new_polygon_geom")
         geom_node.add_geom(geom)
         new_poly_geom = origin.attach_new_node(geom_node)
+        new_poly_geom.set_texture_off()
         tmp_geoms["poly"] = new_poly_geom
 
         # store all temporary normals of the polygon
@@ -224,9 +228,10 @@ class PolygonCreationBase(BaseObject):
                 normal *= -1.
 
             normal_writer.set_row(0)
+            sign = -1. if self._owner.has_flipped_normals() else 1.
 
             for i in range(last_index):
-                normal_writer.set_data3f(normal)
+                normal_writer.set_data3f(normal * sign)
 
         edge_geom = tmp_data["geoms"]["edge"].node().modify_geom(0)
         vertex_data = edge_geom.modify_vertex_data()
@@ -399,10 +404,11 @@ class PolygonCreationBase(BaseObject):
                     normal *= -1.
 
                 normal_writer = GeomVertexWriter(vertex_data, "normal")
+                sign = -1. if self._owner.has_flipped_normals() else 1.
 
                 for row_index in indices:
                     normal_writer.set_row(row_index)
-                    normal_writer.set_data3f(normal)
+                    normal_writer.set_data3f(normal * sign)
 
         geom = tmp_data["geoms"]["edge"].node().modify_geom(0)
         vertex_data = geom.modify_vertex_data()
@@ -471,6 +477,10 @@ class PolygonCreationBase(BaseObject):
         poly_edges = []
         poly_tris = []
 
+        normal_change = self._normal_change
+        normal_lock_change = self._normal_lock_change
+        shared_normals = self._shared_normals
+
         for tri_data in indices:
 
             if tmp_data["flip_normal"]:
@@ -499,7 +509,7 @@ class PolygonCreationBase(BaseObject):
                     if pos_index in owned_verts:
                         merged_vert = owned_verts[pos_index]
                         if merged_vert.get_id() in sel_vert_ids:
-                            subobjs_to_select["vert"].append(vertex)
+                            subobjs_to_select["vert"].append(vert_id)
                     elif pos_index in merged_verts_by_pos:
                         merged_vert = merged_verts_by_pos[pos_index]
                     else:
@@ -508,6 +518,9 @@ class PolygonCreationBase(BaseObject):
 
                     merged_vert.append(vert_id)
                     merged_verts[vert_id] = merged_vert
+                    normal_change.add(vert_id)
+                    normal_lock_change.add(vert_id)
+                    shared_normals[vert_id] = Mgr.do("create_shared_normal", self, [vert_id])
 
                 tri_vert_ids.append(vert_id)
 
@@ -550,14 +563,24 @@ class PolygonCreationBase(BaseObject):
         vert2.add_edge_id(edge1_id)
         edges[edge1_id] = edge
         poly_edges.append(edge)
+        verts_to_unmerge = set()
+        edges_to_unmerge = set()
 
-        merged_edge_verts = tuple(sorted([merged_verts[v_id] for v_id in edge_vert_ids]))
+        merged_edge_verts = tuple(sorted(merged_verts[v_id] for v_id in edge_vert_ids))
 
         if merged_edge_verts in merged_edges_tmp:
+
             merged_edge = merged_edges_tmp[merged_edge_verts]
+
+            if len(merged_edge) == 2:
+                # triple edge; needs fix
+                verts_to_unmerge.update(edge_vert_ids)
+
             if merged_edge[0] in sel_edge_ids:
-                subobjs_to_select["edge"].append(edge)
+                subobjs_to_select["edge"].append(edge1_id)
+
         else:
+
             merged_edge = Mgr.do("create_merged_edge", self)
 
         merged_edge.append(edge1_id)
@@ -577,13 +600,21 @@ class PolygonCreationBase(BaseObject):
             edges[edge_id] = edge
             poly_edges.append(edge)
 
-            merged_edge_verts = tuple(sorted([merged_verts[v_id] for v_id in edge_vert_ids]))
+            merged_edge_verts = tuple(sorted(merged_verts[v_id] for v_id in edge_vert_ids))
 
             if merged_edge_verts in merged_edges_tmp:
+
                 merged_edge = merged_edges_tmp[merged_edge_verts]
+
+                if len(merged_edge) == 2:
+                    # triple edge; needs fix
+                    verts_to_unmerge.update(edge_vert_ids)
+
                 if merged_edge[0] in sel_edge_ids:
-                    subobjs_to_select["edge"].append(edge)
+                    subobjs_to_select["edge"].append(edge_id)
+
             else:
+
                 merged_edge = Mgr.do("create_merged_edge", self)
 
             merged_edge.append(edge_id)
@@ -601,6 +632,55 @@ class PolygonCreationBase(BaseObject):
         subobj_change["vert"]["created"] = poly_verts
         subobj_change["edge"]["created"] = poly_edges
         subobj_change["poly"]["created"] = [polygon]
+
+        # Check surface normal discontinuity
+
+        for edge in poly_edges:
+
+            edge_id = edge.get_id()
+            merged_edge = merged_edges[edge_id]
+
+            if len(merged_edge) == 1:
+                continue
+
+            edge_ids = merged_edge[:]
+            edge_ids.remove(edge_id)
+            other_edge_id = edge_ids[0]
+            other_edge = edges[other_edge_id]
+
+            if merged_verts[edge[0]] is merged_verts[other_edge[0]]:
+                # surface normal discontinuity; needs fix
+                verts_to_unmerge.update(edge)
+
+        # Undo edge and vertex merging where it leads to a surface normal discontinuity
+        # or triple edges
+
+        while verts_to_unmerge:
+
+            vert_id = verts_to_unmerge.pop()
+            merged_vert = merged_verts[vert_id]
+            merged_vert.remove(vert_id)
+            merged_verts[vert_id] = Mgr.do("create_merged_vert", self, vert_id)
+            vert = verts[vert_id]
+
+            if vert_id in subobjs_to_select["vert"]:
+                subobjs_to_select["vert"].remove(vert_id)
+
+            edges_to_unmerge.update(vert.get_edge_ids())
+
+        while edges_to_unmerge:
+
+            edge_id = edges_to_unmerge.pop()
+            merged_edge = merged_edges[edge_id]
+            merged_edge.remove(edge_id)
+            merged_edges[edge_id] = Mgr.do("create_merged_edge", self, edge_id)
+
+            if edge_id in subobjs_to_select["edge"]:
+                subobjs_to_select["edge"].remove(edge_id)
+
+        # also undo vertex merging where it leads to self-intersecting borders
+        border_edges = (merged_edges[edge.get_id()] for edge in poly_edges)
+        self.fix_borders(border_edges)
 
         # Update geometry structures
 
@@ -623,6 +703,7 @@ class PolygonCreationBase(BaseObject):
         col_writer.set_row(old_count)
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
         normal_writer.set_row(old_count)
+        sign = -1. if self._owner.has_flipped_normals() else 1.
 
         pickable_type_id = PickableTypes.get_id("poly")
         picking_col_id = polygon.get_picking_color_id()
@@ -640,29 +721,40 @@ class PolygonCreationBase(BaseObject):
             pos = vert.get_pos()
             pos_writer.add_data3f(pos)
             col_writer.add_data4f(picking_color)
-            normal_writer.add_data3f(normal)
+            normal_writer.add_data3f(normal * sign)
 
         vertex_data_vert1 = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data_vert1.set_num_rows(count)
         vertex_data_vert2 = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data_vert2.set_num_rows(count)
+        vertex_data_normal1 = geoms["normal"]["pickable"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_normal1.set_num_rows(count)
+        vertex_data_normal2 = geoms["normal"]["sel_state"].node().modify_geom(0).modify_vertex_data()
+        vertex_data_normal2.set_num_rows(count)
         col_writer1 = GeomVertexWriter(vertex_data_vert1, "color")
         col_writer1.set_row(old_count)
         col_writer2 = GeomVertexWriter(vertex_data_vert2, "color")
         col_writer2.set_row(old_count)
+        col_writer3 = GeomVertexWriter(vertex_data_normal2, "color")
+        col_writer3.set_row(old_count)
 
         sel_colors = Mgr.get("subobj_selection_colors")
-        color = sel_colors["vert"]["unselected"]
+        color_vert = sel_colors["vert"]["unselected"]
+        color_normal = sel_colors["normal"]["unselected"]
         pickable_type_id = PickableTypes.get_id("vert")
 
         for row in sorted(verts_by_row):
             vert = verts_by_row[row]
             picking_color = get_color_vec(vert.get_picking_color_id(), pickable_type_id)
             col_writer1.add_data4f(picking_color)
-            col_writer2.add_data4f(color)
+            col_writer2.add_data4f(color_vert)
+            col_writer3.add_data4f(color_normal)
+
+        col_array = GeomVertexArrayData(vertex_data_vert1.get_array(1))
+        vertex_data_normal1.set_array(1, col_array)
 
         sel_data = self._poly_selection_data
-        sel_data["unselected"].extend(polygon[:])
+        sel_data["unselected"].extend(polygon)
 
         picking_colors1 = {}
         picking_colors2 = {}
@@ -715,14 +807,12 @@ class PolygonCreationBase(BaseObject):
         lines_prim.reserve_num_vertices(count * 2)
 
         for poly in ordered_polys:
-
             for edge in poly.get_edges():
-
                 row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
                 lines_prim.add_vertices(row1, row2 + count)
 
-                if edge.get_id() in sel_edge_ids:
-                    subobjs_to_select["edge"].append(edge)
+        self.clear_selection("edge", update_verts_to_transf=False)
+        subobjs_to_select["edge"].extend(sel_edge_ids)
 
         geom_node = geoms["edge"]["pickable"].node()
         geom_node.modify_geom(0).set_primitive(0, lines_prim)
@@ -735,12 +825,18 @@ class PolygonCreationBase(BaseObject):
         vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
         pos_array = vertex_data_top.get_array(0)
         pos_data = pos_array.get_handle().get_data()
-        poly_array = vertex_data_top.get_array(1)
+        normal_array = vertex_data_top.get_array(2)
+        tan_array = vertex_data_top.get_array(3)
         vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_vert1.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_vert2.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_normal1.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_normal2.set_array(0, GeomVertexArrayData(pos_array))
+        vertex_data_normal1.set_array(2, GeomVertexArrayData(normal_array))
+        vertex_data_normal2.set_array(2, GeomVertexArrayData(normal_array))
         vertex_data_poly.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_poly.set_array(1, GeomVertexArrayData(poly_array))
+        vertex_data_poly.set_array(2, GeomVertexArrayData(normal_array))
+        vertex_data_poly.set_array(3, GeomVertexArrayData(tan_array))
         pos_array = GeomVertexArrayData(pos_array)
         pos_array.modify_handle().set_data(pos_data * 2)
         vertex_data_edge1.set_array(0, pos_array)
@@ -780,6 +876,10 @@ class PolygonCreationBase(BaseObject):
         prim = geom_node.modify_geom(0).modify_primitive(0)
         handle = prim.modify_vertices().modify_handle()
         handle.set_data(handle.get_data() + data)
+        geom_node = geoms["normal"]["pickable"].node()
+        geom_node.modify_geom(0).set_primitive(0, GeomPoints(prim))
+        geom_node = geoms["normal"]["sel_state"].node()
+        geom_node.modify_geom(0).set_primitive(0, GeomPoints(prim))
 
         # Miscellaneous updates
 
@@ -790,31 +890,36 @@ class PolygonCreationBase(BaseObject):
 
         for subobj_type in ("vert", "edge"):
             if subobjs_to_select[subobj_type]:
-                subobj = subobjs_to_select[subobj_type][0]
-                subobj_id = subobj.get_id()
+                subobj_id = subobjs_to_select[subobj_type][0]
                 merged_subobj = merged_subobjs[subobj_type][subobj_id]
                 # since update_selection(...) processes *all* subobjects referenced by the
                 # merged subobject, it is replaced by a temporary merged subobject that
-                # only references the newly created subobjects;
+                # only references newly created subobjects;
                 # as an optimization, one temporary merged subobject references all newly
                 # created subobjects, so self.update_selection() needs to be called only
                 # once
                 tmp_merged_subobj = Mgr.do("create_merged_%s" % subobj_type, self)
-                for s in subobjs_to_select[subobj_type]:
-                    tmp_merged_subobj.append(s.get_id())
+                for s_id in subobjs_to_select[subobj_type]:
+                    tmp_merged_subobj.append(s_id)
                 merged_subobjs[subobj_type][subobj_id] = tmp_merged_subobj
+                subobj = subobjs[subobj_type][subobj_id]
                 self.update_selection(subobj_type, [subobj], [], False)
                 # the original merged subobject can now be restored
                 merged_subobjs[subobj_type][subobj_id] = merged_subobj
-                subobj_change.setdefault("selection", []).append(subobj_type)
                 self._update_verts_to_transform(subobj_type)
 
         self._update_verts_to_transform("poly")
         self._origin.node().set_bounds(geom_node_top.get_bounds())
-        self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
+        model = self.get_toplevel_object()
+        model.get_bbox().update(*self._origin.get_tight_bounds())
 
-        if self._has_tangent_space:
-            self.update_tangent_space([polygon])
+        self._normal_sharing_change = True
+
+        if model.has_tangent_space():
+            tangent_flip, bitangent_flip = model.get_tangent_space_flip()
+            self.update_tangent_space(tangent_flip, bitangent_flip, [poly_id])
+        else:
+            self._is_tangent_space_initialized = False
 
         return True
 
@@ -829,7 +934,7 @@ class PolygonCreationBase(BaseObject):
         geoms["poly"]["pickable"].show_through(picking_masks)
 
 
-class PolygonCreationManager(BaseObject):
+class CreationManager(BaseObject):
 
     def __init__(self):
 
@@ -840,8 +945,6 @@ class PolygonCreationManager(BaseObject):
         self._active_geom_data_obj = None
         self._interactive_creation_started = False
         self._interactive_creation_ended = False
-
-    def setup(self):
 
         add_state = Mgr.add_state
         add_state("poly_creation_mode", -10,
@@ -881,8 +984,6 @@ class PolygonCreationManager(BaseObject):
                     "click a previously added vertex to finalize; " \
                     "<Ctrl> to flip normal; <Shift> to turn diagonal; RMB to cancel"
         status_data["start_poly_creation"] = {"mode": mode_text, "info": info_text}
-
-        return True
 
     def __enter_creation_mode(self, prev_state_id, is_active):
 
@@ -1092,6 +1193,3 @@ class PolygonCreationManager(BaseObject):
         event_descr = "Create polygon"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
-
-
-MainObjects.add_class(PolygonCreationManager)

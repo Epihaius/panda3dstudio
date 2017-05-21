@@ -58,143 +58,11 @@ VERT_SHADER = """
 """
 
 
-class TorusManager(PrimitiveManager):
-
-    def __init__(self):
-
-        PrimitiveManager.__init__(self, "torus")
-
-        self._dragged_point = Point3()
-        self._section_radius_vec = V3D()
-        self._draw_plane = None
-
-        self.set_property_default("radius_ring", 2.)
-        self.set_property_default("radius_section", 1.)
-        self.set_property_default("smoothness", True)
-        self.set_property_default("temp_segments", {"ring": 12, "section": 6})  # minimum = 3
-        self.set_property_default("segments", {"ring": 24, "section": 12})  # minimum = 3
-
-    def setup(self):
-
-        creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
-        creation_phases.append(creation_phase)
-        creation_phase = (self.__start_creation_phase2, self.__creation_phase2)
-        creation_phases.append(creation_phase)
-
-        status_text = {}
-        status_text["obj_type"] = "torus"
-        status_text["phase1"] = "draw out the ring"
-        status_text["phase2"] = "draw out the cross section"
-
-        return PrimitiveManager.setup(self, creation_phases, status_text)
-
-    def create_temp_primitive(self, color, pos):
-
-        segs = self.get_property_defaults()["segments"]
-        tmp_segs = self.get_property_defaults()["temp_segments"]
-        segments = dict((k, min(segs[k], tmp_segs[k])) for k in ("ring", "section"))
-        is_smooth = self.get_property_defaults()["smoothness"]
-        tmp_prim = TemporaryTorus(segments, is_smooth, color, pos)
-
-        return tmp_prim
-
-    def create_primitive(self, model):
-
-        prim = Torus(model)
-        prop_defaults = self.get_property_defaults()
-        segments = prop_defaults["segments"]
-        poly_count, merged_vert_count = _get_mesh_density(segments)
-        progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
-        gradual = progress_steps > 100
-
-        for step in prim.create(segments, prop_defaults["smoothness"]):
-            if gradual:
-                yield
-
-        yield prim, gradual
-
-    def init_primitive_size(self, prim, size=None):
-
-        prop_defaults = self.get_property_defaults()
-
-        if size is None:
-            prim.init_size(prop_defaults["radius_ring"], prop_defaults["radius_section"])
-        else:
-            prim.init_size(*size)
-
-    def __start_creation_phase1(self):
-        """ Start drawing out torus ring """
-
-        cam_pos = self.cam().get_pos(self.world)
-        lens_type = self.cam.lens_type
-
-        # initialize the section radius, based on ...
-        if lens_type == "persp":
-            # ... the distance of the torus center to the camera
-            section_radius = (self.get_origin_pos() - cam_pos).length() * .01
-        else:
-            # ... camera zoom
-            section_radius = self.cam.zoom * 5.
-
-        origin = self.get_temp_primitive().get_origin()
-        origin.set_shader_input("section_radius", section_radius)
-
-    def __creation_phase1(self):
-        """ Draw out torus ring """
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
-
-        if not point:
-            return
-
-        grid_origin = Mgr.get(("grid", "origin"))
-        self._dragged_point = self.world.get_relative_point(grid_origin, point)
-        ring_radius = (self.get_origin_pos() - point).length()
-        self.get_temp_primitive().update_size(ring_radius)
-
-    def __start_creation_phase2(self):
-        """ Start drawing out torus cross section """
-
-        cam = self.cam()
-        origin_pos = self.get_temp_primitive().get_origin().get_pos(self.world)
-        ring_radius_vec = V3D(self._dragged_point - origin_pos)
-        cam_forward_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
-        plane = Plane(cam_forward_vec, Point3())
-        self._section_radius_vec = plane.project(ring_radius_vec).normalized()
-        self._draw_plane = Plane(cam_forward_vec, self._dragged_point)
-
-    def __creation_phase2(self):
-        """ Draw out torus cross section """
-
-        if not self.mouse_watcher.has_mouse():
-            return
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
-
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
-        point = Point3()
-
-        if not self._draw_plane.intersects_line(point, near_point, far_point):
-            return
-
-        section_radius = (point - self._dragged_point).project(self._section_radius_vec).length()
-        tmp_prim = self.get_temp_primitive()
-        tmp_prim.update_size(section_radius=section_radius)
-
-
 def _get_mesh_density(segments):
 
-    poly_count = merged_vert_count = segments["section"] * segments["ring"]
+    poly_count = segments["section"] * segments["ring"]
 
-    return poly_count, merged_vert_count
+    return poly_count
 
 
 def _define_geom_data(segments, smooth, temp=False):
@@ -387,7 +255,7 @@ class Torus(Primitive):
         self._segments = segments
         self._is_smooth = is_smooth
 
-        for step in Primitive.create(self, *_get_mesh_density(segments)):
+        for step in Primitive.create(self, _get_mesh_density(segments)):
             yield
 
         self.update_initial_coords()
@@ -433,8 +301,6 @@ class Torus(Primitive):
 
         self.reset_initial_coords()
         self.get_geom_data_object().reposition_vertices(self.__set_new_vertex_position)
-        self.get_geom_data_object().update_poly_centers()
-        self.get_model().get_bbox().update(*self.get_origin().get_tight_bounds())
 
     def init_size(self, ring_radius, section_radius):
 
@@ -483,7 +349,7 @@ class Torus(Primitive):
                 data.update(self.get_geom_data_object().get_data_to_store("creation"))
                 self.remove_geom_data_backup()
             elif prop_id == "smoothness":
-                data.update(self.get_geom_data_object().get_data_to_store("prop_change", "smoothing"))
+                data.update(self.get_geom_data_object().get_data_to_store())
             elif prop_id in ("radius_ring", "radius_section"):
                 data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
@@ -523,7 +389,7 @@ class Torus(Primitive):
             if change:
 
                 if not restore:
-                    self.recreate_geometry(*_get_mesh_density(segments))
+                    self.recreate_geometry(_get_mesh_density(segments))
 
                 update_app()
 
@@ -535,7 +401,7 @@ class Torus(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -548,7 +414,7 @@ class Torus(Primitive):
 
             if change:
                 task = self.__update_size
-                sort = PendingTasks.get_sort("upd_vert_normals", "object") - 1
+                sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.get_model().update_group_bbox()
                 update_app()
@@ -560,12 +426,9 @@ class Torus(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                Mgr.schedule_screenshot_removal()
-                descr = "Updating smoothness..."
                 task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
                                                                          if value else None)
-                PendingTasks.add(task, "smooth_polys", "object", id_prefix=obj_id,
-                                 gradual=True, descr=descr)
+                PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
 
             if change:
                 update_app()
@@ -589,13 +452,146 @@ class Torus(Primitive):
             return self._section_radius
         elif prop_id == "smoothness":
             return self._is_smooth
+        else:
+            return Primitive.get_property(self, prop_id, for_remote_update)
 
     def finalize(self):
 
         self.__update_size()
 
-        for step in Primitive.finalize(self, update_poly_centers=False):
-            yield
+        Primitive.finalize(self)
+
+
+class TorusManager(PrimitiveManager):
+
+    def __init__(self):
+
+        PrimitiveManager.__init__(self, "torus")
+
+        self._dragged_point = Point3()
+        self._section_radius_vec = V3D()
+        self._draw_plane = None
+
+        self.set_property_default("radius_ring", 2.)
+        self.set_property_default("radius_section", 1.)
+        self.set_property_default("smoothness", True)
+        self.set_property_default("temp_segments", {"ring": 12, "section": 6})  # minimum = 3
+        self.set_property_default("segments", {"ring": 24, "section": 12})  # minimum = 3
+
+    def setup(self):
+
+        creation_phases = []
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phases.append(creation_phase)
+        creation_phase = (self.__start_creation_phase2, self.__creation_phase2)
+        creation_phases.append(creation_phase)
+
+        status_text = {}
+        status_text["obj_type"] = "torus"
+        status_text["phase1"] = "draw out the ring"
+        status_text["phase2"] = "draw out the cross section"
+
+        return PrimitiveManager.setup(self, creation_phases, status_text)
+
+    def create_temp_primitive(self, color, pos):
+
+        segs = self.get_property_defaults()["segments"]
+        tmp_segs = self.get_property_defaults()["temp_segments"]
+        segments = dict((k, min(segs[k], tmp_segs[k])) for k in ("ring", "section"))
+        is_smooth = self.get_property_defaults()["smoothness"]
+        tmp_prim = TemporaryTorus(segments, is_smooth, color, pos)
+
+        return tmp_prim
+
+    def create_primitive(self, model):
+
+        prim = Torus(model)
+        prop_defaults = self.get_property_defaults()
+        segments = prop_defaults["segments"]
+        poly_count = _get_mesh_density(segments)
+        progress_steps = (poly_count // 20) * 4
+        gradual = progress_steps > 80
+
+        for step in prim.create(segments, prop_defaults["smoothness"]):
+            if gradual:
+                yield
+
+        yield prim, gradual
+
+    def init_primitive_size(self, prim, size=None):
+
+        prop_defaults = self.get_property_defaults()
+
+        if size is None:
+            prim.init_size(prop_defaults["radius_ring"], prop_defaults["radius_section"])
+        else:
+            prim.init_size(*size)
+
+    def __start_creation_phase1(self):
+        """ Start drawing out torus ring """
+
+        cam_pos = self.cam().get_pos(self.world)
+        lens_type = self.cam.lens_type
+
+        # initialize the section radius, based on ...
+        if lens_type == "persp":
+            # ... the distance of the torus center to the camera
+            section_radius = (self.get_origin_pos() - cam_pos).length() * .01
+        else:
+            # ... camera zoom
+            section_radius = self.cam.zoom * 5.
+
+        origin = self.get_temp_primitive().get_origin()
+        origin.set_shader_input("section_radius", section_radius)
+
+    def __creation_phase1(self):
+        """ Draw out torus ring """
+
+        screen_pos = self.mouse_watcher.get_mouse()
+        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
+
+        if not point:
+            return
+
+        grid_origin = Mgr.get(("grid", "origin"))
+        self._dragged_point = self.world.get_relative_point(grid_origin, point)
+        ring_radius = (self.get_origin_pos() - point).length()
+        self.get_temp_primitive().update_size(ring_radius)
+
+    def __start_creation_phase2(self):
+        """ Start drawing out torus cross section """
+
+        cam = self.cam()
+        origin_pos = self.get_temp_primitive().get_origin().get_pos(self.world)
+        ring_radius_vec = V3D(self._dragged_point - origin_pos)
+        cam_forward_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+        plane = Plane(cam_forward_vec, Point3())
+        self._section_radius_vec = plane.project(ring_radius_vec).normalized()
+        self._draw_plane = Plane(cam_forward_vec, self._dragged_point)
+
+    def __creation_phase2(self):
+        """ Draw out torus cross section """
+
+        if not self.mouse_watcher.has_mouse():
+            return
+
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
+        point = Point3()
+
+        if not self._draw_plane.intersects_line(point, near_point, far_point):
+            return
+
+        section_radius = (point - self._dragged_point).project(self._section_radius_vec).length()
+        tmp_prim = self.get_temp_primitive()
+        tmp_prim.update_size(section_radius=section_radius)
 
 
 MainObjects.add_class(TorusManager)

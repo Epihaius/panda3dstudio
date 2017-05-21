@@ -3,327 +3,6 @@ from panda3d.fx import ProjectionScreen
 from math import pi, sin, cos
 
 
-class TexProjectorEdgeManager(ObjectManager, PickingColorIDManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "tex_proj_edge", self.__create_proj_edge, "sub",
-                               pickable=True)
-        PickingColorIDManager.__init__(self)
-        PickableTypes.add("tex_proj_edge")
-
-    def __create_proj_edge(self, projector, axis, corner_index):
-
-        picking_col_id = self.get_next_picking_color_id()
-        proj_edge = TexProjectorEdge(projector, axis, corner_index, picking_col_id)
-
-        return proj_edge
-
-
-class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
-
-    def __init__(self):
-
-        ObjectManager.__init__(self, "tex_projector", self.__create_tex_projector)
-        CreationPhaseManager.__init__(self, "tex_projector")
-        ObjPropDefaultsManager.__init__(self, "tex_projector")
-
-        self.set_property_default("on", True)
-        self.set_property_default("size", 1.)
-        self.set_property_default("film_w", 1.)
-        self.set_property_default("film_h", 1.)
-        self.set_property_default("film_x", 0.)
-        self.set_property_default("film_y", 0.)
-        self.set_property_default("projection_type", "orthographic")
-
-        self._draw_plane = None
-
-        self._pixel_under_mouse = VBase4()
-        self._target_to_projector_ids = {}
-
-        Mgr.accept("register_texproj_targets", self.__register_projection_targets)
-        Mgr.accept("unregister_texproj_targets", self.__unregister_projection_targets)
-        Mgr.add_app_updater("texproj_prop", self.__set_projector_property,
-                            kwargs=["target_id", "target_prop"])
-        Mgr.add_app_updater("uv_projection", self.__apply_uvs)
-        Mgr.add_app_updater("remove_texproj_target",
-                            self.__remove_projection_target)
-        Mgr.add_app_updater("object_removal", self.__remove_projection_target)
-
-    def setup(self):
-
-        creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
-        creation_phases.append(creation_phase)
-
-        status_text = {}
-        status_text["obj_type"] = "texture projector"
-        status_text["phase1"] = "draw out the projector"
-
-        CreationPhaseManager.setup(self, creation_phases, status_text)
-
-        add_state = Mgr.add_state
-        add_state("texprojtarget_picking_mode", -10,
-                  self.__enter_picking_mode, self.__exit_picking_mode)
-
-        bind = Mgr.bind_state
-        bind("texprojtarget_picking_mode", "pick texproj target -> navigate", "space",
-             lambda: Mgr.enter_state("navigation_mode"))
-        bind("texprojtarget_picking_mode", "pick texproj target", "mouse1", self.__pick)
-        bind("texprojtarget_picking_mode", "exit texproj target picking", "escape",
-             lambda: Mgr.exit_state("texprojtarget_picking_mode"))
-        bind("texprojtarget_picking_mode", "cancel texproj target picking", "mouse3-up",
-             lambda: Mgr.exit_state("texprojtarget_picking_mode"))
-
-        status_data = GlobalData["status_data"]
-        mode_text = "Pick projector target"
-        info_text = "LMB to pick object; RMB to end"
-        status_data["pick_texproj_target"] = {"mode": mode_text, "info": info_text}
-
-        return True
-
-    def __enter_picking_mode(self, prev_state_id, is_active):
-
-        Mgr.add_task(self.__update_cursor, "update_tpt_picking_cursor")
-        Mgr.update_app("status", "pick_texproj_target")
-
-    def __exit_picking_mode(self, next_state_id, is_active):
-
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self.__update_cursor()
-                                           # is called
-        Mgr.remove_task("update_tpt_picking_cursor")
-        Mgr.set_cursor("main")
-
-    def __pick(self):
-
-        target = Mgr.get("object", pixel_color=self._pixel_under_mouse)
-
-        if target and target.get_type() == "model" and target.get_geom_type() != "basic_geom":
-
-            projectors = [obj for obj in Mgr.get("selection", "top")
-                          if obj.get_type() == "tex_projector"]
-
-            if len(projectors) == 1:
-                projector = projectors[0]
-                target_id = target.get_id()
-                projector.add_target(target_id)
-                self.__register_projection_targets([target_id], projector.get_id())
-
-    def __update_cursor(self, task):
-
-        pixel_under_mouse = Mgr.get("pixel_under_mouse")
-
-        if self._pixel_under_mouse != pixel_under_mouse:
-            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
-            self._pixel_under_mouse = pixel_under_mouse
-
-        return task.cont
-
-    def __apply_uvs(self):
-
-        projectors = [obj for obj in Mgr.get("selection", "top")
-                      if obj.get_type() == "tex_projector"]
-
-        if len(projectors) == 1:
-            projectors[0].apply_uvs()
-
-    def __register_projection_targets(self, target_ids, projector_id, restore=False):
-
-        target_to_proj_ids = self._target_to_projector_ids
-
-        for target_id in target_ids:
-
-            if not restore:
-
-                if target_id in target_to_proj_ids:
-
-                    old_projector_id = target_to_proj_ids[target_id]
-
-                    if old_projector_id != projector_id:
-                        projector = Mgr.get("tex_projector", old_projector_id)
-                        projector.remove_target(target_id)
-
-            target_to_proj_ids[target_id] = projector_id
-
-    def __unregister_projection_targets(self, target_ids):
-
-        target_to_proj_ids = self._target_to_projector_ids
-
-        for target_id in target_ids:
-            if target_id in target_to_proj_ids:
-                del target_to_proj_ids[target_id]
-
-    def __remove_projection_target(self, target_id, add_to_hist=True):
-
-        target_to_proj_ids = self._target_to_projector_ids
-
-        if target_id in target_to_proj_ids:
-            projector_id = target_to_proj_ids[target_id]
-            projector = Mgr.get("tex_projector", projector_id)
-            projector.remove_target(target_id, add_to_hist)
-            del target_to_proj_ids[target_id]
-
-    def __create_object(self, projector_id, name, origin_pos):
-
-        prop_defaults = self.get_property_defaults()
-        projector = TexProjector(projector_id, name, origin_pos,
-                                 prop_defaults["on"],
-                                 prop_defaults["projection_type"],
-                                 prop_defaults["film_w"],
-                                 prop_defaults["film_h"],
-                                 prop_defaults["film_x"],
-                                 prop_defaults["film_y"])
-        projector.register(restore=False)
-
-        return projector
-
-    def __create_tex_projector(self, origin_pos, size=None):
-
-        projector_id = self.generate_object_id()
-        obj_type = self.get_object_type()
-        name = Mgr.get("next_obj_name", obj_type)
-        projector = self.__create_object(projector_id, name, origin_pos)
-        prop_defaults = self.get_property_defaults()
-        projector.set_size(prop_defaults["size"] if size is None else size)
-        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
-        # make undo/redoable
-        self.add_history(projector)
-
-        yield False
-
-    def __start_creation_phase1(self):
-        """ start drawing out texture projector """
-
-        origin_pos = self.get_origin_pos()
-        projection_type = self.get_property_defaults()["projection_type"]
-        tmp_projector = TemporaryTexProjector(origin_pos, projection_type)
-        self.init_object(tmp_projector)
-
-        # Create the plane parallel to the camera and going through the projector
-        # origin, used to determine the size drawn by the user.
-
-        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, origin_pos)
-        self._draw_plane = Plane(normal, point)
-
-    def __creation_phase1(self):
-        """ Draw out texture projector """
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
-        intersection_point = Point3()
-        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        size = max(.001, (intersection_point - point).length())
-        self.get_object().set_size(size)
-
-    def __set_projector_property(self, prop_id, value, projector_id=None,
-                                 add_to_hist=True, target_id=None, target_prop=""):
-
-        if projector_id:
-            objs = [Mgr.get("tex_projector", projector_id)]
-        else:
-            objs = Mgr.get("selection")
-
-        if not objs:
-            return
-
-        changed_objs = [obj for obj in objs if obj.set_property(prop_id, value)]
-
-        if not changed_objs:
-            return
-
-        if not add_to_hist:
-            return
-
-        Mgr.do("update_history_time")
-
-        obj_data = {}
-
-        for obj in changed_objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", prop_id)
-
-        if prop_id == "on":
-
-            if len(changed_objs) == 1:
-                obj = changed_objs[0]
-                event_descr = 'Turn %s "%s"' % ("on" if value else "off", obj.get_name())
-            else:
-                event_descr = 'Turn %s texture projectors:\n' % ("on" if value else "off")
-                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
-
-        elif prop_id == "targets":
-
-            model = Mgr.get("model", target_id)
-            target_name = model.get_name() if model else ""
-
-            if target_id in value:
-                target_data = value[target_id]
-
-            if target_prop == "add":
-                event_descr = 'Add projection target to "%s":\n' % obj.get_name()
-                event_descr += '\n    "%s"' % target_name
-            elif target_prop == "remove":
-                if target_name:
-                    event_descr = 'Remove projection target from "%s":\n' % obj.get_name()
-                    event_descr += '\n    "%s"' % target_name
-                else:
-                    event_descr = 'Remove deleted projection target from "%s"' % obj.get_name()
-            elif target_prop == "clear":
-                event_descr = 'Clear projection targets from "%s"' % obj.get_name()
-            elif target_prop == "use_poly_sel":
-                event_descr = 'Change projection property of "%s"' % obj.get_name()
-                event_descr += '\nfor target "%s":\n' % target_name
-                event_descr += "\n    project onto %s" % ("entire target"
-                    if target_data["toplvl"] else "selected polys only")
-            elif target_prop == "show_poly_sel":
-                event_descr = 'Change projection property of "%s"' % obj.get_name()
-                event_descr += '\nfor target "%s":\n' % target_name
-                event_descr += "\n    %s selection state of affected polys" % ("show"
-                    if target_data["show_poly_sel"] else "hide")
-            elif target_prop == "uv_set_ids":
-                uv_set_id_str = str(target_data["uv_set_ids"]).strip("(),")
-                event_descr = 'Change projection property of "%s"' % obj.get_name()
-                event_descr += '\nfor target "%s":\n' % target_name
-                event_descr += "\n    affect UV sets: %s" % uv_set_id_str
-
-        else:
-
-            if prop_id == "projection_type":
-                prop_descr = "projection type"
-            elif prop_id == "film_w":
-                prop_descr = "film width"
-            elif prop_id == "film_h":
-                prop_descr = "film height"
-            elif prop_id == "film_x":
-                prop_descr = "film X offset"
-            elif prop_id == "film_y":
-                prop_descr = "film Y offset"
-            else:
-                prop_descr = prop_id
-
-            if len(changed_objs) == 1:
-                obj = changed_objs[0]
-                event_descr = 'Change %s of "%s"\nto %s' % (prop_descr, obj.get_name(), value)
-            else:
-                event_descr = 'Change %s of texture projectors:\n' % prop_descr
-                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
-                event_descr += '\n\nto %s' % value
-
-        event_data = {"objects": obj_data}
-
-        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
-
-
 class TemporaryTexProjector(object):
 
     _original_geom = None
@@ -1389,5 +1068,326 @@ class TexProjector(TopLevelObject):
         Mgr.add_task(.2, do_flash, "do_flash")
 
 
-MainObjects.add_class(TexProjectorManager)
+class TexProjectorEdgeManager(ObjectManager, PickingColorIDManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "tex_proj_edge", self.__create_proj_edge, "sub",
+                               pickable=True)
+        PickingColorIDManager.__init__(self)
+        PickableTypes.add("tex_proj_edge")
+
+    def __create_proj_edge(self, projector, axis, corner_index):
+
+        picking_col_id = self.get_next_picking_color_id()
+        proj_edge = TexProjectorEdge(projector, axis, corner_index, picking_col_id)
+
+        return proj_edge
+
+
+class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
+
+    def __init__(self):
+
+        ObjectManager.__init__(self, "tex_projector", self.__create_tex_projector)
+        CreationPhaseManager.__init__(self, "tex_projector")
+        ObjPropDefaultsManager.__init__(self, "tex_projector")
+
+        self.set_property_default("on", True)
+        self.set_property_default("size", 1.)
+        self.set_property_default("film_w", 1.)
+        self.set_property_default("film_h", 1.)
+        self.set_property_default("film_x", 0.)
+        self.set_property_default("film_y", 0.)
+        self.set_property_default("projection_type", "orthographic")
+
+        self._draw_plane = None
+
+        self._pixel_under_mouse = VBase4()
+        self._target_to_projector_ids = {}
+
+        Mgr.accept("register_texproj_targets", self.__register_projection_targets)
+        Mgr.accept("unregister_texproj_targets", self.__unregister_projection_targets)
+        Mgr.add_app_updater("texproj_prop", self.__set_projector_property,
+                            kwargs=["target_id", "target_prop"])
+        Mgr.add_app_updater("uv_projection", self.__apply_uvs)
+        Mgr.add_app_updater("remove_texproj_target",
+                            self.__remove_projection_target)
+        Mgr.add_app_updater("object_removal", self.__remove_projection_target)
+
+    def setup(self):
+
+        creation_phases = []
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phases.append(creation_phase)
+
+        status_text = {}
+        status_text["obj_type"] = "texture projector"
+        status_text["phase1"] = "draw out the projector"
+
+        CreationPhaseManager.setup(self, creation_phases, status_text)
+
+        add_state = Mgr.add_state
+        add_state("texprojtarget_picking_mode", -10,
+                  self.__enter_picking_mode, self.__exit_picking_mode)
+
+        bind = Mgr.bind_state
+        bind("texprojtarget_picking_mode", "pick texproj target -> navigate", "space",
+             lambda: Mgr.enter_state("navigation_mode"))
+        bind("texprojtarget_picking_mode", "pick texproj target", "mouse1", self.__pick)
+        bind("texprojtarget_picking_mode", "exit texproj target picking", "escape",
+             lambda: Mgr.exit_state("texprojtarget_picking_mode"))
+        bind("texprojtarget_picking_mode", "cancel texproj target picking", "mouse3-up",
+             lambda: Mgr.exit_state("texprojtarget_picking_mode"))
+
+        status_data = GlobalData["status_data"]
+        mode_text = "Pick projector target"
+        info_text = "LMB to pick object; RMB to end"
+        status_data["pick_texproj_target"] = {"mode": mode_text, "info": info_text}
+
+        return True
+
+    def __enter_picking_mode(self, prev_state_id, is_active):
+
+        Mgr.add_task(self.__update_cursor, "update_tpt_picking_cursor")
+        Mgr.update_app("status", "pick_texproj_target")
+
+    def __exit_picking_mode(self, next_state_id, is_active):
+
+        self._pixel_under_mouse = VBase4() # force an update of the cursor
+                                           # next time self.__update_cursor()
+                                           # is called
+        Mgr.remove_task("update_tpt_picking_cursor")
+        Mgr.set_cursor("main")
+
+    def __pick(self):
+
+        target = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+
+        if target and target.get_type() == "model" and target.get_geom_type() != "basic_geom":
+
+            projectors = [obj for obj in Mgr.get("selection", "top")
+                          if obj.get_type() == "tex_projector"]
+
+            if len(projectors) == 1:
+                projector = projectors[0]
+                target_id = target.get_id()
+                projector.add_target(target_id)
+                self.__register_projection_targets([target_id], projector.get_id())
+
+    def __update_cursor(self, task):
+
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
+
+        if self._pixel_under_mouse != pixel_under_mouse:
+            Mgr.set_cursor("main" if pixel_under_mouse == VBase4() else "select")
+            self._pixel_under_mouse = pixel_under_mouse
+
+        return task.cont
+
+    def __apply_uvs(self):
+
+        projectors = [obj for obj in Mgr.get("selection", "top")
+                      if obj.get_type() == "tex_projector"]
+
+        if len(projectors) == 1:
+            projectors[0].apply_uvs()
+
+    def __register_projection_targets(self, target_ids, projector_id, restore=False):
+
+        target_to_proj_ids = self._target_to_projector_ids
+
+        for target_id in target_ids:
+
+            if not restore:
+
+                if target_id in target_to_proj_ids:
+
+                    old_projector_id = target_to_proj_ids[target_id]
+
+                    if old_projector_id != projector_id:
+                        projector = Mgr.get("tex_projector", old_projector_id)
+                        projector.remove_target(target_id)
+
+            target_to_proj_ids[target_id] = projector_id
+
+    def __unregister_projection_targets(self, target_ids):
+
+        target_to_proj_ids = self._target_to_projector_ids
+
+        for target_id in target_ids:
+            if target_id in target_to_proj_ids:
+                del target_to_proj_ids[target_id]
+
+    def __remove_projection_target(self, target_id, add_to_hist=True):
+
+        target_to_proj_ids = self._target_to_projector_ids
+
+        if target_id in target_to_proj_ids:
+            projector_id = target_to_proj_ids[target_id]
+            projector = Mgr.get("tex_projector", projector_id)
+            projector.remove_target(target_id, add_to_hist)
+            del target_to_proj_ids[target_id]
+
+    def __create_object(self, projector_id, name, origin_pos):
+
+        prop_defaults = self.get_property_defaults()
+        projector = TexProjector(projector_id, name, origin_pos,
+                                 prop_defaults["on"],
+                                 prop_defaults["projection_type"],
+                                 prop_defaults["film_w"],
+                                 prop_defaults["film_h"],
+                                 prop_defaults["film_x"],
+                                 prop_defaults["film_y"])
+        projector.register(restore=False)
+
+        return projector
+
+    def __create_tex_projector(self, origin_pos, size=None):
+
+        projector_id = self.generate_object_id()
+        obj_type = self.get_object_type()
+        name = Mgr.get("next_obj_name", obj_type)
+        projector = self.__create_object(projector_id, name, origin_pos)
+        prop_defaults = self.get_property_defaults()
+        projector.set_size(prop_defaults["size"] if size is None else size)
+        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
+        # make undo/redoable
+        self.add_history(projector)
+
+        yield False
+
+    def __start_creation_phase1(self):
+        """ start drawing out texture projector """
+
+        origin_pos = self.get_origin_pos()
+        projection_type = self.get_property_defaults()["projection_type"]
+        tmp_projector = TemporaryTexProjector(origin_pos, projection_type)
+        self.init_object(tmp_projector)
+
+        # Create the plane parallel to the camera and going through the projector
+        # origin, used to determine the size drawn by the user.
+
+        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
+        grid_origin = Mgr.get(("grid", "origin"))
+        point = self.world.get_relative_point(grid_origin, origin_pos)
+        self._draw_plane = Plane(normal, point)
+
+    def __creation_phase1(self):
+        """ Draw out texture projector """
+
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        near_point = rel_pt(near_point)
+        far_point = rel_pt(far_point)
+        intersection_point = Point3()
+        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
+        grid_origin = Mgr.get(("grid", "origin"))
+        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        size = max(.001, (intersection_point - point).length())
+        self.get_object().set_size(size)
+
+    def __set_projector_property(self, prop_id, value, projector_id=None,
+                                 add_to_hist=True, target_id=None, target_prop=""):
+
+        if projector_id:
+            objs = [Mgr.get("tex_projector", projector_id)]
+        else:
+            objs = Mgr.get("selection")
+
+        if not objs:
+            return
+
+        changed_objs = [obj for obj in objs if obj.set_property(prop_id, value)]
+
+        if not changed_objs:
+            return
+
+        if not add_to_hist:
+            return
+
+        Mgr.do("update_history_time")
+
+        obj_data = {}
+
+        for obj in changed_objs:
+            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", prop_id)
+
+        if prop_id == "on":
+
+            if len(changed_objs) == 1:
+                obj = changed_objs[0]
+                event_descr = 'Turn %s "%s"' % ("on" if value else "off", obj.get_name())
+            else:
+                event_descr = 'Turn %s texture projectors:\n' % ("on" if value else "off")
+                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+
+        elif prop_id == "targets":
+
+            model = Mgr.get("model", target_id)
+            target_name = model.get_name() if model else ""
+
+            if target_id in value:
+                target_data = value[target_id]
+
+            if target_prop == "add":
+                event_descr = 'Add projection target to "%s":\n' % obj.get_name()
+                event_descr += '\n    "%s"' % target_name
+            elif target_prop == "remove":
+                if target_name:
+                    event_descr = 'Remove projection target from "%s":\n' % obj.get_name()
+                    event_descr += '\n    "%s"' % target_name
+                else:
+                    event_descr = 'Remove deleted projection target from "%s"' % obj.get_name()
+            elif target_prop == "clear":
+                event_descr = 'Clear projection targets from "%s"' % obj.get_name()
+            elif target_prop == "use_poly_sel":
+                event_descr = 'Change projection property of "%s"' % obj.get_name()
+                event_descr += '\nfor target "%s":\n' % target_name
+                event_descr += "\n    project onto %s" % ("entire target"
+                    if target_data["toplvl"] else "selected polys only")
+            elif target_prop == "show_poly_sel":
+                event_descr = 'Change projection property of "%s"' % obj.get_name()
+                event_descr += '\nfor target "%s":\n' % target_name
+                event_descr += "\n    %s selection state of affected polys" % ("show"
+                    if target_data["show_poly_sel"] else "hide")
+            elif target_prop == "uv_set_ids":
+                uv_set_id_str = str(target_data["uv_set_ids"]).strip("(),")
+                event_descr = 'Change projection property of "%s"' % obj.get_name()
+                event_descr += '\nfor target "%s":\n' % target_name
+                event_descr += "\n    affect UV sets: %s" % uv_set_id_str
+
+        else:
+
+            if prop_id == "projection_type":
+                prop_descr = "projection type"
+            elif prop_id == "film_w":
+                prop_descr = "film width"
+            elif prop_id == "film_h":
+                prop_descr = "film height"
+            elif prop_id == "film_x":
+                prop_descr = "film X offset"
+            elif prop_id == "film_y":
+                prop_descr = "film Y offset"
+            else:
+                prop_descr = prop_id
+
+            if len(changed_objs) == 1:
+                obj = changed_objs[0]
+                event_descr = 'Change %s of "%s"\nto %s' % (prop_descr, obj.get_name(), value)
+            else:
+                event_descr = 'Change %s of texture projectors:\n' % prop_descr
+                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+                event_descr += '\n\nto %s' % value
+
+        event_data = {"objects": obj_data}
+
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+
 MainObjects.add_class(TexProjectorEdgeManager)
+MainObjects.add_class(TexProjectorManager)

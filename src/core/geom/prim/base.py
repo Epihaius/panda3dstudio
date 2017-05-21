@@ -98,98 +98,6 @@ FRAG_SHADER = """
 """
 
 
-class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager):
-
-    def __init__(self, prim_type, custom_creation=False):
-
-        CreationPhaseManager.__init__(self, prim_type, has_color=True)
-        ObjPropDefaultsManager.__init__(self, prim_type)
-
-        Mgr.accept("create_%s" % prim_type, self.__create)
-
-        if custom_creation:
-            Mgr.accept("create_custom_%s" % prim_type, self.create_custom_primitive)
-
-    def setup(self, creation_phases, status_text):
-
-        phase_starter, phase_handler = creation_phases.pop(0)
-        creation_starter = self.__get_prim_creation_starter(phase_starter)
-        creation_phases.insert(0, (creation_starter, phase_handler))
-
-        return CreationPhaseManager.setup(self, creation_phases, status_text)
-
-    def __get_prim_creation_starter(self, main_creation_func):
-
-        def start_primitive_creation():
-
-            next_color = self.get_next_object_color()
-            tmp_prim = self.create_temp_primitive(next_color, self.get_origin_pos())
-            self.init_object(tmp_prim)
-
-            main_creation_func()
-
-        return start_primitive_creation
-
-    def get_temp_primitive(self):
-
-        return self.get_object()
-
-    def create_temp_primitive(self, color, pos):
-        """ Override in derived class """
-
-        return None
-
-    def create_primitive(self, model):
-        """ Override in derived class """
-
-        yield None
-
-    def init_primitive_size(self, prim, size=None):
-        """ Override in derived class """
-
-        pass
-
-    def __create(self, origin_pos, size=None):
-
-        Mgr.do("create_registry_backups")
-        Mgr.do("create_id_range_backups")
-        model_id = self.generate_object_id()
-        obj_type = self.get_object_type()
-        name = Mgr.get("next_obj_name", obj_type)
-        model = Mgr.do("create_model", model_id, name, origin_pos)
-        next_color = self.get_next_object_color()
-        model.set_color(next_color, update_app=False)
-        prim = None
-        gradual = True
-
-        for result in self.create_primitive(model):
-            if result:
-                prim, gradual = result
-            if gradual:
-                yield True
-
-        self.init_primitive_size(prim, size)
-        geom_data_obj = prim.get_geom_data_object()
-
-        for step in geom_data_obj.finalize_geometry():
-            if gradual:
-                yield True
-
-        self.set_next_object_color()
-        Mgr.exit_state("processing")
-        model.register(restore=False)
-        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
-        # make undo/redoable
-        self.add_history(model)
-
-        yield False
-
-    def create_custom_primitive(self, *args, **kwargs):
-        """ Override in derived class """
-
-        yield None
-
-
 class TemporaryPrimitive(BaseObject):
 
     def __init__(self, prim_type, color, pos):
@@ -417,12 +325,12 @@ class Primitive(GeomDataOwner):
 
         pass
 
-    def create(self, poly_count, merged_vert_count):
+    def create(self, poly_count, force_gradual=False):
 
-        progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
-        gradual = progress_steps > 100
+        progress_steps = (poly_count // 20) * 4
+        gradual = True if force_gradual else progress_steps > 80
 
-        if gradual:
+        if gradual and not force_gradual:
             GlobalData["progress_steps"] = progress_steps
 
         geom_data_obj = Mgr.do("create_geom_data", self)
@@ -434,10 +342,14 @@ class Primitive(GeomDataOwner):
                 yield
 
         self.update(data)
+        geom_data_obj.init_normal_sharing()
+        geom_data_obj.update_smoothing()
 
         for step in geom_data_obj.create_geometry(self._type, gradual=gradual):
             if gradual:
                 yield
+
+        geom_data_obj.update_vertex_normals()
 
     def cancel_geometry_recreation(self, info):
 
@@ -455,7 +367,7 @@ class Primitive(GeomDataOwner):
             self.set_geom_data_backup(None)
             model.get_bbox().update(*self.get_origin().get_tight_bounds())
 
-    def recreate_geometry(self, poly_count, merged_vert_count):
+    def recreate_geometry(self, poly_count):
 
         obj_id = self.get_toplevel_object().get_id()
         id_str = str(obj_id) + "_geom_data"
@@ -474,8 +386,8 @@ class Primitive(GeomDataOwner):
 
         def task():
 
-            progress_steps = (poly_count // 20) * 3 + poly_count // 50 + merged_vert_count // 20
-            gradual = progress_steps > 100
+            progress_steps = (poly_count // 20) * 4
+            gradual = progress_steps > 80
 
             if gradual:
                 Mgr.show_screenshot()
@@ -493,20 +405,24 @@ class Primitive(GeomDataOwner):
                     yield True
 
             self.update(data)
+            geom_data_obj.init_normal_sharing()
+            geom_data_obj.update_smoothing()
 
             for step in geom_data_obj.create_geometry(self._type, gradual=gradual):
                 if gradual:
                     yield True
 
-            self.update_initial_coords()
+            if self.has_flipped_normals():
+                geom_data_obj.flip_normals(delay=False)
 
-            for step in self.finalize():
-                if gradual:
-                    yield True
+            geom_data_obj.update_vertex_normals(update_tangent_space=False)
+
+            self.update_initial_coords()
+            self.finalize()
 
             geom_data_obj.register(restore=False)
 
-            if self.get_geom_data_backup().has_tangent_space():
+            if self.get_model().has_tangent_space():
                 geom_data_obj.init_tangent_space()
 
             yield False
@@ -546,10 +462,9 @@ class Primitive(GeomDataOwner):
 
         return self._initial_coords[vertex_id]
 
-    def finalize(self, update_poly_centers=True):
+    def finalize(self):
 
-        for step in self.get_geom_data_object().finalize_geometry(update_poly_centers):
-            yield
+        self.get_geom_data_object().finalize_geometry()
 
     def get_property_to_store(self, prop_id, event_type=""):
 
@@ -566,21 +481,98 @@ class Primitive(GeomDataOwner):
         if prop_id == "geom_data":
             val.restore_data(["self"], restore_type, old_time_id, new_time_id)
 
-    def set_property(self, prop_id, value, restore=""):
+    def make_geometry_editable(self):
 
-        if prop_id == "geom_data":
+        obj_type = "editable_geom"
+        geom_data_obj = self.get_geom_data_object()
+        editable_geom = Mgr.do("create_%s" % obj_type, self.get_model(), geom_data_obj)
+        editable_geom.set_flipped_normals(self.has_flipped_normals())
+        Mgr.update_remotely("selected_obj_types", (obj_type,))
 
-            return GeomDataOwner.set_property(self, prop_id, value, restore)
 
-        elif prop_id == "editable state":
+class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager):
 
-            obj_type = "editable_geom"
-            geom_data_obj = self.get_geom_data_object()
-            Mgr.do("create_%s" % obj_type, self.get_model(), geom_data_obj)
-            Mgr.update_remotely("selected_obj_types", (obj_type,))
+    def __init__(self, prim_type, custom_creation=False):
 
-            return True
+        CreationPhaseManager.__init__(self, prim_type, has_color=True)
+        ObjPropDefaultsManager.__init__(self, prim_type)
 
-        else:
+        Mgr.accept("create_%s" % prim_type, self.__create)
 
-            return self.get_geom_data_object().set_property(prop_id, value, restore)
+        if custom_creation:
+            Mgr.accept("create_custom_%s" % prim_type, self.create_custom_primitive)
+
+    def setup(self, creation_phases, status_text):
+
+        phase_starter, phase_handler = creation_phases.pop(0)
+        creation_starter = self.__get_prim_creation_starter(phase_starter)
+        creation_phases.insert(0, (creation_starter, phase_handler))
+
+        return CreationPhaseManager.setup(self, creation_phases, status_text)
+
+    def __get_prim_creation_starter(self, main_creation_func):
+
+        def start_primitive_creation():
+
+            next_color = self.get_next_object_color()
+            tmp_prim = self.create_temp_primitive(next_color, self.get_origin_pos())
+            self.init_object(tmp_prim)
+
+            main_creation_func()
+
+        return start_primitive_creation
+
+    def get_temp_primitive(self):
+
+        return self.get_object()
+
+    def create_temp_primitive(self, color, pos):
+        """ Override in derived class """
+
+        return None
+
+    def create_primitive(self, model):
+        """ Override in derived class """
+
+        yield None
+
+    def init_primitive_size(self, prim, size=None):
+        """ Override in derived class """
+
+        pass
+
+    def __create(self, origin_pos, size=None):
+
+        Mgr.do("create_registry_backups")
+        Mgr.do("create_id_range_backups")
+        model_id = self.generate_object_id()
+        obj_type = self.get_object_type()
+        name = Mgr.get("next_obj_name", obj_type)
+        model = Mgr.do("create_model", model_id, name, origin_pos)
+        next_color = self.get_next_object_color()
+        model.set_color(next_color, update_app=False)
+        prim = None
+        gradual = True
+
+        for result in self.create_primitive(model):
+            if result:
+                prim, gradual = result
+            if gradual:
+                yield True
+
+        self.init_primitive_size(prim, size)
+        geom_data_obj = prim.get_geom_data_object()
+        geom_data_obj.finalize_geometry()
+        self.set_next_object_color()
+        Mgr.exit_state("processing")
+        model.register(restore=False)
+        Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
+        # make undo/redoable
+        self.add_history(model)
+
+        yield False
+
+    def create_custom_primitive(self, *args, **kwargs):
+        """ Override in derived class """
+
+        yield None
