@@ -469,7 +469,7 @@ class TriangulationManager(BaseObject):
 
     def __init_diagonal_turning_mode(self):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         geom_data_objs = [obj.get_geom_object().get_geom_data_object()
                           for obj in selection]
 
@@ -511,16 +511,19 @@ class TriangulationManager(BaseObject):
             self._excluded_geom_data_objs = []
             self._diagonals = []
 
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self._update_cursor()
-                                           # is called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self._update_cursor()
+                                        # is called
         Mgr.remove_task("update_diagonal_turning_cursor")
         Mgr.set_cursor("main")
 
     def __turn_diagonal(self):
 
+        if not self._pixel_under_mouse:
+            return
+
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        color_id = r << 16 | g << 8 | b
 
         if color_id == 0:
             return

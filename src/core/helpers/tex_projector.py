@@ -1103,7 +1103,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
         self._draw_plane = None
 
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
         self._target_to_projector_ids = {}
 
         Mgr.accept("register_texproj_targets", self.__register_projection_targets)
@@ -1154,9 +1154,9 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self.__update_cursor()
-                                           # is called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self.__update_cursor()
+                                        # is called
         Mgr.remove_task("update_tpt_picking_cursor")
         Mgr.set_cursor("main")
 
@@ -1166,7 +1166,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
         if target and target.get_type() == "model" and target.get_geom_type() != "basic_geom":
 
-            projectors = [obj for obj in Mgr.get("selection", "top")
+            projectors = [obj for obj in Mgr.get("selection_top")
                           if obj.get_type() == "tex_projector"]
 
             if len(projectors) == 1:
@@ -1187,7 +1187,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
     def __apply_uvs(self):
 
-        projectors = [obj for obj in Mgr.get("selection", "top")
+        projectors = [obj for obj in Mgr.get("selection_top")
                       if obj.get_type() == "tex_projector"]
 
         if len(projectors) == 1:

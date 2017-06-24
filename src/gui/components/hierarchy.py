@@ -102,31 +102,31 @@ class HierarchyPanel(Panel):
         checkbox.check()
         self._checkboxes["group_member_linking_allowed"] = checkbox
         subsizer.Add(wx.Size(5, 0))
-        section.add_text("Affect group membership", subsizer, sizer_args)
+        section.add_text("Affect group membership:", subsizer, sizer_args)
 
         subsizer = wx.BoxSizer()
         sizer.Add(subsizer)
 
-        subsizer.Add(wx.Size(15, 0))
+        subsizer.Add(wx.Size(20, 0))
         checkbox = PanelCheckBox(self, section, subsizer,
                                  self.__toggle_open_group_member_linking,
                                  sizer_args=sizer_args)
         checkbox.check()
         self._checkboxes["group_member_linking_open_groups_only"] = checkbox
         subsizer.Add(wx.Size(5, 0))
-        section.add_text("Affect open groups only", subsizer, sizer_args)
+        section.add_text("affect open groups only", subsizer, sizer_args)
 
         subsizer = wx.BoxSizer()
         sizer.Add(subsizer)
 
-        subsizer.Add(wx.Size(15, 0))
+        subsizer.Add(wx.Size(20, 0))
         checkbox = PanelCheckBox(self, section, subsizer,
                                  self.__toggle_group_member_unlink_only,
                                  sizer_args=sizer_args)
         checkbox.check()
         self._checkboxes["group_member_linking_unlink_only"] = checkbox
         subsizer.Add(wx.Size(5, 0))
-        section.add_text("Unlink only", subsizer, sizer_args)
+        section.add_text("unlink only", subsizer, sizer_args)
 
         # ************************ Transforms section **************************
 

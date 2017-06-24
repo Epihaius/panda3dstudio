@@ -43,7 +43,7 @@ class ViewGizmo(BaseObject):
         self._time = 0.
         self._has_focus = False
         self._reached_full_size = False
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
         self._is_pinned = False
         self._is_clicked = False
         self._is_orbiting = False
@@ -583,7 +583,7 @@ class ViewGizmo(BaseObject):
     def __hilite_handle(self, task=None):
 
         r, g, b, a = [int(round(c * 255.)) for c in self._picking_cam.pixel_color]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        color_id = r << 16 | g << 8 | b
         handle_ids = self._handle_ids
         handle_id = handle_ids[color_id] if color_id in handle_ids else ""
 

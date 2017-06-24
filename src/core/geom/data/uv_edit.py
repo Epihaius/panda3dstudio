@@ -5,6 +5,7 @@ class UVEditBase(BaseObject):
 
     def __init__(self):
 
+        self._uv_set_names = ["", "1", "2", "3", "4", "5", "6", "7"]
         self._has_poly_tex_proj = False
         self._uv_change = set()
         self._copied_uvs = {}
@@ -17,18 +18,54 @@ class UVEditBase(BaseObject):
     def init_uvs(self):
 
         vertex_data_poly = self._vertex_data["poly"]
-        uv_writer = GeomVertexWriter(vertex_data_poly, "texcoord")
+        uv_writers = [GeomVertexWriter(vertex_data_poly, "texcoord")]
+
+        for i in range(1, 8):
+            uv_writer = GeomVertexWriter(vertex_data_poly, "texcoord.%d" % i)
+            uv_writers.append(uv_writer)
 
         for poly in self._ordered_polys:
-            for vert in poly.get_vertices():
-                row = vert.get_row_index()
-                uv = vert.get_uvs(0)
-                uv_writer.set_row(row)
-                uv_writer.set_data2f(uv)
 
-        array = vertex_data_poly.get_array(4)
+            for vert in poly.get_vertices():
+
+                row = vert.get_row_index()
+                uvs = vert.get_uvs()
+
+                for uv_set_id, uv in uvs.iteritems():
+                    uv_writer = uv_writers[uv_set_id]
+                    uv_writer.set_row(row)
+                    uv_writer.set_data2f(uv)
+
+        arrays = []
+
+        for i in range(8):
+            array = vertex_data_poly.get_array(4 + i)
+            arrays.append(array)
+
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
-        vertex_data_top.set_array(4, GeomVertexArrayData(array))
+
+        for i, array in enumerate(arrays):
+            vertex_data_top.set_array(4 + i, GeomVertexArrayData(array))
+
+    def set_uv_set_names(self, uv_set_names):
+
+        if self._uv_set_names == uv_set_names:
+            return False
+
+        self._uv_set_names = uv_set_names
+
+        return True
+
+    def get_uv_set_names(self):
+
+        return self._uv_set_names
+
+    def _restore_uv_set_names(self, time_id):
+
+        obj_id = self.get_toplevel_object().get_id()
+        prop_id = self._unique_prop_ids["uv_set_names"]
+        data = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
+        self._uv_set_names = data
 
     def create_tex_seams(self, uv_set_id, seam_edge_ids, color):
 
@@ -177,7 +214,7 @@ class UVEditBase(BaseObject):
 
     def clear_tex_seam_selection(self, uv_set_id, color):
 
-        self.clear_selection("edge", False)
+        self.clear_selection("edge", False, True)
 
         if not uv_set_id in self._tex_seam_edge_ids:
             return

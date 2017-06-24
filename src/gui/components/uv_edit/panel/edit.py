@@ -6,7 +6,7 @@ class SubobjectPanel(Panel):
 
     def __init__(self, parent, focus_receiver=None):
 
-        Panel.__init__(self, parent, "Subobjects", focus_receiver, "uv_window")
+        Panel.__init__(self, parent, "Subobject level", focus_receiver, "uv_window")
 
         self._parent = parent
         self._width = parent.get_width()
@@ -56,9 +56,31 @@ class SubobjectPanel(Panel):
         vert_section = section = self.add_section("vert_props", "Vertices")
         sizer = section.get_client_sizer()
 
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer)
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+
+        checkbox = PanelCheckBox(self, section, subsizer, self.__handle_picking_via_poly,
+                                 focus_receiver=focus_receiver)
+        checkbox.check(False)
+        self._checkboxes["pick_vert_via_poly"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("Pick via polygon", subsizer, sizer_args)
+        subsizer.Add(wx.Size(10, 0))
+        checkbox = PanelCheckBox(self, section, subsizer, self.__handle_picking_by_aiming,
+                                 focus_receiver=focus_receiver)
+        checkbox.check(False)
+        self._checkboxes["pick_vert_by_aiming"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("aim", subsizer, sizer_args)
+
+        btn_sizer = wx.BoxSizer()
+        sizer.Add(btn_sizer, 0, wx.ALL, 4)
+        sizer_args = (0, wx.RIGHT, 5)
+
         label = "Break"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, sizer, bitmaps, label, "Break selected vertices",
+        btn = PanelButton(self, section, btn_sizer, bitmaps, label, "Break selected vertices",
                           self.__break_vertices, sizer_args, focus_receiver=focus_receiver)
         self._btns["break_verts"] = btn
 
@@ -66,6 +88,37 @@ class SubobjectPanel(Panel):
 
         edge_section = section = self.add_section("edge_props", "Edges")
         sizer = section.get_client_sizer()
+
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer)
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+
+        checkbox = PanelCheckBox(self, section, subsizer, self.__handle_picking_via_poly,
+                                 focus_receiver=focus_receiver)
+        checkbox.check(False)
+        self._checkboxes["pick_edge_via_poly"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("Pick via polygon", subsizer, sizer_args)
+        subsizer.Add(wx.Size(10, 0))
+        checkbox = PanelCheckBox(self, section, subsizer, self.__handle_picking_by_aiming,
+                                 focus_receiver=focus_receiver)
+        checkbox.check(False)
+        self._checkboxes["pick_edge_by_aiming"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("aim", subsizer, sizer_args)
+
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer, 0, wx.TOP, 5)
+
+        def handler(by_seam):
+
+            GlobalData["uv_edit_options"]["sel_edges_by_seam"] = by_seam
+
+        checkbox = PanelCheckBox(self, section, subsizer, handler, focus_receiver=focus_receiver)
+        checkbox.check(False)
+        self._checkboxes["sel_edges_by_seam"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("Select by seam", subsizer, sizer_args)
 
         btn_sizer = wx.BoxSizer()
         sizer.Add(btn_sizer, 0, wx.ALL, 4)
@@ -87,6 +140,20 @@ class SubobjectPanel(Panel):
 
         poly_section = section = self.add_section("poly_props", "Polygons")
         sizer = section.get_client_sizer()
+
+        subsizer = wx.BoxSizer()
+        sizer.Add(subsizer)
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+
+        def handler(by_cluster):
+
+            GlobalData["uv_edit_options"]["sel_polys_by_cluster"] = by_cluster
+
+        checkbox = PanelCheckBox(self, section, subsizer, handler, focus_receiver=focus_receiver)
+        checkbox.check(False)
+        self._checkboxes["sel_polys_by_cluster"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("Select by cluster", subsizer, sizer_args)
 
         btn_sizer = wx.BoxSizer()
         sizer.Add(btn_sizer, 0, wx.ALL, 4)
@@ -175,6 +242,21 @@ class SubobjectPanel(Panel):
 
         Mgr.add_interface_updater("uv_window", "uv_level", self.__set_uv_level)
         Mgr.add_interface_updater("uv_window", "poly_color", self.__set_poly_color)
+        Mgr.add_interface_updater("uv_window", "uv_edit_options", self.__update_uv_edit_options)
+
+    def __update_uv_edit_options(self):
+
+        for option, value in GlobalData["uv_edit_options"].iteritems():
+            if option == "pick_via_poly":
+                for subobj_type in ("vert", "edge"):
+                    self._checkboxes["pick_%s_via_poly" % subobj_type].check(value)
+            elif option == "pick_by_aiming":
+                for subobj_type in ("vert", "edge"):
+                    self._checkboxes["pick_%s_by_aiming" % subobj_type].check(value)
+            elif option in self._checkboxes:
+                self._checkboxes[option].check(value)
+            elif option in self._fields:
+                self._fields[option].set_value(option, value)
 
     def get_clipping_rect(self):
 
@@ -204,6 +286,21 @@ class SubobjectPanel(Panel):
     def __set_subobj_level(self, uv_level):
 
         Mgr.update_interface("uv_window", "uv_level", uv_level)
+
+    def __handle_picking_via_poly(self, via_poly):
+
+        Mgr.update_interface_remotely("uv_window", "picking_via_poly", via_poly)
+
+        for subobj_type in ("vert", "edge"):
+            self._checkboxes["pick_%s_via_poly" % subobj_type].check(via_poly)
+
+    def __handle_picking_by_aiming(self, by_aiming):
+
+        GlobalData["uv_edit_options"]["pick_by_aiming"] = by_aiming
+        GlobalData["subobj_edit_options"]["pick_by_aiming"] = by_aiming
+
+        for subobj_type in ("vert", "edge"):
+            self._checkboxes["pick_%s_by_aiming" % subobj_type].check(by_aiming)
 
     def __break_vertices(self):
 

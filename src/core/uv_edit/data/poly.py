@@ -3,34 +3,24 @@ from ..base import *
 
 class Polygon(BaseObject):
 
-    def __init__(self, poly_id, picking_col_id, uv_data_obj, triangle_data, edges,
-                 verts, data_copy=None):
+    def __init__(self, poly_id, picking_col_id, uv_data_obj=None, triangle_data=None,
+                 vert_ids=None, edge_ids=None, data_copy=None):
 
         self._type = "poly"
         self._id = poly_id
         self._picking_col_id = picking_col_id
         self._uv_data_obj = uv_data_obj
-        self._tri_data = triangle_data
 
         if data_copy:
-
             center_pos = data_copy["center_pos"]
+            triangle_data = data_copy["tri_data"]
             vert_ids = data_copy["vert_ids"]
             edge_ids = data_copy["edge_ids"]
-
         else:
-
             center_pos = Point3()
-            vert_ids = [vert.get_id() for vert in verts]
-            edge_ids = [edge.get_id() for edge in edges]
-
-            for vert in verts:
-                vert.set_polygon_id(poly_id)
-
-            for edge in edges:
-                edge.set_polygon_id(poly_id)
 
         self._center_pos = center_pos
+        self._tri_data = triangle_data
         self._vert_ids = vert_ids
         self._edge_ids = edge_ids
 
@@ -38,10 +28,10 @@ class Polygon(BaseObject):
 
         data_copy = {}
         data_copy["center_pos"] = self._center_pos
+        data_copy["tri_data"] = self._tri_data[:]
         data_copy["vert_ids"] = self._vert_ids[:]
         data_copy["edge_ids"] = self._edge_ids[:]
-        poly = Polygon(self._id, self._picking_col_id, None, self._tri_data[:], None,
-                       None, data_copy)
+        poly = Polygon(self._id, self._picking_col_id, data_copy=data_copy)
 
         return poly
 
@@ -87,6 +77,18 @@ class Polygon(BaseObject):
 
         return self
 
+    def get_neighbor_ids(self):
+
+        merged_verts = self._uv_data_obj.get_merged_vertices()
+        neighbor_ids = set()
+
+        for vert_id in self._vert_ids:
+            neighbor_ids.update(merged_verts[vert_id].get_polygon_ids())
+
+        neighbor_ids.remove(self._id)
+
+        return neighbor_ids
+
     def get_vertex_ids(self):
 
         return self._vert_ids
@@ -116,6 +118,15 @@ class Polygon(BaseObject):
         verts = self._uv_data_obj.get_subobjects("vert")
 
         return [verts[vert_id].get_row_index() for vert_id in self._vert_ids]
+
+    def get_special_selection(self):
+
+        polys = [self]
+
+        if GlobalData["uv_edit_options"]["sel_polys_by_cluster"]:
+            polys = self._uv_data_obj.get_polygon_cluster(self._id)
+
+        return polys
 
     def update_center_pos(self):
 

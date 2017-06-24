@@ -304,7 +304,7 @@ class InputField(wx.PyWindow, FocusResetter):
 
         t_ctrl.Clear()
 
-        if self._is_text_shown:
+        if self._is_text_shown and val_str:
             t_ctrl.WriteText(val_str)
         else:
             t_ctrl.SetDefaultStyle(t_ctrl.GetDefaultStyle())
@@ -326,7 +326,7 @@ class InputField(wx.PyWindow, FocusResetter):
 
         t_ctrl.Clear()
 
-        if self._is_text_shown:
+        if self._is_text_shown and old_text:
             t_ctrl.WriteText(old_text)
         else:
             t_ctrl.SetDefaultStyle(t_ctrl.GetDefaultStyle())
@@ -343,7 +343,11 @@ class InputField(wx.PyWindow, FocusResetter):
         if self._is_text_shown and value_id == self._value_id and t_ctrl.GetValue() != val_str:
 
             t_ctrl.Clear()
-            t_ctrl.WriteText(val_str)
+
+            if val_str:
+                t_ctrl.WriteText(val_str)
+            else:
+                t_ctrl.SetDefaultStyle(t_ctrl.GetDefaultStyle())
 
             if not self._is_enabled:
                 self.Refresh()

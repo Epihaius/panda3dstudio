@@ -13,12 +13,12 @@ class EditableGeomProperties(BaseObject):
         toggle = (self.__set_topobj_level, lambda: None)
         self._subobj_btns.set_default_toggle("top", toggle)
 
+        bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
+
         # ************************* Subobject level section *******************
 
-        main_section = section = panel.add_section("subobj_lvl", "Subobject level")
+        lvl_section = section = panel.add_section("subobj_lvl", "Subobject level")
         sizer = section.get_client_sizer()
-
-        bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
 
         btn_sizer = wx.BoxSizer()
         sizer.Add(btn_sizer, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 2)
@@ -59,14 +59,20 @@ class EditableGeomProperties(BaseObject):
         sizer = section.get_client_sizer()
 
         subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 2)
+        sizer.Add(subsizer)
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_selection_via_poly)
+        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_via_poly)
         checkbox.check(False)
-        self._checkboxes["sel_vert_via_poly"] = checkbox
+        self._checkboxes["pick_vert_via_poly"] = checkbox
         subsizer.Add(wx.Size(5, 0))
-        section.add_text("Select using polygon", subsizer, sizer_args)
+        section.add_text("Pick via polygon", subsizer, sizer_args)
+        subsizer.Add(wx.Size(10, 0))
+        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_by_aiming)
+        checkbox.check(False)
+        self._checkboxes["pick_vert_by_aiming"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("aim", subsizer, sizer_args)
 
         subsizer = wx.BoxSizer()
         sizer.Add(subsizer, 0, wx.ALL, 4)
@@ -106,14 +112,20 @@ class EditableGeomProperties(BaseObject):
         sizer = section.get_client_sizer()
 
         subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 2)
+        sizer.Add(subsizer)
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_selection_via_poly)
+        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_via_poly)
         checkbox.check(False)
-        self._checkboxes["sel_normal_via_poly"] = checkbox
+        self._checkboxes["pick_normal_via_poly"] = checkbox
         subsizer.Add(wx.Size(5, 0))
-        section.add_text("Select using polygon", subsizer, sizer_args)
+        section.add_text("Pick via polygon", subsizer, sizer_args)
+        subsizer.Add(wx.Size(10, 0))
+        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_by_aiming)
+        checkbox.check(False)
+        self._checkboxes["pick_normal_by_aiming"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("aim", subsizer, sizer_args)
 
         subsizer = wx.BoxSizer()
         sizer.Add(subsizer, 0, wx.ALL, 4)
@@ -174,17 +186,23 @@ class EditableGeomProperties(BaseObject):
         sizer = section.get_client_sizer()
 
         subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 2)
+        sizer.Add(subsizer)
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_selection_via_poly)
+        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_via_poly)
         checkbox.check(False)
-        self._checkboxes["sel_edge_via_poly"] = checkbox
+        self._checkboxes["pick_edge_via_poly"] = checkbox
         subsizer.Add(wx.Size(5, 0))
-        section.add_text("Select using polygon", subsizer, sizer_args)
+        section.add_text("Pick via polygon", subsizer, sizer_args)
+        subsizer.Add(wx.Size(10, 0))
+        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_by_aiming)
+        checkbox.check(False)
+        self._checkboxes["pick_edge_by_aiming"] = checkbox
+        subsizer.Add(wx.Size(5, 0))
+        section.add_text("aim", subsizer, sizer_args)
 
         subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 2)
+        sizer.Add(subsizer, 0, wx.TOP, 5)
 
         def handler(by_border):
 
@@ -218,13 +236,15 @@ class EditableGeomProperties(BaseObject):
 
         label = "Merge..."
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Merge picked edge (selection) with target",
+        btn = PanelButton(panel, section, btn_sizer, bitmaps, label,
+                          "Merge picked edge (selection) with target",
                           self.__merge_edges, sizer_args)
         self._btns["merge_edges"] = btn
 
         label = "Bridge..."
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Create poly(s) between picked edge (selection) and target",
+        btn = PanelButton(panel, section, btn_sizer, bitmaps, label,
+                          "Create poly(s) between picked edge (selection) and target",
                           self.__bridge_edges)
         self._btns["bridge_edges"] = btn
 
@@ -305,22 +325,22 @@ class EditableGeomProperties(BaseObject):
 
         sizer.Add(wx.Size(0, 4))
 
-        group = section.add_group("Polygon regions")
+        group = section.add_group("Contiguous surfaces")
         grp_sizer = group.get_client_sizer()
 
         subsizer = wx.BoxSizer()
         grp_sizer.Add(subsizer)
         sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
-        def handler(by_region):
+        def handler(by_surface):
 
-            GlobalData["subobj_edit_options"]["sel_polys_by_region"] = by_region
+            GlobalData["subobj_edit_options"]["sel_polys_by_surface"] = by_surface
 
         checkbox = PanelCheckBox(panel, group, subsizer, handler)
         checkbox.check(False)
-        self._checkboxes["sel_polys_by_region"] = checkbox
+        self._checkboxes["sel_polys_by_surface"] = checkbox
         subsizer.Add(wx.Size(5, 0))
-        group.add_text("Select by region", subsizer, sizer_args)
+        group.add_text("Select by surface", subsizer, sizer_args)
 
         grp_sizer.Add(wx.Size(0, 6))
 
@@ -328,12 +348,12 @@ class EditableGeomProperties(BaseObject):
         grp_sizer.Add(btn_sizer)
         sizer_args = (0, wx.RIGHT, 5)
 
-        label = "Flip (inside out)"
+        label = "Invert surfaces"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
         btn = PanelButton(panel, group, btn_sizer, bitmaps, label,
-                          "Flip regions containing selected polygons",
-                          self.__flip_poly_regions, sizer_args)
-        self._btns["flip_regions"] = btn
+                          "Invert surfaces containing selected polygons",
+                          self.__invert_poly_surfaces, sizer_args)
+        self._btns["invert_surfaces"] = btn
 
         sizer.Add(wx.Size(0, 2))
 
@@ -420,46 +440,41 @@ class EditableGeomProperties(BaseObject):
         # **************************************************************************
 
         Mgr.add_app_updater("subobj_edit_options", self.__update_subobj_edit_options)
-        Mgr.add_app_updater("selection_via_poly", self.__update_selection_via_poly)
-        Mgr.add_app_updater("normal_preserve", self.__update_normal_preserve)
 
     def __update_subobj_edit_options(self):
 
         for option, value in GlobalData["subobj_edit_options"].iteritems():
-            if option in self._checkboxes:
+            if option == "pick_via_poly":
+                for subobj_type in ("vert", "edge", "normal"):
+                    self._checkboxes["pick_%s_via_poly" % subobj_type].check(value)
+            elif option == "pick_by_aiming":
+                for subobj_type in ("vert", "edge", "normal"):
+                    self._checkboxes["pick_%s_by_aiming" % subobj_type].check(value)
+            elif option == "normal_preserve":
+                for subobj_type in ("vert", "edge", "poly"):
+                    self._checkboxes["%s_normal_preserve" % subobj_type].check(value)
+            elif option in self._checkboxes:
                 self._checkboxes[option].check(value)
             elif option in self._fields:
                 self._fields[option].set_value(option, value)
 
-    def __update_selection_via_poly(self):
+    def __handle_picking_via_poly(self, via_poly):
 
-        via_poly = GlobalData["selection_via_poly"]
-
-        for subobj_type in ("vert", "edge", "normal"):
-            self._checkboxes["sel_%s_via_poly" % subobj_type].check(via_poly)
-
-    def __handle_selection_via_poly(self, via_poly):
-
-        if Mgr.get_state_id() not in ("selection_mode", "navigation_mode"):
-            for subobj_type in ("vert", "edge", "normal"):
-                self._checkboxes["sel_%s_via_poly" % subobj_type].check(not via_poly)
-            return
-
-        Mgr.update_remotely("selection_via_poly", via_poly)
+        Mgr.update_remotely("picking_via_poly", via_poly)
 
         for subobj_type in ("vert", "edge", "normal"):
-            self._checkboxes["sel_%s_via_poly" % subobj_type].check(via_poly)
+            self._checkboxes["pick_%s_via_poly" % subobj_type].check(via_poly)
 
-    def __update_normal_preserve(self):
+    def __handle_picking_by_aiming(self, by_aiming):
 
-        preserve = GlobalData["normal_preserve"]
+        GlobalData["subobj_edit_options"]["pick_by_aiming"] = by_aiming
 
-        for subobj_type in ("vert", "edge", "poly"):
-            self._checkboxes["%s_normal_preserve" % subobj_type].check(preserve)
+        for subobj_type in ("vert", "edge", "normal"):
+            self._checkboxes["pick_%s_by_aiming" % subobj_type].check(by_aiming)
 
     def __handle_normal_preserve(self, preserve):
 
-        GlobalData["normal_preserve"] = preserve
+        GlobalData["subobj_edit_options"]["normal_preserve"] = preserve
 
         for subobj_type in ("vert", "edge", "poly"):
             self._checkboxes["%s_normal_preserve" % subobj_type].check(preserve)
@@ -725,9 +740,9 @@ class EditableGeomProperties(BaseObject):
         else:
             Mgr.enter_state(state_id)
 
-    def __flip_poly_regions(self):
+    def __invert_poly_surfaces(self):
 
-        Mgr.update_remotely("poly_region_flip")
+        Mgr.update_remotely("poly_surface_inversion")
 
     def __turn_diagonals(self):
 

@@ -939,7 +939,7 @@ class CreationManager(BaseObject):
     def __init__(self):
 
         self._vert_positions = []
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
         self._picked_verts = []
         self._geom_data_objs = []
         self._active_geom_data_obj = None
@@ -993,7 +993,7 @@ class CreationManager(BaseObject):
 
         else:
 
-            editable_geoms = Mgr.get("selection", "top")
+            editable_geoms = Mgr.get("selection_top")
             geom_data_objs = [geom.get_geom_object().get_geom_data_object()
                               for geom in editable_geoms]
 
@@ -1055,7 +1055,7 @@ class CreationManager(BaseObject):
     def __get_vertex(self):
 
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        color_id = r << 16 | g << 8 | b
 
         return Mgr.get("vert", color_id)
 

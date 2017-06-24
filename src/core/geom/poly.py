@@ -186,8 +186,8 @@ class Polygon(BaseObject):
 
         polys = [self]
 
-        if GlobalData["subobj_edit_options"]["sel_polys_by_region"]:
-            polys = self._geom_data_obj.get_polygon_region(self._id)
+        if GlobalData["subobj_edit_options"]["sel_polys_by_surface"]:
+            polys = self._geom_data_obj.get_polygon_surface(self._id)
 
         if GlobalData["subobj_edit_options"]["sel_polys_by_smoothing"]:
 
@@ -211,12 +211,13 @@ class Polygon(BaseObject):
 
         self._center_pos = center_pos
 
-    def get_center_pos(self, ref_node):
+    def get_center_pos(self, ref_node=None):
 
-        origin = self._geom_data_obj.get_origin()
-        pos = ref_node.get_relative_point(origin, self._center_pos)
+        if ref_node:
+            origin = self._geom_data_obj.get_origin()
+            return ref_node.get_relative_point(origin, self._center_pos)
 
-        return pos
+        return self._center_pos
 
     def get_point_at_screen_pos(self, screen_pos):
 

@@ -5,6 +5,112 @@ from .edge import MergedEdge
 
 class EdgeEditBase(BaseObject):
 
+    def get_seam_edges(self, start_edge):
+
+        merged_verts = self._merged_verts
+        merged_edges = self._merged_edges
+        verts = self._subobjs["vert"]
+        edges = self._subobjs["edge"]
+        seam_edges = [start_edge]
+        seam_edge = start_edge
+
+        while True:
+
+            edge = edges[seam_edge[0]]
+            vert_id = edge[0]
+            merged_vert = merged_verts[vert_id]
+
+            for vert_id in merged_vert:
+
+                vert = verts[vert_id]
+                merged_edge = merged_edges[vert.get_edge_ids()[0]]
+
+                if len(merged_edge) == 1:
+                    seam_edge = merged_edge
+                    break
+
+            if seam_edge is start_edge:
+                break
+            else:
+                seam_edges.append(seam_edge)
+
+        return seam_edges
+
+    def fix_seams(self, seam_edges):
+        """
+        Fix self-intersecting seams.
+        Return the vertices that were separated.
+
+        """
+
+        verts = self._subobjs["vert"]
+        edges = self._subobjs["edge"]
+        merged_verts = self._merged_verts
+        merged_edges = self._merged_edges
+        new_merged_verts = []
+        seam_verts = set()
+
+        for merged_edge in seam_edges:
+
+            edge = edges[merged_edge[0]]
+
+            for vert_id in edge:
+                seam_verts.add(merged_verts[vert_id])
+
+        for merged_vert in seam_verts:
+
+            vert_ids_by_merged_edge = {}
+            vert_ids = {}
+
+            for vert_id in merged_vert:
+
+                vert = verts[vert_id]
+
+                for edge_id in vert.get_edge_ids():
+
+                    merged_edge = merged_edges[edge_id]
+
+                    if merged_edge in vert_ids_by_merged_edge:
+
+                        vert_id_set = vert_ids[vert_ids_by_merged_edge[merged_edge]]
+
+                        if vert_id in vert_ids:
+
+                            old_vert_id_set = vert_ids[vert_id]
+                            vert_id_set.update(old_vert_id_set)
+
+                            for other_vert_id in old_vert_id_set:
+                                vert_ids[other_vert_id] = vert_id_set
+
+                        else:
+
+                            vert_id_set.add(vert_id)
+                            vert_ids[vert_id] = vert_id_set
+
+                        del vert_ids_by_merged_edge[merged_edge]
+
+                    else:
+
+                        vert_ids_by_merged_edge[merged_edge] = vert_id
+
+                        if vert_id not in vert_ids:
+                            vert_ids[vert_id] = set([vert_id])
+
+            vert_ids = set(tuple(id_set) for id_set in vert_ids.itervalues())
+
+            if len(vert_ids) > 1:
+
+                for ids in vert_ids:
+
+                    new_merged_vert = MergedVertex(self)
+                    new_merged_vert.extend(ids)
+                    new_merged_verts.append(new_merged_vert)
+
+                    for vert_id in ids:
+                        merged_verts[vert_id] = new_merged_vert
+
+        return new_merged_verts
+
     def split_edges(self, edge_ids=None):
 
         selection_ids = self._selected_subobj_ids
@@ -318,6 +424,188 @@ class EdgeEditBase(BaseObject):
             self._update_verts_to_transform("poly")
 
         return True, selection_change
+
+    def init_edge_picking_via_poly(self, poly, category=""):
+
+        # Allow picking the edges of the poly picked in the previous step
+        # (see prepare_subobj_picking_via_poly) instead of other edges;
+        # as soon as the mouse is released over an edge, it gets picked and
+        # polys become pickable again.
+
+        origin = self._origin
+        verts = self._subobjs["vert"]
+        edges = self._subobjs["edge"]
+
+        if category == "seam":
+
+            merged_edges = self._merged_edges
+            edge_ids = []
+
+            for edge_id in poly.get_edge_ids():
+                if len(merged_edges[edge_id]) == 1:
+                    edge_ids.append(edge_id)
+
+        else:
+
+            edge_ids = poly.get_edge_ids()
+
+        count = len(edge_ids)
+
+        # create pickable geometry, specifically for the edges of the
+        # given polygon and belonging to the given category, if any
+        vertex_format = Mgr.get("vertex_format_basic")
+        vertex_data = GeomVertexData("edge_data", vertex_format, Geom.UH_static)
+        vertex_data.reserve_num_rows(count * 2)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        pickable_id = PickableTypes.get_id("edge")
+        rows = self._tmp_row_indices
+        by_aiming = GlobalData["uv_edit_options"]["pick_by_aiming"]
+
+        if by_aiming:
+
+            # To further assist with edge picking, create a quad for each
+            # edge, with the picking color of that edge and perpendicular to
+            # the view plane;
+            # the border of each quad will pass through the vertices of the
+            # corresponding edge;
+            # an auxiliary picking camera will be placed at the clicked point under
+            # the mouse and follow the mouse cursor, rendering the picking color
+            # of the quad it is pointed at.
+
+            aux_picking_root = Mgr.get("aux_picking_root")
+            aux_picking_cam = UVMgr.get("aux_picking_cam")
+            cam = self.cam
+            cam_pos = cam.get_pos(self.uv_space)
+            normal = Vec3.forward()
+            plane = Plane(normal, cam_pos + normal * 10.)
+            aux_picking_cam.set_plane(plane)
+            aux_picking_cam.update_pos()
+            normal *= 5.
+            vertex_data_poly = GeomVertexData("vert_data_poly", vertex_format, Geom.UH_static)
+            vertex_data_poly.reserve_num_rows(count * 4)
+            pos_writer_poly = GeomVertexWriter(vertex_data_poly, "vertex")
+            col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
+            tmp_poly_prim = GeomTriangles(Geom.UH_static)
+            tmp_poly_prim.reserve_num_vertices(count * 6)
+            rel_pt = lambda point: self.uv_space.get_relative_point(origin, point)
+
+        for i, edge_id in enumerate(edge_ids):
+
+            edge = edges[edge_id]
+            vert1_id, vert2_id = edge
+            vertex = verts[vert1_id]
+            pos1 = vertex.get_pos()
+            pos_writer.add_data3f(pos1)
+            vertex = verts[vert2_id]
+            pos2 = vertex.get_pos()
+            pos_writer.add_data3f(pos2)
+            color_id = edge.get_picking_color_id()
+            picking_color = get_color_vec(color_id, pickable_id)
+            col_writer.add_data4f(picking_color)
+            col_writer.add_data4f(picking_color)
+            rows[color_id] = i * 2
+
+            if by_aiming:
+
+                p1 = Point3()
+                point1 = rel_pt(pos1)
+                point2 = point1 + normal
+                plane.intersects_line(p1, point1, point2)
+                p2 = Point3()
+                point1 = rel_pt(pos2)
+                point2 = point1 + normal
+                plane.intersects_line(p2, point1, point2)
+                pos_writer_poly.add_data3f(p1 - normal)
+                pos_writer_poly.add_data3f(p1 + normal)
+                pos_writer_poly.add_data3f(p2 - normal)
+                pos_writer_poly.add_data3f(p2 + normal)
+
+                for _ in range(4):
+                    col_writer_poly.add_data4f(picking_color)
+
+                j = i * 4
+                tmp_poly_prim.add_vertices(j, j + 1, j + 2)
+                tmp_poly_prim.add_vertices(j + 1, j + 3, j + 2)
+
+        tmp_prim = GeomLines(Geom.UH_static)
+        tmp_prim.reserve_num_vertices(count * 2)
+        tmp_prim.add_next_vertices(count * 2)
+        geom = Geom(vertex_data)
+        geom.add_primitive(tmp_prim)
+        node = GeomNode("tmp_geom_pickable")
+        node.add_geom(geom)
+        geom_pickable = origin.attach_new_node(node)
+        geom_pickable.set_bin("fixed", 51)
+        geom_pickable.set_depth_test(False)
+        geom_pickable.set_depth_write(False)
+        geom_sel_state = geom_pickable.copy_to(origin)
+        geom_sel_state.set_name("tmp_geom_sel_state")
+        geom_sel_state.set_light_off()
+        geom_sel_state.set_color_off()
+        geom_sel_state.set_texture_off()
+        geom_sel_state.set_material_off()
+        geom_sel_state.set_transparency(TransparencyAttrib.M_alpha)
+        geom_sel_state.set_render_mode_thickness(3)
+        geom = geom_sel_state.node().modify_geom(0)
+        vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
+        geom.set_vertex_data(vertex_data)
+        self._tmp_geom_pickable = geom_pickable
+        self._tmp_geom_sel_state = geom_sel_state
+
+        if by_aiming:
+            geom_poly = Geom(vertex_data_poly)
+            geom_poly.add_primitive(tmp_poly_prim)
+            node = GeomNode("tmp_geom_pickable")
+            node.add_geom(geom_poly)
+            geom_poly_pickable = aux_picking_root.attach_new_node(node)
+            geom_poly_pickable.set_two_sided(True)
+
+        # to determine whether the mouse is over the polygon or not, create a
+        # duplicate with a white color to distinguish it from the black background
+        # color (so it gets detected by the picking camera) and any other pickable
+        # objects (so no attempt will be made to pick it)
+        vertex_data_poly = GeomVertexData("vert_data_poly", vertex_format, Geom.UH_static)
+        vertex_data_poly.reserve_num_rows(count)
+        pos_writer_poly = GeomVertexWriter(vertex_data_poly, "vertex")
+        col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
+        tmp_poly_prim = GeomTriangles(Geom.UH_static)
+        tmp_poly_prim.reserve_num_vertices(len(poly))
+        vert_ids = poly.get_vertex_ids()
+        white = (1., 1., 1., 1.)
+
+        for vert_id in vert_ids:
+            vertex = verts[vert_id]
+            pos = vertex.get_pos()
+            pos_writer_poly.add_data3f(pos)
+            col_writer_poly.add_data4f(white)
+
+        for _ in range(count):
+            col_writer_poly.add_data4f(white)
+
+        for tri_vert_ids in poly:
+            for vert_id in tri_vert_ids:
+                tmp_poly_prim.add_vertex(vert_ids.index(vert_id))
+
+        geom_poly = Geom(vertex_data_poly)
+        geom_poly.add_primitive(tmp_poly_prim)
+        node = GeomNode("tmp_geom_poly_pickable")
+        node.add_geom(geom_poly)
+        geom_poly_pickable = geom_pickable.attach_new_node(node)
+        geom_poly_pickable.set_bin("fixed", 50)
+
+        render_mask = UVMgr.get("render_mask")
+        picking_mask = UVMgr.get("picking_mask")
+        geom_pickable.hide(render_mask)
+        geom_pickable.show(picking_mask)
+        geom_sel_state.hide(picking_mask)
+
+        if by_aiming:
+            aux_picking_cam.set_active()
+            UVMgr.do("start_drawing_aux_picking_viz")
+
+        geoms = self._geoms
+        geoms["poly"]["sel_state"].hide(picking_mask)
 
 
 class EdgeEditManager(BaseObject):

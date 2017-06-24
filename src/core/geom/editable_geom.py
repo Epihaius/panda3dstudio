@@ -78,7 +78,7 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
 
     def __make_geometry_editable(self):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
 
         Mgr.do("update_history_time")
         obj_data = {}

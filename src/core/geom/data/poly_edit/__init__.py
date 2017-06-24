@@ -2,10 +2,10 @@ from ....base import *
 from .create import CreationBase, CreationManager
 from .triangulate import TriangulationBase, TriangulationManager
 from .smooth import SmoothingBase, SmoothingManager, SmoothingGroup
-from .region import RegionBase, RegionManager
+from .surface import SurfaceBase, SurfaceManager
 
 
-class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, RegionBase):
+class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, SurfaceBase):
 
     def __init__(self):
 
@@ -50,22 +50,22 @@ class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, RegionBase
         return self.split_edges(edge_ids)
 
 
-class PolygonEditManager(CreationManager, TriangulationManager, SmoothingManager, RegionManager):
+class PolygonEditManager(CreationManager, TriangulationManager, SmoothingManager, SurfaceManager):
 
     def __init__(self):
 
         CreationManager.__init__(self)
         TriangulationManager.__init__(self)
         SmoothingManager.__init__(self)
-        RegionManager.__init__(self)
+        SurfaceManager.__init__(self)
 
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
 
         Mgr.add_app_updater("poly_detach", self.__detach_polygons)
 
     def __detach_polygons(self):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = {}
 
         for model in selection:

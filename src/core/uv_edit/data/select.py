@@ -22,6 +22,8 @@ class UVDataSelectionBase(BaseObject):
 
         self._selected_subobj_ids = selected_subobj_ids
         self._poly_selection_data = poly_selection_data
+        self._sel_subobj_ids_backup = {}
+        self._selection_backup = {}
 
     def copy(self):
 
@@ -222,7 +224,35 @@ class UVDataSelectionBase(BaseObject):
 
         return selection
 
-    def clear_selection(self, subobj_lvl):
+    def create_selection_backup(self, subobj_lvl):
+
+        if subobj_lvl in self._selection_backup:
+            return
+
+        self._sel_subobj_ids_backup[subobj_lvl] = self._selected_subobj_ids[subobj_lvl][:]
+        self._selection_backup[subobj_lvl] = self.get_selection(subobj_lvl)
+
+    def restore_selection_backup(self, subobj_lvl):
+
+        sel_backup = self._selection_backup
+
+        if subobj_lvl not in sel_backup:
+            return
+
+        self.clear_selection(subobj_lvl, False)
+        self.update_selection(subobj_lvl, sel_backup[subobj_lvl], [], False)
+        del sel_backup[subobj_lvl]
+        del self._sel_subobj_ids_backup[subobj_lvl]
+
+    def remove_selection_backup(self, subobj_lvl):
+
+        sel_backup = self._selection_backup
+
+        if subobj_lvl in sel_backup:
+            del sel_backup[subobj_lvl]
+            del self._sel_subobj_ids_backup[subobj_lvl]
+
+    def clear_selection(self, subobj_lvl, update_verts_to_transf=True):
 
         self._selected_subobj_ids[subobj_lvl] = []
         geoms = self._geoms[subobj_lvl]
@@ -264,4 +294,5 @@ class UVDataSelectionBase(BaseObject):
                 col_writer.set_row(row_index)
                 col_writer.set_data4f(color)
 
-        self._verts_to_transf[subobj_lvl] = {}
+        if update_verts_to_transf:
+            self._verts_to_transf[subobj_lvl] = {}

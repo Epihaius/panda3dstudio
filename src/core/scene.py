@@ -33,12 +33,12 @@ class SceneManager(BaseObject):
         Mgr.do("reset_registries")
         Mgr.do("reset_transf_to_restore")
         Mgr.do("reset_history")
-        Mgr.get("selection", "top").reset()
+        Mgr.get("selection_top").reset()
         PendingTasks.remove("update_selection", "ui")
 
         def task():
 
-            selection = Mgr.get("selection", "top")
+            selection = Mgr.get("selection_top")
             selection.update_ui()
             selection.update_obj_props(force=True)
 
@@ -66,8 +66,6 @@ class SceneManager(BaseObject):
         Mgr.update_remotely("two_sided")
         Mgr.update_app("group_options")
         Mgr.update_app("subobj_edit_options")
-        Mgr.update_app("selection_via_poly")
-        Mgr.update_app("normal_preserve")
 
         for transf_type, axes in GlobalData["axis_constraints"].iteritems():
             Mgr.update_app("axis_constraints", transf_type, axes)

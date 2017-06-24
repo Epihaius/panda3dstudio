@@ -35,6 +35,7 @@ class UVTransformGizmo(BaseObject):
         UVMgr.accept("hide_transf_gizmo", self.hide)
         UVMgr.accept("enable_transf_gizmo", self.enable)
         UVMgr.accept("disable_transf_gizmo", self.disable)
+        UVMgr.accept("set_transf_gizmo_pickable", self.set_pickable)
 
     def setup(self):
 
@@ -71,7 +72,7 @@ class UVTransformGizmo(BaseObject):
 
         pixel_color = UVMgr.get("pixel_under_mouse")
         r, g, b, a = [int(round(c * 255.)) for c in pixel_color]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        color_id = r << 16 | g << 8 | b
 
         components = self._components
 
@@ -182,6 +183,11 @@ class UVTransformGizmo(BaseObject):
     def set_scale(self, scale):
 
         self._root.set_scale(scale)
+
+    def set_pickable(self, pickable=True):
+
+        picking_mask = UVMgr.get("picking_mask")
+        self._root.show(picking_mask) if pickable else self._root.hide(picking_mask)
 
 
 class DefaultAxes(object):

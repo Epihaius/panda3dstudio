@@ -322,7 +322,7 @@ class PickingCamera(BaseObject):
         node.set_camera_mask(self._masks["persp"])
         Mgr.expose("picking_cam", lambda: self)
 
-        state_np = NodePath("picking_color_state")
+        state_np = NodePath("state_np")
         state_np.set_texture_off(1)
         state_np.set_material_off(1)
         state_np.set_light_off(1)
@@ -417,5 +417,119 @@ class PickingCamera(BaseObject):
         return task.cont
 
 
+# the following camera is used to detect temporary geometry created to allow subobject
+# picking via polygon
+class AuxiliaryPickingCamera(BaseObject):
+
+    def __init__(self):
+
+        self._pixel_color = VBase4()
+        Mgr.expose("aux_pixel_under_mouse", lambda: VBase4(self._pixel_color))
+
+        core = Mgr.get("core")
+        self._tex = Texture("aux_picking_texture")
+        self._tex_peeker = None
+        props = FrameBufferProperties()
+        props.set_rgba_bits(16, 16, 16, 16)
+        props.set_depth_bits(16)
+        self._buffer = bfr = core.win.make_texture_buffer("aux_picking_buffer",
+                                                          1, 1,
+                                                          self._tex,
+                                                          to_ram=True,
+                                                          fbp=props)
+
+        bfr.set_clear_color(VBase4())
+        bfr.set_clear_color_active(True)
+        bfr.set_sort(-100)
+        self._np = core.make_camera(bfr)
+        node = self._np.node()
+        lens = OrthographicLens()
+        lens.set_film_size(.75)
+        lens.set_near(0.)
+        bounds = lens.make_bounds()
+        node.set_lens(lens)
+        node.set_cull_bounds(bounds)
+        Mgr.expose("aux_picking_cam", lambda: self)
+
+        state_np = NodePath("state_np")
+        state_np.set_texture_off(1)
+        state_np.set_material_off(1)
+        state_np.set_light_off(1)
+        state_np.set_color_off(1)
+        state_np.set_color_scale_off(1)
+        state_np.set_transparency(TransparencyAttrib.M_none, 1)
+        state = state_np.get_state()
+        node.set_initial_state(state)
+        node.set_active(False)
+
+        self._plane = None
+
+    def setup(self):
+
+        self._np.reparent_to(Mgr.get("aux_picking_root"))
+
+        return True
+
+    def get_origin(self):
+
+        return self._np
+
+    def set_plane(self, plane):
+
+        self._plane = plane
+
+    def update_pos(self):
+
+        if not self.mouse_watcher.has_mouse():
+            return
+
+        cam = self.cam()
+        screen_pos = self.mouse_watcher.get_mouse()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        point = Point3()
+        self._plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
+        self._np.set_pos(point)
+
+    def set_active(self, is_active=True):
+
+        if self._np.node().is_active() == is_active:
+            return
+
+        self._np.node().set_active(is_active)
+
+        if is_active:
+            Mgr.add_task(self.__get_pixel_under_mouse, "get_aux_pixel_under_mouse", sort=0)
+        else:
+            Mgr.remove_task("get_aux_pixel_under_mouse")
+            self._pixel_color = VBase4()
+
+    def __get_pixel_under_mouse(self, task):
+
+        if not self.mouse_watcher.has_mouse():
+            return task.cont
+
+        cam = self.cam()
+        screen_pos = self.mouse_watcher.get_mouse()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        point = Point3()
+        self._plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
+        self._np.look_at(point)
+
+        if not self._tex_peeker:
+            self._tex_peeker = self._tex.peek()
+            return task.cont
+
+        self._tex_peeker.lookup(self._pixel_color, .5, .5)
+
+        return task.cont
+
+
 MainObjects.add_class(MainCamera)
 MainObjects.add_class(PickingCamera)
+MainObjects.add_class(AuxiliaryPickingCamera)

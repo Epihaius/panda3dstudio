@@ -515,7 +515,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
         helpers_to_transf = self._point_helpers_to_transf
         point_helpers = self._point_helpers
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         objs = set(selection)
 
         for obj in selection:

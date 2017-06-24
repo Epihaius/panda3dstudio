@@ -581,7 +581,7 @@ class GroupManager(ObjectManager):
         self._bbox_origins = {"persp": {}, "ortho": {}}
         self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
 
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
 
         status_data = GlobalData["status_data"]
         mode_text = "Add selection to group"
@@ -870,7 +870,7 @@ class GroupManager(ObjectManager):
     def __add_members(self, objs=None, new_group=None, add_to_hist=True, restore=""):
 
         if objs is None:
-            objs = Mgr.get("selection", "top")
+            objs = Mgr.get("selection_top")
 
         if new_group is None:
             obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
@@ -979,9 +979,9 @@ class GroupManager(ObjectManager):
 
     def __exit_grouping_mode(self, next_state_id, is_active):
 
-        self._pixel_under_mouse = VBase4() # force an update of the cursor next
-                                           # time self.__update_cursor() is
-                                           # called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self.__update_cursor()
+                                        # is called
         Mgr.remove_task("update_grouping_cursor")
         Mgr.set_cursor("main")
 
@@ -1004,7 +1004,7 @@ class GroupManager(ObjectManager):
             if GlobalData["active_obj_level"] != "top":
                 return
 
-            selection = Mgr.get("selection", "top")
+            selection = Mgr.get("selection_top")
 
             if not selection:
                 return
@@ -1071,7 +1071,7 @@ class GroupManager(ObjectManager):
 
         elif update_type == "set_member_types":
 
-            groups = Mgr.get("selection", "top")[:]
+            groups = Mgr.get("selection_top")[:]
             member_types = set()
 
             if value != "any":
@@ -1148,7 +1148,7 @@ class GroupManager(ObjectManager):
 
         elif update_type == "open":
 
-            groups = Mgr.get("selection", "top")
+            groups = Mgr.get("selection_top")
             changed_groups = []
             deselected_members = []
 
@@ -1217,7 +1217,7 @@ class GroupManager(ObjectManager):
 
         elif update_type == "select_members":
 
-            groups = Mgr.get("selection", "top")[:]
+            groups = Mgr.get("selection_top")[:]
             selected_members = []
             groups_to_open = []
             groups_to_deselect = groups[:]
@@ -1332,7 +1332,7 @@ class GroupManager(ObjectManager):
 
                 return parent
 
-            groups = Mgr.get("selection", "top")[:]
+            groups = Mgr.get("selection_top")[:]
 
             if not groups:
                 return
@@ -1425,7 +1425,7 @@ class GroupManager(ObjectManager):
             if GlobalData["active_obj_level"] != "top":
                 return
 
-            selection = Mgr.get("selection", "top")
+            selection = Mgr.get("selection_top")
 
             if not selection:
                 return

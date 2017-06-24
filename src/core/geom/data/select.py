@@ -20,9 +20,6 @@ class GeomSelectionBase(BaseObject):
         self._selected_subobj_ids = {"vert": [], "edge": [], "poly": [], "normal": []}
         self._sel_subobj_ids_backup = {}
         self._selection_backup = {}
-        self._tmp_geom_pickable = None
-        self._tmp_geom_sel_state = None
-        self._tmp_row_indices = {}
 
     def update_selection(self, subobj_type, subobjs_to_select, subobjs_to_deselect,
                          update_verts_to_transf=True, selection_colors=None):
@@ -150,89 +147,6 @@ class GeomSelectionBase(BaseObject):
 
         if update_verts_to_transf:
             self._update_verts_to_transform(subobj_type)
-
-        return True
-
-    def init_subobject_select(self, subobj_lvl):
-
-        geoms = self._geoms
-
-        if GlobalData["selection_via_poly"]:
-
-            if GlobalData["active_transform_type"]:
-                GlobalData["active_transform_type"] = ""
-                Mgr.update_app("active_transform_type", "")
-                Mgr.update_app("status", "select", "")
-
-            self.create_selection_backup("poly")
-            geoms["poly"]["selected"].set_state(Mgr.get("temp_poly_selection_state"))
-            self.init_subobject_select_via_poly(subobj_lvl)
-
-        else:
-
-            render_masks = Mgr.get("render_masks")["all"]
-            picking_masks = Mgr.get("picking_masks")["all"]
-            geoms[subobj_lvl]["pickable"].show_through(picking_masks)
-            geoms["poly"]["pickable"].show(picking_masks)
-            geoms["poly"]["selected"].hide(render_masks)
-
-            if not geoms["poly"]["unselected"].is_hidden(render_masks):
-                geoms["poly"]["unselected"].hide(render_masks)
-                geoms["top"].show(render_masks)
-
-    def init_subobject_select_via_poly(self, subobj_type):
-
-        self.clear_selection("poly", False)
-
-        # clean up temporary vertex data
-        if self._tmp_geom_pickable:
-            self._tmp_geom_pickable.remove_node()
-            self._tmp_geom_pickable = None
-            self._tmp_geom_sel_state.remove_node()
-            self._tmp_geom_sel_state = None
-            self._tmp_row_indices = {}
-
-        # Allow picking polys instead of the subobjects of the given type;
-        # as soon as a poly is clicked, its subobjects (of the given type) become
-        # pickable instead of polys.
-
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
-        geoms = self._geoms
-        geoms[subobj_type]["pickable"].hide(picking_masks)
-        geoms["poly"]["pickable"].show_through(picking_masks)
-        geoms["poly"]["selected"].show(render_masks)
-
-        if not geoms["top"].is_hidden(render_masks):
-            geoms["top"].hide(render_masks)
-            geoms["poly"]["unselected"].show(render_masks)
-
-    def subobject_select_via_poly(self, subobj_lvl, picked_poly):
-
-        if subobj_lvl == "vert":
-            self.vertex_select_via_poly(picked_poly)
-        elif subobj_lvl == "edge":
-            self.edge_select_via_poly(picked_poly)
-        elif subobj_lvl == "normal":
-            self.normal_select_via_poly(picked_poly)
-
-    def select_temp_subobject(self, subobj_lvl, color_id):
-
-        row = self._tmp_row_indices.get(color_id)
-
-        if row is None:
-            return False
-
-        colors = Mgr.get("subobj_selection_colors")[subobj_lvl]
-        geom = self._tmp_geom_sel_state.node().modify_geom(0)
-        vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
-        geom.set_vertex_data(vertex_data)
-        col_writer = GeomVertexWriter(geom.modify_vertex_data(), "color")
-        col_writer.set_row(row)
-        col_writer.set_data4f(colors["selected"])
-
-        if subobj_lvl == "edge":
-            col_writer.set_data4f(colors["selected"])
 
         return True
 
@@ -1015,11 +929,13 @@ class SelectionManager(BaseObject):
         self._selections = {}
         self._prev_obj_lvl = None
 
-        # the following variables are used to select a subobject using its polygon
+        # the following variables are used to pick a subobject using its polygon
         self._picked_poly = None
         self._tmp_color_id = None
         self._toggle_select = False
-        self._pixel_under_mouse = VBase4()
+        self._cursor_id = ""
+        self._pixel_under_mouse = None
+        self._aux_pixel_under_mouse = None
 
         np = NodePath("poly_sel_state")
         poly_sel_state_off = np.get_state()
@@ -1041,18 +957,16 @@ class SelectionManager(BaseObject):
         np.set_material(material)
         poly_sel_state = np.get_state()
         poly_sel_effects = np.get_effects()
-        green = VBase4(0., 1., 0., 1.)
+        color = VBase4(0., .7, .5, 1.)
         material = Material("temp_poly_selection")
-        material.set_diffuse(green)
-        material.set_emission(green * .3)
+        material.set_diffuse(color)
+        material.set_emission(color * .3)
         np.set_material(material)
         tmp_poly_sel_state = np.get_state()
         Mgr.expose("poly_selection_state_off", lambda: poly_sel_state_off)
         Mgr.expose("poly_selection_state", lambda: poly_sel_state)
         Mgr.expose("poly_selection_effects", lambda: poly_sel_effects)
         Mgr.expose("temp_poly_selection_state", lambda: tmp_poly_sel_state)
-
-        GlobalData.set_default("selection_via_poly", False)
 
         vert_colors = {"selected": (1., 0., 0., 1.), "unselected": (.5, .5, 1., 1.)}
         edge_colors = {"selected": (1., 0., 0., 1.), "unselected": (1., 1., 1., 1.)}
@@ -1078,21 +992,22 @@ class SelectionManager(BaseObject):
         Mgr.accept("select_single_edge", lambda: self.__select_single("edge"))
         Mgr.accept("select_single_poly", lambda: self.__select_single("poly"))
         Mgr.accept("select_single_normal", lambda: self.__select_single("normal"))
+        Mgr.accept("start_selection_via_poly", self.__start_selection_via_poly)
         Mgr.add_app_updater("active_obj_level", lambda: self.__clear_prev_selection(True))
-        Mgr.add_app_updater("selection_via_poly", self.__set_subobject_select_via_poly)
+        Mgr.add_app_updater("picking_via_poly", self.__set_subobj_picking_via_poly)
 
         add_state = Mgr.add_state
-        add_state("selection_via_poly", -1, self.__start_subobj_picking)
+        add_state("picking_via_poly", -1, self.__start_subobj_picking_via_poly)
 
         bind = Mgr.bind_state
-        bind("selection_via_poly", "select subobj",
-             "mouse1-up", self.__select_subobj)
-        bind("selection_via_poly", "cancel subobj selection",
-             "mouse3-up", self.__cancel_select)
+        bind("picking_via_poly", "select subobj via poly",
+             "mouse1-up", self.__select_subobj_via_poly)
+        bind("picking_via_poly", "cancel subobj select via poly",
+             "mouse3-up", self.__cancel_select_via_poly)
 
         status_data = GlobalData["status_data"]
-        info = "LMB-drag over subobject to select it; RMB to cancel"
-        status_data["selection_via_poly"] = {"mode": "Select subobject", "info": info}
+        info = "LMB-drag over subobject to pick it; RMB to cancel"
+        status_data["picking_via_poly"] = {"mode": "Pick subobject", "info": info}
 
     def __clear_prev_selection(self, check_top=False):
 
@@ -1105,7 +1020,7 @@ class SelectionManager(BaseObject):
             self._selections[self._prev_obj_lvl] = None
             self._prev_obj_lvl = None
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         sel_count = len(selection)
         obj = selection[0]
         geom_data_obj = obj.get_geom_object().get_geom_data_object()
@@ -1120,7 +1035,7 @@ class SelectionManager(BaseObject):
         self.__clear_prev_selection()
         subobjs = []
 
-        for obj in Mgr.get("selection", "top"):
+        for obj in Mgr.get("selection_top"):
             subobjs.extend(obj.get_subobj_selection(obj_lvl))
 
         self._selections[obj_lvl] = sel = Selection(obj_lvl, subobjs)
@@ -1130,31 +1045,53 @@ class SelectionManager(BaseObject):
     def __select(self, obj_lvl, picked_obj, toggle):
 
         if obj_lvl == "vert":
-            if GlobalData["selection_via_poly"]:
+
+            if GlobalData["subobj_edit_options"]["pick_via_poly"]:
                 obj = picked_obj if picked_obj and picked_obj.get_type() == "poly" else None
                 self._picked_poly = obj
             else:
                 obj = picked_obj.get_merged_vertex() if picked_obj else None
+
         elif obj_lvl == "edge":
-            if GlobalData["selection_via_poly"]:
+
+            if GlobalData["subobj_edit_options"]["pick_via_poly"]:
+
                 obj = picked_obj if picked_obj and picked_obj.get_type() == "poly" else None
+
+                if obj and GlobalData["subobj_edit_options"]["sel_edges_by_border"]:
+
+                    merged_edges = obj.get_geom_data_object().get_merged_edges()
+
+                    for edge_id in obj.get_edge_ids():
+                        if len(merged_edges[edge_id]) == 1:
+                            break
+                    else:
+                        obj = None
+
                 self._picked_poly = obj
+
             else:
+
                 obj = picked_obj.get_merged_edge() if picked_obj else None
+
                 if obj and GlobalData["subobj_edit_options"]["sel_edges_by_border"] and len(obj) > 1:
                     obj = None
+
         elif obj_lvl == "normal":
-            if GlobalData["selection_via_poly"]:
+
+            if GlobalData["subobj_edit_options"]["pick_via_poly"]:
                 obj = picked_obj if picked_obj and picked_obj.get_type() == "poly" else None
                 self._picked_poly = obj
             else:
                 obj = picked_obj.get_shared_normal() if picked_obj else None
+
         elif obj_lvl == "poly":
+
             obj = picked_obj
 
         if self._picked_poly:
             self._toggle_select = toggle
-            Mgr.enter_state("selection_via_poly")
+            Mgr.enter_state("picking_via_poly")
             return False, False
 
         self._color_id = obj.get_picking_color_id() if obj else None
@@ -1183,7 +1120,7 @@ class SelectionManager(BaseObject):
 
         return ret
 
-    def __default_select(self, obj_lvl):
+    def __default_select(self, obj_lvl, ignore_transform=False):
 
         if obj_lvl == "normal":
             obj = Mgr.get("vert", self._color_id)
@@ -1203,7 +1140,7 @@ class SelectionManager(BaseObject):
 
         if obj:
 
-            if GlobalData["active_transform_type"]:
+            if GlobalData["active_transform_type"] and not ignore_transform:
 
                 if obj in selection and len(selection) > 1:
 
@@ -1282,7 +1219,9 @@ class SelectionManager(BaseObject):
 
         return False, start_mouse_checking
 
-    def __set_subobject_select_via_poly(self, via_poly=False):
+    def __set_subobj_picking_via_poly(self, via_poly=False):
+
+        GlobalData["subobj_edit_options"]["pick_via_poly"] = via_poly
 
         if not via_poly:
 
@@ -1298,27 +1237,41 @@ class SelectionManager(BaseObject):
         if obj_lvl not in ("vert", "edge", "normal"):
             return
 
-        GlobalData["selection_via_poly"] = via_poly
-        selection = Mgr.get("selection", "top")
+        for obj in Mgr.get("selection_top"):
+            obj.get_geom_object().get_geom_data_object().init_subobj_picking(obj_lvl)
 
-        for obj in selection:
-            obj.get_geom_object().get_geom_data_object().init_subobject_select(obj_lvl)
+    def __start_selection_via_poly(self, picked_poly, toggle):
 
-    def __start_subobj_picking(self, prev_state_id, is_active):
+        if picked_poly:
+            Mgr.do("set_transf_gizmo_pickable", False)
+            self._picked_poly = picked_poly
+            self._toggle_select = toggle
+            Mgr.enter_state("picking_via_poly")
 
-        Mgr.add_task(self.__pick_subobj, "pick_subobj")
+    def __start_subobj_picking_via_poly(self, prev_state_id, is_active):
+
+        Mgr.add_task(self.__hilite_subobj, "hilite_subobj")
         Mgr.remove_task("update_cursor")
         subobj_lvl = GlobalData["active_obj_level"]
 
-        for model in Mgr.get("selection", "top"):
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
-            geom_data_obj.subobject_select_via_poly(subobj_lvl, self._picked_poly)
+        if subobj_lvl == "edge" and GlobalData["subobj_edit_options"]["sel_edges_by_border"]:
+            category = "border"
+        else:
+            category = ""
 
-        # temporarily select picked poly
         geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj.init_subobj_picking_via_poly(subobj_lvl, self._picked_poly, category)
+        # temporarily select picked poly
         geom_data_obj.update_selection("poly", [self._picked_poly], [], False)
 
-        Mgr.update_app("status", "selection_via_poly")
+        for model in Mgr.get("selection_top"):
+
+            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if other_geom_data_obj is not geom_data_obj:
+                other_geom_data_obj.set_pickable(False)
+
+        Mgr.update_app("status", "picking_via_poly")
 
         cs_type = GlobalData["coord_sys_type"]
         tc_type = GlobalData["transf_center_type"]
@@ -1330,45 +1283,74 @@ class SelectionManager(BaseObject):
         if tc_type == "pivot":
             Mgr.update_locally("transf_center", tc_type, toplvl_obj)
 
-    def __pick_subobj(self, task):
+    def __hilite_subobj(self, task):
 
         pixel_under_mouse = Mgr.get("pixel_under_mouse")
+        active_transform_type = GlobalData["active_transform_type"]
 
         if self._pixel_under_mouse != pixel_under_mouse:
 
             if pixel_under_mouse == VBase4():
 
-                Mgr.set_cursor("main")
+                if active_transform_type and self._tmp_color_id is not None:
+                    self.__select_subobj_via_poly(transform=True)
+                    return
 
             else:
 
-                Mgr.set_cursor("select")
                 r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
-                color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+                color_id = r << 16 | g << 8 | b
                 geom_data_obj = self._picked_poly.get_geom_data_object()
                 subobj_lvl = GlobalData["active_obj_level"]
 
-                # temporarily select vertex
-                if geom_data_obj.select_temp_subobject(subobj_lvl, color_id):
+                # highlight temporary subobject
+                if geom_data_obj.hilite_temp_subobject(subobj_lvl, color_id):
                     self._tmp_color_id = color_id
 
             self._pixel_under_mouse = pixel_under_mouse
 
+        not_hilited = pixel_under_mouse in (VBase4(), VBase4(1., 1., 1., 1.))
+        cursor_id = "main" if not_hilited else ("select" if not active_transform_type
+                                                else active_transform_type)
+
+        if GlobalData["subobj_edit_options"]["pick_by_aiming"]:
+
+            aux_pixel_under_mouse = Mgr.get("aux_pixel_under_mouse")
+
+            if not_hilited or self._aux_pixel_under_mouse != aux_pixel_under_mouse:
+
+                if not_hilited and aux_pixel_under_mouse != VBase4():
+
+                    r, g, b, a = [int(round(c * 255.)) for c in aux_pixel_under_mouse]
+                    color_id = r << 16 | g << 8 | b
+                    geom_data_obj = self._picked_poly.get_geom_data_object()
+                    subobj_lvl = GlobalData["active_obj_level"]
+
+                    # highlight temporary subobject
+                    if geom_data_obj.hilite_temp_subobject(subobj_lvl, color_id):
+                        self._tmp_color_id = color_id
+                        cursor_id = "select" if not active_transform_type else active_transform_type
+
+                self._aux_pixel_under_mouse = aux_pixel_under_mouse
+
+        if self._cursor_id != cursor_id:
+            Mgr.set_cursor(cursor_id)
+            self._cursor_id = cursor_id
+
         return task.cont
 
-    def __select_subobj(self):
+    def __select_subobj_via_poly(self, transform=False):
 
-        Mgr.remove_task("pick_subobj")
+        Mgr.remove_task("hilite_subobj")
         Mgr.enter_state("selection_mode")
         subobj_lvl = GlobalData["active_obj_level"]
+        geom_data_obj = self._picked_poly.get_geom_data_object()
 
         if self._tmp_color_id is None:
 
             obj = None
 
         else:
-
-            geom_data_obj = self._picked_poly.get_geom_data_object()
 
             if subobj_lvl == "vert":
                 vert_id = Mgr.get("vert", self._tmp_color_id).get_id()
@@ -1387,31 +1369,71 @@ class SelectionManager(BaseObject):
         if self._toggle_select:
             self.__toggle_select(subobj_lvl)
         else:
-            self.__default_select(subobj_lvl)
+            ignore_transform = not transform
+            self.__default_select(subobj_lvl, ignore_transform)
 
-        for model in Mgr.get("selection", "top"):
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
-            geom_data_obj.init_subobject_select_via_poly(subobj_lvl)
+        geom_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
+
+        for model in Mgr.get("selection_top"):
+
+            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if other_geom_data_obj is not geom_data_obj:
+                other_geom_data_obj.set_pickable()
 
         self._picked_poly = None
         self._tmp_color_id = None
         self._toggle_select = False
-        self._pixel_under_mouse = VBase4()
+        self._cursor_id = ""
+        self._pixel_under_mouse = None
+        self._aux_pixel_under_mouse = None
+        active_transform_type = GlobalData["active_transform_type"]
 
-    def __cancel_select(self):
+        if transform and obj and obj.get_geom_data_object().is_selected(obj):
 
-        Mgr.remove_task("pick_subobj")
+            if active_transform_type == "translate":
+                picked_point = obj.get_center_pos(self.world)
+            elif self.mouse_watcher.has_mouse():
+                screen_pos = Point2(self.mouse_watcher.get_mouse())
+                picked_point = obj.get_point_at_screen_pos(screen_pos)
+            else:
+                picked_point = None
+
+            if picked_point:
+                selection = self._selections[subobj_lvl]
+                selection.update()
+                Mgr.do("init_transform", picked_point)
+
+            Mgr.set_cursor(active_transform_type)
+
+        if active_transform_type:
+            Mgr.do("set_transf_gizmo_pickable")
+
+    def __cancel_select_via_poly(self):
+
+        Mgr.remove_task("hilite_subobj")
         Mgr.enter_state("selection_mode")
         subobj_lvl = GlobalData["active_obj_level"]
 
-        for model in Mgr.get("selection", "top"):
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
-            geom_data_obj.init_subobject_select_via_poly(subobj_lvl)
+        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
+
+        for model in Mgr.get("selection_top"):
+
+            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if other_geom_data_obj is not geom_data_obj:
+                other_geom_data_obj.set_pickable()
 
         self._picked_poly = None
         self._tmp_color_id = None
         self._toggle_select = False
-        self._pixel_under_mouse = VBase4()
+        self._cursor_id = ""
+        self._pixel_under_mouse = None
+        self._aux_pixel_under_mouse = None
+
+        if GlobalData["active_transform_type"]:
+            Mgr.do("set_transf_gizmo_pickable")
 
 
 MainObjects.add_class(SelectionManager)

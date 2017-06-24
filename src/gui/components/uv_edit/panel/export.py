@@ -40,6 +40,8 @@ class ExportPanel(Panel):
         field.set_input_parser("size", self.__parse_size)
         self._fields["size"] = field
 
+        sizer.Add(wx.Size(0, 5))
+
         group = section.add_group("Edge color")
         grp_sizer = group.get_client_sizer()
         subsizer = wx.BoxSizer()
@@ -61,6 +63,8 @@ class ExportPanel(Panel):
         field.show_value(val_id)
         self._fields[val_id] = field
 
+        sizer.Add(wx.Size(0, 2))
+
         group = section.add_group("Polygon color")
         grp_sizer = group.get_client_sizer()
         subsizer = wx.BoxSizer()
@@ -81,6 +85,8 @@ class ExportPanel(Panel):
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+
+        sizer.Add(wx.Size(0, 2))
 
         group = section.add_group("Seam color")
         grp_sizer = group.get_client_sizer()

@@ -9,7 +9,7 @@ class CoordSysManager(BaseObject):
         self._cs_obj_picked = None
         self._cs_transformed = False
         self._user_obj_id = None
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
 
         GlobalData.set_default("coord_sys_type", "world")
         Mgr.expose("coord_sys_obj", self.__get_coord_sys_object)
@@ -43,7 +43,7 @@ class CoordSysManager(BaseObject):
 
         if self._cs_obj and check_valid:
             if (GlobalData["coord_sys_type"] == "local"
-                    and self._cs_obj not in Mgr.get("selection", "top")):
+                    and self._cs_obj not in Mgr.get("selection_top")):
                 self._cs_obj = None
 
         return self._cs_obj
@@ -169,9 +169,9 @@ class CoordSysManager(BaseObject):
 
             self._cs_obj_picked = None
 
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self.__update_cursor()
-                                           # is called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self.__update_cursor()
+                                        # is called
         Mgr.remove_task("update_cs_picking_cursor")
         Mgr.set_cursor("main")
 

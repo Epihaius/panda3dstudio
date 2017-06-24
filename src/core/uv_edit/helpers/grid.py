@@ -89,7 +89,7 @@ class Grid(BaseObject):
 
     def __show_background_on_models(self, show):
 
-        models = [obj for obj in Mgr.get("selection", "top") if obj.get_type() == "model"
+        models = [obj for obj in Mgr.get("selection_top") if obj.get_type() == "model"
                   and obj.get_geom_type() != "basic_geom"]
 
         if show:

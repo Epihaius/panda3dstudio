@@ -75,7 +75,7 @@ class GeneralObjectManager(BaseObject):
         elif pixel_color:
 
             r, g, b, pickable_type_id = [int(round(c * 255.)) for c in pixel_color]
-            color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+            color_id = r << 16 | g << 8 | b
 
             pickable_type = PickableTypes.get(pickable_type_id)
 
@@ -140,7 +140,7 @@ class GeneralObjectManager(BaseObject):
 
         mouse_pos = self.mouse_watcher.get_mouse()
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
 
         if mouse_pos == self._mouse_prev:
 
@@ -184,7 +184,7 @@ class GeneralObjectManager(BaseObject):
     @staticmethod
     def __set_object_name(name):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
 
         if not selection:
             return
@@ -225,14 +225,16 @@ class GeneralObjectManager(BaseObject):
             event_data = {"objects": obj_data}
             Mgr.do("add_history", event_descr, event_data)
 
-        if sel_count == 1:
-            Mgr.update_remotely("selected_obj_name", selection[0].get_name())
-        else:
-            Mgr.update_remotely("selected_obj_name", "%d Objects selected" % sel_count)
+        names = OrderedDict()
+
+        for obj in selection:
+            names[obj.get_id()] = obj.get_name()
+
+        Mgr.update_remotely("selected_obj_names", names)
 
     def __set_object_color(self, color_values):
 
-        objects = [obj for obj in Mgr.get("selection", "top") if obj.has_color()]
+        objects = [obj for obj in Mgr.get("selection_top") if obj.has_color()]
 
         if not objects:
             return
@@ -311,7 +313,7 @@ class GeneralObjectManager(BaseObject):
     def __set_object_property(self, prop_id, value):
         """ Set the *type-specific* property given by prop_id to the given value """
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
 
         if not selection:
             return
@@ -346,7 +348,7 @@ class GeneralObjectManager(BaseObject):
         obj_root = Mgr.get("object_root")
         picking_masks = Mgr.get("picking_masks")
 
-        models = set(obj for obj in Mgr.get("selection", "top")
+        models = set(obj for obj in Mgr.get("selection_top")
                       if obj.get_type() == "model" and obj.get_geom_type() == "editable_geom")
 
         for model_id in self._sel_before_hist_change:
@@ -377,7 +379,7 @@ class GeneralObjectManager(BaseObject):
         if obj_lvl == "top":
             return
 
-        sel_after_hist_change = set(obj.get_id() for obj in Mgr.get("selection", "top"))
+        sel_after_hist_change = set(obj.get_id() for obj in Mgr.get("selection_top"))
         set_sublvl = False
 
         if sel_after_hist_change == self._sel_before_hist_change:
@@ -415,7 +417,7 @@ class GeneralObjectManager(BaseObject):
 
         state_id = Mgr.get_state_id()
         self._obj_lvl_before_hist_change = obj_lvl
-        self._sel_before_hist_change = set(obj.get_id() for obj in Mgr.get("selection", "top"))
+        self._sel_before_hist_change = set(obj.get_id() for obj in Mgr.get("selection_top"))
         task = self.__check_selection
         task_id = "set_obj_level"
         PendingTasks.add(task, task_id, "object")

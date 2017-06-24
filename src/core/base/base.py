@@ -1,5 +1,6 @@
 from ...base import logging, re, GlobalData, ObjectName, get_unique_name
 from panda3d.core import *
+from collections import OrderedDict
 import weakref
 import sys
 import os
@@ -443,8 +444,6 @@ def id_generator():
 
 
 def get_color_vec(color_id, alpha):
-
-    # Credit to coppertop @ panda3d.org
 
     r = (color_id >> 16)
     g = (color_id ^ (r << 16)) >> 8

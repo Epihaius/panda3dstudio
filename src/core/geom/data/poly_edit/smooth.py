@@ -650,7 +650,7 @@ class SmoothingManager(BaseObject):
 
     def __set_smooth_shaded(self, smooth=True):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         geom_data_objs = dict((obj.get_id(), obj.get_geom_object().get_geom_data_object())
                               for obj in selection)
         changed_objs = {}
@@ -686,7 +686,7 @@ class SmoothingManager(BaseObject):
 
     def __smooth_polygons(self, smooth=True, poly_id=None):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = {}
         changed_selections = []
 
@@ -721,7 +721,7 @@ class SmoothingManager(BaseObject):
 
     def __update_polygon_smoothing(self):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = {}
 
         for model in selection:
@@ -760,16 +760,19 @@ class SmoothingManager(BaseObject):
 
     def __exit_smoothing_poly_picking_mode(self, next_state_id, is_active):
 
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self._update_cursor()
-                                           # is called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self._update_cursor()
+                                        # is called
         Mgr.remove_task("update_poly_picking_cursor")
         Mgr.set_cursor("main")
 
     def __pick_smoothing_poly(self):
 
+        if not self._pixel_under_mouse:
+            return
+
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        color_id = r << 16 | g << 8 | b
         poly = Mgr.get("poly", color_id)
         state_id = Mgr.get_state_id()
 

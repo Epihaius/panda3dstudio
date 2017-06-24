@@ -6,7 +6,7 @@ from .vert_edit import VertexEditBase
 from .edge_edit import EdgeEditBase
 from .poly_edit import PolygonEditBase, SmoothingGroup
 from .normal_edit import NormalEditBase
-from .uv import UVEditBase
+from .uv_edit import UVEditBase
 
 
 class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
@@ -82,8 +82,9 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         self._ordered_polys = []
         self._is_tangent_space_initialized = False
 
-        self._prop_ids = ["subobj_merge", "subobj_selection", "subobj_transform", "poly_tris", "uvs",
-                          "normals", "normal_lock", "normal_length", "normal_sharing", "smoothing"]
+        self._prop_ids = ["subobj_merge", "subobj_selection", "subobj_transform", "poly_tris",
+                          "uvs", "uv_set_names", "normals", "normal_lock", "normal_length",
+                          "normal_sharing", "smoothing"]
         prop_ids_ext = self._prop_ids + ["vert_pos__extra__", "tri__extra__", "uv__extra__",
                                          "normal__extra__", "normal_lock__extra__",
                                          "verts", "edges", "polys",
@@ -110,6 +111,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geoms["poly"]["unselected"] = None
         self._toplvl_geom = None
         self._toplvl_node = None
+
+        self._tmp_geom_pickable = None
+        self._tmp_geom_sel_state = None
+        self._tmp_row_indices = {}
 
     def __del__(self):
 
@@ -945,7 +950,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             geoms["poly"]["unselected"].hide(render_masks)
 
         if obj_lvl in ("vert", "edge", "normal"):
-            self.init_subobject_select(obj_lvl)
+            self.init_subobj_picking(obj_lvl)
 
     def show_top_level(self):
 
@@ -957,7 +962,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             geoms[lvl]["pickable"].hide(picking_masks)
             geoms[lvl]["sel_state"].hide(render_masks)
 
-        if GlobalData["selection_via_poly"]:
+        if GlobalData["subobj_edit_options"]["pick_via_poly"]:
             self.restore_selection_backup("poly")
 
         self.set_normal_shader(False)
@@ -1006,7 +1011,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 geoms[other_lvl]["pickable"].hide(all_masks)
                 geoms[other_lvl]["sel_state"].hide(all_masks)
 
-        if GlobalData["selection_via_poly"]:
+        if GlobalData["subobj_edit_options"]["pick_via_poly"]:
             if subobj_lvl in ("vert", "edge", "normal"):
                 self.create_selection_backup("poly")
             else:
@@ -1021,15 +1026,109 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def set_pickable(self, is_pickable=True):
 
-        picking_masks = Mgr.get("picking_masks")["all"]
         geoms = self._geoms
+        active_obj_lvl = GlobalData["active_obj_level"]
+        picking_masks = Mgr.get("picking_masks")["all"]
 
         if is_pickable:
+
             for obj_lvl in ("vert", "edge", "normal", "poly"):
-                geoms[obj_lvl]["pickable"].show_through(picking_masks)
+                if obj_lvl == active_obj_lvl:
+                    geoms[obj_lvl]["pickable"].show_through(picking_masks)
+
+            self.update_render_mode(True)
+
         else:
+
             for obj_lvl in ("vert", "edge", "normal", "poly"):
                 geoms[obj_lvl]["pickable"].hide(picking_masks)
+
+    def init_subobj_picking(self, subobj_lvl):
+
+        geoms = self._geoms
+
+        if GlobalData["subobj_edit_options"]["pick_via_poly"]:
+
+            self.create_selection_backup("poly")
+            geoms["poly"]["selected"].set_state(Mgr.get("temp_poly_selection_state"))
+            self.prepare_subobj_picking_via_poly(subobj_lvl)
+
+        else:
+
+            render_masks = Mgr.get("render_masks")["all"]
+            picking_masks = Mgr.get("picking_masks")["all"]
+            geoms[subobj_lvl]["pickable"].show_through(picking_masks)
+            geoms["poly"]["pickable"].show(picking_masks)
+            geoms["poly"]["selected"].hide(render_masks)
+
+            if not geoms["poly"]["unselected"].is_hidden(render_masks):
+                geoms["poly"]["unselected"].hide(render_masks)
+                geoms["top"].show(render_masks)
+
+    def prepare_subobj_picking_via_poly(self, subobj_type):
+
+        self.clear_selection("poly", False)
+
+        # clean up temporary vertex data
+        if self._tmp_geom_pickable:
+
+            self._tmp_geom_pickable.remove_node()
+            self._tmp_geom_pickable = None
+            self._tmp_geom_sel_state.remove_node()
+            self._tmp_geom_sel_state = None
+            self._tmp_row_indices = {}
+
+            if GlobalData["subobj_edit_options"]["pick_by_aiming"]:
+                aux_picking_root = Mgr.get("aux_picking_root")
+                tmp_geom_pickable = aux_picking_root.find("**/tmp_geom_pickable")
+                tmp_geom_pickable.remove_node()
+                aux_picking_cam = Mgr.get("aux_picking_cam")
+                aux_picking_cam.set_active(False)
+                Mgr.do("end_drawing_aux_picking_viz")
+
+        # Allow picking polys instead of the subobjects of the given type;
+        # as soon as a poly is clicked, its subobjects (of the given type) become
+        # pickable instead of polys.
+
+        render_masks = Mgr.get("render_masks")["all"]
+        picking_masks = Mgr.get("picking_masks")["all"]
+        geoms = self._geoms
+        geoms[subobj_type]["pickable"].hide(picking_masks)
+        geoms["poly"]["pickable"].show_through(picking_masks)
+        geoms["poly"]["selected"].show(render_masks)
+
+        if not geoms["top"].is_hidden(render_masks):
+            geoms["top"].hide(render_masks)
+            geoms["poly"]["unselected"].show(render_masks)
+
+    def init_subobj_picking_via_poly(self, subobj_lvl, picked_poly, category="", extra_data=None):
+
+        if subobj_lvl == "vert":
+            self.init_vertex_picking_via_poly(picked_poly, category)
+        elif subobj_lvl == "edge":
+            self.init_edge_picking_via_poly(picked_poly, category, extra_data)
+        elif subobj_lvl == "normal":
+            self.init_normal_picking_via_poly(picked_poly, category)
+
+    def hilite_temp_subobject(self, subobj_lvl, color_id):
+
+        row = self._tmp_row_indices.get(color_id)
+
+        if row is None:
+            return False
+
+        colors = Mgr.get("subobj_selection_colors")[subobj_lvl]
+        geom = self._tmp_geom_sel_state.node().modify_geom(0)
+        vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
+        geom.set_vertex_data(vertex_data)
+        col_writer = GeomVertexWriter(geom.modify_vertex_data(), "color")
+        col_writer.set_row(row)
+        col_writer.set_data4f(colors["selected"])
+
+        if subobj_lvl == "edge":
+            col_writer.set_data4f(colors["selected"])
+
+        return True
 
     def set_owner(self, owner):
 
@@ -1097,10 +1196,13 @@ class GeomDataManager(ObjectManager):
         ObjectManager.__init__(self, "geom_data", self.__create_data, "sub")
 
         subobj_edit_options = {
-            "edge_bridge_segments": 1,
+            "pick_via_poly": False,
+            "pick_by_aiming": False,
+            "normal_preserve": False,
             "sel_edges_by_border": False,
-            "sel_polys_by_region": False,
-            "sel_polys_by_smoothing": False
+            "sel_polys_by_surface": False,
+            "sel_polys_by_smoothing": False,
+            "edge_bridge_segments": 1
         }
         copier = dict.copy
         GlobalData.set_default("subobj_edit_options", subobj_edit_options, copier)
@@ -1162,6 +1264,202 @@ class GeomDataManager(ObjectManager):
         Mgr.expose("vertex_format_basic", lambda: vertex_format_basic)
         Mgr.expose("vertex_format_full", lambda: vertex_format_full)
         Mgr.expose("vertex_format_normal", lambda: vertex_format_normal)
+
+        # create the root of the setup that assists in picking subobjects via the
+        # polygon they belong to
+        self._aux_picking_root = NodePath("aux_picking_root")
+        Mgr.expose("aux_picking_root", lambda: self._aux_picking_root)
+
+        # Create line geometry to visualize a "picking ray" that assists in picking
+        # subobjects via the polygon they belong to.
+
+        node = GeomNode("aux_picking_viz")
+        state_np = NodePath("state_np")
+        state_np.set_transparency(TransparencyAttrib.M_alpha)
+        state_np.set_depth_test(False)
+        state_np.set_depth_write(False)
+        state_np.set_bin("fixed", 101)
+        state1 = state_np.get_state()
+        state_np.set_bin("fixed", 100)
+        state_np.set_render_mode_thickness(3)
+        state2 = state_np.get_state()
+
+        vertex_data = GeomVertexData("aux_picking_viz_data", vertex_format_basic, Geom.UH_static)
+        vertex_data.set_num_rows(2)
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        col_writer.set_row(1)
+        col_writer.set_data4f(1., 1., 1., 0.)
+
+        lines = GeomLines(Geom.UH_dynamic)
+        lines.add_next_vertices(2)
+        lines_geom = Geom(vertex_data)
+        lines_geom.add_primitive(lines)
+        node.add_geom(lines_geom, state1)
+
+        lines_geom = lines_geom.make_copy()
+        vertex_data = lines_geom.modify_vertex_data()
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        col_writer.set_row(0)
+        col_writer.set_data4f(0., 0., 0., 1.)
+        col_writer.set_data4f(0., 0., 0., 0.)
+        node.add_geom(lines_geom, state2)
+
+        aux_picking_viz = NodePath(node)
+        self._aux_picking_viz = aux_picking_viz
+        Mgr.expose("aux_picking_viz", lambda: self._aux_picking_viz)
+
+        # Create a rubber band line.
+
+        vertex_format = GeomVertexFormat.get_v3t2()
+        vertex_data = GeomVertexData("rubber_band_data", vertex_format, Geom.UH_static)
+        vertex_data.set_num_rows(2)
+
+        lines = GeomLines(Geom.UH_dynamic)
+        lines.add_next_vertices(2)
+        lines_geom = Geom(vertex_data)
+        lines_geom.add_primitive(lines)
+        node = GeomNode("rubber_band")
+        node.add_geom(lines_geom)
+        rubber_band = NodePath(node)
+        rubber_band.set_bin("fixed", 100)
+        rubber_band.set_depth_test(False)
+        rubber_band.set_depth_write(False)
+        tex = Mgr.load_tex(GFX_PATH + "marquee.png")
+        rubber_band.set_texture(tex)
+        self._rubber_band = rubber_band
+
+        self._draw_start_pos = {"aux_picking_viz": Point3(), "rubber_band": Point3()}
+        self._draw_plane = None
+
+        Mgr.accept("start_drawing_aux_picking_viz", self.__start_drawing_aux_picking_viz)
+        Mgr.accept("end_drawing_aux_picking_viz", self.__end_drawing_aux_picking_viz)
+        Mgr.accept("start_drawing_rubber_band", self.__start_drawing_rubber_band)
+        Mgr.accept("end_drawing_rubber_band", self.__end_drawing_rubber_band)
+
+    def setup(self):
+
+        if "picking_camera_ok" not in MainObjects.get_setup_results():
+            return False
+
+        picking_masks = Mgr.get("picking_masks")["all"]
+        self._aux_picking_viz.hide(picking_masks)
+        self._rubber_band.hide(picking_masks)
+
+        return True
+
+    def __start_drawing_line(self, line, world_start_pos=None):
+
+        cam = self.cam()
+        cam_pos = cam.get_pos(self.world)
+        normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
+        plane = Plane(normal, cam_pos + normal * 10.)
+        point = Point3()
+
+        if world_start_pos is None:
+
+            if not self.mouse_watcher.has_mouse():
+                return
+
+            screen_pos = self.mouse_watcher.get_mouse()
+            near_point = Point3()
+            far_point = Point3()
+            self.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
+
+        else:
+
+            p = cam_pos if self.cam.lens_type == "persp" else world_start_pos - normal * 100.
+            plane.intersects_line(point, p, world_start_pos)
+
+        line_node = line.node()
+
+        for i in range(line_node.get_num_geoms()):
+            vertex_data = line_node.modify_geom(i).modify_vertex_data()
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+            pos_writer.set_row(0)
+            pos_writer.set_data3f(point)
+
+        line.reparent_to(self.world)
+        line_type = "rubber_band" if line is self._rubber_band else "aux_picking_viz"
+        self._draw_start_pos[line_type] = point
+        self._draw_plane = plane
+
+        task = self.__draw_rubber_band if line is self._rubber_band else self.__draw_aux_picking_viz
+        task_name = "draw_rubber_band" if line is self._rubber_band else "draw_aux_picking_viz"
+        Mgr.add_task(task, task_name, sort=3)
+
+    def __start_drawing_aux_picking_viz(self):
+
+        self.__start_drawing_line(self._aux_picking_viz)
+
+    def __start_drawing_rubber_band(self, start_pos):
+
+        self.__start_drawing_line(self._rubber_band, start_pos)
+
+    def __draw_line(self, line):
+
+        screen_pos = self.mouse_watcher.get_mouse()
+        cam = self.cam()
+        near_point = Point3()
+        far_point = Point3()
+        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        point = Point3()
+        self._draw_plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
+        line_type = "rubber_band" if line is self._rubber_band else "aux_picking_viz"
+        start_pos = self._draw_start_pos[line_type]
+
+        if line is self._aux_picking_viz:
+            point = start_pos + (point - start_pos) * 3.
+
+        line_node = line.node()
+
+        for i in range(line_node.get_num_geoms()):
+            vertex_data = line_node.modify_geom(i).modify_vertex_data()
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+            pos_writer.set_row(1)
+            pos_writer.set_data3f(point)
+
+        if line is self._rubber_band:
+
+            length = (point - start_pos).length()
+
+            if self.cam.lens_type == "ortho":
+                length /= 40. * self.cam.zoom
+
+            vertex_data = line_node.modify_geom(0).modify_vertex_data()
+            uv_writer = GeomVertexWriter(vertex_data, "texcoord")
+            uv_writer.set_row(1)
+            uv_writer.set_data2f(length * 5., 1.)
+
+    def __draw_aux_picking_viz(self, task):
+
+        if not self.mouse_watcher.has_mouse():
+            return task.cont
+
+        self.__draw_line(self._aux_picking_viz)
+
+        return task.cont
+
+    def __draw_rubber_band(self, task):
+
+        if not self.mouse_watcher.has_mouse():
+            return task.cont
+
+        self.__draw_line(self._rubber_band)
+
+        return task.cont
+
+    def __end_drawing_aux_picking_viz(self):
+
+        Mgr.remove_task("draw_aux_picking_viz")
+        self._aux_picking_viz.detach_node()
+
+    def __end_drawing_rubber_band(self):
+
+        Mgr.remove_task("draw_rubber_band")
+        self._rubber_band.detach_node()
 
     def __create_data(self, owner):
 

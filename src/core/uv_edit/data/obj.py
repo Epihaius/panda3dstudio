@@ -67,6 +67,10 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         self._origin = origin
         self._geoms = geoms
 
+        self._tmp_geom_pickable = None
+        self._tmp_geom_sel_state = None
+        self._tmp_row_indices = {}
+
         UVDataSelectionBase.__init__(self, data_copy)
         is_copy = True if data_copy else False
         UVDataTransformBase.__init__(self, is_copy)
@@ -104,25 +108,10 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         path = "**/poly_sel_state_geom"
         geom = origin_copy.find(path)
-        geom.node().modify_geom(0).set_vertex_data(vertex_data_poly)
-        geom.node().modify_geom(1).set_vertex_data(vertex_data_poly)
-        geoms["poly"]["sel_state"] = geom
-
         geom_node = geom.node()
-        prim = geom_node.get_geom(1).get_primitive(0)
-        data = prim.get_vertices().get_handle().get_data()
-        tmp_prim = GeomTriangles(Geom.UH_static)
-        tmp_prim.add_vertices(0, 1, 2)
-        geom_node.modify_geom(1).set_primitive(0, tmp_prim)
-
-        def update_selected_polys(task):
-
-            Mgr.render_frame()
-            tmp_prim.modify_vertices().modify_handle().set_data(data)
-
-            return task.done
-
-        Mgr.do_next_frame(update_selected_polys, "update_sel_polys")
+        geom_node.modify_geom(0).set_vertex_data(vertex_data_poly)
+        geom_node.modify_geom(1).set_vertex_data(vertex_data_poly)
+        geoms["poly"]["sel_state"] = geom
 
         data_copy = {}
         data_copy["geom_data_obj"] = self._geom_data_obj
@@ -168,9 +157,6 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         for poly_id, poly in polys.iteritems():
 
-            uv_poly_verts = []
-            uv_poly_edges = []
-
             row_index = 0
 
             for vert_ids in poly:
@@ -179,31 +165,24 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                         vert = verts[vert_id]
                         u, v = vert.get_uvs(uv_set_id)
                         pos = Point3(u, 0., v)
+                        edge_ids = vert.get_edge_ids()
                         picking_col_id = vert.get_picking_color_id()
-                        uv_vert = Vertex(vert_id, picking_col_id, self, pos)
+                        uv_vert = Vertex(vert_id, picking_col_id, pos, self, poly_id, edge_ids)
                         uv_vert.set_row_index(row_index)
                         row_index += 1
                         uv_registry["vert"][picking_col_id] = uv_vert
                         uv_verts[vert_id] = uv_vert
-                        uv_poly_verts.append(uv_vert)
 
             for edge_id in poly.get_edge_ids():
-
                 edge = edges[edge_id]
-                uv_edge_verts = []
-
-                for vert_id in edge:
-                    uv_vert = uv_verts[vert_id]
-                    uv_edge_verts.append(uv_vert)
-
                 picking_col_id = edge.get_picking_color_id()
-                uv_edge = Edge(edge_id, picking_col_id, self, uv_edge_verts)
+                uv_edge = Edge(edge_id, picking_col_id, self, poly_id, edge[:])
                 uv_registry["edge"][picking_col_id] = uv_edge
                 uv_edges[edge_id] = uv_edge
-                uv_poly_edges.append(uv_edge)
 
             picking_col_id = poly.get_picking_color_id()
-            uv_poly = Polygon(poly_id, picking_col_id, self, poly[:], uv_poly_edges, uv_poly_verts)
+            uv_poly = Polygon(poly_id, picking_col_id, self, poly[:], poly.get_vertex_ids()[:],
+                              poly.get_edge_ids()[:])
             uv_registry["poly"][picking_col_id] = uv_poly
             uv_polys[poly_id] = uv_poly
 
@@ -238,11 +217,9 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                     merged_uv_edge.append(e_id)
                     merged_uv_edges[e_id] = merged_uv_edge
 
-        seam_edge_ids = self._seam_edge_ids
-
-        for edge_id, merged_edge in merged_uv_edges.iteritems():
-            if len(merged_edge) == 1:
-                seam_edge_ids.append(edge_id)
+        seam_edges = [m_e for m_e in merged_uv_edges.itervalues() if len(m_e) == 1]
+        self.fix_seams(seam_edges)
+        self._seam_edge_ids.extend(s_e.get_id() for s_e in seam_edges)
 
     def __create_geometry(self):
 
@@ -397,10 +374,9 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         tris_geom.add_primitive(tris_prim)
         geom_node.add_geom(tris_geom, UVMgr.get("poly_states")["unselected"])
         tris_geom = Geom(vertex_data_poly)
-        # although the primitive should be empty, it needs *all* vertices initially,
-        # otherwise selected polys will not be rendered later on;
-        # the vertices will be removed in the next frame
-        tris_geom.add_primitive(GeomTriangles(tris_prim))
+        tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.reserve_num_vertices(tri_vert_count)
+        tris_geom.add_primitive(tris_prim)
         geom_node.add_geom(tris_geom)
         poly_sel_state_geom = origin.attach_new_node(geom_node)
         poly_sel_state_geom.set_state(UVMgr.get("poly_states")["selected"])
@@ -418,21 +394,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             bounds = BoundingSphere(center, .1)
             origin.node().set_bounds(bounds)
 
-        Mgr.do_next_frame(self.__clear_selected_polys, "clear_sel_polys")
-
-    def __clear_selected_polys(self, task):
-
-        geoms = self._geoms
-
-        geom = geoms["poly"]["sel_state"]
-        geom.set_transparency(TransparencyAttrib.M_alpha)
-        prim = geom.node().modify_geom(1).modify_primitive(0)
-        handle = prim.modify_vertices().modify_handle()
-        handle.set_data("")
-
         self.update_seams()
-
-        return task.done
 
     def update_seams(self):
 
@@ -549,6 +511,14 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         return self._origin
 
+    def get_merged_vertices(self):
+
+        return self._merged_verts
+
+    def get_merged_edges(self):
+
+        return self._merged_edges
+
     def get_merged_vertex(self, vert_id):
 
         return self._merged_verts[vert_id]
@@ -565,7 +535,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         return self._subobjs[subobj_type].get(subobj_id)
 
-    def show_subobj_level(self, subobj_lvl):
+    def show_subobj_level(self, subobj_lvl, affect_sel_backup=True):
 
         render_mask = UVMgr.get("render_mask")
         picking_mask = UVMgr.get("picking_mask")
@@ -591,6 +561,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             geoms["vert"]["pickable"].hide(picking_mask)
 
         poly_geom = geoms["poly"]["sel_state"]
+        poly_geom.node().set_geom_state(0, UVMgr.get("poly_states")["unselected"])
 
         if subobj_lvl == "poly":
             poly_geom.set_state(UVMgr.get("poly_states")["selected"])
@@ -598,6 +569,108 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         else:
             poly_geom.set_state(UVMgr.get("poly_states")["unselected"])
             poly_geom.hide(picking_mask)
+
+        if affect_sel_backup:
+            if GlobalData["uv_edit_options"]["pick_via_poly"]:
+                if subobj_lvl in ("vert", "edge"):
+                    self.create_selection_backup("poly")
+                else:
+                    self.restore_selection_backup("poly")
+
+        if subobj_lvl in ("vert", "edge"):
+            self.init_subobj_picking(subobj_lvl)
+
+    def set_pickable(self, is_pickable=True):
+
+        geoms = self._geoms
+        picking_mask = UVMgr.get("picking_mask")
+
+        if is_pickable:
+
+            active_obj_lvl = GlobalData["active_obj_level"]
+            self.show_subobj_level(active_obj_lvl, False)
+
+        else:
+
+            for obj_lvl in ("vert", "edge"):
+                geoms[obj_lvl]["pickable"].hide(picking_mask)
+
+            geoms["poly"]["sel_state"].hide(picking_mask)
+
+    def init_subobj_picking(self, subobj_lvl):
+
+        geoms = self._geoms
+
+        if GlobalData["uv_edit_options"]["pick_via_poly"]:
+            self.create_selection_backup("poly")
+            self.prepare_subobj_picking_via_poly(subobj_lvl)
+        else:
+            picking_mask = UVMgr.get("picking_mask")
+            geoms[subobj_lvl]["pickable"].show(picking_mask)
+            poly_geom = geoms["poly"]["sel_state"]
+            state = UVMgr.get("poly_states")["unselected"]
+            poly_geom.node().set_geom_state(0, state)
+            poly_geom.set_state(state)
+            poly_geom.hide(picking_mask)
+
+    def prepare_subobj_picking_via_poly(self, subobj_type):
+
+        self.clear_selection("poly", False)
+
+        # clean up temporary vertex data
+        if self._tmp_geom_pickable:
+
+            self._tmp_geom_pickable.remove_node()
+            self._tmp_geom_pickable = None
+            self._tmp_geom_sel_state.remove_node()
+            self._tmp_geom_sel_state = None
+            self._tmp_row_indices = {}
+
+            if GlobalData["uv_edit_options"]["pick_by_aiming"]:
+                aux_picking_root = Mgr.get("aux_picking_root")
+                tmp_geom_pickable = aux_picking_root.find("**/tmp_geom_pickable")
+                tmp_geom_pickable.remove_node()
+                aux_picking_cam = UVMgr.get("aux_picking_cam")
+                aux_picking_cam.set_active(False)
+                UVMgr.do("end_drawing_aux_picking_viz")
+
+        # Allow picking polys instead of the subobjects of the given type;
+        # as soon as a poly is clicked, its subobjects (of the given type) become
+        # pickable instead of polys.
+
+        picking_mask = UVMgr.get("picking_mask")
+        geoms = self._geoms
+        geoms[subobj_type]["pickable"].hide(picking_mask)
+        poly_geom = geoms["poly"]["sel_state"]
+        poly_geom.set_state(UVMgr.get("poly_states")["tmp_selected"])
+        poly_geom.show(picking_mask)
+
+    def init_subobj_picking_via_poly(self, subobj_lvl, picked_poly, category=""):
+
+        if subobj_lvl == "vert":
+            self.init_vertex_picking_via_poly(picked_poly, category)
+        elif subobj_lvl == "edge":
+            self.init_edge_picking_via_poly(picked_poly, category)
+
+    def hilite_temp_subobject(self, subobj_lvl, color_id):
+
+        row = self._tmp_row_indices.get(color_id)
+
+        if row is None:
+            return False
+
+        colors = UVMgr.get("uv_selection_colors")[subobj_lvl]
+        geom = self._tmp_geom_sel_state.node().modify_geom(0)
+        vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
+        geom.set_vertex_data(vertex_data)
+        col_writer = GeomVertexWriter(geom.modify_vertex_data(), "color")
+        col_writer.set_row(row)
+        col_writer.set_data4f(colors["selected"])
+
+        if subobj_lvl == "edge":
+            col_writer.set_data4f(colors["selected"])
+
+        return True
 
     def set_poly_state(self, sel_state, state):
 

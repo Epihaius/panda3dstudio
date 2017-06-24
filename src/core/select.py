@@ -45,14 +45,17 @@ class Selection(SelectionTransformBase):
         if not force and obj_ids == self._prev_obj_ids:
             return
 
+        names = OrderedDict()
+
+        for obj in self._objs:
+            names[obj.get_id()] = obj.get_name()
+
+        Mgr.update_remotely("selected_obj_names", names)
+
         count = len(self._objs)
 
         if count == 1:
             sel = self._objs[0]
-
-        if count:
-            label = sel.get_name() if count == 1 else "%s Objects selected" % count
-            Mgr.update_remotely("selected_obj_name", label)
 
         sel_colors = set(obj.get_color() for obj in self._objs if obj.has_color())
         sel_color_count = len(sel_colors)
@@ -355,7 +358,7 @@ class SelectionManager(BaseObject):
 
         self._obj_id = None
         self._selection = Selection()
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
 
         GlobalData.set_default("selection_count", 0)
         GlobalData.set_default("sel_color_count", 0)
@@ -367,13 +370,14 @@ class SelectionManager(BaseObject):
 
         def force_cursor_update(transf_type):
 
-            self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                               # next time self.__update_cursor()
-                                               # is called
+            self._pixel_under_mouse = None  # force an update of the cursor
+                                            # next time self.__update_cursor()
+                                            # is called
 
         Mgr.add_app_updater("active_transform_type", force_cursor_update)
         Mgr.add_app_updater("active_obj_level", self.__update_active_selection,
                             kwargs=["restore"])
+        Mgr.add_app_updater("object_selection", self.__update_object_selection)
         Mgr.accept("update_active_selection", self.__update_active_selection)
 
         add_state = Mgr.add_state
@@ -438,9 +442,9 @@ class SelectionManager(BaseObject):
     def __exit_selection_mode(self, next_state_id, is_active):
 
         if next_state_id != "checking_mouse_offset":
-            self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                               # next time self.__update_cursor()
-                                               # is called
+            self._pixel_under_mouse = None  # force an update of the cursor
+                                            # next time self.__update_cursor()
+                                            # is called
             Mgr.remove_task("update_cursor")
             Mgr.set_cursor("main")
 
@@ -480,6 +484,16 @@ class SelectionManager(BaseObject):
         else:
             self.__get_selection().update()
 
+    def __update_object_selection(self, object_id, op="replace"):
+
+        obj = Mgr.get("object", object_id)
+        selection = self._selection
+
+        if op == "replace":
+            selection.replace([obj])
+        elif op == "remove":
+            selection.remove([obj])
+
     def __delete_selection(self):
 
         selection = self.__get_selection()
@@ -493,13 +507,54 @@ class SelectionManager(BaseObject):
 
         if self._pixel_under_mouse != pixel_under_mouse:
 
-            if pixel_under_mouse == VBase4():
-                Mgr.set_cursor("main")
-            else:
-                active_transform_type = GlobalData["active_transform_type"]
-                cursor_id = "select" if not active_transform_type else active_transform_type
-                Mgr.set_cursor(cursor_id)
+            cursor_id = "main"
 
+            if pixel_under_mouse != VBase4():
+
+                if (GlobalData["active_obj_level"] == "edge" and
+                        GlobalData["subobj_edit_options"]["sel_edges_by_border"]):
+
+                    r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
+                    color_id = r << 16 | g << 8 | b
+                    pickable_type = PickableTypes.get(a)
+
+                    if pickable_type == "transf_gizmo":
+
+                        cursor_id = "select"
+
+                    elif GlobalData["subobj_edit_options"]["pick_via_poly"]:
+
+                        poly = Mgr.get("poly", color_id)
+
+                        if poly:
+
+                            merged_edges = poly.get_geom_data_object().get_merged_edges()
+
+                            for edge_id in poly.get_edge_ids():
+                                if len(merged_edges[edge_id]) == 1:
+                                    cursor_id = "select"
+                                    break
+
+                    else:
+
+                        edge = Mgr.get("edge", color_id)
+                        merged_edge = edge.get_merged_edge() if edge else None
+
+                        if merged_edge and len(merged_edge) == 1:
+                            cursor_id = "select"
+
+                else:
+
+                    cursor_id = "select"
+
+                if cursor_id == "select":
+
+                    active_transform_type = GlobalData["active_transform_type"]
+
+                    if active_transform_type:
+                        cursor_id = active_transform_type
+
+            Mgr.set_cursor(cursor_id)
             self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
@@ -562,24 +617,30 @@ class SelectionManager(BaseObject):
 
     def __select(self, toggle=False):
 
-        if not self.mouse_watcher.has_mouse():
+        if not (self.mouse_watcher.has_mouse() and self._pixel_under_mouse):
             return
 
         self._can_select_single = False
         screen_pos = Point2(self.mouse_watcher.get_mouse())
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
+        obj_lvl = GlobalData["active_obj_level"]
 
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        color_id = r << 16 | g << 8 | b
         pickable_type, picked_obj = self.__get_picked_object(color_id, a)
+
+        if (GlobalData["active_transform_type"] and obj_lvl != pickable_type == "poly"
+                and GlobalData["subobj_edit_options"]["pick_via_poly"]):
+            Mgr.do("start_selection_via_poly", picked_obj, toggle)
+            return
+
         self._picked_point = picked_obj.get_point_at_screen_pos(screen_pos) if picked_obj else None
 
         if pickable_type == "transf_gizmo":
             Mgr.enter_state("checking_mouse_offset")
             return
 
-        obj_lvl = GlobalData["active_obj_level"]
         can_select_single, start_mouse_checking = Mgr.do("select_" + obj_lvl, picked_obj, toggle)
 
         self._can_select_single = can_select_single
@@ -689,7 +750,7 @@ class SelectionManager(BaseObject):
             return
 
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        color_id = r << 16 | g << 8 | b
         pickable_type = PickableTypes.get(a)
 
         if not pickable_type or pickable_type == "transf_gizmo":

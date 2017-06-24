@@ -895,73 +895,186 @@ class NormalEditBase(BaseObject):
             self._geoms["normal"]["pickable"].clear_shader()
             self._geoms["normal"]["sel_state"].clear_shader()
 
-    def normal_select_via_poly(self, poly):
+    def init_normal_picking_via_poly(self, poly, category=""):
 
-        picking_masks = Mgr.get("picking_masks")["all"]
+        # Allow picking the vertex normals of the poly picked in the previous step
+        # (see prepare_subobj_picking_via_poly) instead of other normals;
+        # as soon as the mouse is released over a normal, it gets picked and
+        # polys become pickable again.
 
-        if poly.get_id() in self._subobjs["poly"]:
+        origin = self._origin
+        verts = self._subobjs["vert"]
+        edges = self._subobjs["edge"]
+        count = poly.get_vertex_count()
 
-            # Allow picking the vertex normals of the poly picked in the previous step
-            # (see init_subobject_select_via_poly) instead of other normals;
-            # as soon as the mouse is released over a normal, it gets selected and
-            # polys become pickable again.
+        # create pickable geometry, specifically for the normals of the
+        # given polygon and belonging to the given category, if any
+        vertex_format = Mgr.get("vertex_format_normal")
+        vertex_data = GeomVertexData("vert_data", vertex_format, Geom.UH_static)
+        vertex_data.reserve_num_rows(count)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        normal_writer = GeomVertexWriter(vertex_data, "normal")
+        pickable_id = PickableTypes.get_id("vert")
+        rows = self._tmp_row_indices
+        sign = -1. if self._owner.has_flipped_normals() else 1.
+        by_aiming = GlobalData["subobj_edit_options"]["pick_by_aiming"]
 
-            verts = self._subobjs["vert"]
-            count = poly.get_vertex_count()
-            vertex_format = Mgr.get("vertex_format_normal")
-            vertex_data = GeomVertexData("vert_data", vertex_format, Geom.UH_dynamic)
-            vertex_data.reserve_num_rows(count)
-            vertex_data.set_num_rows(count)
-            pos_writer = GeomVertexWriter(vertex_data, "vertex")
-            col_writer = GeomVertexWriter(vertex_data, "color")
-            normal_writer = GeomVertexWriter(vertex_data, "normal")
-            pickable_id = PickableTypes.get_id("vert")
-            rows = self._tmp_row_indices
-            sign = -1. if self._owner.has_flipped_normals() else 1.
+        if by_aiming:
 
-            for i, vert_id in enumerate(poly.get_vertex_ids()):
-                vertex = verts[vert_id]
-                pos = vertex.get_pos()
-                pos_writer.add_data3f(pos)
-                color_id = vertex.get_picking_color_id()
-                picking_color = get_color_vec(color_id, pickable_id)
-                col_writer.add_data4f(picking_color)
-                rows[color_id] = i
-                normal = vertex.get_normal()
-                normal_writer.add_data3f(normal * sign)
+            # To further assist with normal picking, create two quads for each
+            # normal, with the picking color of that normal and perpendicular to
+            # the view plane;
+            # the border of each quad will pass through the vertex corresponding
+            # to the normal itself, and through either of the centers of the 2 edges
+            # connected by that vertex;
+            # an auxiliary picking camera will be placed at the clicked point under
+            # the mouse and follow the mouse cursor, rendering the picking color
+            # of the quad it is pointed at.
 
-            tmp_prim = GeomPoints(Geom.UH_static)
-            tmp_prim.reserve_num_vertices(count)
-            tmp_prim.add_next_vertices(count)
-            geom = Geom(vertex_data)
-            geom.add_primitive(tmp_prim)
+            aux_picking_root = Mgr.get("aux_picking_root")
+            aux_picking_cam = Mgr.get("aux_picking_cam")
+            cam = self.cam()
+            cam_pos = cam.get_pos(self.world)
+            normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
+            plane = Plane(normal, cam_pos + normal * 10.)
+            aux_picking_cam.set_plane(plane)
+            aux_picking_cam.update_pos()
+            normal *= 5.
+            vertex_data_poly = GeomVertexData("vert_data_poly", vertex_format, Geom.UH_static)
+            vertex_data_poly.reserve_num_rows(count * 6)
+            pos_writer_poly = GeomVertexWriter(vertex_data_poly, "vertex")
+            col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
+            tmp_poly_prim = GeomTriangles(Geom.UH_static)
+            tmp_poly_prim.reserve_num_vertices(count * 12)
+            rel_pt = lambda point: self.world.get_relative_point(origin, point)
+            lens_is_ortho = self.cam.lens_type == "ortho"
+
+        for i, vert_id in enumerate(poly.get_vertex_ids()):
+
+            vertex = verts[vert_id]
+            pos = vertex.get_pos()
+            pos_writer.add_data3f(pos)
+            color_id = vertex.get_picking_color_id()
+            picking_color = get_color_vec(color_id, pickable_id)
+            col_writer.add_data4f(picking_color)
+            rows[color_id] = i
+            vert_normal = vertex.get_normal()
+            normal_writer.add_data3f(vert_normal * sign)
+
+            if by_aiming:
+
+                edge1_id, edge2_id = vertex.get_edge_ids()
+                edge1_center = edges[edge1_id].get_center_pos()
+                edge2_center = edges[edge2_id].get_center_pos()
+                p1 = Point3()
+                point1 = rel_pt(edge1_center)
+                point2 = point1 + normal if lens_is_ortho else cam_pos
+                plane.intersects_line(p1, point1, point2)
+                p2 = Point3()
+                point1 = rel_pt(pos)
+                point2 = point1 + normal if lens_is_ortho else cam_pos
+                plane.intersects_line(p2, point1, point2)
+                p3 = Point3()
+                point1 = rel_pt(edge2_center)
+                point2 = point1 + normal if lens_is_ortho else cam_pos
+                plane.intersects_line(p3, point1, point2)
+                pos_writer_poly.add_data3f(p1 - normal)
+                pos_writer_poly.add_data3f(p1 + normal)
+                pos_writer_poly.add_data3f(p2 - normal)
+                pos_writer_poly.add_data3f(p2 + normal)
+                pos_writer_poly.add_data3f(p3 - normal)
+                pos_writer_poly.add_data3f(p3 + normal)
+
+                for _ in range(6):
+                    col_writer_poly.add_data4f(picking_color)
+
+                j = i * 6
+                tmp_poly_prim.add_vertices(j, j + 1, j + 2)
+                tmp_poly_prim.add_vertices(j + 1, j + 3, j + 2)
+                tmp_poly_prim.add_vertices(j + 2, j + 3, j + 4)
+                tmp_poly_prim.add_vertices(j + 3, j + 5, j + 4)
+
+        tmp_prim = GeomPoints(Geom.UH_static)
+        tmp_prim.reserve_num_vertices(count)
+        tmp_prim.add_next_vertices(count)
+        geom = Geom(vertex_data)
+        geom.add_primitive(tmp_prim)
+        node = GeomNode("tmp_geom_pickable")
+        node.add_geom(geom)
+        geom_pickable = origin.attach_new_node(node)
+        geom_pickable.set_bin("fixed", 51)
+        geom_pickable.set_depth_test(False)
+        geom_pickable.set_depth_write(False)
+        shader = Shader.make(Shader.SL_GLSL, VERT_SHADER_NORMALS, FRAG_SHADER_NORMALS,
+                             GEOM_SHADER_NORMALS)
+        geom_pickable.set_shader(shader)
+        normal_length = self._normal_length
+        geom_pickable.set_shader_input("normal_length", normal_length)
+        geom_sel_state = geom_pickable.copy_to(origin)
+        geom_sel_state.set_name("tmp_geom_sel_state")
+        geom_sel_state.set_light_off()
+        geom_sel_state.set_color_off()
+        geom_sel_state.set_texture_off()
+        geom_sel_state.set_material_off()
+        geom_sel_state.set_transparency(TransparencyAttrib.M_alpha)
+        geom_sel_state.set_render_mode_thickness(3)
+        geom = geom_sel_state.node().modify_geom(0)
+        vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
+        geom.set_vertex_data(vertex_data)
+        self._tmp_geom_pickable = geom_pickable
+        self._tmp_geom_sel_state = geom_sel_state
+
+        if by_aiming:
+            geom_poly = Geom(vertex_data_poly)
+            geom_poly.add_primitive(tmp_poly_prim)
             node = GeomNode("tmp_geom_pickable")
-            node.add_geom(geom)
-            geom_pickable = self._origin.attach_new_node(node)
-            geom_pickable.set_bin("fixed", 51)
-            geom_pickable.set_depth_test(False)
-            geom_pickable.set_depth_write(False)
-            shader = Shader.make(Shader.SL_GLSL, VERT_SHADER_NORMALS, FRAG_SHADER_NORMALS,
-                                 GEOM_SHADER_NORMALS)
-            geom_pickable.set_shader(shader)
-            normal_length = self._normal_length
-            geom_pickable.set_shader_input("normal_length", normal_length)
-            geom_sel_state = geom_pickable.copy_to(self._origin)
-            geom_sel_state.set_name("tmp_geom_sel_state")
-            geom_sel_state.set_light_off()
-            geom_sel_state.set_color_off()
-            geom_sel_state.set_texture_off()
-            geom_sel_state.set_material_off()
-            geom_sel_state.set_transparency(TransparencyAttrib.M_alpha)
-            geom = geom_sel_state.node().modify_geom(0)
-            vertex_data = geom.get_vertex_data().set_color((.3, .3, .3, .5))
-            geom.set_vertex_data(vertex_data)
-            self._tmp_geom_pickable = geom_pickable
-            self._tmp_geom_sel_state = geom_sel_state
+            node.add_geom(geom_poly)
+            geom_poly_pickable = aux_picking_root.attach_new_node(node)
+            geom_poly_pickable.set_two_sided(True)
 
-            render_masks = Mgr.get("render_masks")["all"]
-            geom_pickable.hide(render_masks)
-            geom_pickable.show_through(picking_masks)
+        # to determine whether the mouse is over the polygon or not, create a
+        # duplicate with a white color to distinguish it from the black background
+        # color (so it gets detected by the picking camera) and any other pickable
+        # objects (so no attempt will be made to pick it)
+        vertex_data_poly = GeomVertexData("vert_data_poly", vertex_format, Geom.UH_static)
+        vertex_data_poly.reserve_num_rows(count)
+        pos_writer_poly = GeomVertexWriter(vertex_data_poly, "vertex")
+        col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
+        tmp_poly_prim = GeomTriangles(Geom.UH_static)
+        tmp_poly_prim.reserve_num_vertices(len(poly))
+        vert_ids = poly.get_vertex_ids()
+        white = (1., 1., 1., 1.)
+
+        for vert_id in vert_ids:
+            vertex = verts[vert_id]
+            pos = vertex.get_pos()
+            pos_writer_poly.add_data3f(pos)
+            col_writer_poly.add_data4f(white)
+
+        for _ in range(count):
+            col_writer_poly.add_data4f(white)
+
+        for tri_vert_ids in poly:
+            for vert_id in tri_vert_ids:
+                tmp_poly_prim.add_vertex(vert_ids.index(vert_id))
+
+        geom_poly = Geom(vertex_data_poly)
+        geom_poly.add_primitive(tmp_poly_prim)
+        node = GeomNode("tmp_geom_poly_pickable")
+        node.add_geom(geom_poly)
+        geom_poly_pickable = geom_pickable.attach_new_node(node)
+        geom_poly_pickable.set_bin("fixed", 50)
+        geom_poly_pickable.set_shader_off()
+
+        render_masks = Mgr.get("render_masks")["all"]
+        picking_masks = Mgr.get("picking_masks")["all"]
+        geom_pickable.hide(render_masks)
+        geom_pickable.show_through(picking_masks)
+
+        if by_aiming:
+            aux_picking_cam.set_active()
+            Mgr.do("start_drawing_aux_picking_viz")
 
         geoms = self._geoms
         geoms["poly"]["pickable"].show(picking_masks)
@@ -1164,9 +1277,12 @@ class NormalManager(BaseObject):
 
     def __init__(self):
 
-        self._pixel_under_mouse = VBase4()
+        self._picked_poly = None
+        self._tmp_color_id = None
+        self._cursor_id = ""
+        self._pixel_under_mouse = None
+        self._aux_pixel_under_mouse = None
 
-        GlobalData.set_default("normal_preserve", False)
         Mgr.accept("create_shared_normal", lambda *args, **kwargs: SharedNormal(*args, **kwargs))
         Mgr.add_app_updater("normal_length", self.__set_normal_length)
         Mgr.add_app_updater("normal_flip", self.__flip_normals)
@@ -1176,10 +1292,9 @@ class NormalManager(BaseObject):
         add_state = Mgr.add_state
         add_state("normal_dir_copy_mode", -10, self.__enter_picking_mode,
                   self.__exit_picking_mode)
+        add_state("normal_picking_via_poly", -11, self.__start_normal_picking_via_poly)
 
-        def exit_mode():
-
-            Mgr.exit_state("normal_dir_copy_mode")
+        exit_mode = lambda: Mgr.exit_state("normal_dir_copy_mode")
 
         bind = Mgr.bind_state
         bind("normal_dir_copy_mode", "normal dir copy -> navigate", "space",
@@ -1187,16 +1302,22 @@ class NormalManager(BaseObject):
         bind("normal_dir_copy_mode", "normal dir copy -> select", "escape", exit_mode)
         bind("normal_dir_copy_mode", "exit normal dir copy mode", "mouse3-up", exit_mode)
         bind("normal_dir_copy_mode", "copy normal dir", "mouse1", self.__pick)
+        bind("normal_picking_via_poly", "pick hilited normal",
+             "mouse1-up", self.__pick_hilited_normal)
+        bind("normal_picking_via_poly", "cancel normal picking",
+             "mouse3-up", self.__cancel_normal_picking_via_poly)
 
         status_data = GlobalData["status_data"]
         mode_text = "Copy normal direction"
         info_text = "Pick normal to copy direction to selected normals;" \
                     " RMB or <Escape> to end"
         status_data["normal_dir_copy_mode"] = {"mode": mode_text, "info": info_text}
+        info_text = "LMB-drag over normal to pick it; RMB to cancel"
+        status_data["normal_picking_via_poly"] = {"mode": "Pick normal", "info": info_text}
 
     def __set_normal_length(self, normal_length):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = []
 
         for obj in selection:
@@ -1230,7 +1351,7 @@ class NormalManager(BaseObject):
 
     def __flip_normals(self, flip=True):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = []
 
         for obj in selection:
@@ -1258,7 +1379,7 @@ class NormalManager(BaseObject):
 
     def __unify_normals(self, unify=True):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = {}
 
         for model in selection:
@@ -1284,7 +1405,7 @@ class NormalManager(BaseObject):
 
     def __lock_normals(self, lock=True):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = {}
 
         for model in selection:
@@ -1310,46 +1431,53 @@ class NormalManager(BaseObject):
 
     def __enter_picking_mode(self, prev_state_id, is_active):
 
-        if GlobalData["selection_via_poly"]:
-            Mgr.update_locally("selection_via_poly")
-            GlobalData["selection_via_poly"] = True
-
         if GlobalData["active_transform_type"]:
             GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
-        Mgr.add_task(self.__update_cursor, "update_normal_picking_cursor")
+        Mgr.add_task(self.__update_cursor, "update_mode_cursor")
         Mgr.update_app("status", "normal_dir_copy_mode")
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
-        if GlobalData["selection_via_poly"]:
-            Mgr.update_locally("selection_via_poly", True)
-            Mgr.update_remotely("selection_via_poly")
-
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self.__update_cursor()
-                                           # is called
-        Mgr.remove_task("update_normal_picking_cursor")
+        Mgr.remove_task("update_mode_cursor")
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self.__update_cursor()
+                                        # is called
         Mgr.set_cursor("main")
 
-    def __pick(self):
+    def __pick(self, picked_vert=None):
 
-        r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
+        if picked_vert:
 
-        if PickableTypes.get(a) != "vert":
-            return
+            vert = picked_vert
 
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
-        vert = Mgr.get("vert", color_id)
+        else:
 
-        if not vert:
-            return
+            if not self._pixel_under_mouse:
+                return
+
+            r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
+            color_id = r << 16 | g << 8 | b
+            pickable_type = PickableTypes.get(a)
+
+            if pickable_type == "poly":
+                self._picked_poly = Mgr.get("poly", color_id)
+                Mgr.enter_state("normal_picking_via_poly")
+                return
+
+            if pickable_type != "vert":
+                return
+
+            vert = Mgr.get("vert", color_id)
+
+            if not vert:
+                return
 
         normal = vert.get_normal()
         changed_objs = {}
 
-        for obj in Mgr.get("selection", "top"):
+        for obj in Mgr.get("selection_top"):
 
             geom_data_obj = obj.get_geom_object().get_geom_data_object()
 
@@ -1368,6 +1496,128 @@ class NormalManager(BaseObject):
         event_descr = "Copy normal direction"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __start_normal_picking_via_poly(self, prev_state_id, is_active):
+
+        Mgr.remove_task("update_mode_cursor")
+
+        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj.init_subobj_picking_via_poly("normal", self._picked_poly)
+        # temporarily select picked poly
+        geom_data_obj.update_selection("poly", [self._picked_poly], [], False)
+
+        for model in Mgr.get("selection_top"):
+
+            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if other_geom_data_obj is not geom_data_obj:
+                other_geom_data_obj.set_pickable(False)
+
+        Mgr.add_task(self.__hilite_normal, "hilite_normal")
+        Mgr.update_app("status", "normal_picking_via_poly")
+
+        cs_type = GlobalData["coord_sys_type"]
+        tc_type = GlobalData["transf_center_type"]
+        toplvl_obj = self._picked_poly.get_toplevel_object()
+
+        if cs_type == "local":
+            Mgr.update_locally("coord_sys", cs_type, toplvl_obj)
+
+        if tc_type == "pivot":
+            Mgr.update_locally("transf_center", tc_type, toplvl_obj)
+
+    def __hilite_normal(self, task):
+
+        pixel_under_mouse = Mgr.get("pixel_under_mouse")
+
+        if self._pixel_under_mouse != pixel_under_mouse:
+
+            if pixel_under_mouse != VBase4():
+
+                r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
+                color_id = r << 16 | g << 8 | b
+                geom_data_obj = self._picked_poly.get_geom_data_object()
+
+                # highlight temporary normal
+                if geom_data_obj.hilite_temp_subobject("normal", color_id):
+                    self._tmp_color_id = color_id
+
+            self._pixel_under_mouse = pixel_under_mouse
+
+        not_hilited = pixel_under_mouse in (VBase4(), VBase4(1., 1., 1., 1.))
+        cursor_id = "main" if not_hilited else "select"
+
+        if GlobalData["subobj_edit_options"]["pick_by_aiming"]:
+
+            aux_pixel_under_mouse = Mgr.get("aux_pixel_under_mouse")
+
+            if not_hilited or self._aux_pixel_under_mouse != aux_pixel_under_mouse:
+
+                if not_hilited and aux_pixel_under_mouse != VBase4():
+
+                    r, g, b, a = [int(round(c * 255.)) for c in aux_pixel_under_mouse]
+                    color_id = r << 16 | g << 8 | b
+                    geom_data_obj = self._picked_poly.get_geom_data_object()
+
+                    # highlight temporary normal
+                    if geom_data_obj.hilite_temp_subobject("normal", color_id):
+                        self._tmp_color_id = color_id
+                        cursor_id = "select"
+
+                self._aux_pixel_under_mouse = aux_pixel_under_mouse
+
+        if self._cursor_id != cursor_id:
+            Mgr.set_cursor(cursor_id)
+            self._cursor_id = cursor_id
+
+        return task.cont
+
+    def __pick_hilited_normal(self):
+
+        Mgr.remove_task("hilite_normal")
+
+        if self._tmp_color_id is not None:
+            picked_vert = Mgr.get("vert", self._tmp_color_id)
+            self.__pick(picked_vert)
+
+        Mgr.enter_state("normal_dir_copy_mode")
+
+        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj.prepare_subobj_picking_via_poly("normal")
+
+        for model in Mgr.get("selection_top"):
+
+            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if other_geom_data_obj is not geom_data_obj:
+                other_geom_data_obj.set_pickable()
+
+        self._picked_poly = None
+        self._tmp_color_id = None
+        self._cursor_id = ""
+        self._pixel_under_mouse = None
+        self._aux_pixel_under_mouse = None
+
+    def __cancel_normal_picking_via_poly(self):
+
+        Mgr.remove_task("hilite_normal")
+        Mgr.exit_state("normal_picking_via_poly")
+
+        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj.prepare_subobj_picking_via_poly("normal")
+
+        for model in Mgr.get("selection_top"):
+
+            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+
+            if other_geom_data_obj is not geom_data_obj:
+                other_geom_data_obj.set_pickable()
+
+        self._picked_poly = None
+        self._tmp_color_id = None
+        self._cursor_id = ""
+        self._pixel_under_mouse = None
+        self._aux_pixel_under_mouse = None
 
     def __update_cursor(self, task):
 

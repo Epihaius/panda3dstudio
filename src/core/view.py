@@ -303,7 +303,7 @@ class ViewManager(BaseObject):
         self._mouse_prev = Point2()
         self._checking_view = False
         self._previewing = False
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
 
         self._user_views = []
         self._user_lens_types = {}
@@ -438,9 +438,9 @@ class ViewManager(BaseObject):
     def __exit_picking_mode(self, next_state_id, is_active):
 
         self._align_info.hide()
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self.__update_cursor()
-                                           # is called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self.__update_cursor()
+                                        # is called
         Mgr.remove_task("update_view_obj_picking_cursor")
         Mgr.set_cursor("main")
 
@@ -1240,7 +1240,7 @@ class ViewManager(BaseObject):
 
         PendingTasks.add(task, "set_persp_view", "ui")
 
-    def __center_view_on_objects(self, transition=True, obj_to_align_to=None):
+    def __center_view_on_objects(self, transition=True, obj_to_align_to=None, obj_id=None):
 
         if self._lerp_interval:
             return
@@ -1250,6 +1250,11 @@ class ViewManager(BaseObject):
         if obj_to_align_to:
 
             objs = [obj_to_align_to]
+
+        elif obj_id:
+
+            obj = Mgr.get("object", obj_id)
+            objs = [obj]
 
         else:
 
@@ -1262,7 +1267,7 @@ class ViewManager(BaseObject):
 
             else:
 
-                selection = Mgr.get("selection", "top")
+                selection = Mgr.get("selection_top")
 
                 if selection:
                     objs = selection

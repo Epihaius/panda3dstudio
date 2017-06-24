@@ -590,7 +590,7 @@ class BoxManager(PrimitiveManager):
 
     def __boxes_to_planes_conversion(self):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         objs = selection[:]
         obj_names = GlobalData["obj_names"]
         box_names = []

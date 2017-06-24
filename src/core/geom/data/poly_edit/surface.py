@@ -1,9 +1,9 @@
 from ....base import *
 
 
-class RegionBase(BaseObject):
+class SurfaceBase(BaseObject):
 
-    def get_polygon_region(self, poly_id):
+    def get_polygon_surface(self, poly_id):
 
         polys = self._subobjs["poly"]
         poly = polys[poly_id]
@@ -18,8 +18,9 @@ class RegionBase(BaseObject):
 
         return [polys[p_id] for p_id in poly_ids]
 
-    def flip_polygon_regions(self):
+    def invert_polygon_surfaces(self):
 
+        # Inverting a surface of contiguous polygons comes down to flipping each polygon.
         # Flipping a polygon can be accomplished by swapping properties of every two
         # vertices equally far removed from a starting vertex (pair) at either side of
         # that vertex (pair).
@@ -39,12 +40,12 @@ class RegionBase(BaseObject):
         poly_ids = set(selected_poly_ids)
         polys_to_flip = set()
 
-        # determine the regions that the selected polys belong to
+        # determine the contiguous surfaces that the selected polys belong to
         while poly_ids:
             poly_id = poly_ids.pop()
-            region = self.get_polygon_region(poly_id)
-            polys_to_flip.update(region)
-            poly_ids.difference_update([poly.get_id() for poly in region])
+            surface = self.get_polygon_surface(poly_id)
+            polys_to_flip.update(surface)
+            poly_ids.difference_update([poly.get_id() for poly in surface])
 
         verts = self._subobjs["vert"]
         merged_verts = self._merged_verts
@@ -403,15 +404,15 @@ class RegionBase(BaseObject):
         return True, tri_change, uv_change, sel_change
 
 
-class RegionManager(BaseObject):
+class SurfaceManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.add_app_updater("poly_region_flip", self.__flip_poly_regions)
+        Mgr.add_app_updater("poly_surface_inversion", self.__invert_poly_surfaces)
 
-    def __flip_poly_regions(self):
+    def __invert_poly_surfaces(self):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = {}
         changed_triangulations = []
         changed_selections = []
@@ -421,7 +422,7 @@ class RegionManager(BaseObject):
 
             model_id = model.get_id()
             geom_data_obj = model.get_geom_object().get_geom_data_object()
-            change, tri_change, uv_change, sel_change = geom_data_obj.flip_polygon_regions()
+            change, tri_change, uv_change, sel_change = geom_data_obj.invert_polygon_surfaces()
 
             if change:
 
@@ -458,6 +459,6 @@ class RegionManager(BaseObject):
 
             obj_data[obj_id] = data
 
-        event_descr = "Flip polygon regions"
+        event_descr = "Invert polygon surfaces"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

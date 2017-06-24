@@ -5,6 +5,21 @@ from .edge import MergedEdge
 
 class PolygonEditBase(BaseObject):
 
+    def get_polygon_cluster(self, poly_id):
+
+        polys = self._subobjs["poly"]
+        poly = polys[poly_id]
+        poly_ids = set([poly_id])
+        neighbor_ids = list(poly.get_neighbor_ids())
+
+        while neighbor_ids:
+            neighbor_id = neighbor_ids.pop()
+            neighbor = polys[neighbor_id]
+            neighbor_ids.extend(neighbor.get_neighbor_ids() - poly_ids)
+            poly_ids.add(neighbor_id)
+
+        return [polys[p_id] for p_id in poly_ids]
+
     def get_polygon_selection_border(self):
 
         selected_poly_ids = self._selected_subobj_ids["poly"]

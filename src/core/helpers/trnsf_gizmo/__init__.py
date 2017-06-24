@@ -33,6 +33,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         Mgr.accept("update_transf_gizmo", self.__update)
         Mgr.accept("show_transf_gizmo", self.__show)
         Mgr.accept("hide_transf_gizmo", self.__hide)
+        Mgr.accept("set_transf_gizmo_pickable", self.__set_pickable)
         Mgr.accept("select_transf_gizmo_handle", self.__select_gizmo_handle)
         Mgr.accept("enable_transf_gizmo", self.__enable_gizmo)
         Mgr.accept("disable_transf_gizmo", self.__disable_gizmo)
@@ -93,7 +94,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
         pixel_color = Mgr.get("pixel_under_mouse")
         r, g, b, a = [int(round(c * 255.)) for c in pixel_color]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
+        color_id = r << 16 | g << 8 | b
 
         if color_id and a == self._pickable_type_id:
             self._active_gizmo.hilite_handle(color_id)
@@ -116,10 +117,6 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         self._active_gizmo.hide()
         self._active_gizmo = self._gizmos[transf_type]
         self._active_gizmo.show()
-
-        if (transf_type and GlobalData["active_obj_level"] in ("vert", "edge", "normal")
-                and GlobalData["selection_via_poly"]):
-            Mgr.update_app("selection_via_poly")
 
     def __update_active_axes(self, transf_type, axes):
 
@@ -157,6 +154,13 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         roots["ortho"].hide()
         roots["ortho"].clear_effect(CompassEffect.get_class_type())
         self._base.clear_billboard()
+
+    def __set_pickable(self, pickable=True):
+
+        picking_mask = Mgr.get("gizmo_picking_mask")
+
+        for root in self._roots.itervalues():
+            root.show(picking_mask) if pickable else root.hide(picking_mask)
 
     def __set_pos(self, pos):
 

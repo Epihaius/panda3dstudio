@@ -189,7 +189,7 @@ class Model(TopLevelObject):
 
         def task():
 
-            selection = Mgr.get("selection", "top")
+            selection = Mgr.get("selection_top")
             selection.update_ui()
             selection.update_obj_props(force=True)
 
@@ -206,7 +206,7 @@ class Model(TopLevelObject):
 
         def task():
 
-            selection = Mgr.get("selection", "top")
+            selection = Mgr.get("selection_top")
             selection.update_ui()
             selection.update_obj_props(force=True)
 
@@ -437,7 +437,7 @@ class ModelManager(ObjectManager):
 
     def __set_tangent_space_vector_flip(self, vector, flip):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = []
         prop_id = "%s_flip" % vector
 

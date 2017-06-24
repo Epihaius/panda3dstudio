@@ -99,7 +99,7 @@ class ComboBox(Button):
         bitmaps = self.get_bitmaps()
         dc.DrawBitmap(bitmaps["back"], 0, 0)
 
-        if not self.IsEnabled() and self.is_disabled_state_shown():
+        if not self._is_enabled and self.is_disabled_state_shown():
             state = "disabled"
         elif self.is_active() or self.is_clicked():
             state = "active"
@@ -365,7 +365,6 @@ class EditableComboBox(ComboBox):
         x, y = self._field_pos
         self._input_field.SetPosition(wx.Point(x + 4, y))
 
-        self._is_enabled = True
         self._is_editable = True
 
         self._text_color = text_color if text_color else InputField._default_text_color
@@ -451,7 +450,6 @@ class EditableComboBox(ComboBox):
             return
 
         if Button.enable(self, enable):
-            self._is_enabled = enable
             self.Enable(True)
             self._input_field.enable(enable)
 
@@ -461,10 +459,6 @@ class EditableComboBox(ComboBox):
             Button.disable(self, show)
             return
 
-        if not self._is_enabled:
-            return
-
-        self._is_enabled = False
-        Button.disable(self, show)
-        self.Enable(True)
-        self._input_field.disable(show)
+        if Button.disable(self, show):
+            self.Enable(True)
+            self._input_field.disable(show)

@@ -82,9 +82,12 @@ class CreationManager(BaseObject):
             Mgr.update_app("selected_obj_types", tuple(obj_types))
             Mgr.update_app("selection_count")
 
-            if count:
-                label = selection[0].get_name() if count == 1 else "%s Objects selected" % count
-                Mgr.update_remotely("selected_obj_name", label)
+            names = OrderedDict()
+
+            for obj in selection:
+                names[obj.get_id()] = obj.get_name()
+
+            Mgr.update_remotely("selected_obj_names", names)
 
             sel_colors = set(obj.get_color() for obj in selection if obj.has_color())
             sel_color_count = len(sel_colors)

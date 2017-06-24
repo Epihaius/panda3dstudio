@@ -73,9 +73,82 @@ class ExportManager(BaseObject):
 
         return NodePath(geom_node)
 
+    def __update_vertex_format(self, node, uv_set_names, tex_stages):
+
+        default_uv_names = ["", "1", "2", "3", "4", "5", "6", "7"]
+        stages_by_uv_name = {}
+
+        if uv_set_names != default_uv_names:
+
+            for tex_stage in tex_stages:
+                internal_name = tex_stage.get_texcoord_name()
+                uv_name = internal_name.get_name()
+                uv_name = "" if uv_name == "texcoord" else internal_name.get_basename()
+                stages_by_uv_name.setdefault(uv_name, []).append(tex_stage)
+
+        main_array = GeomVertexArrayFormat()
+        main_array.add_column(InternalName.get_vertex(), 3, Geom.NT_float32, Geom.C_point)
+        main_array.add_column(InternalName.get_color(), 1, Geom.NT_packed_dabc, Geom.C_color)
+        main_array.add_column(InternalName.get_normal(), 3, Geom.NT_float32, Geom.C_normal)
+        main_array.add_column(InternalName.get_tangent(), 3, Geom.NT_float32, Geom.C_vector)
+        main_array.add_column(InternalName.get_binormal(), 3, Geom.NT_float32, Geom.C_vector)
+        uv_arrays = []
+        internal_uv_names = []
+
+        for default_name, uv_name in zip(default_uv_names, uv_set_names):
+
+            if uv_name == "":
+                internal_name = InternalName.get_texcoord()
+            else:
+                internal_name = InternalName.get_texcoord_name(uv_name)
+
+            uv_array = GeomVertexArrayFormat()
+            uv_array.add_column(internal_name, 2, Geom.NT_float32, Geom.C_texcoord)
+            uv_arrays.append(uv_array)
+            internal_uv_names.append(internal_name)
+
+            if uv_name != default_name and default_name in stages_by_uv_name:
+                for tex_stage in stages_by_uv_name[default_name]:
+                    tex_stage.set_texcoord_name(uv_name)
+
+        vertex_data = node.node().modify_geom(0).modify_vertex_data()
+
+        if uv_set_names != default_uv_names:
+
+            vertex_format = GeomVertexFormat()
+            vertex_format.add_array(main_array)
+
+            for uv_array in uv_arrays:
+                vertex_format.add_array(uv_array)
+
+            vertex_format = GeomVertexFormat.register_format(vertex_format)
+            new_vertex_data = vertex_data.convert_to(vertex_format)
+            node.node().modify_geom(0).set_vertex_data(new_vertex_data)
+            new_vertex_data = node.node().modify_geom(0).modify_vertex_data()
+
+            for i in range(8):
+                src_handle = vertex_data.get_array(4 + i).get_handle()
+                dest_handle = new_vertex_data.modify_array(1 + i).modify_handle()
+                dest_handle.copy_data_from(src_handle)
+
+            vertex_data = new_vertex_data
+
+        array = GeomVertexArrayFormat(main_array)
+
+        for internal_name in internal_uv_names:
+            array.add_column(internal_name, 2, Geom.NT_float32, Geom.C_texcoord)
+
+        vertex_format = GeomVertexFormat()
+        vertex_format.add_array(array)
+
+        vertex_format = GeomVertexFormat.register_format(vertex_format)
+        new_vertex_data = vertex_data.convert_to(vertex_format)
+        node.node().modify_geom(0).set_vertex_data(new_vertex_data)
+        vertex_data = node.node().modify_geom(0).modify_vertex_data()
+
     def __export_to_bam(self, filename):
 
-        objs = set(obj.get_root() for obj in Mgr.get("selection", "top"))
+        objs = set(obj.get_root() for obj in Mgr.get("selection_top"))
 
         if not objs:
             return
@@ -106,6 +179,7 @@ class ExportManager(BaseObject):
                     if geom_type == "basic_geom":
 
                         node = NodePath(geom_obj.get_geom().node().make_copy())
+                        uv_set_names = geom_obj.get_uv_set_names()
 
                         for key in node.get_tag_keys():
                             node.clear_tag(key)
@@ -114,6 +188,7 @@ class ExportManager(BaseObject):
 
                         geom_data_obj = geom_obj.get_geom_data_object()
                         node = self.__merge_duplicate_vertices(geom_data_obj)
+                        uv_set_names = geom_data_obj.get_uv_set_names()
 
                         if geom_obj.has_flipped_normals():
                             node.node().modify_geom(0).reverse_in_place()
@@ -127,6 +202,7 @@ class ExportManager(BaseObject):
                     node.set_state(origin.get_state())
 
                     tex_stages = node.find_all_texture_stages()
+                    self.__update_vertex_format(node, uv_set_names, tex_stages)
 
                     # make texture filenames relative to the model directory
                     for tex_stage in tex_stages:
@@ -381,7 +457,7 @@ class ExportManager(BaseObject):
 
     def __export_to_obj(self, filename):
 
-        objs = list(set(obj.get_root() for obj in Mgr.get("selection", "top")))
+        objs = list(set(obj.get_root() for obj in Mgr.get("selection_top")))
 
         if not objs:
             return

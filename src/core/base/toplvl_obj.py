@@ -559,8 +559,18 @@ class TopLevelObject(BaseObject):
 
         selection = Mgr.get("selection")
 
-        if len(selection) == 1 and selection[0] is self:
-            Mgr.update_remotely("selected_obj_name", name)
+        if self in selection:
+
+            names = OrderedDict()
+
+            for obj in selection:
+
+                obj_name = obj.get_name()
+
+                if obj_name:
+                    names[obj.get_id()] = obj_name
+
+            Mgr.update_remotely("selected_obj_names", names)
 
         return True
 
@@ -587,13 +597,13 @@ class TopLevelObject(BaseObject):
     def set_selected(self, is_selected=True, add_to_hist=True):
 
         if is_selected:
-            return Mgr.get("selection", "top").add([self], add_to_hist)
+            return Mgr.get("selection_top").add([self], add_to_hist)
         else:
-            return Mgr.get("selection", "top").remove([self], add_to_hist)
+            return Mgr.get("selection_top").remove([self], add_to_hist)
 
     def is_selected(self):
 
-        return self in Mgr.get("selection", "top")
+        return self in Mgr.get("selection_top")
 
     def update_selection_state(self, is_selected=True):
         """

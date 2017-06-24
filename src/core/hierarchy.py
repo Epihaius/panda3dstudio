@@ -7,13 +7,8 @@ class HierarchyManager(BaseObject):
 
         self._obj_link_viz_nps = NodePathCollection()
         self._obj_link_viz = {}
-
-        self._draw_plane = None
-        self._link_start_pos = None
-        self._marquee = None
         self._obj_to_link = None
-
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
 
         status_data = GlobalData["status_data"]
         mode_text = "Link selection"
@@ -85,9 +80,9 @@ class HierarchyManager(BaseObject):
         if next_state_id == "object_link_creation":
             return
 
-        self._pixel_under_mouse = VBase4() # force an update of the cursor next
-                                           # time self.__update_cursor() is
-                                           # called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self.__update_cursor()
+                                        # is called
         Mgr.remove_task("update_linking_cursor")
         Mgr.set_cursor("main")
 
@@ -150,40 +145,6 @@ class HierarchyManager(BaseObject):
             Mgr.set_cursor(cursor_id)
 
         return task.cont
-
-    def __create_marquee(self, start_pos):
-
-        self._link_start_pos = start_pos
-
-        vertex_format = GeomVertexFormat.get_v3cpt2()
-
-        vertex_data = GeomVertexData("marquee_data", vertex_format, Geom.UH_static)
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        col_writer = GeomVertexWriter(vertex_data, "color")
-        uv_writer = GeomVertexWriter(vertex_data, "texcoord")
-
-        for i in range(2):
-            pos_writer.add_data3f(start_pos)
-            uv_writer.add_data2f(0., 0.)
-
-        col_writer.add_data4f(.25, .25, .25, 1.)
-        col_writer.add_data4f(1., 1., 1., 1.)
-
-        lines = GeomLines(Geom.UH_static)
-        lines.add_next_vertices(2)
-
-        lines_geom = Geom(vertex_data)
-        lines_geom.add_primitive(lines)
-        node = GeomNode("marquee")
-        node.add_geom(lines_geom)
-        marquee = self.world.attach_new_node(node)
-        marquee.set_bin("fixed", 100)
-        marquee.set_depth_test(False)
-        marquee.set_depth_write(False)
-        tex = Mgr.load_tex(GFX_PATH + "marquee.png")
-        marquee.set_texture(tex)
-        marquee.hide(Mgr.get("picking_masks")["all"])
-        self._marquee = marquee
 
     def __add_obj_link_viz(self, child, parent):
 
@@ -281,33 +242,6 @@ class HierarchyManager(BaseObject):
         task_id = "obj_link_viz_update"
         PendingTasks.add(task, task_id, "object")
 
-    def __draw_marquee(self, task):
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
-        point = Point3()
-        self._draw_plane.intersects_line(point, near_point, far_point)
-        length = (point - self._link_start_pos).length()
-
-        if self.cam.lens_type == "ortho":
-            length /= 40. * self.cam.zoom
-
-        vertex_data = self._marquee.node().modify_geom(0).modify_vertex_data()
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.set_row(1)
-        pos_writer.set_data3f(point)
-        uv_writer = GeomVertexWriter(vertex_data, "texcoord")
-        uv_writer.set_row(1)
-        uv_writer.set_data2f(length * 5., 1.)
-
-        return task.cont
-
     def __handle_linking(self):
 
         linking_mode = GlobalData["object_linking_mode"]
@@ -326,26 +260,11 @@ class HierarchyManager(BaseObject):
         if not obj:
             return
 
-        cam = self.cam()
-        lens_type = self.cam.lens_type
         self._obj_to_link = obj
-        normal = self.world.get_relative_vector(cam, Vec3.forward())
-        point = self.world.get_relative_point(cam, Point3(0., 10., 0.))
-        self._draw_plane = Plane(normal, point)
         pivot_pos = obj.get_pivot().get_pos(self.world)
-
-        if lens_type == "persp":
-            line_start = cam.get_pos(self.world)
-        else:
-            line_start = pivot_pos + self.world.get_relative_vector(cam, Vec3(0., -100., 0.))
-
-        start_pos = Point3()
-        self._draw_plane.intersects_line(start_pos, line_start, pivot_pos)
-        self.__create_marquee(start_pos)
-
+        Mgr.do("start_drawing_rubber_band", pivot_pos)
         Mgr.do("enable_view_tiles", False)
         Mgr.enter_state("object_link_creation")
-        Mgr.add_task(self.__draw_marquee, "draw_marquee", sort=3)
         Mgr.set_cursor("no_link")
 
     def __finalize_object_linking(self, cancel=False):
@@ -353,15 +272,11 @@ class HierarchyManager(BaseObject):
         if not cancel:
             self.__link_picked_object()
 
-        Mgr.remove_task("draw_marquee")
+        Mgr.do("end_drawing_rubber_band")
         Mgr.enter_state("object_linking_mode")
         Mgr.set_cursor("main" if self._pixel_under_mouse == VBase4() else "select")
         Mgr.do("enable_view_tiles")
 
-        self._draw_plane = None
-        self._link_start_pos = None
-        self._marquee.remove_node()
-        self._marquee = None
         self._obj_to_link = None
 
     def __link_object(self, obj_to_link, new_target, link_type):
@@ -494,7 +409,7 @@ class HierarchyManager(BaseObject):
         if not new_target:
             return
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
 
         if not selection:
             return
@@ -658,7 +573,7 @@ class HierarchyManager(BaseObject):
         ungrouped_members = []
         unlinked_children = []
 
-        for obj in Mgr.get("selection", "top"):
+        for obj in Mgr.get("selection_top"):
 
             group = obj.get_group()
 
@@ -789,7 +704,7 @@ class HierarchyManager(BaseObject):
 
     def __reset_geoms(self):
 
-        sel = Mgr.get("selection", "top")
+        sel = Mgr.get("selection_top")
 
         if not sel:
             return
@@ -831,7 +746,7 @@ class HierarchyManager(BaseObject):
 
     def __reset_pivots(self):
 
-        sel = Mgr.get("selection", "top")
+        sel = Mgr.get("selection_top")
 
         if not sel:
             return

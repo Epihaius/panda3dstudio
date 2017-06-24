@@ -3,7 +3,8 @@ from ..base import *
 
 class Vertex(BaseObject):
 
-    def __init__(self, vert_id, picking_col_id, uv_data_obj, pos, data_copy=None):
+    def __init__(self, vert_id, picking_col_id, pos, uv_data_obj=None,
+                 poly_id=None, edge_ids=None, data_copy=None):
 
         self._type = "vert"
         self._full_type = "single_vert"
@@ -14,25 +15,23 @@ class Vertex(BaseObject):
         self._pos = Point3(*pos)  # in local space
 
         if data_copy:
-            edge_ids = data_copy["edge_ids"]
             poly_id = data_copy["poly_id"]
+            edge_ids = data_copy["edge_ids"]
             data = data_copy["data"]
         else:
-            edge_ids = []
-            poly_id = None
             data = {"row": 0, "row_offset": 0}
 
-        self._edge_ids = edge_ids
         self._poly_id = poly_id
+        self._edge_ids = edge_ids
         self._data = data
 
     def copy(self):
 
         data_copy = {}
-        data_copy["edge_ids"] = self._edge_ids[:]
         data_copy["poly_id"] = self._poly_id
+        data_copy["edge_ids"] = self._edge_ids[:]
         data_copy["data"] = self._data.copy()
-        vert = Vertex(self._id, self._picking_col_id, None, self._pos, data_copy)
+        vert = Vertex(self._id, self._picking_col_id, self._pos, data_copy=data_copy)
 
         return vert
 
@@ -100,21 +99,13 @@ class Vertex(BaseObject):
 
         return self._pos
 
-    def add_edge_id(self, edge_id):
+    def get_polygon_id(self):
 
-        self._edge_ids.append(edge_id)
+        return self._poly_id
 
     def get_edge_ids(self):
 
         return self._edge_ids
-
-    def set_polygon_id(self, poly_id):
-
-        self._poly_id = poly_id
-
-    def get_polygon_id(self):
-
-        return self._poly_id
 
     def set_row_index(self, index):
 
@@ -200,6 +191,10 @@ class MergedVertex(object):
         verts = self._uv_data_obj.get_subobjects("vert")
 
         return [verts[v_id].get_polygon_id() for v_id in self._ids]
+
+    def get_special_selection(self):
+
+        return [self]
 
     def get_row_indices(self):
 

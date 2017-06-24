@@ -42,23 +42,48 @@ class PropertyPanel(Panel):
             "custom": wx.Colour(255, 255, 0)
         }
         self._checkboxes = {}
+        self._radio_btns = {}
+        self._comboboxes = {}
 
         self.GetSizer().SetMinSize(wx.Size(self._width, 1))
         self._parent.GetSizer().Add(self)
 
-        id_section = self.add_section("id", "Name and color")
-        section_sizer = id_section.get_client_sizer()
+        # ************************* Selection section **************************
+
+        sel_section = section = self.add_section("selection", "Selection")
+
+        radio_btns = PanelRadioButtonGroup(self, section, "Choice from name box")
+        radio_btns.add_button("deselect", "Deselect")
+        radio_btns.add_button("deselect_others", "Deselect others")
+        radio_btns.add_button("center", "Center in view")
+        radio_btns.set_selected_button("deselect_others")
+        self._radio_btns["selection"] = radio_btns
+
+        # **************************** ID section ******************************
+
+        id_section = section = self.add_section("id", "Name and color")
+        section_sizer = section.get_client_sizer()
         sizer = wx.BoxSizer()
         section_sizer.Add(sizer)
-        self._name_field = PanelInputField(self, id_section, sizer, 130)
-        self._name_field.add_value("name", "string", handler=self.__handle_value)
-        self._name_field.set_input_init("name", self.__init_input)
-        self._name_field.show_value("name")
-        self._name_field.show_text(False)
-        self._name_field.enable(False)
-        self._name_field.set_input_parser("name", self.__parse_object_name)
+
+        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        combobox = EditablePanelComboBox(self, section, sizer, "Selected object(s)", 130,
+                                         sizer_args=sizer_args)
+        combobox.add_disabler("creating", lambda: GlobalData["active_creation_type"])
+        combobox.enable(False)
+        val_id = "name"
+        self._comboboxes[val_id] = combobox
+        field = combobox.get_input_field()
+        field.add_value(val_id, "string", handler=self.__handle_value)
+        field.set_input_init(val_id, self.__init_input)
+        field.show_value(val_id)
+        field.show_text(False)
+        field.enable(False)
+        field.set_input_parser(val_id, self.__parse_object_name)
+        self._name_field = field
         sizer.Add((5, 0))
-        self._color_picker = PanelColorPickerCtrl(self, id_section, sizer, self.__handle_color)
+        self._color_picker = PanelColorPickerCtrl(self, section, sizer, self.__handle_color,
+                                                  sizer_args=sizer_args)
         self._color_picker.show_color("none")
         self._color_picker.Enable(False)
 
@@ -71,7 +96,7 @@ class PropertyPanel(Panel):
         radio_btns.add_button("grid_pos", "Coord. system origin")
         radio_btns.add_button("cam_target_pos", "Camera target")
         radio_btns.set_selected_button("grid_pos")
-        self._radio_btns = radio_btns
+        self._radio_btns["creation"] = radio_btns
 
         sizer = section.get_client_sizer()
 
@@ -101,7 +126,7 @@ class PropertyPanel(Panel):
         checkbox = PanelCheckBox(self, self, subsizer, command, sizer_args=sizer_args)
         checkbox.check(False)
         self._checkboxes["normal_flip"] = checkbox
-        section.add_text("Flip (inside out)", subsizer, sizer_args)
+        section.add_text("Invert (render inside-out)", subsizer, sizer_args)
 
         sizer.Add(wx.Size(0, 8))
 
@@ -129,7 +154,7 @@ class PropertyPanel(Panel):
 
         label = "Make geometry editable"
         bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        PanelButton(self, create_section, sizer, bitmaps, label, "Turn into editable geometry",
+        PanelButton(self, self, sizer, bitmaps, label, "Turn into editable geometry",
                     self.__make_editable, sizer_args)
 
         parent.add_panel(self)
@@ -138,6 +163,7 @@ class PropertyPanel(Panel):
 
         def finalize_sections():
 
+            sel_section.expand(False)
             create_section.set_title_hilite_color((1., 1., .5, .65))
             create_section.set_title_hilited()
             create_section.expand(False)
@@ -173,7 +199,7 @@ class PropertyPanel(Panel):
         Mgr.add_app_updater("selected_obj_prop", set_obj_prop)
         Mgr.add_app_updater("obj_prop_default", set_obj_prop_default)
         Mgr.add_app_updater("interactive_creation", self.__update_sections)
-        Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
+        Mgr.add_app_updater("selected_obj_names", self.__set_object_names)
         Mgr.add_app_updater("selected_obj_color", self.__set_object_color)
         Mgr.add_app_updater("selection_count", self.__check_selection_count)
         Mgr.add_app_updater("sel_color_count", self.__check_selection_color_count)
@@ -266,14 +292,44 @@ class PropertyPanel(Panel):
 
         return parsed_name if parsed_name else None
 
-    def __set_object_name(self, name=None):
+    def __update_selection(self, obj_id):
 
-        if GlobalData["active_creation_type"] != "":
+        radio_btn_id = self._radio_btns["selection"].get_selected_button()
+
+        if radio_btn_id == "deselect":
+            Mgr.update_remotely("object_selection", obj_id, "remove")
+        elif radio_btn_id == "deselect_others":
+            Mgr.update_remotely("object_selection", obj_id, "replace")
+        elif radio_btn_id == "center":
+            Mgr.update_remotely("view", "center", False, None, obj_id)
+
+    def __set_object_names(self, names):
+
+        if GlobalData["active_creation_type"]:
             return
 
-        if name is None:
+        combobox = self._comboboxes["name"]
+        combobox.clear()
+
+        if not names:
             self._name_field.show_text(False)
             return
+
+        count = len(names)
+
+        if count > 1:
+            name = "%s Objects selected" % count
+            combobox.add_item(None, name, lambda: None)
+
+        get_command = lambda obj_id: lambda: self.__update_selection(obj_id)
+
+        for obj_id, name in names.iteritems():
+            combobox.add_item(obj_id, name, get_command(obj_id))
+
+        if count == 1:
+            name = names.popitem()[1]
+        else:
+            name = "%s Objects selected" % count
 
         self._name_field.set_value("name", name)
         self._name_field.show_text()
@@ -338,6 +394,7 @@ class PropertyPanel(Panel):
                 for checkbox in self._checkboxes.itervalues():
                     checkbox.set_checkmark_color(color)
 
+            self._comboboxes["name"].enable(sel_count > 0)
             self._name_field.enable(sel_count > 0)
             self._name_field.show_text(sel_count > 0)
             self._name_field.set_text_color(color)
@@ -345,6 +402,7 @@ class PropertyPanel(Panel):
         else:
 
             self._name_field.enable(False)
+            self._comboboxes["name"].enable(False)
 
         obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
 
@@ -381,7 +439,7 @@ class PropertyPanel(Panel):
 
     def __create_object(self):
 
-        pos_id = self._radio_btns.get_selected_button()
+        pos_id = self._radio_btns["creation"].get_selected_button()
         Mgr.update_app("creation", pos_id)
         self.__set_next_object_color()
 
@@ -423,6 +481,9 @@ class PropertyPanel(Panel):
 
         creation_type = GlobalData["active_creation_type"]
         new_types = set([creation_type]) if creation_type else set(obj_types)
+
+        if creation_type:
+            self._comboboxes["name"].enable(False)
 
         obj_type = obj_types[0] if len(obj_types) == 1 else ""
         props = self._properties

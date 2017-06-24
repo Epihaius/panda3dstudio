@@ -1035,7 +1035,7 @@ class MaterialManager(object):
         self._picking_op = ""
         self._id_generator = id_generator()
 
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
 
     def setup(self):
 
@@ -1156,9 +1156,9 @@ class MaterialManager(object):
         if not is_active:
             self._picking_op = ""
 
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self.__update_cursor()
-                                           # is called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self.__update_cursor()
+                                        # is called
         Mgr.remove_task("update_matrl_owner_picking_cursor")
         Mgr.set_cursor("main")
 
@@ -1361,7 +1361,7 @@ class MaterialManager(object):
     def __extract_material(self, objs=None):
 
         if not objs:
-            objs = self.__get_models(Mgr.get("selection", "top"))
+            objs = self.__get_models(Mgr.get("selection_top"))
 
         if not objs:
             return
@@ -1396,7 +1396,7 @@ class MaterialManager(object):
     def __apply_material(self, objs=None, clear_material=False):
 
         if not objs:
-            objs = self.__get_models(Mgr.get("selection", "top"))
+            objs = self.__get_models(Mgr.get("selection_top"))
 
         if not objs:
             return
@@ -1595,7 +1595,7 @@ class MaterialManager(object):
             owners.add(obj)
 
         sel_mode = self._owner_selection_mode
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
 
         if sel_mode == "add_to":
             selection.add(owners)
@@ -1629,7 +1629,7 @@ class MaterialManager(object):
 
     def __apply_ready_material_property(self, prop_id):
 
-        selection = self.__get_models(Mgr.get("selection", "top"))
+        selection = self.__get_models(Mgr.get("selection_top"))
 
         if not selection:
             return
@@ -1702,7 +1702,7 @@ class MaterialManager(object):
 
     def __apply_ready_material_properties(self):
 
-        selection = self.__get_models(Mgr.get("selection", "top"))
+        selection = self.__get_models(Mgr.get("selection_top"))
 
         if not selection:
             return
@@ -1768,7 +1768,7 @@ class MaterialManager(object):
 
     def __apply_ready_material_texture(self, tex_data):
 
-        selection = self.__get_models(Mgr.get("selection", "top"))
+        selection = self.__get_models(Mgr.get("selection_top"))
 
         if not selection:
             return

@@ -92,7 +92,8 @@ class BasicGeom(BaseObject):
     def __init__(self, model, geom, picking_col_id, materials=None):
 
         self._prop_ids = []
-        self._type_prop_ids = ["normal_flip", "normal_viz", "normal_color", "normal_length"]
+        self._type_prop_ids = ["uv_set_names", "normal_flip", "normal_viz",
+                               "normal_color", "normal_length"]
         self._type = "basic_geom"
         self._model = model
         self._geom = geom
@@ -121,17 +122,26 @@ class BasicGeom(BaseObject):
         geom.node().modify_geom(0).set_vertex_data(dest_vert_data)
         dest_vert_data = geom.node().modify_geom(0).modify_vertex_data()
         num_rows = src_vert_data.get_num_rows()
+        uv_set_list = [InternalName.get_texcoord()]
+        uv_set_list += [InternalName.get_texcoord_name(str(i)) for i in range(1, 8)]
+        src_uv_set_names = ["", "1", "2", "3", "4", "5", "6", "7"]
 
         material, uv_set_names = render_state_to_material(render_state, src_format, materials)
 
         for src_uv_set, dest_uv_set in uv_set_names.iteritems():
 
+            uv_set_id = uv_set_list.index(dest_uv_set)
+            uv_name = src_uv_set.get_name()
+            uv_name = "" if uv_name == "texcoord" else src_uv_set.get_basename()
+            src_uv_set_names[uv_set_id] = uv_name
             uv_reader = GeomVertexReader(src_vert_data, src_uv_set)
             uv_writer = GeomVertexWriter(dest_vert_data, dest_uv_set)
 
             for i in xrange(num_rows):
                 uv = uv_reader.get_data2f()
                 uv_writer.set_data2f(uv)
+
+        self._uv_set_names = src_uv_set_names
 
         if material:
             model.set_material(material)
@@ -410,6 +420,40 @@ class BasicGeom(BaseObject):
         picking_state = self._picking_states[state_id]
         Mgr.do("set_basic_geom_picking_color", str(self._picking_col_id), picking_state)
 
+    def set_uv_set_name(self, uv_set_id, uv_set_name):
+
+        uv_set_names = self._uv_set_names[:]
+        del uv_set_names[uv_set_id]
+
+        if uv_set_name == "" and "" in uv_set_names:
+            uv_set_name = "0"
+
+        if uv_set_name != "":
+            uv_set_name = get_unique_name(uv_set_name, uv_set_names)
+
+        change = True
+
+        if self._uv_set_names[uv_set_id] == uv_set_name:
+            change = False
+
+        self._uv_set_names[uv_set_id] = uv_set_name
+        Mgr.update_remotely("uv_set_name", self._uv_set_names)
+
+        return change
+
+    def set_uv_set_names(self, uv_set_names):
+
+        if self._uv_set_names == uv_set_names:
+            return False
+
+        self._uv_set_names = uv_set_names
+
+        return True
+
+    def get_uv_set_names(self):
+
+        return self._uv_set_names
+
     def show_normals(self, show=True):
 
         if self._normals_shown == show:
@@ -535,7 +579,9 @@ class BasicGeom(BaseObject):
 
     def get_property(self, prop_id, for_remote_update=False):
 
-        if prop_id == "normal_flip":
+        if prop_id == "uv_set_names":
+            return self._uv_set_names
+        elif prop_id == "normal_flip":
             return self._normals_flipped
         elif prop_id == "normal_viz":
             return self._normals_shown
@@ -549,7 +595,9 @@ class BasicGeom(BaseObject):
 
     def set_property(self, prop_id, value, restore=""):
 
-        if prop_id == "normal_flip":
+        if prop_id == "uv_set_names":
+            ret = self.set_uv_set_names(value)
+        elif prop_id == "normal_flip":
             ret = self.flip_normals(value)
         elif prop_id == "normal_viz":
             ret = self.show_normals(value)
@@ -580,6 +628,8 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
         self._id_generator = id_generator()
 
+        Mgr.add_app_updater("uv_set_id", self.__update_uv_set_id)
+        Mgr.add_app_updater("uv_set_name", self.__set_uv_set_name)
         Mgr.add_app_updater("normal_viz", self.__show_normals)
         Mgr.add_app_updater("normal_color", self.__set_normal_color)
 
@@ -594,9 +644,47 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
         return basic_geom
 
+    def __update_uv_set_id(self):
+
+        selection = Mgr.get("selection_top")
+
+        if len(selection) == 1:
+            obj = selection[0]
+            uv_set_names = obj.get_geom_object().get_uv_set_names()
+            Mgr.update_remotely("uv_set_name", uv_set_names)
+
+    def __set_uv_set_name(self, uv_set_id, uv_set_name):
+
+        selection = Mgr.get("selection_top")
+        changed_objs = []
+
+        for obj in selection:
+            if obj.get_geom_object().set_uv_set_name(uv_set_id, uv_set_name):
+                changed_objs.append(obj)
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj in changed_objs:
+            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "uv_set_names")
+
+        if len(changed_objs) == 1:
+            obj = changed_objs[0]
+            event_descr = 'Change UV set name %d of "%s"' % (uv_set_id, obj.get_name())
+            event_descr += '\nto "%s"' % obj.get_geom_object().get_uv_set_names()[uv_set_id]
+        else:
+            event_descr = 'Change UV set name %d of objects:\n' % uv_set_id
+            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
     def __show_normals(self, show=True):
 
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = []
 
         for obj in selection:
@@ -625,7 +713,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
     def __set_normal_color(self, color_values):
 
         r, g, b = color_values
-        selection = Mgr.get("selection", "top")
+        selection = Mgr.get("selection_top")
         changed_objs = []
 
         for obj in selection:

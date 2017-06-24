@@ -303,6 +303,7 @@ class Button(wx.PyControl, FocusResetter):
         self._is_clicked = False
         self._is_hilited = False
         self._is_active = False
+        self._is_enabled = True
         self._show_disabled_state = True
         self._disablers = {}
         self._command = command if command else lambda: None
@@ -369,7 +370,7 @@ class Button(wx.PyControl, FocusResetter):
         dc = wx.AutoBufferedPaintDCFactory(self)
         dc.DrawBitmap(self._bitmaps["back"], 0, 0)
 
-        if not self.IsEnabled() and self._show_disabled_state:
+        if not self._is_enabled and self._show_disabled_state:
             state = "disabled"
         elif self._is_clicked:
             state = "pressed"
@@ -502,25 +503,30 @@ class Button(wx.PyControl, FocusResetter):
 
     def enable(self, enable=True):
 
-        if self.IsEnabled() == enable:
+        if self._is_enabled == enable:
             return True
 
         if enable:
             for disabler in self._disablers.itervalues():
                 if disabler():
                     return False
+        else:
+            self._is_hilited = False
 
         self.Enable(enable)
+        self._is_enabled = enable
         self.Refresh()
 
         return True
 
     def disable(self, show=True):
 
-        if not self.IsEnabled():
-            return
+        if not self._is_enabled:
+            return False
 
         self.Disable()
+        self._is_enabled = False
+        self._is_hilited = False
         ToolTip.hide()
 
         if show:
@@ -528,6 +534,8 @@ class Button(wx.PyControl, FocusResetter):
             self.Refresh()
 
         self._show_disabled_state = show
+
+        return True
 
 
 class ButtonGroup(BaseObject):

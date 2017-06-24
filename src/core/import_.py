@@ -30,7 +30,6 @@ class ImportManager(BaseObject):
 
         self._imported_file_type = path.get_extension()
 
-        model_root.ls()
         self._model_root = model_root
         hierarchy = self._hierarchy
 
@@ -434,9 +433,9 @@ class ImportManager(BaseObject):
         else:
             col_reader = None
 
-        default_uv_set_name = InternalName.get_texcoord()
-        uv_set_list = [default_uv_set_name]
+        uv_set_list = [InternalName.get_texcoord()]
         uv_set_list += [InternalName.get_texcoord_name(str(i)) for i in range(1, 8)]
+        src_uv_set_names = ["", "1", "2", "3", "4", "5", "6", "7"]
         uv_readers = {}
         material, uv_set_names = render_state_to_material(render_state, vertex_format,
                                                           self._imported_materials,
@@ -449,6 +448,9 @@ class ImportManager(BaseObject):
             uv_reader = GeomVertexReader(vertex_data, src_uv_set)
             uv_set_id = uv_set_list.index(dest_uv_set)
             uv_readers[uv_set_id] = uv_reader
+            uv_name = src_uv_set.get_name()
+            uv_name = "" if uv_name == "texcoord" else src_uv_set.get_basename()
+            src_uv_set_names[uv_set_id] = uv_name
 
         extracted_data = {}
         indices = geom.get_primitive(0).get_vertex_list()
@@ -525,6 +527,7 @@ class ImportManager(BaseObject):
         Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
 
         geom_data_obj = editable_geom.get_geom_data_object()
+        geom_data_obj.set_uv_set_names(src_uv_set_names)
 
         for step in geom_data_obj.process_geom_data(geom_data, gradual=True):
             yield

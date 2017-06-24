@@ -12,7 +12,7 @@ class TransformCenterManager(BaseObject):
 
         GlobalData.set_default("transf_center_type", "adaptive")
 
-        self._pixel_under_mouse = VBase4()
+        self._pixel_under_mouse = None
         Mgr.expose("adaptive_transf_center_type", self.__get_adaptive_transf_center)
         Mgr.expose("transf_center_obj", self.__get_transform_center_object)
         Mgr.expose("transf_center_pos", self.__get_transform_center_pos)
@@ -59,7 +59,7 @@ class TransformCenterManager(BaseObject):
                 tc_type = self.__get_adaptive_transf_center()
 
             if tc_type == "pivot" or (cs_type == "local" and tc_type == "cs_origin"):
-                if self._tc_obj not in Mgr.get("selection", "top"):
+                if self._tc_obj not in Mgr.get("selection_top"):
                     self._tc_obj = None
 
         return self._tc_obj
@@ -132,9 +132,9 @@ class TransformCenterManager(BaseObject):
 
             self._tc_obj_picked = None
 
-        self._pixel_under_mouse = VBase4() # force an update of the cursor
-                                           # next time self.__update_cursor()
-                                           # is called
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self.__update_cursor()
+                                        # is called
         Mgr.remove_task("update_tc_picking_cursor")
         Mgr.set_cursor("main")
 

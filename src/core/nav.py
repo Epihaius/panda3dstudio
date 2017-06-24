@@ -117,6 +117,8 @@ class NavigationManager(BaseObject):
         bind("navigation_mode", "zoom out", "wheel_down", self.__zoom_step_out)
         bind("navigation_mode", "check navigation done", "space-up",
              self.__determine_navigation_end)
+        bind("navigation_mode", "navigate -> center view on objects", "c",
+             lambda: Mgr.do("center_view_on_objects"))
 
         status_data = GlobalData["status_data"]
         mode_text = "Navigate"

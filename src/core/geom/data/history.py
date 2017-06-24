@@ -158,6 +158,10 @@ class GeomHistoryBase(BaseObject):
 
             data[unique_prop_id] = {"main": (self._merged_verts, self._merged_edges)}
 
+        elif unique_prop_id == unique_prop_ids["uv_set_names"]:
+
+            data[unique_prop_id] = {"main": self._uv_set_names}
+
         elif unique_prop_id == unique_prop_ids["normal_length"]:
 
             data[unique_prop_id] = {"main": self._normal_length}
@@ -560,6 +564,12 @@ class GeomHistoryBase(BaseObject):
             task = update_verts_to_transform
             task_id = "upd_verts_to_transf"
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
+
+        elif prop_id == unique_prop_ids["uv_set_names"]:
+
+            task = lambda: self._restore_uv_set_names(new_time_id)
+            task_id = "set_uv_set_names"
+            PendingTasks.add(task, task_id, "object", 0, id_prefix=obj_id)
 
         elif prop_id == unique_prop_ids["normal_length"]:
 

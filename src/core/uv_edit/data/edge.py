@@ -3,7 +3,8 @@ from ..base import *
 
 class Edge(BaseObject):
 
-    def __init__(self, edge_id, picking_col_id, uv_data_obj, verts, data_copy=None):
+    def __init__(self, edge_id, picking_col_id, uv_data_obj=None,
+                 poly_id=None, vert_ids=None, data_copy=None):
 
         self._type = "edge"
         self._id = edge_id
@@ -11,17 +12,8 @@ class Edge(BaseObject):
         self._uv_data_obj = uv_data_obj
 
         if data_copy:
-
             poly_id = data_copy["poly_id"]
             vert_ids = data_copy["vert_ids"]
-
-        else:
-
-            poly_id = None
-            vert_ids = [vert.get_id() for vert in verts]
-
-            for vert in verts:
-                vert.add_edge_id(edge_id)
 
         self._poly_id = poly_id
         self._vert_ids = vert_ids
@@ -31,7 +23,7 @@ class Edge(BaseObject):
         data_copy = {}
         data_copy["vert_ids"] = self._vert_ids[:]
         data_copy["poly_id"] = self._poly_id
-        edge = Edge(self._id, self._picking_col_id, None, None, data_copy)
+        edge = Edge(self._id, self._picking_col_id, data_copy=data_copy)
 
         return edge
 
@@ -176,6 +168,15 @@ class MergedEdge(object):
         edges = self._uv_data_obj.get_subobjects("edge")
 
         return [edges[e_id].get_polygon_id() for e_id in self._ids]
+
+    def get_special_selection(self):
+
+        edges = [self]
+
+        if GlobalData["uv_edit_options"]["sel_edges_by_seam"] and len(self._ids) == 1:
+            edges = self._uv_data_obj.get_seam_edges(self)
+
+        return edges
 
     def get_start_row_indices(self):
 

@@ -221,7 +221,23 @@ class EdgeBridgeBase(BaseObject):
         selection_ids = self._selected_subobj_ids
         selected_vert_ids = selection_ids["vert"]
         selected_edge_ids = selection_ids["edge"]
-        selected_poly_ids = selection_ids["poly"]
+
+        # when edges are selected via polygon, the IDs of selected polys are
+        # currently backed up
+        if "poly" in self._sel_subobj_ids_backup:
+
+            selected_poly_ids = self._sel_subobj_ids_backup["poly"][:]
+
+            # the current selection (the picked helper poly) may not be made empty,
+            # or the call to self.clear_selection() will have no effect and leave
+            # the helper poly visible
+            if selected_poly_ids:
+                self._selected_subobj_ids["poly"] = selected_poly_ids
+
+        else:
+
+            selected_poly_ids = selection_ids["poly"]
+
         border_segments = ([], [])
         segment_is_border = None
 
@@ -657,22 +673,20 @@ class EdgeBridgeManager(BaseObject):
                   self.__exit_bridge_mode)
         add_state("edge_bridge", -11)
 
-        cancel_bridge = lambda: self.__finalize_bridge(cancel=True)
-
-        def exit_mode():
-
-            Mgr.exit_state("edge_bridge_mode")
+        cancel_bridge = lambda: self._finalize_bridge(cancel=True)
+        exit_mode = lambda: Mgr.exit_state("edge_bridge_mode")
 
         bind = Mgr.bind_state
         bind("edge_bridge_mode", "bridge edges -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("edge_bridge_mode", "bridge edges -> select", "escape", exit_mode)
         bind("edge_bridge_mode", "exit edge bridge mode", "mouse3-up", exit_mode)
-        bind("edge_bridge_mode", "bridge edges", "mouse1", self.__init_bridge)
+        bind("edge_bridge_mode", "bridge edges", "mouse1", self._init_bridge)
         bind("edge_bridge", "quit edge bridge", "escape", cancel_bridge)
         bind("edge_bridge", "cancel edge bridge", "mouse3-up", cancel_bridge)
-        bind("edge_bridge", "finalize edge bridge",
-             "mouse1-up", self.__finalize_bridge)
+        bind("edge_bridge", "finalize edge bridge", "mouse1-up", self._finalize_bridge)
+        bind("edge_bridge", "bridge edges -> pick edge via poly",
+             "mouse1", self._start_dest_edge_picking_via_poly)
 
         status_data = GlobalData["status_data"]
         mode_text = "Bridge edges"
@@ -685,15 +699,12 @@ class EdgeBridgeManager(BaseObject):
         if prev_state_id == "edge_bridge":
             return
 
-        if GlobalData["selection_via_poly"]:
-            Mgr.update_locally("selection_via_poly")
-            GlobalData["selection_via_poly"] = True
-
         if GlobalData["active_transform_type"]:
             GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
-        Mgr.add_task(self._update_cursor, "update_bridge_cursor")
+        self._mode_id = "bridge"
+        Mgr.add_task(self._update_cursor, "update_mode_cursor")
         Mgr.update_app("status", "edge_bridge_mode")
 
     def __exit_bridge_mode(self, next_state_id, is_active):
@@ -701,58 +712,70 @@ class EdgeBridgeManager(BaseObject):
         if next_state_id == "edge_bridge":
             return
 
-        if GlobalData["selection_via_poly"]:
-            Mgr.update_locally("selection_via_poly", True)
-            Mgr.update_remotely("selection_via_poly")
-
-        self._pixel_under_mouse = VBase4() # force an update of the cursor next
-                                           # time self._update_cursor() is
-                                           # called
-        Mgr.remove_task("update_bridge_cursor")
+        Mgr.remove_task("update_mode_cursor")
+        self._pixel_under_mouse = None  # force an update of the cursor
+                                        # next time self._update_cursor()
+                                        # is called
         Mgr.set_cursor("main")
 
-    def __init_bridge(self):
+        if next_state_id != "edge_picking_via_poly":
+            self._mode_id = ""
 
-        r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
-        picked_obj = Mgr.get("edge", color_id)
-        edge = picked_obj.get_merged_edge() if picked_obj else None
+    def _init_bridge(self, picked_edge=None):
+
+        if picked_edge:
+
+            edge = picked_edge
+
+        else:
+
+            if not self._pixel_under_mouse:
+                return
+
+            r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
+            color_id = r << 16 | g << 8 | b
+            pickable_type = PickableTypes.get(a)
+
+            if pickable_type == "poly":
+
+                self._picked_poly = Mgr.get("poly", color_id)
+                merged_edges = self._picked_poly.get_geom_data_object().get_merged_edges()
+
+                for edge_id in self._picked_poly.get_edge_ids():
+                    if len(merged_edges[edge_id]) == 1:
+                        break
+                else:
+                    return
+
+                Mgr.enter_state("edge_picking_via_poly")
+
+                return
+
+            picked_obj = Mgr.get("edge", color_id)
+            edge = picked_obj.get_merged_edge() if picked_obj else None
 
         if not edge or len(edge) > 1:
             return
 
         model = edge.get_toplevel_object()
 
-        for obj in Mgr.get("selection", "top"):
+        for obj in Mgr.get("selection_top"):
             if obj is not model:
                 obj.get_geom_object().get_geom_data_object().set_pickable(False)
 
-        cam = self.cam()
-        lens_type = self.cam.lens_type
         self._src_border_edge = edge
-        normal = self.world.get_relative_vector(cam, Vec3.forward())
-        point = self.world.get_relative_point(cam, Point3(0., 10., 0.))
-        self._draw_plane = Plane(normal, point)
+        self._picking_dest_edge = True
         pos = edge.get_center_pos(self.world)
-
-        if lens_type == "persp":
-            line_start = cam.get_pos(self.world)
-        else:
-            line_start = pos + self.world.get_relative_vector(cam, Vec3(0., -100., 0.))
-
-        start_pos = Point3()
-        self._draw_plane.intersects_line(start_pos, line_start, pos)
-        self._create_marquee(start_pos)
-
+        Mgr.do("start_drawing_rubber_band", pos)
+        Mgr.do("enable_view_gizmo", False)
         Mgr.do("enable_view_tiles", False)
         Mgr.enter_state("edge_bridge")
-        Mgr.add_task(self._draw_marquee, "draw_marquee", sort=3)
         Mgr.set_cursor("main")
 
-    def __finalize_bridge(self, cancel=False):
+    def _finalize_bridge(self, cancel=False, picked_edge=None):
 
         if not cancel:
-            self.__bridge_edges()
+            self.__bridge_edges(picked_edge)
 
         src_border_edge = self._src_border_edge
 
@@ -760,22 +783,20 @@ class EdgeBridgeManager(BaseObject):
 
             model = src_border_edge.get_toplevel_object()
 
-            for obj in Mgr.get("selection", "top"):
+            for obj in Mgr.get("selection_top"):
                 if obj is not model:
                     obj.get_geom_object().get_geom_data_object().set_pickable()
 
-        Mgr.remove_task("draw_marquee")
+        Mgr.do("end_drawing_rubber_band")
+        self._picking_dest_edge = False
         Mgr.enter_state("edge_bridge_mode")
         Mgr.set_cursor("main" if self._pixel_under_mouse == VBase4() else "select")
+        Mgr.do("enable_view_gizmo")
         Mgr.do("enable_view_tiles")
 
-        self._draw_plane = None
-        self._start_pos = None
-        self._marquee.remove_node()
-        self._marquee = None
         self._src_border_edge = None
 
-    def __bridge_edges(self):
+    def __bridge_edges(self, picked_edge=None):
 
         src_border_edge = self._src_border_edge
 
@@ -783,10 +804,14 @@ class EdgeBridgeManager(BaseObject):
             return
 
         model = src_border_edge.get_toplevel_object()
-        r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
-        color_id = r << 16 | g << 8 | b  # credit to coppertop @ panda3d.org
-        picked_obj = Mgr.get("edge", color_id)
-        dest_border_edge = picked_obj.get_merged_edge() if picked_obj else None
+
+        if picked_edge:
+            dest_border_edge = picked_edge
+        else:
+            r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
+            color_id = r << 16 | g << 8 | b
+            picked_obj = Mgr.get("edge", color_id)
+            dest_border_edge = picked_obj.get_merged_edge() if picked_obj else None
 
         if not dest_border_edge or dest_border_edge is src_border_edge or len(dest_border_edge) > 1:
             return

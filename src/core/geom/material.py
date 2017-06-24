@@ -186,9 +186,20 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
 
     default_uv_set_name = InternalName.get_texcoord()
     uv_set_list = [default_uv_set_name]
-    uv_set_list += [InternalName.get_texcoord_name(str(i))
-                    for i in range(1, 8)]
+    uv_set_list += [InternalName.get_texcoord_name(str(i)) for i in range(1, 8)]
     uv_set_names = {}
+
+    src_uv_set_names = list(geom_vertex_format.get_texcoords())
+    uv_set_list_tmp = uv_set_list[:]
+
+    for uv_set_name in uv_set_list:
+        if uv_set_name in src_uv_set_names:
+            uv_set_list_tmp.remove(uv_set_name)
+            src_uv_set_names.remove(uv_set_name)
+            uv_set_names[uv_set_name] = uv_set_name
+
+    for src_uv_set_name, dest_uv_set_name in zip(src_uv_set_names, uv_set_list_tmp):
+        uv_set_names[src_uv_set_name] = dest_uv_set_name
 
     if render_state.is_empty():
 
@@ -281,13 +292,10 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
 
                 if mode == TS.M_modulate:
                     colormap_stages.append(stage)
+                elif mode == TS.M_combine or mode in BLEND_MODES:
+                    layer_stages.append(stage)
                 elif mode in FXMAP_TYPES:
                     fxmap_stages.append(stage)
-                elif mode in BLEND_MODES:
-                    layer_stages.append(stage)
-
-                if mode == TS.M_combine and stage not in layer_stages:
-                    layer_stages.append(stage)
 
             if not layer_stages and len(colormap_stages) == 1:
 
@@ -295,7 +303,17 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                 uv_set_name = stage.get_texcoord_name()
 
                 if uv_set_name != default_uv_set_name or not for_basic_geom:
-                    uv_set_names[uv_set_name] = default_uv_set_name
+
+                    if uv_set_names[uv_set_name] != default_uv_set_name:
+
+                        uv_name = uv_set_names[uv_set_name]
+
+                        for src_uv_name, dest_uv_name in uv_set_names.iteritems():
+                            if dest_uv_name == default_uv_set_name:
+                                uv_set_names[src_uv_name] = uv_name
+                                break
+
+                        uv_set_names[uv_set_name] = default_uv_set_name
 
                 texture = tex_attrib.get_on_texture(stage)
 
@@ -422,16 +440,5 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
     else:
 
         material = None
-
-        src_uv_set_names = list(geom_vertex_format.get_texcoords())
-
-        for uv_set_name in uv_set_list[:]:
-            if uv_set_name in src_uv_set_names:
-                uv_set_list.remove(uv_set_name)
-                src_uv_set_names.remove(uv_set_name)
-                uv_set_names[uv_set_name] = uv_set_name
-
-        for src_uv_set_name, dest_uv_set_name in zip(src_uv_set_names, uv_set_list):
-            uv_set_names[src_uv_set_name] = dest_uv_set_name
 
     return material, uv_set_names

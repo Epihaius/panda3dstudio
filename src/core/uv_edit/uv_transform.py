@@ -198,8 +198,6 @@ class UVTransformationBase(BaseObject):
         if not active_transform_type:
             return
 
-        Mgr.enter_state("transforming", "uv_window")
-
         self._selection = self._selections[self._uv_set_id][self._obj_lvl]
         self._transf_start_pos = transf_start_pos
 
@@ -212,6 +210,7 @@ class UVTransformationBase(BaseObject):
             if not self.__init_scaling():
                 return
 
+        Mgr.enter_state("transforming", "uv_window")
         self._selection.init_transform()
 
     def __end_transform(self, cancel=False):
