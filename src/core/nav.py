@@ -27,16 +27,8 @@ class NavigationManager(BaseObject):
         add_state("navigation_mode", -100, self.__enter_navigation_mode,
                   self.__exit_navigation_mode)
 
-        def disable_ui(prev_state_id, is_active):
-
-            Mgr.do("enable_view_tiles", False)
-
-        def enable_ui(next_state_id, is_active):
-
-            Mgr.do("enable_view_tiles")
-
         for state_id in self._nav_states:
-            add_state(state_id, -110, disable_ui, enable_ui)
+            add_state(state_id, -110)
 
         def start_panning():
 
@@ -55,7 +47,7 @@ class NavigationManager(BaseObject):
 
         def start_dollying(direction):
 
-            Mgr.enter_state("dollying_%s" % ("forward" if direction == 1. else "backward"))
+            Mgr.enter_state("dollying_{}".format("forward" if direction == 1. else "backward"))
             self.__init_dolly(direction)
 
         def end_cam_transform():
@@ -83,16 +75,17 @@ class NavigationManager(BaseObject):
              lambda: start_dollying(1.))
         bind("navigation_mode", "navigate -> dolly backward", "arrow_down",
              lambda: start_dollying(-1.))
-        mod_shift = Mgr.get("mod_shift")
-        mod_ctrl = Mgr.get("mod_ctrl")
+        mod_key_codes = GlobalData["mod_key_codes"]
+        mod_shift = mod_key_codes["shift"]
+        mod_ctrl = mod_key_codes["ctrl"]
         bind("navigation_mode", "navigate -> dolly forward accel",
-             "%d|arrow_up" % mod_shift, lambda: start_dollying(1.))
+             "{:d}|arrow_up".format(mod_shift), lambda: start_dollying(1.))
         bind("navigation_mode", "navigate -> dolly backward accel",
-             "%d|arrow_down" % mod_shift, lambda: start_dollying(-1.))
+             "{:d}|arrow_down".format(mod_shift), lambda: start_dollying(-1.))
         bind("navigation_mode", "navigate -> dolly forward decel",
-             "%d|arrow_up" % mod_ctrl, lambda: start_dollying(1.))
+             "{:d}|arrow_up".format(mod_ctrl), lambda: start_dollying(1.))
         bind("navigation_mode", "navigate -> dolly backward decel",
-             "%d|arrow_down" % mod_ctrl, lambda: start_dollying(-1.))
+             "{:d}|arrow_down".format(mod_ctrl), lambda: start_dollying(-1.))
         bind("dollying_forward", "end navigation",
              "space-up", self.__quit_navigation_mode)
         bind("dollying_forward", "dolly forward -> navigate",
@@ -100,9 +93,9 @@ class NavigationManager(BaseObject):
         bind("dollying_forward", "dolly forward -> dolly backward", "arrow_down",
              lambda: start_dollying(-1.))
         bind("dollying_forward", "dolly forward -> dolly backward accel",
-             "%d|arrow_down" % mod_shift, lambda: start_dollying(-1.))
+             "{:d}|arrow_down".format(mod_shift), lambda: start_dollying(-1.))
         bind("dollying_forward", "dolly forward -> dolly backward decel",
-             "%d|arrow_down" % mod_ctrl, lambda: start_dollying(-1.))
+             "{:d}|arrow_down".format(mod_ctrl), lambda: start_dollying(-1.))
         bind("dollying_backward", "end navigation",
              "space-up", self.__quit_navigation_mode)
         bind("dollying_backward", "dolly backward -> navigate",
@@ -110,9 +103,9 @@ class NavigationManager(BaseObject):
         bind("dollying_backward", "dolly backward -> dolly forward", "arrow_up",
              lambda: start_dollying(1.))
         bind("dollying_backward", "dolly backward -> dolly forward accel",
-             "%d|arrow_up" % mod_shift, lambda: start_dollying(1.))
+             "{:d}|arrow_up".format(mod_shift), lambda: start_dollying(1.))
         bind("dollying_backward", "dolly backward -> dolly forward decel",
-             "%d|arrow_up" % mod_ctrl, lambda: start_dollying(1.))
+             "{:d}|arrow_up".format(mod_ctrl), lambda: start_dollying(1.))
         bind("navigation_mode", "zoom in", "wheel_up", self.__zoom_step_in)
         bind("navigation_mode", "zoom out", "wheel_down", self.__zoom_step_out)
         bind("navigation_mode", "check navigation done", "space-up",
@@ -122,8 +115,8 @@ class NavigationManager(BaseObject):
 
         status_data = GlobalData["status_data"]
         mode_text = "Navigate"
-        info_text = "LMB to orbit; RMB to pan; LMB+RMB to zoom; <Home> to reset view;" \
-            " <space-up> to end"
+        info_text = "LMB to orbit; RMB to pan; MWheel or LMB+RMB to zoom; <Home> to reset view;"
+        info_text += " <Space-up> to end"
         status_data["navigate"] = {"mode": mode_text, "info": info_text}
 
         return "navigation_ok"
@@ -135,7 +128,7 @@ class NavigationManager(BaseObject):
             Mgr.do("hilite_world_axes")
             Mgr.do("start_updating_view_cube")
 
-        Mgr.update_app("status", "navigate")
+        Mgr.update_app("status", ["navigate"])
 
     def __exit_navigation_mode(self, next_state_id, is_active):
 
@@ -244,6 +237,9 @@ class NavigationManager(BaseObject):
         Mgr.remove_task("transform_cam")
 
         if not self.mouse_watcher.has_mouse():
+            return
+
+        if GlobalData["view"] in ("front", "back", "left", "right", "top", "bottom"):
             return
 
         self._orbit_start_pos = Point2(self.mouse_watcher.get_mouse())

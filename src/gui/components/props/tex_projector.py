@@ -1,17 +1,7 @@
 from .base import *
 
 
-class TargetComboBox(PanelComboBox):
-
-    def __init__(self, panel, container, sizer):
-
-        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
-
-        PanelComboBox.__init__(self, panel, container, sizer, "Selected target",
-                               140, (1.75, 1.75, .9), sizer_args)
-
-
-class TexProjectorProperties(BaseObject):
+class TexProjectorProperties(object):
 
     def __init__(self, panel):
 
@@ -21,29 +11,33 @@ class TexProjectorProperties(BaseObject):
 
         self._targets = {}
 
-        section = panel.add_section("tex_projector_props", "Tex. projector properties")
-        sizer = section.get_client_sizer()
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        section = panel.add_section("tex_projector_props", "Tex. projector properties", hidden=True)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        sizer.Add(subsizer)
-        checkbox = PanelCheckBox(panel, section, subsizer,
-                                 lambda on: self.__handle_value("on", on))
+        sizer = Sizer("horizontal")
+        section.add(sizer)
+        checkbox = PanelCheckBox(section, lambda on: self.__handle_value("on", on))
         self._checkboxes["on"] = checkbox
-        section.add_text("On", subsizer, sizer_args)
+        borders = (0, 5, 0, 0)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "On"
+        sizer.add(PanelText(section, text), alignment="center_v")
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        sizer.Add(subsizer)
-        section.add_text("Size:", subsizer, sizer_args)
-        field = PanelInputField(panel, section, subsizer, 80)
+        sizer = Sizer("horizontal")
+        section.add(sizer)
+        text = "Size:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         val_id = "size"
+        field = PanelInputField(section, 80)
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_size)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
-        yellow = wx.Colour(255, 255, 0)
-        radio_btns = PanelRadioButtonGroup(panel, section, "Projection type", dot_color=yellow)
+        group = section.add_group("Projection type")
+        color = (1., 1., 0., 1.)
+        radio_btns = PanelRadioButtonGroup(group, bullet_color=color, columns=1)
+        group.add(radio_btns.get_sizer())
 
         get_command = lambda projection_type: lambda: self.__set_projection_type(projection_type)
 
@@ -55,118 +49,123 @@ class TexProjectorProperties(BaseObject):
         self._radio_btns = radio_btns
 
         group = section.add_group("Lens/Film")
-        sizer = group.get_client_sizer()
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        sizer.Add(subsizer)
-        group.add_text("Width:", subsizer, sizer_args)
-        field = PanelInputField(panel, group, subsizer, 80)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
+        group.add(sizer, expand=True)
+        text = "Width:"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
         val_id = "film_w"
+        field = PanelInputField(group, 80)
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_size)
         self._fields[val_id] = field
-        group.add_text("Height:", subsizer, sizer_args)
-        field = PanelInputField(panel, group, subsizer, 80)
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
+
+        text = "Height:"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
         val_id = "film_h"
+        field = PanelInputField(group, 80)
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_size)
         self._fields[val_id] = field
-        group.add_text("X offset:", subsizer, sizer_args)
-        field = PanelInputField(panel, group, subsizer, 80)
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
+
+        text = "X offset:"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
         val_id = "film_x"
+        field = PanelInputField(group, 80)
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_size)
         self._fields[val_id] = field
-        group.add_text("Y offset:", subsizer, sizer_args)
-        field = PanelInputField(panel, group, subsizer, 80)
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
+
+        text = "Y offset:"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
         val_id = "film_y"
+        field = PanelInputField(group, 80)
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_size)
         self._fields[val_id] = field
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        section = panel.add_section("tex_projector_targets", "Projector targets")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("tex_projector_targets", "Projector targets", hidden=True)
 
-        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
+        self._target_combobox = PanelComboBox(section, 10, tooltip_text="Selected target")
+        borders = (5, 5, 5, 0)
+        section.add(self._target_combobox, expand=True, borders=borders)
 
-        self._target_combobox = PanelComboBox(panel, section, sizer, "Selected target",
-                                              164, sizer_args=sizer_args)
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True, borders=borders)
 
-        sizer.Add(wx.Size(0, 4))
+        borders = (0, 5, 0, 0)
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-
-        bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
-
-        sizer_args = (0, wx.RIGHT, 5)
-
-        label = "Pick"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Add target model",
-                          self.__pick_object, sizer_args)
+        text = "Pick"
+        btn = PanelButton(section, text, "", "Add target model", self.__pick_object)
         self._pick_btn = btn
+        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        label = "Remove"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Remove selected target",
-                          self.__remove_target, sizer_args)
+        text = "Remove"
+        btn = PanelButton(section, text, "", "Remove selected target", self.__remove_target)
+        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        label = "Clear"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Remove all targets",
-                          self.__clear_targets)
-
-        sizer.Add(wx.Size(0, 4))
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        text = "Clear"
+        btn = PanelButton(section, text, "", "Remove all targets", self.__clear_targets)
+        btn_sizer.add(btn, proportion=1.)
 
         group = section.add_group("Target poly selection")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.FlexGridSizer(rows=0, cols=4, hgap=5)
-        grp_sizer.Add(subsizer)
-        checkbox = PanelCheckBox(panel, group, subsizer,
-                                 lambda val: self.__handle_value("use_poly_sel", val))
+        sizer = Sizer("horizontal")
+        borders = (0, 0, 5, 0)
+        group.add(sizer, expand=True, borders=borders)
+
+        borders = (0, 5, 0, 0)
+
+        checkbox = PanelCheckBox(group, lambda val: self.__handle_value("use_poly_sel", val))
         checkbox.check(False)
-        checkbox.disable()
+        checkbox.enable(False)
         checkbox.add_disabler("no_targets", lambda: not self._targets)
         self._checkboxes["use_poly_sel"] = checkbox
-        group.add_text("Use    ", subsizer, sizer_args)
-        checkbox = PanelCheckBox(panel, group, subsizer,
-                                 lambda val: self.__handle_value("show_poly_sel", val))
+        sizer.add(checkbox, borders=borders)
+        text = "Use"
+        sizer.add(PanelText(group, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+        checkbox = PanelCheckBox(group, lambda val: self.__handle_value("show_poly_sel", val))
         checkbox.check(False)
-        checkbox.disable()
+        checkbox.enable(False)
         checkbox.add_disabler("no_targets", lambda: not self._targets)
         self._checkboxes["show_poly_sel"] = checkbox
-        group.add_text("Show", subsizer, sizer_args)
+        sizer.add(checkbox, borders=borders)
+        text = "Show"
+        sizer.add(PanelText(group, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
 
-        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
-
-        sizer.Add(wx.Size(0, 4))
-        section.add_text("Affected UV sets:", sizer, sizer_args)
-        field = PanelInputField(panel, section, sizer, 164, sizer_args=sizer_args)
+        text = "Affected UV sets:"
+        borders = (5, 5, 5, 10)
+        section.add(PanelText(group, text), alignment="center_h", borders=borders)
+        field = PanelInputField(section, 10)
         val_id = "uv_set_ids"
         field.add_value(val_id, "custom", handler=self.__handle_value)
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_uv_set_id_string)
         field.set_value_parser(val_id, self.__parse_uv_set_ids)
-        field.set_value(val_id, ())
-        field.disable()
+        field.set_value(val_id, (), handle_value=False)
+        field.enable(False)
         field.add_disabler("no_targets", lambda: not self._targets)
         self._fields[val_id] = field
+        borders = (5, 5, 5, 0)
+        section.add(field, expand=True, borders=borders)
 
-        label = "Apply UVs"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, sizer, bitmaps, label, "Bake UVs into target vertices",
-                          self.__apply_uvs, sizer_args)
+        text = "Apply UVs"
+        btn = PanelButton(section, text, "", "Bake UVs into target vertices", self.__apply_uvs)
+        section.add(btn, alignment="center_h")#, borders=borders)
 
     def setup(self):
 
         def enter_picking_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (100, 255, 100))
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
             self._pick_btn.set_active()
 
         def exit_picking_mode(next_state_id, is_active):
@@ -175,14 +174,12 @@ class TexProjectorProperties(BaseObject):
                 self._pick_btn.set_active(False)
 
         add_state = Mgr.add_state
-        add_state("texprojtarget_picking_mode", -10,
-                  enter_picking_mode, exit_picking_mode)
+        add_state("texprojtarget_picking_mode", -10, enter_picking_mode, exit_picking_mode)
 
     def __set_projection_type(self, projection_type):
 
         if GlobalData["active_creation_type"]:
-            Mgr.update_app("tex_projector_prop_default",
-                           "projection_type", projection_type)
+            Mgr.update_app("tex_projector_prop_default", "projection_type", projection_type)
             return
 
         Mgr.update_remotely("texproj_prop", "projection_type", projection_type)
@@ -226,7 +223,7 @@ class TexProjectorProperties(BaseObject):
         use_poly_sel = not target_data["toplvl"]
         show_poly_sel = target_data["show_poly_sel"]
         field = self._fields["uv_set_ids"]
-        field.set_value("uv_set_ids", uv_set_ids)
+        field.set_value("uv_set_ids", uv_set_ids, handle_value=False)
         self._checkboxes["use_poly_sel"].check(use_poly_sel)
         self._checkboxes["show_poly_sel"].check(show_poly_sel)
 
@@ -268,7 +265,7 @@ class TexProjectorProperties(BaseObject):
 
         try:
             uv_set_ids = tuple(set(sorted(min(7, max(0, int(s)))
-                                          for s in uv_set_id_str.replace(" ", "").split(","))))
+                for s in uv_set_id_str.replace(" ", "").split(","))))
         except:
             return None
 
@@ -298,18 +295,18 @@ class TexProjectorProperties(BaseObject):
 
     def set_object_property_default(self, prop_id, value):
 
-        color = wx.Colour(255, 255, 0)
+        color = (1., 1., 0., 1.)
 
         if prop_id == "on":
             self._checkboxes["on"].check(value)
             self._checkboxes["on"].set_checkmark_color(color)
         elif prop_id == "projection_type":
             self._radio_btns.set_selected_button(value)
-            self._radio_btns.set_dot_color(color)
+            self._radio_btns.set_bullet_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(prop_id, value, handle_value=False)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -351,7 +348,7 @@ class TexProjectorProperties(BaseObject):
                     uv_set_ids = new_target_data["uv_set_ids"]
                     use_poly_sel = not new_target_data["toplvl"]
                     show_poly_sel = new_target_data["show_poly_sel"]
-                    field.set_value("uv_set_ids", uv_set_ids)
+                    field.set_value("uv_set_ids", uv_set_ids, handle_value=False)
                     checkboxes["use_poly_sel"].check(use_poly_sel)
                     checkboxes["show_poly_sel"].check(show_poly_sel)
 
@@ -378,27 +375,27 @@ class TexProjectorProperties(BaseObject):
                     uv_set_ids = target_data["uv_set_ids"]
                     use_poly_sel = not target_data["toplvl"]
                     show_poly_sel = target_data["show_poly_sel"]
-                    field.set_value("uv_set_ids", uv_set_ids)
+                    field.set_value("uv_set_ids", uv_set_ids, handle_value=False)
                     checkboxes["use_poly_sel"].check(use_poly_sel)
                     checkboxes["show_poly_sel"].check(show_poly_sel)
                 else:
-                    field.set_value("uv_set_ids", ())
-                    field.disable()
+                    field.set_value("uv_set_ids", (), handle_value=False)
+                    field.enable(False)
                     checkboxes["use_poly_sel"].check(False)
-                    checkboxes["use_poly_sel"].disable()
+                    checkboxes["use_poly_sel"].enable(False)
                     checkboxes["show_poly_sel"].check(False)
-                    checkboxes["show_poly_sel"].disable()
+                    checkboxes["show_poly_sel"].enable(False)
 
         elif prop_id in self._fields:
 
             field = self._fields[prop_id]
-            field.set_value(prop_id, value)
+            field.set_value(prop_id, value, handle_value=False)
 
     def check_selection_count(self):
 
         sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
-        color = wx.Colour(127, 127, 127) if multi_sel else None
+        color = (.5, .5, .5, 1.) if multi_sel else None
 
         if multi_sel:
             self._checkboxes["on"].check(False)
@@ -412,7 +409,7 @@ class TexProjectorProperties(BaseObject):
             field.show_text(not multi_sel)
 
         self._checkboxes["on"].set_checkmark_color(color)
-        self._radio_btns.set_dot_color(color)
+        self._radio_btns.set_bullet_color(color, update=True)
 
     def __pick_object(self):
 

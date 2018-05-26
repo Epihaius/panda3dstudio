@@ -279,7 +279,7 @@ class TemporaryPrimitive(BaseObject):
             pos = self._pivot.get_pos(Mgr.get(("grid", "origin")))
             size = self.get_size()
 
-            for step in Mgr.do("create_%s" % self._type, pos, size):
+            for step in Mgr.do("create_{}".format(self._type), pos, size):
                 yield
 
             self.destroy()
@@ -382,7 +382,7 @@ class Primitive(GeomDataOwner):
         geom_data_obj = self.get_geom_data_object()
         geom_data_obj.unregister()
         Mgr.do("update_picking_col_id_ranges")
-        Mgr.schedule_screenshot_removal()
+        Mgr.update_locally("screenshot_removal")
 
         def task():
 
@@ -390,7 +390,7 @@ class Primitive(GeomDataOwner):
             gradual = progress_steps > 80
 
             if gradual:
-                Mgr.show_screenshot()
+                Mgr.update_remotely("screenshot", "create")
                 GlobalData["progress_steps"] = progress_steps
 
             geom_data_obj = self.get_geom_data_object()
@@ -481,14 +481,6 @@ class Primitive(GeomDataOwner):
         if prop_id == "geom_data":
             val.restore_data(["self"], restore_type, old_time_id, new_time_id)
 
-    def make_geometry_editable(self):
-
-        obj_type = "editable_geom"
-        geom_data_obj = self.get_geom_data_object()
-        editable_geom = Mgr.do("create_%s" % obj_type, self.get_model(), geom_data_obj)
-        editable_geom.set_flipped_normals(self.has_flipped_normals())
-        Mgr.update_remotely("selected_obj_types", (obj_type,))
-
 
 class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager):
 
@@ -497,10 +489,10 @@ class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager)
         CreationPhaseManager.__init__(self, prim_type, has_color=True)
         ObjPropDefaultsManager.__init__(self, prim_type)
 
-        Mgr.accept("create_%s" % prim_type, self.__create)
+        Mgr.accept("create_{}".format(prim_type), self.__create)
 
         if custom_creation:
-            Mgr.accept("create_custom_%s" % prim_type, self.create_custom_primitive)
+            Mgr.accept("create_custom_{}".format(prim_type), self.create_custom_primitive)
 
     def setup(self, creation_phases, status_text):
 

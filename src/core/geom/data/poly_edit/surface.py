@@ -35,7 +35,7 @@ class SurfaceBase(BaseObject):
         selected_normal_ids = selection_ids["normal"]
 
         if not selected_poly_ids:
-            return False
+            return
 
         poly_ids = set(selected_poly_ids)
         polys_to_flip = set()
@@ -286,7 +286,7 @@ class SurfaceBase(BaseObject):
         uv_writers = {}
 
         for uv_set_id in uv_set_ids:
-            column = "texcoord" if uv_set_id == 0 else "texcoord.%d" % uv_set_id
+            column = "texcoord" if uv_set_id == 0 else "texcoord.{:d}".format(uv_set_id)
             uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, column)
 
         for vert in verts_to_swap:
@@ -401,7 +401,7 @@ class SurfaceBase(BaseObject):
         else:
             self._is_tangent_space_initialized = False
 
-        return True, tri_change, uv_change, sel_change
+        return tri_change, uv_change, sel_change
 
 
 class SurfaceManager(BaseObject):
@@ -422,11 +422,12 @@ class SurfaceManager(BaseObject):
 
             model_id = model.get_id()
             geom_data_obj = model.get_geom_object().get_geom_data_object()
-            change, tri_change, uv_change, sel_change = geom_data_obj.invert_polygon_surfaces()
+            change = geom_data_obj.invert_polygon_surfaces()
 
             if change:
 
                 changed_objs[model_id] = geom_data_obj
+                tri_change, uv_change, sel_change = change
 
                 if tri_change:
                     changed_triangulations.append(model_id)

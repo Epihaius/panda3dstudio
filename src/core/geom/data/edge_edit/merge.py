@@ -270,6 +270,7 @@ class EdgeMergeManager(BaseObject):
         bind("edge_merge_mode", "merge edges", "mouse1", self._init_merge)
         bind("edge_merge", "quit edge merge", "escape", cancel_merge)
         bind("edge_merge", "cancel edge merge", "mouse3-up", cancel_merge)
+        bind("edge_merge", "abort edge merge", "focus_loss", cancel_merge)
         bind("edge_merge", "finalize edge merge", "mouse1-up", self._finalize_merge)
         bind("edge_merge", "merge edges -> pick edge via poly",
              "mouse1", self._start_dest_edge_picking_via_poly)
@@ -291,7 +292,7 @@ class EdgeMergeManager(BaseObject):
 
         self._mode_id = "merge"
         Mgr.add_task(self._update_cursor, "update_mode_cursor")
-        Mgr.update_app("status", "edge_merge_mode")
+        Mgr.update_app("status", ["edge_merge_mode"])
 
     def __exit_merge_mode(self, next_state_id, is_active):
 
@@ -354,7 +355,6 @@ class EdgeMergeManager(BaseObject):
         pos = edge.get_center_pos(self.world)
         Mgr.do("start_drawing_rubber_band", pos)
         Mgr.do("enable_view_gizmo", False)
-        Mgr.do("enable_view_tiles", False)
         Mgr.enter_state("edge_merge")
         Mgr.set_cursor("main")
 
@@ -378,7 +378,6 @@ class EdgeMergeManager(BaseObject):
         Mgr.enter_state("edge_merge_mode")
         Mgr.set_cursor("main" if self._pixel_under_mouse == VBase4() else "select")
         Mgr.do("enable_view_gizmo")
-        Mgr.do("enable_view_tiles")
 
         self._src_border_edge = None
 

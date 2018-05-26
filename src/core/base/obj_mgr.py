@@ -28,9 +28,9 @@ class GeneralObjectManager(BaseObject):
         Mgr.expose("object_root", lambda: self._obj_root)
         Mgr.expose("object_type_data", lambda: self._obj_types)
         Mgr.expose("object", self.__get_object)
-        Mgr.expose("objects", lambda level="top": sum([Mgr.get("%s_objs" % obj_type)
+        Mgr.expose("objects", lambda level="top": sum([Mgr.get("{}_objs".format(obj_type))
                                                        for obj_type in self._obj_types[level]], []))
-        Mgr.expose("object_ids", lambda level="top": sum([Mgr.get("%s_obj_ids" % obj_type)
+        Mgr.expose("object_ids", lambda level="top": sum([Mgr.get("{}_obj_ids".format(obj_type))
                                                           for obj_type in self._obj_types[level]], []))
         Mgr.expose("object_types", lambda level="all": self._obj_types["top"] + self._obj_types["sub"]
                    if level == "all" else self._obj_types[level])
@@ -48,6 +48,17 @@ class GeneralObjectManager(BaseObject):
         Mgr.add_app_updater("history_change", self.__start_selection_check)
         Mgr.add_notification_handler("long_process_cancelled", "obj_mgr",
                                      self.__restore_registry_backups)
+
+        def enable_obj_name_checking():
+
+            Mgr.add_task(self.__check_object_name, "check_object_name", sort=3)
+
+        def disable_obj_name_checking():
+
+            Mgr.remove_task("check_object_name")
+
+        Mgr.accept("enable_object_name_checking", enable_obj_name_checking)
+        Mgr.accept("disable_object_name_checking", disable_obj_name_checking)
 
     def setup(self):
 
@@ -104,14 +115,11 @@ class GeneralObjectManager(BaseObject):
         group = obj.get_group()
 
         if group:
-            name = '%s [%s]' % (group.get_name(), name)
+            name = '{} [{}]'.format(group.get_name(), name)
 
         self._showing_object_name = True
-        mouse_pointer = Mgr.get("mouse_pointer", 0)
-        pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
         is_selected = obj in selection
-        Mgr.update_remotely("object_name_tag", self._showing_object_name, name,
-                            pos, is_selected)
+        Mgr.update_remotely("object_name_tag", self._showing_object_name, name, is_selected)
 
         if is_selected and len(selection) > 1 and GlobalData["active_transform_type"]:
             Mgr.update_remotely("transform_values", obj.get_transform_values())
@@ -168,16 +176,16 @@ class GeneralObjectManager(BaseObject):
 
     def __set_custom_object_name(self, obj_type, custom_name):
 
-        Mgr.do("set_custom_%s_name" % obj_type, custom_name)
+        Mgr.do("set_custom_{}_name".format(obj_type), custom_name)
         Mgr.update_remotely("next_obj_name", self.__get_next_object_name(obj_type))
 
     @staticmethod
     def __get_next_object_name(obj_type):
 
-        custom_name = Mgr.get("custom_%s_name" % obj_type)
+        custom_name = Mgr.get("custom_{}_name".format(obj_type))
         namelist = GlobalData["obj_names"]
-        search_pattern = r"^%s\s*(\d+)$" % obj_type
-        naming_pattern = obj_type + " %04d"
+        search_pattern = r"^{}\s*(\d+)$".format(obj_type)
+        naming_pattern = obj_type + " {:04d}"
 
         return get_unique_name(custom_name, namelist, search_pattern, naming_pattern)
 
@@ -216,10 +224,10 @@ class GeneralObjectManager(BaseObject):
                 obj_data[obj.get_id()] = {"name": {"main": new_name}}
 
             if len(new_names) == 1:
-                event_descr = 'Rename "%s"\nto "%s"' % (old_names[0], new_names[0])
+                event_descr = 'Rename "{}"\nto "{}"'.format(old_names[0], new_names[0])
             else:
                 event_descr = 'Rename objects:\n'
-                event_descr += ";\n".join(['\n    "%s"\n    to "%s"' % names
+                event_descr += ";\n".join(['\n    "{}"\n    to "{}"'.format(*names)
                                            for names in zip(old_names, new_names)])
 
             event_data = {"objects": obj_data}
@@ -256,7 +264,7 @@ class GeneralObjectManager(BaseObject):
         if len(changed_objs) == 1:
 
             name = changed_objs[0].get_name()
-            event_descr = 'Change color of "%s"\nto R:%.3f | G:%.3f | B:%.3f' % (name, r, g, b)
+            event_descr = 'Change color of "{}"\nto R:{:.3f} | G:{:.3f} | B:{:.3f}'.format(name, r, g, b)
 
         else:
 
@@ -264,9 +272,9 @@ class GeneralObjectManager(BaseObject):
 
             for obj in changed_objs:
                 name = obj.get_name()
-                event_descr += '\n    "%s"' % name
+                event_descr += '\n    "{}"'.format(name)
 
-            event_descr += '\n\nto R:%.3f | G:%.3f | B:%.3f' % (r, g, b)
+            event_descr += '\n\nto R:{:.3f} | G:{:.3f} | B:{:.3f}'.format(r, g, b)
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data)
@@ -285,7 +293,7 @@ class GeneralObjectManager(BaseObject):
             obj.set_tags(tags)
             Mgr.do("update_history_time")
             obj_data = {obj_id: obj.get_data_to_store("prop_change", "tags")}
-            event_descr = 'Change tags of "%s"' % obj.get_name()
+            event_descr = 'Change tags of "{}"'.format(obj.get_name())
             event_data = {"objects": obj_data}
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
@@ -300,11 +308,11 @@ class GeneralObjectManager(BaseObject):
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = 'Change %s of "%s"\nto %s' % (prop_id, obj.get_name(), value)
+            event_descr = 'Change {} of "{}"\nto {}'.format(prop_id, obj.get_name(), value)
         else:
-            event_descr = 'Change %s of objects:\n' % prop_id
-            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
-            event_descr += '\n\nto %s' % (value,)
+            event_descr = 'Change {} of objects:\n'.format(prop_id)
+            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
+            event_descr += '\n\nto {}'.format(value)
 
         event_data = {"objects": obj_data}
 
@@ -435,7 +443,7 @@ class GeneralObjectManager(BaseObject):
     def __reset_registries(self):
 
         for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
-            Mgr.do("reset_%s_registry" % obj_type)
+            Mgr.do("reset_{}_registry".format(obj_type))
 
         logging.info('Registries reset.')
 
@@ -445,7 +453,7 @@ class GeneralObjectManager(BaseObject):
             return
 
         for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
-            Mgr.do("create_%s_registry_backup" % obj_type)
+            Mgr.do("create_{}_registry_backup".format(obj_type))
 
         task = self.__remove_registry_backups
         task_id = "remove_registry_backups"
@@ -459,9 +467,9 @@ class GeneralObjectManager(BaseObject):
             return
 
         for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
-            Mgr.do("restore_%s_registry_backup" % obj_type)
+            Mgr.do("restore_{}_registry_backup".format(obj_type))
 
-        logging.info('Registry backups restored;\ninfo: %s', info)
+        logging.info('Registry backups restored;\ninfo: {}'.format(info))
         self.__remove_registry_backups()
 
     def __remove_registry_backups(self):
@@ -470,7 +478,7 @@ class GeneralObjectManager(BaseObject):
             return
 
         for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
-            Mgr.do("remove_%s_registry_backup" % obj_type)
+            Mgr.do("remove_{}_registry_backup".format(obj_type))
 
         self._registry_backups_created = False
         logging.info('Registry backups removed.')
@@ -490,20 +498,20 @@ class ObjectManager(BaseObject):
         self._objects_backup = None
         self._object_id_backup = None
 
-        Mgr.accept("create_%s" % obj_type, create_func)
-        Mgr.accept("register_%s" % obj_type, self.__register_object)
-        Mgr.accept("unregister_%s" % obj_type, self.__unregister_object)
-        Mgr.accept("register_%s_objs" % obj_type, self.__register_objects)
-        Mgr.accept("unregister_%s_objs" % obj_type, self.__unregister_objects)
+        Mgr.accept("create_{}".format(obj_type), create_func)
+        Mgr.accept("register_{}".format(obj_type), self.__register_object)
+        Mgr.accept("unregister_{}".format(obj_type), self.__unregister_object)
+        Mgr.accept("register_{}_objs".format(obj_type), self.__register_objects)
+        Mgr.accept("unregister_{}_objs".format(obj_type), self.__unregister_objects)
         Mgr.expose(obj_type, lambda obj_id: self._objects.get(obj_id))
-        Mgr.expose("%s_objs" % obj_type, lambda: self._objects.values())
-        Mgr.expose("%s_obj_ids" % obj_type, lambda: self._objects.keys())
-        Mgr.expose("last_%s_obj_id" % obj_type, lambda: self._object_id)
-        Mgr.accept("set_last_%s_obj_id" % obj_type, self.__set_last_id)
-        Mgr.accept("reset_%s_registry" % obj_type, self.__reset_registry)
-        Mgr.accept("create_%s_registry_backup" % obj_type, self.__create_registry_backup)
-        Mgr.accept("restore_%s_registry_backup" % obj_type, self.__restore_registry_backup)
-        Mgr.accept("remove_%s_registry_backup" % obj_type, self.__remove_registry_backup)
+        Mgr.expose("{}_objs".format(obj_type), lambda: self._objects.values())
+        Mgr.expose("{}_obj_ids".format(obj_type), lambda: self._objects.keys())
+        Mgr.expose("last_{}_obj_id".format(obj_type), lambda: self._object_id)
+        Mgr.accept("set_last_{}_obj_id".format(obj_type), self.__set_last_id)
+        Mgr.accept("reset_{}_registry".format(obj_type), self.__reset_registry)
+        Mgr.accept("create_{}_registry_backup".format(obj_type), self.__create_registry_backup)
+        Mgr.accept("restore_{}_registry_backup".format(obj_type), self.__restore_registry_backup)
+        Mgr.accept("remove_{}_registry_backup".format(obj_type), self.__remove_registry_backup)
 
     def get_managed_object_type(self):
 

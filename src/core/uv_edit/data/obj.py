@@ -45,7 +45,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             data_row_count = 0
             vertex_data_poly = None
             model = geom_data_obj.get_toplevel_object()
-            name = "%s_uv_origin" % (model.get_id(),)
+            name = "{}_uv_origin".format(model.get_id())
             origin = self.geom_root.attach_new_node(name)
             origin.node().set_final(True)
             geoms = {}
@@ -99,7 +99,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         for subobj_type in ("vert", "edge"):
             for geom_type in ("pickable", "sel_state"):
-                path = "**/%s_%s_geom" % (subobj_type, geom_type)
+                path = "**/{}_{}_geom".format(subobj_type, geom_type)
                 src_geom = origin.find(path)
                 vertex_data = GeomVertexData(src_geom.node().get_geom(0).get_vertex_data())
                 geom = origin_copy.find(path)

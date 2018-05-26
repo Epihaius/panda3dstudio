@@ -117,7 +117,7 @@ class TransformCenterManager(BaseObject):
             Mgr.update_app("active_obj_level")
 
         Mgr.add_task(self.__update_cursor, "update_tc_picking_cursor")
-        Mgr.update_app("status", "pick_transf_center")
+        Mgr.update_app("status", ["pick_transf_center"])
 
     def __exit_picking_mode(self, next_state_id, is_active):
 

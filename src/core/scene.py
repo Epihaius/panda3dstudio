@@ -53,14 +53,14 @@ class SceneManager(BaseObject):
             GlobalData["transform_target_type"] = "all"
             Mgr.update_app("transform_target_type")
 
-        Mgr.do("clear_user_views")
+        Mgr.update_app("view", "clear")
         Mgr.update_remotely("material_library", "clear")
         Mgr.update_locally("material_library", "clear")
         Mgr.update_app("view", "reset_all")
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "adaptive")
         Mgr.update_app("active_transform_type", "")
-        Mgr.update_app("status", "select", "")
+        Mgr.update_app("status", ["select", ""])
 
         GlobalData.reset()
         Mgr.update_remotely("two_sided")
@@ -71,13 +71,31 @@ class SceneManager(BaseObject):
             Mgr.update_app("axis_constraints", transf_type, axes)
 
         for obj_type in Mgr.get("object_types"):
-            Mgr.do("set_last_%s_obj_id" % obj_type, 0)
+            Mgr.do("set_last_{}_obj_id".format(obj_type), 0)
 
         Mgr.update_remotely("scene_label", "New")
 
     def __load(self, filename):
 
         self.__reset()
+
+        scene_file = Multifile()
+        scene_file.open_read(Filename(filename))
+        valid_file = True
+
+        if not scene_file.is_read_valid():
+            Mgr.update_remotely("scene_load_error", filename, "read")
+            valid_file = False
+        elif scene_file.find_subfile("Panda3DStudio") == -1:
+            Mgr.update_remotely("scene_load_error", filename, "id")
+            valid_file = False
+
+        if not valid_file:
+            scene_file.close()
+            task = lambda: Mgr.update_remotely("scene_label", "New")
+            task_id = "set_scene_label"
+            PendingTasks.add(task, task_id, "ui")
+            return
 
         handler = lambda info: self.__reset()
         Mgr.add_notification_handler("long_process_cancelled", "scene_mgr", handler, once=True)
@@ -93,9 +111,7 @@ class SceneManager(BaseObject):
         PendingTasks.add(finish, task_id, "ui", sort=100)
 
         GlobalData["loading_scene"] = True
-        Mgr.show_screenshot()
-        scene_file = Multifile()
-        scene_file.open_read(Filename.from_os_specific(filename))
+        Mgr.update_remotely("screenshot", "create")
         scene_data_str = scene_file.read_subfile(scene_file.find_subfile("scene/data"))
         scene_data = cPickle.loads(scene_data_str)
         Mgr.do("set_material_library", scene_data["material_library"])
@@ -103,8 +119,8 @@ class SceneManager(BaseObject):
         scene_file.close()
 
         for obj_type in Mgr.get("object_types"):
-            data_id = "last_%s_obj_id" % obj_type
-            Mgr.do("set_last_%s_obj_id" % obj_type, scene_data[data_id])
+            data_id = "last_{}_obj_id".format(obj_type)
+            Mgr.do("set_last_{}_obj_id".format(obj_type), scene_data[data_id])
 
         GlobalData["axis_constraints"] = constraints = scene_data["axis_constraints"]
 
@@ -117,9 +133,9 @@ class SceneManager(BaseObject):
         Mgr.update_app("active_transform_type", transf_type)
 
         if transf_type:
-            Mgr.update_app("status", "select", transf_type, "idle")
+            Mgr.update_app("status", ["select", transf_type, "idle"])
         else:
-            Mgr.update_app("status", "select", "")
+            Mgr.update_app("status", ["select", ""])
 
         def task():
 
@@ -146,8 +162,8 @@ class SceneManager(BaseObject):
 
         for x in ("coord_sys", "transf_center"):
             scene_data[x] = {}
-            scene_data[x]["type"] = GlobalData["%s_type" % x]
-            obj = Mgr.get("%s_obj" % x)
+            scene_data[x]["type"] = GlobalData["{}_type".format(x)]
+            obj = Mgr.get("{}_obj".format(x))
             scene_data[x]["obj_id"] = obj.get_id() if obj else None
 
         scene_data["active_transform_type"] = GlobalData["active_transform_type"]
@@ -155,11 +171,13 @@ class SceneManager(BaseObject):
         scene_data["axis_constraints"] = GlobalData["axis_constraints"]
 
         for obj_type in Mgr.get("object_types"):
-            data_id = "last_%s_obj_id" % obj_type
+            data_id = "last_{}_obj_id".format(obj_type)
             scene_data[data_id] = Mgr.get(data_id)
 
         scene_file = Multifile()
-        scene_file.open_write(Filename.from_os_specific(filename))
+        scene_file.open_write(Filename(filename))
+        id_stream = StringStream("")
+        scene_file.add_subfile("Panda3DStudio", id_stream, 9)
         scene_data_stream = StringStream(cPickle.dumps(scene_data, -1))
         scene_file.add_subfile("scene/data", scene_data_stream, 9)
         Mgr.do("save_history", scene_file, set_saved_state)
@@ -177,14 +195,9 @@ class SceneManager(BaseObject):
     def __make_backup(self, index):
 
         open_file = GlobalData["open_file"]
-
-        if open_file:
-            root, ext = os.path.splitext(open_file)
-        else:
-            root = "autobackup"
-
-        filename = root + ".bak%d" % index
-        self.__save(filename, set_saved_state=False)
+        filename = Filename(open_file if open_file else "autobackup")
+        filename.set_extension("bak{:d}".format(index))
+        self.__save(filename.get_fullpath(), set_saved_state=False)
 
 
 MainObjects.add_class(SceneManager)

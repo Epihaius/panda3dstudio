@@ -1,7 +1,7 @@
 from .base import *
 
 
-class EditableGeomProperties(BaseObject):
+class EditableGeomProperties(object):
 
     def __init__(self, panel):
 
@@ -9,433 +9,425 @@ class EditableGeomProperties(BaseObject):
         self._fields = {}
         self._btns = {}
         self._checkboxes = {}
-        self._subobj_btns = PanelToggleButtonGroup()
+        self._subobj_btns = ToggleButtonGroup()
         toggle = (self.__set_topobj_level, lambda: None)
         self._subobj_btns.set_default_toggle("top", toggle)
 
-        bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
+        # **************************** Geometry section ************************
+
+        section = panel.add_section("geometry", "Geometry", hidden=True)
+
+        text = "Merge object..."
+        tooltip_text = "Not implemented"
+        btn = PanelButton(section, text, "", tooltip_text, lambda: None)
+        self._btns["merge_obj"] = btn
+        borders = (0, 0, 10, 10)
+        section.add(btn, alignment="center_h", borders=borders)
 
         # ************************* Subobject level section *******************
 
-        lvl_section = section = panel.add_section("subobj_lvl", "Subobject level")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("subobj_lvl", "Subobject level", hidden=True)
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 2)
-        sizer_args = (0, wx.RIGHT, 10)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
+        section.add(sizer, expand=True)
 
-        label = "Vertex"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        toggle = (lambda: self.__set_subobj_level("vert"), lambda: None)
-        self._subobj_btns.add_button(panel, section, btn_sizer, "vert", toggle, bitmaps,
-                                     "Vertex level", label, sizer_args=sizer_args)
+        subobj_types = ("vert", "normal", "edge", "poly")
+        subobj_names = ("Vertex", "Normal", "Edge", "Polygon")
+        get_level_setter = lambda subobj_type: lambda: self.__set_subobj_level(subobj_type)
 
-        label = "Normal"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        toggle = (lambda: self.__set_subobj_level("normal"), lambda: None)
-        self._subobj_btns.add_button(panel, section, btn_sizer, "normal", toggle, bitmaps,
-                                     "Normal level", label)
-
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 2)
-
-        label = "Edge"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        toggle = (lambda: self.__set_subobj_level("edge"), lambda: None)
-        self._subobj_btns.add_button(panel, section, btn_sizer, "edge", toggle, bitmaps,
-                                     "Edge level", label, sizer_args=sizer_args)
-
-        label = "Polygon"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        toggle = (lambda: self.__set_subobj_level("poly"), lambda: None)
-        self._subobj_btns.add_button(panel, section, btn_sizer, "poly", toggle, bitmaps,
-                                     "Polygon level", label)
+        for subobj_type, subobj_name in zip(subobj_types, subobj_names):
+            tooltip_text = "{} level".format(subobj_name)
+            btn = PanelButton(section, subobj_name, "", tooltip_text)
+            sizer.add(btn, proportion_h=1.)
+            toggle = (get_level_setter(subobj_type), lambda: None)
+            self._subobj_btns.add_button(btn, subobj_type, toggle)
 
         Mgr.add_app_updater("active_obj_level", self.__update_object_level)
 
         # ************************* Vertex section ****************************
 
-        vert_section = section = panel.add_section("vert_props", "Vertices")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("vert_props", "Vertices", hidden=True)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
 
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_via_poly)
+        borders = (0, 5, 0, 0)
+
+        checkbox = PanelCheckBox(section, self.__handle_picking_via_poly)
         checkbox.check(False)
         self._checkboxes["pick_vert_via_poly"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Pick via polygon", subsizer, sizer_args)
-        subsizer.Add(wx.Size(10, 0))
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_by_aiming)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Pick via polygon"
+        sizer.add(PanelText(section, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+        checkbox = PanelCheckBox(section, self.__handle_picking_by_aiming)
         checkbox.check(False)
         self._checkboxes["pick_vert_by_aiming"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("aim", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "aim"
+        sizer.add(PanelText(section, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 4)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
 
-        label = "Break"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, subsizer, bitmaps, label, "Break selected vertices",
-                          self.__break_vertices, sizer_args)
+        text = "Break"
+        tooltip_text = "Break selected vertices"
+        btn = PanelButton(section, text, "", tooltip_text, self.__break_vertices)
         self._btns["break_verts"] = btn
-
-        subsizer.Add(wx.Size(5, 0))
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_normal_preserve)
+        sizer.add(btn, alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+        checkbox = PanelCheckBox(section, self.__handle_normal_preserve)
         checkbox.check(False)
         self._checkboxes["vert_normal_preserve"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Lock normals", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Lock normals"
+        sizer.add(PanelText(section, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL, 4)
-        sizer_args = (0, wx.RIGHT, 5)
+        section.add((0, 5))
 
-        label = "Smooth"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Smooth selected vertices",
-                          self.__smooth_vertices, sizer_args)
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True)
+
+        text = "Smooth"
+        tooltip_text = "Smooth selected vertices"
+        btn = PanelButton(section, text, "", tooltip_text, self.__smooth_vertices)
         self._btns["smooth_verts"] = btn
+        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        label = "Sharpen"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Sharpen selected vertices",
-                          lambda: self.__smooth_vertices(False), sizer_args)
+        text = "Sharpen"
+        tooltip_text = "Sharpen selected vertices"
+        btn = PanelButton(section, text, "", tooltip_text, lambda: self.__smooth_vertices(False))
         self._btns["sharpen_verts"] = btn
+        btn_sizer.add(btn, proportion=1.)
 
         # ************************* Normal section ****************************
 
-        normal_section = section = panel.add_section("normal_props", "Vertex normals")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("normal_props", "Vertex normals", hidden=True)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
 
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_via_poly)
+        checkbox = PanelCheckBox(section, self.__handle_picking_via_poly)
         checkbox.check(False)
         self._checkboxes["pick_normal_via_poly"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Pick via polygon", subsizer, sizer_args)
-        subsizer.Add(wx.Size(10, 0))
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_by_aiming)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Pick via polygon"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        sizer.add((0, 0), proportion=1.)
+        checkbox = PanelCheckBox(section, self.__handle_picking_by_aiming)
         checkbox.check(False)
         self._checkboxes["pick_normal_by_aiming"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("aim", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "aim"
+        sizer.add(PanelText(section, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 4)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        sizer = Sizer("horizontal")
+        section.add(sizer)
 
-        section.add_text("Length:", subsizer, sizer_args)
-        field = PanelInputField(panel, section, subsizer, 80, sizer_args=sizer_args)
+        text = "Length:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        field = PanelInputField(section, 80)
         prop_id = "normal_length"
         field.add_value(prop_id, "float", handler=self.__handle_value)
         field.show_value(prop_id)
         field.set_input_parser(prop_id, self.__parse_length)
         self._fields[prop_id] = field
+        sizer.add(field, alignment="center_v")
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL, 4)
-        sizer_args = (0, wx.RIGHT, 5)
+        section.add((0, 5))
 
-        label = "Unify"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Average selected normals",
-                          self.__unify_normals, sizer_args)
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True)
+
+        text = "Unify"
+        tooltip_text = "Average selected normals"
+        btn = PanelButton(section, text, "", tooltip_text, self.__unify_normals)
         self._btns["unify_normals"] = btn
+        btn_sizer.add(btn, proportion=1.)
 
-        label = "Separate"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Separate selected normals",
-                          lambda: self.__unify_normals(False), sizer_args)
+        btn_sizer.add((5, 0))
+
+        text = "Separate"
+        tooltip_text = "Separate selected normals"
+        btn = PanelButton(section, text, "", tooltip_text, lambda: self.__unify_normals(False))
         self._btns["separate_normals"] = btn
+        btn_sizer.add(btn, proportion=1.)
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL, 4)
+        section.add((0, 5))
 
-        label = "Lock"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Lock selected normals",
-                          self.__lock_normals, sizer_args)
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True)
+
+        text = "Lock"
+        tooltip_text = "Lock selected normals"
+        btn = PanelButton(section, text, "", tooltip_text, self.__lock_normals)
         self._btns["lock_normals"] = btn
+        btn_sizer.add(btn, proportion=1.)
 
-        label = "Unlock"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Unlock selected normals",
-                          lambda: self.__lock_normals(False), sizer_args)
+        btn_sizer.add((5, 0))
+
+        text = "Unlock"
+        tooltip_text = "Unlock selected normals"
+        btn = PanelButton(section, text, "", tooltip_text, lambda: self.__lock_normals(False))
         self._btns["unlock_normals"] = btn
+        btn_sizer.add(btn, proportion=1.)
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL, 4)
+        section.add((0, 5))
 
-        label = "Copy direction..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label,
-                          "Copy selected normals' direction from picked normal",
-                          self.__copy_normal_direction, sizer_args)
+        text = "Copy direction..."
+        tooltip_text = "Copy selected normals' direction from picked normal"
+        btn = PanelButton(section, text, "", tooltip_text, self.__copy_normal_direction)
         self._btns["copy_normal_dir"] = btn
+        section.add(btn, alignment="center_h")
 
         # ************************* Edge section ******************************
 
-        edge_section = section = panel.add_section("edge_props", "Edges")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("edge_props", "Edges", hidden=True)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
 
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_via_poly)
+        checkbox = PanelCheckBox(section, self.__handle_picking_via_poly)
         checkbox.check(False)
         self._checkboxes["pick_edge_via_poly"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Pick via polygon", subsizer, sizer_args)
-        subsizer.Add(wx.Size(10, 0))
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_picking_by_aiming)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Pick via polygon"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        sizer.add((0, 0), proportion=1.)
+        checkbox = PanelCheckBox(section, self.__handle_picking_by_aiming)
         checkbox.check(False)
         self._checkboxes["pick_edge_by_aiming"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("aim", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "aim"
+        sizer.add(PanelText(section, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.TOP, 5)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
 
         def handler(by_border):
 
             GlobalData["subobj_edit_options"]["sel_edges_by_border"] = by_border
 
-        checkbox = PanelCheckBox(panel, section, subsizer, handler)
+        checkbox = PanelCheckBox(section, handler)
         checkbox.check(False)
         self._checkboxes["sel_edges_by_border"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Select by border", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Select by border"
+        sizer.add(PanelText(section, text), alignment="center_v")
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 4)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
 
-        label = "Split"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, subsizer, bitmaps, label, "Split selected edges",
-                          self.__split_edges, sizer_args)
+        text = "Split"
+        tooltip_text = "Split selected edges"
+        btn = PanelButton(section, text, "", tooltip_text, self.__split_edges)
         self._btns["split_edges"] = btn
-
-        subsizer.Add(wx.Size(5, 0))
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_normal_preserve)
+        sizer.add(btn, alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+        checkbox = PanelCheckBox(section, self.__handle_normal_preserve)
         checkbox.check(False)
         self._checkboxes["edge_normal_preserve"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Lock normals", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Lock normals"
+        sizer.add(PanelText(section, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL, 4)
-        sizer_args = (0, wx.RIGHT, 5)
+        section.add((0, 5))
 
-        label = "Merge..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label,
-                          "Merge picked edge (selection) with target",
-                          self.__merge_edges, sizer_args)
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True)
+
+        text = "Merge..."
+        tooltip_text = "Merge picked edge (selection) with target"
+        btn = PanelButton(section, text, "", tooltip_text, self.__merge_edges)
         self._btns["merge_edges"] = btn
+        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        label = "Bridge..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label,
-                          "Create poly(s) between picked edge (selection) and target",
-                          self.__bridge_edges)
+        text = "Bridge..."
+        tooltip_text = "Create poly(s) between picked edge (selection) and target"
+        btn = PanelButton(section, text, "", tooltip_text, self.__bridge_edges)
         self._btns["bridge_edges"] = btn
+        btn_sizer.add(btn, proportion=1.)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 4)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        sizer = Sizer("horizontal")
+        section.add(sizer)
 
         def handler(value_id, segments):
 
             GlobalData["subobj_edit_options"]["edge_bridge_segments"] = segments
 
-        section.add_text("Bridge segments:", subsizer, sizer_args)
+        text = "Bridge segments:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         prop_id = "edge_bridge_segments"
-        field = PanelInputField(panel, section, subsizer, 40, sizer_args=sizer_args)
+        field = PanelInputField(section, 40)
         field.add_value(prop_id, "int", handler=handler)
         field.show_value(prop_id)
         field.set_input_parser(prop_id, self.__parse_edge_bridge_segments)
-        field.set_value(prop_id, 1)
+        field.set_value(prop_id, 1, handle_value=False)
         self._fields[prop_id] = field
+        sizer.add(field, alignment="center_v")
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL, 4)
-        sizer_args = (0, wx.RIGHT, 5)
+        section.add((0, 5))
 
-        label = "Smooth"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Smooth selected edges",
-                          self.__smooth_edges, sizer_args)
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True)
+
+        text = "Smooth"
+        tooltip_text = "Smooth selected edges"
+        btn = PanelButton(section, text, "", tooltip_text, self.__smooth_edges)
         self._btns["smooth_edges"] = btn
+        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        label = "Sharpen"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Sharpen selected edges",
-                          lambda: self.__smooth_edges(False))
+        text = "Sharpen"
+        tooltip_text = "Sharpen selected edges"
+        btn = PanelButton(section, text, "", tooltip_text, lambda: self.__smooth_edges(False))
         self._btns["sharpen_edges"] = btn
+        btn_sizer.add(btn, proportion=1.)
 
         # ************************* Polygon section ***************************
 
-        poly_section = section = panel.add_section("poly_props", "Polygons")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("poly_props", "Polygons", hidden=True)
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL, 4)
-
-        label = "Create"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label, "Create single polygon",
-                          self.__toggle_poly_creation, sizer_args)
+        text = "Create"
+        tooltip_text = "Create single polygon"
+        btn = PanelButton(section, text, "", tooltip_text, self.__toggle_poly_creation)
         self._btns["create_poly"] = btn
+        section.add(btn)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALL, 4)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        section.add((0, 5))
 
-        label = "Detach"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, subsizer, bitmaps, label, "Detach selected polygons",
-                          self.__detach_polygons, sizer_args)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
+
+        text = "Detach"
+        tooltip_text = "Detach selected polygons"
+        btn = PanelButton(section, text, "", tooltip_text, self.__detach_polygons)
         self._btns["detach_poly"] = btn
-
-        subsizer.Add(wx.Size(5, 0))
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__handle_normal_preserve)
+        sizer.add(btn, alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+        checkbox = PanelCheckBox(section, self.__handle_normal_preserve)
         checkbox.check(False)
         self._checkboxes["poly_normal_preserve"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Lock normals", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Lock normals"
+        sizer.add(PanelText(section, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
 
-        btn_sizer = wx.BoxSizer()
-        sizer.Add(btn_sizer, 0, wx.ALL, 4)
-        sizer_args = (0, wx.RIGHT, 5)
+        section.add((0, 5))
 
-        label = "Turn diagonals..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, btn_sizer, bitmaps, label,
-                          "Turn any diagonals of a selected polygon",
-                          self.__turn_diagonals, sizer_args)
+        text = "Turn diagonals..."
+        tooltip_text = "Turn any diagonals of a selected polygon"
+        btn = PanelButton(section, text, "", tooltip_text, self.__turn_diagonals)
         self._btns["turn_diagonals"] = btn
-
-        sizer.Add(wx.Size(0, 4))
+        section.add(btn)
 
         group = section.add_group("Contiguous surfaces")
-        grp_sizer = group.get_client_sizer()
 
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        sizer = Sizer("horizontal")
+        group.add(sizer)
 
         def handler(by_surface):
 
             GlobalData["subobj_edit_options"]["sel_polys_by_surface"] = by_surface
 
-        checkbox = PanelCheckBox(panel, group, subsizer, handler)
+        checkbox = PanelCheckBox(group, handler)
         checkbox.check(False)
         self._checkboxes["sel_polys_by_surface"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        group.add_text("Select by surface", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Select by surface"
+        sizer.add(PanelText(group, text), alignment="center_v")
 
-        grp_sizer.Add(wx.Size(0, 6))
+        group.add((0, 6))
 
-        btn_sizer = wx.BoxSizer()
-        grp_sizer.Add(btn_sizer)
-        sizer_args = (0, wx.RIGHT, 5)
-
-        label = "Invert surfaces"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, group, btn_sizer, bitmaps, label,
-                          "Invert surfaces containing selected polygons",
-                          self.__invert_poly_surfaces, sizer_args)
+        text = "Invert surfaces"
+        tooltip_text = "Invert surfaces containing selected polygons"
+        btn = PanelButton(group, text, "", tooltip_text, self.__invert_poly_surfaces)
         self._btns["invert_surfaces"] = btn
-
-        sizer.Add(wx.Size(0, 2))
+        group.add(btn)
 
         group = section.add_group("Polygon smoothing")
-        grp_sizer = group.get_client_sizer()
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        grp_sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        sizer = Sizer("horizontal")
+        group.add(sizer)
 
         def handler(by_smoothing):
 
             GlobalData["subobj_edit_options"]["sel_polys_by_smoothing"] = by_smoothing
 
-        checkbox = PanelCheckBox(panel, group, subsizer, handler)
+        checkbox = PanelCheckBox(group, handler)
         checkbox.check(False)
         self._checkboxes["sel_polys_by_smoothing"] = checkbox
-        group.add_text("Select by smoothing", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Select by smoothing"
+        sizer.add(PanelText(group, text), alignment="center_v")
 
-        grp_sizer.Add(wx.Size(0, 6))
+        group.add((0, 6))
 
-        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
-
-        label = "Update"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, group, grp_sizer, bitmaps, label, "Update polygon smoothing",
-                          self.__update_polygon_smoothing, sizer_args)
+        text = "Update"
+        tooltip_text = "Update polygon smoothing"
+        btn = PanelButton(group, text, "", tooltip_text, self.__update_polygon_smoothing)
         self._btns["upd_poly_smoothing"] = btn
+        group.add(btn, alignment="center_h")
 
-        grp_sizer.Add(wx.Size(0, 8))
+        group.add((0, 10))
 
-        sizer_args = (0, wx.RIGHT, 5)
+        btn_sizer = Sizer("horizontal")
+        group.add(btn_sizer, expand=True)
+        subsizer1 = Sizer("vertical")
+        btn_sizer.add(subsizer1, proportion=1., borders=borders)
+        subsizer2 = Sizer("vertical")
+        btn_sizer.add(subsizer2, proportion=1.)
 
-        btn_sizer = wx.BoxSizer()
-        grp_sizer.Add(btn_sizer, 0)
-
-        label = "Smooth"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, group, btn_sizer, bitmaps, label, "Smooth selected polygons",
-                          self.__smooth_polygons, sizer_args)
+        text = "Smooth"
+        tooltip_text = "Smooth selected polygons"
+        btn = PanelButton(group, text, "", tooltip_text, self.__smooth_polygons)
         self._btns["smooth_polys"] = btn
+        subsizer1.add(btn, expand=True)
 
-        label = "Unsmooth"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, group, btn_sizer, bitmaps, label, "Flatten selected polygons",
-                          lambda: self.__smooth_polygons(False))
+        text = "Unsmooth"
+        tooltip_text = "Flatten selected polygons"
+        btn = PanelButton(group, text, "", tooltip_text, lambda: self.__smooth_polygons(False))
         self._btns["unsmooth_polys"] = btn
+        subsizer2.add(btn, expand=True)
 
-        grp_sizer.Add(wx.Size(0, 4))
+        borders = (0, 0, 0, 5)
 
-        btn_sizer = wx.BoxSizer()
-        grp_sizer.Add(btn_sizer)
+        btn_sizer = Sizer("horizontal")
+        group.add(btn_sizer, expand=True)
 
-        label = "Smooth all"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, group, btn_sizer, bitmaps, label, "Smooth all polygons",
-                          self.__smooth_all, sizer_args)
+        text = "Smooth all"
+        tooltip_text = "Smooth all polygons"
+        btn = PanelButton(group, text, "", tooltip_text, self.__smooth_all)
         self._btns["smooth_all"] = btn
+        subsizer1.add(btn, expand=True, borders=borders)
 
-        label = "Unsm. all"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, group, btn_sizer, bitmaps, label, "Flatten all polygons",
-                          lambda: self.__smooth_all(False))
+        text = "Unsm. all"
+        tooltip_text = "Flatten all polygons"
+        btn = PanelButton(group, text, "", tooltip_text, lambda: self.__smooth_all(False))
         self._btns["unsmooth_all"] = btn
+        subsizer2.add(btn, expand=True, borders=borders)
 
-        grp_sizer.Add(wx.Size(0, 4))
+        group.add((0, 5))
 
-        label = "Smooth with other..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, group, grp_sizer, bitmaps, label,
-                          "Smooth selected polygons with another",
-                          self.__pick_poly_to_smooth_with, sizer_args)
+        borders = (0, 5, 0, 0)
+
+        text = "Smooth with other..."
+        tooltip_text = "Smooth selected polygons with another"
+        btn = PanelButton(group, text, "", tooltip_text, self.__pick_poly_to_smooth_with)
         self._btns["smooth_with"] = btn
+        group.add(btn, expand=True)
 
-        grp_sizer.Add(wx.Size(0, 4))
+        group.add((0, 5))
 
-        label = "Unsmooth with other..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, group, grp_sizer, bitmaps, label,
-                          "Unsmooth selected polygons with another",
-                          lambda: self.__pick_poly_to_smooth_with(False), sizer_args)
+        text = "Unsmooth with other..."
+        tooltip_text = "Unsmooth selected polygons with another"
+        btn = PanelButton(group, text, "", tooltip_text, lambda: self.__pick_poly_to_smooth_with(False))
         self._btns["unsmooth_with"] = btn
+        group.add(btn, expand=True)
 
         # **************************************************************************
 
@@ -446,45 +438,45 @@ class EditableGeomProperties(BaseObject):
         for option, value in GlobalData["subobj_edit_options"].iteritems():
             if option == "pick_via_poly":
                 for subobj_type in ("vert", "edge", "normal"):
-                    self._checkboxes["pick_%s_via_poly" % subobj_type].check(value)
+                    self._checkboxes["pick_{}_via_poly".format(subobj_type)].check(value)
             elif option == "pick_by_aiming":
                 for subobj_type in ("vert", "edge", "normal"):
-                    self._checkboxes["pick_%s_by_aiming" % subobj_type].check(value)
+                    self._checkboxes["pick_{}_by_aiming".format(subobj_type)].check(value)
             elif option == "normal_preserve":
                 for subobj_type in ("vert", "edge", "poly"):
-                    self._checkboxes["%s_normal_preserve" % subobj_type].check(value)
+                    self._checkboxes["{}_normal_preserve".format(subobj_type)].check(value)
             elif option in self._checkboxes:
                 self._checkboxes[option].check(value)
             elif option in self._fields:
-                self._fields[option].set_value(option, value)
+                self._fields[option].set_value(option, value, handle_value=False)
 
     def __handle_picking_via_poly(self, via_poly):
 
         Mgr.update_remotely("picking_via_poly", via_poly)
 
         for subobj_type in ("vert", "edge", "normal"):
-            self._checkboxes["pick_%s_via_poly" % subobj_type].check(via_poly)
+            self._checkboxes["pick_{}_via_poly".format(subobj_type)].check(via_poly)
 
     def __handle_picking_by_aiming(self, by_aiming):
 
         GlobalData["subobj_edit_options"]["pick_by_aiming"] = by_aiming
 
         for subobj_type in ("vert", "edge", "normal"):
-            self._checkboxes["pick_%s_by_aiming" % subobj_type].check(by_aiming)
+            self._checkboxes["pick_{}_by_aiming".format(subobj_type)].check(by_aiming)
 
     def __handle_normal_preserve(self, preserve):
 
         GlobalData["subobj_edit_options"]["normal_preserve"] = preserve
 
         for subobj_type in ("vert", "edge", "poly"):
-            self._checkboxes["%s_normal_preserve" % subobj_type].check(preserve)
+            self._checkboxes["{}_normal_preserve".format(subobj_type)].check(preserve)
 
     def setup(self):
 
         def enter_normal_dir_copy_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (255, 128, 50))
-            Mgr.do("enable_components")
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
+            Mgr.do("enable_gui")
             self._btns["copy_normal_dir"].set_active()
 
         def exit_normal_dir_copy_mode(next_state_id, is_active):
@@ -494,8 +486,8 @@ class EditableGeomProperties(BaseObject):
 
         def enter_edge_merge_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (255, 128, 50))
-            Mgr.do("enable_components")
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
+            Mgr.do("enable_gui")
             self._btns["merge_edges"].set_active()
 
         def exit_edge_merge_mode(next_state_id, is_active):
@@ -505,8 +497,8 @@ class EditableGeomProperties(BaseObject):
 
         def enter_edge_bridge_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (255, 128, 50))
-            Mgr.do("enable_components")
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
+            Mgr.do("enable_gui")
             self._btns["bridge_edges"].set_active()
 
         def exit_edge_bridge_mode(next_state_id, is_active):
@@ -516,8 +508,8 @@ class EditableGeomProperties(BaseObject):
 
         def enter_creation_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (220, 220, 100))
-            Mgr.do("enable_components")
+            Mgr.do("set_viewport_border_color", "viewport_frame_create_objects")
+            Mgr.do("enable_gui")
             self._btns["create_poly"].set_active()
 
         def exit_creation_mode(next_state_id, is_active):
@@ -527,7 +519,7 @@ class EditableGeomProperties(BaseObject):
 
         def enter_smoothing_poly_picking_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (255, 128, 50))
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
             self._btns["smooth_with"].set_active()
 
         def exit_smoothing_poly_picking_mode(next_state_id, is_active):
@@ -537,7 +529,7 @@ class EditableGeomProperties(BaseObject):
 
         def enter_unsmoothing_poly_picking_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (255, 128, 50))
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
             self._btns["unsmooth_with"].set_active()
 
         def exit_unsmoothing_poly_picking_mode(next_state_id, is_active):
@@ -547,7 +539,7 @@ class EditableGeomProperties(BaseObject):
 
         def enter_diagonal_turning_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (255, 128, 50))
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
             self._btns["turn_diagonals"].set_active()
 
         def exit_diagonal_turning_mode(next_state_id, is_active):
@@ -561,15 +553,15 @@ class EditableGeomProperties(BaseObject):
         add_state("edge_merge_mode", -10,
                   enter_edge_merge_mode, exit_edge_merge_mode)
         add_state("edge_merge", -11, lambda prev_state_id, is_active:
-                  Mgr.do("disable_components", show=False))
+                  Mgr.do("enable_gui", False))
         add_state("edge_bridge_mode", -10,
                   enter_edge_bridge_mode, exit_edge_bridge_mode)
         add_state("edge_bridge", -11, lambda prev_state_id, is_active:
-                  Mgr.do("disable_components", show=False))
+                  Mgr.do("enable_gui", False))
         add_state("poly_creation_mode", -10,
                   enter_creation_mode, exit_creation_mode)
         add_state("poly_creation", -11, lambda prev_state_id, is_active:
-                  Mgr.do("disable_components", show=False))
+                  Mgr.do("enable_gui", False))
         add_state("smoothing_poly_picking_mode", -10, enter_smoothing_poly_picking_mode,
                   exit_smoothing_poly_picking_mode)
         add_state("unsmoothing_poly_picking_mode", -10, enter_unsmoothing_poly_picking_mode,
@@ -577,11 +569,7 @@ class EditableGeomProperties(BaseObject):
         add_state("diagonal_turning_mode", -10, enter_diagonal_turning_mode,
                   exit_diagonal_turning_mode)
 
-        for subobj_lvl in ("vert", "edge", "poly", "normal"):
-            self._panel.show_section("%s_props" % subobj_lvl, False, update=False)
-
-        self._panel.GetSizer().Layout()
-        self._panel.update_parent()
+        self._panel.get_section("geometry").expand(False)
 
     def __update_object_level(self):
 
@@ -595,22 +583,20 @@ class EditableGeomProperties(BaseObject):
 
         def task():
 
-            for subobj_lvl in ("vert", "edge", "poly", "normal"):
-                if subobj_lvl != obj_lvl:
-                    self._panel.show_section("%s_props" % subobj_lvl, False, update=False)
-
             if obj_lvl == "top":
                 self._subobj_btns.deactivate()
                 Mgr.do("enable_transform_targets")
             else:
                 Mgr.do("disable_transform_targets")
                 self._subobj_btns.set_active_button(obj_lvl)
-                self._panel.show_section("%s_props" % obj_lvl, update=False)
+                self._panel.get_section("{}_props".format(obj_lvl)).show()
 
-        task_id = "update_subobj_layout"
+            for subobj_lvl in ("vert", "edge", "poly", "normal"):
+                if subobj_lvl != obj_lvl:
+                    self._panel.get_section("{}_props".format(subobj_lvl)).hide()
+
+        task_id = "update_obj_level"
         PendingTasks.add(task, task_id, sort=0)
-
-        self._panel.update_layout()
 
     def __set_topobj_level(self):
 
@@ -759,7 +745,7 @@ class EditableGeomProperties(BaseObject):
 
     def get_section_ids(self):
 
-        return ["subobj_lvl"]
+        return ["geometry", "subobj_lvl"]
 
     def get_extra_section_ids(self):
 
@@ -769,8 +755,8 @@ class EditableGeomProperties(BaseObject):
 
         field = self._fields[prop_id]
         field.show_text()
-        field.set_value(prop_id, value)
-        field.set_text_color(wx.Colour(255, 255, 0))
+        field.set_value(prop_id, value, handle_value=False)
+        field.set_text_color((1., 1., 0., 1.))
 
     def set_object_property(self, prop_id, value):
 
@@ -781,18 +767,18 @@ class EditableGeomProperties(BaseObject):
         val, sel_count = value
 
         if sel_count == 1:
-            field.set_value(prop_id, val)
+            field.set_value(prop_id, val, handle_value=False)
             field.set_text_color()
             field.show_text()
         else:
-            field.set_text_color(wx.Colour(127, 127, 127))
+            field.set_text_color((.5, .5, .5, 1.))
             field.show_text(False)
 
     def check_selection_count(self):
 
         sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
-        color = wx.Colour(127, 127, 127) if multi_sel else None
+        color = (.5, .5, .5, 1.) if multi_sel else None
 
         for prop_id, field in self._fields.iteritems():
             if prop_id not in ("normal_length", "edge_bridge_segments"):

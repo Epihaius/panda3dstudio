@@ -1,25 +1,235 @@
-from ...base import logging, re, GlobalData, get_unique_name
+from panda3d.core import *
+from ...base import logging, re, cPickle, GlobalData, get_unique_name, DirectObject
 import platform
 import math
 import os
 import time
 import collections
-import wxversion
-wxversion.select('2.8.12')
-import wx
 
 PLATFORM_ID = platform.system()
-GFX_PATH = os.path.join("res", "gui")
 
 
-class PendingTasks(object):
+TextureAtlas = {
+    "image": None,
+    "regions": {},
+    "inner_borders": {},
+    "outer_borders": {}
+}
+Skin = {
+    "text": {},
+    "cursors": {},
+    "colors": {},
+    "options": {}
+}
 
-    _tasks = {}
-    _task_ids = {}
-    _is_handling_tasks = False
 
-    @classmethod
-    def add(cls, task, task_id, task_type="", sort=None, id_prefix=None):
+class Font(object):
+
+    def __init__(self, path, pixel_size, height, y, line_spacing):
+
+        self._text_maker = text_maker = PNMTextMaker(Filename.from_os_specific(path), 0)
+        text_maker.set_pixel_size(pixel_size)
+        text_maker.set_scale_factor(1.)
+        self._height = height
+        self._y = y
+        self._line_spacing = max(height, line_spacing)
+
+    def get_height(self):
+
+        return self._height
+
+    def get_line_spacing(self):
+
+        return self._line_spacing
+
+    def calc_width(self, text):
+
+        return self._text_maker.calc_width(text)
+
+    def create_image(self, text, text_color=(0., 0., 0., 1.), back_color=None):
+
+        text_maker = self._text_maker
+        w = text_maker.calc_width(text)
+        h = self._height
+        image = PNMImage(w, h, 4)
+
+        if back_color is not None:
+            r, g, b, a = back_color
+            image.fill(r, g, b)
+            image.alpha_fill(a)
+
+        text_maker.set_fg(text_color)
+        text_maker.generate_into(text, image, 0, self._y)
+        image.unpremultiply_alpha()
+
+        return image
+
+
+def load_skin(skin_id):
+
+    skin_path = os.path.join("skins", skin_id)
+
+    tex_atlas = PNMImage()
+    tex_atlas.read(Filename.from_os_specific(os.path.join(skin_path, "atlas.png")))
+    TextureAtlas["image"] = tex_atlas
+    tex_atlas_regions = TextureAtlas["regions"]
+    tex_atlas_inner_borders = TextureAtlas["inner_borders"]
+    tex_atlas_outer_borders = TextureAtlas["outer_borders"]
+
+    # Parse texture atlas data
+
+    read_regions = False
+    read_inner_borders = False
+    read_outer_borders = False
+
+    with open(os.path.join(skin_path, "atlas.txt")) as atlas_txt:
+
+        for line in atlas_txt:
+
+            if line.startswith("#"):
+                continue
+            elif line.startswith("REGIONS"):
+                read_regions = True
+                read_inner_borders = False
+                read_outer_borders = False
+                continue
+            elif line.startswith("INNER_BORDERS"):
+                read_regions = False
+                read_inner_borders = True
+                read_outer_borders = False
+                continue
+            elif line.startswith("OUTER_BORDERS"):
+                read_regions = False
+                read_inner_borders = False
+                read_outer_borders = True
+                continue
+
+            if read_regions:
+                part_id, x, y, w, h = line.split()
+                tex_atlas_regions[part_id] = (int(x), int(y), int(w), int(h))
+            elif read_inner_borders:
+                widget_id, l, r, b, t = line.split()
+                tex_atlas_inner_borders[widget_id] = (int(l), int(r), int(b), int(t))
+            elif read_outer_borders:
+                widget_id, l, r, b, t = line.split()
+                tex_atlas_outer_borders[widget_id] = (int(l), int(r), int(b), int(t))
+
+    # Parse other skin data, like fonts and cursors
+
+    font_path = os.path.join(skin_path, "fonts")
+    cursor_path = os.path.join(skin_path, "cursors")
+    fonts = {}
+    text = {}
+    read_fonts = False
+    read_text = False
+    read_cursors = False
+    read_colors = False
+    read_options = False
+
+    def typecast(string, data_type):
+
+        if data_type == "string":
+            return string
+        if data_type == "float":
+            return float(string)
+        if data_type == "int":
+            return int(string)
+        if data_type == "bool":
+            return bool(int(string))
+
+    with open(os.path.join(skin_path, "skin.txt")) as skin_txt:
+
+        for line in skin_txt:
+
+            if line.startswith("#"):
+                continue
+            elif line.startswith("FONTS"):
+                read_fonts = True
+                read_text = False
+                read_cursors = False
+                read_colors = False
+                read_options = False
+                continue
+            elif line.startswith("TEXT"):
+                read_fonts = False
+                read_text = True
+                read_cursors = False
+                read_colors = False
+                read_options = False
+                continue
+            elif line.startswith("CURSORS"):
+                read_fonts = False
+                read_text = False
+                read_cursors = True
+                read_colors = False
+                read_options = False
+                continue
+            elif line.startswith("COLORS"):
+                read_fonts = False
+                read_text = False
+                read_cursors = False
+                read_colors = True
+                read_options = False
+                continue
+            elif line.startswith("OPTIONS"):
+                read_fonts = False
+                read_text = False
+                read_cursors = False
+                read_colors = False
+                read_options = True
+                continue
+
+            if read_fonts:
+                font_id, filename, pixel_size, height, y, line_spacing = line.split()
+                path = os.path.join(font_path, *filename.split("/"))
+                fonts[font_id] = Font(path, float(pixel_size), int(height), int(y), int(line_spacing))
+            elif read_text:
+                text_id, font_id, r, g, b, a = line.split()
+                text[text_id] = (font_id, (float(r), float(g), float(b), float(a)))
+            elif read_cursors:
+                cursor_id, filename = line.split()
+                path = os.path.join(cursor_path, filename)
+                filename = Filename.binary_filename(Filename.from_os_specific(path))
+                Skin["cursors"][cursor_id] = filename
+            elif read_colors:
+                prop_id, r, g, b, a = line.split()
+                Skin["colors"][prop_id] = (float(r), float(g), float(b), float(a))
+            elif read_options:
+                option, data_type, value = line.split()
+                Skin["options"][option] = typecast(value, data_type)
+
+            for text_id, text_data in text.iteritems():
+                font_id, color = text_data
+                Skin["text"][text_id] = {"font": fonts[font_id], "color": color}
+
+
+def get_relative_region_frame(x, y, width, height, ref_width, ref_height):
+
+    l = 1. * x / ref_width
+    r = 1. * (x + width) / ref_width
+    b = 1. - 1. * (y + height) / ref_height
+    t = 1. - 1. * y / ref_height
+
+    if b * t < 0.:
+        b -= 1. / ref_height
+
+    return l, r, b, t
+
+
+class PendingTaskBatch(object):
+
+    def __init__(self, sort=0):
+
+        self._tasks = {}
+        self._task_ids = {}
+        self._is_handling_tasks = False
+        self._sort = sort
+
+    def is_empty(self):
+
+        return not self._tasks
+
+    def add(self, task, task_id, task_type="", sort=None, id_prefix=None):
         """
         Add a task that needs to be handled later - and only once - through a call
         to handle(), optionally with a type and/or sort value.
@@ -30,12 +240,12 @@ class PendingTasks(object):
 
         """
 
-        if cls._is_handling_tasks:
+        if self._is_handling_tasks:
             return False
 
         if sort is None:
 
-            task_ids = cls._task_ids.get(task_type, [])
+            task_ids = self._task_ids.get(task_type, [])
 
             if task_id in task_ids:
                 sort = task_ids.index(task_id)
@@ -43,49 +253,58 @@ class PendingTasks(object):
                 sort = 0
 
         if id_prefix:
-            task_id = "%s_%s" % (id_prefix, task_id)
+            task_id = "{}_{}".format(id_prefix, task_id)
 
-        cls._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = task
+        self._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = task
 
         return True
 
-    @classmethod
-    def remove(cls, task_id, task_type="", sort=None):
+    def remove(self, task_id, task_type="", sort=None):
         """
         Remove the task with the given ID (and optionally, type and/or sort value)
         and return it (or None if not found).
 
         """
 
-        if cls._is_handling_tasks:
+        if self._is_handling_tasks:
             return
 
         if sort is None:
 
-            task_ids = cls._task_ids.get(task_type, [])
+            task_ids = self._task_ids.get(task_type, [])
 
             if task_id in task_ids:
                 sort = task_ids.index(task_id)
             else:
                 sort = 0
 
-        return cls._tasks.get(task_type, {}).get(sort, {}).pop(task_id, None)
+            task = self._tasks.get(task_type, {}).get(sort, {}).pop(task_id, None)
 
-    @classmethod
-    def clear(cls, task_type=None):
+            if task and not self._tasks[task_type][sort]:
+
+                del self._tasks[task_type][sort]
+
+                if not self._tasks[task_type]:
+                    del self._tasks[task_type]
+
+        return task
+
+    def clear(self, task_type=None):
         """
         Clear the tasks of the given type if it is specified, or all tasks if it is
         None.
 
         """
 
-        if cls._is_handling_tasks:
+        if self._is_handling_tasks:
             return
 
-        (cls._tasks if task_type is None else cls._tasks.get(task_type, {})).clear()
+        (self._tasks if task_type is None else self._tasks.get(task_type, {})).clear()
 
-    @classmethod
-    def handle(cls, task_types=None, sort_by_type=False):
+        if task_type in self._tasks and not self._tasks[task_type]:
+            del self._tasks[task_type]
+
+    def handle(self, task_types=None, sort_by_type=False):
         """
         Handle tasks that were added through add(), in an order that corresponds to
         their sort values (and optionally, their type).
@@ -99,12 +318,12 @@ class PendingTasks(object):
 
         """
 
-        if cls._is_handling_tasks:
+        if self._is_handling_tasks:
             return
 
-        cls._is_handling_tasks = True
+        self._is_handling_tasks = True
 
-        pending_tasks = cls._tasks
+        pending_tasks = self._tasks
 
         if task_types is None:
             task_types = pending_tasks.keys()
@@ -121,406 +340,76 @@ class PendingTasks(object):
         for task in sorted_tasks:
             task()
 
-        cls._is_handling_tasks = False
+        self._is_handling_tasks = False
 
-    @classmethod
-    def get_sort(cls, task_id, task_type=""):
+    def get_sort(self, task_id, task_type=""):
         """
         Return the sort value of the task with the given ID, or None if the task ID
         is not defined.
 
         """
 
-        task_ids = cls._task_ids.get(task_type, [])
+        task_ids = self._task_ids.get(task_type, [])
 
         if task_id in task_ids:
             return task_ids.index(task_id)
 
+    def get_batch_sort(self):
 
-class EventDispatcher(object):
+        return self._sort
 
-    _event_handlers = {}
 
-    @classmethod
-    def add_event_handler(cls, interface_id, event_id, obj, event_handler):
+class PendingTasks(object):
 
-        cls._event_handlers.setdefault(interface_id, {}).setdefault(event_id, {})[obj] = event_handler
-
-    @classmethod
-    def remove_event_handler(cls, interface_id, event_id, obj):
-
-        handlers = cls._event_handlers.get(interface_id, {}).get(event_id, {})
-
-        if obj in handlers:
-
-            del handlers[obj]
-
-            if not handlers:
-
-                del cls._event_handlers[interface_id][event_id]
-
-                if not cls._event_handlers[interface_id]:
-                    del cls._event_handlers[interface_id]
+    _batches = {"": PendingTaskBatch()}
+    _batch_sort = {0: ""}
+    _is_handling_tasks = False
+    _handled_batch_sort = None
 
     @classmethod
-    def remove_interface(cls, interface_id):
+    def add_batch(cls, batch_id, batch_sort):
 
-        if interface_id in cls._event_handlers:
-            del cls._event_handlers[interface_id]
-
-    @classmethod
-    def dispatch_event(cls, interface_id, event_id, event, *args, **kwargs):
-
-        handlers = cls._event_handlers.get(interface_id, {}).get(event_id, {})
-
-        for handler in handlers.itervalues():
-            handler(event, *args, **kwargs)
-
-
-class Cache(object):
-
-    _gfx_cache = {
-        "bitmap": {"loaded": {}, "created": {}},
-        "image": {"loaded": {}, "created": {}}
-    }
+        cls._batches[batch_id] = PendingTaskBatch(batch_sort)
+        cls._batch_sort[batch_sort] = batch_id
 
     @classmethod
-    def load(cls, gfx_type, path):
+    def add(cls, task, task_id, task_type="", sort=None, id_prefix=None, batch_id=""):
 
-        if path in cls._gfx_cache[gfx_type]["loaded"]:
-            return cls._gfx_cache[gfx_type]["loaded"][path]
+        batch = cls._batches[batch_id]
 
-        gfx = wx.Bitmap(path) if gfx_type == "bitmap" else wx.Image(path)
-        cls._gfx_cache[gfx_type]["loaded"][path] = gfx
+        if cls._is_handling_tasks and batch.get_batch_sort() <= cls._handled_batch_sort:
+            return False
 
-        return gfx
-
-    @classmethod
-    def unload(cls, gfx_type, path):
-
-        if path in cls._gfx_cache[gfx_type]["loaded"]:
-            del cls._gfx_cache[gfx_type]["loaded"][path]
+        return batch.add(task, task_id, task_type, sort, id_prefix)
 
     @classmethod
-    def create(cls, gfx_type, gfx_id, creation_func):
+    def remove(cls, task_id, task_type="", sort=None, batch_id=""):
 
-        h = hash(gfx_id)
-
-        if h in cls._gfx_cache[gfx_type]["created"]:
-            return cls._gfx_cache[gfx_type]["created"][h]
-
-        gfx = creation_func()
-        cls._gfx_cache[gfx_type]["created"][h] = gfx
-
-        return gfx
+        return cls._batches[batch_id].remove(cls, task_id, task_type, sort)
 
     @classmethod
-    def destroy(cls, gfx_type, gfx_id):
+    def clear(cls, task_type=None, batch_id=""):
 
-        if gfx_id in cls._gfx_cache[gfx_type]["created"]:
-            del cls._gfx_cache[gfx_type]["created"][gfx_id]
-
-
-class Cursors(object):
-
-    _cursors = {}
+        cls._batches[batch_id].clear(task_type)
 
     @classmethod
-    def init(cls, cursors):
+    def handle(cls, task_types=None, sort_by_type=False):
 
-        cls._cursors = cursors
+        if cls._is_handling_tasks:
+            return
 
-    @classmethod
-    def get(cls, cursor_id):
+        cls._is_handling_tasks = True
 
-        return cls._cursors.get(cursor_id)
+        for i in sorted(cls._batch_sort):
+            cls._handled_batch_sort = i
+            batch_id = cls._batch_sort[i]
+            batch = cls._batches[batch_id]
+            batch.handle(task_types, sort_by_type)
 
-
-class Fonts(object):
-
-    _fonts = {}
-
-    @classmethod
-    def init(cls, fonts):
-
-        cls._fonts = fonts
+        cls._is_handling_tasks = False
+        cls._handled_batch_sort = None
 
     @classmethod
-    def get(cls, font_id):
+    def get_sort(cls, task_id, task_type="", batch_id=""):
 
-        return cls._fonts.get(font_id)
-
-
-class BaseObject(object):
-
-    _verbose = False
-    _default_data_retriever = lambda *args, **kwargs: None
-
-    @classmethod
-    def init(cls, verbose=False):
-
-        cls._verbose = verbose
-
-    def __init__(self, interface_id=""):
-
-        # structure to store callables through which data can be retrieved by
-        # id
-        self._data_retrievers = {}
-        self._interface_id = interface_id
-
-    def setup(self, *args, **kwargs):
-        """
-        Should be called to setup things that cannot be handled during __init__(),
-        e.g. because they depend on objects that were not created yet.
-
-        Override in derived class.
-
-        """
-
-        pass
-
-    def set_interface_id(self, interface_id):
-
-        self._interface_id = interface_id
-
-    def get_interface_id(self):
-
-        return self._interface_id
-
-    def expose(self, data_id, retriever):
-        """ Make data publicly available by id through a callable """
-
-        self._data_retrievers[data_id] = retriever
-
-    def get(self, data_id, *args, **kwargs):
-        """
-        Obtain data by id. The arguments provided will be passed to the callable
-        that returns the data.
-
-        """
-
-        if data_id not in self._data_retrievers:
-
-            logging.warning('GUI: data "%s" is not defined.', data_id)
-
-            if self._verbose:
-                print 'GUI warning: data "%s" is not defined.' % data_id
-
-        retriever = self._data_retrievers.get(data_id, self._default_data_retriever)
-
-        return retriever(*args, **kwargs)
-
-    def bind_event(self, event_id, event_handler):
-
-        EventDispatcher.add_event_handler(self._interface_id, event_id, self, event_handler)
-
-    def unbind_event(self, event_id):
-
-        EventDispatcher.remove_event_handler(self._interface_id, event_id, self)
-
-    def dispatch_event(self, event_id, event, *args, **kwargs):
-
-        EventDispatcher.dispatch_event(self._interface_id, event_id, event, *args, **kwargs)
-
-
-class Text(object):
-
-    def __init__(self, text, font=None):
-
-        self._text = text
-        mem_dc = wx.MemoryDC()
-        w, h, l = mem_dc.GetMultiLineTextExtent(text, font if font else Fonts.get("default"))
-        self._sizer = wx.BoxSizer()
-        self._sizer.Add(wx.Size(w, h))
-
-    def get(self):
-
-        return self._text
-
-    def get_sizer(self):
-
-        return self._sizer
-
-
-def get_alpha(img, alpha_map):
-
-    for y in xrange(img.GetHeight()):
-
-        row = []
-        alpha_map.append(row)
-
-        for x in xrange(img.GetWidth()):
-            row.append(img.GetAlpha(x, y))
-
-
-def create_border(bitmap_paths, size, background_type="toolbar"):
-
-    bitmaps = {}
-
-    if background_type == "toolbar":
-
-        for side in ("left", "right"):
-            bitmaps[side] = Cache.load("bitmap", bitmap_paths[side])
-
-        bitmaps["center"] = Cache.load("image", bitmap_paths["center"])
-
-    else:
-
-        for part in ("left", "right", "top", "bottom"):
-
-            image = Cache.load("image", bitmap_paths[part])
-
-            if not image.HasAlpha():
-                image.InitAlpha()
-
-            bitmaps[part] = image
-
-        for part in ("topleft", "topright", "bottomright", "bottomleft"):
-
-            image = Cache.load("image", bitmap_paths[part])
-
-            if not image.HasAlpha():
-                image.InitAlpha()
-
-            bitmaps[part] = image.ConvertToBitmap()
-
-    width, height = size
-
-    if PLATFORM_ID == "Linux":
-        border_bitmap = wx.EmptyBitmap(width, height)
-    else:
-        border_bitmap = wx.EmptyBitmapRGBA(width, height)
-
-    mem_dc = wx.MemoryDC(border_bitmap)
-
-    if background_type == "toolbar":
-
-        if PLATFORM_ID == "Linux":
-            parts = ("left", "center", "right")
-            alpha_maps = dict((part, []) for part in parts)
-
-        bitmap_left = bitmaps["left"]
-        bitmap_right = bitmaps["right"]
-        w = bitmap_left.GetWidth()
-        image_center = bitmaps["center"].Scale(width - 2 * w, height)
-        bitmap_center = image_center.ConvertToBitmap()
-
-        mem_dc.DrawBitmap(bitmap_left, 0, 0)
-        mem_dc.DrawBitmap(bitmap_center, w, 0)
-        mem_dc.DrawBitmap(bitmap_right, width - w, 0)
-        mem_dc.SelectObject(wx.NullBitmap)
-
-        if PLATFORM_ID == "Linux":
-
-            if not image_center.HasAlpha():
-                image_center.InitAlpha()
-
-            get_alpha(image_center, alpha_maps["center"])
-
-            for part in ("left", "right"):
-
-                image = bitmaps[part].ConvertToImage()
-
-                if not image.HasAlpha():
-                    image.InitAlpha()
-
-                get_alpha(image, alpha_maps[part])
-
-            image = border_bitmap.ConvertToImage()
-            image.InitAlpha()
-
-            for part, offset_x in zip(parts, (0, w, width - w)):
-
-                alpha_map = alpha_maps[part]
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        image.SetAlpha(x + offset_x, y, alpha)
-
-            border_bitmap = image.ConvertToBitmap()
-
-        return border_bitmap
-
-    corner = bitmaps["topleft"].GetSize()
-    hor_thickness = bitmaps["left"].GetWidth()
-    vert_thickness = bitmaps["top"].GetHeight()
-
-    imgs = {}
-    pos = {}
-    x = width - corner[0]
-    y = height - corner[1]
-
-    if PLATFORM_ID == "Linux":
-        for part in ("topleft", "bottomleft", "topright", "bottomright"):
-            imgs[part] = bitmaps[part].ConvertToImage()
-
-    pos["topleft"] = p = (0, 0)
-    mem_dc.DrawBitmap(bitmaps["topleft"], *p)
-    pos["bottomleft"] = p = (0, y)
-    mem_dc.DrawBitmap(bitmaps["bottomleft"], *p)
-    pos["topright"] = p = (x, 0)
-    mem_dc.DrawBitmap(bitmaps["topright"], *p)
-    pos["bottomright"] = p = (x, y)
-    mem_dc.DrawBitmap(bitmaps["bottomright"], *p)
-    s = height - corner[1] * 2
-    img = bitmaps["left"]
-    imgs["left"] = img = img.Scale(hor_thickness, s)
-    bitmap = img.ConvertToBitmap()
-    pos["left"] = p = (0, corner[1])
-    mem_dc.DrawBitmap(bitmap, *p)
-    img = bitmaps["right"]
-    imgs["right"] = img = img.Scale(hor_thickness, s)
-    bitmap = img.ConvertToBitmap()
-    pos["right"] = p = (width - hor_thickness, corner[1])
-    mem_dc.DrawBitmap(bitmap, *p)
-    s = width - corner[0] * 2
-    img = bitmaps["top"]
-    imgs["top"] = img = img.Scale(s, vert_thickness)
-    bitmap = img.ConvertToBitmap()
-    pos["top"] = p = (corner[0], 0)
-    mem_dc.DrawBitmap(bitmap, *p)
-    img = bitmaps["bottom"]
-    imgs["bottom"] = img = img.Scale(s, vert_thickness)
-    bitmap = img.ConvertToBitmap()
-    pos["bottom"] = p = (corner[0], height - vert_thickness)
-    mem_dc.DrawBitmap(bitmap, *p)
-    mem_dc.SelectObject(wx.NullBitmap)
-
-    if PLATFORM_ID == "Linux":
-        parts = ("left", "right", "top", "bottom", "topleft", "bottomleft",
-                 "topright", "bottomright")
-        alpha_maps = dict((part, []) for part in parts)
-
-        image = border_bitmap.ConvertToImage()
-        image.InitAlpha()
-
-        for part in parts:
-
-            img = imgs[part]
-            offset_x, offset_y = pos[part]
-
-            if not img.HasAlpha():
-                img.InitAlpha()
-
-            alpha_map = []
-            get_alpha(img, alpha_map)
-
-            for y, row in enumerate(alpha_map):
-                for x, alpha in enumerate(row):
-                    image.SetAlpha(x + offset_x, y + offset_y, alpha)
-
-        for y in xrange(corner[1], height - corner[1]):
-            for x in xrange(hor_thickness, width - hor_thickness):
-                image.SetAlpha(x, y, 0)
-
-        for y in xrange(vert_thickness, corner[1]):
-            for x in xrange(corner[0], width - corner[0]):
-                image.SetAlpha(x, y, 0)
-
-        for y in xrange(height - corner[1], height - vert_thickness):
-            for x in xrange(corner[0], width - corner[0]):
-                image.SetAlpha(x, y, 0)
-
-        border_bitmap = image.ConvertToBitmap()
-
-    return border_bitmap
+        return cls._batches[batch_id].get_sort(task_id, task_type)

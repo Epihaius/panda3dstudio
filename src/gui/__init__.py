@@ -3,243 +3,226 @@ from .components import Components
 import sys
 
 
-class GUI(wx.App):
+class GUI(object):
 
     def __init__(self, app_mgr, verbose=False):
 
-        wx.App.__init__(self, redirect=False)
-
-        cursors = {}
-        cursor_path = os.path.join(GFX_PATH, "dropper.cur")
-        cursors["dropper"] = wx.Cursor(cursor_path, wx.BITMAP_TYPE_CUR)
-        cursor_path = os.path.join(GFX_PATH, "drag.cur")
-        cursors["drag"] = wx.Cursor(cursor_path, wx.BITMAP_TYPE_CUR)
-
-        font = wx.Font(8, wx.FONTFAMILY_DEFAULT,
-                       wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        fonts = {"default": font}
-
-        Cursors.init(cursors)
-        Fonts.init(fonts)
-        BaseObject.init(verbose)
         Mgr.init(app_mgr, verbose)
+        load_skin(GlobalData["config"]["skin"])
 
-        self._alt_key_event_ids = {
-            wx.WXK_NUMPAD_DELETE: wx.WXK_DELETE,
-            wx.WXK_NUMPAD_ENTER: wx.WXK_RETURN,
-            wx.WXK_NUMPAD_TAB: wx.WXK_TAB,
-            wx.WXK_NUMPAD_INSERT: wx.WXK_INSERT,
-            wx.WXK_NUMPAD_HOME: wx.WXK_HOME,
-            wx.WXK_NUMPAD_END: wx.WXK_END,
-            wx.WXK_NUMPAD_PAGEUP: wx.WXK_PAGEUP,
-            wx.WXK_NUMPAD_PAGEDOWN: wx.WXK_PAGEDOWN,
-            wx.WXK_NUMPAD_LEFT: wx.WXK_LEFT,
-            wx.WXK_NUMPAD_RIGHT: wx.WXK_RIGHT,
-            wx.WXK_NUMPAD_UP: wx.WXK_UP,
-            wx.WXK_NUMPAD_DOWN: wx.WXK_DOWN,
-            wx.WXK_NUMPAD_SPACE: wx.WXK_SPACE,
-            wx.WXK_NUMPAD_F1: wx.WXK_F1,
-            wx.WXK_NUMPAD_F2: wx.WXK_F2,
-            wx.WXK_NUMPAD_F3: wx.WXK_F3,
-            wx.WXK_NUMPAD_F4: wx.WXK_F4,
-            wx.WXK_ADD: 0x2b,
-            wx.WXK_SUBTRACT: 0x2d,
-            wx.WXK_MULTIPLY: 0x2a,
-            wx.WXK_DIVIDE: 0x2f,
-            wx.WXK_DECIMAL: 0x2e,
-            wx.WXK_NUMPAD_ADD: 0x2b,
-            wx.WXK_NUMPAD_SUBTRACT: 0x2d,
-            wx.WXK_NUMPAD_MULTIPLY: 0x2a,
-            wx.WXK_NUMPAD_DIVIDE: 0x2f,
-            wx.WXK_NUMPAD_DECIMAL: 0x2e,
-            wx.WXK_NUMPAD_EQUAL: 0x3d,
-        }
-
-        for wx_code, key_code in zip(range(wx.WXK_NUMPAD0, wx.WXK_NUMPAD9 + 1), range(0x30, 0x3a)):
-            self._alt_key_event_ids[wx_code] = key_code
-
-        Mgr.expose("alt_key_event_ids", lambda: self._alt_key_event_ids)
         self._hotkey_prev = None
 
-        # Create a new event loop (to override default wx.EventLoop)
-        self._evt_loop = wx.EventLoop()
-        self._old_loop = wx.EventLoop.GetActive()
-        wx.EventLoop.SetActive(self._evt_loop)
-
-        size = (1006, 656 + 48)
-        style = wx.MINIMIZE_BOX | wx.MAXIMIZE_BOX | wx.CLOSE_BOX | wx.SYSTEM_MENU | wx.CAPTION
         self._title_main = "Panda3D Studio - "
-        main_frame = wx.Frame(None, -1, self._title_main + "New", style=style)
-        self.SetTopWindow(main_frame)
-
-        if PLATFORM_ID == "Windows":
-            main_frame.SetPosition(wx.Point(-10000, -10000))
-
-        main_frame.SetClientSize(size)
-        main_frame.Show()
-        self._main_frame = main_frame
-        panel = wx.Panel(main_frame, -1, size=size)
-        default_focus_receiver = panel
-        self._default_focus_receiver = default_focus_receiver
-        default_focus_receiver.Bind(wx.EVT_KEY_DOWN, self.__on_key_down)
-        default_focus_receiver.Bind(wx.EVT_KEY_UP, self.__on_key_up)
-        main_frame.Bind(wx.EVT_CLOSE, self.__on_close)
-        main_frame.Bind(wx.EVT_MOUSEWHEEL, lambda evt:
-                        EventDispatcher.dispatch_event("", "mouse_wheel", evt))
-        Mgr.expose("main_window", lambda: self._main_frame)
-        Mgr.expose("default_focus_receiver", lambda: default_focus_receiver)
         Mgr.accept("set_scene_label", self.__set_scene_label)
-        Mgr.accept("handle_key_down", self.__on_key_down)
-        Mgr.accept("handle_key_up", self.__on_key_up)
         Mgr.add_app_updater("pending_tasks", PendingTasks.handle)
 
-        self._components = Components(default_focus_receiver)
+        gui_cam_root = NodePath("gui_cam_root")
+        self._gui_root = gui_root = gui_cam_root.attach_new_node("gui_root")
+        CullBinManager.get_global_ptr().add_bin("gui", CullBinManager.BT_fixed, 41)
+        gui_root.set_bin("gui", 1)
+        gui_root.set_depth_test(False)
+        gui_root.set_depth_write(False)
+        Mgr.expose("gui_root", lambda: gui_root)
+        gui_mouse_watcher_node = MouseWatcher("gui")
+        cursor_watcher_node = MouseWatcher("cursor")
+        GlobalData["mouse_watchers"] = [gui_mouse_watcher_node]
+        Mgr.expose("mouse_watcher", lambda: gui_mouse_watcher_node)
+        app_mgr.init_cursor_manager(cursor_watcher_node)
+
+        self._components = Components()
         self._exit_handler = self._components.exit_handler
+        w, h = size = Mgr.get("window_size")
+        gui_mouse_watcher_node.set_frame(0., w, -h, 0.)
 
-    # wxWindows calls this method to initialize the application
-    def OnInit(self):
+        wp = WindowProperties.get_default()
+        wp.set_size(*size)
+        wp.set_icon_filename(Filename.binary_filename(os.path.join("res", "p3ds.ico")))
+        base = Mgr.get("base")
+        base.open_default_window(props=wp, name="")
+        base.windowEvent = lambda *args, **kwargs: None
+        GlobalData["mouse_watchers"].append(base.mouseWatcherNode)
+        base.mouseWatcherNode.set_modifier_buttons(ModifierButtons())
+        base.buttonThrowers[0].node().set_modifier_buttons(ModifierButtons())
 
-        self.SetAppName("Panda3D Studio")
-        self.SetClassName("MyAppClass")
+        viewport_display_regions = base.win.get_display_regions()[1:]
+        GlobalData["viewport"]["display_regions"] = list(viewport_display_regions)
 
-        return True
+        # create a custom frame rate meter, so it can be placed at the bottom
+        # of the viewport
+        self._fps_meter = meter = FrameRateMeter("fps_meter")
+        meter.setup_window(base.win)
+        meter_np = NodePath(meter)
+        meter_np.set_pos(0., 0., -1.95)
+        GlobalData["fps_meter_display_region"] = meter.get_display_region()
+
+        r, g, b, a = base.win.get_clear_color()
+        background_color = (r, g, b, a)
+
+        region = base.win.get_display_region(1)
+        region.set_clear_color(background_color)
+        region.set_clear_color_active(True)
+        base.mouseWatcherNode.set_display_region(region)
+        fov_v = base.camLens.get_vfov()
+        fov_h = math.degrees(math.atan(math.tan(math.radians(fov_v * .5)) * 4. / 3.) * 2.)
+        base.camLens.set_fov(fov_h, fov_v)
+
+        gui_root.set_pos(-1., 0., 1.)
+        gui_cam = gui_cam_root.attach_new_node(Camera("gui_cam"))
+        lens = OrthographicLens()
+        lens.set_near(-10.)
+        lens.set_film_size(2., 2.)
+        gui_cam.node().set_lens(lens)
+        gui_cam.node().set_cull_bounds(OmniBoundingVolume())
+
+        region = base.win.make_display_region(0., 1., 0., 1.)
+        region.set_sort(10000)
+        region.set_clear_depth(1000.)
+        region.set_clear_depth_active(True)
+        region.set_camera(gui_cam)
+        gui_mouse_watcher_node.set_display_region(region)
+        input_ctrl = base.mouseWatcher.get_parent()
+        mw = input_ctrl.attach_new_node(gui_mouse_watcher_node)
+        gui_mouse_watcher_node.set_enter_pattern("gui_region_enter")
+        gui_mouse_watcher_node.set_leave_pattern("gui_region_leave")
+        self._mouse_watcher = gui_mouse_watcher_node
+        btn_thrower_node = ButtonThrower("btn_thrower_gui")
+        btn_thrower_node.set_prefix("gui_")
+        btn_thrower_node.set_modifier_buttons(ModifierButtons())
+        btn_thrower_node.set_keystroke_event("keystroke")
+        mw.attach_new_node(btn_thrower_node)
+        cursor_watcher = input_ctrl.attach_new_node(cursor_watcher_node)
+        gui_cursor_region = MouseWatcherRegion("gui", -1., 1., -1., 1.)
+        gui_cursor_region.set_frame(-1., 1., -1., 1.)
+        viewport_cursor_region = MouseWatcherRegion("viewport", 0., 0., 0., 0.)
+        Mgr.expose("viewport_cursor_region", lambda: viewport_cursor_region)
+        app_mgr.add_cursor_region("", gui_cursor_region)
+        app_mgr.add_cursor_region("", viewport_cursor_region)
+
+        base.accept("gui_region_enter", self.__on_region_enter)
+        base.accept("gui_region_leave", self.__on_region_leave)
+        base.accept("gui_mouse1", self.__on_left_down)
+        base.accept("gui_mouse1-up", self.__on_left_up)
+        base.accept("gui_mouse3", self.__on_right_down)
+        base.accept("gui_mouse3-up", self.__on_right_up)
+
+        base.win.set_close_request_event("close_request_event")
+        base.accept("close_request_event", self.__on_close_request)
+
+    def __on_region_enter(self, *args):
+
+        name = args[0].get_name()
+
+        if name.startswith("widget_"):
+            widget_id = int(name.replace("widget_", ""))
+            Widget.registry[widget_id].on_enter()
+        elif name.startswith("toolbar_grip_"):
+            Mgr.set_cursor("move")
+
+    def __on_region_leave(self, *args):
+
+        name = args[0].get_name()
+
+        if name.startswith("widget_"):
+
+            widget_id = int(name.replace("widget_", ""))
+
+            # the widget could already be destroyed and thus unregistered
+            if widget_id in Widget.registry:
+                Widget.registry[widget_id].on_leave()
+
+        elif name.startswith("toolbar_grip_") and not self._components.dragging_toolbar():
+
+            Mgr.set_cursor("main")
+
+    def __on_left_down(self):
+
+        region = self._mouse_watcher.get_over_region()
+
+        if not region:
+            return
+
+        name = region.get_name()
+
+        if name == "inputfield_mask":
+            Mgr.do("accept_field_input")
+        elif name.startswith("widget_"):
+            widget_id = int(name.replace("widget_", ""))
+            Widget.registry[widget_id].on_left_down()
+
+    def __on_left_up(self):
+
+        region = self._mouse_watcher.get_over_region()
+
+        if not region:
+            return
+
+        name = region.get_name()
+
+        if name.startswith("widget_"):
+            widget_id = int(name.replace("widget_", ""))
+            Widget.registry[widget_id].on_left_up()
+
+    def __on_right_down(self):
+
+        region = self._mouse_watcher.get_over_region()
+
+        if not region:
+            return
+
+        name = region.get_name()
+
+        if name == "inputfield_mask":
+            Mgr.do("reject_field_input")
+        elif name.startswith("widget_"):
+            widget_id = int(name.replace("widget_", ""))
+            Widget.registry[widget_id].on_right_down()
+
+    def __on_right_up(self):
+
+        region = self._mouse_watcher.get_over_region()
+
+        if not region:
+            return
+
+        name = region.get_name()
+
+        if name.startswith("widget_"):
+            widget_id = int(name.replace("widget_", ""))
+            Widget.registry[widget_id].on_right_up()
 
     def setup(self):
 
         self._components.setup()
-        wx.CallAfter(self._main_frame.Center)
-
-    def get_viewport_data(self):
-
-        return self._components.get_viewport_data()
-
-    def get_event_loop_handler(self):
-
-        return self.__process_event_loop
-
-    @staticmethod
-    def get_key_event_ids():
-
-        key_event_ids = {
-            "Esc": wx.WXK_ESCAPE,
-            "PrtScr": wx.WXK_PRINT,
-            "ScrlLk": wx.WXK_SCROLL,
-            "NumLk": wx.WXK_NUMLOCK,
-            "CapsLk": wx.WXK_CAPITAL,
-            "BkSpace": wx.WXK_BACK,
-            "Del": wx.WXK_DELETE,
-            "Enter": wx.WXK_RETURN,
-            "Tab": wx.WXK_TAB,
-            "Ins": wx.WXK_INSERT,
-            "Home": wx.WXK_HOME,
-            "End": wx.WXK_END,
-            "PgUp": wx.WXK_PAGEUP,
-            "PgDn": wx.WXK_PAGEDOWN,
-            "Left": wx.WXK_LEFT,
-            "Right": wx.WXK_RIGHT,
-            "Up": wx.WXK_UP,
-            "Down": wx.WXK_DOWN,
-            "Shift": wx.WXK_SHIFT,
-            "Ctrl": wx.WXK_CONTROL,
-            "Alt": wx.WXK_ALT,
-            " ": wx.WXK_SPACE,
-        }
-
-        for key_code in range(0x41, 0x5b):
-            char = chr(key_code)
-            key_event_ids[char] = key_code
-
-        for key_code in range(0x21, 0x41) + range(0x5b, 0x61) + range(0x7b, 0x80):
-            key_event_ids["%d" % key_code] = key_code
-
-        for i, key_code in enumerate(range(wx.WXK_F1, wx.WXK_F12 + 1)):
-            key_event_ids["F%d" % (i + 1)] = key_code
-
-        return key_event_ids
-
-    @staticmethod
-    def get_mod_key_codes():
-
-        return {"shift": wx.MOD_SHIFT, "ctrl": wx.MOD_CONTROL, "alt": wx.MOD_ALT}
-
-    @staticmethod
-    def get_max_color_value():
-
-        return 255
+        self.__set_scene_label("New")
 
     def get_key_handlers(self):
 
         return {
-            "down": lambda key: self.__on_key_down(remote_key=key),
-            "up": lambda key: self.__on_key_up(remote_key=key)
+            "down": self.__on_key_down,
+            "up": self.__on_key_up
         }
 
-    def __process_event_loop(self):
+    def __on_close_request(self):
 
-        while self._evt_loop.Pending():
-            self._evt_loop.Dispatch()
+        if self._exit_handler():
+            Mgr.get("base").userExit()
 
-        self.ProcessIdle()
+    def __on_key_down(self, key=None):
 
-    def __on_close(self, event):
-
-        def cleanup():
-
-            for window in wx.GetTopLevelWindows():
-                window.Hide()
-
-            for window in wx.GetTopLevelWindows():
-                if window is not self._main_frame:
-                    window.Close()
-
-            wx.EventLoop.SetActive(self._old_loop)
-            self._main_frame.Destroy()
-
-            sys.exit()
-
-        if event.CanVeto() and not self._exit_handler():
-            event.Veto()
-        else:
-            cleanup()
-
-    def __on_key_down(self, event=None, remote_key=None):
+        if not self._components.is_enabled():
+            return
 
         mod_code = 0
+        mod_key_codes = GlobalData["mod_key_codes"]
 
-        if event:
+        if GlobalData["alt_down"]:
+            mod_code |= mod_key_codes["alt"]
 
-            key = event.GetKeyCode()
+        if GlobalData["ctrl_down"]:
+            mod_code |= mod_key_codes["ctrl"]
 
-            if key in self._alt_key_event_ids:
-                key = self._alt_key_event_ids[key]
-
-            if event.AltDown():
-                mod_code |= wx.MOD_ALT
-                GlobalData["alt_down"] = True
-
-            if event.CmdDown():
-                mod_code |= wx.MOD_CONTROL
-                GlobalData["ctrl_down"] = True
-
-            if event.ShiftDown():
-                mod_code |= wx.MOD_SHIFT
-                GlobalData["shift_down"] = True
-
-            if Mgr.remotely_handle_key_down(key):
-                return
-
-        else:
-
-            key = remote_key
-
-            if GlobalData["alt_down"]:
-                mod_code |= wx.MOD_ALT
-
-            if GlobalData["ctrl_down"]:
-                mod_code |= wx.MOD_CONTROL
-
-            if GlobalData["shift_down"]:
-                mod_code |= wx.MOD_SHIFT
+        if GlobalData["shift_down"]:
+            mod_code |= mod_key_codes["shift"]
 
         hotkey = (key, mod_code)
 
@@ -249,35 +232,14 @@ class GUI(wx.App):
             hotkey_repeat = False
             self._hotkey_prev = hotkey
 
-        self._components.handle_key_down(key, mod_code, hotkey, hotkey_repeat)
+        self._components.handle_hotkey(hotkey, hotkey_repeat)
 
-    def __on_key_up(self, event=None, remote_key=None):
+    def __on_key_up(self, key=None):
 
         self._hotkey_prev = None
 
-        if event:
-
-            key = event.GetKeyCode()
-
-            if key in self._alt_key_event_ids:
-                key = self._alt_key_event_ids[key]
-
-            if key == wx.WXK_ALT:
-                GlobalData["alt_down"] = False
-            elif key == wx.WXK_CONTROL:
-                GlobalData["ctrl_down"] = False
-            elif key == wx.WXK_SHIFT:
-                GlobalData["shift_down"] = False
-
-            if Mgr.remotely_handle_key_up(key):
-                return
-
-        else:
-
-            key = remote_key
-
-        self._components.handle_key_up(key)
-
     def __set_scene_label(self, scene_label):
 
-        self._main_frame.SetTitle(self._title_main + scene_label)
+        props = WindowProperties()
+        props.set_title(self._title_main + scene_label)
+        Mgr.get("base").win.request_properties(props)

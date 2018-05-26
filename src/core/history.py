@@ -69,7 +69,7 @@ class HistoryEvent(object):
     def get_timestamp(self):
 
         sec, index = self._time_id
-        timestamp = time.ctime(sec) + ((" (%s)" % (index + 1)) if index else "")
+        timestamp = time.ctime(sec) + ((" ({})".format(index + 1)) if index else "")
 
         return timestamp
 
@@ -80,6 +80,17 @@ class HistoryEvent(object):
     def get_previous_event(self):
 
         return Mgr.get("history_event", self._prev)
+
+    def get_past(self):
+
+        events = []
+        past_event = self.get_previous_event()
+
+        while past_event:
+            events.append(past_event)
+            past_event = past_event.get_previous_event()
+
+        return events
 
     def add_next_event(self, time_id):
 
@@ -306,6 +317,7 @@ class HistoryManager(BaseObject):
         GlobalData.set_default("autobackup_defaults", autobackup_defaults, copier)
 
         Mgr.expose("history_event", lambda time_id: self._hist_events.get(time_id))
+        Mgr.accept("require_scene_save", self.__require_scene_save)
         Mgr.accept("reset_history", self.__reset_history)
         Mgr.accept("load_from_history", self.__load_from_history)
         Mgr.accept("load_last_from_history", self.__load_last_value)
@@ -326,10 +338,14 @@ class HistoryManager(BaseObject):
 
         return True
 
+    def __require_scene_save(self):
+
+        self._saved_time_id = (-1, 0)
+
     def __manage_history(self, update_type, *args, **kwargs):
 
         if update_type in ("undo", "redo", "update"):
-            Mgr.show_screenshot()
+            Mgr.update_remotely("screenshot", "create")
             Mgr.update_app("history_change")
 
         if update_type == "undo":
@@ -357,7 +373,7 @@ class HistoryManager(BaseObject):
         hist_event_stream = StringStream(cPickle.dumps(self._hist_events, -1))
         hist_file.add_subfile("events", hist_event_stream, COMPRESSION)
         object_ids_stream = StringStream(cPickle.dumps(set(), -1))
-        hist_file.add_subfile("%s/object_ids" % (self._prev_time_id,), object_ids_stream, COMPRESSION)
+        hist_file.add_subfile("{}/object_ids".format(self._prev_time_id), object_ids_stream, COMPRESSION)
 
         hist_file.repack()
         hist_file.close()
@@ -377,7 +393,7 @@ class HistoryManager(BaseObject):
         hist_file = Multifile()
         hist_file.open_read("hist.dat")
 
-        subfile_name = "%s/%s/%s" % (time_id, obj_id, data_id)
+        subfile_name = "{}/{}/{}".format(time_id, obj_id, data_id)
         data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
 
         hist_file.close()
@@ -433,8 +449,6 @@ class HistoryManager(BaseObject):
 
         if cur_time == self._next_time_id[0]:
             time_id = (cur_time, self._next_time_id[1] + 1)
-##        if cur_time == self._prev_time_id[0]:
-##            time_id = (cur_time, self._prev_time_id[1] + 1)
         else:
             time_id = (cur_time, 0)
 
@@ -452,7 +466,7 @@ class HistoryManager(BaseObject):
 
     def __add_history(self, event_descr, event_data, update_time_id=True):
 
-        logging.debug("Adding history:\n%s", event_descr)
+        logging.debug("Adding history:\n{}".format(event_descr))
 
         if self._event_descr_to_store:
             if event_descr:
@@ -490,8 +504,8 @@ class HistoryManager(BaseObject):
             return task.cont
 
         time_id = self.__update_time_id() if self._update_time_id else self._next_time_id
-        logging.debug("Storing history:\n%s\n... for time ID %s",
-                      self._event_descr_to_store, str(time_id))
+        logging.debug("Storing history:\n{}\n... for time ID {}".format(
+                      self._event_descr_to_store, time_id))
 
         if "object_ids" not in event_data:
             event_data["object_ids"] = None
@@ -520,19 +534,19 @@ class HistoryManager(BaseObject):
 
             for prop_id, prop_val_data in obj_data[obj_id].iteritems():
 
-                subfile_name = "%s/%s/%s" % (time_id, obj_id, prop_id)
+                subfile_name = "{}/{}/{}".format(time_id, obj_id, prop_id)
                 prop_val = prop_val_data["main"]
                 streams.append(StringStream(cPickle.dumps(prop_val, -1)))
                 hist_file.add_subfile(subfile_name, streams[-1], COMPRESSION)
 
                 if "extra" in prop_val_data:
                     for data_id, data in prop_val_data["extra"].iteritems():
-                        subfile_name = "%s/%s/%s" % (time_id, obj_id, data_id)
+                        subfile_name = "{}/{}/{}".format(time_id, obj_id, data_id)
                         streams.append(StringStream(cPickle.dumps(data, -1)))
                         hist_file.add_subfile(subfile_name, streams[-1], COMPRESSION)
 
         if obj_ids is not None:
-            subfile_name = "%s/object_ids" % (time_id,)
+            subfile_name = "{}/object_ids".format(time_id)
             streams.append(StringStream(cPickle.dumps(obj_ids, -1)))
             hist_file.add_subfile(subfile_name, streams[-1], COMPRESSION)
 
@@ -638,11 +652,11 @@ class HistoryManager(BaseObject):
 
     def __load_property_value(self, hist_file, time_id, obj_id, prop_id):
 
-        subfile_name = "%s/%s/%s" % (time_id, obj_id, prop_id)
+        subfile_name = "{}/{}/{}".format(time_id, obj_id, prop_id)
         subfile_index = hist_file.find_subfile(subfile_name)
 
         if subfile_index == -1:
-            msg = "Couldn't load '%s' property of '%s' for time ID %s" % (prop_id, obj_id, time_id)
+            msg = "Couldn't load '{}' property of '{}' for time ID {}".format(prop_id, obj_id, time_id)
             logging.critical(msg)
             raise RuntimeError(msg)
 
@@ -657,7 +671,7 @@ class HistoryManager(BaseObject):
         if event is self._hist_events["root"]:
             return ""
 
-        return event.get_description_start()
+        return event.get_description_start().rstrip(":")
 
     def __get_redo_description(self):
 
@@ -665,7 +679,7 @@ class HistoryManager(BaseObject):
         next_event = event.get_next_event()
 
         if next_event:
-            return next_event.get_description_start()
+            return next_event.get_description_start().rstrip(":")
 
         return ""
 
@@ -678,8 +692,8 @@ class HistoryManager(BaseObject):
         obj_data = event.get_object_data()
         prev_event = event.get_previous_event()
 
-        logging.debug('\n\n==================== Undoing event:\n%s\n... and restoring event:\n%s\n\n',
-                      event.get_description_start(), prev_event.get_description_start())
+        logging.debug('\n\n==================== Undoing event:\n{}\n... and restoring event:\n{}\n\n'.format(
+                      event.get_description_start(), prev_event.get_description_start()))
 
         time_ids = {}
 
@@ -718,8 +732,8 @@ class HistoryManager(BaseObject):
 
         old_time_id = self._prev_time_id
         new_time_id = prev_event.get_time_id()
-        logging.debug('Undoing event with time ID %s and restoring event with time ID %s',
-                      old_time_id, new_time_id)
+        logging.debug('Undoing event with time ID {} and restoring event with time ID {}'.format(
+                      old_time_id, new_time_id))
 
         for obj, data_ids in props_to_restore.iteritems():
             obj.restore_data(data_ids, restore_type="undo", old_time_id=old_time_id,
@@ -750,8 +764,8 @@ class HistoryManager(BaseObject):
 
         old_time_id = self._prev_time_id
         new_time_id = next_event.get_time_id()
-        logging.debug('\n\n==================== Redoing event with time ID %s:\n%s\n\n',
-                      new_time_id, next_event.get_description_start())
+        logging.debug('\n\n==================== Redoing event with time ID {}:\n{}\n\n'.format(
+                      new_time_id, next_event.get_description_start()))
 
         self._prev_time_id = new_time_id
 
@@ -827,7 +841,7 @@ class HistoryManager(BaseObject):
 
     def __load_history(self, scene_file):
 
-        Mgr.show_screenshot()
+        Mgr.update_remotely("screenshot", "create")
 
         scene_file.extract_subfile(scene_file.find_subfile("hist.dat"), Filename("hist.dat"))
 
@@ -841,7 +855,7 @@ class HistoryManager(BaseObject):
         event = self._hist_events[self._prev_time_id]
 
         obj_ids_time_id = event.get_last_object_ids().get_time_id()
-        subfile_name = "%s/object_ids" % (obj_ids_time_id,)
+        subfile_name = "{}/object_ids".format(obj_ids_time_id)
         obj_ids_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
         obj_ids = cPickle.loads(obj_ids_pickled)
 
@@ -871,7 +885,8 @@ class HistoryManager(BaseObject):
     def __edit_history(self):
 
         if len(self._hist_events) > 2:
-            Mgr.update_app("history", "show", self._hist_events, self._prev_time_id)
+            past = self._hist_events[self._prev_time_id].get_past()
+            Mgr.update_app("history", "show", self._hist_events, self._prev_time_id, past)
 
     def __merge_history(self, end_event, subfile_names, subfiles_to_remove, hist_file, comment=""):
 
@@ -894,7 +909,7 @@ class HistoryManager(BaseObject):
         elif "\n\n(Automerged)" in end_descr:
             end_descr = end_descr.replace("\n\n(Automerged)", "")
 
-        description = "%s\n\n(%s)" % (end_descr, comment)
+        description = "{}\n\n({})".format(end_descr, comment)
         end_event.set_description(description)
 
         start_time_id = start_event.get_time_id()
@@ -906,7 +921,7 @@ class HistoryManager(BaseObject):
         if prev_event:
             prev_time_id = prev_event.get_time_id()
             prev_obj_ids_time_id = prev_event.get_last_object_ids().get_time_id()
-            subfile_name = "%s/object_ids" % (prev_obj_ids_time_id,)
+            subfile_name = "{}/object_ids".format(prev_obj_ids_time_id)
             data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
             obj_ids_before = cPickle.loads(data_pickled)
         else:
@@ -917,7 +932,7 @@ class HistoryManager(BaseObject):
         end_time_id = end_event.get_time_id()
         end_obj_ids = end_event.get_last_object_ids()
         end_obj_ids_time_id = end_obj_ids.get_time_id()
-        subfile_name = "%s/object_ids" % (end_obj_ids_time_id,)
+        subfile_name = "{}/object_ids".format(end_obj_ids_time_id)
         data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
         obj_ids_after = cPickle.loads(data_pickled)
         obsolete_obj_ids = set()
@@ -928,7 +943,7 @@ class HistoryManager(BaseObject):
             time_id = event.get_last_object_ids().get_time_id()
 
             if time_id != obj_ids_time_id:
-                subfile_name = "%s/object_ids" % (time_id,)
+                subfile_name = "{}/object_ids".format(time_id)
                 data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
                 obsolete_obj_ids.update(cPickle.loads(data_pickled))
                 obj_ids_time_id = time_id
@@ -956,7 +971,7 @@ class HistoryManager(BaseObject):
             obj_data = event.get_data()["objects"]
 
             if time_id == end_obj_ids_time_id:
-                obj_ids_subfile_to_move = "%s/object_ids" % (time_id,)
+                obj_ids_subfile_to_move = "{}/object_ids".format(time_id)
 
             for obj_id, obj_props in obj_data.iteritems():
 
@@ -970,11 +985,11 @@ class HistoryManager(BaseObject):
                         if prop_id in end_data.get(obj_id, {}):
                             continue
 
-                        subfile_name = "%s/%s/%s" % (time_id, obj_id, "object"
-                                                     if prop_id == "creation" else prop_id)
+                        subfile_name = "{}/{}/{}".format(time_id, obj_id, "object"
+                                                         if prop_id == "creation" else prop_id)
                         data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-                        subfile_name = "%s/%s/%s" % (end_time_id, obj_id, "object"
-                                                     if prop_id == "creation" else prop_id)
+                        subfile_name = "{}/{}/{}".format(end_time_id, obj_id, "object"
+                                                         if prop_id == "creation" else prop_id)
                         data_stream = StringStream(data_pickled)
                         hist_file.add_subfile(subfile_name, data_stream, COMPRESSION)
                         hist_file.flush()
@@ -993,7 +1008,7 @@ class HistoryManager(BaseObject):
         if obj_ids_subfile_to_move:
             end_obj_ids.set_time_id(end_time_id)
             data_pickled = hist_file.read_subfile(hist_file.find_subfile(obj_ids_subfile_to_move))
-            subfile_name = "%s/object_ids" % (end_time_id,)
+            subfile_name = "{}/object_ids".format(end_time_id)
             data_stream = StringStream(data_pickled)
             hist_file.add_subfile(subfile_name, data_stream, COMPRESSION)
             hist_file.flush()
@@ -1025,7 +1040,7 @@ class HistoryManager(BaseObject):
 
             obj_ids_before = set(Mgr.get("object_ids"))
             obj_ids_time_id = event_to_restore.get_last_object_ids().get_time_id()
-            subfile_name = "%s/object_ids" % (obj_ids_time_id,)
+            subfile_name = "{}/object_ids".format(obj_ids_time_id)
             obj_ids_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
             obj_ids_after = cPickle.loads(obj_ids_pickled)
             objects_to_destroy = [Mgr.get("object", obj_id) for obj_id in
@@ -1060,9 +1075,9 @@ class HistoryManager(BaseObject):
 
         if to_undo or to_redo:
 
-            logging.debug('\n\n==================== Restoring event with time ID %s'
-                          + ' (current event time ID: %s).\n\n',
-                          time_to_restore, old_time_id)
+            logging.debug('\n\n==================== Restoring event with time ID {}'
+                          + ' (current event time ID: {}).\n\n'.format(
+                          time_to_restore, old_time_id))
 
             for obj, data_ids in props_to_restore.iteritems():
                 obj.restore_data(data_ids, restore_type="undo_redo", old_time_id=old_time_id,

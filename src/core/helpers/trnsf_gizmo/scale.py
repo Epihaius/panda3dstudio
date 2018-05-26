@@ -27,7 +27,7 @@ class ScalingGizmo(TransformationGizmo):
             pos = Point3()
             pos[i] = .2
             handle, point = self.__create_axis_handle(self._origin, color_vec, pos,
-                                                      "%s_axis_handle" % axis)
+                                                      "{}_axis_handle".format(axis))
             color = self._axis_colors[axis]
             handle.set_color(color)
             point.set_color(color)
@@ -49,7 +49,7 @@ class ScalingGizmo(TransformationGizmo):
             pos1[index1] = pos3[index2] = .1
             pos2[index1] = pos4[index2] = .14
             handle, quad = self.__create_plane_handle(self._origin, color_vec, pos1, pos2, pos3,
-                                                      pos4, "%s_plane_handle" % plane)
+                                                      pos4, "{}_plane_handle".format(plane))
             self._handles["planes"][plane] = handle
             self._handles["quads"][plane] = quad
             handle[0].set_color(self._axis_colors[plane[0]])

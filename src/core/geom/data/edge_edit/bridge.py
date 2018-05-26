@@ -684,6 +684,7 @@ class EdgeBridgeManager(BaseObject):
         bind("edge_bridge_mode", "bridge edges", "mouse1", self._init_bridge)
         bind("edge_bridge", "quit edge bridge", "escape", cancel_bridge)
         bind("edge_bridge", "cancel edge bridge", "mouse3-up", cancel_bridge)
+        bind("edge_bridge", "abort edge bridge", "focus_loss", cancel_bridge)
         bind("edge_bridge", "finalize edge bridge", "mouse1-up", self._finalize_bridge)
         bind("edge_bridge", "bridge edges -> pick edge via poly",
              "mouse1", self._start_dest_edge_picking_via_poly)
@@ -705,7 +706,7 @@ class EdgeBridgeManager(BaseObject):
 
         self._mode_id = "bridge"
         Mgr.add_task(self._update_cursor, "update_mode_cursor")
-        Mgr.update_app("status", "edge_bridge_mode")
+        Mgr.update_app("status", ["edge_bridge_mode"])
 
     def __exit_bridge_mode(self, next_state_id, is_active):
 
@@ -768,7 +769,6 @@ class EdgeBridgeManager(BaseObject):
         pos = edge.get_center_pos(self.world)
         Mgr.do("start_drawing_rubber_band", pos)
         Mgr.do("enable_view_gizmo", False)
-        Mgr.do("enable_view_tiles", False)
         Mgr.enter_state("edge_bridge")
         Mgr.set_cursor("main")
 
@@ -792,7 +792,6 @@ class EdgeBridgeManager(BaseObject):
         Mgr.enter_state("edge_bridge_mode")
         Mgr.set_cursor("main" if self._pixel_under_mouse == VBase4() else "select")
         Mgr.do("enable_view_gizmo")
-        Mgr.do("enable_view_tiles")
 
         self._src_border_edge = None
 

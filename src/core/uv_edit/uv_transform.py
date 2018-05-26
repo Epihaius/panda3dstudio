@@ -28,13 +28,12 @@ class SelectionTransformBase(BaseObject):
         if self._obj_level == "vert":
 
             if count == 1:
-                u, unused, v = self._objs[0].get_pos()
+                u, _, v = self._objs[0].get_pos()
                 transform_values = {"translate": (u, v)}
             else:
                 transform_values = None
 
-            Mgr.update_interface_remotely("uv_window", "transform_values",
-                                          transform_values)
+            Mgr.update_interface_remotely("uv", "transform_values", transform_values)
 
         if count:
             UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
@@ -61,7 +60,7 @@ class SelectionTransformBase(BaseObject):
                 UVMgr.do("hide_transf_gizmo")
 
             GlobalData["uv_selection_count"] = count
-            Mgr.update_interface("uv_window", "selection_count")
+            Mgr.update_interface("uv", "selection_count")
 
     def set_transform_component(self, transf_type, axis, value, is_rel_value):
 
@@ -100,10 +99,9 @@ class SelectionTransformBase(BaseObject):
                 uv_data_obj.finalize_transform()
 
             if len(self._objs) == 1:
-                u, unused, v = self._objs[0].get_pos()
+                u, _, v = self._objs[0].get_pos()
                 transform_values = {"translate": (u, v)}
-                Mgr.update_interface_remotely("uv_window", "transform_values",
-                                              transform_values)
+                Mgr.update_interface_remotely("uv", "transform_values", transform_values)
 
         self.update_center_pos()
         UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
@@ -133,13 +131,12 @@ class SelectionTransformBase(BaseObject):
             if self._obj_level == "vert":
 
                 if len(self._objs) == 1:
-                    u, unused, v = self._objs[0].get_pos()
+                    u, _, v = self._objs[0].get_pos()
                     transform_values = {"translate": (u, v)}
                 else:
                     transform_values = None
 
-                Mgr.update_interface_remotely("uv_window", "transform_values",
-                                              transform_values)
+                Mgr.update_interface_remotely("uv", "transform_values", transform_values)
 
 
 class UVTransformationBase(BaseObject):
@@ -150,7 +147,7 @@ class UVTransformationBase(BaseObject):
         rel_values = {}
 
         for transf_type, axes in (("translate", "uv"), ("scale", "uv")):
-            GlobalData.set_default("uv_axis_constraints_%s" % transf_type, axes)
+            GlobalData.set_default("uv_axis_constraints_{}".format(transf_type), axes)
 
         for obj_lvl in ("vert", "edge", "poly"):
             rel_values[obj_lvl] = {"translate": True, "rotate": True, "scale": True}
@@ -170,21 +167,20 @@ class UVTransformationBase(BaseObject):
     def setup(self):
 
         add_state = Mgr.add_state
-        add_state("transforming", -1, interface_id="uv_window")
+        add_state("transforming", -1, interface_id="uv")
 
         def end_transform(cancel=False):
 
-            Mgr.exit_state("transforming", "uv_window")
+            Mgr.exit_state("transforming", "uv")
             self.__end_transform(cancel)
 
         bind = Mgr.bind_state
         bind("transforming", "cancel transform", "mouse3-up",
-             lambda: end_transform(cancel=True), "uv_window")
+             lambda: end_transform(cancel=True), "uv")
         bind("transforming", "finalize transform", "mouse1-up",
-             end_transform, "uv_window")
+             end_transform, "uv")
 
-        Mgr.add_interface_updater("uv_window", "transf_component",
-                                  self.__set_transform_component)
+        Mgr.add_app_updater("transf_component", self.__set_transform_component, interface_id="uv")
 
     def __set_transform_component(self, transf_type, axis, value, is_rel_value):
 
@@ -210,8 +206,10 @@ class UVTransformationBase(BaseObject):
             if not self.__init_scaling():
                 return
 
-        Mgr.enter_state("transforming", "uv_window")
+        Mgr.enter_state("transforming", "uv")
         self._selection.init_transform()
+
+        Mgr.update_app("status", ["select_uvs", active_transform_type, "in_progress"], "uv")
 
     def __end_transform(self, cancel=False):
 

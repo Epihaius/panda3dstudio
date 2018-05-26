@@ -472,7 +472,7 @@ class ExportManager(BaseObject):
             obj_file.write("# Created with Panda3D Studio\n\n")
             fname = os.path.basename(filename)
             mtllib_name = os.path.splitext(fname)[0]
-            obj_file.write("mtllib %s.mtl\n" % mtllib_name)
+            obj_file.write("mtllib {}.mtl\n".format(mtllib_name))
 
             while objs:
 
@@ -482,7 +482,7 @@ class ExportManager(BaseObject):
 
                     name = get_unique_name(obj.get_name().replace(" ", "_"), namelist)
                     namelist.append(name)
-                    obj_file.write("\ng %s\n\n" % name)
+                    obj_file.write("\ng {}\n\n".format(name))
 
                     geom_obj = obj.get_geom_object()
 
@@ -515,7 +515,7 @@ class ExportManager(BaseObject):
 
                             data = {}
                             material_data[material] = data
-                            material_alias = "material_%03d" % len(material_data)
+                            material_alias = "material_{:03d}".format(len(material_data))
                             data["name"] = material_name
                             data["alias"] = material_alias
                             data["is_flat_color"] = False
@@ -547,11 +547,11 @@ class ExportManager(BaseObject):
                             material_alias = material_data[color]["alias"]
                         else:
                             flat_color_index += 1
-                            material_name = "Flat color %d" % flat_color_index
+                            material_name = "Flat color {:d}".format(flat_color_index)
                             data = {}
                             material_data[color] = data
                             data["name"] = material_name
-                            material_alias = "material_%03d" % len(material_data)
+                            material_alias = "material_{:03d}".format(len(material_data))
                             data["alias"] = material_alias
                             data["is_flat_color"] = True
 
@@ -569,12 +569,12 @@ class ExportManager(BaseObject):
                         x, y, z = pos_reader.get_data3f()
                         u, v = uv_reader.get_data2f()
                         xn, yn, zn = normal_reader.get_data3f()
-                        obj_file.write("v %.6f %.6f %.6f\n" % (x, y, z))
-                        obj_file.write("vt %.6f %.6f\n" % (u, v))
-                        obj_file.write("vn %.6f %.6f %.6f\n" % (xn, yn, zn))
+                        obj_file.write("v {:.6f} {:.6f} {:.6f}\n".format(x, y, z))
+                        obj_file.write("vt {:.6f} {:.6f}\n".format(u, v))
+                        obj_file.write("vn {:.6f} {:.6f} {:.6f}\n".format(xn, yn, zn))
 
-                    obj_file.write("\nusemtl %s\n" % material_alias)
-                    obj_file.write("# %s\n" % material_name)
+                    obj_file.write("\nusemtl {}\n".format(material_alias))
+                    obj_file.write("# {}\n".format(material_name))
 
                     index_list = node.node().get_geom(0).get_primitive(0).get_vertex_list()
                     index_count = len(index_list)
@@ -582,7 +582,7 @@ class ExportManager(BaseObject):
                     for i in xrange(0, index_count, 3):
                         i1, i2, i3 = [j + row_offset for j in index_list[i:i+3]]
                         indices = (i1, i1, i1, i2, i2, i2, i3, i3, i3)
-                        obj_file.write("f %d/%d/%d %d/%d/%d %d/%d/%d\n" % indices)
+                        obj_file.write("f {:d}/{:d}/{:d} {:d}/{:d}/{:d} {:d}/{:d}/{:d}\n".format(*indices))
 
                     row_offset += row_count
 
@@ -600,20 +600,20 @@ class ExportManager(BaseObject):
             for material, data in material_data.iteritems():
 
                 material_alias = data["alias"]
-                mtl_file.write("\n\nnewmtl %s\n" % material_alias)
+                mtl_file.write("\n\nnewmtl {}\n".format(material_alias))
                 material_name = data["name"]
-                mtl_file.write("# %s\n\n" % material_name)
+                mtl_file.write("# {}\n\n".format(material_name))
                 r, g, b, a = material if data["is_flat_color"] else data["diffuse"]
-                mtl_file.write("Kd %.6f %.6f %.6f\n" % (r, g, b))
+                mtl_file.write("Kd {:.6f} {:.6f} {:.6f}\n".format(r, g, b))
 
                 if "dissolve" in data:
-                    mtl_file.write("d %.6f\n" % data["dissolve"])
+                    mtl_file.write("d {:.6f}\n".format(data["dissolve"]))
 
                 if "diffuse_map" in data:
-                    mtl_file.write("map_Kd %s\n" % data["diffuse_map"])
+                    mtl_file.write("map_Kd {}\n".format(data["diffuse_map"]))
 
                 if "dissolve_map" in data:
-                    mtl_file.write("map_d %s\n" % data["dissolve_map"])
+                    mtl_file.write("map_d {}\n".format(data["dissolve_map"]))
 
     def __export(self, filename):
 

@@ -199,14 +199,14 @@ class BoundingBox(BaseObject):
 
         if not self._is_registered:
             obj_type = "bbox_edge"
-            Mgr.do("register_%s_objs" % obj_type, self._edges.itervalues(), restore)
+            Mgr.do("register_{}_objs".format(obj_type), self._edges.itervalues(), restore)
             self._is_registered = True
 
     def unregister(self):
 
         if self._is_registered:
             obj_type = "bbox_edge"
-            Mgr.do("unregister_%s_objs" % obj_type, self._edges.itervalues())
+            Mgr.do("unregister_{}_objs".format(obj_type), self._edges.itervalues())
             self._is_registered = False
 
     def get_origin(self):

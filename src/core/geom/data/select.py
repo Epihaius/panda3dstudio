@@ -626,7 +626,7 @@ class GeomSelectionBase(BaseObject):
 
                 if unsel_subobjs:
 
-                    tmp_merged_subobj = Mgr.do("create_merged_%s" % subobj_type, self)
+                    tmp_merged_subobj = Mgr.do("create_merged_{}".format(subobj_type), self)
 
                     for subobj_id in unsel_subobj_ids:
                         tmp_merged_subobj.append(subobj_id)
@@ -638,7 +638,7 @@ class GeomSelectionBase(BaseObject):
 
                 if sel_subobjs:
 
-                    tmp_merged_subobj = Mgr.do("create_merged_%s" % subobj_type, self)
+                    tmp_merged_subobj = Mgr.do("create_merged_{}".format(subobj_type), self)
 
                     for subobj_id in sel_subobj_ids:
                         tmp_merged_subobj.append(subobj_id)
@@ -733,7 +733,7 @@ class Selection(SelectionTransformBase):
         if add_to_hist:
 
             subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
-            event_descr = 'Add to %s selection' % subobj_descr[self._obj_level]
+            event_descr = 'Add to {} selection'.format(subobj_descr[self._obj_level])
             obj_data = {}
             event_data = {"objects": obj_data}
 
@@ -779,7 +779,7 @@ class Selection(SelectionTransformBase):
         if add_to_hist:
 
             subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
-            event_descr = 'Remove from %s selection' % subobj_descr[self._obj_level]
+            event_descr = 'Remove from {} selection'.format(subobj_descr[self._obj_level])
             obj_data = {}
             event_data = {"objects": obj_data}
 
@@ -833,7 +833,7 @@ class Selection(SelectionTransformBase):
         if add_to_hist and geom_data_objs:
 
             subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
-            event_descr = 'Replace %s selection' % subobj_descr[self._obj_level]
+            event_descr = 'Replace {} selection'.format(subobj_descr[self._obj_level])
             obj_data = {}
             event_data = {"objects": obj_data}
 
@@ -867,7 +867,7 @@ class Selection(SelectionTransformBase):
         if add_to_hist:
 
             subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
-            event_descr = 'Clear %s selection' % subobj_descr[obj_lvl]
+            event_descr = 'Clear {} selection'.format(subobj_descr[obj_lvl])
             obj_data = {}
             event_data = {"objects": obj_data}
 
@@ -906,7 +906,7 @@ class Selection(SelectionTransformBase):
             Mgr.do("update_history_time")
 
             subobj_descr = {"vert": "vertex", "edge": "edge", "poly": "polygon", "normal": "normal"}
-            event_descr = 'Delete %s selection' % subobj_descr[obj_lvl]
+            event_descr = 'Delete {} selection'.format(subobj_descr[obj_lvl])
             obj_data = {}
             event_data = {"objects": obj_data}
 
@@ -944,12 +944,12 @@ class SelectionManager(BaseObject):
         tex_stage.set_priority(-1)
         tex_stage.set_mode(TextureStage.M_add)
         np.set_transparency(TransparencyAttrib.M_none)
+        projector = self.cam.get_projector()
         np.set_tex_gen(tex_stage, RenderAttrib.M_world_position)
-        np.set_tex_projector(tex_stage, self.world, self.cam())
+        np.set_tex_projector(tex_stage, self.world, projector)
         tex = Texture()
         tex.read(Filename(GFX_PATH + "sel_tex.png"))
         np.set_texture(tex_stage, tex)
-        np.set_tex_scale(tex_stage, 100.)
         red = VBase4(1., 0., 0., 1.)
         material = Material("poly_selection")
         material.set_diffuse(red)
@@ -995,6 +995,7 @@ class SelectionManager(BaseObject):
         Mgr.accept("start_selection_via_poly", self.__start_selection_via_poly)
         Mgr.add_app_updater("active_obj_level", lambda: self.__clear_prev_selection(True))
         Mgr.add_app_updater("picking_via_poly", self.__set_subobj_picking_via_poly)
+        Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
 
         add_state = Mgr.add_state
         add_state("picking_via_poly", -1, self.__start_subobj_picking_via_poly)
@@ -1008,6 +1009,17 @@ class SelectionManager(BaseObject):
         status_data = GlobalData["status_data"]
         info = "LMB-drag over subobject to pick it; RMB to cancel"
         status_data["picking_via_poly"] = {"mode": "Pick subobject", "info": info}
+
+    def __handle_viewport_resize(self):
+
+        # Maintain the size and aspect ratio of the polygon selection texture.
+
+        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        lenses = self.cam.get_projector_lenses()
+        lens_persp = lenses["persp"]
+        lens_persp.set_fov(2. * math.degrees(math.atan(2.5 / max(w, h))))
+        lens_ortho = lenses["ortho"]
+        lens_ortho.set_film_size(2000. / max(w, h))
 
     def __clear_prev_selection(self, check_top=False):
 
@@ -1097,9 +1109,9 @@ class SelectionManager(BaseObject):
         self._color_id = obj.get_picking_color_id() if obj else None
 
         if toggle:
-            ret = self.__toggle_select(obj_lvl)
+            r = self.__toggle_select(obj_lvl)
         else:
-            ret = self.__default_select(obj_lvl)
+            r = self.__regular_select(obj_lvl)
 
         selection = self._selections[obj_lvl]
 
@@ -1118,9 +1130,9 @@ class SelectionManager(BaseObject):
             if tc_type == "pivot":
                 Mgr.update_locally("transf_center", tc_type, toplvl_obj)
 
-        return ret
+        return r
 
-    def __default_select(self, obj_lvl, ignore_transform=False):
+    def __regular_select(self, obj_lvl, ignore_transform=False):
 
         if obj_lvl == "normal":
             obj = Mgr.get("vert", self._color_id)
@@ -1271,7 +1283,7 @@ class SelectionManager(BaseObject):
             if other_geom_data_obj is not geom_data_obj:
                 other_geom_data_obj.set_pickable(False)
 
-        Mgr.update_app("status", "picking_via_poly")
+        Mgr.update_app("status", ["picking_via_poly"])
 
         cs_type = GlobalData["coord_sys_type"]
         tc_type = GlobalData["transf_center_type"]
@@ -1370,7 +1382,7 @@ class SelectionManager(BaseObject):
             self.__toggle_select(subobj_lvl)
         else:
             ignore_transform = not transform
-            self.__default_select(subobj_lvl, ignore_transform)
+            self.__regular_select(subobj_lvl, ignore_transform)
 
         geom_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 

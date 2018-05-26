@@ -118,10 +118,10 @@ class Selection(SelectionTransformBase):
 
             if count == 1:
                 obj = sel_to_add.copy().pop()
-                event_descr = 'Select "%s"' % obj.get_name()
+                event_descr = 'Select "{}"'.format(obj.get_name())
             else:
-                event_descr = 'Select %d objects:\n' % count
-                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in sel_to_add])
+                event_descr = 'Select {:d} objects:\n'.format(count)
+                event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in sel_to_add])
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -158,10 +158,10 @@ class Selection(SelectionTransformBase):
 
             if count == 1:
                 obj = common.copy().pop()
-                event_descr = 'Deselect "%s"' % obj.get_name()
+                event_descr = 'Deselect "{}"'.format(obj.get_name())
             else:
-                event_descr = 'Deselect %d objects:\n' % count
-                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in common])
+                event_descr = 'Deselect {:d} objects:\n'.format(count)
+                event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in common])
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -210,14 +210,14 @@ class Selection(SelectionTransformBase):
 
                 if new_count == 1:
 
-                    event_descr += 'Select "%s"' % new_sel.copy().pop().get_name()
+                    event_descr += 'Select "{}"'.format(new_sel.copy().pop().get_name())
 
                 else:
 
-                    event_descr += 'Select %d objects:\n' % new_count
+                    event_descr += 'Select {:d} objects:\n'.format(new_count)
 
                     for new_obj in new_sel:
-                        event_descr += '\n    "%s"' % new_obj.get_name()
+                        event_descr += '\n    "{}"'.format(new_obj.get_name())
 
             if old_sel:
 
@@ -225,14 +225,14 @@ class Selection(SelectionTransformBase):
 
                 if old_count == 1:
 
-                    event_descr += 'Deselect "%s"' % old_sel.copy().pop().get_name()
+                    event_descr += 'Deselect "{}"'.format(old_sel.copy().pop().get_name())
 
                 else:
 
-                    event_descr += 'Deselect %d objects:\n' % old_count
+                    event_descr += 'Deselect {:d} objects:\n'.format(old_count)
 
                     for old_obj in old_sel:
-                        event_descr += '\n    "%s"' % old_obj.get_name()
+                        event_descr += '\n    "{}"'.format(old_obj.get_name())
 
             if event_descr:
 
@@ -273,14 +273,14 @@ class Selection(SelectionTransformBase):
 
             if obj_count > 1:
 
-                event_descr = 'Deselect %d objects:\n' % obj_count
+                event_descr = 'Deselect {:d} objects:\n'.format(obj_count)
 
                 for obj in sel:
-                    event_descr += '\n    "%s"' % obj.get_name()
+                    event_descr += '\n    "{}"'.format(obj.get_name())
 
             else:
 
-                event_descr = 'Deselect "%s"' % sel[0].get_name()
+                event_descr = 'Deselect "{}"'.format(sel[0].get_name())
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -311,14 +311,14 @@ class Selection(SelectionTransformBase):
 
             if obj_count > 1:
 
-                event_descr = 'Delete %d objects:\n' % obj_count
+                event_descr = 'Delete {:d} objects:\n'.format(obj_count)
 
                 for obj in sel:
-                    event_descr += '\n    "%s"' % obj.get_name()
+                    event_descr += '\n    "{}"'.format(obj.get_name())
 
             else:
 
-                event_descr = 'Delete "%s"' % sel[0].get_name()
+                event_descr = 'Delete "{}"'.format(sel[0].get_name())
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -389,8 +389,8 @@ class SelectionManager(BaseObject):
         bind("selection_mode", "select -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("selection_mode", "default select", "mouse1", self.__select)
-        mod_ctrl = Mgr.get("mod_ctrl")
-        bind("selection_mode", "toggle-select", "%d|mouse1" % mod_ctrl,
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("selection_mode", "toggle-select", "{:d}|mouse1".format(mod_ctrl),
              lambda: self.__select(toggle=True))
         bind("selection_mode", "access obj props", "mouse3", self.__access_obj_props)
         bind("selection_mode", "del selection",
@@ -406,20 +406,19 @@ class SelectionManager(BaseObject):
         bind("checking_mouse_offset", "cancel mouse check",
              "mouse1-up", cancel_mouse_check)
 
-        status_data = GlobalData["status_data"]
-        status_data["select"] = {}
-        info_start = "(<Ctrl>-)LMB to (toggle-)select; <Del> to delete selection; "
-        info = info_start + "<W>, <E>, <R> to set transform type"
-        status_data["select"][""] = {"mode": "Select", "info": info}
+        GlobalData["status_data"]["select"] = status_data = {}
+        info_start = "<Space> to navigate; (<Ctrl>-)LMB to (toggle-)select; <Del> to delete selection; "
+        info_text = info_start + "<W>, <E>, <R> to set transform type"
+        status_data[""] = {"mode": "Select", "info": info_text}
         info_idle = info_start + "LMB-drag selection or gizmo handle to transform;" \
             " <Q> to disable transforms"
-        info = "LMB-drag to transform selection; RMB to cancel transformation"
+        info_text = "LMB-drag to transform selection; RMB to cancel transformation"
 
         for transf_type in ("translate", "rotate", "scale"):
-            mode = "Select and %s" % transf_type
-            status_data["select"][transf_type] = {}
-            status_data["select"][transf_type]["idle"] = {"mode": mode, "info": info_idle}
-            status_data["select"][transf_type]["in_progress"] = {"mode": mode, "info": info}
+            mode_text = "Select and {}".format(transf_type)
+            status_data[transf_type] = {}
+            status_data[transf_type]["idle"] = {"mode": mode_text, "info": info_idle}
+            status_data[transf_type]["in_progress"] = {"mode": mode_text, "info": info_text}
 
     def __get_selection(self, obj_lvl=""):
 
@@ -435,9 +434,9 @@ class SelectionManager(BaseObject):
         transf_type = GlobalData["active_transform_type"]
 
         if transf_type:
-            Mgr.update_app("status", "select", transf_type, "idle")
+            Mgr.update_app("status", ["select", transf_type, "idle"])
         else:
-            Mgr.update_app("status", "select", "")
+            Mgr.update_app("status", ["select", ""])
 
     def __exit_selection_mode(self, next_state_id, is_active):
 
@@ -448,13 +447,13 @@ class SelectionManager(BaseObject):
             Mgr.remove_task("update_cursor")
             Mgr.set_cursor("main")
 
-        Mgr.do("disable_transf_gizmo")
+        Mgr.do("enable_transf_gizmo", False)
 
     def __set_active_transform_off(self):
 
         GlobalData["active_transform_type"] = ""
         Mgr.update_app("active_transform_type", "")
-        Mgr.update_app("status", "select", "")
+        Mgr.update_app("status", ["select", ""])
 
     def __update_active_selection(self, restore=False):
 
@@ -654,9 +653,9 @@ class SelectionManager(BaseObject):
         self._obj_id = obj.get_id() if obj else None
 
         if toggle:
-            ret = self.__toggle_select()
+            r = self.__toggle_select()
         else:
-            ret = self.__default_select()
+            r = self.__regular_select()
 
         selection = self._selection
 
@@ -674,9 +673,9 @@ class SelectionManager(BaseObject):
             if tc_type == "pivot":
                 Mgr.update_locally("transf_center", tc_type, obj)
 
-        return ret
+        return r
 
-    def __default_select(self):
+    def __regular_select(self):
 
         obj = Mgr.get("object", self._obj_id)
         selection = self._selection

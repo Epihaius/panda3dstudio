@@ -89,7 +89,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                                          "normal__extra__", "normal_lock__extra__",
                                          "verts", "edges", "polys",
                                          "vert__extra__", "edge__extra__", "poly__extra__"]
-        self._unique_prop_ids = dict((k, "geom_data_%s_%s" % (data_id, k)) for k in prop_ids_ext)
+        self._unique_prop_ids = dict((k, "geom_data_{}_{}".format(data_id, k)) for k in prop_ids_ext)
         self._type_prop_ids = {"vert": [], "edge": [], "poly": [], "normal": ["normal_length"]}
 
         self._vertex_data = vertex_data = {}
@@ -122,7 +122,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def cancel_creation(self):
 
-        logging.debug('GeomDataObject "%s" creation cancelled.', self._id)
+        logging.debug('GeomDataObject "{}" creation cancelled.'.format(self._id))
 
         if self._origin:
             self._origin.remove_node()
@@ -131,14 +131,14 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def destroy(self, unregister=True):
 
-        logging.debug('About to destroy GeomDataObject "%s"...', self._id)
+        logging.debug('About to destroy GeomDataObject "{}"...'.format(self._id))
 
         if unregister:
             self.unregister()
 
         self._origin.remove_node()
 
-        logging.debug('GeomDataObject "%s" destroyed.', self._id)
+        logging.debug('GeomDataObject "{}" destroyed.'.format(self._id))
         self.__dict__.clear()
         self._origin = None
 
@@ -148,7 +148,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for subobj_type in ("vert", "edge", "poly"):
 
-            Mgr.do("register_%s_objs" % subobj_type, subobjs[subobj_type].itervalues(), restore)
+            Mgr.do("register_{}_objs".format(subobj_type), subobjs[subobj_type].itervalues(), restore)
 
             if locally:
                 self._subobjs[subobj_type].update(subobjs[subobj_type])
@@ -161,7 +161,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for subobj_type in ("vert", "edge", "poly"):
 
-            Mgr.do("unregister_%s_objs" % subobj_type, subobjs[subobj_type].itervalues())
+            Mgr.do("unregister_{}_objs".format(subobj_type), subobjs[subobj_type].itervalues())
 
             if locally:
 
@@ -486,7 +486,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         if restore:
             origin = self._origin
         else:
-            node_name = "%s_geom_origin" % obj_type
+            node_name = "{}_geom_origin".format(obj_type)
             origin = NodePath(node_name)
             self._origin = origin
 
@@ -1229,7 +1229,7 @@ class GeomDataManager(ObjectManager):
 
         for i in xrange(1, 8):
             uv_array = GeomVertexArrayFormat()
-            uv_array.add_column(InternalName.make("texcoord.%d" % i), 2, Geom.NT_float32, Geom.C_texcoord)
+            uv_array.add_column(InternalName.make("texcoord.{:d}".format(i)), 2, Geom.NT_float32, Geom.C_texcoord)
             uv_arrays.append(uv_array)
 
         # Define a "basic" GeomVertexFormat that accommodates only position and color.
@@ -1423,7 +1423,9 @@ class GeomDataManager(ObjectManager):
 
         if line is self._rubber_band:
 
-            length = (point - start_pos).length()
+            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+            s = max(w, h) / 800.
+            length = (point - start_pos).length() * s * 5.
 
             if self.cam.lens_type == "ortho":
                 length /= 40. * self.cam.zoom
@@ -1431,7 +1433,7 @@ class GeomDataManager(ObjectManager):
             vertex_data = line_node.modify_geom(0).modify_vertex_data()
             uv_writer = GeomVertexWriter(vertex_data, "texcoord")
             uv_writer.set_row(1)
-            uv_writer.set_data2f(length * 5., 1.)
+            uv_writer.set_data2f(length, 1.)
 
     def __draw_aux_picking_viz(self, task):
 

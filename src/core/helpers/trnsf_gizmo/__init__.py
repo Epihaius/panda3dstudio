@@ -36,10 +36,10 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         Mgr.accept("set_transf_gizmo_pickable", self.__set_pickable)
         Mgr.accept("select_transf_gizmo_handle", self.__select_gizmo_handle)
         Mgr.accept("enable_transf_gizmo", self.__enable_gizmo)
-        Mgr.accept("disable_transf_gizmo", self.__disable_gizmo)
         Mgr.accept("adjust_transform_gizmo_to_lens", self.__adjust_to_lens)
         Mgr.add_app_updater("active_transform_type", self.__set_gizmo)
         Mgr.add_app_updater("axis_constraints", self.__update_active_axes)
+        Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
 
         TransformationGizmo.set_picking_col_id_generator(self.get_next_picking_color_id)
 
@@ -87,6 +87,13 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
         return "transf_gizmo"
 
+    def __handle_viewport_resize(self):
+
+        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        scale = 800. / max(w, h)
+        self._base.set_scale(scale)
+        self._roots["ortho"].set_scale(200. * scale)
+
     def __use_gizmo(self, task):
 
         if self._active_gizmo is self._gizmos[""]:
@@ -123,14 +130,13 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
         GlobalData["axis_constraints"][transf_type] = axes
         self._gizmos[transf_type].set_active_axes(axes)
 
-    def __enable_gizmo(self):
+    def __enable_gizmo(self, enable=True):
 
-        Mgr.add_task(self.__use_gizmo, "use_transf_gizmo", sort=1)
-
-    def __disable_gizmo(self):
-
-        Mgr.remove_task("use_transf_gizmo")
-        self._active_gizmo.remove_hilite()
+        if enable:
+            Mgr.add_task(self.__use_gizmo, "use_transf_gizmo", sort=1)
+        else:
+            Mgr.remove_task("use_transf_gizmo")
+            self._active_gizmo.remove_hilite()
 
     def __show(self):
 

@@ -40,7 +40,7 @@ class TranslationComponent(object):
             pos2 = Point2()
             pos2[i] = .16
             handle = self.__create_axis_handle(self._handle_root, color_vec, pos1, pos2,
-                                               "%s_axis_handle" % axis)
+                                               "{}_axis_handle".format(axis))
             color = self._axis_colors[axis]
             handle.set_color(color)
             self._handles["axes"][axis] = handle
@@ -54,7 +54,7 @@ class TranslationComponent(object):
             arrow_vec[(i + 1) % 2] = .01
             pos3 = pos1 + arrow_vec
             arrow = self.__create_axis_arrow(self._handle_root, color_vec, pos1, pos2,
-                                             pos3, "%s_axis_arrow" % axis)
+                                             pos3, "{}_axis_arrow".format(axis))
             arrow.set_color(color)
 
         # Create double-axis handle
@@ -68,7 +68,7 @@ class TranslationComponent(object):
         pos3 = Point2()
         pos1[0] = pos2[0] = pos2[1] = pos3[1] = .07
         handle, quad = self.__create_plane_handle(self._handle_root, color_vec, pos1, pos2, pos3,
-                                                  "%s_plane_handle" % plane)
+                                                  "{}_plane_handle".format(plane))
         self._handles["planes"][plane] = handle
         self._handles["quads"][plane] = quad
         handle[0].set_color(self._axis_colors[plane[0]])
@@ -265,7 +265,7 @@ class TranslationComponent(object):
             return
 
         axes = self._handle_names[color_id]
-        Mgr.update_interface("uv_window", "axis_constraints", self._type, axes)
+        Mgr.update_interface("uv", "axis_constraints", self._type, axes)
 
         return axes
 

@@ -1,217 +1,181 @@
 from ..base import *
-from ..button import Button, ButtonGroup
-from ..toggle import ToggleButtonGroup
-from ..combobox import ComboBox
-from ..field import InputField
-from ..checkbox import CheckBox
-from ..colorctrl import ColorPickerCtrl
+from ..button import *
 from ..panel import *
 
 
 class HierarchyPanel(Panel):
 
-    def __init__(self, parent, focus_receiver=None):
+    def __init__(self, stack):
 
-        Panel.__init__(self, parent, "Hierarchy", focus_receiver)
+        Panel.__init__(self, stack, "hierarchy", "Hierarchy")
 
-        self._parent = parent
-        self._width = parent.get_width()
-
-        self._comboboxes = {}
         self._checkboxes = {}
-        self._color_pickers = {}
-        self._fields = {}
         self._btns = {}
-        self._radio_btns = {}
-        self._toggle_btns = PanelToggleButtonGroup()
+        self._toggle_btns = ToggleButtonGroup()
         toggle = (self.__set_xform_target_type, lambda: None)
         self._toggle_btns.set_default_toggle("all", toggle)
 
-        panel_sizer = self.GetSizer()
-        panel_sizer.Add(wx.Size(self._width, 0))
-        parent.GetSizer().Add(self)
-
-        bitmap_paths = Button.get_bitmap_paths("panel_button")
-
         # ********************** Object linking section ************************
 
-        link_section = section = self.add_section("linking", "Object linking")
-        sizer = section.get_client_sizer()
+        section = self.add_section("linking", "Object linking")
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        subsizer = Sizer("horizontal")
+        section.add(subsizer)
 
-        checkbox = PanelCheckBox(self, section, subsizer, self.__toggle_link_visibility,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__toggle_link_visibility)
         checkbox.check(False)
         self._checkboxes["show_links"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Show links", subsizer, sizer_args)
+        borders = (0, 5, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        subsizer.add(PanelText(section, "Show links"), alignment="center_v")
 
-        sizer.Add(wx.Size(0, 2))
         group = section.add_group("Link")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
+        subsizer = Sizer("horizontal")
+        group.add(subsizer, alignment="center_v", expand=True)
 
-        label = "Selection"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Link selected objects to target object",
-                          lambda: self.__toggle_linking_mode("sel_linking_mode"))
+        subsizer.add((0, 0), proportion=1.)
+
+        text = "Selection"
+        tooltip_text = "Link selected objects to target object"
+        command = lambda: self.__toggle_linking_mode("sel_linking_mode")
+        btn = PanelButton(group, text, "", tooltip_text, command)
         self._btns["sel_linking_mode"] = btn
+        subsizer.add(btn, alignment="center_v")
 
-        subsizer.Add(wx.Size(15, 0))
-        label = "Pick..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Link single object to target object",
-                          lambda: self.__toggle_linking_mode("obj_linking_mode"))
+        subsizer.add((0, 0), proportion=1.)
+
+        text = "Pick..."
+        tooltip_text = "Link single object to target object"
+        command = lambda: self.__toggle_linking_mode("obj_linking_mode")
+        btn = PanelButton(group, text, "", tooltip_text, command)
         self._btns["obj_linking_mode"] = btn
+        subsizer.add(btn, alignment="center_v")
 
-        sizer.Add(wx.Size(0, 2))
+        subsizer.add((0, 0), proportion=1.)
+
         group = section.add_group("Unlink")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
+        subsizer = Sizer("horizontal")
+        group.add(subsizer, alignment="center_v", expand=True)
 
-        label = "Selection"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Unlink selected objects",
-                          self.__unlink_selection)
+        subsizer.add((0, 0), proportion=1.)
 
-        subsizer.Add(wx.Size(15, 0))
-        label = "Pick..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Unlink single object",
-                          lambda: self.__toggle_linking_mode("obj_unlinking_mode"))
+        text = "Selection"
+        tooltip_text = "Unlink selected objects"
+        command = self.__unlink_selection
+        btn = PanelButton(group, text, "", tooltip_text, command)
+        subsizer.add(btn, alignment="center_v")
+
+        subsizer.add((0, 0), proportion=1.)
+
+        text = "Pick..."
+        tooltip_text = "Unlink single object"
+        command = lambda: self.__toggle_linking_mode("obj_unlinking_mode")
+        btn = PanelButton(group, text, "", tooltip_text, command)
         self._btns["obj_unlinking_mode"] = btn
+        subsizer.add(btn, alignment="center_v")
 
-        sizer.Add(wx.Size(0, 5))
+        subsizer.add((0, 0), proportion=1.)
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        subsizer = Sizer("horizontal")
+        borders = (0, 0, 0, 10)
+        section.add(subsizer, borders=borders)
 
-        checkbox = PanelCheckBox(self, section, subsizer,
-                                 self.__toggle_group_member_linking,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__toggle_group_member_linking)
         checkbox.check()
         self._checkboxes["group_member_linking_allowed"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Affect group membership:", subsizer, sizer_args)
+        borders = (0, 5, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Affect group membership:"
+        subsizer.add(PanelText(section, text), alignment="center_v")
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
+        subsizer = Sizer("horizontal")
+        borders = (20, 0, 0, 0)
+        section.add(subsizer, borders=borders)
 
-        subsizer.Add(wx.Size(20, 0))
-        checkbox = PanelCheckBox(self, section, subsizer,
-                                 self.__toggle_open_group_member_linking,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__toggle_open_group_member_linking)
         checkbox.check()
         self._checkboxes["group_member_linking_open_groups_only"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("affect open groups only", subsizer, sizer_args)
+        borders = (0, 5, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "affect open groups only"
+        subsizer.add(PanelText(section, text), alignment="center_v")
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
+        subsizer = Sizer("horizontal")
+        borders = (20, 0, 0, 0)
+        section.add(subsizer, borders=borders)
 
-        subsizer.Add(wx.Size(20, 0))
-        checkbox = PanelCheckBox(self, section, subsizer,
-                                 self.__toggle_group_member_unlink_only,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__toggle_group_member_unlink_only)
         checkbox.check()
         self._checkboxes["group_member_linking_unlink_only"] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("unlink only", subsizer, sizer_args)
+        borders = (0, 5, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "unlink only"
+        subsizer.add(PanelText(section, text), alignment="center_v")
 
         # ************************ Transforms section **************************
 
         disabler = lambda: GlobalData["active_obj_level"] != "top"
 
-        transf_section = section = self.add_section("transforms", "Transforms")
-        sizer = section.get_client_sizer()
+        section = self.add_section("transforms", "Transforms")
 
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-        sizer_args = (0, wx.ALL, 2)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
+        section.add(sizer, expand=True)
 
-        label = "Geom only"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        toggle = (lambda: self.__set_xform_target_type("geom"), lambda: None)
-        btn = self._toggle_btns.add_button(self, section, btn_sizer, "geom", toggle, bitmaps,
-                                           "Transform geometry only", label, sizer_args=sizer_args)
+        text = "Geom only"
+        tooltip_text = "Transform geometry only"
+        btn = PanelButton(section, text, "", tooltip_text)
         btn.add_disabler("subobj_lvl", disabler)
+        toggle = (lambda: self.__set_xform_target_type("geom"), lambda: None)
+        self._toggle_btns.add_button(btn, "geom", toggle)
+        sizer.add(btn, proportion_h=1.)
 
-        label = "Reset geom"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label,
-                          "Reset geometry to original transform",
-                          lambda: Mgr.update_app("geom_reset"), sizer_args,
-                          focus_receiver=focus_receiver)
+        text = "Reset geom"
+        tooltip_text = "Reset geometry to original transform"
+        command = lambda: Mgr.update_app("geom_reset")
+        btn = PanelButton(section, text, "", tooltip_text, command)
         btn.add_disabler("subobj_lvl", disabler)
         self._btns["reset_geom"] = btn
+        sizer.add(btn, proportion_h=1.)
 
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-        sizer_args = (0, wx.ALL, 2)
-
-        label = "Pivot only"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        toggle = (lambda: self.__set_xform_target_type("pivot"), lambda: None)
-        btn = self._toggle_btns.add_button(self, section, btn_sizer, "pivot", toggle, bitmaps,
-                                           "Transform pivot only", label, sizer_args=sizer_args)
+        text = "Pivot only"
+        tooltip_text = "Transform pivot only"
+        btn = PanelButton(section, text, "", tooltip_text)
         btn.add_disabler("subobj_lvl", disabler)
+        toggle = (lambda: self.__set_xform_target_type("pivot"), lambda: None)
+        self._toggle_btns.add_button(btn, "pivot", toggle)
+        sizer.add(btn, proportion_h=1.)
 
-        label = "Reset pivot"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label,
-                          "Reset pivot to original transform",
-                          lambda: Mgr.update_app("pivot_reset"), sizer_args,
-                          focus_receiver=focus_receiver)
+        text = "Reset pivot"
+        tooltip_text = "Reset pivot to original transform"
+        command = lambda: Mgr.update_app("pivot_reset")
+        btn = PanelButton(section, text, "", tooltip_text, command)
         btn.add_disabler("subobj_lvl", disabler)
         self._btns["reset_pivot"] = btn
+        sizer.add(btn, proportion_h=1.)
 
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-        sizer_args = (0, wx.ALL, 2)
-
-        label = "Links only"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
+        text = "Links only"
+        tooltip_text = "Transform hierarchy links only"
+        btn = PanelButton(section, text, "", tooltip_text)
+        btn.add_disabler("subobj_lvl", disabler)
         toggle = (lambda: self.__set_xform_target_type("links"), lambda: None)
-        btn = self._toggle_btns.add_button(self, section, btn_sizer, "links", toggle, bitmaps,
-                                           "Transform hierarchy links only", label, sizer_args=sizer_args)
-        btn.add_disabler("subobj_lvl", disabler)
+        self._toggle_btns.add_button(btn, "links", toggle)
+        sizer.add(btn, proportion_h=1.)
 
-        label = "No children"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        toggle = (lambda: self.__set_xform_target_type("no_children"), lambda: None)
-        btn = self._toggle_btns.add_button(self, section, btn_sizer, "no_children", toggle, bitmaps,
-                                           "Don't transform child objects", label, sizer_args=sizer_args)
+        text = "No children"
+        tooltip_text = "Don't transform child objects"
+        btn = PanelButton(section, text, "", tooltip_text)
         btn.add_disabler("subobj_lvl", disabler)
+        toggle = (lambda: self.__set_xform_target_type("no_children"), lambda: None)
+        self._toggle_btns.add_button(btn, "no_children", toggle)
+        sizer.add(btn, proportion_h=1.)
 
         # **********************************************************************
 
-        parent.add_panel(self)
-        self.update()
-        self.finalize()
-
-        def finalize():
-
-            transf_section.expand(False)
-            self.expand(False)
-            self.update_parent()
-
-        wx.CallAfter(finalize)
-
         def disable_xform_targets():
 
-            self._toggle_btns.disable(show=False)
-            self._btns["reset_geom"].disable(show=False)
-            self._btns["reset_pivot"].disable(show=False)
+            self._toggle_btns.enable(False)
+            self._btns["reset_geom"].enable(False)
+            self._btns["reset_pivot"].enable(False)
 
         def enable_xform_targets():
 
@@ -228,22 +192,13 @@ class HierarchyPanel(Panel):
     def __update_group_member_linking(self):
 
         for option, value in GlobalData["group_options"]["member_linking"].iteritems():
-            self._checkboxes["group_member_linking_%s" % option].check(value)
-
-    def get_clipping_rect(self):
-
-        panel_rect = self.GetRect()
-        width, height = panel_rect.size
-        y_orig = self.GetParent().GetPosition()[1] + panel_rect.y
-        clipping_rect = wx.Rect(0, -y_orig, *self.GetGrandParent().GetSize())
-
-        return clipping_rect
+            self._checkboxes["group_member_linking_{}".format(option)].check(value)
 
     def setup(self):
 
         def enter_linking_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (255, 128, 255))
+            Mgr.do("set_viewport_border_color", "viewport_frame_link_objects")
             self._btns[GlobalData["object_linking_mode"]].set_active()
 
         def exit_linking_mode(next_state_id, is_active):
@@ -253,6 +208,9 @@ class HierarchyPanel(Panel):
 
         add_state = Mgr.add_state
         add_state("object_linking_mode", -10, enter_linking_mode, exit_linking_mode)
+
+        self.get_section("transforms").expand(False)
+        self.expand(False)
 
     def __toggle_linking_mode(self, linking_mode):
 
@@ -307,14 +265,3 @@ class HierarchyPanel(Panel):
             self._toggle_btns.deactivate()
         else:
             self._toggle_btns.set_active_button(target_type)
-
-        self.GetSizer().Layout()
-        self.update_parent()
-
-    def get_width(self):
-
-        return self._width
-
-    def get_client_width(self):
-
-        return self._width - self.get_client_offset() * 2

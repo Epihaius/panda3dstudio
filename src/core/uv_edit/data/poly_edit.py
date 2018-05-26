@@ -68,8 +68,8 @@ class PolygonEditManager(BaseObject):
 
     def setup(self):
 
-        Mgr.add_interface_updater("uv_window", "poly_detach", self.__detach_polygons)
-        Mgr.add_interface_updater("uv_window", "poly_stitch", self.__stitch_polygons)
+        Mgr.add_app_updater("poly_detach", self.__detach_polygons, interface_id="uv")
+        Mgr.add_app_updater("poly_stitch", self.__stitch_polygons, interface_id="uv")
 
     def __detach_polygons(self):
 

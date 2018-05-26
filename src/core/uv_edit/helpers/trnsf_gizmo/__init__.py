@@ -18,7 +18,8 @@ class UVTransformGizmo(BaseObject):
 
         self._picking_col_id_generator = get_next_id()
         self._pickable_type_id = None
-        self._root = root = self.uv_space.attach_new_node("transform_gizmo_root")
+        self._root_scaler = scaler = self.uv_space.attach_new_node("transform_gizmo_root_scaler")
+        self._root = root = scaler.attach_new_node("transform_gizmo_root")
         root.hide()
         root.set_light_off()
         root.set_texture_off()
@@ -34,7 +35,6 @@ class UVTransformGizmo(BaseObject):
         UVMgr.accept("show_transf_gizmo", self.show)
         UVMgr.accept("hide_transf_gizmo", self.hide)
         UVMgr.accept("enable_transf_gizmo", self.enable)
-        UVMgr.accept("disable_transf_gizmo", self.disable)
         UVMgr.accept("set_transf_gizmo_pickable", self.set_pickable)
 
     def setup(self):
@@ -59,11 +59,16 @@ class UVTransformGizmo(BaseObject):
 
     def add_interface_updaters(self):
 
-        Mgr.add_interface_updater("uv_window", "active_transform_type", self.__select_component)
-        Mgr.add_interface_updater("uv_window", "transform_handles", self.__show_transform_handles)
-        Mgr.add_interface_updater("uv_window", "axis_constraints", self.__update_axis_constraints)
+        Mgr.add_app_updater("active_transform_type", self.__select_component, interface_id="uv")
+        Mgr.add_app_updater("transform_handles", self.__show_transform_handles, interface_id="uv")
+        Mgr.add_app_updater("axis_constraints", self.__update_axis_constraints, interface_id="uv")
 
     def __update_hilites(self, task):
+
+        if not self.mouse_watcher.is_mouse_open():
+            for comp_id in self._active_component_ids:
+                self._components[comp_id].remove_hilite()
+            return task.cont
 
         comp_ids = self._active_component_ids
 
@@ -146,29 +151,31 @@ class UVTransformGizmo(BaseObject):
 
         for transf_type in ("translate", "rotate", "scale"):
             shown = transf_type in  active_component_ids
-            Mgr.update_interface_remotely("uv_window", "transform_handles", transf_type, shown)
+            Mgr.update_interface_remotely("uv", "transform_handles", transf_type, shown)
 
     def __update_axis_constraints(self, transf_type, axes):
 
-        GlobalData["uv_axis_constraints_%s" % transf_type] = axes
+        GlobalData["uv_axis_constraints_{}".format(transf_type)] = axes
         self._components[transf_type].set_active_axes(axes)
 
-    def enable(self):
+    def enable(self, enable=True):
 
-        Mgr.add_task(self.__update_hilites, "update_uv_gizmo", sort=1)
+        if enable:
 
-    def disable(self):
+            Mgr.add_task(self.__update_hilites, "update_uv_gizmo", sort=1)
 
-        Mgr.remove_task("update_uv_gizmo")
+        else:
 
-        for comp_id in self._active_component_ids:
-            self._components[comp_id].remove_hilite()
+            Mgr.remove_task("update_uv_gizmo")
+
+            for comp_id in self._active_component_ids:
+                self._components[comp_id].remove_hilite()
 
     def show(self):
 
         self._root.show()
 
-        if Mgr.get_state_id("uv_window") == "uv_edit_mode":
+        if Mgr.get_state_id("uv") == "uv_edit_mode":
             Mgr.add_task(self.__update_hilites, "update_uv_gizmo", sort=1)
 
     def hide(self):
@@ -178,11 +185,15 @@ class UVTransformGizmo(BaseObject):
 
     def set_pos(self, pos):
 
-        self._root.set_pos(pos)
+        self._root_scaler.set_pos(pos)
 
     def set_scale(self, scale):
 
         self._root.set_scale(scale)
+
+    def set_relative_scale(self, scale):
+
+        self._root_scaler.set_scale(scale)
 
     def set_pickable(self, pickable=True):
 

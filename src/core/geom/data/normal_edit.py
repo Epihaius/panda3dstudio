@@ -1340,11 +1340,11 @@ class NormalManager(BaseObject):
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = 'Change normal length of "%s"\nto %s' % (obj.get_name(), normal_length)
+            event_descr = 'Change normal length of "{}"\nto {:f}'.format(obj.get_name(), normal_length)
         else:
             event_descr = 'Change normal length of objects:\n'
-            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
-            event_descr += '\n\nto %s' % normal_length
+            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
+            event_descr += '\n\nto {:f}'.format(normal_length)
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -1369,10 +1369,10 @@ class NormalManager(BaseObject):
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = '%s normals of "%s"' % ("Flip" if flip else "Unflip", obj.get_name())
+            event_descr = '{} normals of "{}"'.format("Flip" if flip else "Unflip", obj.get_name())
         else:
-            event_descr = '%s normals of objects:\n' % ("Flip" if flip else "Unflip")
-            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+            event_descr = '{} normals of objects:\n'.format("Flip" if flip else "Unflip")
+            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -1399,7 +1399,7 @@ class NormalManager(BaseObject):
         for obj_id, geom_data_obj in changed_objs.iteritems():
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
-        event_descr = "%s normals" % ("Unify" if unify else "Separate")
+        event_descr = "{} normals".format("Unify" if unify else "Separate")
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
@@ -1425,7 +1425,7 @@ class NormalManager(BaseObject):
         for obj_id, geom_data_obj in changed_objs.iteritems():
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
-        event_descr = "%s normals" % ("Lock" if lock else "Unlock")
+        event_descr = "{} normals".format("Lock" if lock else "Unlock")
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
@@ -1436,7 +1436,7 @@ class NormalManager(BaseObject):
             Mgr.update_app("active_transform_type", "")
 
         Mgr.add_task(self.__update_cursor, "update_mode_cursor")
-        Mgr.update_app("status", "normal_dir_copy_mode")
+        Mgr.update_app("status", ["normal_dir_copy_mode"])
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
@@ -1514,7 +1514,7 @@ class NormalManager(BaseObject):
                 other_geom_data_obj.set_pickable(False)
 
         Mgr.add_task(self.__hilite_normal, "hilite_normal")
-        Mgr.update_app("status", "normal_picking_via_poly")
+        Mgr.update_app("status", ["normal_picking_via_poly"])
 
         cs_type = GlobalData["coord_sys_type"]
         tc_type = GlobalData["transf_center_type"]

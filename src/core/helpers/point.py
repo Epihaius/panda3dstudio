@@ -152,7 +152,7 @@ class PointHelper(TopLevelObject):
         TopLevelObject.register(self)
 
         obj_type = "point_helper_viz"
-        Mgr.do("register_%s" % obj_type, self._viz, restore)
+        Mgr.do("register_{}".format(obj_type), self._viz, restore)
 
         if restore:
             Mgr.do("add_point_helper", self)
@@ -161,7 +161,7 @@ class PointHelper(TopLevelObject):
 
         if unregister:
             obj_type = "point_helper_viz"
-            Mgr.do("unregister_%s" % obj_type, self._viz)
+            Mgr.do("unregister_{}".format(obj_type), self._viz)
 
         Mgr.do("remove_point_helper", self)
 

@@ -1,0 +1,174 @@
+# Panda3D Studio skin data
+#
+FONTS
+#
+# The different fonts, in the following format:
+#
+# [font ID] [subdirectory]/[...]/[filename] [pixel size] [height] [baseline offset] [line spacing]
+#
+# font ID:          string
+# subdirectory:     string
+# filename:         string
+# pixel size:       float
+# height:           int
+# baseline offset:  int
+# line spacing:     int
+#
+# NOTES:
+# *) each font ID can be arbitrarily chosen but must be unique;
+# *) any number of fonts can be defined
+#
+arimo_regular       Arimo/Arimo-Regular.ttf 12. 16 12 20
+arimo_regular_14    Arimo/Arimo-Regular.ttf 14. 18 14 22
+arimo_regular_16    Arimo/Arimo-Regular.ttf 16. 21 16 26
+arimo_regular_18    Arimo/Arimo-Regular.ttf 18. 24 18 30
+arimo_regular_20    Arimo/Arimo-Regular.ttf 20. 26 20 35
+arimo_italic        Arimo/Arimo-Italic.ttf 12. 16 12 20
+arimo_bold          Arimo/Arimo-Bold.ttf 14. 18 14 22
+arimo_bold_16       Arimo/Arimo-Bold.ttf 16. 21 16 26
+#
+TEXT
+#
+# The text used for the different kinds of widgets, in the following format:
+#
+# [text ID] [font ID] [red] [green] [blue] [alpha]
+#
+# text ID:          string
+# font ID:          string
+# color component:  float
+#
+# NOTE:
+# any previously defined font ID can be used for any number of different kinds of text
+#
+combobox                arimo_regular       0. 0. 0. 1.
+menu_button             arimo_regular       0. 0. 0. 1.
+menu_item               arimo_regular       0. 0. 0. 1.
+toolbar                 arimo_regular       0. 0. 0. 1.
+toolbar_button          arimo_regular       0. 0. 0. 1.
+panel                   arimo_regular       0. 0. 0. 1.
+panel_label             arimo_regular       0. 0. 0. 1.
+panel_section_label     arimo_regular       0. 0. 0. 1.
+panel_button            arimo_regular       0. 0. 0. 1.
+input                   arimo_regular       .5 .7 .9 1.
+input2                  arimo_italic        .5 .7 .9 1.
+input_selection         arimo_regular       1. 1. 1. 1.
+input2_selection        arimo_italic        1. 1. 1. 1.
+status                  arimo_regular       0. 0. 0. 1.
+tooltip                 arimo_regular       .5 .7 .9 1.
+view_label              arimo_bold_16       .75 .75 .75 1.
+view_label_hilited      arimo_bold_16       1. 1. 1. 1.
+view_tile               arimo_regular_18    1. 1. 1. 1.
+milestone               arimo_bold          0. 0. 0. 1.
+dialog                  arimo_regular       0. 0. 0. 1.
+dialog_message          arimo_regular_14    0. 0. 0. 1.
+dialog_standard_button  arimo_regular_14    0. 0. 0. 1.
+dialog_button           arimo_regular       0. 0. 0. 1.
+dialog_title            arimo_regular_18    1. 1. 1. 1.
+file_button             arimo_regular       0. 0. 0. 1.
+viewport_button         arimo_regular       0. 0. 0. 1.
+grid_spacing            arimo_regular       0. 0. 0. 1.
+#
+CURSORS
+#
+# The different cursors used, in the following format:
+#
+# [cursor ID] [filename]
+#
+# cursor ID:    string
+# filename:     string
+#
+eyedropper  eyedropper.cur
+hand        hand.cur
+drag        drag.cur
+move        move.cur
+move_ew     move_ew.cur
+move_ns     move_ns.cur
+move_nwse   move_nwse.cur
+caret       caret.cur
+i_beam      I-beam.cur
+#
+COLORS
+#
+# The different colors used, in the following format:
+#
+# [property ID] [red] [green] [blue] [alpha]
+#
+# property ID:      string
+# color component:  float
+#
+viewport_frame_default                  .455 .435 .592 1.
+viewport_frame_inactive                 .5 .5 .5 1.
+viewport_frame_navigate_scene           1. 1. 1. 1.
+viewport_frame_create_objects           .863 .863 .392 1.
+viewport_frame_pick_objects             0. 1. 1. 1.
+viewport_frame_group_objects            1. .5 1. 1.
+viewport_frame_link_objects             1. .5 1. 1.
+viewport_frame_edit_uvs                 .4 1. .4 1.
+combobox_field_tint_default             1.05 1. 1.4 1.
+combobox_field_tint_pick                .8 1.8 1.8 1.
+disabled_file_button_text               .1 .1 .1 .75
+disabled_menu_button_text               .1 .1 .1 .75
+disabled_menu_item_text                 .25 .25 .25 .75
+disabled_panel_button_text              .1 .1 .1 .75
+disabled_toolbar_button_text            .1 .1 .1 .75
+disabled_dialog_button_text             .1 .1 .1 .75
+disabled_dialog_standard_button_text    .1 .1 .1 .75
+disabled_inputfield_text                .5 .5 .5 .75
+disabled_view_tile_text                 .5 .5 .5 .75
+inputfield_background                   .2 .15 .3 1.
+input_selection_background              .5 .5 1. 1.
+menu_item_bullet                        0. 0. 0. 1.
+menu_item_checkmark                     0. 0. 0. 1.
+bullet                                  .5 .7 .9 1.
+checkmark                               .5 .7 .9 1.
+checkbox                                .2 .15 .3 1.
+radiobutton                             .2 .15 .3 1.
+tooltip_background                      .2 .15 .3 1.
+tooltip_border                          .6 .3 .9 1.
+view_label_shadow                       0. 0. 0. 1.
+history_entry_unselected                .765 .765 .87 1.
+history_entry_unselected_alt            .808 .796 .89 1.
+history_entry_selected                  .882 .922 .988 1.
+history_entry_selected_alt              .925 .953 1. 1.
+# the following is used to darken everything below the topmost dialog; set alpha to 0. to disable
+dialog_background_overlay               .2 .2 .2 .5
+#
+OPTIONS
+#
+# The skin options, in the following format:
+#
+# [option ID] [data type] [value]
+#
+scrollthumb_thickness           int     10
+integrate_scrollbar_in_frame    bool    1
+panel_scrollbar_left            bool    0
+# the number of rows of files in a file dialog
+file_row_count                  int     10
+combobox_field_height           int     18
+inputfield_margin               int     5
+inputfield_width_scale          float   1.
+inputfield_height               int     20
+inputfield_caret_width          int     1
+inputfield_caret_height         int     16
+inputfield_caret_blink_delay    float   .5
+colorbox_width                  int     20
+colorbox_height                 int     20
+checkbox_width                  int     14
+checkbox_height                 int     14
+radiobutton_width               int     10
+radiobutton_height              int     10
+dialog_title_height             int     30
+dialog_title_top                int     4
+dialog_bottom_height            int     42
+# the width of the Yes/No/OK/Cancel buttons at the bottom of a dialog
+dialog_standard_button_width    int     110
+colorgradient_width             int     256
+colorgradient_height            int     256
+small_colorswatch_width         int     30
+small_colorswatch_height        int     20
+large_colorswatch_width         int     60
+large_colorswatch_height        int     30
+# the number of pixels a pane is scrolled when using the mouse wheel
+scroll_step                     int     20
+view_label_shadow_offset_x      int     1
+view_label_shadow_offset_y      int     1

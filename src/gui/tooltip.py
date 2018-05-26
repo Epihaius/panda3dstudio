@@ -3,104 +3,130 @@ from .base import *
 
 class ToolTip(object):
 
-    _inst = None
-    _font = None
-    _parent = None
-    _bitmap = None
-    _timer = None
-    _use_timer = False
+    _card = None
+    _label = None
+    _tex = None
+    _clock = None
+    _delay = False
 
     @classmethod
-    def init(cls, parent):
+    def init(cls):
 
-        cls._inst = wx.PopupWindow(parent)
-        cls._font = wx.Font(8, wx.FONTFAMILY_DEFAULT,
-                            wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        cls._inst.Disable()
-        cls._inst.Hide()
-        cls._parent = parent
-        cls._timer = wx.Timer(cls._inst)
-        cls._inst.Bind(wx.EVT_TIMER, cls.__on_timer, cls._timer)
-        cls._inst.Bind(wx.EVT_PAINT, cls.__draw)
-
-    @classmethod
-    def create_bitmap(cls, label, text_color=wx.Colour(127, 178, 229)):
-
-        mem_dc = wx.MemoryDC()
-        mem_dc.SetFont(cls._font)
-        w, h = mem_dc.GetTextExtent(label)
-        bitmap = wx.EmptyBitmap(w + 6, h + 6)
-        mem_dc.SelectObject(bitmap)
-        pen = wx.Pen(wx.Colour(153, 76, 229), 2)
-        mem_dc.SetPen(pen)
-        brush = wx.Brush(wx.Colour(51, 38, 76))
-        mem_dc.SetBrush(brush)
-        rect = wx.Rect(0, 0, w + 7, h + 7)
-        mem_dc.DrawRectangleRect(rect)
-        mem_dc.SetTextForeground(text_color)
-        rect.SetHeight(h + 5)
-        mem_dc.DrawLabel(label, rect, alignment=wx.ALIGN_CENTER)
-        mem_dc.SelectObject(wx.NullBitmap)
-
-        return bitmap
+        cm = CardMaker("tooltip")
+        cm.set_frame(0., 1., -1., 0.)
+        cls._card = card = Mgr.get("gui_root").attach_new_node(cm.generate())
+        tex = Texture("tooltip_tex")
+        tex.set_minfilter(SamplerState.FT_nearest)
+        tex.set_magfilter(SamplerState.FT_nearest)
+        cls._tex = tex
+        card.set_bin("tooltip", 1)
+        card.set_depth_test(False)
+        card.set_depth_write(False)
+        card.set_texture(tex)
+        card.hide()
+        cls._clock = ClockObject()
 
     @classmethod
-    def set_bitmap(cls, bitmap):
+    def create_label(cls, text, text_color=None):
 
-        cls._bitmap = bitmap
-        cls._inst.SetClientSize(bitmap.GetSize())
+        skin_text = Skin["text"]["tooltip"]
+
+        if text_color:
+            color = text_color
+        else:
+            color = skin_text["color"]
+
+        font = skin_text["font"]
+        colors = Skin["colors"]
+        image = font.create_image(text, color)
+        w = image.get_x_size()
+        h = image.get_y_size()
+        label = PNMImage(w + 8, h + 8, 4)
+        painter = PNMPainter(label)
+        fill = PNMBrush.make_pixel(colors["tooltip_background"])
+        pen = PNMBrush.make_pixel(colors["tooltip_border"])
+        painter.set_fill(fill)
+        painter.set_pen(pen)
+        painter.draw_rectangle(0, 0, w + 7, h + 7)
+        label.blend_sub_image(image, 4, 4, 0, 0)
+
+        return label
 
     @classmethod
-    def __draw(cls, event):
+    def set_label(cls, label):
 
-        dc = wx.PaintDC(cls._inst)
-        dc.DrawBitmap(cls._bitmap, 0, 0)
+        cls._label = label
+        card = cls._card
+        w = label.get_x_size()
+        h = label.get_y_size()
+        card.set_sx(w)
+        card.set_sz(h)
+        cls._tex.load(label)
+
+        if not card.is_hidden():
+            mouse_pointer = Mgr.get("mouse_pointer", 0)
+            x = mouse_pointer.get_x()
+            y = mouse_pointer.get_y() + 20
+            w_w, h_w = Mgr.get("window_size")
+            x = max(0, min(x, w_w - w))
+            y = max(0, min(y, h_w - h))
+            card.set_x(x)
+            card.set_z(-y)
 
     @classmethod
-    def __on_timer(cls, event):
+    def __show_delayed(cls, task):
 
-        x, y = wx.GetMousePosition()
-        w, h = cls._bitmap.GetSize()
-        w_d, h_d = wx.GetDisplaySize()
-        x = max(0, min(x, w_d - w))
-        y = max(0, min(y, h_d - h))
-        cls._inst.SetPosition((x, y - 21))
-        cls._inst.Show()
+        if cls._clock.get_real_time() < cls._delay:
+            return task.cont
+
+        mouse_pointer = Mgr.get("mouse_pointer", 0)
+        x = mouse_pointer.get_x()
+        y = mouse_pointer.get_y() + 20
+        w = cls._label.get_x_size()
+        h = cls._label.get_y_size()
+        w_w, h_w = Mgr.get("window_size")
+        x = max(0, min(x, w_w - w))
+        y = max(0, min(y, h_w - h))
+        card = cls._card
+        card.set_x(x)
+        card.set_z(-y)
+        card.show()
 
     @classmethod
-    def show(cls, bitmap, pos, use_timer=True, delay=500):
+    def show(cls, label, pos=(0, 0), delay=.5):
 
-        cls.set_bitmap(bitmap)
-        cls._use_timer = use_timer
+        cls.set_label(label)
+        cls._delay = delay
 
-        if use_timer:
-            cls._timer.Start(delay, oneShot=True)
+        if delay:
+            cls._clock.reset()
+            Mgr.add_task(cls.__show_delayed, "show_tooltip_delayed")
         else:
             x, y = pos
-            cls._inst.SetPosition((x, y - 30))
-            cls._inst.Show()
+            card = cls._card
+            card.set_x(x)
+            card.set_z(-y)
+            card.show()
 
     @classmethod
     def hide(cls):
 
-        cls._inst.Hide()
+        cls._card.hide()
 
-        if cls._use_timer:
-            cls._timer.Stop()
-            cls._use_timer = False
-
-    @classmethod
-    def is_shown(cls):
-
-        return cls._inst.IsShown()
+        if cls._delay:
+            Mgr.remove_task("show_tooltip_delayed")
+            cls._clock.reset()
+            cls._delay = 0.
 
     @classmethod
-    def update(cls, bitmap=None):
+    def is_hidden(cls):
 
-        if bitmap:
-            cls.set_bitmap(bitmap)
+        return cls._card.is_hidden()
+
+    @classmethod
+    def update(cls, label=None):
+
+        if label:
+            cls.set_label(label)
         else:
-            cls._inst.Hide()
-
-        if cls._inst.IsShown():
-            cls._inst.Refresh()
+            cls._card.hide()

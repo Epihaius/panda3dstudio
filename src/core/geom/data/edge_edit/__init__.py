@@ -669,6 +669,8 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
              "mouse1-up", self.__pick_hilited_edge)
         bind("edge_picking_via_poly", "cancel edge picking",
              "mouse3-up", self.__cancel_edge_picking_via_poly)
+        bind("edge_picking_via_poly", "abort edge picking",
+             "focus_loss", self.__cancel_edge_picking_via_poly)
 
         status_data = GlobalData["status_data"]
         info = "LMB-drag over edge to pick it; RMB to cancel"
@@ -749,7 +751,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
                 other_geom_data_obj.set_pickable(False)
 
         Mgr.add_task(self.__hilite_edge, "hilite_edge")
-        Mgr.update_app("status", "edge_picking_via_poly")
+        Mgr.update_app("status", ["edge_picking_via_poly"])
 
         cs_type = GlobalData["coord_sys_type"]
         tc_type = GlobalData["transf_center_type"]
@@ -833,7 +835,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
                 self._init_bridge(picked_edge)
 
             Mgr.add_task(self._update_cursor, "update_mode_cursor")
-            Mgr.update_app("status", "edge_%s_mode" % self._mode_id)
+            Mgr.update_app("status", ["edge_{}_mode".format(self._mode_id)])
 
         else:
 
@@ -844,7 +846,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
                 if other_geom_data_obj is not geom_data_obj:
                     other_geom_data_obj.set_pickable()
 
-            Mgr.enter_state("edge_%s_mode" % self._mode_id)
+            Mgr.enter_state("edge_{}_mode".format(self._mode_id))
 
         geom_data_obj.prepare_subobj_picking_via_poly("edge")
 
@@ -940,7 +942,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
             if obj_id in changed_selections:
                 obj_data[obj_id].update(geom_data_obj.get_property_to_store("subobj_selection"))
 
-        event_descr = "%s edge selection" % ("Smooth" if smooth else "Sharpen")
+        event_descr = "{} edge selection".format("Smooth" if smooth else "Sharpen")
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 

@@ -42,7 +42,7 @@ class ScalingComponent(object):
             pos2 = Point2()
             pos2[i] = -.2
             handle, point = self.__create_axis_handle(self._origin, color_vec, pos1, pos2,
-                                                      "%s_axis_handle" % axis)
+                                                      "{}_axis_handle".format(axis))
             color = self._axis_colors[axis]
             handle.set_color(color)
             point.set_color(color)
@@ -61,7 +61,7 @@ class ScalingComponent(object):
         pos1[0] = pos3[1] = -.1
         pos2[0] = pos4[1] = -.14
         handle, quad = self.__create_plane_handle(self._origin, color_vec, pos1, pos2, pos3,
-                                                  pos4, "%s_plane_handle" % plane)
+                                                  pos4, "{}_plane_handle".format(plane))
         self._handles["planes"][plane] = handle
         self._handles["quads"][plane] = quad
         handle[0].set_color(self._axis_colors[plane[0]])
@@ -253,7 +253,7 @@ class ScalingComponent(object):
             return
 
         axes = self._handle_names[color_id]
-        Mgr.update_interface("uv_window", "axis_constraints", self._type, axes)
+        Mgr.update_interface("uv", "axis_constraints", self._type, axes)
 
         return axes
 

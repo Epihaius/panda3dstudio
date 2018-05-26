@@ -1,670 +1,487 @@
 from ..base import *
 
 
-class PanelSectionGroup(object):
+class WidgetGroup(Widget):
 
-    def __init__(self, container, title=""):
+    _gfx = {
+        "": (
+            ("widget_group_topleft", "widget_group_top", "widget_group_topright"),
+            ("widget_group_left", "panel_main", "widget_group_right"),
+            ("widget_group_bottomleft", "widget_group_bottom", "widget_group_bottomright")
+        )
+    }
 
-        self._container = container
-        self._title = title
-        mem_dc = wx.MemoryDC()
-        mem_dc.SetFont(Fonts.get("default"))
-        w, h = mem_dc.GetTextExtent(title)
-        w += 8
-        self._title_rect = wx.Rect(0, 0, w, h)
-        self._text_items = []
-        self._child_controls = []
-        self._groups = []
+    def __init__(self, parent, name=""):
 
-        s = .75
-        main_color = container.get_panel().get_main_color()
-        self._border_color = wx.Colour(*[int(s * c) for c in main_color.Get()])
+        Widget.__init__(self, "group", parent, self._gfx, stretch_dir="both", has_mouse_region=False)
 
-        container_sizer = container.get_client_sizer()
-        self._sizer = wx.BoxSizer(wx.VERTICAL)
-        self._sizer.Add(wx.Size(0, h))
-        self._client_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._sizer.Add(self._client_sizer, 0, wx.ALL | wx.EXPAND, 10)
-        container_sizer.Add(self._sizer, 0, wx.BOTTOM | wx.EXPAND, 5)
+        x, y, w, h = TextureAtlas["regions"]["panel_main"]
+        img = PNMImage(w, h, 4)
+        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        skin_text = Skin["text"]["panel"]
+        font = skin_text["font"]
+        color = skin_text["color"]
+        label_img = font.create_image(name, color)
+        w = label_img.get_x_size() + 8
+        h = label_img.get_y_size()
+        scaled_img = PNMImage(w, h, 4)
+        scaled_img.unfiltered_stretch_from(img)
+        scaled_img.blend_sub_image(label_img, 4, 0, 0, 0)
+        self._label = scaled_img
 
-    def get_panel(self):
+        sizer = Sizer("vertical")
+        self.set_sizer(sizer)
+        self._client_sizer = client_sizer = Sizer("vertical")
+        l, r, b, t = TextureAtlas["inner_borders"]["section_group"]
+        borders = (l, r, b, t + h)
+        sizer.add(client_sizer, expand=True, borders=borders)
 
-        return self._container.get_panel()
+    def add(self, *args, **kwargs):
 
-    def get_sizer(self):
+        self._client_sizer.add(*args, **kwargs)
 
-        return self._sizer
+    def add_group(self, name="", add_top_border=True):
 
-    def get_client_sizer(self):
+        group = WidgetGroup(self, name)
 
-        return self._client_sizer
-
-    def add_child_control(self, child_control):
-
-        self._child_controls.append(child_control)
-
-    def add_text(self, text, sizer, sizer_args=None, insertion_index=-1):
-
-        text_item = Text(text)
-        self._text_items.append(text_item)
-        text_sizer = text_item.get_sizer()
-        args = sizer_args if sizer_args else ()
-
-        if insertion_index > -1:
-            sizer.Insert(insertion_index, text_sizer, *args)
+        if add_top_border:
+            l, r, b, t = TextureAtlas["inner_borders"]["section_group"]
+            borders = (0, 0, 0, t)
+            self._client_sizer.add(group, expand=True, borders=borders)
         else:
-            sizer.Add(text_sizer, *args)
-
-    def add_group(self, title=""):
-
-        group = PanelSectionGroup(self, title)
-        self._groups.append(group)
+            self._client_sizer.add(group, expand=True)
 
         return group
 
-    def draw(self, dc, clipping_rect=None):
+    def update_images(self, recurse=True, size=None):
 
-        x, y = self._sizer.GetPosition()
-        w, h = self._sizer.GetSize()
-        rect = wx.Rect(x, y, w, h)
+        width, height = self.get_size() if size is None else size
 
-        if clipping_rect and not clipping_rect.Intersects(rect):
+        if not (width and height):
             return
 
-        h_title = self._title_rect.height
-        rect = wx.Rect(x, y + h_title // 2, w, h - h_title // 2)
-        self._title_rect.x = x + 8
-        self._title_rect.y = y
+        tex_atlas = TextureAtlas["image"]
+        tex_atlas_regions = TextureAtlas["regions"]
+        images = self._images
+        l, r, b, t = self.get_gfx_inner_borders()
+        borders_h = l + r
+        borders_v = b + t
+        h_half = self._label.get_y_size() // 2
+        height2 = height - h_half
 
-        main_color = self.get_panel().get_main_color()
-        dc.SetPen(wx.Pen(self._border_color))
-        dc.DrawRoundedRectangleRect(rect, 5)
-        dc.SetPen(wx.Pen(main_color))
-        dc.SetBrush(wx.Brush(main_color))
-        dc.DrawRectangleRect(self._title_rect)
-        dc.SetPen(wx.NullPen)
-        self._title_rect.x += 1
-        dc.DrawLabel(self._title, self._title_rect, wx.ALIGN_CENTER)
+        for state, part_rows in self._gfx.iteritems():
 
-        for item in self._text_items:
-            sizer = item.get_sizer()
-            x, y = sizer.GetPosition()
-            dc.DrawLabel(item.get(), wx.Rect(x, y, 0, 0))
+            img = PNMImage(width, height, 4)
+            images[state] = img
+            y_offset = h_half
+            stretch_dir = self._stretch_dir
+            i_middle = len(part_rows) // 2
 
-        for group in self._groups:
-            group.draw(dc, clipping_rect)
+            for i, part_row in enumerate(part_rows):
 
-    def enable(self, enable=True):
+                j_middle = len(part_row) // 2
+                x_offset = 0
 
-        for ctrl in self._child_controls:
-            ctrl.enable(enable)
+                for j, part_id in enumerate(part_row):
 
-        for group in self._groups:
-            group.enable(enable)
+                    x, y, w, h = tex_atlas_regions[part_id]
 
-    def disable(self, show=True):
+                    if stretch_dir == "both" and i == i_middle and j == j_middle:
+                        scaled_w = width - borders_h
+                        scaled_h = height2 - borders_v
+                        center_img = PNMImage(w, h, 4)
+                        center_img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
+                        scaled_img = PNMImage(scaled_w, scaled_h, 4)
+                        scaled_img.unfiltered_stretch_from(center_img)
+                        img.copy_sub_image(scaled_img, x_offset, y_offset, 0, 0, scaled_w, scaled_h)
+                        w = scaled_w
+                        h = scaled_h
+                    elif stretch_dir in ("both", "horizontal") and j == j_middle:
+                        scaled_w = width - borders_h
+                        center_img = PNMImage(w, h, 4)
+                        center_img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
+                        scaled_img = PNMImage(scaled_w, h, 4)
+                        scaled_img.unfiltered_stretch_from(center_img)
+                        img.copy_sub_image(scaled_img, x_offset, y_offset, 0, 0, scaled_w, h)
+                        w = scaled_w
+                    elif stretch_dir in ("both", "vertical") and i == i_middle:
+                        scaled_h = height2 - borders_v
+                        center_img = PNMImage(w, h, 4)
+                        center_img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
+                        scaled_img = PNMImage(w, scaled_h, 4)
+                        scaled_img.unfiltered_stretch_from(center_img)
+                        img.copy_sub_image(scaled_img, x_offset, y_offset, 0, 0, w, scaled_h)
+                        h = scaled_h
+                    else:
+                        img.copy_sub_image(tex_atlas, x_offset, y_offset, x, y, w, h)
 
-        for ctrl in self._child_controls:
-            ctrl.disable(show)
+                    x_offset += w
 
-        for group in self._groups:
-            group.disable(show)
+                y_offset += h
+
+        if recurse:
+            self._sizer.update_images()
+
+        return images
+
+    def get_image(self, state=None, composed=True):
+
+        image = Widget.get_image(self, state, composed)
+
+        if composed:
+            w = self._label.get_x_size()
+            h = self._label.get_y_size()
+            x = self.get_gfx_inner_borders()[0] + 3
+            image.blend_sub_image(self._label, x, 0, 0, 0, w, h)
+
+        return image
 
 
-class PanelSection(object):
+class SectionHeader(Widget):
 
-    _gfx = {"border": {}, "title_box": {}, "title_hilite": {}}
-    _corner = 0
-    _title_box_height = 0
-    _expand_btn_rect = None
-    _side_width = 0
+    images = {}
+    _gfx = {
+        "": (
+            ("panel_section_header_topleft", "panel_section_header_top",
+             "panel_section_header_topright"),
+            ("panel_section_header_left", "panel_section_header_center",
+             "panel_section_header_right"),
+            ("panel_section_header_bottomleft", "panel_section_header_bottom",
+             "panel_section_header_bottomright")
+        )
+    }
 
-    @classmethod
-    def init(cls):
+    def __init__(self, parent):
 
-        imgs = []
-        border = cls._gfx["border"]
+        Widget.__init__(self, "section_header", parent, self._gfx, stretch_dir="horizontal")
 
-        for part in ("topleft", "topright", "bottomright", "bottomleft"):
-            path = os.path.join(GFX_PATH, "panel_border_etched_%s.png" % part)
-            img = Cache.load("image", path)
-            imgs.append(img)
-            border[part] = img
+    def set_size(self, size, includes_borders=True, is_min=False):
 
-        cls._corner = border["topleft"].GetWidth()
+        Widget.set_size(self, size, includes_borders, is_min)
+        self.get_parent().get_collapsed_header().set_size(size)
 
-        for part in ("vert", "hor"):
-            path = os.path.join(GFX_PATH, "panel_border_etched_%s.png" % part)
-            img = Cache.load("image", path)
-            imgs.append(img)
-            border[part] = img
+    def set_pos(self, pos): pass
 
-        cls._side_width = border["vert"].GetWidth()
+    def update_images(self):
 
-        for part in ("box", "hilite"):
+        if self.images:
+            self._images = self.images
+        else:
+            images = Widget.update_images(self)
+            image = images[""]
+            x, y, w, h = TextureAtlas["regions"]["section_header_minus"]
+            l = self.get_gfx_inner_borders()[0]
+            height = self.get_size()[1]
+            tex_atlas = TextureAtlas["image"]
+            image.blend_sub_image(tex_atlas, l, (height - h) // 2, x, y, w, h)
+            SectionHeader.images = images
 
-            part_gfx = cls._gfx["title_%s" % part]
+        self.get_parent().get_collapsed_header().update_images()
 
-            for side in ("left", "right"):
-                path = os.path.join(GFX_PATH, "panel_section_title_%s_%s.png" % (part, side))
-                part_gfx[side] = Cache.load("bitmap", path)
+    def update_mouse_region_frames(self, exclude=""):
 
-            path = os.path.join(GFX_PATH, "panel_section_title_%s_center.png" % part)
-            center = Cache.load("image", path)
-            imgs.append(center)
-            part_gfx["center"] = center
+        Widget.update_mouse_region_frames(self, exclude)
+        self.get_parent().get_collapsed_header().update_mouse_region_frames(exclude)
 
-        h_title = cls._gfx["title_box"]["left"].GetHeight()
-        cls._title_box_height = h_title
-        cls._expand_btn_rect = wx.Rect(0, 0, h_title, h_title)
+    def on_left_up(self):
 
-        for img in imgs:
-            if not img.HasAlpha():
-                img.InitAlpha()
+        self.get_parent().expand(False)
 
-        for part in ("topleft", "topright", "bottomright", "bottomleft"):
-            border[part] = border[part].ConvertToBitmap()
 
-    @classmethod
-    def get_client_offset(cls):
+class CollapsedSectionHeader(Widget):
 
-        return cls._corner
+    images = {}
+    height = 0
+    _gfx = {
+        "": (
+            ("panel_section_border_topleft", "panel_section_border_top",
+             "panel_section_border_topright"),
+            ("panel_section_border_left", "panel_main", "panel_section_border_right"),
+            ("panel_section_border_bottomleft", "panel_section_border_bottom",
+             "panel_section_border_bottomright")
+        )
+    }
 
-    def __init__(self, panel, title="", index=None):
+    def __init__(self, parent):
 
-        self._panel = panel
-        self._title = title
-        self._is_title_hilited = False
-        self._title_hilite_color = (1., 1., 1., 1.)
-        self._bitmaps = {}
-        self._width = 0
-        self._groups = []
-        self._text_items = []
-        self._child_controls = []
-        self._title_rect = wx.Rect()
+        Widget.__init__(self, "section_header", parent, self._gfx, stretch_dir="horizontal")
 
-        self._is_shown = True
+        if not self.height:
+            CollapsedSectionHeader.height = self.get_min_size()[1]
+
+        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        self._hook_node = hook_node = self.get_node().attach_new_node("hook_node")
+        hook_node.set_pos(-l, 0, -self.height)
+
+    def set_pos(self, pos): pass
+
+    def get_hook_node(self):
+
+        return self._hook_node
+
+    def update_images(self):
+
+        if self.images:
+            self._images = self.images
+        else:
+            images = Widget.update_images(self)
+            image = images[""]
+            x, y, w, h = TextureAtlas["regions"]["section_header_plus"]
+            l = self.get_gfx_inner_borders()[0]
+            height = self.get_size()[1]
+            tex_atlas = TextureAtlas["image"]
+            image.blend_sub_image(tex_atlas, l, (height - h) // 2, x, y, w, h)
+            CollapsedSectionHeader.images = images
+
+    def on_left_up(self):
+
+        self.get_parent().expand()
+
+
+class PanelSection(Widget):
+
+    registry = {}
+    collapsed_height = 0
+    _gfx = {
+        "": (
+            ("panel_section_border_topleft", "panel_section_border_top",
+             "panel_section_border_topright"),
+            ("panel_section_border_left", "panel_main", "panel_section_border_right"),
+            ("panel_section_border_bottomleft", "panel_section_border_bottom",
+             "panel_section_border_bottomright")
+        )
+    }
+
+    def __init__(self, parent, section_id, name="", hidden=False):
+
+        Widget.__init__(self, "panel_section", parent, self._gfx, stretch_dir="both",
+                        hidden=hidden, has_mouse_region=False)
+
+        self.registry[section_id] = self
+        self._id = section_id
+
+        sizer = Sizer("vertical")
+        Widget.set_sizer(self, sizer)
+        self._header = header = SectionHeader(self)
+        self._collapsed_header = collapsed_header = CollapsedSectionHeader(self)
+        sizer.add(header, expand=True)
+        self._client_sizer = client_sizer = Sizer("vertical")
+        l, r, b, t = TextureAtlas["inner_borders"]["section"]
+        borders = (l, r, b, t)
+        sizer.add(client_sizer, expand=True, borders=borders)
+        header_region = header.get_mouse_region()
+        collapsed_header_region = collapsed_header.get_mouse_region()
+        mouse_watcher = parent.get_mouse_watcher()
+        mouse_watcher.remove_region(collapsed_header_region)
+        regions_expanded = set([header_region])
+        regions_collapsed = set([collapsed_header_region])
+        self._mouse_region_groups = {"expanded": regions_expanded, "collapsed": regions_collapsed}
+
+        if not PanelSection.collapsed_height:
+            PanelSection.collapsed_height = collapsed_header.height
+
+        # Build the node hierarchy
+
+        top_node = self.get_node()
+        top_node.set_name("section_top__{}".format(section_id))
+        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        top_node.set_pos(l, 0, -t)
+        self._bottom_node = bottom_node = top_node.attach_new_node("section_bottom")
+        bottom_node.set_x(-l)
+        collapsed_header.get_hook_node().reparent_to(top_node)
+        self._hook_node = bottom_node.attach_new_node("section_hook__{}".format(section_id))
+
         self._is_expanded = True
 
-        panel_sizer = panel.get_section_sizer()
-        self._sizer = wx.BoxSizer(wx.VERTICAL)
-        self._sizer.Add(wx.Size(0, self._title_box_height))
-        self._client_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._sizer.Add(self._client_sizer, 0, wx.ALL |
-                        wx.EXPAND, self._corner)
-
-        if index is None:
-            panel_sizer.Add(self._sizer, 0, wx.TOP | wx.EXPAND, 5)
-        else:
-            panel_sizer.Insert(index, self._sizer, 0, wx.TOP | wx.EXPAND, 5)
+        skin_text = Skin["text"]["panel_section_label"]
+        font = skin_text["font"]
+        color = skin_text["color"]
+        self._label = font.create_image(name, color)
 
     def finalize(self):
 
-        corner = self._corner
-        h_title = self._title_box_height
-        w, h = self._sizer.GetSize()
-        self._width = w
-        self._title_rect = wx.Rect(0, 0, w, h_title)
-        h_side = h - h_title - corner
+        mouse_region_group = self._mouse_region_groups["expanded"]
 
-        dc = wx.MemoryDC()
+        for widget in self._client_sizer.get_widgets():
 
-        def create_title_part(part_id):
+            mouse_region = widget.get_mouse_region()
 
-            if PLATFORM_ID == "Linux":
-                bitmap_type = wx.EmptyBitmap
-            else:
-                bitmap_type = wx.EmptyBitmap if part_id == "box" else wx.EmptyBitmapRGBA
+            if mouse_region:
+                mouse_region_group.add(mouse_region)
 
-            bitmap = bitmap_type(w, h_title)
-            title_part = self._gfx["title_%s" % part_id]
-            img = title_part["center"]
-            bitmap_center_img = img.Scale(w - corner * 2, h_title)
-            bitmap_center = bitmap_center_img.ConvertToBitmap()
-            dc.SelectObject(bitmap)
-            dc.DrawBitmap(title_part["left"], 0, 0)
-            dc.DrawBitmap(bitmap_center, corner, 0)
-            dc.DrawBitmap(title_part["right"], w - corner, 0)
-            dc.SelectObject(wx.NullBitmap)
+        if self.is_hidden(check_ancestors=False):
 
-            if PLATFORM_ID == "Linux" and part_id == "hilite":
+            mouse_watcher = self.get_mouse_watcher()
 
-                img = bitmap.ConvertToImage()
-                alpha_map = []
+            for mouse_region in mouse_region_group:
+                mouse_watcher.remove_region(mouse_region)
 
-                if not img.HasAlpha():
-                    img.InitAlpha()
+    def get_id(self):
 
-                if not bitmap_center_img.HasAlpha():
-                    bitmap_center_img.InitAlpha()
+        return self._id
 
-                get_alpha(bitmap_center_img, alpha_map)
+    def get_hook_node(self):
 
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + corner, y, alpha)
+        return self._hook_node
 
-                left_img = title_part["left"].ConvertToImage()
-                alpha_map = []
+    def get_collapsed_header(self):
 
-                if not left_img.HasAlpha():
-                    left_img.InitAlpha()
+        return self._collapsed_header
 
-                get_alpha(left_img, alpha_map)
+    def set_pos(self, pos): pass
 
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x, y, alpha)
-
-                right_img = title_part["right"].ConvertToImage()
-                alpha_map = []
-
-                if not right_img.HasAlpha():
-                    right_img.InitAlpha()
-
-                get_alpha(right_img, alpha_map)
-                offset_x = w - corner
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + offset_x, y, alpha)
-
-                bitmap = img.ConvertToBitmap()
-
-            return bitmap
-
-        def create_collapsed():
-
-            if PLATFORM_ID == "Linux":
-                bitmap = wx.EmptyBitmap(w, h_title)
-            else:
-                bitmap = wx.EmptyBitmapRGBA(w, h_title)
-
-            border = self._gfx["border"]
-            img = border["hor"]
-            h_bottom = img.GetHeight()
-            img_hor = img.Scale(w - corner * 2, h_bottom)
-            bitmap_hor = img_hor.ConvertToBitmap()
-            dc.SelectObject(bitmap)
-            dc.DrawBitmap(border["topleft"], 0, 0)
-            dc.DrawBitmap(border["bottomleft"], 0, corner)
-            dc.DrawBitmap(bitmap_hor, corner, 0)
-            dc.DrawBitmap(bitmap_hor, corner, h_title - h_bottom)
-            dc.DrawBitmap(border["topright"], w - corner, 0)
-            dc.DrawBitmap(border["bottomright"], w - corner, corner)
-            dc.SelectObject(wx.NullBitmap)
-
-            if PLATFORM_ID == "Linux" and part_id == "hilite":
-
-                img = bitmap.ConvertToImage()
-                alpha_map = []
-
-                if not img.HasAlpha():
-                    img.InitAlpha()
-
-                if not img_hor.HasAlpha():
-                    img_hor.InitAlpha()
-
-                get_alpha(img_hor, alpha_map)
-                offset_y = h_title - h_bottom
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + corner, y, alpha)
-                        img.SetAlpha(x + corner, y + offset_y, alpha)
-
-                for y in xrange(h_bottom, offset_y):
-                    for x in xrange(corner, w - corner):
-                        img.SetAlpha(x, y, 0)
-
-                topleft_img = border["topleft"].ConvertToImage()
-                alpha_map = []
-
-                if not topleft_img.HasAlpha():
-                    topleft_img.InitAlpha()
-
-                get_alpha(topleft_img, alpha_map)
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x, y, alpha)
-
-                bottomleft_img = border["bottomleft"].ConvertToImage()
-                alpha_map = []
-
-                if not bottomleft_img.HasAlpha():
-                    bottomleft_img.InitAlpha()
-
-                get_alpha(bottomleft_img, alpha_map)
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x, y + corner, alpha)
-
-                topright_img = border["topright"].ConvertToImage()
-                alpha_map = []
-
-                if not topright_img.HasAlpha():
-                    topright_img.InitAlpha()
-
-                get_alpha(topright_img, alpha_map)
-                offset_x = w - corner
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + offset_x, y, alpha)
-
-                bottomright_img = border["bottomright"].ConvertToImage()
-                alpha_map = []
-
-                if not bottomright_img.HasAlpha():
-                    bottomright_img.InitAlpha()
-
-                get_alpha(bottomright_img, alpha_map)
-                offset_x = w - corner
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + offset_x, y + corner, alpha)
-
-                bitmap = img.ConvertToBitmap()
-
-            return bitmap
-
-        def create_bottom():
-
-            if PLATFORM_ID == "Linux":
-                bitmap = wx.EmptyBitmap(w, corner)
-            else:
-                bitmap = wx.EmptyBitmapRGBA(w, corner)
-
-            border = self._gfx["border"]
-            img = border["hor"]
-            h_bottom = img.GetHeight()
-            img_hor = img.Scale(w - corner * 2, h_bottom)
-            bitmap_hor = img_hor.ConvertToBitmap()
-            dc.SelectObject(bitmap)
-            dc.DrawBitmap(border["bottomleft"], 0, 0)
-            dc.DrawBitmap(bitmap_hor, corner, corner - h_bottom)
-            dc.DrawBitmap(border["bottomright"], w - corner, 0)
-            dc.SelectObject(wx.NullBitmap)
-
-            if PLATFORM_ID == "Linux" and part_id == "hilite":
-
-                img = bitmap.ConvertToImage()
-                alpha_map = []
-
-                if not img.HasAlpha():
-                    img.InitAlpha()
-
-                if not img_hor.HasAlpha():
-                    img_hor.InitAlpha()
-
-                get_alpha(img_hor, alpha_map)
-                offset_y = corner - h_bottom
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + corner, y + offset_y, alpha)
-
-                for y in xrange(offset_y):
-                    for x in xrange(corner, w - corner):
-                        img.SetAlpha(x, y, 0)
-
-                bottomleft_img = border["bottomleft"].ConvertToImage()
-                alpha_map = []
-
-                if not bottomleft_img.HasAlpha():
-                    bottomleft_img.InitAlpha()
-
-                get_alpha(bottomleft_img, alpha_map)
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x, y, alpha)
-
-                bottomright_img = border["bottomright"].ConvertToImage()
-                alpha_map = []
-
-                if not bottomright_img.HasAlpha():
-                    bottomright_img.InitAlpha()
-
-                get_alpha(bottomright_img, alpha_map)
-                offset_x = w - corner
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + offset_x, y, alpha)
-
-                bitmap = img.ConvertToBitmap()
-
-            return bitmap
-
-        def create_side():
-
-            img = self._gfx["border"]["vert"]
-
-            return img.Scale(self._side_width, h_side).ConvertToBitmap()
-
-        for part_id in ("box", "hilite"):
-            gfx_id = ("panel_section_title_%s" % part_id, w)
-            gfx_id += (self._title_hilite_color,) if part_id == "hilite" else ()
-            bitmap = Cache.create("bitmap", gfx_id, lambda: create_title_part(part_id))
-            value = bitmap if part_id == "box" else {self._title_hilite_color: bitmap}
-            self._bitmaps["title_%s" % part_id] = value
-
-        gfx_id = ("panel_section_collapsed", w)
-        bitmap = Cache.create("bitmap", gfx_id, create_collapsed)
-        self._bitmaps["collapsed"] = bitmap
-        gfx_id = ("panel_section_bottom", w)
-        bitmap = Cache.create("bitmap", gfx_id, create_bottom)
-        self._bitmaps["bottom"] = bitmap
-        gfx_id = ("panel_section_side", w, h_side)
-        self._bitmaps["side"] = Cache.create("bitmap", gfx_id, create_side)
-
-    def destroy(self):
-
-        self._groups = []
-        self._child_controls = []
-        self._text_items = []
-        self._sizer = None
-        self._client_sizer = None
-
-    def draw(self, dc, clipping_rect=None):
-
-        if not self._is_shown:
-            return
-
-        x, y = self._sizer.GetPosition()
-        w, h = self._sizer.GetSize()
-        rect = wx.Rect(x, y, w, h)
-
-        if clipping_rect and not clipping_rect.Intersects(rect):
-            return
-
-        corner = self._corner
-        h_title = self._title_box_height
-        w_side = self._side_width
-        h_side = h - h_title - corner
-        self._title_rect.x = x
-        self._title_rect.y = y
-
-        l = h_title // 2
-        a = h_title // 2 - 6
-
-        pen = wx.Pen(wx.Colour())
-        dc.SetPen(pen)
-
-        if not self._is_expanded:
-
-            dc.DrawBitmap(self._bitmaps["collapsed"], x, y)
-
-            if self._is_title_hilited:
-                bitmap = self._bitmaps["title_hilite"][self._title_hilite_color]
-                dc.DrawBitmap(bitmap, x, y)
-
-            dc.DrawLine(x + l, y + l, x + l + 7, y + l)
-            dc.DrawLine(x + l + 3, y + l - 3, x + l + 3, y + l + 4)
-            dc.DrawLabel(self._title, self._title_rect, wx.ALIGN_CENTER)
-
-            return
-
-        dc.DrawBitmap(self._bitmaps["title_box"], x, y)
-        dc.DrawBitmap(self._bitmaps["side"], x, y + h_title)
-        dc.DrawBitmap(self._bitmaps["side"], x + w - w_side, y + h_title)
-        dc.DrawBitmap(self._bitmaps["bottom"], x, y + h - corner)
-
-        if self._is_title_hilited:
-            bitmap = self._bitmaps["title_hilite"][self._title_hilite_color]
-            dc.DrawBitmap(bitmap, x, y)
-
-        dc.DrawLine(x + l, y + l, x + l + 7, y + l)
-        dc.DrawLabel(self._title, self._title_rect, wx.ALIGN_CENTER)
-
-        for item in self._text_items:
-            sizer = item.get_sizer()
-            x, y = sizer.GetPosition()
-            dc.DrawLabel(item.get(), wx.Rect(x, y, 0, 0))
-
-        for group in self._groups:
-            group.draw(dc, clipping_rect)
-
-    def get_panel(self):
-
-        return self._panel
-
-    def get_sizer(self):
-
-        return self._sizer
+    def set_sizer(self, sizer): pass
 
     def get_client_sizer(self):
 
         return self._client_sizer
 
-    def add_group(self, title=""):
+    def set_size(self, size, includes_borders=True, is_min=False):
 
-        group = PanelSectionGroup(self, title)
-        self._groups.append(group)
+        width, height = new_size = Widget.set_size(self, size, includes_borders, is_min)
+        self._bottom_node.set_z(-height)
+
+        return new_size
+
+    def add(self, *args, **kwargs):
+
+        self._client_sizer.add(*args, **kwargs)
+
+    def add_group(self, label=""):
+
+        group = WidgetGroup(self, label)
+        l, r, b, t = TextureAtlas["inner_borders"]["section"]
+        borders = (0, 0, 0, t)
+        self._client_sizer.add(group, expand=True, borders=borders)
 
         return group
 
-    def add_child_control(self, child_control):
-
-        self._child_controls.append(child_control)
-
-    def add_text(self, text, sizer, sizer_args=None, insertion_index=-1):
-
-        text_item = Text(text)
-        self._text_items.append(text_item)
-        text_sizer = text_item.get_sizer()
-        args = sizer_args if sizer_args else ()
-
-        if insertion_index > -1:
-            sizer.Insert(insertion_index, text_sizer, *args)
-        else:
-            sizer.Add(text_sizer, *args)
-
-    def title_has_mouse(self, mouse_pos):
-
-        self._title_rect.SetPosition(self._sizer.GetPosition())
-
-        return self._title_rect.Contains(mouse_pos)
-
-    def set_title_hilited(self, hilited=True):
-
-        self._is_title_hilited = hilited
-        self._panel.Refresh()
-
-    def set_title_hilite_color(self, color):
-
-        self._title_hilite_color = color
-
-        if color not in self._bitmaps["title_hilite"]:
-
-            def create_hilite():
-
-                r, g, b, a = color
-                title_hilite_bitmap = self._bitmaps["title_hilite"][(1., 1., 1., 1.)]
-                img = title_hilite_bitmap.ConvertToImage().AdjustChannels(r, g, b, a)
-
-                return img.ConvertToBitmap()
-
-            gfx_id = ("panel_section_title_hilite", self._width, color)
-            self._bitmaps["title_hilite"][color] = Cache.create("bitmap", gfx_id, create_hilite)
-
-    def handle_left_down(self, mouse_pos):
-
-        if not self._is_shown:
-            return False
-
-        self._title_rect.SetPosition(self._sizer.GetPosition())
-
-        if self._title_rect.Contains(mouse_pos):
-            self.expand(not self._is_expanded)
-            return True
-
-        return False
-
     def expand(self, expand=True):
 
-        if not self._is_shown or self._is_expanded == expand:
+        if self._is_expanded == expand:
             return
 
-        self._sizer.Show(1, expand)
         self._is_expanded = expand
+        self.set_contents_hidden(not expand)
 
-        panel = self._panel
-        panel.update_parent()
-        panel.GetSizer().Layout()
+        if self.is_hidden(check_ancestors=False):
+            return
+
+        if self.get_parent().is_expanded():
+
+            mouse_watcher = self.get_mouse_watcher()
+            mouse_region_groups = self._mouse_region_groups
+
+            for region in mouse_region_groups["collapsed" if expand else "expanded"]:
+                mouse_watcher.remove_region(region)
+
+            if expand:
+
+                for region in mouse_region_groups["expanded"]:
+
+                    name = region.get_name()
+                    widget_id = int(name.replace("widget_", ""))
+                    widget = Widget.registry[widget_id]
+
+                    if widget is self._header or not widget.is_hidden():
+                        mouse_watcher.add_region(region)
+
+            else:
+
+                for region in mouse_region_groups["collapsed"]:
+                    mouse_watcher.add_region(region)
+
+        if expand:
+            self._hook_node.reparent_to(self._bottom_node)
+        else:
+            self._hook_node.reparent_to(self._collapsed_header.get_hook_node())
+
+        self.get_parent().handle_section_change(self, "expand" if expand else "collapse")
 
     def is_expanded(self):
 
         return self._is_expanded
 
-    def check_collapsed_state(self):
+    def hide(self):
 
-        if not self._is_expanded:
-            self._sizer.Hide(1)
+        if not Widget.hide(self, recurse=False):
+            return False
 
-        if not self._is_shown:
-            panel = self._panel
-            sizer = panel.get_section_sizer()
-            sizer.Hide(self._sizer)
+        if self.get_parent().is_expanded():
 
-    def show(self, show=True):
+            mouse_watcher = self.get_mouse_watcher()
+            mouse_region_groups = self._mouse_region_groups
 
-        if self._is_shown == show:
-            return
+            for region in mouse_region_groups["expanded" if self._is_expanded else "collapsed"]:
+                mouse_watcher.remove_region(region)
 
-        self._is_shown = show
+        self._hook_node.reparent_to(self.get_node().get_parent())
 
-        panel = self._panel
+        self.get_parent().handle_section_change(self, "hide")
 
-        if not panel.is_expanded():
-            return
+        return True
 
-        sizer = panel.get_section_sizer()
-        sizer.Show(self._sizer, show)
+    def show(self):
 
-        if show and not self._is_expanded:
-            self._sizer.Hide(1)
+        if not Widget.show(self, recurse=False):
+            return False
 
-    def is_shown(self):
+        if self.get_parent().is_expanded():
 
-        return self._is_shown
+            mouse_watcher = self.get_mouse_watcher()
+            mouse_region_groups = self._mouse_region_groups
 
-    def enable(self, enable=True):
+            if self._is_expanded:
 
-        for ctrl in self._child_controls:
-            ctrl.enable(enable)
+                for region in mouse_region_groups["expanded"]:
 
-        for group in self._groups:
-            group.enable(enable)
+                    name = region.get_name()
+                    widget_id = int(name.replace("widget_", ""))
+                    widget = Widget.registry[widget_id]
 
-    def disable(self, show=True):
+                    if widget is self._header or not widget.is_hidden():
+                        mouse_watcher.add_region(region)
 
-        for ctrl in self._child_controls:
-            ctrl.disable(show)
+            else:
 
-        for group in self._groups:
-            group.disable(show)
+                for region in mouse_region_groups["collapsed"]:
+                    mouse_watcher.add_region(region)
+
+        if self._is_expanded:
+            self._hook_node.reparent_to(self._bottom_node)
+        else:
+            self._hook_node.reparent_to(self._collapsed_header.get_hook_node())
+
+        self.get_parent().handle_section_change(self, "show")
+
+        return True
+
+    def get_image(self, state=None, composed=True):
+
+        if self._is_expanded:
+
+            if self._current_state not in self._images:
+                return PNMImage(0, 0, 4)
+
+            image = PNMImage(self._images[self._current_state])
+
+            if composed:
+                image = self._sizer.get_composed_image(image)
+
+        else:
+
+            image = PNMImage(self._collapsed_header.get_image())
+
+        if composed:
+            width, height = self._collapsed_header.get_size()
+            w = self._label.get_x_size()
+            h = self._label.get_y_size()
+            x = (width - w) // 2
+            y = (height - h) // 2 + 1
+            image.blend_sub_image(self._label, x, y, 0, 0, w, h)
+
+        return image
+
+    def get_mouse_region_groups(self):
+
+        return self._mouse_region_groups

@@ -20,25 +20,26 @@ class PickingCamera(BaseObject):
 
     def setup(self):
 
-        core = Mgr.get("core")
+        base = Mgr.get("base")
         self._tex = Texture("uv_picking_texture")
         props = FrameBufferProperties()
         props.set_rgba_bits(16, 16, 16, 16)
         props.set_depth_bits(16)
-        self._buffer = core.win.make_texture_buffer("uv_picking_buffer",
-                                                    1, 1,
-                                                    self._tex,
-                                                    to_ram=True,
-                                                    fbp=props)
+        self._buffer = bfr = base.win.make_texture_buffer("uv_picking_buffer",
+                                                          1, 1,
+                                                          self._tex,
+                                                          to_ram=True,
+                                                          fbp=props)
 
-        self._buffer.set_clear_color(VBase4())
-        self._buffer.set_sort(-100)
-        self._np = core.make_camera(self._buffer)
+        bfr.set_clear_color(VBase4())
+        bfr.set_clear_color_active(True)
+        bfr.set_sort(-100)
+        self._np = base.make_camera(bfr)
         self._np.reparent_to(self.cam)
         node = self._np.node()
-        lens = OrthographicLens()
+        self._lens = lens = OrthographicLens()
         lens.set_near(-10.)
-        lens.set_film_size(.00375)
+        lens.set_film_size(.004)
         node.set_lens(lens)
         node.set_camera_mask(self._mask)
 
@@ -56,15 +57,23 @@ class PickingCamera(BaseObject):
 
         return "uv_picking_camera_ok"
 
+    def __update_frustum(self):
+
+        w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
+        self._lens.set_film_size(.004 * 512. / min(w, h))
+
     def set_active(self, is_active=True):
 
         if self._np.node().is_active() == is_active:
             return
 
+        self._buffer.set_active(is_active)
         self._np.node().set_active(is_active)
 
         if is_active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_uv_pixel_under_mouse", sort=0)
+            Mgr.add_app_updater("viewport", self.__update_frustum, interface_id="uv")
+            self.__update_frustum()
         else:
             Mgr.remove_task("get_uv_pixel_under_mouse")
             self._pixel_color = VBase4()
@@ -105,13 +114,13 @@ class AuxiliaryPickingCamera(BaseObject):
         self._pixel_color = VBase4()
         UVMgr.expose("aux_pixel_under_mouse", lambda: VBase4(self._pixel_color))
 
-        core = Mgr.get("core")
+        base = Mgr.get("base")
         self._tex = Texture("aux_picking_texture")
         self._tex_peeker = None
         props = FrameBufferProperties()
         props.set_rgba_bits(16, 16, 16, 16)
         props.set_depth_bits(16)
-        self._buffer = bfr = core.win.make_texture_buffer("aux_picking_buffer",
+        self._buffer = bfr = base.win.make_texture_buffer("aux_picking_buffer",
                                                           1, 1,
                                                           self._tex,
                                                           to_ram=True,
@@ -120,14 +129,12 @@ class AuxiliaryPickingCamera(BaseObject):
         bfr.set_clear_color(VBase4())
         bfr.set_clear_color_active(True)
         bfr.set_sort(-100)
-        self._np = core.make_camera(bfr)
+        self._np = base.make_camera(bfr)
         node = self._np.node()
-        lens = OrthographicLens()
+        self._lens = lens = OrthographicLens()
         lens.set_film_size(.75)
         lens.set_near(0.)
-        bounds = lens.make_bounds()
         node.set_lens(lens)
-        node.set_cull_bounds(bounds)
         UVMgr.expose("aux_picking_cam", lambda: self)
 
         state_np = NodePath("state_np")
@@ -148,6 +155,11 @@ class AuxiliaryPickingCamera(BaseObject):
         self._np.reparent_to(Mgr.get("aux_picking_root"))
 
         return True
+
+    def __update_frustum(self):
+
+        w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
+        self._lens.set_film_size(.004 * 512. / min(w, h))
 
     def get_origin(self):
 
@@ -177,17 +189,21 @@ class AuxiliaryPickingCamera(BaseObject):
         if self._np.node().is_active() == is_active:
             return
 
+        self._buffer.set_active(is_active)
         self._np.node().set_active(is_active)
 
         if is_active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_aux_pixel_under_mouse", sort=0)
+            Mgr.add_app_updater("viewport", self.__update_frustum, interface_id="uv")
+            self.__update_frustum()
         else:
             Mgr.remove_task("get_aux_pixel_under_mouse")
             self._pixel_color = VBase4()
 
     def __get_pixel_under_mouse(self, task):
 
-        if not self.mouse_watcher.has_mouse():
+        if not self.mouse_watcher.is_mouse_open():
+            self._pixel_color = VBase4()
             return task.cont
 
         cam = self.cam
@@ -218,39 +234,39 @@ class UVNavigationBase(BaseObject):
     def setup(self):
 
         add_state = Mgr.add_state
-        add_state("panning", -100, interface_id="uv_window")
-        add_state("zooming", -100, interface_id="uv_window")
+        add_state("panning", -100, interface_id="uv")
+        add_state("zooming", -100, interface_id="uv")
 
         def start_panning():
 
-            Mgr.enter_state("panning", "uv_window")
+            Mgr.enter_state("panning", "uv")
             self.__init_pan()
 
         def start_zooming():
 
-            Mgr.enter_state("zooming", "uv_window")
+            Mgr.enter_state("zooming", "uv")
             self.__init_zoom()
 
         def end_cam_transform():
 
-            Mgr.enter_state("uv_edit_mode", "uv_window")
+            Mgr.enter_state("uv_edit_mode", "uv")
             Mgr.remove_task("transform_uv_cam")
 
         bind = Mgr.bind_state
         bind("uv_edit_mode", "edit uvs -> pan",
-             "mouse3", start_panning, "uv_window")
+             "mouse3", start_panning, "uv")
         bind("panning", "pan -> edit uvs", "mouse3-up",
-             end_cam_transform, "uv_window")
-        bind("panning", "pan -> zoom", "mouse1", start_zooming, "uv_window")
-        bind("zooming", "zoom -> pan", "mouse1-up", start_panning, "uv_window")
+             end_cam_transform, "uv")
+        bind("panning", "pan -> zoom", "mouse1", start_zooming, "uv")
+        bind("zooming", "zoom -> pan", "mouse1-up", start_panning, "uv")
         bind("zooming", "zoom -> edit uvs", "mouse3-up",
-             end_cam_transform, "uv_window")
+             end_cam_transform, "uv")
         bind("uv_edit_mode", "zoom in", "wheel_up",
-             self.__zoom_step_in, "uv_window")
+             self.__zoom_step_in, "uv")
         bind("uv_edit_mode", "zoom out", "wheel_down",
-             self.__zoom_step_out, "uv_window")
+             self.__zoom_step_out, "uv")
         bind("uv_edit_mode", "reset view", "home",
-             self._reset_view, "uv_window")
+             self._reset_view, "uv")
 
     def _reset_view(self):
 
@@ -286,7 +302,7 @@ class UVNavigationBase(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return False
 
-        pos.x, unused, pos.z = UVMgr.get("picked_point")
+        pos.x, _, pos.z = UVMgr.get("picked_point")
 
         return True
 
@@ -354,22 +370,22 @@ class UVTemplateSaver(BaseObject):
 
         def update_remotely():
 
-            Mgr.update_interface_remotely("uv_window", "uv_template", "size", self._size)
+            Mgr.update_interface_remotely("uv", "uv_template", "size", self._size)
             r, g, b, a = self._edge_color
-            Mgr.update_interface_remotely("uv_window", "uv_template", "edge_rgb", (r, g, b))
-            Mgr.update_interface_remotely("uv_window", "uv_template", "edge_alpha", a)
+            Mgr.update_interface_remotely("uv", "uv_template", "edge_rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv", "uv_template", "edge_alpha", a)
             r, g, b, a = self._poly_color
-            Mgr.update_interface_remotely("uv_window", "uv_template", "poly_rgb", (r, g, b))
-            Mgr.update_interface_remotely("uv_window", "uv_template", "poly_alpha", a)
+            Mgr.update_interface_remotely("uv", "uv_template", "poly_rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv", "uv_template", "poly_alpha", a)
             r, g, b, a = self._seam_color
-            Mgr.update_interface_remotely("uv_window", "uv_template", "seam_rgb", (r, g, b))
-            Mgr.update_interface_remotely("uv_window", "uv_template", "seam_alpha", a)
+            Mgr.update_interface_remotely("uv", "uv_template", "seam_rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv", "uv_template", "seam_alpha", a)
 
         UVMgr.accept("remotely_update_template_props", update_remotely)
 
     def add_interface_updaters(self):
 
-        Mgr.add_interface_updater("uv_window", "uv_template", self.__update_uv_template)
+        Mgr.add_app_updater("uv_template", self.__update_uv_template, interface_id="uv")
 
     def __update_uv_template(self, value_id, value=None):
 
@@ -394,26 +410,25 @@ class UVTemplateSaver(BaseObject):
             self.__save_uv_template(value)
 
         if value_id != "save":
-            Mgr.update_interface_remotely("uv_window", "uv_template", value_id, value)
+            Mgr.update_interface_remotely("uv", "uv_template", value_id, value)
 
     def __save_uv_template(self, filename):
 
         UVMgr.do("clear_unselected_poly_state")
 
         res = self._size
-        core = Mgr.get("core")
-        tex = Texture("uv_template")
+        base = Mgr.get("base")
         props = FrameBufferProperties()
         props.set_rgba_bits(32, 32, 32, 32)
         props.set_depth_bits(32)
-        tex_buffer = core.win.make_texture_buffer("uv_template_buffer",
+        tex_buffer = base.win.make_texture_buffer("uv_template_buffer",
                                                   res, res,
-                                                  tex,
+                                                  Texture("uv_template"),
                                                   to_ram=True,
                                                   fbp=props)
 
         tex_buffer.set_clear_color(VBase4())
-        cam = core.make_camera(tex_buffer)
+        cam = base.make_camera(tex_buffer)
         cam.reparent_to(self.uv_space)
         cam.set_pos(.5, -10., .5)
         node = cam.node()
@@ -444,12 +459,12 @@ class UVTemplateSaver(BaseObject):
         node.set_tag_state("seam", seam_state_np.get_state())
 
         Mgr.render_frame()
-        tex.write(filename)
+        tex_buffer.save_screenshot(Filename.from_os_specific(filename))
         cam.remove_node()
-        core.graphicsEngine.remove_window(tex_buffer)
+        base.graphicsEngine.remove_window(tex_buffer)
 
         UVMgr.do("reset_unselected_poly_state")
 
 
-MainObjects.add_class(PickingCamera, "uv_window")
-MainObjects.add_class(AuxiliaryPickingCamera, "uv_window")
+MainObjects.add_class(PickingCamera, "uv")
+MainObjects.add_class(AuxiliaryPickingCamera, "uv")

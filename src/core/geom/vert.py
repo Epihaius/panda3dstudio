@@ -176,11 +176,15 @@ class Vertex(BaseObject):
 
     def set_color(self, color):
 
-        self._data["color"] = color
+        if color == (1., 1., 1., 1.):
+            if "color" in self._data:
+                del self._data["color"]
+        else:
+            self._data["color"] = color
 
     def get_color(self):
 
-        return self._data.get("color")
+        return self._data.get("color", (1., 1., 1., 1.))
 
     def set_normal(self, normal):
 

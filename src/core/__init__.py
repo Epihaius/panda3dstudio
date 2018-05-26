@@ -2,41 +2,18 @@ from .base import *
 from .base.base import _PendingTask
 from . import (cam, nav, view, history, scene, import_, export, create, select, transform,
                transf_center, coord_sys, geom, hierarchy, helpers, texmap, material)
-from direct.showbase.ShowBase import ShowBase, DirectObject
-
-loadPrcFileData("", """
-                    sync-video #f
-                    model-cache-dir
-                    geom-cache-size 0
-                    window-type none
-                    depth-bits 24
-                    notify-output p3ds.log
-##                    show-buffers 1
-##                    gl-debug true
-##                    notify-level-glgsg debug
-
-                    """
-                )
 
 
-class Core(ShowBase):
+class Core(object):
 
-    def __init__(self, viewport_data, eventloop_handler, app_mgr, verbose=False):
-
-        ShowBase.__init__(self)
+    def __init__(self, app_mgr, verbose=False):
 
         self._app_mgr = app_mgr
         self._verbose = verbose
         KeyEventListener.init_event_ids()
-        self._listeners = {"": KeyEventListener()}
+        self._listeners = {"main": KeyEventListener()}
         self._gizmo_root = NodePath("gizmo_root")
-        self._screenshot = None
-        self._hidden_widgets = None
-        self._progress_bar = None
         self._long_process_id = ""
-
-        size, handle, callback = viewport_data
-        self.__create_window(size, handle)
 
         def handle_pending_tasks(task):
 
@@ -45,116 +22,64 @@ class Core(ShowBase):
 
             return task.cont
 
-        def handle_event_loop(task):
-
-            eventloop_handler()
-
-            return task.cont
-
-        self.task_mgr.add(handle_pending_tasks, "handle_pending_tasks", sort=48)
-        self.task_mgr.add(handle_event_loop, "process_event_loop", sort=55)
-
-        def handle_window_event(*args):
-
-            window = args[0]
-            has_focus = window.get_properties().get_foreground()
-            viewport_name = window.get_name()
-            callback(viewport_name, has_focus)
-
-        self.accept("window-event", handle_window_event)
+        base = app_mgr.get_base()
+        base.task_mgr.add(handle_pending_tasks, "handle_pending_tasks", sort=48)
 
     def setup(self):
 
-        self._listeners[""].set_mouse_watcher(self.mouseWatcherNode)
+        base = self._app_mgr.get_base()
+        self._listeners["main"].set_mouse_watcher(base.mouseWatcherNode)
 
-        Mgr.init(self, self._app_mgr, self._gizmo_root,
-                 PickingColorIDManager, self._verbose)
+        Mgr.init(self, self._app_mgr, self._gizmo_root, PickingColorIDManager, self._verbose)
         _PendingTask.init(self.do_gradually)
 
+        GlobalData.set_default("active_interface", "main")
         GlobalData.set_default("open_file", "")
-        GlobalData.set_default("active_viewport", "")
         GlobalData.set_default("shift_down", False)
         GlobalData.set_default("ctrl_down", False)
         GlobalData.set_default("alt_down", False)
         GlobalData.set_default("long_process_running", False)
         GlobalData.set_default("progress_steps", 0)
 
-        enter_processing_mode = lambda *args: Mgr.update_app("status", "processing")
-        Mgr.add_state("processing", -200, enter_processing_mode)
-        enter_processing_no_cancel_mode = lambda *args: Mgr.update_app("status", "processing_no_cancel")
-        Mgr.add_state("processing_no_cancel", -200, enter_processing_no_cancel_mode)
+        def enter_suppressed_state(*args):
 
-        def cancel_long_process(info=""):
+            Mgr.do("disable_object_name_checking")
+            Mgr.do("enable_view_gizmo", False)
+            self.__suppress_events()
+            Mgr.notify("suppressed_state_enter")
 
-            self.__end_long_process(cancellable=True)
-            self.remove_screenshot()
-            PendingTasks.clear()
-            self.task_mgr.remove("progress")
-            logging.debug('****** Long-running process cancelled.')
+        def exit_suppressed_state(*args):
 
-        Mgr.add_notification_handler("long_process_cancelled", "core", cancel_long_process)
-        Mgr.bind_state("processing", "cancel process", "escape",
-                       lambda: Mgr.notify("long_process_cancelled", self._long_process_id))
+            def task(t):
 
-        status_data = GlobalData["status_data"]
-        mode_text = "Processing..."
-        info_text = "<Escape> to cancel"
-        status_data["processing"] = {"mode": mode_text, "info": info_text}
-        info_text = "Please wait..."
-        status_data["processing_no_cancel"] = {"mode": mode_text, "info": info_text}
+                if not Mgr.get_state_id() == "suppressed":
+                    Mgr.do("enable_object_name_checking")
+                    Mgr.do("enable_view_gizmo")
+                    self.__suppress_events(False)
+                    Mgr.notify("suppressed_state_exit")
 
+            Mgr.do_next_frame(task, "unsuppress_mouse_events")
+
+        Mgr.add_state("suppressed", -1000, enter_suppressed_state, exit_suppressed_state)
+
+        Mgr.add_notification_handler("long_process_cancelled", "core", self.__cancel_long_process)
+        notifier = lambda: Mgr.notify("long_process_cancelled", self._long_process_id)
+        Mgr.add_app_updater("long_process_cancellation", notifier)
+        Mgr.add_app_updater("screenshot_removal", self.__schedule_screenshot_removal)
         Mgr.add_app_updater("uv_edit_init", self.__init_uv_editing)
 
     def __init_uv_editing(self):
 
         from . import uv_edit
 
-        MainObjects.init("uv_window")
-        MainObjects.setup("uv_window")
+        MainObjects.init("uv")
+        MainObjects.setup("uv")
 
-    def show_screenshot(self):
+    def __schedule_screenshot_removal(self):
 
-        # A screenshot is generated and rendered to replace the rendering of the scene.
-        # This can be used to hide temporary changes in object geometry during long processes.
-
-        if self._screenshot:
-            return
-
-        region = self._fps_meter.get_display_region()
-        region.set_active(False)
-        self.graphicsEngine.render_frame()
-        tex = self.win.get_screenshot()
-        region.set_active(True)
-        cm = CardMaker("fullscreen_quad")
-        cm.set_frame_fullscreen_quad()
-        self._screenshot = self.render2d.attach_new_node(cm.generate())
-        self._screenshot.set_texture(tex)
-        widgets = self.aspect2d.get_children()
-
-        for widget in NodePathCollection(widgets):
-            if widget.is_hidden() or (self._progress_bar and widget == self._progress_bar.get_root()):
-                widgets.remove_path(widget)
-
-        widgets.hide()
-        self._hidden_widgets = widgets
-
-        self.schedule_screenshot_removal()
-
-    def schedule_screenshot_removal(self):
-
-        task = self.remove_screenshot
+        task = lambda: Mgr.update_remotely("screenshot", "remove")
         task_id = "remove_screenshot"
         PendingTasks.add(task, task_id, "ui", sort=100)
-
-    def remove_screenshot(self):
-
-        if not self._screenshot:
-            return
-
-        self._screenshot.remove_node()
-        self._screenshot = None
-        self._hidden_widgets.show()
-        self._hidden_widgets = None
 
     def do_gradually(self, process, process_id="", descr="", cancellable=False):
 
@@ -168,50 +93,70 @@ class Core(ShowBase):
         PendingTasks.suspend()
         GlobalData["long_process_running"] = True
         self._long_process_id = process_id
-        self._progress_bar = ProgressBar(self.task_mgr, Point3(0., 0., -.95), (1.5, .06), descr)
+        task_mgr = self._app_mgr.get_base().task_mgr
+        Mgr.update_remotely("progress", "start", descr, cancellable)
 
         def progress(task):
 
             progress_steps = GlobalData["progress_steps"]
 
             if progress_steps:
-                self._progress_bar.set_rate(1. / progress_steps)
-                logging.debug('Long-running process to be handled over %d frames.', progress_steps)
+                Mgr.update_remotely("progress", "set_rate", 1. / progress_steps)
+                logging.debug('Long-running process to be handled over {:d} frames.'.format(progress_steps))
                 GlobalData["progress_steps"] = 0
 
             if process.next():
-                self._progress_bar.advance()
+                Mgr.update_remotely("progress", "advance")
                 return task.cont
 
-            self.__end_long_process(cancellable)
-            logging.debug('****** Long-running process finished: %s.', process_id)
+            self.__end_long_process()
+            logging.debug('****** Long-running process finished: {}.'.format(process_id))
 
-        self.task_mgr.add(progress, "progress")
-        Mgr.enter_state("processing" if cancellable else "processing_no_cancel")
-        Mgr.do("enable_view_gizmo", False)
-        Mgr.do("enable_view_tiles", False)
-        logging.debug('****** Long-running process started: %s.', process_id)
+        task_mgr.add(progress, "progress")
+        logging.debug('****** Long-running process started: {}.'.format(process_id))
 
         return True
 
-    def __end_long_process(self, cancellable):
+    def __end_long_process(self):
 
-        self._progress_bar.destroy()
-        self._progress_bar = None
+        Mgr.update_remotely("progress", "end")
         GlobalData["long_process_running"] = False
         self._long_process_id = ""
-        Mgr.exit_state("processing" if cancellable else "processing_no_cancel")
         PendingTasks.suspend(False)
-        Mgr.do("enable_view_gizmo")
-        Mgr.do("enable_view_tiles")
 
-    def suppress_mouse_events(self, suppress=True):
+    def __cancel_long_process(self, info=""):
 
-        self._listeners[""].suppress_mouse_events(suppress)
+        Mgr.update_remotely("screenshot", "remove")
+        GlobalData["long_process_running"] = False
+        self._long_process_id = ""
+        PendingTasks.suspend(False)
+        PendingTasks.clear()
+        Mgr.remove_task("progress")
+        logging.debug('****** Long-running process cancelled.')
 
-    def suppress_key_events(self, suppress=True, keys=None):
+    def suppress_mouse_events(self, suppress=True, interface_id=None):
 
-        self._listeners[""].suppress_key_events(suppress, keys)
+        if interface_id is None:
+            for listener in self._listeners.itervalues():
+                listener.suppress_mouse_events(suppress)
+        else:
+            self._listeners[interface_id].suppress_mouse_events(suppress)
+
+    def suppress_key_events(self, suppress=True, keys=None, interface_id=None):
+
+        if interface_id is None:
+            for listener in self._listeners.itervalues():
+                listener.suppress_key_events(suppress, keys)
+        else:
+            self._listeners[interface_id].suppress_key_events(suppress, keys)
+
+    def __suppress_events(self, suppress=True):
+
+        for listener in self._listeners.itervalues():
+            listener.suppress_mouse_events(suppress)
+
+        for listener in self._listeners.itervalues():
+            listener.suppress_key_events(suppress)
 
     def add_listener(self, interface_id, key_prefix="", mouse_watcher=None):
 
@@ -227,108 +172,50 @@ class Core(ShowBase):
             listener.destroy()
             del self._listeners[interface_id]
 
-    def get_listener(self, interface_id=""):
+    def get_listener(self, interface_id="main"):
 
         return self._listeners[interface_id]
-
-    def get_key_event_ids(self, interface_id=""):
-
-        return self._listeners[interface_id].get_key_event_ids()
-
-    def get_key_handlers(self, interface_id=""):
-
-        return self._listeners[interface_id].get_key_handlers()
-
-    @staticmethod
-    def get_max_color_value():
-
-        return 1.
-
-    def __create_window(self, size, parent_handle):
-
-        wp = WindowProperties.get_default()
-        wp.set_foreground(False)
-        wp.set_undecorated(True)
-        wp.set_origin(0, 0)
-        wp.set_size(*size)
-
-        try:
-            wp.set_parent_window(parent_handle)
-        except OverflowError:
-            wp.set_parent_window(parent_handle & 0xffffffff)
-
-        self.windowType = "onscreen"
-        self.open_default_window(props=wp, name="")
-
-        self.mouseWatcherNode.set_modifier_buttons(ModifierButtons())
-        self.buttonThrowers[0].node().set_modifier_buttons(ModifierButtons())
-
-        # create a custom frame rate meter, so it can be placed at the bottom
-        # of the viewport
-        self._fps_meter = meter = FrameRateMeter("fps_meter")
-        meter.setup_window(self.win)
-        meter_np = NodePath(meter)
-        meter_np.set_pos(0., 0., -1.95)
 
 
 class KeyEventListener(object):
 
-    _event_ids = {
-                  "Esc": "escape",
-                  "PrtScr": "print_screen",
-                  "ScrlLk": "scroll_lock",
-                  "NumLk": "num_lock",
-                  "CapsLk": "caps_lock",
-                  "BkSpace": "backspace",
-                  "Del": "delete",
-                  "Enter": "enter",
-                  "Tab": "tab",
-                  "Ins": "insert",
-                  "Home": "home",
-                  "End": "end",
-                  "PgUp": "page_up",
-                  "PgDn": "page_down",
-                  "Left": "arrow_left",
-                  "Right": "arrow_right",
-                  "Up": "arrow_up",
-                  "Down": "arrow_down",
-                  "Shift": "shift",
-                  "Ctrl": "control",
-                  "Alt": "alt",
-                  " ": "space",
-    }
+    _event_ids = [
+        "escape", "print_screen", "scroll_lock", "num_lock", "caps_lock", "backspace", "delete",
+        "enter", "tab", "insert", "space", "arrow_left", "arrow_right", "arrow_up", "arrow_down",
+        "home", "end", "page_up", "page_down", "shift", "control", "alt"
+    ]
 
     @classmethod
     def init_event_ids(cls):
 
         for key_code in range(0x41, 0x5b):
             char = chr(key_code)
-            cls._event_ids[char] = char.lower()
+            cls._event_ids.append(char.lower())
 
         for key_code in range(0x21, 0x41) + range(0x5b, 0x61) + range(0x7b, 0x80):
-            cls._event_ids["%d" % key_code] = chr(key_code)
+            cls._event_ids.append(chr(key_code))
 
         for i in range(12):
-            cls._event_ids["F%d" % (i + 1)] = "f%d" % (i + 1)
+            cls._event_ids.append("f{:d}".format(i + 1))
 
-    def __init__(self, interface_id="", prefix="", mouse_watcher=None):
+    def __init__(self, interface_id="main", prefix="", mouse_watcher=None):
 
         self._interface_id = interface_id
         self._prefix = prefix
         self._mouse_watcher = mouse_watcher
 
-        self._listener = listener = DirectObject.DirectObject()
+        self._listener = listener = DirectObject()
         self._evt_handlers = {}
         self._mouse_evt_handlers = {}
 
         mouse_btns = ("mouse1", "mouse2", "mouse3", "wheel_up", "wheel_down")
 
-        for key in self._event_ids.itervalues():
+        for key in self._event_ids:
             listener.accept(prefix + key, self.__get_key_down_handler(key))
             listener.accept(prefix + key + "-up", self.__get_key_up_handler(key))
 
         for key in mouse_btns:
-            handler = self.__get_key_down_handler(key)
+            handler = self.__get_key_down_handler(key, is_mouse_btn=True)
             listener.accept(prefix + key, handler)
             self._mouse_evt_handlers[prefix + key] = handler
 
@@ -337,9 +224,26 @@ class KeyEventListener(object):
             listener.accept(prefix + key + "-up", handler)
             self._mouse_evt_handlers[prefix + key + "-up"] = handler
 
-    def __get_key_down_handler(self, key):
+        handler = lambda: self.__handle_event(self._prefix + "focus_loss")
+        listener.accept(prefix + "focus_loss", handler)
+
+    def __get_key_down_handler(self, key, is_mouse_btn=False):
 
         def handle_key_down():
+
+            if is_mouse_btn:
+
+                index = 1 if GlobalData["viewport"][1] == self._interface_id else 2
+
+                if GlobalData["viewport"]["active"] != index:
+                    Mgr.update_app("active_viewport", index)
+
+            else:
+
+                index = GlobalData["viewport"]["active"]
+
+                if GlobalData["viewport"][index] != self._interface_id:
+                    return
 
             mod_key_down = self._mouse_watcher.is_button_down
 
@@ -353,7 +257,7 @@ class KeyEventListener(object):
                 GlobalData["alt_down"] = True
 
             if not self.__handle_event(self._prefix + key):
-                Mgr.remotely_handle_key_down(key, self._interface_id)
+                Mgr.handle_key_down_remotely(key, self._interface_id)
 
         return handle_key_down
 
@@ -361,8 +265,7 @@ class KeyEventListener(object):
 
         def handle_key_up():
 
-            if GlobalData["active_viewport"] != self._interface_id:
-                return
+            index = GlobalData["viewport"]["active"]
 
             if key == "shift":
                 GlobalData["shift_down"] = False
@@ -371,8 +274,11 @@ class KeyEventListener(object):
             elif key == "alt":
                 GlobalData["alt_down"] = False
 
+            if GlobalData["viewport"][index] != self._interface_id:
+                return
+
             if not self.__handle_event(self._prefix + key + "-up"):
-                Mgr.remotely_handle_key_up(key, self._interface_id)
+                Mgr.handle_key_up_remotely(key, self._interface_id)
 
         return handle_key_up
 
@@ -380,30 +286,17 @@ class KeyEventListener(object):
 
         self._mouse_watcher = mouse_watcher
 
-    def get_key_event_ids(self):
-
-        return self._event_ids
-
-    def get_key_handlers(self):
-
-        prefix = self._prefix
-        key_handlers = {
-            "down": lambda event_id: self.__handle_event(prefix + event_id),
-            "up": lambda event_id: self.__handle_event(prefix + event_id + "-up")
-        }
-
-        return key_handlers
-
     def __handle_event(self, event_id, *args):
 
         if event_id[-3:] == "-up":
             mod_code = 0
-        elif event_id in ("shift", "control", "alt"):
+        elif event_id.replace(self._prefix, "") in ("shift", "control", "alt"):
             mod_code = 0
         else:
-            mod_shift = Mgr.get("mod_shift")
-            mod_ctrl = Mgr.get("mod_ctrl")
-            mod_alt = Mgr.get("mod_alt")
+            mod_key_codes = GlobalData["mod_key_codes"]
+            mod_shift = mod_key_codes["shift"]
+            mod_ctrl = mod_key_codes["ctrl"]
+            mod_alt = mod_key_codes["alt"]
             mod_code = mod_shift if GlobalData["shift_down"] else 0
             mod_code |= mod_ctrl if GlobalData["ctrl_down"] else 0
             mod_code |= mod_alt if GlobalData["alt_down"] else 0
@@ -491,19 +384,19 @@ class KeyEventListener(object):
         listener = self._listener
 
         if keys is None:
-            keys = self._event_ids.itervalues()
+            keys = self._event_ids
 
         if suppress:
             for key in keys:
                 listener.ignore(prefix + key)
-                if key not in ("shift", "control", "alt"):
-                    listener.ignore(prefix + key + "-up")
         else:
             for key in keys:
                 listener.accept(prefix + key, self.__get_key_down_handler(key))
-                listener.accept(prefix + key + "-up", self.__get_key_up_handler(key))
 
     def destroy(self):
 
-        self._listener.ignoreAll()  # ignore_all()
-        del self._listener
+        self._mouse_watcher = None
+        self._listener.ignore_all()
+        self._listener = None
+        self._evt_handlers = {}
+        self._mouse_evt_handlers = {}

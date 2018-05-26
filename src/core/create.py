@@ -28,7 +28,6 @@ class CreationManager(BaseObject):
         def enter_state(prev_state_id, is_active):
 
             Mgr.do("enable_view_gizmo", False)
-            Mgr.do("enable_view_tiles", False)
 
         add_state("checking_creation_start", -11, enter_state)
 
@@ -44,11 +43,11 @@ class CreationManager(BaseObject):
              lambda: Mgr.enter_state("navigation_mode"))
         bind("creation_mode", "create -> select", "escape",
              lambda: Mgr.exit_state("creation_mode"))
-        bind("creation_mode", "exit creation mode", "mouse3-up",
+        bind("creation_mode", "exit creation mode", "mouse3",
              lambda: Mgr.exit_state("creation_mode"))
         bind("checking_creation_start", "quit creation", "escape", cancel_creation)
         bind("checking_creation_start", "cancel creation",
-             "mouse3-up", cancel_creation)
+             "mouse3", cancel_creation)
         bind("checking_creation_start", "abort creation",
              "mouse1-up", cancel_creation)
         bind("creation_mode", "start object creation", "mouse1",
@@ -64,7 +63,7 @@ class CreationManager(BaseObject):
 
                 Mgr.update_app("selected_obj_types", (creation_type,))
                 Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", creation_type))
-                obj_prop_defaults = Mgr.get("%s_prop_defaults" % creation_type)
+                obj_prop_defaults = Mgr.get("{}_prop_defaults".format(creation_type))
 
                 for prop_id, value in obj_prop_defaults.iteritems():
                     Mgr.update_app("obj_prop_default", creation_type, prop_id, value)
@@ -113,7 +112,6 @@ class CreationManager(BaseObject):
     def __enter_creation_mode(self, prev_state_id, is_active):
 
         Mgr.do("enable_view_gizmo")
-        Mgr.do("enable_view_tiles")
 
         if GlobalData["active_obj_level"] != "top":
             GlobalData["active_obj_level"] = "top"
@@ -131,7 +129,7 @@ class CreationManager(BaseObject):
             Mgr.set_cursor("create")
 
         creation_type = GlobalData["active_creation_type"]
-        Mgr.update_app("status", "create", creation_type, "idle")
+        Mgr.update_app("status", ["create", creation_type, "idle"])
 
     def __exit_creation_mode(self, next_state_id, is_active):
 
@@ -160,7 +158,7 @@ class CreationManager(BaseObject):
 
         if max(abs(mouse_x - mouse_start_x), abs(mouse_y - mouse_start_y)) > 3:
             object_type = GlobalData["active_creation_type"]
-            Mgr.do("start_%s_creation" % object_type, self._origin_pos)
+            Mgr.do("start_{}_creation".format(object_type), self._origin_pos)
             return task.done
 
         return task.cont
@@ -195,10 +193,10 @@ class CreationManager(BaseObject):
             origin_pos = self.cam.target.get_pos(grid_origin)
 
         object_type = GlobalData["active_creation_type"]
-        process = Mgr.do("create_%s" % object_type, origin_pos)
+        process = Mgr.do("create_{}".format(object_type), origin_pos)
 
         if process.next():
-            descr = "Creating %s..." % object_type
+            descr = "Creating {}...".format(object_type)
             Mgr.do_gradually(process, "creation", descr, cancellable=True)
 
 

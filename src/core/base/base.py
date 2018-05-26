@@ -1,4 +1,4 @@
-from ...base import logging, re, GlobalData, ObjectName, get_unique_name
+from ...base import logging, re, cPickle, GlobalData, ObjectName, get_unique_name, DirectObject
 from panda3d.core import *
 from collections import OrderedDict
 import weakref
@@ -8,10 +8,9 @@ import math
 import random
 import time
 import datetime
-import cPickle
 import copy
 
-GFX_PATH = "res/core/"
+GFX_PATH = "res/"
 
 
 # All objects that need access to core variables should derive from the
@@ -20,6 +19,7 @@ class BaseObject(object):
 
     world = None
     screen = None
+    viewport = None
     mouse_watcher = None
     cam = None
 
@@ -30,10 +30,11 @@ class BaseObject(object):
     _verbose = False
 
     @classmethod
-    def init(cls, world, screen, mouse_watcher, verbose):
+    def init(cls, world, screen, viewport, mouse_watcher, verbose):
 
         cls.world = world
         cls.screen = screen
+        cls.viewport = viewport
         cls.mouse_watcher = mouse_watcher
         cls._verbose = verbose
 
@@ -74,10 +75,10 @@ class BaseObject(object):
 
         if data_id not in self._data_retrievers:
 
-            logging.warning('CORE: data "%s" is not defined.', data_id)
+            logging.warning('CORE: data "{}" is not defined.'.format(data_id))
 
             if self._verbose:
-                print 'CORE warning: data "%s" is not defined.' % data_id
+                print('CORE warning: data "{}" is not defined.'.format(data_id))
 
         retriever = self._data_retrievers.get(data_id, self._defaults["data_retriever"])
 
@@ -93,18 +94,18 @@ class MainObjects(object):
     _setup_results = {}
 
     @classmethod
-    def add_class(cls, main_cls, interface_id=""):
+    def add_class(cls, main_cls, interface_id="main"):
 
         cls._classes.setdefault(interface_id, []).append(main_cls)
 
     @classmethod
-    def init(cls, interface_id=""):
+    def init(cls, interface_id="main"):
 
         for main_cls in cls._classes.get(interface_id, []):
             cls._objs.setdefault(interface_id, []).append(main_cls())
 
     @classmethod
-    def setup(cls, interface_id=""):
+    def setup(cls, interface_id="main"):
 
         objs_to_setup = cls._objs.get(interface_id, [])[:]
 
@@ -131,7 +132,7 @@ class MainObjects(object):
         del cls._setup_results[interface_id]
 
     @classmethod
-    def get_setup_results(cls, interface_id=""):
+    def get_setup_results(cls, interface_id="main"):
         """
         This method can be called by the main objects during their setup to check
         if the setup of a particular main object has already successfully completed.
@@ -255,7 +256,7 @@ class PendingTasks(object):
                 sort = 0
 
         if id_prefix:
-            task_id = "%s_%s" % (id_prefix, task_id)
+            task_id = "{}_{}".format(id_prefix, task_id)
 
         pending_task = _PendingTask(task, gradual, process_id, descr, cancellable)
         cls._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = pending_task
@@ -466,87 +467,11 @@ class PosObj(object):
 
         x, y, z = self._pos
 
-        return "PosObj(%f, %f, %f)" % (x, y, z)
+        return "PosObj({:f}, {:f}, {:f})".format(x, y, z)
 
     def __getitem__(self, index):
 
         return self._pos[index]
-
-
-class ProgressBar(BaseObject):
-
-    def __init__(self, task_mgr, pos, scale, descr, back_color=None, fill_color=None):
-
-        self._rate = 0.
-        self._progress = 0.
-        self._clock = ClockObject()
-        self._alpha = 0.
-
-        cm = CardMaker("progress_bar_back")
-        cm.set_frame(-.5, .5, 0., 1.)
-        cm.set_has_normals(False)
-        root = self.screen.attach_new_node("progress_bar")
-        root.set_alpha_scale(0.)
-        root.set_pos(pos)
-        back_geom = root.attach_new_node(cm.generate())
-        cm.set_name("progress_bar_fill")
-        cm.set_frame(0., 1., 0., 1.)
-        fill_geom = back_geom.attach_new_node(cm.generate())
-        fill_geom.set_x(-.5)
-        fill_geom.hide()
-        sx, sz = scale
-        back_geom.set_sx(sx)
-        back_geom.set_sz(sz)
-        color = (0., 0., 0., 1.) if back_color is None else back_color
-        back_geom.set_transparency(TransparencyAttrib.M_alpha)
-        back_geom.set_color(color)
-        color = (.3, .3, 1., 1.) if fill_color is None else fill_color
-        fill_geom.set_transparency(TransparencyAttrib.M_alpha)
-        fill_geom.set_color(color)
-
-        if descr:
-            label_node = TextNode("process_descr")
-            label_node.set_text(descr)
-            label_node.set_align(TextNode.A_center)
-            self._label = label = root.attach_new_node(label_node)
-            label.set_scale(sz * .8)
-            label.set_pos(0., -.01, .3 * sz * .8)
-
-        self._root = root
-        self._fill_geom = fill_geom
-        task_mgr.add(self.__fade_in, "fade-in progressbar")
-        self._task_mgr = task_mgr
-
-    def destroy(self):
-
-        self._task_mgr.remove("fade-in progressbar")
-        self._root.remove_node()
-
-    def get_root(self):
-
-        return self._root
-
-    def __fade_in(self, task):
-
-        alpha = min(1., self._clock.get_real_time())
-        self._root.set_alpha_scale(alpha)
-
-        if alpha == 1.:
-            return
-
-        return task.cont
-
-    def set_rate(self, rate):
-
-        if not self._rate:
-            self._rate = rate
-            self._fill_geom.show()
-
-    def advance(self):
-
-        if self._rate:
-            self._progress = min(1., self._progress + self._rate)
-            self._fill_geom.set_sx(self._progress)
 
 
 # The following class is a wrapper around Vec3 that uses operator overloading
@@ -557,7 +482,7 @@ class V3D(Vec3):
 
         x, y, z = self
 
-        return "V3D(%s, %s, %s)" % (x, y, z)
+        return "V3D({:f}, {:f}, {:f})".format(x, y, z)
 
     def get_h(self):
         """ Get the heading of this vector """

@@ -164,7 +164,7 @@ class PivotGizmo(object):
 
             axis_geom = Geom(vertex_data)
             axis_geom.add_primitive(lines)
-            axis_node = GeomNode("pivot_%s_axis" % axis)
+            axis_node = GeomNode("pivot_{}_axis".format(axis))
             axis_node.add_geom(axis_geom)
             np = origin.attach_new_node(axis_node)
             np.set_color(axis_colors[axis])
@@ -189,7 +189,7 @@ class PivotGizmo(object):
 
         label_geom = Geom(vertex_data)
         label_geom.add_primitive(label)
-        label_node = GeomNode("%s_axis_label" % axis)
+        label_node = GeomNode("{}_axis_label".format(axis))
         label_node.add_geom(label_geom)
         node_path = root.attach_new_node(label_node)
         node_path.set_billboard_point_eye()
@@ -224,13 +224,13 @@ class PivotGizmo(object):
         pickable_type_id = PickableTypes.get_id("pivot_axis")
 
         for axis in "xyz":
-            axis_label = label_root.find_all_matches("**/%s_axis_label" % axis)
+            axis_label = label_root.find_all_matches("**/{}_axis_label".format(axis))
             self._axis_labels[axis] = axis_label
             self._axis_labels["persp"][axis] = axis_label.get_path(0)
             axis_obj = Mgr.do("create_pivot_axis", self, axis)
             picking_col_id = axis_obj.get_picking_color_id()
             self._axis_objs[picking_col_id] = axis_obj
-            axis_np = origin.find_all_matches("**/pivot_%s_axis" % axis)
+            axis_np = origin.find_all_matches("**/pivot_{}_axis".format(axis))
             self._axis_nps[axis] = axis_np
             self._axis_nps["persp"][axis] = axis_np.get_path(0)
             geom = axis_np[0].node().modify_geom(0)
@@ -266,14 +266,14 @@ class PivotGizmo(object):
 
         if not self._is_registered:
             obj_type = "pivot_axis"
-            Mgr.do("register_%s_objs" % obj_type, self._axis_objs.itervalues(), restore=False)
+            Mgr.do("register_{}_objs".format(obj_type), self._axis_objs.itervalues(), restore=False)
             self._is_registered = True
 
     def unregister(self):
 
         if self._is_registered:
             obj_type = "pivot_axis"
-            Mgr.do("unregister_%s_objs" % obj_type, self._axis_objs.itervalues())
+            Mgr.do("unregister_{}_objs".format(obj_type), self._axis_objs.itervalues())
             self._is_registered = False
 
     def __create_geoms_for_ortho_lens(self):
@@ -288,10 +288,10 @@ class PivotGizmo(object):
         self._axis_labels["ortho"] = {}
 
         for axis in "xyz":
-            axis_np = origin_ortho.find("**/pivot_%s_axis" % axis)
+            axis_np = origin_ortho.find("**/pivot_{}_axis".format(axis))
             self._axis_nps[axis].add_path(axis_np)
             self._axis_nps["ortho"][axis] = axis_np
-            axis_label = label_root_ortho.find("**/%s_axis_label" % axis)
+            axis_label = label_root_ortho.find("**/{}_axis_label".format(axis))
             self._axis_labels[axis].add_path(axis_label)
             self._axis_labels["ortho"][axis] = axis_label
 
@@ -340,6 +340,7 @@ class PivotGizmoManager(BaseObject):
         Mgr.expose("pivot_gizmo_roots", lambda: self._pivot_gizmo_roots)
         Mgr.accept("create_pivot_gizmo", self.__create_pivot_gizmo)
         Mgr.accept("show_pivot_gizmos", self.__show_pivot_gizmos)
+        Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
 
     def setup(self):
 
@@ -362,6 +363,17 @@ class PivotGizmoManager(BaseObject):
         self._pivot_gizmo_roots["ortho"] = root_ortho
 
         return True
+
+    def __handle_viewport_resize(self):
+
+        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        scale = 800. / max(w, h)
+        objs = Mgr.get("objects")
+
+        for obj in objs:
+            pivot_gizmo = obj.get_pivot_gizmo()
+            pivot_gizmo.get_origin().set_scale(scale)
+            pivot_gizmo.get_origin("ortho").set_scale(scale)
 
     def __create_pivot_gizmo(self, owner):
 

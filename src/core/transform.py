@@ -84,7 +84,7 @@ class SelectionTransformBase(BaseObject):
         prev_count = GlobalData["selection_count"]
 
         if count != prev_count:
-            Mgr.do("%s_transf_gizmo" % ("show" if count else "hide"))
+            Mgr.do("{}_transf_gizmo".format("show" if count else "hide"))
             GlobalData["selection_count"] = count
 
     def set_transform_component(self, objs_to_transform, transf_type, axis, value, is_rel_value):
@@ -92,22 +92,22 @@ class SelectionTransformBase(BaseObject):
         if is_rel_value:
 
             if transf_type == "translate":
-                self.init_translation()
+                self.init_translation(objs_to_transform)
                 vec = Vec3()
                 vec["xyz".index(axis)] = value
-                self.translate(vec)
+                self.translate(objs_to_transform, vec)
             elif transf_type == "rotate":
-                self.init_rotation()
+                self.init_rotation(objs_to_transform)
                 rotation = Quat()
                 hpr = VBase3()
                 hpr["zxy".index(axis)] = value
                 rotation.set_hpr(hpr)
-                self.rotate(rotation)
+                self.rotate(objs_to_transform, rotation)
             elif transf_type == "scale":
-                self.init_scaling()
+                self.init_scaling(objs_to_transform)
                 scaling = VBase3(1., 1., 1.)
                 scaling["xyz".index(axis)] = max(10e-008, value)
-                self.scale(scaling)
+                self.scale(objs_to_transform, scaling)
 
         else:
 
@@ -562,31 +562,31 @@ class SelectionTransformBase(BaseObject):
         if obj_count > 1:
 
             if target_type == "all":
-                event_descr = '%s %d objects:\n' % (transf_type.title(), obj_count)
+                event_descr = '{} {:d} objects:\n'.format(transf_type.title(), obj_count)
             elif target_type == "geom":
-                event_descr = "%s %d objects' geometry:\n" % (transf_type.title(), obj_count)
+                event_descr = "{} {:d} objects' geometry:\n".format(transf_type.title(), obj_count)
             elif target_type == "pivot":
-                event_descr = "%s %d objects' pivots:\n" % (transf_type.title(), obj_count)
+                event_descr = "{} {:d} objects' pivots:\n".format(transf_type.title(), obj_count)
             elif target_type == "links":
-                event_descr = "%s %d objects' hierarchy links:\n" % (transf_type.title(), obj_count)
+                event_descr = "{} {:d} objects' hierarchy links:\n".format(transf_type.title(), obj_count)
             elif target_type == "no_children":
-                event_descr = '%s %d objects without children:\n' % (transf_type.title(), obj_count)
+                event_descr = '{} {:d} objects without children:\n'.format(transf_type.title(), obj_count)
 
             for obj in objs_to_transform:
-                event_descr += '\n    "%s"' % obj.get_name()
+                event_descr += '\n    "{}"'.format(obj.get_name())
 
         else:
 
             if target_type == "all":
-                event_descr = '%s "%s"' % (transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = '{} "{}"'.format(transf_type.title(), objs_to_transform[0].get_name())
             elif target_type == "geom":
-                event_descr = '%s "%s" geometry' % (transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = '{} "{}" geometry'.format(transf_type.title(), objs_to_transform[0].get_name())
             elif target_type == "pivot":
-                event_descr = '%s "%s" pivot' % (transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = '{} "{}" pivot'.format(transf_type.title(), objs_to_transform[0].get_name())
             elif target_type == "links":
-                event_descr = '%s "%s" hierarchy links' % (transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = '{} "{}" hierarchy links'.format(transf_type.title(), objs_to_transform[0].get_name())
             elif target_type == "no_children":
-                event_descr = '%s "%s" without children' % (transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = '{} "{}" without children'.format(transf_type.title(), objs_to_transform[0].get_name())
 
         if target_type == "all":
 
@@ -1001,7 +1001,6 @@ class TransformationManager(BaseObject):
             self._objs_to_transform = objs_to_transform
 
         Mgr.enter_state("transforming")
-        Mgr.do("enable_view_tiles", False)
 
         self._selection = selection
         self._transf_start_pos = transf_start_pos
@@ -1031,12 +1030,11 @@ class TransformationManager(BaseObject):
         if active_transform_type == "scale":
             self.__init_scaling()
 
-        Mgr.update_app("status", "select", active_transform_type, "in_progress")
+        Mgr.update_app("status", ["select", active_transform_type, "in_progress"])
 
     def __end_transform(self, cancel=False):
 
         Mgr.remove_task("transform_selection")
-        Mgr.do("enable_view_tiles")
         active_obj_lvl = GlobalData["active_obj_level"]
         active_transform_type = GlobalData["active_transform_type"]
 

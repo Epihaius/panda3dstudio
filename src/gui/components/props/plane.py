@@ -1,7 +1,7 @@
 from .base import *
 
 
-class PlaneProperties(BaseObject):
+class PlaneProperties(object):
 
     def __init__(self, panel):
 
@@ -9,30 +9,32 @@ class PlaneProperties(BaseObject):
         self._fields = {}
         self._segments_default = {"x": 1, "y": 1}
 
-        section = panel.add_section("plane_props", "Plane properties")
+        section = panel.add_section("plane_props", "Plane properties", hidden=True)
 
         axes = "xy"
         dimensions = ("length", "width")
         prop_types = ("size", "segments")
         val_types = ("float", "int")
         parsers = (self.__parse_dimension, self.__parse_segments)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
 
         for prop_type, val_type, parser in zip(prop_types, val_types, parsers):
 
             group = section.add_group(prop_type.title())
-            sizer = group.get_client_sizer()
-            subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-            sizer.Add(subsizer)
+            sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
+            group.add(sizer, expand=True)
 
             for axis, dim in zip(axes, dimensions):
-                prop_id = "%s_%s" % (prop_type, axis)
-                group.add_text("%s (%s):" % (axis.upper(), dim), subsizer, sizer_args)
-                field = PanelInputField(panel, group, subsizer, 80)
+                prop_id = "{}_{}".format(prop_type, axis)
+                text = "{} ({}):".format(axis.upper(), dim)
+                sizer.add(PanelText(group, text), alignment_v="center_v")
+                field = PanelInputField(group, 80)
                 field.add_value(prop_id, val_type, handler=self.__handle_value)
                 field.show_value(prop_id)
-                self._fields[prop_id] = field
                 field.set_input_parser(prop_id, parser)
+                self._fields[prop_id] = field
+                sizer.add(field, proportion_h=1., alignment_v="center_v")
+
+    def setup(self): pass
 
     def __handle_value(self, value_id, value):
 
@@ -81,19 +83,21 @@ class PlaneProperties(BaseObject):
 
     def set_object_property_default(self, prop_id, value):
 
+        color = (1., 1., 0., 1.)
+
         if prop_id == "segments":
             self._segments_default.update(value)
             for axis in "xy":
                 value_id = "segments_" + axis
                 field = self._fields[value_id]
                 field.show_text()
-                field.set_value(value_id, value[axis])
-                field.set_text_color(wx.Colour(255, 255, 0))
+                field.set_value(value_id, value[axis], handle_value=False)
+                field.set_text_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
-            field.set_text_color(wx.Colour(255, 255, 0))
+            field.set_value(prop_id, value, handle_value=False)
+            field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
 
@@ -104,16 +108,16 @@ class PlaneProperties(BaseObject):
             for axis in "xy":
                 value_id = "segments_" + axis
                 field = self._fields[value_id]
-                field.set_value(value_id, value[axis])
+                field.set_value(value_id, value[axis], handle_value=False)
         else:
             field = self._fields[prop_id]
-            field.set_value(prop_id, value)
+            field.set_value(prop_id, value, handle_value=False)
 
     def check_selection_count(self):
 
         sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
-        color = wx.Colour(127, 127, 127) if multi_sel else None
+        color = (.5, .5, .5, 1.) if multi_sel else None
 
         for field in self._fields.itervalues():
             field.set_text_color(color)

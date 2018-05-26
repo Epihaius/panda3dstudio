@@ -14,6 +14,8 @@ class CoreManager(object):
         "task_handler": lambda *args, **kwargs: None
     }
     _core = None
+    _cursors = {}
+    _cursor = "main"
     _task_mgr = None
     _msgr = None
     _app_mgr = None
@@ -22,9 +24,14 @@ class CoreManager(object):
     @classmethod
     def init(cls, core, app_mgr, gizmo_root, picking_col_mgr, verbose=False):
 
+        cls._core = core
+        cls.expose("core", lambda: cls._core)
+        cls._app_mgr = app_mgr
+        base = app_mgr.get_base()
+        cls.expose("base", lambda: cls._app_mgr.get_base())
         cls._verbose = verbose
 
-        BaseObject.init(core.render, core.aspect2d, core.mouseWatcherNode, verbose)
+        BaseObject.init(base.render, base.aspect2d, base.pixel2d, base.mouseWatcherNode, verbose)
 
         cls._cursors = {
             "create": Filename.binary_filename(GFX_PATH + "create.cur"),
@@ -38,31 +45,29 @@ class CoreManager(object):
 
         cls.expose("cursors", lambda: cls._cursors)
 
-        cls._core = core
-        cls.expose("core", lambda: cls._core)
-        cls._task_mgr = core.task_mgr
-        cls._msgr = core.messenger
-        cls._app_mgr = app_mgr
+        cls._task_mgr = base.task_mgr
+        cls._msgr = base.messenger
         cls.expose("gizmo_root", lambda: gizmo_root)
 
-        cls.expose("window_width", lambda: cls._core.win.get_x_size())
-        cls.expose("window_height", lambda: cls._core.win.get_y_size())
+        def get_window_size():
 
-        core.disable_mouse()
-        mouse_watcher = core.mouseWatcherNode
+            win_props = cls._app_mgr.get_base().win.get_properties()
+
+            return win_props.get_x_size(), win_props.get_y_size()
+
+        cls.expose("window_size", get_window_size)
+
+        base.disable_mouse()
+        mouse_watcher = base.mouseWatcherNode
         mouse_watcher.set_enter_pattern("region_enter")
         mouse_watcher.set_leave_pattern("region_leave")
         mouse_watcher.set_within_pattern("region_within")
         mouse_watcher.set_without_pattern("region_without")
-        cls.expose("mouse_pointer", lambda i: cls._core.win.get_pointer(i))
-
-        cls.expose("mod_shift", lambda: cls._app_mgr.get_mod_key_code("shift"))
-        cls.expose("mod_ctrl", lambda: cls._app_mgr.get_mod_key_code("ctrl"))
-        cls.expose("mod_alt", lambda: cls._app_mgr.get_mod_key_code("alt"))
+        cls.expose("mouse_pointer", lambda i: cls._app_mgr.get_base().win.get_pointer(i))
 
         light_node = DirectionalLight("default_light")
         light_node.set_color(VBase4(1., 1., 1., 1.))
-        cls._default_light = core.render.attach_new_node(light_node)
+        cls._default_light = base.render.attach_new_node(light_node)
         cls._default_light.set_hpr(20., -20., 0.)
         cls.expose("default_light", lambda: cls._default_light)
 
@@ -119,10 +124,10 @@ class CoreManager(object):
 
         if task_id not in cls._task_handlers:
 
-            logging.warning('CORE: task "%s" is not defined.', task_id)
+            logging.warning('CORE: task "{}" is not defined.'.format(task_id))
 
             if cls._verbose:
-                print 'CORE warning: task "%s" is not defined.' % task_id
+                print('CORE warning: task "{}" is not defined.'.format(task_id))
 
         task_handler = cls._task_handlers.get(task_id, cls._defaults["task_handler"])
 
@@ -136,24 +141,6 @@ class CoreManager(object):
         """
 
         return cls._core.do_gradually(process, process_id, descr, cancellable)
-
-    @classmethod
-    def show_screenshot(cls):
-        """
-        Generate and render a screenshot to replace the rendering of the scene.
-
-        """
-
-        cls._core.show_screenshot()
-
-    @classmethod
-    def schedule_screenshot_removal(cls):
-        """
-        Add a PendingTask to remove the screenshot currently replacing the rendering of the scene.
-
-        """
-
-        cls._core.schedule_screenshot_removal()
 
     @classmethod
     def expose(cls, data_id, retriever):
@@ -171,10 +158,10 @@ class CoreManager(object):
 
         if data_id not in cls._data_retrievers:
 
-            logging.warning('CORE: data "%s" is not defined.', data_id)
+            logging.warning('CORE: data "{}" is not defined.'.format(data_id))
 
             if cls._verbose:
-                print 'CORE warning: data "%s" is not defined.' % data_id
+                print('CORE warning: data "{}" is not defined.'.format(data_id))
 
         retriever = cls._data_retrievers.get(data_id, cls._defaults["data_retriever"])
 
@@ -203,7 +190,6 @@ class CoreManager(object):
 
         listener = cls._core.add_listener(interface_id, key_prefix, mouse_watcher)
         cls._app_mgr.add_state_manager(interface_id, "CORE", listener)
-        cls._app_mgr.add_key_handlers(interface_id, "CORE", listener.get_key_handlers())
 
     @classmethod
     def remove_interface(cls, interface_id):
@@ -212,50 +198,50 @@ class CoreManager(object):
         cls._app_mgr.remove_interface(interface_id)
 
     @classmethod
-    def add_state(cls, state_id, persistence, on_enter=None, on_exit=None, interface_id=""):
+    def add_state(cls, state_id, persistence, on_enter=None, on_exit=None, interface_id="main"):
 
         cls._app_mgr.add_state(interface_id, "CORE", state_id, persistence, on_enter, on_exit)
 
     @classmethod
-    def set_initial_state(cls, state_id, interface_id=""):
+    def set_initial_state(cls, state_id, interface_id="main"):
 
         cls._app_mgr.set_initial_state(interface_id, state_id)
 
     @classmethod
-    def enter_state(cls, state_id, interface_id=""):
+    def enter_state(cls, state_id, interface_id="main"):
 
         cls._app_mgr.enter_state(interface_id, state_id)
 
     @classmethod
-    def exit_state(cls, state_id, interface_id=""):
+    def exit_state(cls, state_id, interface_id="main"):
 
         cls._app_mgr.exit_state(interface_id, state_id)
 
     @classmethod
-    def get_state_id(cls, interface_id=""):
+    def get_state_id(cls, interface_id="main"):
 
         return cls._app_mgr.get_state_id(interface_id, "CORE")
 
     @classmethod
-    def get_state_persistence(cls, state_id, interface_id=""):
+    def get_state_persistence(cls, state_id, interface_id="main"):
 
         return cls._app_mgr.get_state_persistence(interface_id, "CORE", state_id)
 
     @classmethod
-    def bind_state(cls, state_id, binding_id, event_props, event_handler, interface_id=""):
+    def bind_state(cls, state_id, binding_id, event_props, event_handler, interface_id="main"):
 
         cls._app_mgr.bind_state(interface_id, state_id, binding_id, event_props,
                                 event_handler)
 
     @classmethod
-    def activate_bindings(cls, binding_ids, exclusive=False, interface_id=""):
+    def activate_bindings(cls, binding_ids, exclusive=False, interface_id="main"):
 
         cls._app_mgr.activate_bindings(interface_id, binding_ids, exclusive)
 
     @classmethod
-    def add_app_updater(cls, update_id, updater, kwargs=None):
+    def add_app_updater(cls, update_id, updater, kwargs=None, interface_id="main"):
 
-        cls._app_mgr.add_updater("CORE", update_id, updater, kwargs)
+        cls._app_mgr.add_updater("CORE", update_id, updater, kwargs, interface_id)
 
     @classmethod
     def update_app(cls, update_id, *args, **kwargs):
@@ -271,11 +257,6 @@ class CoreManager(object):
     def update_remotely(cls, update_id, *args, **kwargs):
 
         return cls._app_mgr.update("CORE", False, True, update_id, *args, **kwargs)
-
-    @classmethod
-    def add_interface_updater(cls, interface_id, update_id, updater, kwargs=None):
-
-        cls._app_mgr.add_interface_updater(interface_id, "CORE", update_id, updater, kwargs)
 
     @classmethod
     def update_interface(cls, interface_id, update_id, *args, **kwargs):
@@ -296,24 +277,14 @@ class CoreManager(object):
                                              update_id, *args, **kwargs)
 
     @classmethod
-    def convert_from_remote_format(cls, format_type, data):
+    def handle_key_down_remotely(cls, key, interface_id="main"):
 
-        return cls._app_mgr.convert_from_format("CORE", format_type, data)
-
-    @classmethod
-    def convert_to_remote_format(cls, format_type, data):
-
-        return cls._app_mgr.convert_to_format("CORE", format_type, data)
+        return cls._app_mgr.handle_key_down(interface_id, key)
 
     @classmethod
-    def remotely_handle_key_down(cls, key, interface_id=""):
+    def handle_key_up_remotely(cls, key, interface_id="main"):
 
-        return cls._app_mgr.remotely_handle_key_down(interface_id, "CORE", key)
-
-    @classmethod
-    def remotely_handle_key_up(cls, key, interface_id=""):
-
-        return cls._app_mgr.remotely_handle_key_up(interface_id, "CORE", key)
+        return cls._app_mgr.handle_key_up(interface_id, key)
 
     @classmethod
     def send(cls, *args):
@@ -357,29 +328,35 @@ class CoreManager(object):
     def load_model(cls, *args, **kwargs):
         """ Convenience wrapper around ShowBase.loader.load_model() """
 
-        return cls._core.loader.load_model(*args, **kwargs)
+        return cls._app_mgr.get_base().loader.load_model(*args, **kwargs)
 
     @classmethod
     def load_tex(cls, *args, **kwargs):
         """ Convenience wrapper around ShowBase.loader.load_texture() """
 
-        return cls._core.loader.load_texture(*args, **kwargs)
+        return cls._app_mgr.get_base().loader.load_texture(*args, **kwargs)
 
     @classmethod
     def render_frame(cls):
         """ Convenience wrapper around ShowBase.graphicsEngine.render_frame() """
 
-        cls._core.graphicsEngine.render_frame()
+        cls._app_mgr.get_base().graphicsEngine.render_frame()
 
     @classmethod
-    def set_cursor(cls, cursor_id):
+    def add_cursor_region(cls, interface_id, mouse_region):
+
+        cls._app_mgr.add_cursor_region(interface_id, mouse_region)
+
+    @classmethod
+    def set_cursor(cls, cursor_id, region_id=None):
         """ Set a cursor image loaded from file """
 
-        win_props = WindowProperties()
-
         if cursor_id == "main":
-            win_props.set_cursor_filename(Filename())
+            cursor_filename = Filename()
         else:
-            win_props.set_cursor_filename(cls._cursors[cursor_id])
+            cursor_filename = cls._cursors[cursor_id]
 
-        cls._core.win.request_properties(win_props)
+        if region_id is None:
+            cls._app_mgr.set_cursor("viewport", cursor_filename)
+        else:
+            cls._app_mgr.set_cursor(region_id, cursor_filename)

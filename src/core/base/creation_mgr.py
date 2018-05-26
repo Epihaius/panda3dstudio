@@ -21,15 +21,15 @@ class CreationPhaseManager(object):
         if has_color:
             self.set_next_object_color()
         else:
-            GlobalData["next_%s_color" % obj_type] = None
+            GlobalData["next_{}_color".format(obj_type)] = None
 
-        Mgr.expose("custom_%s_name" % obj_type, lambda: self._custom_obj_name)
-        Mgr.accept("set_custom_%s_name" % obj_type, self.__set_custom_object_name)
+        Mgr.expose("custom_{}_name".format(obj_type), lambda: self._custom_obj_name)
+        Mgr.accept("set_custom_{}_name".format(obj_type), self.__set_custom_object_name)
 
     def setup(self, creation_phases, status_text):
 
         creation_status = {}
-        mode_text = "Create %s" % status_text["obj_type"]
+        mode_text = "Create {}".format(status_text["obj_type"])
         info_text = "LMB-drag to start creation"
         creation_status["idle"] = {"mode": mode_text, "info": info_text}
 
@@ -43,37 +43,39 @@ class CreationPhaseManager(object):
 
             if i == 0:
                 creation_starter = self.__get_creation_starter(main_starter)
-                Mgr.accept("start_%s_creation" % self._obj_type, creation_starter)
+                Mgr.accept("start_{}_creation".format(self._obj_type), creation_starter)
                 on_enter_state = None
             else:
                 on_enter_state = self.__get_creation_phase_starter(main_starter)
 
-            state_id = "%s_creation_phase_%s" % (self._obj_type, i + 1)
+            state_id = "{}_creation_phase_{:d}".format(self._obj_type, i + 1)
             add_state(state_id, state_persistence, on_enter_state)
 
             self._creation_handlers.append(self.__get_creation_phase_handler(main_handler))
 
-            binding_id = "quit %s creation" % self._obj_type
+            binding_id = "quit {} creation".format(self._obj_type)
             bind(state_id, binding_id, "escape", self.__end_creation)
-            binding_id = "cancel %s creation" % self._obj_type
-            bind(state_id, binding_id, "mouse3-up", self.__end_creation)
+            binding_id = "abort {} creation".format(self._obj_type)
+            bind(state_id, binding_id, "focus_loss", self.__end_creation)
+            binding_id = "cancel {} creation".format(self._obj_type)
+            bind(state_id, binding_id, "mouse3", self.__end_creation)
 
-            info_text = "move mouse to %s;" % status_text["phase%s" % (i + 1)]
+            info_text = "move mouse to {};".format(status_text["phase{:d}".format(i + 1)])
             get_command = lambda state_id: lambda: Mgr.enter_state(state_id)
 
             if i == len(creation_phases) - 1:
-                binding_id = "finalize %s creation" % self._obj_type
+                binding_id = "finalize {} creation".format(self._obj_type)
                 bind(state_id, binding_id, "mouse1-up",
                      lambda: self.__end_creation(cancel=False))
                 info_text += " release LMB to finalize;"
             else:
-                binding_id = "start %s creation phase %s" % (self._obj_type, i + 2)
-                next_state_id = "%s_creation_phase_%s" % (self._obj_type, i + 2)
+                binding_id = "start {} creation phase {:d}".format(self._obj_type, i + 2)
+                next_state_id = "{}_creation_phase_{:d}".format(self._obj_type, i + 2)
                 bind(state_id, binding_id, "mouse1-up", get_command(next_state_id))
                 info_text += " release LMB to set;"
 
             info_text += " RMB to cancel"
-            creation_status["phase%s" % (i + 1)] = {"mode": mode_text, "info": info_text}
+            creation_status["phase{:d}".format(i + 1)] = {"mode": mode_text, "info": info_text}
 
         status_data = GlobalData["status_data"]["create"]
         status_data[self._obj_type] = creation_status
@@ -87,9 +89,9 @@ class CreationPhaseManager(object):
             self._origin_pos = origin_pos
             main_creation_func()
 
-            Mgr.enter_state("%s_creation_phase_1" % self._obj_type)
+            Mgr.enter_state("{}_creation_phase_1".format(self._obj_type))
             Mgr.add_task(self._creation_handlers[0], "draw_object", sort=3)
-            Mgr.update_app("status", "create", self._obj_type, "phase1")
+            Mgr.update_app("status", ["create", self._obj_type, "phase1"])
 
         return start_creation
 
@@ -103,7 +105,7 @@ class CreationPhaseManager(object):
             creation_handler = self._creation_handlers[self._current_creation_phase]
             Mgr.add_task(creation_handler, "draw_object", sort=3)
             phase_id = self._current_creation_phase + 1
-            Mgr.update_app("status", "create", self._obj_type, "phase%s" % phase_id)
+            Mgr.update_app("status", ["create", self._obj_type, "phase{}".format(phase_id)])
 
         return start_creation_phase
 
@@ -142,11 +144,11 @@ class CreationPhaseManager(object):
     def set_next_object_color(self):
 
         color_values = tuple(random.random() * .4 + .5 for i in range(3))
-        GlobalData["next_%s_color" % self._obj_type] = color_values
+        GlobalData["next_{}_color".format(self._obj_type)] = color_values
 
     def get_next_object_color(self):
 
-        r, g, b = GlobalData["next_%s_color" % self._obj_type]
+        r, g, b = GlobalData["next_{}_color".format(self._obj_type)]
         color = VBase4(r, g, b, 1.)
 
         return color
@@ -159,7 +161,7 @@ class CreationPhaseManager(object):
 
         Mgr.do("update_history_time")
         name = toplevel_obj.get_name()
-        event_descr = 'Create "%s"' % name
+        event_descr = 'Create "{}"'.format(name)
         obj_id = toplevel_obj.get_id()
         obj_data = {obj_id: toplevel_obj.get_data_to_store("creation")}
         event_data = {"objects": obj_data}
@@ -218,6 +220,6 @@ class CreationPhaseManager(object):
         Mgr.enter_state("creation_mode")
 
         if process and process.next():
-            Mgr.show_screenshot()
-            descr = "Creating %s..." % self._obj_type
+            Mgr.update_remotely("screenshot", "create")
+            descr = "Creating {}...".format(self._obj_type)
             Mgr.do_gradually(process, "creation", descr, cancellable=True)

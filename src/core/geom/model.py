@@ -19,6 +19,7 @@ class Model(TopLevelObject):
         TopLevelObject.__setstate__(self, state)
 
         self._bbox.get_origin().reparent_to(self.get_origin())
+        self._bbox.get_origin().hide()
 
         if GlobalData["two_sided"]:
             self.get_origin().set_two_sided(True)
@@ -50,7 +51,7 @@ class Model(TopLevelObject):
 
     def __del__(self):
 
-        logging.info('Model "%s" garbage-collected.', self.get_id())
+        logging.info('Model "{}" garbage-collected.'.format(self.get_id()))
 
     def cancel_creation(self):
 
@@ -200,9 +201,23 @@ class Model(TopLevelObject):
 
     def replace_geom_object(self, geom_obj):
 
-        self._geom_obj.replace(geom_obj)
+        if self._geom_obj.get_type() == "basic_geom":
+            self._geom_obj.destroy()
+        else:
+            self._geom_obj.replace(geom_obj)
+
+        color = (.7, .7, 1., 1.) if geom_obj.get_type() == "basic_geom" else (1., 1., 1., 1.)
+        self._bbox.set_color(color)
         geom_obj.set_model(self)
         self._geom_obj = geom_obj
+
+        if geom_obj.get_type() == "basic_geom":
+
+            if self._has_tangent_space:
+                geom_obj.init_tangent_space()
+
+            if self._material:
+                self._material.apply(self, force=True)
 
         def task():
 
@@ -229,6 +244,8 @@ class Model(TopLevelObject):
 
             geom_obj = Mgr.do("load_last_from_history", obj_id, "geom_obj", new_time_id)
             self.__restore_geom_object(geom_obj, restore_type, old_time_id, new_time_id)
+            color = (.7, .7, 1., 1.) if geom_obj.get_type() == "basic_geom" else (1., 1., 1., 1.)
+            self._bbox.set_color(color)
 
         else:
 
@@ -236,16 +253,16 @@ class Model(TopLevelObject):
 
                 geom_obj = Mgr.do("load_last_from_history", obj_id, "geom_obj", new_time_id)
                 self.replace_geom_object(geom_obj)
-                prop_ids = geom_obj.get_property_ids()
+                prop_ids = geom_obj.get_property_ids()[:]
 
                 if "geom_data" in prop_ids:
                     prop_ids.remove("geom_data")
 
-                geom_obj.restore_data(prop_ids, restore_type, old_time_id, new_time_id)
-
-                for prop_id in prop_ids:
+                for prop_id in prop_ids[:]:
                     if prop_id in data_ids:
-                        data_ids.remove(prop_id)
+                        prop_ids.remove(prop_id)
+
+                geom_obj.restore_data(prop_ids, restore_type, old_time_id, new_time_id)
 
             if data_ids:
                 self._geom_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)
@@ -435,11 +452,11 @@ class ModelManager(ObjectManager):
 
         return model
 
-    def __set_tangent_space_vector_flip(self, vector, flip):
+    def __set_tangent_space_vector_flip(self, vector_type, flip):
 
         selection = Mgr.get("selection_top")
         changed_objs = []
-        prop_id = "%s_flip" % vector
+        prop_id = "{}_flip".format(vector_type)
 
         for obj in selection:
             if obj.set_property(prop_id, flip):
@@ -457,11 +474,11 @@ class ModelManager(ObjectManager):
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = '%s %s vectors of "%s"' % ("Flip" if flip else "Unflip",
-                                                     vector, obj.get_name())
+            event_descr = '{} {} vectors of "{}"'.format("Flip" if flip else "Unflip",
+                                                         vector_type, obj.get_name())
         else:
-            event_descr = '%s %s vectors of objects:\n' % ("Flip" if flip else "Unflip", vector)
-            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+            event_descr = '{} {} vectors of objects:\n'.format("Flip" if flip else "Unflip", vector_type)
+            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

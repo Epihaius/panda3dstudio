@@ -1,19 +1,15 @@
 from ..base import *
-from direct.showbase.ShowBase import DirectObject
 
 
 class ViewGizmo(BaseObject):
 
     def __init__(self):
 
-        core = Mgr.get("core")
-        win = core.win
-        win_props = win.get_properties()
+        self._pixel_size = {"min": 40., "max": 160.}
         self._size = self._size_min = size = .05
         self._size_max = .2
         self._size_delta = self._size_max - self._size_min
-        size_v = size * win_props.get_x_size() / win_props.get_y_size()
-        dr = win.make_display_region(1. - size, 1., 1. - size_v, 1.)
+        dr = Mgr.get("base").win.make_display_region(1. - size, 1., 1. - size, 1.)
         self._display_region = dr
         dr.set_sort(2)
         gizmo_cam_node = Camera("view_gizmo_cam")
@@ -23,18 +19,15 @@ class ViewGizmo(BaseObject):
         self._gizmo_cam = gizmo_cam = cam_target.attach_new_node(gizmo_cam_node)
         gizmo_cam.set_y(-10.)
         dr.set_camera(gizmo_cam)
-        dr.set_clear_color(VBase4(1., 0., 0., 1.))
-        dr.set_clear_color_active(True)
         dr.set_clear_color_active(False)
         dr.set_clear_depth_active(True)
 
-        frame = (1. - 2. * size, 1., 1. - 2. * size_v, 1.)
-        region = MouseWatcherRegion("view_gizmo_region", *frame)
-        self._mouse_region = region
+        frame = (1. - 2. * size, 1., 1. - 2. * size, 1.)
+        self._mouse_region = region = MouseWatcherRegion("view_gizmo_region", *frame)
         self.mouse_watcher.add_region(region)
 
         input_ctrl = NodePath(self.mouse_watcher).get_parent()
-        mouse_watcher_node = MouseWatcher()
+        mouse_watcher_node = MouseWatcher("view_gizmo")
         mouse_watcher_node.set_display_region(dr)
         input_ctrl.attach_new_node(mouse_watcher_node)
         self._gizmo_mouse_watcher = mouse_watcher_node
@@ -50,7 +43,7 @@ class ViewGizmo(BaseObject):
         self._orbit_start_pos = Point2()
         self._mouse_start_pos = ()
 
-        self._listener = listener = DirectObject.DirectObject()
+        self._listener = listener = DirectObject()
         listener.accept("region_enter", self.__on_region_enter)
         listener.accept("region_leave", self.__on_region_leave)
 
@@ -85,6 +78,8 @@ class ViewGizmo(BaseObject):
         Mgr.accept("start_updating_view_cube", self.__init_update)
         Mgr.accept("stop_updating_view_cube", self.__end_update)
         Mgr.accept("enable_view_gizmo", self.__enable)
+        Mgr.add_app_updater("viewport", self.__update_region_size)
+        Mgr.add_app_updater("viewport_region_sort_incr", self.__increment_region_sort)
 
         self._world_axes_tripod = WorldAxesTripod(gizmo_cam)
 
@@ -97,6 +92,28 @@ class ViewGizmo(BaseObject):
         self.__update()
 
         return True
+
+    def __update_region_size(self):
+
+        win_w, win_h = Mgr.get("window_size")
+        aspect_ratio = 1. * win_w / win_h
+        l, r, b, t = GlobalData["viewport"]["frame_aux" if GlobalData["viewport"][2] == "main" else "frame"]
+        w = r - l
+        h = t - b
+        ref_w = win_w * w
+        self._size_min = self._pixel_size["min"] / ref_w
+        self._size_max = self._pixel_size["max"] / ref_w
+        self._size_delta = self._size_max - self._size_min
+        size = self._size = self._size_max if self._reached_full_size else self._size_min
+        size_v = size * w / h * aspect_ratio
+        self._display_region.set_dimensions(r - size * w, r, t - size_v * h, t)
+        self._mouse_region.set_frame(1. - 2. * size, 1., 1. - 2. * size_v, 1.)
+
+    def __increment_region_sort(self, incr=0):
+
+        sort = self._display_region.get_sort()
+        self._display_region.set_sort(sort + incr)
+        self._world_axes_tripod.get_display_region().set_sort(sort + incr)
 
     def __create_icon(self, icon_name, color_id):
 
@@ -128,7 +145,7 @@ class ViewGizmo(BaseObject):
 
         tris_geom = Geom(vertex_data)
         tris_geom.add_primitive(tris)
-        icon_node = GeomNode("view_%s_icon" % icon_name)
+        icon_node = GeomNode("view_{}_icon".format(icon_name))
         icon_node.add_geom(tris_geom)
 
         return icon_node
@@ -211,7 +228,7 @@ class ViewGizmo(BaseObject):
 
                 picking_col_id = len(handle_ids) + 1
                 picking_col = get_color_vec(picking_col_id, 1)
-                handle_id = "%s%s" % ("-" if sign < 0 else "+", axis1)
+                handle_id = "{}{}".format("-" if sign < 0 else "+", axis1)
                 handle_ids[picking_col_id] = handle_id
                 picking_colors[handle_id] = picking_col
 
@@ -291,8 +308,8 @@ class ViewGizmo(BaseObject):
 
                     picking_col_id = len(handle_ids) + 1
                     picking_col = get_color_vec(picking_col_id, 1)
-                    handle_id = "%s%s%s%s" % ("-" if j < 0 else "+", axis2,
-                                              "-" if k < 0 else "+", axis3)
+                    handle_id = "{}{}{}{}".format("-" if j < 0 else "+", axis2,
+                                                  "-" if k < 0 else "+", axis3)
                     handle_ids[picking_col_id] = handle_id
 
                     normal_data[axis1] = 0.
@@ -363,9 +380,9 @@ class ViewGizmo(BaseObject):
 
                     picking_col_id = len(handle_ids) + 1
                     picking_col = get_color_vec(picking_col_id, 1)
-                    handle_id = "%s%s%s" % ("-x" if j < 0 else "+x",
-                                            "-y" if k < 0 else "+y",
-                                            "-z" if sign < 0 else "+z")
+                    handle_id = "{}{}{}".format("-x" if j < 0 else "+x",
+                                                "-y" if k < 0 else "+y",
+                                                "-z" if sign < 0 else "+z")
                     handle_ids[picking_col_id] = handle_id
 
                     dir_vec = V3D(-j, -k, -sign)
@@ -445,7 +462,7 @@ class ViewGizmo(BaseObject):
 
                 tris = GeomTriangles(Geom.UH_static)
 
-                handle_id = "%s%s" % ("-" if sign < 0 else "+", axis1)
+                handle_id = "{}{}".format("-" if sign < 0 else "+", axis1)
                 picking_col = picking_colors[handle_id]
                 coords[axis1] = -.5
 
@@ -526,15 +543,17 @@ class ViewGizmo(BaseObject):
                 Mgr.get("core").suppress_mouse_events(False)
                 Mgr.get("picking_cam").set_active()
 
-    def __set_region_size(self):
+    def __resize_region(self):
 
         factor = self._time ** (.2 if self._reached_full_size else 5.)
-        self._size = self._size_min + self._size_delta * factor
-        win = Mgr.get("core").win
-        win_props = win.get_properties()
-        size = self._size
-        size_v = size * win_props.get_x_size() / win_props.get_y_size()
-        self._display_region.set_dimensions(1. - size, 1., 1. - size_v, 1.)
+        size = self._size = self._size_min + self._size_delta * factor
+        win_w, win_h = Mgr.get("window_size")
+        aspect_ratio = 1. * win_w / win_h
+        l, r, b, t = GlobalData["viewport"]["frame_aux" if GlobalData["viewport"][2] == "main" else "frame"]
+        w = r - l
+        h = t - b
+        size_v = size * w / h * aspect_ratio
+        self._display_region.set_dimensions(r - size * w, r, t - size_v * h, t)
         self._mouse_region.set_frame(1. - 2. * size, 1., 1. - 2. * size_v, 1.)
 
     def __expand_region(self, task):
@@ -557,7 +576,7 @@ class ViewGizmo(BaseObject):
             icon.set_alpha_scale(alpha)
             icon.show() if alpha else icon.hide()
 
-        self.__set_region_size()
+        self.__resize_region()
 
         return task.cont
 
@@ -576,7 +595,7 @@ class ViewGizmo(BaseObject):
             icon.set_alpha_scale(alpha)
             icon.show() if alpha else icon.hide()
 
-        self.__set_region_size()
+        self.__resize_region()
 
         return task.cont
 
@@ -621,7 +640,7 @@ class ViewGizmo(BaseObject):
 
             self.__update_aux_handles()
             Mgr.get("core").suppress_key_events(False)
-            self.__enable()
+            self.__enable(affect_mouse_region=False)
 
             if self._gizmo_mouse_watcher.has_mouse():
                 self._has_focus = True
@@ -645,7 +664,7 @@ class ViewGizmo(BaseObject):
     def __start_transition(self):
 
         Mgr.add_task(self.__transition_view, "transition_view", sort=31)
-        self.__enable(False)
+        self.__enable(False, affect_mouse_region=False)
         self._has_focus = False
         self._listener.ignore("mouse1")
         self._listener.ignore("mouse1-up")
@@ -703,6 +722,9 @@ class ViewGizmo(BaseObject):
 
         elif handle_id:
 
+            if GlobalData["view"] in ("front", "back", "left", "right", "top", "bottom"):
+                return
+
             current_quat = self.cam.target.get_quat()
             quat = self._handle_quats[handle_id]
 
@@ -746,12 +768,14 @@ class ViewGizmo(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return
 
+        if GlobalData["view"] in ("front", "back", "left", "right", "top", "bottom"):
+            return
+
         self._orbit_start_pos = Point2(self.mouse_watcher.get_mouse())
         Mgr.add_task(self.__orbit, "transform_cam", sort=2)
         self._is_orbiting = True
         self._picking_cam.set_active(False)
         Mgr.get("core").suppress_key_events()
-        Mgr.do("enable_view_tiles", False)
 
     def __orbit(self, task):
 
@@ -775,7 +799,6 @@ class ViewGizmo(BaseObject):
         Mgr.remove_task("transform_cam")
         self._is_orbiting = False
         Mgr.get("core").suppress_key_events(False)
-        Mgr.do("enable_view_tiles")
 
         if self._has_focus:
             self._picking_cam.set_active()
@@ -827,16 +850,25 @@ class ViewGizmo(BaseObject):
 
         Mgr.remove_task("update_view_cube")
 
-    def __enable(self, enable=True):
+    def __enable(self, enable=True, affect_mouse_region=True):
+
+        if affect_mouse_region:
+            self._mouse_region.set_active(enable)
 
         listener = self._listener
 
         if enable:
+
             listener.accept("region_enter", self.__on_region_enter)
             listener.accept("region_leave", self.__on_region_leave)
+
         else:
+
             listener.ignore("region_enter")
             listener.ignore("region_leave")
+
+            if affect_mouse_region:
+                self.__on_region_leave(self._mouse_region)
 
 
 class PickingCamera(BaseObject):
@@ -861,21 +893,22 @@ class PickingCamera(BaseObject):
 
     def setup(self):
 
-        core = Mgr.get("core")
+        base = Mgr.get("base")
         self._tex = Texture("picking_texture")
         props = FrameBufferProperties()
         props.set_rgba_bits(16, 16, 16, 16)
         props.set_depth_bits(16)
-        self._buffer = bfr = core.win.make_texture_buffer("picking_buffer",
+        self._buffer = bfr = base.win.make_texture_buffer("picking_buffer",
                                                           1, 1,
                                                           self._tex,
                                                           to_ram=True,
                                                           fbp=props)
 
+        bfr.set_active(False)
         bfr.set_clear_color(VBase4())
         bfr.set_clear_color_active(True)
         bfr.set_sort(-100)
-        self._np = core.make_camera(bfr)
+        self._np = base.make_camera(bfr)
         self._np.reparent_to(self._parent_cam)
         node = self._np.node()
         lens = node.get_lens()
@@ -901,6 +934,7 @@ class PickingCamera(BaseObject):
         if self._np.node().is_active() == is_active:
             return
 
+        self._buffer.set_active(is_active)
         self._np.node().set_active(is_active)
 
         if is_active:
@@ -932,26 +966,22 @@ class WorldAxesTripod(BaseObject):
 
     def __init__(self, camera):
 
-        core = Mgr.get("core")
-        win = core.win
-        win_props = win.get_properties()
+        self._pixel_size = 68.
         size = .085
-        size_v = size * win_props.get_x_size() / win_props.get_y_size()
-        dr = win.make_display_region(0., size, 0., size_v)
+        dr = Mgr.get("base").win.make_display_region(0., size, 0., size)
         dr.set_sort(2)
         lens = OrthographicLens()
         lens.set_film_size(.235, .235)
-        lens.set_film_offset(-100., 0.)
+        lens.set_film_offset(-5., 0.)
         camera.node().set_lens(1, lens)
         dr.set_camera(camera)
         dr.set_lens_index(1)
-        dr.set_clear_color(VBase4(1, 0, 0, 1))
-        dr.set_clear_color_active(True)
         dr.set_clear_color_active(False)
         dr.set_clear_depth_active(True)
+        self._display_region = dr
 
         self._root = camera.attach_new_node("world_axes")
-        self._root.set_pos(-100., 10., 0.)
+        self._root.set_pos(-5., 10., 0.)
         self._axis_tripod = None
         self._nav_indic = None
         self._axis_labels = {}
@@ -1006,6 +1036,28 @@ class WorldAxesTripod(BaseObject):
         self._is_hilited = False
 
         Mgr.accept("hilite_world_axes", self.__hilite)
+        Mgr.add_app_updater("viewport", self.__update_region_size)
+        Mgr.add_app_updater("nav_indicator_color", self.__set_indicator_color)
+
+    def get_display_region(self):
+
+        return self._display_region
+
+    def __set_indicator_color(self, color):
+
+        self._nav_indic.set_color(color)
+
+    def __update_region_size(self):
+
+        win_w, win_h = Mgr.get("window_size")
+        aspect_ratio = 1. * win_w / win_h
+        l, r, b, t = GlobalData["viewport"]["frame_aux" if GlobalData["viewport"][2] == "main" else "frame"]
+        w = r - l
+        h = t - b
+        ref_w = win_w * w
+        size = self._pixel_size / ref_w
+        size_v = size * w / h * aspect_ratio
+        self._display_region.set_dimensions(l, l + size * w, b, b + size_v * h)
 
     def __create_axis_tripod(self):
 

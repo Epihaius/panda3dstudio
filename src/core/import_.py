@@ -9,7 +9,7 @@ class ImportManager(BaseObject):
         self._model_root = None
         self._hierarchy = {}
         self._obj_index = 0
-        self._obj_data = {"geom": {}, "collision": {}, "other": {}}
+        self._coll_obj_indices = []
         self._obj_names = []
         self._imported_file = ""
         self._imported_file_type = ""
@@ -29,13 +29,12 @@ class ImportManager(BaseObject):
             return
 
         self._imported_file_type = path.get_extension()
-
         self._model_root = model_root
         hierarchy = self._hierarchy
 
         obj_names = GlobalData["obj_names"]
         self._obj_names = new_obj_names = []
-        obj_data = self._obj_data
+        coll_indices = self._coll_obj_indices
         node_paths = [(model_root, 0, None)]
 
         while node_paths:
@@ -46,7 +45,7 @@ class ImportManager(BaseObject):
                 continue
 
             child_indices = []
-            node_data = {"node_path": node_path, "children": child_indices}
+            node_data = {"node_path": node_path, "child_indices": child_indices}
             hierarchy[index] = node_data
             children = node_path.get_children()
 
@@ -72,25 +71,25 @@ class ImportManager(BaseObject):
 
             node = node_path.node()
             node_type = node.get_class_type().get_name()
-            data = {"parent_index": parent_index, "old_name": old_name, "new_name": new_name}
-            node_data["data"] = data
+            node_data["parent_index"] = parent_index
+            node_data["old_name"] = old_name
+            node_data["new_name"] = new_name
 
             if node_type == "GeomNode" and Geom.PT_polygons in [geom.get_primitive_type()
                     for geom in node.get_geoms()]:
-                data["editing"] = "full"
-                obj_data["geom"][index] = data
+                node_data["geom_type"] = "regular"
             elif node_type == "CollisionNode":
                 new_name = obj_name if obj_name else "collision object 0001"
                 new_name = get_unique_name(new_name, obj_names + new_obj_names)
-                data["new_name"] = new_name
-                data["editing"] = "basic"
-                obj_data["collision"][index] = data
+                node_data["new_name"] = new_name
+                node_data["geom_type"] = "collision"
+                coll_indices.append(index)
             else:
-                obj_data["other"][index] = data
+                node_data["geom_type"] = "none"
 
             new_obj_names.append(new_name)
 
-        Mgr.update_remotely("import", obj_data, new_obj_names)
+        Mgr.update_remotely("import", hierarchy, new_obj_names)
 
     def __cancel_import(self):
 
@@ -98,7 +97,7 @@ class ImportManager(BaseObject):
         self._model_root = None
         self._hierarchy = {}
         self._obj_index = 0
-        self._obj_data = {"geom": {}, "collision": {}, "other": {}}
+        self._coll_obj_indices = []
         self._obj_names = []
         self._imported_file = ""
         self._imported_file_type = ""
@@ -282,235 +281,52 @@ class ImportManager(BaseObject):
 
         return model
 
-    def __create_collision_model(self, name, polys, editing):
+    def __create_collision_model(self, name, polys):
 
         coords = []
         poly_count = 0
 
-        if editing == "basic":
+        vertex_format = GeomVertexFormat.get_v3n3()
+        vertex_data = GeomVertexData("basic_geom", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        normal_writer = GeomVertexWriter(vertex_data, "normal")
+        tris = GeomTriangles(Geom.UH_static)
+        row = 0
 
-            vertex_format = GeomVertexFormat.get_v3n3()
-            vertex_data = GeomVertexData("basic_geom", vertex_format, Geom.UH_static)
-            pos_writer = GeomVertexWriter(vertex_data, "vertex")
-            normal_writer = GeomVertexWriter(vertex_data, "normal")
-            tris = GeomTriangles(Geom.UH_static)
-            row = 0
+        for poly in polys:
 
-            for poly in polys:
+            points = [point for point in poly]
+            rows_by_pos = {}
 
-                points = [point for point in poly]
-                rows_by_pos = {}
-
-                for i, point in enumerate(points):
-                    for impr_crd in coords:
-                        if point == impr_crd:
-                            points[i] = impr_crd
-                            break
-                    else:
-                        coords.append(point)
-
-                plane = Plane(*poly[:3])
-                normal = plane.get_normal()
-                pos = points.pop(0)
-                pos_writer.add_data3f(*pos)
-                normal_writer.add_data3f(normal)
-                rows_by_pos[pos] = row1 = row
-                row += 1
-
-                for positions in (points[i:i+2] for i in range(len(points) - 1)):
-
-                    tris.add_vertex(row1)
-
-                    for pos in positions:
-                        if pos in rows_by_pos:
-                            tris.add_vertex(rows_by_pos[pos])
-                        else:
-                            pos_writer.add_data3f(*pos)
-                            normal_writer.add_data3f(normal)
-                            rows_by_pos[pos] = row
-                            tris.add_vertex(row)
-                            row += 1
-
-                poly_count += 1
-
-                if poly_count == 20:
-                    yield
-                    poly_count = 0
-
-            geom = Geom(vertex_data)
-            geom.add_primitive(tris)
-            node = GeomNode("basic_geom")
-            node.add_geom(geom)
-            node_path = NodePath(node)
-            model = Mgr.do("create_basic_geom", node_path, name).get_model()
-            model.get_bbox().update(*node_path.get_tight_bounds())
-
-        else:
-
-            geom_data = []
-
-            for poly in polys:
-
-                points = [point for point in poly]
-
-                for i, point in enumerate(points):
-                    for impr_crd in coords:
-                        if point == impr_crd:
-                            points[i] = impr_crd
-                            break
-                    else:
-                        coords.append(point)
-
-                plane = Plane(*poly[:3])
-                normal = plane.get_normal()
-                pos = points.pop(0)
-                vert_data1 = {"pos": pos, "normal": normal, "uvs": {0: (0., 0.)}}
-                tris = []
-
-                for positions in (points[i:i+2] for i in range(len(points) - 1)):
-
-                    tri_data = [vert_data1]
-
-                    for pos in positions:
-                        tri_data.append({"pos": pos, "normal": normal, "uvs": {0: (0., 0.)}})
-
-                    tris.append(tri_data)
-
-                poly_data = {"tris": tris, "smoothing": [(0, False)]}
-                geom_data.append(poly_data)
-
-                poly_count += 1
-
-                if poly_count == 20:
-                    yield
-                    poly_count = 0
-
-            editable_geom = Mgr.do("create_editable_geom", name=name)
-            model = editable_geom.get_model()
-
-            id_str = str(model.get_id())
-            handler = lambda info: model.cancel_creation() if info == "import" else None
-            Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
-
-            geom_data_obj = editable_geom.get_geom_data_object()
-
-            for step in geom_data_obj.process_geom_data(geom_data, gradual=True):
-                yield
-
-            for step in editable_geom.create(gradual=True):
-                yield
-
-            geom_data_obj.init_normal_length()
-            geom_data_obj.init_normal_sharing(share=False)
-            model.get_bbox().update(*geom_data_obj.get_origin().get_tight_bounds())
-            Mgr.remove_notification_handler("long_process_cancelled", id_str)
-
-        r, g, b = [random.random() * .4 + .5 for i in range(3)]
-        color = (r, g, b, 1.)
-        model.set_color(color, update_app=False)
-        model.register(restore=False)
-
-        yield model
-
-    def __create_editable_model(self, name, src_geom, render_state):
-
-        coords = []
-        geom_data = []
-        poly_count = 0
-
-        geom = src_geom.decompose().unify(1000000, False)
-        vertex_data = geom.get_vertex_data()
-        vertex_format = vertex_data.get_format()
-        pos_reader = GeomVertexReader(vertex_data, "vertex")
-
-        if vertex_data.has_column("normal"):
-            normal_reader = GeomVertexReader(vertex_data, "normal")
-        else:
-            normal_reader = None
-
-        if vertex_data.has_column("color"):
-            col_reader = GeomVertexReader(vertex_data, "color")
-        else:
-            col_reader = None
-
-        uv_set_list = [InternalName.get_texcoord()]
-        uv_set_list += [InternalName.get_texcoord_name(str(i)) for i in range(1, 8)]
-        src_uv_set_names = ["", "1", "2", "3", "4", "5", "6", "7"]
-        uv_readers = {}
-        material, uv_set_names = render_state_to_material(render_state, vertex_format,
-                                                          self._imported_materials,
-                                                          for_basic_geom=False)
-
-        if material and material not in self._imported_materials:
-            self._imported_materials.append(material)
-
-        for src_uv_set, dest_uv_set in uv_set_names.iteritems():
-            uv_reader = GeomVertexReader(vertex_data, src_uv_set)
-            uv_set_id = uv_set_list.index(dest_uv_set)
-            uv_readers[uv_set_id] = uv_reader
-            uv_name = src_uv_set.get_name()
-            uv_name = "" if uv_name == "texcoord" else src_uv_set.get_basename()
-            src_uv_set_names[uv_set_id] = uv_name
-
-        extracted_data = {}
-        indices = geom.get_primitive(0).get_vertex_list()
-
-        for rows in (indices[i:i+3] for i in xrange(0, len(indices), 3)):
-
-            tri_data = []
-
-            for row in rows:
-
-                if row in extracted_data:
-
-                    vert_data = extracted_data[row]
-
+            for i, point in enumerate(points):
+                for impr_crd in coords:
+                    if point == impr_crd:
+                        points[i] = impr_crd
+                        break
                 else:
+                    coords.append(point)
 
-                    vert_data = {}
-                    pos_reader.set_row(row)
-                    pos = Point3(pos_reader.get_data3f())
+            plane = Plane(*poly[:3])
+            normal = plane.get_normal()
+            pos = points.pop(0)
+            pos_writer.add_data3f(*pos)
+            normal_writer.add_data3f(normal)
+            rows_by_pos[pos] = row1 = row
+            row += 1
 
-                    for crd in coords:
-                        if pos == crd:
-                            pos = crd
-                            break
+            for positions in (points[i:i+2] for i in range(len(points) - 1)):
+
+                tris.add_vertex(row1)
+
+                for pos in positions:
+                    if pos in rows_by_pos:
+                        tris.add_vertex(rows_by_pos[pos])
                     else:
-                        coords.append(pos)
-
-                    vert_data["pos"] = pos
-
-                    if normal_reader:
-                        normal_reader.set_row(row)
-                        vert_data["normal"] = Vec3(normal_reader.get_data3f())
-
-                    if col_reader:
-                        col_reader.set_row(row)
-                        vert_data["color"] = tuple(x for x in col_reader.get_data4f())
-
-                    uvs = {}
-
-                    for uv_set_id, uv_reader in uv_readers.iteritems():
-                        uv_reader.set_row(row)
-                        u, v = uv_reader.get_data2f()
-                        uvs[uv_set_id] = (u, v)
-
-                    vert_data["uvs"] = uvs
-                    extracted_data[row] = vert_data
-
-                tri_data.append(vert_data)
-
-            if normal_reader is None:
-
-                points = [Point3(*vert_data["pos"]) for vert_data in tri_data]
-                plane = Plane(*points)
-                normal = plane.get_normal()
-
-                for vert_data in tri_data:
-                    vert_data["normal"] = normal
-
-            poly_data = {"tris": [tri_data], "smoothing": [(0, False)]}
-            geom_data.append(poly_data)
+                        pos_writer.add_data3f(*pos)
+                        normal_writer.add_data3f(normal)
+                        rows_by_pos[pos] = row
+                        tris.add_vertex(row)
+                        row += 1
 
             poly_count += 1
 
@@ -518,38 +334,17 @@ class ImportManager(BaseObject):
                 yield
                 poly_count = 0
 
-        has_vert_colors = False if col_reader is None else True
-        editable_geom = Mgr.do("create_editable_geom", name=name, has_vert_colors=has_vert_colors)
-        model = editable_geom.get_model()
-
-        id_str = str(model.get_id())
-        handler = lambda info: model.cancel_creation() if info == "import" else None
-        Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
-
-        geom_data_obj = editable_geom.get_geom_data_object()
-        geom_data_obj.set_uv_set_names(src_uv_set_names)
-
-        for step in geom_data_obj.process_geom_data(geom_data, gradual=True):
-            yield
-
-        for step in editable_geom.create(gradual=True):
-            yield
-
-        geom_data_obj.init_normal_length()
-        geom_data_obj.init_normal_sharing()
-        geom_data_obj.update_smoothing()
-
-        if col_reader:
-            geom_data_obj.set_initial_vertex_colors()
-
+        geom = Geom(vertex_data)
+        geom.add_primitive(tris)
+        node = GeomNode("basic_geom")
+        node.add_geom(geom)
+        node_path = NodePath(node)
+        model = Mgr.do("create_basic_geom", node_path, name).get_model()
+        model.get_bbox().update(*node_path.get_tight_bounds())
         r, g, b = [random.random() * .4 + .5 for i in range(3)]
         color = (r, g, b, 1.)
         model.set_color(color, update_app=False)
         model.register(restore=False)
-        Mgr.remove_notification_handler("long_process_cancelled", id_str)
-
-        if material:
-            model.set_material(material)
 
         yield model
 
@@ -582,10 +377,9 @@ class ImportManager(BaseObject):
 
             else:
 
-                obj_name = node_data["data"]["new_name"]
+                obj_name = node_data["new_name"]
                 node = node_path.node()
                 node_type = node.get_class_type().get_name()
-                editing = node_data["data"].get("editing", "")
 
                 if node_type == "GeomNode" and Geom.PT_polygons in [geom.get_primitive_type()
                         for geom in node.get_geoms()]:
@@ -595,109 +389,60 @@ class ImportManager(BaseObject):
                                     if geom.get_primitive_type() == Geom.PT_polygons]
                     geom_count = len(geom_indices)
 
-                    if editing == "basic":
+                    materials = self._imported_materials
 
-                        materials = self._imported_materials
+                    if geom_count > 1:
 
-                        if geom_count > 1:
+                        obj = self.__create_model_group(obj_name, node_path.get_transform())
+                        obj_names = GlobalData["obj_names"] + self._obj_names
+                        obj_names.remove(obj_name)
 
-                            obj = self.__create_model_group(obj_name, node_path.get_transform())
-                            obj_names = GlobalData["obj_names"] + self._obj_names
-                            obj_names.remove(obj_name)
-
-                            for i in geom_indices:
-                                state = node.get_geom_state(i)
-                                tmp_np = node_path.attach_new_node("temp")
-                                tmp_np.set_state(state)
-                                state = tmp_np.get_net_state()
-                                tmp_np.remove_node()
-                                new_node = GeomNode("basic_geom")
-                                new_node.add_geom(node.modify_geom(i).decompose().unify(1000000, False))
-                                new_geom = NodePath(new_node)
-                                new_geom.set_state(state)
-                                member_name = "object 0001"
-                                member_name = get_unique_name(member_name, obj_names)
-                                obj_names.append(member_name)
-                                member = Mgr.do("create_basic_geom", new_geom, member_name, materials).get_model()
-                                member.register(restore=False)
-                                Mgr.do("add_group_member", member, obj, restore="import")
-                                member.get_bbox().update(*new_geom.get_tight_bounds())
-                                self._imported_objs.append(member)
-                                material = member.get_material()
-
-                                if material and material not in materials:
-                                    materials.append(material)
-
-                        else:
-
-                            index = geom_indices[0]
-                            state = node.get_geom_state(index)
+                        for i in geom_indices:
+                            state = node.get_geom_state(i)
                             tmp_np = node_path.attach_new_node("temp")
                             tmp_np.set_state(state)
                             state = tmp_np.get_net_state()
                             tmp_np.remove_node()
                             new_node = GeomNode("basic_geom")
-                            new_node.add_geom(node.modify_geom(index))
+                            new_node.add_geom(node.modify_geom(i).decompose().unify(1000000, False))
                             new_geom = NodePath(new_node)
                             new_geom.set_state(state)
-                            new_geom.set_transform(node_path.get_transform())
-                            bounds_node = new_geom
-
-                            new_node.decompose()
-                            new_node.unify(1000000, False)
-                            obj = Mgr.do("create_basic_geom", new_geom, obj_name, materials).get_model()
-                            obj.register(restore=False)
-                            material = obj.get_material()
+                            member_name = "object 0001"
+                            member_name = get_unique_name(member_name, obj_names)
+                            obj_names.append(member_name)
+                            member = Mgr.do("create_basic_geom", new_geom, member_name, materials).get_model()
+                            member.register(restore=False)
+                            Mgr.do("add_group_member", member, obj, restore="import")
+                            member.get_bbox().update(*new_geom.get_tight_bounds())
+                            self._imported_objs.append(member)
+                            material = member.get_material()
 
                             if material and material not in materials:
                                 materials.append(material)
 
                     else:
 
-                        if geom_count > 1:
+                        index = geom_indices[0]
+                        state = node.get_geom_state(index)
+                        tmp_np = node_path.attach_new_node("temp")
+                        tmp_np.set_state(state)
+                        state = tmp_np.get_net_state()
+                        tmp_np.remove_node()
+                        new_node = GeomNode("basic_geom")
+                        new_node.add_geom(node.modify_geom(index))
+                        new_geom = NodePath(new_node)
+                        new_geom.set_state(state)
+                        new_geom.set_transform(node_path.get_transform())
+                        bounds_node = new_geom
 
-                            obj = self.__create_model_group(obj_name, node_path.get_transform())
-                            obj_names = GlobalData["obj_names"] + self._obj_names
-                            obj_names.remove(obj_name)
+                        new_node.decompose()
+                        new_node.unify(1000000, False)
+                        obj = Mgr.do("create_basic_geom", new_geom, obj_name, materials).get_model()
+                        obj.register(restore=False)
+                        material = obj.get_material()
 
-                            for i in geom_indices:
-
-                                state = node.get_geom_state(i)
-                                tmp_np = node_path.attach_new_node("temp")
-                                tmp_np.set_state(state)
-                                state = tmp_np.get_net_state()
-                                tmp_np.remove_node()
-                                member_name = "object 0001"
-                                member_name = get_unique_name(member_name, obj_names)
-                                obj_names.append(member_name)
-                                src_geom = node.modify_geom(i)
-
-                                for member in self.__create_editable_model(member_name, src_geom, state):
-                                    yield
-
-                                member.register(restore=False)
-                                Mgr.do("add_group_member", member, obj, restore="import")
-                                geom_data_obj = member.get_geom_object().get_geom_data_object()
-                                origin = geom_data_obj.get_origin()
-                                member.get_bbox().update(*origin.get_tight_bounds())
-                                self._imported_objs.append(member)
-
-                        else:
-
-                            index = geom_indices[0]
-                            state = node.get_geom_state(index)
-                            tmp_np = node_path.attach_new_node("temp")
-                            tmp_np.set_state(state)
-                            state = tmp_np.get_net_state()
-                            tmp_np.remove_node()
-                            src_geom = node.modify_geom(index)
-
-                            for obj in self.__create_editable_model(obj_name, src_geom, state):
-                                yield
-
-                            obj.register(restore=False)
-                            obj.get_pivot().set_transform(node_path.get_transform())
-                            bounds_node = obj.get_geom_object().get_origin()
+                        if material and material not in materials:
+                            materials.append(material)
 
                 elif node_type == "CollisionNode":
 
@@ -773,7 +518,7 @@ class ImportManager(BaseObject):
                         name = get_unique_name(name, obj_names)
                         obj_names.append(name)
 
-                        for model in self.__create_collision_model(name, coll_polys, editing):
+                        for model in self.__create_collision_model(name, coll_polys):
                             yield
 
                         coll_objs.append(model)
@@ -803,7 +548,7 @@ class ImportManager(BaseObject):
                 obj_id = obj.get_id()
                 self._obj_names.remove(obj_name)
 
-            child_indices = node_data["children"]
+            child_indices = node_data["child_indices"]
 
             for child_index in child_indices:
                 if child_index in hierarchy:
@@ -816,28 +561,8 @@ class ImportManager(BaseObject):
 
         progress_steps = 0
         hierarchy = self._hierarchy
-        obj_data = self._obj_data
 
-        for index, data in obj_data["geom"].iteritems():
-
-            basic_or_full = data["editing"]
-
-            if basic_or_full == "full":
-
-                node_data = hierarchy[index]
-                node = node_data["node_path"].node()
-
-                geom_indices = [i for i, geom in enumerate(node.get_geoms())
-                                if geom.get_primitive_type() == Geom.PT_polygons]
-
-                for i in geom_indices:
-                    geom = node.modify_geom(i)
-                    geom.decompose_in_place()
-                    geom.unify_in_place(1000000, False)
-                    poly_count = len(geom.get_primitive(0).get_vertex_list()) / 3
-                    progress_steps += (poly_count // 20) * 5
-
-        for index, data in obj_data["collision"].iteritems():
+        for index in self._coll_obj_indices:
 
             node_data = hierarchy[index]
             node = node_data["node_path"].node()
@@ -851,10 +576,7 @@ class ImportManager(BaseObject):
                 if obj_type == "CollisionPolygon" and solid.is_valid():
                     coll_poly_count += 1
 
-            if data["editing"] == "full":
-                progress_steps += (coll_poly_count // 20) * 5
-            else:
-                progress_steps += coll_poly_count // 20
+            progress_steps += coll_poly_count // 20
 
         return progress_steps
 
@@ -866,7 +588,7 @@ class ImportManager(BaseObject):
         yield True
 
         if gradual:
-            Mgr.show_screenshot()
+            Mgr.update_remotely("screenshot", "create")
             GlobalData["progress_steps"] = progress_steps
 
         Mgr.do("update_history_time")
@@ -879,7 +601,7 @@ class ImportManager(BaseObject):
         self._model_root = None
         self._hierarchy = {}
         self._obj_index = 0
-        self._obj_data = {"geom": {}, "collision": {}, "other": {}}
+        self._coll_obj_indices = []
         self._imported_file_type = ""
         self._imported_materials = []
 
@@ -890,7 +612,7 @@ class ImportManager(BaseObject):
 
         obj_data = {}
         event_data = {"objects": obj_data}
-        event_descr = 'Import "%s"' % os.path.basename(self._imported_file)
+        event_descr = 'Import "{}"'.format(os.path.basename(self._imported_file))
         self._imported_file = ""
 
         for obj in self._imported_objs:
@@ -913,7 +635,7 @@ class ImportManager(BaseObject):
             self._model_root = None
             self._hierarchy = {}
             self._obj_index = 0
-            self._obj_data = {"geom": {}, "collision": {}, "other": {}}
+            self._coll_obj_indices = []
             self._obj_names = []
             self._imported_file = ""
             self._imported_file_type = ""

@@ -1,8 +1,7 @@
 from .panel import Panel
-from .controls import *
 from .stack import PanelStack
+from .widgets import *
 
 
-__all__ = ["Panel", "PanelStack", "PanelInputField", "PanelCheckBox",
-           "PanelColorPickerCtrl", "PanelButton", "PanelToggleButtonGroup",
-           "PanelComboBox", "EditablePanelComboBox", "PanelRadioButtonGroup"]
+__all__ = ["Panel", "PanelStack", "PanelText", "PanelButton", "PanelCheckBox", "PanelColorBox",
+           "PanelRadioButtonGroup", "PanelInputField", "PanelComboBox"]

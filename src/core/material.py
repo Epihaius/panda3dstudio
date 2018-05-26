@@ -195,6 +195,7 @@ class Material(object):
                         origin = owner.get_origin()
                         origin.set_transparency(attrib)
                         origin.set_alpha_scale(value)
+
                 else:
 
                     diffuse_value[3] = 1.
@@ -1149,7 +1150,7 @@ class MaterialManager(object):
             Mgr.update_app("active_obj_level")
 
         Mgr.add_task(self.__update_cursor, "update_matrl_owner_picking_cursor")
-        Mgr.update_app("status", "pick_material_owner")
+        Mgr.update_app("status", ["pick_material_owner"])
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
@@ -1197,7 +1198,7 @@ class MaterialManager(object):
 
         namelist = [m.get_name() for m in materials]
         search_pattern = r"^Material\s*(\d+)$"
-        naming_pattern = "Material %04d"
+        naming_pattern = "Material {:04d}"
 
         return get_unique_name(requested_name, namelist, search_pattern, naming_pattern)
 
@@ -1268,7 +1269,7 @@ class MaterialManager(object):
             return
 
         self._materials = self._materials_backup
-        logging.info('Material registry backup restored;\ninfo: %s', info)
+        logging.info('Material registry backup restored;\ninfo: {}'.format(info))
         self.__remove_registry_backup()
 
     def __remove_registry_backup(self):
@@ -1412,10 +1413,10 @@ class MaterialManager(object):
             if len(changed_objs) == 1:
 
                 if clear_material:
-                    event_descr = 'Remove material from "%s"' % changed_objs[0].get_name()
+                    event_descr = 'Remove material from "{}"'.format(changed_objs[0].get_name())
                 else:
                     args = (changed_objs[0].get_name(), material)
-                    event_descr = 'Change material of "%s"\nto "%s"' % args
+                    event_descr = 'Change material of "{}"\nto "{}"'.format(*args)
 
             else:
 
@@ -1425,10 +1426,10 @@ class MaterialManager(object):
                     event_descr = 'Change material of objects:\n'
 
                 for obj in changed_objs:
-                    event_descr += '\n    "%s"' % obj.get_name()
+                    event_descr += '\n    "{}"'.format(obj.get_name())
 
                 if not clear_material:
-                    event_descr += '\n\nto "%s"' % material
+                    event_descr += '\n\nto "{}"'.format(material)
 
             for obj in changed_objs:
                 obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "material")
@@ -1638,11 +1639,11 @@ class MaterialManager(object):
 
         if prop_id in ("shininess", "alpha"):
             prop_name = prop_id
-            val_str = "%.3f" % value["value"]
+            val_str = "{:.3f}".format(value["value"])
         else:
-            prop_name = "%s color" % prop_id
+            prop_name = "{} color".format(prop_id)
             r, g, b = value["value"][:3]
-            val_str = "R:%.3f | G:%.3f | B:%.3f" % (r, g, b)
+            val_str = "R:{:.3f} | G:{:.3f} | B:{:.3f}".format(r, g, b)
 
         val_str = "None" if not value["on"] else val_str
 
@@ -1685,17 +1686,17 @@ class MaterialManager(object):
         if len(changed_objs) == 1:
 
             name = changed_objs[0].get_name()
-            event_descr = 'Change %s of "%s"\nto %s' % (prop_name, name, val_str)
+            event_descr = 'Change {} of "{}"\nto {}'.format(prop_name, name, val_str)
 
         else:
 
-            event_descr = 'Change %s of objects:\n' % prop_name
+            event_descr = 'Change {} of objects:\n'.format(prop_name)
 
             for obj in changed_objs:
                 name = obj.get_name()
-                event_descr += '\n    "%s"' % name
+                event_descr += '\n    "{}"'.format(name)
 
-            event_descr += '\n\nto %s' % val_str
+            event_descr += '\n\nto {}'.format(val_str)
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data)
@@ -1753,7 +1754,7 @@ class MaterialManager(object):
         if len(changed_objs) == 1:
 
             name = changed_objs[0].get_name()
-            event_descr = 'Change material properties of "%s"' % name
+            event_descr = 'Change material properties of "{}"'.format(name)
 
         else:
 
@@ -1761,7 +1762,7 @@ class MaterialManager(object):
 
             for obj in changed_objs:
                 name = obj.get_name()
-                event_descr += '\n    "%s"' % name
+                event_descr += '\n    "{}"'.format(name)
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data)
@@ -1821,7 +1822,7 @@ class MaterialManager(object):
             return
 
         tex_str = "textures" if map_type == "all" else "texture"
-        filedescr = ("RGBA -> %s" % rgb_filename) if rgb_filename else "None"
+        filedescr = ("RGBA -> {}".format(rgb_filename)) if rgb_filename else "None"
 
         # make undo/redoable
         obj_data = {}
@@ -1834,20 +1835,20 @@ class MaterialManager(object):
         if len(changed_objs) == 1:
 
             name = changed_objs[0].get_name()
-            event_descr = 'Change %s %s of "%s"\nto %s' % (map_type, tex_str, name, filedescr)
+            event_descr = 'Change {} {} of "{}"\nto {}'.format(map_type, tex_str, name, filedescr)
 
         else:
 
-            event_descr = 'Change %s %s of objects:\n' % (map_type, tex_str)
+            event_descr = 'Change {} {} of objects:\n'.format(map_type, tex_str)
 
             for obj in changed_objs:
                 name = obj.get_name()
-                event_descr += '\n    "%s"' % name
+                event_descr += '\n    "{}"'.format(name)
 
-            event_descr += '\n\nto %s' % filedescr
+            event_descr += '\n\nto {}'.format(filedescr)
 
         if alpha_filename:
-            event_descr += '\n+ ALPHA -> %s' % alpha_filename
+            event_descr += '\n+ ALPHA -> {}'.format(alpha_filename)
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data)

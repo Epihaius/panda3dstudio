@@ -29,7 +29,7 @@ class TranslationGizmo(TransformationGizmo):
             pos2 = Point3()
             pos2[i] = .16
             handle = self.__create_axis_handle(self._handle_root, color_vec, pos1, pos2,
-                                               "%s_axis_handle" % axis)
+                                               "{}_axis_handle".format(axis))
             color = self._axis_colors[axis]
             handle.set_color(color)
             self._handles["axes"][axis] = handle
@@ -42,7 +42,7 @@ class TranslationGizmo(TransformationGizmo):
             cone_vec[i] = -.05
             cone_vec[(i + 1) % 3] = .01
             cone, cap = self.__create_axis_arrow(self._handle_root, color_vec, pos, axis_vec,
-                                                 cone_vec, 6, "%s_axis_arrow" % axis)
+                                                 cone_vec, 6, "{}_axis_arrow".format(axis))
             cone.set_color(color)
             cap.set_color(color * .5)
 
@@ -60,7 +60,7 @@ class TranslationGizmo(TransformationGizmo):
             pos3 = Point3()
             pos1[index1] = pos2[index1] = pos2[index2] = pos3[index2] = .07
             handle, quad = self.__create_plane_handle(self._handle_root, color_vec, pos1, pos2, pos3,
-                                                      "%s_plane_handle" % plane)
+                                                      "{}_plane_handle".format(plane))
             self._handles["planes"][plane] = handle
             self._handles["quads"][plane] = quad
             handle[0].set_color(self._axis_colors[plane[0]])

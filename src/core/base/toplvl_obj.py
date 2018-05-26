@@ -44,9 +44,9 @@ class TopLevelObject(BaseObject):
         self._group_id = None
         self._child_ids = []
         obj_root = Mgr.get("object_root")
-        pivot = obj_root.attach_new_node("%s_pivot" % str(obj_id))
+        pivot = obj_root.attach_new_node("{}_pivot".format(obj_id))
         self._pivot = pivot
-        self._origin = pivot.attach_new_node("%s_origin" % str(obj_id))
+        self._origin = pivot.attach_new_node("{}_origin".format(obj_id))
         self._has_color = has_color
 
         active_grid_plane = Mgr.get(("grid", "plane"))
@@ -63,7 +63,7 @@ class TopLevelObject(BaseObject):
 
     def cancel_creation(self):
 
-        logging.info('Creation of object "%s" has been cancelled.', self.get_name())
+        logging.info('Creation of object "{}" has been cancelled.'.format(self.get_name()))
 
         self._name.remove_updater("global_obj_names", final_update=True)
         self.set_name("")
@@ -119,7 +119,7 @@ class TopLevelObject(BaseObject):
         self._pivot = None
 
         if unregister:
-            Mgr.do("unregister_%s" % self._type, self)
+            Mgr.do("unregister_{}".format(self._type), self)
 
         task = lambda: self.__remove_references(add_to_hist)
         task_id = "object_removal"
@@ -148,7 +148,7 @@ class TopLevelObject(BaseObject):
 
     def register(self):
 
-        Mgr.do("register_%s" % self._type, self)
+        Mgr.do("register_{}".format(self._type), self)
         self._pivot_gizmo.register()
 
     def recreate(self):
@@ -253,15 +253,15 @@ class TopLevelObject(BaseObject):
 
     def restore_link(self, parent_id, group_id):
 
-        logging.debug('Restoring link for "%s"...', self.get_name())
+        logging.debug('Restoring link for "{}"...'.format(self.get_name()))
 
         old_parent = Mgr.get("object", self._parent_id)
         old_group = Mgr.get("group", self._group_id)
         link_restored = False
-        logging.debug('Old parent ID: %s', str(self._parent_id))
-        logging.debug('Old group ID: %s', str(self._group_id))
-        logging.debug('New parent ID: %s', str(parent_id))
-        logging.debug('New group ID: %s', str(group_id))
+        logging.debug('Old parent ID: {}'.format(self._parent_id))
+        logging.debug('Old group ID: {}'.format(self._group_id))
+        logging.debug('New parent ID: {}'.format(parent_id))
+        logging.debug('New group ID: {}'.format(group_id))
 
         if parent_id is None and group_id is None:
             restore_parent = self._parent_id != parent_id
@@ -292,7 +292,7 @@ class TopLevelObject(BaseObject):
                 Mgr.do("remove_obj_link_viz", self._id)
 
             link_restored = True
-            logging.debug('New parent for "%s": "%s"', self.get_name(), str(parent_id))
+            logging.debug('New parent for "{}": "{}"'.format(self.get_name(), parent_id))
 
         if restore_group:
 
@@ -311,14 +311,14 @@ class TopLevelObject(BaseObject):
                 Mgr.do("remove_obj_link_viz", self._id)
 
             link_restored = True
-            logging.debug('New group for "%s": "%s"', self.get_name(), str(group_id))
+            logging.debug('New group for "{}": "{}"'.format(self.get_name(), group_id))
 
         self._parent_id = parent_id
         self._group_id = group_id
 
         if link_restored:
 
-            logging.debug('Reparented "%s"', self.get_name())
+            logging.debug('Reparented "{}"'.format(self.get_name()))
 
             if old_parent:
                 old_parent.remove_child(self._id)

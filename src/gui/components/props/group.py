@@ -1,7 +1,7 @@
 from .base import *
 
 
-class GroupProperties(BaseObject):
+class GroupProperties(object):
 
     def __init__(self, panel):
 
@@ -10,53 +10,45 @@ class GroupProperties(BaseObject):
         self._checkboxes = {}
         self._comboboxes = {}
 
-        section = panel.add_section("group_props", "Group properties")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("group_props", "Group properties", hidden=True)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=3, hgap=5, vgap=2)
-        sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
+        sizer = GridSizer(rows=0, columns=3, gap_h=5, gap_v=5)
+        section.add(sizer, expand=True)
 
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
-
-        bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
-
-        label = "Close"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, subsizer, bitmaps, label,
-                          "Make members inaccessible",
-                          lambda: Mgr.update_remotely("group", "open", False),
-                          sizer_args)
-        subsizer.Add(wx.Size(0, 0))
-        subsizer.Add(wx.Size(0, 0))
-
-        label = "Open"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, subsizer, bitmaps, label,
-                          "Make members accessible",
-                          lambda: Mgr.update_remotely("group", "open", True),
-                          sizer_args)
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__toggle_recursive_open,
-                                 sizer_args=sizer_args)
+        text = "Open"
+        tooltip_text = "Make members accessible"
+        command = lambda: Mgr.update_remotely("group", "open", True)
+        btn = PanelButton(section, text, "", tooltip_text, command)
+        sizer.add(btn, proportion_h=1., alignment_v="center_v")
+        checkbox = PanelCheckBox(section, self.__toggle_recursive_open)
         checkbox.check(False)
         self._checkboxes["recursive_open"] = checkbox
-        section.add_text("recursively", subsizer, sizer_args)
+        sizer.add(checkbox, alignment_v="center_v")
+        text = "recursively"
+        sizer.add(PanelText(section, text), alignment_v="center_v")
 
-        label = "Dissolve"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, subsizer, bitmaps, label,
-                          "Ungroup members and delete",
-                          lambda: Mgr.update_remotely("group", "dissolve"),
-                          sizer_args)
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__toggle_recursive_dissolve,
-                                 sizer_args=sizer_args)
+        text = "Close"
+        tooltip_text = "Make members inaccessible"
+        command = lambda: Mgr.update_remotely("group", "open", False)
+        btn = PanelButton(section, text, "", tooltip_text, command)
+        sizer.add(btn, stretch_h=True)
+
+        sizer.add((0, 0))
+        sizer.add((0, 0))
+
+        text = "Dissolve"
+        tooltip_text = "Ungroup members and delete"
+        command = lambda: Mgr.update_remotely("group", "dissolve")
+        btn = PanelButton(section, text, "", tooltip_text, command)
+        sizer.add(btn, proportion_h=1., alignment_v="center_v")
+        checkbox = PanelCheckBox(section, self.__toggle_recursive_dissolve)
         checkbox.check(False)
         self._checkboxes["recursive_dissolve"] = checkbox
-        section.add_text("recursively", subsizer, sizer_args)
-
-        sizer.Add(wx.Size(0, 6))
+        sizer.add(checkbox, alignment_v="center_v")
+        text = "recursively"
+        sizer.add(PanelText(section, text), alignment_v="center_v")
 
         group = section.add_group("Member types")
-        grp_sizer = group.get_client_sizer()
 
         def get_command(member_types):
 
@@ -72,42 +64,44 @@ class GroupProperties(BaseObject):
                       "Collision geometry", "Any helper", "Model + any helper",
                       "Model + coll. geom."]
 
-        combobox = PanelComboBox(panel, group, grp_sizer, "Member types",
-                                 145, sizer_args=sizer_args)
+        combobox = PanelComboBox(group, 145, tooltip_text="Member types")
+        group.add(combobox, expand=True)
 
         for member_type, descr in zip(member_types, type_descr):
             combobox.add_item(member_type, descr, get_command(member_type))
 
+        combobox.update_popup_menu()
         self._comboboxes["member_types"] = combobox
 
-        sizer.Add(wx.Size(0, 6))
+        section.add((0, 5))
 
-        sizer_args = (0, wx.ALIGN_CENTER)
+        group = section.add_group("Member selection")
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
+        group.add(sizer, expand=True)
 
-        label = "Select members"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(panel, section, sizer, bitmaps, label,
-                          "Open group and select members",
-                          lambda: Mgr.update_remotely("group", "select_members"),
-                          sizer_args)
-
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
-
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        sizer.Add(subsizer, 0, wx.ALIGN_CENTER)
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__toggle_recursive_member_selection,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(group, self.__toggle_recursive_member_selection)
         checkbox.check(False)
         self._checkboxes["recursive_member_selection"] = checkbox
-        section.add_text("recursively", subsizer, sizer_args)
+        sizer.add(checkbox, alignment_v="center_v")
+        text = "Recursively"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
 
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__toggle_subgroup_selection,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(group, self.__toggle_subgroup_selection)
         checkbox.check(False)
         self._checkboxes["subgroup_selection"] = checkbox
-        section.add_text("select groups", subsizer, sizer_args)
+        sizer.add(checkbox, alignment_v="center_v")
+        text = "Select subgroups"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
+
+        text = "Select"
+        tooltip_text = "Open group and select members"
+        command = lambda: Mgr.update_remotely("group", "select_members")
+        btn = PanelButton(group, text, "", tooltip_text, command)
+        group.add(btn, alignment="center_h")
 
         Mgr.add_app_updater("group_options", self.__update_group_options)
+
+    def setup(self): pass
 
     def __update_group_options(self):
 
@@ -142,8 +136,7 @@ class GroupProperties(BaseObject):
 
         return []
 
-    def set_object_property_default(self, prop_id, value):
-        pass
+    def set_object_property_default(self, prop_id, value): pass
 
     def set_object_property(self, prop_id, value):
 

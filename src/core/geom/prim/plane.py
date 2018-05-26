@@ -130,7 +130,7 @@ class Plane(Primitive):
 
     def __init__(self, model):
 
-        prop_ids = ["size_%s" % axis for axis in "xy"]
+        prop_ids = ["size_{}".format(axis) for axis in "xy"]
         prop_ids.append("segments")
 
         Primitive.__init__(self, "plane", model, prop_ids)
@@ -307,7 +307,7 @@ class PlaneManager(PrimitiveManager):
         PrimitiveManager.__init__(self, "plane", custom_creation=True)
 
         for axis in "xy":
-            self.set_property_default("size_%s" % axis, 1.)
+            self.set_property_default("size_{}".format(axis), 1.)
 
         self.set_property_default("temp_segments", {"x": 1, "y": 1})
         self.set_property_default("segments", {"x": 1, "y": 1})
@@ -351,7 +351,7 @@ class PlaneManager(PrimitiveManager):
 
         if size is None:
             prop_defaults = self.get_property_defaults()
-            x, y = [prop_defaults["size_%s" % axis] for axis in "xy"]
+            x, y = [prop_defaults["size_{}".format(axis)] for axis in "xy"]
         else:
             x, y = [size[axis] for axis in "xy"]
 

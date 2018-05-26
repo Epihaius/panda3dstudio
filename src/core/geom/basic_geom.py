@@ -102,6 +102,8 @@ class BasicGeom(BaseObject):
         self._normals_flipped = False
         self._normals_shown = False
         self._normal_color = (.75, .75, 0., 1.)
+        self._geometry_unlock_started = False
+        self._geometry_unlock_ended = False
         prim_count = geom.node().get_geom(0).get_primitive(0).get_num_primitives()
         p1, p2 = geom.get_tight_bounds()
         x, y, z = p2 - p1
@@ -596,26 +598,185 @@ class BasicGeom(BaseObject):
     def set_property(self, prop_id, value, restore=""):
 
         if prop_id == "uv_set_names":
-            ret = self.set_uv_set_names(value)
+            r = self.set_uv_set_names(value)
         elif prop_id == "normal_flip":
-            ret = self.flip_normals(value)
+            r = self.flip_normals(value)
         elif prop_id == "normal_viz":
-            ret = self.show_normals(value)
+            r = self.show_normals(value)
         elif prop_id == "normal_color":
             if restore:
                 self.set_normal_color(value)
             else:
                 r, g, b = value
                 color = (r, g, b, 1.)
-                ret = self.set_normal_color(color)
+                r = self.set_normal_color(color)
                 Mgr.update_remotely("selected_obj_prop", "basic_geom", prop_id, value)
         elif prop_id == "normal_length":
-            ret = self.set_normal_length(value)
+            r = self.set_normal_length(value)
 
         if restore:
             Mgr.update_remotely("selected_obj_prop", "basic_geom", prop_id, value)
         else:
-            return ret
+            return r
+
+    def __define_geom_data(self):
+
+        geom_data = []
+        coords = []
+
+        geom = self._geom.node().get_geom(0)
+        vertex_data = geom.get_vertex_data()
+        vertex_format = vertex_data.get_format()
+        pos_reader = GeomVertexReader(vertex_data, "vertex")
+        normal_reader = GeomVertexReader(vertex_data, "normal")
+        col_reader = GeomVertexReader(vertex_data, "color")
+
+        uv_set_list = [InternalName.get_texcoord()]
+        uv_set_list += [InternalName.get_texcoord_name(str(i)) for i in range(1, 8)]
+        uv_readers = []
+
+        for uv_set_id in range(8):
+            uv_reader = GeomVertexReader(vertex_data, uv_set_list[uv_set_id])
+            uv_readers.append(uv_reader)
+
+        extracted_data = {}
+        indices = geom.get_primitive(0).get_vertex_list()
+        f = -1. if self.has_flipped_normals() else 1.
+
+        if self.has_flipped_normals():
+            indices = indices[::-1]
+
+        for rows in (indices[i:i+3] for i in xrange(0, len(indices), 3)):
+
+            tri_data = []
+
+            for row in rows:
+
+                if row in extracted_data:
+
+                    vert_data = extracted_data[row]
+
+                else:
+
+                    vert_data = {}
+                    pos_reader.set_row(row)
+                    pos = Point3(pos_reader.get_data3f())
+
+                    for crd in coords:
+                        if pos == crd:
+                            pos = crd
+                            break
+                    else:
+                        coords.append(pos)
+
+                    vert_data["pos"] = pos
+                    normal_reader.set_row(row)
+                    vert_data["normal"] = Vec3(normal_reader.get_data3f()) * f
+                    col_reader.set_row(row)
+                    vert_data["color"] = tuple(x for x in col_reader.get_data4f())
+
+                    uvs = {}
+
+                    for uv_set_id, uv_reader in enumerate(uv_readers):
+                        uv_reader.set_row(row)
+                        u, v = uv_reader.get_data2f()
+                        uvs[uv_set_id] = (u, v)
+
+                    vert_data["uvs"] = uvs
+                    extracted_data[row] = vert_data
+
+                tri_data.append(vert_data)
+
+            poly_data = {"tris": [tri_data], "smoothing": [(0, False)]}
+            geom_data.append(poly_data)
+
+        return geom_data
+
+    def __cancel_geometry_unlock(self, info):
+
+        if self._geometry_unlock_started:
+            self._model.get_geom_object().get_geom_data_object().cancel_creation()
+        elif self._geometry_unlock_ended:
+            self._model.get_geom_object().get_geom_data_object().destroy(unregister=False)
+
+        if info == "geometry_unlock":
+            self._model.set_geom_object(self)
+
+    def unlock_geometry(self, editable_geom):
+
+        obj_id = self.get_toplevel_object().get_id()
+        id_str = str(obj_id) + "_geom_data"
+        handler = self.__cancel_geometry_unlock
+        Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
+        task = lambda: Mgr.remove_notification_handler("long_process_cancelled", id_str)
+        task_id = "remove_notification_handler"
+        PendingTasks.add(task, task_id, "object", id_prefix=id_str, sort=100)
+
+        Mgr.do("create_registry_backups")
+        Mgr.do("create_id_range_backups")
+        Mgr.do("update_picking_col_id_ranges")
+        Mgr.update_locally("screenshot_removal")
+
+        def task():
+
+            self._geometry_unlock_started = True
+            self._geometry_unlock_ended = False
+
+            geom_data = self.__define_geom_data()
+            poly_count = len(geom_data)
+            progress_steps = (poly_count // 20) * 4
+            gradual = progress_steps > 80
+
+            if gradual:
+                Mgr.update_remotely("screenshot", "create")
+                GlobalData["progress_steps"] = progress_steps
+
+            geom_data_obj = editable_geom.get_geom_data_object()
+            editable_geom.set_geom_data_object(geom_data_obj)
+
+            for step in geom_data_obj.process_geom_data(geom_data, gradual=gradual):
+                if gradual:
+                    yield True
+
+            geom_data_obj.init_normal_sharing()
+            geom_data_obj.update_smoothing()
+
+            for step in geom_data_obj.create_geometry("editable", gradual=gradual):
+                if gradual:
+                    yield True
+
+            if self.has_flipped_normals():
+                geom_data_obj.flip_normals(delay=False)
+
+            geom_data_obj.finalize_geometry()
+            geom_data_obj.update_poly_centers()
+            geom_data_obj.register(restore=False)
+
+            if self._model.has_tangent_space():
+                geom_data_obj.init_tangent_space()
+
+            geom_data_obj.init_normal_length()
+            geom_data_obj.init_normal_sharing()
+            geom_data_obj.update_smoothing()
+            geom_data_obj.set_initial_vertex_colors()
+
+            self._geometry_unlock_started = False
+            self._geometry_unlock_ended = True
+
+            yield False
+
+        task_id = "set_geom_data"
+        descr = "Unlocking geometry..."
+        PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
+                         process_id="geometry_unlock", descr=descr, cancellable=True)
+
+        def task():
+
+            self.destroy()
+            self._model.get_bbox().set_color((1., 1., 1., 1.))
+
+        task_id = "set_geom_data"
+        PendingTasks.add(task, task_id, "object", 99, id_prefix=obj_id)
 
 
 class BasicGeomManager(ObjectManager, PickingColorIDManager):
@@ -673,11 +834,11 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = 'Change UV set name %d of "%s"' % (uv_set_id, obj.get_name())
-            event_descr += '\nto "%s"' % obj.get_geom_object().get_uv_set_names()[uv_set_id]
+            event_descr = 'Change UV set name {:d} of "{}"'.format(uv_set_id, obj.get_name())
+            event_descr += '\nto "{}"'.format(obj.get_geom_object().get_uv_set_names()[uv_set_id])
         else:
-            event_descr = 'Change UV set name %d of objects:\n' % uv_set_id
-            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+            event_descr = 'Change UV set name {:d} of objects:\n'.format(uv_set_id)
+            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -702,10 +863,10 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = '%s normals of "%s"' % ("Show" if show else "Hide", obj.get_name())
+            event_descr = '{} normals of "{}"'.format("Show" if show else "Hide", obj.get_name())
         else:
-            event_descr = '%s normals of objects:\n' % ("Show" if show else "Hide")
-            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+            event_descr = '{} normals of objects:\n'.format("Show" if show else "Hide")
+            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -731,12 +892,12 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = 'Change normal color of "%s"' % obj.get_name()
-            event_descr += '\nto R:%.3f | G:%.3f | B:%.3f' % (r, g, b)
+            event_descr = 'Change normal color of "{}"'.format(obj.get_name())
+            event_descr += '\nto R:{:.3f} | G:{:.3f} | B:{:.3f}'.format(r, g, b)
         else:
             event_descr = 'Change normal color of objects:\n'
-            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
-            event_descr += '\n\nto R:%.3f | G:%.3f | B:%.3f' % (r, g, b)
+            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
+            event_descr += '\n\nto R:{:.3f} | G:{:.3f} | B:{:.3f}'.format(r, g, b)
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

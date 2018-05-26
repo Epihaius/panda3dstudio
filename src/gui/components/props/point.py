@@ -1,56 +1,64 @@
 from .base import *
 
 
-class PointProperties(BaseObject):
+class PointProperties(object):
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
         self._checkboxes = {}
-        self._color_pickers = {}
+        self._colorboxes = {}
 
-        section = panel.add_section("point_props", "Point helper properties")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("point_props", "Point helper properties", hidden=True)
 
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        borders = (0, 5, 0, 0)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        sizer.Add(subsizer)
-        section.add_text("Size:", subsizer, sizer_args)
+        sizer = Sizer("horizontal")
+        section.add(sizer)
+        text = "Size:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         prop_id = "size"
-        field = PanelInputField(panel, section, subsizer, 45)
+        field = PanelInputField(section, 45)
         field.add_value(prop_id, "int", handler=self.__handle_value)
         field.show_value(prop_id)
+        field.set_input_parser("size", self.__parse_size)
         self._fields[prop_id] = field
-        self._fields[prop_id].set_input_parser("size", self.__parse_size)
+        sizer.add(field, alignment="center_v")
 
-        sizer.Add(wx.Size(0, 4))
+        section.add((0, 5))
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        sizer.Add(subsizer)
+        sizer = Sizer("horizontal")
+        section.add(sizer)
         prop_id = "on_top"
-        checkbox = PanelCheckBox(panel, section, subsizer, self.__draw_on_top,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__draw_on_top)
         self._checkboxes[prop_id] = checkbox
-        section.add_text("Draw on top", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Draw on top"
+        sizer.add(PanelText(section, text), alignment="center_v")
 
-        sizer.Add(wx.Size(0, 5))
+        section.add((0, 5))
 
         group = section.add_group("Color")
-        grp_sizer = group.get_client_sizer()
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
+        group.add(sizer, expand=True)
+        text = "Unselected:"
+        sizer.add(PanelText(section, text), alignment_v="center_v")
+        title = "Pick unselected point color"
+        colorbox = PanelColorBox(group, lambda col: self.__handle_color("unselected", col),
+                                 dialog_title=title)
+        self._colorboxes["unselected_color"] = colorbox
+        sizer.add(colorbox, alignment_v="center_v")
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        grp_sizer.Add(subsizer)
-        group.add_text("Unselected:", subsizer, sizer_args)
-        color_picker = PanelColorPickerCtrl(panel, group, subsizer,
-                                            lambda col: self.__handle_color("unselected", col))
-        self._color_pickers["unselected_color"] = color_picker
+        text = "Selected:"
+        sizer.add(PanelText(section, text), alignment_v="center_v")
+        title = "Pick selected point color"
+        colorbox = PanelColorBox(group, lambda col: self.__handle_color("selected", col),
+                                 dialog_title=title)
+        self._colorboxes["selected_color"] = colorbox
+        sizer.add(colorbox, alignment_v="center_v")
 
-        group.add_text("Selected:", subsizer, sizer_args)
-        color_picker = PanelColorPickerCtrl(panel, group, subsizer,
-                                            lambda col: self.__handle_color("selected", col))
-        self._color_pickers["selected_color"] = color_picker
+    def setup(self): pass
 
     def __handle_value(self, value_id, value):
 
@@ -77,16 +85,15 @@ class PointProperties(BaseObject):
 
     def __handle_color(self, sel_state, color):
 
-        r, g, b = color.Get()
-        color_values = Mgr.convert_to_remote_format("color", (r, g, b, 255))
-        prop_id = "%s_color" % sel_state
+        r, g, b = color
+        prop_id = "{}_color".format(sel_state)
 
         if GlobalData["active_creation_type"]:
-            Mgr.update_remotely("point_helper_prop_default", prop_id, color_values)
-            self.set_object_property_default(prop_id, color_values)
+            Mgr.update_remotely("point_helper_prop_default", prop_id, (r, g, b, 1.))
+            self.set_object_property_default(prop_id, color)
             return
 
-        Mgr.update_remotely("selected_obj_prop", prop_id, color_values)
+        Mgr.update_remotely("selected_obj_prop", prop_id, (r, g, b, 1.))
 
     def get_base_type(self):
 
@@ -102,10 +109,10 @@ class PointProperties(BaseObject):
 
     def set_object_property_default(self, prop_id, value):
 
-        color = wx.Colour(255, 255, 0)
+        color = (1., 1., 0., 1.)
         fields = self._fields
         checkboxes = self._checkboxes
-        color_pickers = self._color_pickers
+        colorboxes = self._colorboxes
 
         if prop_id in fields:
             field = fields[prop_id]
@@ -115,21 +122,21 @@ class PointProperties(BaseObject):
         elif prop_id in checkboxes:
             checkboxes[prop_id].check(value)
             checkboxes[prop_id].set_checkmark_color(color)
-        elif prop_id in color_pickers:
-            color_pickers[prop_id].set_color(value)
+        elif prop_id in colorboxes:
+            colorboxes[prop_id].set_color(value[:3])
 
     def set_object_property(self, prop_id, value):
 
         fields = self._fields
         checkboxes = self._checkboxes
-        color_pickers = self._color_pickers
+        colorboxes = self._colorboxes
 
         if prop_id in fields:
             fields[prop_id].set_value(prop_id, value)
         elif prop_id in checkboxes:
             checkboxes[prop_id].check(value)
-        elif prop_id in color_pickers:
-            color_pickers[prop_id].set_color(value)
+        elif prop_id in colorboxes:
+            colorboxes[prop_id].set_color(value[:3])
 
     def check_selection_count(self):
 
@@ -138,7 +145,7 @@ class PointProperties(BaseObject):
 
         sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
-        color = wx.Colour(127, 127, 127) if multi_sel else None
+        color = (.5, .5, .5, 1.) if multi_sel else None
 
         for checkbox in checkboxes.itervalues():
             checkbox.set_checkmark_color(color)

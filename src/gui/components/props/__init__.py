@@ -13,5 +13,5 @@ for name in names:
     try:
         __import__(package_path + name)
     except ImportError:
-        logging.critical('Failed to load module "%s"!', name)
-        raise ImportError('Failed to load module "%s"!' % name)
+        logging.critical('Failed to load module "{}"!'.format(name))
+        raise ImportError('Failed to load module "{}"!'.format(name))

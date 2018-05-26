@@ -73,7 +73,7 @@ class HierarchyManager(BaseObject):
             GlobalData["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
-        Mgr.update_app("status", GlobalData["object_linking_mode"])
+        Mgr.update_app("status", [GlobalData["object_linking_mode"]])
 
     def __exit_linking_mode(self, next_state_id, is_active):
 
@@ -263,7 +263,6 @@ class HierarchyManager(BaseObject):
         self._obj_to_link = obj
         pivot_pos = obj.get_pivot().get_pos(self.world)
         Mgr.do("start_drawing_rubber_band", pivot_pos)
-        Mgr.do("enable_view_tiles", False)
         Mgr.enter_state("object_link_creation")
         Mgr.set_cursor("no_link")
 
@@ -275,7 +274,6 @@ class HierarchyManager(BaseObject):
         Mgr.do("end_drawing_rubber_band")
         Mgr.enter_state("object_linking_mode")
         Mgr.set_cursor("main" if self._pixel_under_mouse == VBase4() else "select")
-        Mgr.do("enable_view_tiles")
 
         self._obj_to_link = None
 
@@ -390,9 +388,9 @@ class HierarchyManager(BaseObject):
         names = (obj_to_link.get_name(), new_target.get_name())
 
         if link_type == "child":
-            event_descr = 'Link "%s"\nto "%s"' % names
+            event_descr = 'Link "{}"\nto "{}"'.format(*names)
         else:
-            event_descr = 'Add to group "%s":\n    "%s"' % names[::-1]
+            event_descr = 'Add to group "{}":\n    "{}"'.format(*names[::-1])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -488,28 +486,28 @@ class HierarchyManager(BaseObject):
             if len(children) == 1:
 
                 names = (children[0].get_name(), new_target.get_name())
-                event_descr = 'Link "%s"\nto "%s"' % names
+                event_descr = 'Link "{}"\nto "{}"'.format(*names)
 
             else:
 
-                event_descr = 'Link objects to "%s":\n' % new_target.get_name()
+                event_descr = 'Link objects to "{}":\n'.format(new_target.get_name())
 
                 for child in children:
-                    event_descr += '\n    "%s"' % child.get_name()
+                    event_descr += '\n    "{}"'.format(child.get_name())
 
         elif members:
 
             if len(members) == 1:
 
                 names = (new_target.get_name(), members[0].get_name())
-                event_descr = 'Add to group "%s":\n    "%s"' % names
+                event_descr = 'Add to group "{}":\n    "{}"'.format(*names)
 
             else:
 
-                event_descr = 'Add to group "%s":\n' % new_target.get_name()
+                event_descr = 'Add to group "{}":\n'.format(new_target.get_name())
 
                 for member in members:
-                    event_descr += '\n    "%s"' % member.get_name()
+                    event_descr += '\n    "{}"'.format(member.get_name())
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
@@ -550,9 +548,9 @@ class HierarchyManager(BaseObject):
         event_data = {"objects": obj_data}
 
         if unlinked:
-            event_descr = 'Unlink "%s"' % obj.get_name()
+            event_descr = 'Unlink "{}"'.format(obj.get_name())
         elif ungrouped:
-            event_descr = 'Ungroup "%s"' % obj.get_name()
+            event_descr = 'Ungroup "{}"'.format(obj.get_name())
 
         data = obj.get_data_to_store("prop_change", "link")
         data.update(obj.get_data_to_store("prop_change", "transform"))
@@ -601,14 +599,14 @@ class HierarchyManager(BaseObject):
 
         if len(unlinked_children) == 1:
 
-            event_descr = 'Unlink "%s"' % unlinked_children[0].get_name()
+            event_descr = 'Unlink "{}"'.format(unlinked_children[0].get_name())
 
         elif unlinked_children:
 
             event_descr = 'Unlink objects:\n'
 
             for obj in unlinked_children:
-                event_descr += '\n    "%s"' % obj.get_name()
+                event_descr += '\n    "{}"'.format(obj.get_name())
 
         if ungrouped_members:
 
@@ -619,14 +617,14 @@ class HierarchyManager(BaseObject):
 
             if len(ungrouped_members) == 1:
 
-                event_descr += 'Ungroup "%s"' % ungrouped_members[0].get_name()
+                event_descr += 'Ungroup "{}"'.format(ungrouped_members[0].get_name())
 
             else:
 
                 event_descr += 'Ungroup objects:\n'
 
                 for obj in ungrouped_members:
-                    event_descr += '\n    "%s"' % obj.get_name()
+                    event_descr += '\n    "{}"'.format(obj.get_name())
 
         for obj in changed_objs:
             data = obj.get_data_to_store("prop_change", "link")
@@ -729,14 +727,14 @@ class HierarchyManager(BaseObject):
 
         if obj_count > 1:
 
-            event_descr = "Reset %d objects' geometry:\n" % obj_count
+            event_descr = "Reset {:d} objects' geometry:\n".format(obj_count)
 
             for obj in sel:
-                event_descr += '\n    "%s"' % obj.get_name()
+                event_descr += '\n    "{}"'.format(obj.get_name())
 
         else:
 
-            event_descr = 'Reset "%s" geometry' % sel[0].get_name()
+            event_descr = 'Reset "{}" geometry'.format(sel[0].get_name())
 
         for obj in sel:
             data = obj.get_data_to_store("prop_change", "origin_transform")
@@ -810,14 +808,14 @@ class HierarchyManager(BaseObject):
 
         if obj_count > 1:
 
-            event_descr = "Reset %d objects' pivots:\n" % obj_count
+            event_descr = "Reset {:d} objects' pivots:\n".format(obj_count)
 
             for obj in sel:
-                event_descr += '\n    "%s"' % obj.get_name()
+                event_descr += '\n    "{}"'.format(obj.get_name())
 
         else:
 
-            event_descr = 'Reset "%s" pivot' % sel[0].get_name()
+            event_descr = 'Reset "{}" pivot'.format(sel[0].get_name())
 
         objs = set(sel)
         objs.update(members)

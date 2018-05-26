@@ -9,6 +9,8 @@ class GUIManager(object):
     _data_retrievers = {}
     _default_task_handler = lambda *args, **kwargs: None
     _default_data_retriever = lambda *args, **kwargs: None
+    _task_mgr = None
+    _msgr = None
     _app_mgr = None
     _verbose = False
 
@@ -17,6 +19,11 @@ class GUIManager(object):
 
         cls._app_mgr = app_mgr
         cls._verbose = verbose
+        base = app_mgr.get_base()
+        cls._task_mgr = base.task_mgr
+        cls._msgr = base.messenger
+        cls.expose("base", lambda: cls._app_mgr.get_base())
+        cls.expose("mouse_pointer", lambda i: cls._app_mgr.get_base().win.get_pointer(i))
 
     @classmethod
     def accept(cls, task_id, task_handler):
@@ -37,10 +44,10 @@ class GUIManager(object):
 
         if task_id not in cls._task_handlers:
 
-            logging.warning('GUI: task "%s" is not defined.', task_id)
+            logging.warning('GUI: task "{}" is not defined.'.format(task_id))
 
             if cls._verbose:
-                print 'GUI warning: task "%s" is not defined.' % task_id
+                print('GUI warning: task "{}" is not defined.'.format(task_id))
 
         task_handler = cls._task_handlers.get(task_id, cls._default_task_handler)
 
@@ -62,10 +69,10 @@ class GUIManager(object):
 
         if data_id not in cls._data_retrievers:
 
-            logging.warning('GUI: data "%s" is not defined.', data_id)
+            logging.warning('GUI: data "{}" is not defined.'.format(data_id))
 
             if cls._verbose:
-                print 'GUI warning: data "%s" is not defined.' % data_id
+                print('GUI warning: data "{}" is not defined.'.format(data_id))
 
         retriever = cls._data_retrievers.get(data_id, cls._default_data_retriever)
 
@@ -91,43 +98,42 @@ class GUIManager(object):
     def add_interface(cls, interface_id, key_handlers):
 
         cls._app_mgr.add_state_manager(interface_id, "GUI")
-        cls._app_mgr.add_key_handlers(interface_id, "GUI", key_handlers)
+        cls._app_mgr.add_key_handlers(interface_id, key_handlers)
 
     @classmethod
-    def add_state(cls, state_id, persistence, on_enter=None, on_exit=None, interface_id=""):
+    def add_state(cls, state_id, persistence, on_enter=None, on_exit=None, interface_id="main"):
 
-        cls._app_mgr.add_state(interface_id, "GUI", state_id, persistence,
-                               on_enter, on_exit)
+        cls._app_mgr.add_state(interface_id, "GUI", state_id, persistence, on_enter, on_exit)
 
     @classmethod
-    def set_initial_state(cls, state_id, interface_id=""):
+    def set_initial_state(cls, state_id, interface_id="main"):
 
         cls._app_mgr.set_initial_state(interface_id, state_id)
 
     @classmethod
-    def enter_state(cls, state_id, interface_id=""):
+    def enter_state(cls, state_id, interface_id="main"):
 
         cls._app_mgr.enter_state(interface_id, state_id)
 
     @classmethod
-    def exit_state(cls, state_id, interface_id=""):
+    def exit_state(cls, state_id, interface_id="main"):
 
         cls._app_mgr.exit_state(interface_id, state_id)
 
     @classmethod
-    def get_state_id(cls, interface_id=""):
+    def get_state_id(cls, interface_id="main"):
 
         return cls._app_mgr.get_state_id(interface_id, "GUI")
 
     @classmethod
-    def get_state_persistence(cls, state_id, interface_id=""):
+    def get_state_persistence(cls, state_id, interface_id="main"):
 
         return cls._app_mgr.get_state_persistence(interface_id, "GUI", state_id)
 
     @classmethod
-    def add_app_updater(cls, update_id, updater, kwargs=None):
+    def add_app_updater(cls, update_id, updater, kwargs=None, interface_id="main"):
 
-        cls._app_mgr.add_updater("GUI", update_id, updater, kwargs)
+        cls._app_mgr.add_updater("GUI", update_id, updater, kwargs, interface_id)
 
     @classmethod
     def update_app(cls, update_id, *args, **kwargs):
@@ -143,12 +149,6 @@ class GUIManager(object):
     def update_remotely(cls, update_id, *args, **kwargs):
 
         return cls._app_mgr.update("GUI", False, True, update_id, *args, **kwargs)
-
-    @classmethod
-    def add_interface_updater(cls, interface_id, update_id, updater, kwargs=None):
-
-        cls._app_mgr.add_interface_updater(interface_id, "GUI", update_id,
-                                           updater, kwargs)
 
     @classmethod
     def update_interface(cls, interface_id, update_id, *args, **kwargs):
@@ -169,21 +169,67 @@ class GUIManager(object):
                                              update_id, *args, **kwargs)
 
     @classmethod
-    def convert_from_remote_format(cls, format_type, data):
+    def send(cls, *args):
+        """ Convenience wrapper around ShowBase.messenger.send() """
 
-        return cls._app_mgr.convert_from_format("GUI", format_type, data)
-
-    @classmethod
-    def convert_to_remote_format(cls, format_type, data):
-
-        return cls._app_mgr.convert_to_format("GUI", format_type, data)
+        cls._msgr.send(*args)
 
     @classmethod
-    def remotely_handle_key_down(cls, key, interface_id=""):
+    def add_task(cls, *args, **kwargs):
+        """
+        Convenience wrapper around ShowBase.task_mgr.do_method_later() and
+        ShowBase.task_mgr.add().
 
-        return cls._app_mgr.remotely_handle_key_down(interface_id, "GUI", key)
+        """
+
+        if isinstance(args[0], (int, float)) or "delayTime" in kwargs:
+            cls._task_mgr.do_method_later(*args, **kwargs)
+        else:
+            cls._task_mgr.add(*args, **kwargs)
 
     @classmethod
-    def remotely_handle_key_up(cls, key, interface_id=""):
+    def do_next_frame(cls, *args, **kwargs):
+        """ Convenience wrapper around ShowBase.task_mgr.do_method_later(0., ...) """
 
-        return cls._app_mgr.remotely_handle_key_up(interface_id, "GUI", key)
+        cls._task_mgr.do_method_later(0., *args, **kwargs)
+
+    @classmethod
+    def remove_task(cls, task_name):
+        """ Convenience wrapper around ShowBase.task_mgr.remove() """
+
+        cls._task_mgr.remove(task_name)
+
+    @classmethod
+    def get_tasks_matching(cls, name_pattern):
+        """ Convenience wrapper around ShowBase.task_mgr.get_tasks_matching() """
+
+        return cls._task_mgr.getTasksMatching(name_pattern)
+
+    @classmethod
+    def add_cursor_region(cls, interface_id, mouse_region):
+
+        cls._app_mgr.add_cursor_region(interface_id, mouse_region)
+
+    @classmethod
+    def remove_cursor_regions(cls, interface_id):
+
+        cls._app_mgr.remove_cursor_regions(interface_id)
+
+    @classmethod
+    def set_cursor_regions_active(cls, interface_id, active=True):
+
+        cls._app_mgr.set_cursor_regions_active(interface_id, active)
+
+    @classmethod
+    def set_cursor(cls, cursor_id, region_id=None):
+        """ Set a cursor image loaded from file """
+
+        if cursor_id == "main":
+            cursor_filename = Filename()
+        else:
+            cursor_filename = Skin["cursors"][cursor_id]
+
+        if region_id is None:
+            cls._app_mgr.set_cursor("gui", cursor_filename)
+        else:
+            cls._app_mgr.set_cursor(region_id, cursor_filename)

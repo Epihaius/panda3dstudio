@@ -55,6 +55,10 @@ class EditableGeom(GeomDataOwner):
 
         return self.get_geom_data_object().set_normal_length(normal_length)
 
+    def get_initial_vertex_colors(self):
+
+        return self.get_geom_data_object().get_initial_vertex_colors()
+
 
 class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
 
@@ -62,45 +66,76 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
 
         self._id_generator = id_generator()
         Mgr.accept("create_editable_geom", self.__create)
-        Mgr.add_app_updater("geometry_access", self.__make_geometry_editable)
+        Mgr.add_app_updater("geometry_access", self.__unlock_geometry)
 
-    def __create(self, model=None, geom_data_obj=None, name="", origin_pos=None,
-                 has_vert_colors=False):
-
-        if not model:
-            pos = Point3() if origin_pos is None else origin_pos
-            model_id = ("editable_geom",) + self._id_generator.next()
-            model = Mgr.do("create_model", model_id, name, pos)
+    def __create(self, model, geom_data_obj=None, has_vert_colors=False):
 
         obj = EditableGeom(model, geom_data_obj, has_vert_colors)
 
         return obj
 
-    def __make_geometry_editable(self):
+    def __unlock_primitive_geometry(self, models):
 
-        selection = Mgr.get("selection_top")
+        for model in models:
+            geom_obj = model.get_geom_object()
+            geom_data_obj = geom_obj.get_geom_data_object()
+            editable_geom = self.__create(model, geom_data_obj)
+            editable_geom.set_flipped_normals(geom_obj.has_flipped_normals())
+            geom_data_obj.init_normal_length()
+
+        Mgr.update_remotely("selected_obj_types", ("editable_geom",))
+
+    def __add_to_history(self, models1, models2):
 
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj in selection:
-            obj.get_geom_object().make_geometry_editable()
-            geom_obj = obj.get_geom_object()
+        for model in models1:
+            geom_obj = model.get_geom_object()
+            data = geom_obj.get_data_to_store("creation")
+            obj_data[model.get_id()] = data
+
+        for model in models2:
+            geom_obj = model.get_geom_object()
             data = {"geom_obj": {"main": geom_obj}}
             geom_data_obj = geom_obj.get_geom_data_object()
-            geom_data_obj.init_normal_length()
             data.update(geom_data_obj.get_property_to_store("normal_length"))
-            obj_data[obj.get_id()] = data
+            obj_data[model.get_id()] = data
 
-        if len(selection) == 1:
-            obj = selection[0]
-            event_descr = 'Access geometry of "%s"' % obj.get_name()
+        models = models1 + models2
+
+        if len(models) == 1:
+            model = models[0]
+            event_descr = 'Access geometry of "{}"'.format(model.get_name())
         else:
             event_descr = 'Access geometry of objects:\n'
-            event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in selection])
+            event_descr += "".join(['\n    "{}"'.format(model.get_name()) for model in models])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __unlock_geometry(self):
+
+        selection = Mgr.get("selection_top")
+        models1 = []
+        models2 = []
+
+        for model in selection:
+            models = models1 if model.get_geom_type() == "basic_geom" else models2
+            models.append(model)
+
+        for model in models1:
+            geom_obj = model.get_geom_object()
+            editable_geom = self.__create(model, has_vert_colors=True)
+            geom_obj.unlock_geometry(editable_geom)
+
+        get_task = lambda models: lambda: self.__unlock_primitive_geometry(models)
+        task = get_task(models2)
+        PendingTasks.add(task, "unlock_prim_geometry", "object", 99)
+
+        get_task = lambda models1, models2: lambda: self.__add_to_history(models1, models2)
+        task = get_task(models1, models2)
+        PendingTasks.add(task, "add_history", "object", 100)
 
 
 MainObjects.add_class(EditableGeomManager)

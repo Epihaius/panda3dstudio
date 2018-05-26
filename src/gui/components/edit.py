@@ -5,36 +5,44 @@ class EditManager(object):
 
     def __init__(self, menubar, uv_edit_command):
 
-        menubar.add_menu("edit", "Edit")
+        menu = menubar.add_menu("edit", "Edit")
+        mod_key_codes = GlobalData["mod_key_codes"]
 
         handler = lambda: Mgr.update_app("history", "undo")
-        menubar.add_menu_item("edit", "undo", "Undo\tCTRL+Z", handler)
+        menu.add("undo", "Undo", handler)
+        hotkey = ("z", mod_key_codes["ctrl"])
+        menu.set_item_hotkey("undo", "CTRL+Z", hotkey)
         handler = lambda: Mgr.update_app("history", "redo")
-        menubar.add_menu_item("edit", "redo", "Redo\tSHIFT+CTRL+Z", handler)
+        menu.add("redo", "Redo", handler)
+        mod_code = mod_key_codes["shift"] | mod_key_codes["ctrl"]
+        hotkey = ("z", mod_code)
+        menu.set_item_hotkey("redo", "SHIFT+CTRL+Z", hotkey)
         handler = lambda: Mgr.update_app("history", "edit")
-        menubar.add_menu_item("edit", "hist", "History...", handler)
+        menu.add("hist", "History...", handler)
 
-        menubar.add_menu_item_separator("edit")
+        menu.add("sep0", item_type="separator")
 
         handler = lambda: Mgr.update_remotely("group", "create")
-        hotkey = (ord("G"), wx.MOD_CONTROL)
-        menubar.add_menu_item("edit", "group", "Create group\tCTRL+G", handler, hotkey)
+        menu.add("group", "Create group", handler)
+        hotkey = ("g", mod_key_codes["ctrl"])
+        menu.set_item_hotkey("group", "CTRL+G", hotkey)
         handler = lambda: Mgr.enter_state("grouping_mode")
-        menubar.add_menu_item("edit", "add_to_group", "Add to group...", handler)
+        menu.add("add_to_group", "Add to group...", handler)
         handler = lambda: Mgr.update_remotely("group", "remove_members")
-        menubar.add_menu_item("edit", "remove_from_group", "Remove from group", handler)
+        menu.add("remove_from_group", "Remove from group", handler)
 
-        menubar.add_menu_item_separator("edit")
+        menu.add("sep1", item_type="separator")
 
-        hotkey = (ord("U"), wx.MOD_CONTROL)
-        menubar.add_menu_item("edit", "uvs", "Edit UVs\tCTRL+U", uv_edit_command, hotkey)
+        menu.add("uvs", "Edit UVs", uv_edit_command)
+        hotkey = ("u", mod_key_codes["ctrl"])
+        menu.set_item_hotkey("uvs", "CTRL+U", hotkey)
 
     def setup(self):
 
         def enter_grouping_mode(prev_state_id, is_active):
 
-            Mgr.do("set_viewport_border_color", (255, 128, 255))
-            Mgr.do("enable_components")
+            Mgr.do("set_viewport_border_color", "viewport_frame_group_objects")
+            Mgr.do("enable_gui")
 
         add_state = Mgr.add_state
         add_state("grouping_mode", -10, enter_grouping_mode)

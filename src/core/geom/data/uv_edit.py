@@ -21,7 +21,7 @@ class UVEditBase(BaseObject):
         uv_writers = [GeomVertexWriter(vertex_data_poly, "texcoord")]
 
         for i in range(1, 8):
-            uv_writer = GeomVertexWriter(vertex_data_poly, "texcoord.%d" % i)
+            uv_writer = GeomVertexWriter(vertex_data_poly, "texcoord.{:d}".format(i))
             uv_writers.append(uv_writer)
 
         for poly in self._ordered_polys:
@@ -349,7 +349,7 @@ class UVEditBase(BaseObject):
         uv_readers = {}
 
         for uv_set_id in uv_set_ids:
-            column = "texcoord" if uv_set_id == 0 else "texcoord.%d" % uv_set_id
+            column = "texcoord" if uv_set_id == 0 else "texcoord.{:d}".format(uv_set_id)
             uv_readers[uv_set_id] = GeomVertexReader(vertex_data, column)
 
         if toplvl:
@@ -381,7 +381,7 @@ class UVEditBase(BaseObject):
             uv_writers = {}
 
             for uv_set_id in uv_set_ids:
-                column = "texcoord" if uv_set_id == 0 else "texcoord.%d" % uv_set_id
+                column = "texcoord" if uv_set_id == 0 else "texcoord.{:d}".format(uv_set_id)
                 uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, column)
 
             if tangent_space_needs_update:
@@ -442,7 +442,7 @@ class UVEditBase(BaseObject):
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_poly = self._vertex_data["poly"]
 
-        column = "texcoord" if uv_set_id == 0 else "texcoord.%d" % uv_set_id
+        column = "texcoord" if uv_set_id == 0 else "texcoord.{:d}".format(uv_set_id)
         uv_writer = GeomVertexWriter(vertex_data_top, column)
 
         for vert_id in vert_ids:
@@ -639,7 +639,7 @@ class UVEditBase(BaseObject):
         uv_writers = {0: GeomVertexWriter(vertex_data_top, "texcoord")}
 
         for uv_set_id in range(1, 8):
-            uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, "texcoord.%d" % uv_set_id)
+            uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, "texcoord.{:d}".format(uv_set_id))
 
         uv_sets_to_restore = set()
 

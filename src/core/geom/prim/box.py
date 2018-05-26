@@ -209,7 +209,7 @@ class Box(Primitive):
 
     def __init__(self, model):
 
-        prop_ids = ["size_%s" % axis for axis in "xyz"]
+        prop_ids = ["size_{}".format(axis) for axis in "xyz"]
         prop_ids.append("segments")
 
         Primitive.__init__(self, "box", model, prop_ids)
@@ -416,7 +416,7 @@ class BoxManager(PrimitiveManager):
         self._created_planes = []
 
         for axis in "xyz":
-            self.set_property_default("size_%s" % axis, 1.)
+            self.set_property_default("size_{}".format(axis), 1.)
 
         self.set_property_default("temp_segments", {"x": 1, "y": 1, "z": 1})
         self.set_property_default("segments", {"x": 1, "y": 1, "z": 1})
@@ -465,7 +465,7 @@ class BoxManager(PrimitiveManager):
 
         if size is None:
             prop_defaults = self.get_property_defaults()
-            x, y, z = [prop_defaults["size_%s" % axis] for axis in "xyz"]
+            x, y, z = [prop_defaults["size_{}".format(axis)] for axis in "xyz"]
         else:
             x, y, z = [size[axis] for axis in "xyz"]
 
@@ -605,7 +605,7 @@ class BoxManager(PrimitiveManager):
         gradual = progress_steps > 80
 
         if gradual:
-            Mgr.show_screenshot()
+            Mgr.update_remotely("screenshot", "create")
             GlobalData["progress_steps"] = progress_steps
 
         planes = self._created_planes
@@ -678,10 +678,10 @@ class BoxManager(PrimitiveManager):
         self._created_planes = []
 
         if len(objs) == 1:
-            event_descr = 'Make planes from box "%s"' % box_names[0]
+            event_descr = 'Make planes from box "{}"'.format(box_names[0])
         else:
             event_descr = 'Make planes from boxes:\n'
-            event_descr += "".join(['\n    "%s"' % name for name in box_names])
+            event_descr += "".join(['\n    "{}"'.format(name) for name in box_names])
 
         event_data = {"objects": obj_data}
         event_data["object_ids"] = set(Mgr.get("object_ids"))

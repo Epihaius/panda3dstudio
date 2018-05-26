@@ -612,8 +612,8 @@ class EdgeEditManager(BaseObject):
 
     def setup(self):
 
-        Mgr.add_interface_updater("uv_window", "edge_split", self.__split_edges)
-        Mgr.add_interface_updater("uv_window", "edge_stitch", self.__stitch_edges)
+        Mgr.add_app_updater("edge_split", self.__split_edges, interface_id="uv")
+        Mgr.add_app_updater("edge_stitch", self.__stitch_edges, interface_id="uv")
 
     def __split_edges(self):
 

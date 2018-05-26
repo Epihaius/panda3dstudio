@@ -1,7 +1,7 @@
 from .base import *
 
 
-class BasicGeomProperties(BaseObject):
+class BasicGeomProperties(object):
 
     def __init__(self, panel):
 
@@ -9,75 +9,79 @@ class BasicGeomProperties(BaseObject):
         self._fields = {}
         self._checkboxes = {}
 
-        section = panel.add_section("basic_geom_props", "Basic properties")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("basic_geom_props", "Basic properties", hidden=True)
 
         group = section.add_group("UV set names")
-        grp_sizer = group.get_client_sizer()
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=4, hgap=4, vgap=4)
-        grp_sizer.Add(subsizer, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-
-        self._uv_set_btns = uv_set_btns = PanelToggleButtonGroup()
-        bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
+        self._uv_set_btns = uv_set_btns = ToggleButtonGroup()
 
         def set_active_uv_set(uv_set_id):
 
             self._uv_set_btns.set_active_button(str(uv_set_id))
             Mgr.update_remotely("uv_set_id")
 
+        get_command = lambda i: lambda: set_active_uv_set(i)
+
+        sizer = GridSizer(rows=0, columns=4, gap_h=5, gap_v=5)
+        borders = (5, 5, 5, 5)
+        group.add(sizer, expand=True, borders=borders)
+
         for i in range(8):
-            bitmaps = PanelButton.create_button_bitmaps("*%d" % i, bitmap_paths)
-            get_command = lambda i: lambda: set_active_uv_set(i)
+            text = str(i)
+            tooltip_text = "UV set {:d}".format(i)
+            btn = PanelButton(group, text, "", tooltip_text)
             toggle = (get_command(i), lambda: None)
-            btn = uv_set_btns.add_button(panel, group, subsizer, str(i), toggle,
-                                         bitmaps, "UV set %d" % i, str(i))
+            uv_set_btns.add_button(btn, str(i), toggle)
+            sizer.add(btn, proportion_h=1.)
 
         uv_set_btns.set_active_button("0")
 
-        sizer_args = (0, wx.TOP | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        borders = (0, 5, 0, 0)
 
-        field = PanelInputField(panel, group, grp_sizer, 140, sizer_args=sizer_args)
+        group.add((0, 10))
+        field = PanelInputField(group, 140)
         val_id = "uv_set_name"
         field.add_value(val_id, "string", handler=self.__handle_uv_name)
         field.show_value(val_id)
         field.clear()
         field.set_input_parser(val_id, self.__parse_uv_name)
         self._fields[val_id] = field
-
-        sizer.Add(wx.Size(0, 2))
+        group.add(field, expand=True)
 
         group = section.add_group("Vertex normals")
-        grp_sizer = group.get_client_sizer()
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
 
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
         command = lambda on: Mgr.update_remotely("normal_viz", on)
-        checkbox = PanelCheckBox(panel, group, subsizer, command, sizer_args=sizer_args)
+        checkbox = PanelCheckBox(group, command)
         checkbox.check(False)
         self._checkboxes["normal_viz"] = checkbox
-        group.add_text("Show", subsizer, sizer_args)
-        subsizer.Add(wx.Size(10, 0))
-        self._color_picker = PanelColorPickerCtrl(panel, group, subsizer, self.__handle_color)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Show"
+        sizer.add(PanelText(group, text), alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+        self._colorbox = colorbox = PanelColorBox(group, self.__handle_color)
+        sizer.add(colorbox, alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
 
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer, 0, wx.LEFT | wx.TOP, 4)
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
 
-        group.add_text("Length:", subsizer, sizer_args)
-        field = PanelInputField(panel, group, subsizer, 80, sizer_args=sizer_args)
+        text = "Length:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 80)
         field.add_value("normal_length", "float", handler=self.__handle_value)
         field.show_value("normal_length")
         field.set_input_parser("normal_length", self.__parse_length)
         self._fields["normal_length"] = field
-
-        def finalize_sections():
-
-            section.expand(False)
-
-        wx.CallAfter(finalize_sections)
+        sizer.add(field, alignment="center_v")
 
         Mgr.add_app_updater("uv_set_name", self.__set_uv_name)
+
+    def setup(self):
+
+        self._panel.get_section("basic_geom_props").expand(False)
 
     def get_base_type(self):
 
@@ -93,15 +97,15 @@ class BasicGeomProperties(BaseObject):
 
     def set_object_property_default(self, prop_id, value):
 
-        color = wx.Colour(255, 255, 0)
+        color = (1., 1., 0., 1.)
 
         if prop_id in self._checkboxes:
             self._checkboxes[prop_id].check(value)
-            self._checkboxes[prop_id].set_checkmark_color(color.Get())
+            self._checkboxes[prop_id].set_checkmark_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(prop_id, value, handle_value=False)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -111,27 +115,26 @@ class BasicGeomProperties(BaseObject):
                 self.__set_uv_name(value)
         elif prop_id == "normal_color":
             multi_sel = GlobalData["selection_count"] > 1
-            gray_values = Mgr.convert_to_remote_format("color", wx.Colour(127, 127, 127).Get())
-            color_values = gray_values if multi_sel else value
-            self._color_picker.set_color(color_values)
+            gray = (.5, .5, .5)
+            color = gray if multi_sel else value[:3]
+            self._colorbox.set_color(color)
         elif prop_id in self._checkboxes:
             self._checkboxes[prop_id].check(value)
         elif prop_id in self._fields:
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
 
     def check_selection_count(self):
 
         sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
-        color = wx.Colour(127, 127, 127) if multi_sel else None
+        color = (.5, .5, .5, 1.) if multi_sel else None
 
         if multi_sel:
 
             for checkbox in self._checkboxes.itervalues():
                 checkbox.check(False)
 
-            color_values = Mgr.convert_to_remote_format("color", color.Get())
-            self._color_picker.set_color(color_values)
+            self._colorbox.set_color(color[:3])
 
         for checkbox in self._checkboxes.itervalues():
             checkbox.set_checkmark_color(color)
@@ -147,8 +150,8 @@ class BasicGeomProperties(BaseObject):
 
     def __handle_color(self, color):
 
-        color_values = Mgr.convert_to_remote_format("color", color.Get())
-        Mgr.update_remotely("normal_color", color_values)
+        r, g, b = color
+        Mgr.update_remotely("normal_color", (r, g, b, 1.))
 
     def __handle_value(self, value_id, value):
 
@@ -164,7 +167,7 @@ class BasicGeomProperties(BaseObject):
 
         uv_set_id = int(self._uv_set_btns.get_active_button_id())
         uv_set_name = uv_set_names[uv_set_id]
-        self._fields["uv_set_name"].set_value("uv_set_name", uv_set_name)
+        self._fields["uv_set_name"].set_value("uv_set_name", uv_set_name, handle_value=False)
 
     def __parse_length(self, length):
 

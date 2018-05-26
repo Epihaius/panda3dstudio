@@ -1,49 +1,6 @@
 from .base import *
-from direct.showbase.ShowBase import DirectObject
 from direct.interval.IntervalGlobal import (LerpPosInterval, LerpQuatInterval,
     LerpScaleInterval, LerpQuatScaleInterval, Parallel)
-
-
-class ViewTileFrame(object):
-
-    _offset_x = 0.
-    _offset_z = 0.
-    _left = 0.
-    _right = 0.
-    _bottom = 0.
-    _top = 0.
-
-    @classmethod
-    def init(cls):
-
-        win_props = Mgr.get("core").win.get_properties()
-        win_w, win_h = win_props.get_size()
-        aspect_ratio = 1. * win_h / win_w
-        cls._offset_x = 2.1 * .06 * aspect_ratio
-        cls._offset_z = -1.3 * .06
-        cls._left = (-1.26 - 1.2 * .06) * aspect_ratio
-        cls._right = (-1.26 + .9 * .06) * aspect_ratio
-        cls._bottom = .9 - 1.3 * .06
-        cls._top = .9
-
-    @classmethod
-    def get(cls, index, row_size):
-
-        col = (index % row_size)
-        row = (index // row_size)
-        x = col * 2.1
-        z = row * -1.3 - .95
-        pos = Point3(x, 0., z)
-
-        x = col * cls._offset_x
-        z = row * cls._offset_z
-        l = x + cls._left
-        r = x + cls._right
-        b = z + cls._bottom
-        t = z + cls._top
-        frame = (l, r, b, t)
-
-        return pos, frame
 
 
 class ViewManager(BaseObject):
@@ -281,33 +238,14 @@ class ViewManager(BaseObject):
 
         GlobalData.set_default("view", "persp")
 
-        ViewTileFrame.init()
-
-        frame = (-1., -.9, .9, 1.)
-        region = MouseWatcherRegion("view_tiles_icon_region", frame)
-        region.set_sort(1)
-        self.mouse_watcher.add_region(region)
-
-        self._listener = listener = DirectObject.DirectObject()
-        listener.accept("region_enter", self.__on_region_enter)
-        listener.accept("region_leave", self.__on_region_leave)
-        listener.accept("region_within", self.__on_region_within)
-        listener.accept("region_without", self.__on_region_without)
-        self._is_clicked = False
-        self._mouse_start_pos = ()
-        self._view_tiles_shown = False
         self._lerp_interval = None
         self._transition_done = True
         self._dest_view = ""
-        self._clock = ClockObject()
-        self._mouse_prev = Point2()
-        self._checking_view = False
-        self._previewing = False
         self._pixel_under_mouse = None
 
-        self._user_views = []
+        self._user_view_ids = []
         self._user_lens_types = {}
-        self._user_view_id = 0
+        self._user_view_index = 0
         self._is_front_custom = {}
         self._default_front_quats = {}
         self._default_home_default_transforms = {}
@@ -315,53 +253,25 @@ class ViewManager(BaseObject):
         self._custom_home_default_transforms = {}
         self._custom_home_custom_transforms = {}
 
-        icon = self.screen.attach_new_node(self.__create_view_tiles_icon())
-        icon.set_scale(.023, 1., .0146)
-        icon.set_pos(-1.321, 0., .9851)
-        self._view_tiles_icon = icon
-        self._view_tiles_icon_region = region
-        self._view_tile_root, self._view_tiles = self.__create_view_tiles()
-        self._quick_view_select = False
-        self._view_tile_entered = ""
-        self._view_tiles_icon_entered = ""
-        self._view_before_preview = ""
         self._view_names = {}
-        self._view_label_node = label_node = TextNode("view_label")
-        label_node.set_text("Perspective")
-        self._view_label = label = self.screen.attach_new_node(label_node)
-        label.set_scale(.05)
-        label.set_pos(-1.17, 0., .94)
-        self._align_info_node = info_node = TextNode("align_info")
-        info_node.set_text("Pick object to align view to")
-        info_node.set_align(TextNode.A_center)
-        info_node.set_card_as_margin(.1, .1, .2, .1)
-        info_node.set_card_color(0., 0., .3, .7)
-        self._align_info = info = self.screen.attach_new_node(info_node)
-        info.set_scale(.05)
-        info.set_pos(0., 0., -.94)
-        info.set_color(0., 1., 1.)
-        info.hide()
-
         self._grid_planes = {}
         self._grid_plane_defaults = {}
         self._render_modes = {}
         self._render_mode_defaults = {}
 
-        Mgr.expose("is_front_view_custom", lambda view: self._is_front_custom[view])
+        Mgr.expose("is_front_view_custom", lambda view_id: self._is_front_custom[view_id])
         Mgr.expose("view_transition_done", lambda: self._transition_done)
         Mgr.expose("view_data", self.__get_view_data)
         Mgr.accept("set_view_data", self.__set_view_data)
         Mgr.accept("start_view_transition", self.__start_view_transition)
         Mgr.accept("center_view_on_objects", self.__center_view_on_objects)
-        Mgr.accept("enable_view_tiles", self.__enable_view_tiles)
-        Mgr.accept("clear_user_views", self.__clear_user_views)
         Mgr.add_app_updater("view", self.__update_view)
         Mgr.add_app_updater("active_grid_plane", self.__update_grid_plane)
         Mgr.add_app_updater("render_mode", self.__update_render_mode)
 
     def setup(self):
 
-        views = ("persp", "ortho", "front", "back", "left", "right", "top", "bottom")
+        view_ids = ("persp", "ortho", "front", "back", "left", "right", "top", "bottom")
 
         hprs = (VBase3(-45., -45., 0.), VBase3(-45., -45., 0.), VBase3(), VBase3(180., 0., 0.),
                 VBase3(-90., 0., 0.), VBase3(90., 0., 0.), VBase3(0., -90., 0.), VBase3(180., 90., 0.))
@@ -374,8 +284,8 @@ class ViewManager(BaseObject):
 
             return quat
 
-        self._is_front_custom = dict((view, False) for view in views)
-        self._default_front_quats = dict((view, Quat()) for view in views)
+        self._is_front_custom = dict((view_id, False) for view_id in view_ids)
+        self._default_front_quats = dict((view_id, Quat()) for view_id in view_ids)
         self._default_home_default_transforms = default_default = {}
         self._default_home_custom_transforms = default_custom = {}
         self._custom_home_default_transforms = custom_default = {}
@@ -384,22 +294,20 @@ class ViewManager(BaseObject):
         lens_types = ("persp",) + ("ortho",) * 7
         cam = self.cam
 
-        for view, hpr, zoom, lens_type in zip(views, hprs, zooms, lens_types):
-            default_default[view] = {"pos": Point3(), "quat": create_quat(hpr), "zoom": zoom}
-            default_custom[view] = initial_values.copy()
-            custom_default[view] = initial_values.copy()
-            custom_custom[view] = initial_values.copy()
-            cam.add_rig(view, VBase3(), Point3(), hpr, lens_type, zoom)
+        for view_id, hpr, zoom, lens_type in zip(view_ids, hprs, zooms, lens_types):
+            default_default[view_id] = {"pos": Point3(), "quat": create_quat(hpr), "zoom": zoom}
+            default_custom[view_id] = initial_values.copy()
+            custom_default[view_id] = initial_values.copy()
+            custom_custom[view_id] = initial_values.copy()
+            cam.add_rig(view_id, VBase3(), Point3(), hpr, lens_type, zoom)
 
-        names = ["Perspective", "Orthographic"] + [view.title() for view in views[2:]]
-        self._view_names = dict((view, name) for view, name in zip(views, names))
+        names = ["Perspective", "Orthographic"] + [view_id.title() for view_id in view_ids[2:]]
+        self._view_names = dict((view_id, name) for view_id, name in zip(view_ids, names))
         planes = ("xy", "xy", "xz", "xz", "yz", "yz", "xy", "xy")
-        self._grid_planes = dict((view, plane) for view, plane in zip(views, planes))
+        self._grid_planes = dict((view_id, plane) for view_id, plane in zip(view_ids, planes))
         self._grid_plane_defaults = self._grid_planes.copy()
-        self._render_modes = dict((view, "shaded") for view in views)
+        self._render_modes = dict((view_id, "shaded") for view_id in view_ids)
         self._render_mode_defaults = self._render_modes.copy()
-
-        self.__update_view_tile_region()
 
         add_state = Mgr.add_state
         add_state("view_obj_picking_mode", -75, self.__enter_picking_mode,
@@ -419,7 +327,7 @@ class ViewManager(BaseObject):
              exit_view_obj_picking_mode)
 
         status_data = GlobalData["status_data"]
-        mode_text = "Pick object to align to"
+        mode_text = "Pick object to align view to"
         info_text = "LMB to pick object; RMB to end"
         status_data["pick_view_obj"] = {"mode": mode_text, "info": info_text}
 
@@ -431,13 +339,11 @@ class ViewManager(BaseObject):
             GlobalData["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
-        self._align_info.show()
         Mgr.add_task(self.__update_cursor, "update_view_obj_picking_cursor")
-        Mgr.update_app("status", "pick_view_obj")
+        Mgr.update_app("status", ["pick_view_obj"])
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
-        self._align_info.hide()
         self._pixel_under_mouse = None  # force an update of the cursor
                                         # next time self.__update_cursor()
                                         # is called
@@ -461,145 +367,6 @@ class ViewManager(BaseObject):
 
         return task.cont
 
-    def __create_view_tiles_icon(self):
-
-        vertex_format = GeomVertexFormat.get_v3()
-
-        vertex_data = GeomVertexData("icon_data", vertex_format, Geom.UH_static)
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-
-        lines = GeomLines(Geom.UH_static)
-        vert_index = 0
-
-        for i in range(3):
-
-            x_offset = i * 1.4
-
-            for j in range(3):
-
-                z_offset = j * -1.4
-                x1 = x_offset + .2
-                x2 = x1 + 1.
-                z1 = z_offset - .2
-                z2 = z1 - 1.
-                pos_writer.add_data3f(x1, 0., z1)
-                pos_writer.add_data3f(x2, 0., z1)
-                pos_writer.add_data3f(x1, 0., z2)
-                pos_writer.add_data3f(x2, 0., z2)
-                lines.add_vertices(vert_index, vert_index + 1)
-                lines.add_vertices(vert_index + 2, vert_index + 3)
-                lines.add_vertices(vert_index, vert_index + 2)
-                lines.add_vertices(vert_index + 1, vert_index + 3)
-                vert_index += 4
-
-        lines_geom = Geom(vertex_data)
-        lines_geom.add_primitive(lines)
-        icon_node = GeomNode("view_tiles_icon")
-        icon_node.add_geom(lines_geom)
-
-        return icon_node
-
-    def __create_view_tiles(self):
-
-        views = ("persp", "front", "left", "top", "ortho", "back", "right", "bottom")
-        labels = [view[0].upper() for view in views]
-        tile_root = self.screen.attach_new_node("view_tile_root")
-        tile_root.hide()
-        tile_root.set_pos(-1.26, 0., .9)
-        tile_root.set_scale(.06)
-        tiles = {}
-        index = 0
-
-        self._view_tile_region_group = regions = []
-
-        for view, label in zip(views, labels):
-            tile_node = TextNode("view_tile")
-            tile_node.set_text(label)
-            tile_node.set_align(TextNode.A_center)
-            tile_node.set_frame_color(1., 1., 1., 1.)
-            tile_node.set_frame_actual(-.9, .9, -.2, .8)
-            tile_node.set_frame_line_width(2)
-            tile_node.set_flatten_flags(TextNode.FF_strong)
-            tile = tile_root.attach_new_node(tile_node)
-            pos, frame = ViewTileFrame.get(index, 4)
-            tile.set_pos(pos)
-            tiles[view] = tile
-            region = MouseWatcherRegion("view_tile_region_%s" % view, frame)
-            region.set_active(False)
-            region.set_sort(-1)
-            regions.append(region)
-            self.mouse_watcher.add_region(region)
-            index += 1
-
-        tiles["persp"].set_color(0., 1., 1., 1.)
-        tiles["persp"].node().set_frame_color(0., 1., 1., 1.)
-
-        region = MouseWatcherRegion("view_tiles_region", -1., 1., -1., 1.)
-        region.set_active(False)
-        self._view_tiles_region = region
-        self.mouse_watcher.add_region(region)
-
-        return tile_root, tiles
-
-    def __append_view_tile(self, view):
-
-        index = len(self._view_tiles)
-        label = str(index - 7)
-
-        tile_node = TextNode("view_tile")
-        tile_node.set_text(label)
-        tile_node.set_align(TextNode.A_center)
-        tile_node.set_frame_color(1., 1., 1., 1.)
-        tile_node.set_frame_actual(-.9, .9, -.2, .8)
-        tile_node.set_frame_line_width(2)
-        tile_node.set_flatten_flags(TextNode.FF_strong)
-        tile = self._view_tile_root.attach_new_node(tile_node)
-        pos, frame = ViewTileFrame.get(index, 4)
-        tile.set_pos(pos)
-        self._view_tiles[view] = tile
-        region = MouseWatcherRegion("view_tile_region_%s" % view, frame)
-        region.set_active(self._view_tiles_shown)
-        region.set_sort(-1)
-        self._view_tile_region_group.append(region)
-        self.mouse_watcher.add_region(region)
-
-    def __remove_view_tile(self, view):
-
-        region_group = self._view_tile_region_group
-        last_region = region_group.pop()
-        self.mouse_watcher.remove_region(last_region)
-        last_view = last_region.get_name().replace("view_tile_region_", "")
-        tiles = self._view_tiles
-        tile = tiles[last_view]
-        tile.remove_node()
-
-        if view == last_view:
-            del tiles[view]
-            return
-
-        for region in reversed(region_group):
-
-            cur_view = region.get_name().replace("view_tile_region_", "")
-            region.set_name("view_tile_region_" + last_view)
-            tiles[last_view] = tiles[cur_view]
-            last_view = cur_view
-
-            if cur_view == view:
-                break
-
-        del tiles[view]
-
-    def __update_view_tile_region(self):
-
-        win_w, win_h = Mgr.get("core").win.get_properties().get_size()
-        aspect_ratio = 1. * win_h / win_w
-
-        tile_count = len(self._view_tiles) - 1
-        width = 4 * .06 * 2.1 * aspect_ratio
-        height = ((tile_count // 4) + 1) * .06 * 1.3
-        frame = (-1., -1. + width, .9 - height, .9)
-        self._view_tiles_region.set_frame(frame)
-
     def __get_view_data(self):
 
         cam = self.cam
@@ -608,25 +375,25 @@ class ViewManager(BaseObject):
         data["default_home_custom"] = self._default_home_custom_transforms
         data["custom_home_default"] = self._custom_home_default_transforms
         data["custom_home_custom"] = self._custom_home_custom_transforms
-        data["user"] = user_views = self._user_views
+        data["user_ids"] = user_view_ids = self._user_view_ids
         data["user_lenses"] = self._user_lens_types
-        data["user_id"] = self._user_view_id
+        data["user_index"] = self._user_view_index
         names = self._view_names
-        data["user_names"] = dict((view, names[view]) for view in user_views)
+        data["user_names"] = dict((view_id, names[view_id]) for view_id in user_view_ids)
         front_quats = self._default_front_quats
-        data["user_front_quats"] = dict((view, front_quats[view]) for view in user_views)
+        data["user_front_quats"] = dict((view_id, front_quats[view_id]) for view_id in user_view_ids)
         default_transforms = self._default_home_default_transforms
-        data["user_defaults"] = dict((view, default_transforms[view]) for view in user_views)
+        data["user_defaults"] = dict((view_id, default_transforms[view_id]) for view_id in user_view_ids)
         data["cam_pivot_pos"] = cam.get_pivot_positions()
         data["cam_pivot_hpr"] = cam.get_pivot_hprs()
         data["cam_target_hpr"] = cam.get_target_hprs()
         data["cam_zoom"] = cam.get_zooms()
         data["grid"] = self._grid_planes
         grid_defaults = self._grid_plane_defaults
-        data["grid_user"] = dict((view, grid_defaults[view]) for view in user_views)
+        data["grid_user"] = dict((view_id, grid_defaults[view_id]) for view_id in user_view_ids)
         data["render_mode"] = self._render_modes
         render_mode_defaults = self._render_mode_defaults
-        data["render_mode_user"] = dict((view, render_mode_defaults[view]) for view in user_views)
+        data["render_mode_user"] = dict((view_id, render_mode_defaults[view_id]) for view_id in user_view_ids)
         data["view"] = GlobalData["view"]
 
         return data
@@ -637,9 +404,9 @@ class ViewManager(BaseObject):
         self._default_home_custom_transforms = data["default_home_custom"]
         self._custom_home_default_transforms = data["custom_home_default"]
         self._custom_home_custom_transforms = data["custom_home_custom"]
-        self._user_views = user_views = data["user"]
+        self._user_view_ids = user_view_ids = data["user_ids"]
         self._user_lens_types = lens_types = data["user_lenses"]
-        self._user_view_id = data["user_id"]
+        self._user_view_index = data["user_index"]
         view_names = self._view_names
         user_names = data["user_names"]
         view_names.update(user_names)
@@ -649,14 +416,11 @@ class ViewManager(BaseObject):
         self._default_front_quats.update(front_quats)
         cam = self.cam
 
-        for view in user_views:
-            defaults = user_defaults[view]
-            self.__append_view_tile(view)
-            cam.add_rig(view, front_quats[view].get_hpr(), defaults["pos"],
-                        defaults["quat"].get_hpr(), lens_types[view], defaults["zoom"])
-            Mgr.update_remotely("view", "add", view, view_names[view])
-
-        self.__update_view_tile_region()
+        for view_id in user_view_ids:
+            defaults = user_defaults[view_id]
+            cam.add_rig(view_id, front_quats[view_id].get_hpr(), defaults["pos"],
+                        defaults["quat"].get_hpr(), lens_types[view_id], defaults["zoom"])
+            Mgr.update_remotely("view", "add", view_id, view_names[view_id])
 
         cam.set_pivot_positions(data["cam_pivot_pos"])
         cam.set_pivot_hprs(data["cam_pivot_hpr"])
@@ -666,25 +430,21 @@ class ViewManager(BaseObject):
         self._grid_planes = data["grid"]
         grid_defaults = self._grid_plane_defaults
 
-        for view, plane in data["grid_user"].iteritems():
-            grid_defaults[view] = plane
+        for view_id, plane in data["grid_user"].iteritems():
+            grid_defaults[view_id] = plane
 
         self._render_modes = data["render_mode"]
         render_mode_defaults = self._render_mode_defaults
 
-        for view, render_mode in data["render_mode_user"].iteritems():
-            render_mode_defaults[view] = render_mode
+        for view_id, render_mode in data["render_mode_user"].iteritems():
+            render_mode_defaults[view_id] = render_mode
 
         self.__set_view(data["view"], force=True)
+        Mgr.update_remotely("view", "set", data["view"])
 
     def __clear_user_views(self):
 
-        if self._view_tile_entered in self._user_views:
-            self.__on_region_leave(self._view_tiles_region)
-        elif self._view_before_preview in self._user_views:
-            self.__set_view("persp")
-
-        if GlobalData["view"] in self._user_views:
+        if GlobalData["view"] in self._user_view_ids:
             self.__set_view("persp")
 
         cam = self.cam
@@ -699,25 +459,22 @@ class ViewManager(BaseObject):
         render_mode_def = self._render_mode_defaults
         render_modes = self._render_modes
 
-        for view in reversed(self._user_views):
-            del view_names[view]
-            del default_front[view]
-            del default_default[view]
-            del default_custom[view]
-            del custom_default[view]
-            del custom_custom[view]
-            del grid_plane_def[view]
-            del grid_planes[view]
-            del render_mode_def[view]
-            del render_modes[view]
-            cam.remove_rig(view)
-            self.__remove_view_tile(view)
-            Mgr.update_remotely("view", "remove", view)
+        for view_id in reversed(self._user_view_ids):
+            del view_names[view_id]
+            del default_front[view_id]
+            del default_default[view_id]
+            del default_custom[view_id]
+            del custom_default[view_id]
+            del custom_custom[view_id]
+            del grid_plane_def[view_id]
+            del grid_planes[view_id]
+            del render_mode_def[view_id]
+            del render_modes[view_id]
+            cam.remove_rig(view_id)
 
-        self.__update_view_tile_region()
-        self._user_views = []
+        self._user_view_ids = []
         self._user_lens_types = {}
-        self._user_view_id = 0
+        self._user_view_index = 0
 
     def __update_grid_plane(self, grid_plane):
 
@@ -729,10 +486,12 @@ class ViewManager(BaseObject):
 
     def __update_view(self, update_type, *args):
 
-        view = GlobalData["view"]
+        view_id = GlobalData["view"]
 
         if update_type == "set":
             self.__set_view(*args)
+        elif update_type == "preview":
+            self.__do_preview(*args)
         elif update_type == "center":
             self.__center_view_on_objects(*args)
         elif update_type == "reset":
@@ -749,54 +508,57 @@ class ViewManager(BaseObject):
             self.__reset_front_view()
         elif update_type == "init_copy":
             lens_type = args[0]
-            Mgr.update_remotely("view", "get_copy_name", lens_type, self._view_names[view])
+            Mgr.update_remotely("view", "request_copy_name", lens_type, self._view_names[view_id])
         elif update_type == "copy":
             self.__copy_view(*args)
         elif update_type == "take_snapshot":
             self.__take_snapshot(*args)
-        elif update_type == "convert":
-            self.__convert_view(*args)
+        elif update_type == "toggle_lens_type":
+            self.__toggle_lens_type(*args)
         elif update_type == "init_remove":
-            if view in self._user_views:
-                Mgr.update_remotely("view", "confirm_remove", self._view_names[view])
+            if view_id in self._user_view_ids:
+                Mgr.update_remotely("view", "confirm_remove", view_id, self._view_names[view_id])
         elif update_type == "remove":
-            self.__remove_user_view()
+            self.__remove_user_view(*args)
         elif update_type == "init_clear":
-            if self._user_views:
-                Mgr.update_remotely("view", "confirm_clear", len(self._user_views))
+            if self._user_view_ids:
+                Mgr.update_remotely("view", "confirm_clear", len(self._user_view_ids))
         elif update_type == "clear":
             self.__clear_user_views()
         elif update_type == "init_rename":
-            if view in self._user_views:
-                Mgr.update_remotely("view", "get_new_name", self._view_names[view])
+            if view_id in self._user_view_ids:
+                Mgr.update_remotely("view", "request_new_name", self._view_names[view_id])
         elif update_type == "rename":
             name = args[0]
             name = get_unique_name(name, self._view_names.itervalues())
-            self._view_names[view] = name
-            self._view_label_node.set_text("User %s - %s" % (self.cam.lens_type, name))
-            Mgr.update_remotely("view", "rename", view, name)
+            self._view_names[view_id] = name
+            lens_type = self.cam.lens_type
+            Mgr.update_remotely("view", "rename", lens_type, view_id, name)
         elif update_type == "obj_align":
             Mgr.enter_state("view_obj_picking_mode")
 
-    def __convert_view(self, lens_type):
+        if update_type in ("copy", "take_snapshot", "toggle_lens_type", "remove", "clear", "rename"):
+            GlobalData["unsaved_scene"] = True
+            Mgr.update_app("unsaved_scene")
+            Mgr.do("require_scene_save")
 
-        view = GlobalData["view"]
+    def __toggle_lens_type(self):
 
-        if view not in self._user_views:
+        view_id = GlobalData["view"]
+
+        if view_id not in self._user_view_ids:
             return
 
         cam = self.cam
         current_lens_type = cam.lens_type
+        lens_type = "ortho" if current_lens_type == "persp" else "persp"
 
-        if current_lens_type == lens_type:
-            return
-
-        self._user_lens_types[view] = lens_type
-        default_default = self._default_home_default_transforms[view]
+        self._user_lens_types[view_id] = lens_type
+        default_default = self._default_home_default_transforms[view_id]
         default_default["zoom"] = cam.convert_zoom(lens_type, zoom=default_default["zoom"])
-        default_custom = self._default_home_custom_transforms[view]
-        custom_default = self._custom_home_default_transforms[view]
-        custom_custom = self._custom_home_custom_transforms[view]
+        default_custom = self._default_home_custom_transforms[view_id]
+        custom_default = self._custom_home_default_transforms[view_id]
+        custom_custom = self._custom_home_custom_transforms[view_id]
 
         for transforms in (default_custom, custom_default, custom_custom):
 
@@ -810,40 +572,21 @@ class ViewManager(BaseObject):
         cam.lens_type = lens_type
         cam.zoom = zoom
         cam.update()
-        self._view_label_node.set_text("User %s - %s" % (lens_type, self._view_names[view]))
         Mgr.do("adjust_grid_to_lens")
         Mgr.do("adjust_picking_cam_to_lens")
         Mgr.do("adjust_transform_gizmo_to_lens", current_lens_type, lens_type)
 
-    def __set_view(self, view, force=False):
+    def __set_view(self, view_id, force=False):
         """ Switch to a different view """
 
-        current_view = self._view_before_preview if self._view_tile_entered else GlobalData["view"]
-        self._view_tiles[current_view].set_color(1., 1., 1., 1.)
-        self._view_tiles[current_view].node().set_frame_color(1., 1., 1., 1.)
-        self._view_tiles[view].set_color(0., 1., 1., 1.)
-        self._view_tiles[view].node().set_frame_color(0., 1., 1., 1.)
+        current_view_id = GlobalData["view"]
 
-        if self._view_tile_entered:
-
-            self._view_before_preview = view
-            return
-
-        else:
-
-            name = self._view_names[view]
-
-            if view in self._user_views:
-                name = "User %s - %s" % (self._user_lens_types[view], name)
-
-            self._view_label_node.set_text(name)
-
-        if not force and current_view == view:
+        if not force and current_view_id == view_id:
             return
 
         cam = self.cam
         current_lens_type = cam.lens_type
-        GlobalData["view"] = view
+        GlobalData["view"] = view_id
         cam.update()
         lens_type = cam.lens_type
 
@@ -867,10 +610,10 @@ class ViewManager(BaseObject):
     def __copy_view(self, lens_type, name):
         """ Copy the current view using the given lens type and make it a user view """
 
-        current_view = GlobalData["view"]
+        current_view_id = GlobalData["view"]
         name = get_unique_name(name, self._view_names.itervalues())
-        view = str(self._user_view_id)
-        self._view_names[view] = name
+        view_id = str(self._user_view_index)
+        self._view_names[view_id] = name
 
         cam = self.cam
 
@@ -879,55 +622,54 @@ class ViewManager(BaseObject):
         target_hpr = cam.target.get_hpr()
         zoom = cam.convert_zoom(lens_type)
 
-        self._is_front_custom[view] = self._is_front_custom[current_view]
+        self._is_front_custom[view_id] = self._is_front_custom[current_view_id]
 
         default_front = self._default_front_quats
-        default_front[view] = default_front[current_view]
+        default_front[view_id] = default_front[current_view_id]
         default_default = self._default_home_default_transforms
-        default_default[view] = default_default[current_view].copy()
+        default_default[view_id] = default_default[current_view_id].copy()
         default_custom = self._default_home_custom_transforms
-        default_custom[view] = default_custom[current_view].copy()
+        default_custom[view_id] = default_custom[current_view_id].copy()
         custom_default = self._custom_home_default_transforms
-        custom_default[view] = custom_default[current_view].copy()
+        custom_default[view_id] = custom_default[current_view_id].copy()
         custom_custom = self._custom_home_custom_transforms
-        custom_custom[view] = custom_custom[current_view].copy()
+        custom_custom[view_id] = custom_custom[current_view_id].copy()
 
-        self._grid_plane_defaults[view] = self._grid_plane_defaults[current_view]
-        self._grid_planes[view] = self._grid_planes[current_view]
-        self._render_mode_defaults[view] = self._render_mode_defaults[current_view]
-        self._render_modes[view] = self._render_modes[current_view]
+        self._grid_plane_defaults[view_id] = self._grid_plane_defaults[current_view_id]
+        self._grid_planes[view_id] = self._grid_planes[current_view_id]
+        self._render_mode_defaults[view_id] = self._render_mode_defaults[current_view_id]
+        self._render_modes[view_id] = self._render_modes[current_view_id]
 
-        self.__append_view_tile(view)
-        self.__update_view_tile_region()
-        self._user_views.append(view)
-        self._user_lens_types[view] = lens_type
-        self._user_view_id += 1
-        cam.add_rig(view, pivot_hpr, pivot_pos, target_hpr, lens_type, zoom)
+        self._user_view_ids.append(view_id)
+        self._user_lens_types[view_id] = lens_type
+        self._user_view_index += 1
+        cam.add_rig(view_id, pivot_hpr, pivot_pos, target_hpr, lens_type, zoom)
 
-        zoom = cam.convert_zoom(lens_type, zoom=default_default[current_view]["zoom"])
-        default_default[view]["zoom"] = zoom
+        zoom = cam.convert_zoom(lens_type, zoom=default_default[current_view_id]["zoom"])
+        default_default[view_id]["zoom"] = zoom
 
         for transforms in (default_custom, custom_default, custom_custom):
 
-            zoom = transforms[current_view]["zoom"]
+            zoom = transforms[current_view_id]["zoom"]
 
             if zoom is not None:
                 zoom = cam.convert_zoom(lens_type, zoom=zoom)
-                transforms[view]["zoom"] = zoom
+                transforms[view_id]["zoom"] = zoom
 
-        Mgr.update_remotely("view", "add", view, name)
+        name = "User {} - {}".format(lens_type, name)
+        Mgr.update_remotely("view", "add", view_id, name)
 
-        self.__set_view(view)
+        self.__set_view(view_id)
 
     def __take_snapshot(self, view_name):
         """ Take a snapshot of the current view and make it a user view """
 
-        current_view = GlobalData["view"]
+        current_view_id = GlobalData["view"]
         name = get_unique_name(view_name, self._view_names.itervalues())
-        view = str(self._user_view_id)
-        self._view_names[view] = name
+        view_id = str(self._user_view_index)
+        self._view_names[view_id] = name
 
-        self._is_front_custom[view] = False
+        self._is_front_custom[view_id] = False
 
         cam = self.cam
 
@@ -941,69 +683,57 @@ class ViewManager(BaseObject):
         zoom = cam.zoom
         initial_values = {"pos": None, "quat": None, "zoom": None}
         default_front = self._default_front_quats
-        default_front[view] = front_quat
+        default_front[view_id] = front_quat
         default_default = self._default_home_default_transforms
-        default_default[view] = {"pos": pivot_pos, "quat": quat, "zoom": zoom}
+        default_default[view_id] = {"pos": pivot_pos, "quat": quat, "zoom": zoom}
         default_custom = self._default_home_custom_transforms
-        default_custom[view] = initial_values.copy()
+        default_custom[view_id] = initial_values.copy()
         custom_default = self._custom_home_default_transforms
-        custom_default[view] = initial_values.copy()
+        custom_default[view_id] = initial_values.copy()
         custom_custom = self._custom_home_custom_transforms
-        custom_custom[view] = initial_values.copy()
+        custom_custom[view_id] = initial_values.copy()
 
-        grid_plane = self._grid_planes[current_view]
-        self._grid_plane_defaults[view] = grid_plane
-        self._grid_planes[view] = grid_plane
-        render_mode = self._render_modes[current_view]
-        self._render_mode_defaults[view] = render_mode
-        self._render_modes[view] = render_mode
+        grid_plane = self._grid_planes[current_view_id]
+        self._grid_plane_defaults[view_id] = grid_plane
+        self._grid_planes[view_id] = grid_plane
+        render_mode = self._render_modes[current_view_id]
+        self._render_mode_defaults[view_id] = render_mode
+        self._render_modes[view_id] = render_mode
 
-        self.__append_view_tile(view)
-        self.__update_view_tile_region()
-        self._user_views.append(view)
+        self._user_view_ids.append(view_id)
         lens_type = cam.lens_type
-        self._user_lens_types[view] = lens_type
-        self._user_view_id += 1
-        cam.add_rig(view, pivot_hpr, pivot_pos, target_hpr, lens_type, zoom)
+        self._user_lens_types[view_id] = lens_type
+        self._user_view_index += 1
+        cam.add_rig(view_id, pivot_hpr, pivot_pos, target_hpr, lens_type, zoom)
 
-        Mgr.update_remotely("view", "add", view, name)
+        name = "User {} - {}".format(lens_type, name)
+        Mgr.update_remotely("view", "add", view_id, name)
 
-        self.__set_view(view)
+        self.__set_view(view_id)
 
-    def __remove_user_view(self):
+    def __remove_user_view(self, view_id):
 
-        view = GlobalData["view"]
-
-        if view not in self._user_views:
+        if view_id not in self._user_view_ids:
             return
 
-        if self._view_tile_entered in self._user_views:
-            self.__on_region_leave(self._view_tiles_region)
-        elif self._view_before_preview in self._user_views:
-            self.__set_view("persp")
-
-        if GlobalData["view"] in self._user_views:
+        if GlobalData["view"] in self._user_view_ids:
             self.__set_view("persp")
 
         cam = self.cam
 
-        del self._view_names[view]
-        del self._default_front_quats[view]
-        del self._default_home_default_transforms[view]
-        del self._default_home_custom_transforms[view]
-        del self._custom_home_default_transforms[view]
-        del self._custom_home_custom_transforms[view]
-        del self._grid_plane_defaults[view]
-        del self._grid_planes[view]
-        del self._render_mode_defaults[view]
-        del self._render_modes[view]
-        cam.remove_rig(view)
-        self.__remove_view_tile(view)
-        Mgr.update_remotely("view", "remove", view)
-
-        self.__update_view_tile_region()
-        self._user_views.remove(view)
-        del self._user_lens_types[view]
+        del self._view_names[view_id]
+        del self._default_front_quats[view_id]
+        del self._default_home_default_transforms[view_id]
+        del self._default_home_custom_transforms[view_id]
+        del self._custom_home_default_transforms[view_id]
+        del self._custom_home_custom_transforms[view_id]
+        del self._grid_plane_defaults[view_id]
+        del self._grid_planes[view_id]
+        del self._render_mode_defaults[view_id]
+        del self._render_modes[view_id]
+        cam.remove_rig(view_id)
+        self._user_view_ids.remove(view_id)
+        del self._user_lens_types[view_id]
 
     def __adjust_transition_hpr(self, task):
 
@@ -1048,12 +778,12 @@ class ViewManager(BaseObject):
                      uponDeath=self.__adjust_transition_hpr)
         Mgr.do("start_view_gizmo_transition")
 
-    def __set_as_front_view(self, view=None):
+    def __set_as_front_view(self, view_id=None):
         """ Set the given or current view as a custom Front view """
 
-        if view:
-            current_view = GlobalData["view"]
-            GlobalData["view"] = view
+        if view_id:
+            current_view_id = GlobalData["view"]
+            GlobalData["view"] = view_id
 
         cam = self.cam
         self.is_front_custom = True
@@ -1070,23 +800,23 @@ class ViewManager(BaseObject):
         cam.target.set_hpr(0., 0., 0.)
         cam.pivot.set_hpr(hpr)
 
-        if not view or view == current_view:
+        if not view_id or view_id == current_view_id:
             Mgr.do("update_view_gizmo", False, True)
 
-        if view:
-            GlobalData["view"] = current_view
+        if view_id:
+            GlobalData["view"] = current_view_id
 
-    def __reset_front_view(self, view=None, transition=True, reset_roll=True):
+    def __reset_front_view(self, view_id=None, transition=True, reset_roll=True):
         """ Realigns the Front view to the world (or original user view space) """
 
-        if view:
-            current_view = GlobalData["view"]
-            GlobalData["view"] = view
+        if view_id:
+            current_view_id = GlobalData["view"]
+            GlobalData["view"] = view_id
 
         if not self.is_front_custom:
 
-            if view:
-                GlobalData["view"] = current_view
+            if view_id:
+                GlobalData["view"] = current_view_id
 
             return
 
@@ -1103,7 +833,7 @@ class ViewManager(BaseObject):
         else:
             quat.set_hpr(hpr)
 
-        if transition and (not view or view == current_view):
+        if transition and (not view_id or view_id == current_view_id):
 
             cam.target.set_hpr(hpr)
             cam.pivot.set_quat(def_front_quat)
@@ -1124,7 +854,7 @@ class ViewManager(BaseObject):
             cam.target.set_quat(quat)
             cam.pivot.set_quat(def_front_quat)
 
-            if not view or view == current_view:
+            if not view_id or view_id == current_view_id:
                 Mgr.do("update_view_gizmo", False, True)
 
             if GlobalData["coord_sys_type"] == "screen":
@@ -1132,8 +862,8 @@ class ViewManager(BaseObject):
 
         self.is_front_custom = False
 
-        if view:
-            GlobalData["view"] = current_view
+        if view_id:
+            GlobalData["view"] = current_view_id
 
     def __set_as_home_view(self):
         """ Set the current view as the Home view """
@@ -1225,18 +955,18 @@ class ViewManager(BaseObject):
 
     def __reset_all_views(self, to_default=True, transition=False):
 
-        current_view = GlobalData["view"]
-        views = ["persp", "ortho", "front", "back", "left", "right", "top", "bottom"]
-        views += self._user_views
+        current_view_id = GlobalData["view"]
+        view_ids = ["persp", "ortho", "front", "back", "left", "right", "top", "bottom"]
+        view_ids += self._user_view_ids
 
-        for view in views:
-            GlobalData["view"] = view
+        for view_id in view_ids:
+            GlobalData["view"] = view_id
             self.__reset_view(to_default, transition)
 
         def task():
 
-            GlobalData["view"] = current_view
-            self.__set_view("persp")
+            GlobalData["view"] = current_view_id
+            Mgr.update_app("view", "set", "persp")
 
         PendingTasks.add(task, "set_persp_view", "ui")
 
@@ -1450,123 +1180,16 @@ class ViewManager(BaseObject):
             self.home_quat = quat
             self.home_zoom = zoom
 
-    def __enable_view_tiles(self, enable=True):
+    def __do_preview(self, view_id):
 
-        self._view_tiles_icon_region.set_active(enable)
+        current_view_id = GlobalData["view"]
 
-        if self._view_tiles_shown:
-
-            self._view_tiles_region.set_active(enable)
-
-            for region in self._view_tile_region_group:
-                region.set_active(enable)
-
-    def __exit_view_tiles_region(self):
-
-        Mgr.remove_task("check_view")
-
-        if self._view_tile_entered:
-
-            current_view = GlobalData["view"]
-            self._view_tiles[current_view].set_color_scale(1., 1., 1., 1.)
-            self._view_label.set_color_scale(1., 1., 1., 1.)
-            view = self._view_before_preview
-
-            if view and view != current_view:
-
-                current_lens_type = self.cam.lens_type
-                GlobalData["view"] = view
-                self.cam.update()
-                lens_type = self.cam.lens_type
-                name = self._view_names[view]
-
-                if view in self._user_views:
-                    name = "User %s - %s" % (lens_type, name)
-
-                self._view_label_node.set_text(name)
-                Mgr.update_app("active_grid_plane", self.grid_plane)
-                GlobalData["render_mode"] = self.render_mode
-                Mgr.update_app("render_mode")
-
-                if current_lens_type != lens_type:
-                    Mgr.do("adjust_grid_to_lens")
-                    Mgr.do("adjust_picking_cam_to_lens")
-                    Mgr.do("adjust_transform_gizmo_to_lens", current_lens_type, lens_type)
-
-                Mgr.do("update_zoom_indicator")
-                Mgr.do("update_view_gizmo", cube=False, hpr=True)
-                Mgr.do("update_transf_gizmo")
-                Mgr.do("update_coord_sys")
-
-            self._view_tile_entered = ""
-            self._view_before_preview = ""
-
-    def __on_region_enter(self, *args):
-
-        name = args[0].get_name()
-
-        if self._quick_view_select:
-            if name == "view_tiles_icon_region":
-                self._view_tiles_icon_entered = True
-            return
-
-        if name == "view_tiles_icon_region":
-            self._view_tiles_icon_entered = True
-            self._view_tiles_icon.set_color_scale(1., 1., 0., 1.)
-            Mgr.get("core").suppress_mouse_events()
-            self._listener.accept("mouse1", self.__on_left_down)
-            self._listener.accept("mouse1-up", self.__on_left_up)
-            self._listener.accept("mouse3", self.__on_right_down)
-        elif name == "view_tiles_region":
-            Mgr.get("core").suppress_mouse_events()
-            self._listener.accept("mouse1", self.__on_left_down)
-            self._listener.accept("mouse1-up", self.__on_left_up)
-            self._listener.accept("mouse3", self.__on_right_down)
-
-    def __on_region_leave(self, *args):
-
-        name = args[0].get_name()
-
-        if self._quick_view_select:
-            if name == "view_tiles_icon_region":
-                self._view_tiles_icon_entered = False
-            return
-
-        if name == "view_tiles_icon_region":
-            self._view_tiles_icon_entered = False
-            self._view_tiles_icon.set_color_scale(1., 1., 1., 1.)
-            self._listener.ignore("mouse1")
-            self._listener.ignore("mouse1-up")
-            Mgr.get("core").suppress_mouse_events(False)
-        elif name == "view_tiles_region":
-            self._listener.ignore("mouse1")
-            self._listener.ignore("mouse1-up")
-            Mgr.get("core").suppress_mouse_events(False)
-            self.__exit_view_tiles_region()
-
-    def __do_preview(self, view):
-
-        self._view_tile_entered = view
-        current_view = GlobalData["view"]
-        self._view_tiles[current_view].set_color_scale(1., 1., 1., 1.)
-        self._view_tiles[view].set_color_scale(1., 1., 0., 1.)
-        self._view_label.set_color_scale(1., 1., 0., 1.)
-
-        if not self._view_before_preview:
-            self._view_before_preview = current_view
-
-        if view != current_view:
+        if view_id != current_view_id:
 
             current_lens_type = self.cam.lens_type
-            GlobalData["view"] = view
+            GlobalData["view"] = view_id
             self.cam.update()
             lens_type = self.cam.lens_type
-            name = self._view_names[view]
-
-            if view in self._user_views:
-                name = "User %s - %s" % (lens_type, name)
-
-            self._view_label_node.set_text(name)
             Mgr.update_app("active_grid_plane", self.grid_plane)
             GlobalData["render_mode"] = self.render_mode
             Mgr.update_app("render_mode")
@@ -1583,145 +1206,6 @@ class ViewManager(BaseObject):
 
             if GlobalData["coord_sys_type"] == "screen":
                 Mgr.get("selection").update_transform_values()
-
-    def __check_view(self, view, task):
-
-        if not self.mouse_watcher.has_mouse():
-            return task.cont
-
-        mouse_pos = self.mouse_watcher.get_mouse()
-
-        if mouse_pos == self._mouse_prev:
-
-            if not self._checking_view:
-                self._checking_view = True
-                self._clock.reset()
-            elif not self._previewing and self._clock.get_real_time() >= .02:
-                self.__do_preview(view)
-                self._previewing = True
-                self._clock.reset()
-                return
-
-        else:
-
-            self._mouse_prev = Point2(mouse_pos)
-
-            if self._checking_view:
-                self._checking_view = False
-                self._previewing = False
-
-        return task.cont
-
-    def __on_region_within(self, *args):
-
-        name = args[0].get_name()
-
-        if name.startswith("view_tile_region_"):
-            view = name.replace("view_tile_region_", "")
-            Mgr.remove_task("check_view")
-            Mgr.add_task(self.__check_view, "check_view", extraArgs=[view], appendTask=True)
-
-    def __on_region_without(self, *args):
-
-        name = args[0].get_name()
-
-        if name == "view_tiles_region":
-            self.__exit_view_tiles_region()
-
-    def __toggle_view_tiles(self):
-
-        self._view_tiles_shown = not self._view_tiles_shown
-        color = (0., 1., 1., 1.) if self._view_tiles_shown else (1., 1., 1., 1.)
-        self._view_tiles_icon.set_color(color)
-
-        if self._view_tiles_shown:
-
-            self._view_tile_root.show()
-            self._view_tiles_region.set_active(True)
-
-            for region in self._view_tile_region_group:
-                region.set_active(True)
-
-        else:
-
-            Mgr.remove_task("check_view")
-            current_view = GlobalData["view"]
-            self._view_tiles[current_view].set_color_scale(1., 1., 1., 1.)
-            self._view_label.set_color_scale(1., 1., 1., 1.)
-            self._view_tile_root.hide()
-            self._view_tile_entered = ""
-            self._view_before_preview = ""
-            self._view_tiles_region.set_active(False)
-
-            for region in self._view_tile_region_group:
-                region.set_active(False)
-
-    def __check_mouse_offset(self, task):
-        """
-        Delay showing view tiles until user has moved mouse at least 3 pixels
-        in any direction, in case of unintended clicks on view tile icon.
-
-        """
-
-        mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = mouse_pointer.get_y()
-        mouse_start_x, mouse_start_y = self._mouse_start_pos
-
-        if max(abs(mouse_x - mouse_start_x), abs(mouse_y - mouse_start_y)) > 3:
-            self._quick_view_select = True
-            self.__toggle_view_tiles()
-            return task.done
-
-        return task.cont
-
-    def __on_left_down(self):
-
-        self._is_clicked = True
-
-        if self._view_tiles_icon_entered and not self._view_tiles_shown:
-            mouse_pointer = Mgr.get("mouse_pointer", 0)
-            self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
-            Mgr.add_task(self.__check_mouse_offset, "check_mouse_offset")
-
-    def __on_left_up(self):
-
-        if not self._is_clicked:
-            return
-
-        self._is_clicked = False
-
-        if self._view_tile_entered:
-            GlobalData["view"] = self._view_tile_entered
-            self.__set_view(self._view_tile_entered)
-
-        if self._quick_view_select:
-
-            Mgr.remove_task("check_mouse_offset")
-            self.__toggle_view_tiles()
-            self._quick_view_select = False
-
-            if not self._view_tiles_icon_entered:
-                self._view_tiles_icon.set_color_scale(1., 1., 1., 1.)
-                self._listener.ignore("mouse1")
-                self._listener.ignore("mouse1-up")
-                Mgr.get("core").suppress_mouse_events(False)
-
-        elif self._view_tiles_icon_entered:
-
-            Mgr.remove_task("check_mouse_offset")
-            self.__toggle_view_tiles()
-
-    def __on_right_down(self):
-
-        self._is_clicked = True
-        tile_entered = self._view_tile_entered
-
-        if tile_entered:
-            if tile_entered in self._user_views:
-                Mgr.update_remotely("view", "menu", "user")
-            else:
-                Mgr.update_remotely("view", "menu", "std")
 
 
 MainObjects.add_class(ViewManager)

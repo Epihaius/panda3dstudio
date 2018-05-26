@@ -1,5 +1,7 @@
+from direct.showbase.DirectObject import DirectObject
 import logging
 import re
+import cPickle
 
 logging.basicConfig(filename='p3ds.log', filemode='w',
                     format='%(asctime)s - %(levelname)s: %(message)s',
@@ -26,7 +28,7 @@ class GlobalMeta(type):
         if data_id in cls._data:
             return cls._data[data_id]
 
-        raise KeyError('Global data ID "%s" not defined.' % data_id)
+        raise KeyError('Global data ID "{}" not defined.'.format(data_id))
 
     def __setitem__(cls, data_id, value):
         """
@@ -145,9 +147,9 @@ def get_unique_name(requested_name, namelist, default_search_pattern="",
         if index_str:
 
             min_index = int(index_str)
-            search_pattern = r"^%s\s*(\d+)$" % re.escape(basename)
+            search_pattern = r"^{}\s*(\d+)$".format(re.escape(basename))
             zero_padding = len(index_str) if index_str.startswith("0") else 0
-            naming_pattern = basename + space + "%0" + str(zero_padding) + "d"
+            naming_pattern = basename + space + "{:0" + str(zero_padding) + "d}"
 
         else:
 
@@ -158,18 +160,18 @@ def get_unique_name(requested_name, namelist, default_search_pattern="",
             if index_str:
 
                 min_index = int(index_str)
-                search_pattern = r"^%s\s*\((\d+)\)$" % re.escape(basename)
+                search_pattern = r"^{}\s*\((\d+)\)$".format(re.escape(basename))
                 zero_padding = len(index_str) if index_str.startswith("0") else 0
-                naming_pattern = basename + space + "(%0" + str(zero_padding) + "d)"
+                naming_pattern = basename + space + "({:0" + str(zero_padding) + "d})"
 
             else:
 
-                search_pattern = r"^%s$" % re.escape(basename)
+                search_pattern = r"^{}$".format(re.escape(basename))
 
                 if re.findall(search_pattern, namestring, re.M):
                     min_index = 2
-                    search_pattern = r"^%s\s*\((\d+)\)$" % re.escape(basename)
-                    naming_pattern = basename + " (%d)"
+                    search_pattern = r"^{}\s*\((\d+)\)$".format(re.escape(basename))
+                    naming_pattern = basename + " ({:d})"
                 else:
                     return basename
 
@@ -179,9 +181,9 @@ def get_unique_name(requested_name, namelist, default_search_pattern="",
 
     for i in xrange(min_index, max_index):
         if i not in inds:
-            return naming_pattern % i
+            return naming_pattern.format(i)
 
-    return naming_pattern % max_index
+    return naming_pattern.format(max_index)
 
 
 # The following class allows predefining specific bindings of events to their

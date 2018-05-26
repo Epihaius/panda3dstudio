@@ -585,7 +585,7 @@ class SelectionTransformBase(BaseObject):
         prev_count = GlobalData["selection_count"]
 
         if count != prev_count:
-            Mgr.do("%s_transf_gizmo" % ("show" if count else "hide"))
+            Mgr.do("{}_transf_gizmo".format("show" if count else "hide"))
             GlobalData["selection_count"] = count
 
         Mgr.update_remotely("selection_count")
@@ -779,7 +779,7 @@ class SelectionTransformBase(BaseObject):
         elif self._obj_level == "normal":
             subobj_descr = "normals"
 
-        event_descr = '%s %s' % (transf_type.title(), subobj_descr)
+        event_descr = '{} {}'.format(transf_type.title(), subobj_descr)
 
         if self._obj_level == "normal":
             for geom_data_obj in self._groups:

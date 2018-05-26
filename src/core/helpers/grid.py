@@ -31,6 +31,7 @@ class Grid(BaseObject):
         Mgr.accept("adjust_grid_to_lens", self.__adjust_to_lens)
         Mgr.accept("align_grid_to_screen", self.__align_to_screen)
         Mgr.add_app_updater("active_grid_plane", self.__set_plane)
+        Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
 
         self._ref_dist = 1.
         self._scale = 1.
@@ -116,12 +117,18 @@ class Grid(BaseObject):
             plane_id = "xyz".replace(axis_id, "")
             normal = Vec3(0., 0., 0.)
             normal[i] = 1.
-            plane_node = PlaneNode("grid_plane_%s" % plane_id.lower(), Plane(normal, Point3()))
+            plane_node = PlaneNode("grid_plane_{}".format(plane_id.lower()), Plane(normal, Point3()))
             self._planes[plane_id] = self._origin.attach_new_node(plane_node)
 
         self.__set_plane("xy")
 
         return "grid_ok"
+
+    def __handle_viewport_resize(self):
+
+        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        scale = 800. / max(w, h)
+        self._axis_indicator.set_scale(scale)
 
     def __create_horizon(self):
 
@@ -207,14 +214,14 @@ class Grid(BaseObject):
         line.add_vertices(0, 1)
         line_geom = Geom(vertex_data)
         line_geom.add_primitive(line)
-        line_node = GeomNode("grid_line_%s" % axis_id.lower())
+        line_node = GeomNode("grid_line_{}".format(axis_id.lower()))
         line_node.add_geom(line_geom)
 
         return NodePath(line_node)
 
     def __create_plane(self, plane_id):
 
-        node_path = NodePath("grid_plane_%s" % plane_id.lower())
+        node_path = NodePath("grid_plane_{}".format(plane_id.lower()))
 
         axis_id1, axis_id2 = plane_id
 

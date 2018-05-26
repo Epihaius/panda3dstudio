@@ -1,85 +1,127 @@
 from ..base import *
-from ..button import Button
-from ..toggle import ToggleButtonGroup
+from ..button import *
+from ..toolbar import *
 
 
-class GridToolbar(Toolbar):
+class GridSpacingBox(Widget):
 
-    def __init__(self, parent, pos, width):
+    _border_gfx_data = (("large_toolbar_inset_border_left", "large_toolbar_inset_border_center",
+                         "large_toolbar_inset_border_right"),)
+    _box_borders = ()
+    _border_image = None
+    _background_image = None
+    _img_offset = (0, 0)
+    _box_size = (0, 0)
 
-        Toolbar.__init__(self, parent, pos, width)
+    @classmethod
+    def __set_borders(cls):
 
-        separator_bitmap_path = os.path.join(GFX_PATH, "toolbar_separator.png")
-        self.add_separator(separator_bitmap_path)
-        separator = self.add_separator(separator_bitmap_path)
-        self.GetSizer().Layout()
-        sizer = separator.get_sizer()
-        x, y = sizer.GetPosition()
-        w, h = sizer.GetSize()
-        x += w
+        l, r, b, t = TextureAtlas["outer_borders"]["large_toolbar_inset"]
+        cls._box_borders = (l, r, b, t)
+        cls._img_offset = (-l, -t)
 
-        bitmap = self.get_bitmap()
-        icon = wx.Bitmap(os.path.join(GFX_PATH, "icon_gridspacing.png"))
-        borders = {}
+    @classmethod
+    def __set_border_image(cls, border_image):
 
-        for part in ("left", "right"):
-            path = os.path.join(GFX_PATH, "toolbar_border_large_%s.png" % part)
-            borders[part] = Cache.load("bitmap", path)
+        cls._border_image = border_image
 
-        path = os.path.join(GFX_PATH, "toolbar_border_large_center.png")
-        center_img = Cache.load("image", path)
+    @classmethod
+    def __set_background_image(cls):
 
-        if not center_img.HasAlpha():
-            center_img.InitAlpha()
+        tex_atlas = TextureAtlas["image"]
+        tex_atlas_regions = TextureAtlas["regions"]
+        x, y, w, h = tex_atlas_regions["gridspacing_background"]
+        cls._background_image = image = PNMImage(w, h, 4)
+        image.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
+        cls._box_size = (w, h)
 
-        w, h_border = borders["left"].GetSize()
-        w_icon, h_icon = icon.GetSize()
-        icon_offset = (h_border - h_icon) // 2
-        w_border = w_icon + icon_offset * 2
-        self._border_rect = wx.Rect(x, 0, w_border, h_border)
-        self._text_bg_rect = wx.Rect(5, h_border - 18, w_border - 10, 12)
-        icon_back_img = bitmap.GetSubBitmap(self._border_rect).ConvertToImage()
-        icon_back_img = icon_back_img.AdjustChannels(1.6, 1.6, 1.6)
-        icon_back_bitmap = icon_back_img.Mirror(horizontally=False).ConvertToBitmap()
-        self._text_bg = icon_back_bitmap.GetSubBitmap(self._text_bg_rect)
-        self._text_bg_rect.OffsetXY(x, 0)
-        size = (w_border - 2 * w, h_border)
-        borders["center"] = center_img.Scale(*size).ConvertToBitmap()
-        mem_dc = wx.MemoryDC(bitmap)
-        mem_dc.DrawBitmap(icon_back_bitmap, x, 0)
-        mem_dc.DrawBitmap(icon, x + icon_offset, icon_offset)
-        mem_dc.DrawBitmap(borders["left"], x, 0)
-        mem_dc.DrawBitmap(borders["center"], x + w, 0)
-        mem_dc.DrawBitmap(borders["right"], x + w_border - w, 0)
-        mem_dc.SelectObject(wx.NullBitmap)
+    def __init__(self, parent):
 
-        self._plane_btns = GridPlaneButtons(self)
+        if not self._box_borders:
+            self.__set_borders()
 
-        # TODO: add "Hide/Show Grid" button
+        Widget.__init__(self, "gridspacing_box", parent, gfx_data={})
 
-        def update_grid_spacing(grid_spacing):
+        if not self._border_image:
+            self.__set_background_image()
+            self.set_size(self._box_size, is_min=True)
+            self.__create_border_image()
 
-            mem_dc = wx.MemoryDC(self.get_bitmap())
-            mem_dc.DrawBitmap(self._text_bg, *self._text_bg_rect.GetPosition())
-            mem_dc.SetFont(Fonts.get("default"))
-            mem_dc.DrawLabel(grid_spacing, self._text_bg_rect, wx.ALIGN_CENTER)
-            mem_dc.SelectObject(wx.NullBitmap)
-            self.RefreshRect(self._text_bg_rect)
+        skin_text = Skin["text"]["grid_spacing"]
+        self._font = skin_text["font"]
+        self._text_color = skin_text["color"]
 
-        Mgr.add_app_updater("gridspacing", update_grid_spacing)
+        self.set_image_offset(self._img_offset)
+        self.set_outer_borders(self._box_borders)
+        self._grid_spacing = str(0.)
+        self._grid_spacing_label = None
 
-    def enable(self):
+        Mgr.add_app_updater("gridspacing", self.__update_grid_spacing)
 
-        self._plane_btns.enable()
+    def __create_border_image(self):
 
-    def disable(self, show=True):
+        w, h = self.get_size()
+        l, r, b, t = self._box_borders
+        width = w + l + r
+        height = h + b + t
+        gfx_data = {"": self._border_gfx_data}
+        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget.set_size((width, height), is_min=True)
+        tmp_widget.update_images()
+        image = tmp_widget.get_image()
+        tmp_widget.destroy()
 
-        self._plane_btns.disable(show)
+        self.__set_border_image(image)
+
+    def __update_card_image(self):
+
+        if self.is_hidden():
+            return
+
+        image = self.get_image(composed=False)
+
+        if image:
+            w, h = image.get_x_size(), image.get_y_size()
+            img_offset_x, img_offset_y = self.get_image_offset()
+            self.get_card().copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
+
+    def update_images(self, recurse=True, size=None): pass
+
+    def get_image(self, state=None, composed=True):
+
+        image = PNMImage(self._background_image)
+        bg_img = self._background_image
+        label = self._grid_spacing_label
+
+        if label:
+            w, h = self._box_size
+            w_l, h_l = label.get_x_size(), label.get_y_size()
+            x = (w - w_l) // 2
+            y = h - h_l
+            image.blend_sub_image(label, x, y, 0, 0)
+
+        border_img = self._border_image
+        w, h = border_img.get_x_size(), border_img.get_y_size()
+        img = PNMImage(w, h, 4)
+        img_offset_x, img_offset_y = self.get_image_offset()
+        img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)
+        img.blend_sub_image(border_img, 0, 0, 0, 0)
+
+        return img
+
+    def __update_grid_spacing(self, grid_spacing):
+
+        if self._grid_spacing != grid_spacing:
+            self._grid_spacing = grid_spacing
+            self._grid_spacing_label = self._font.create_image(grid_spacing, self._text_color)
+            self.__update_card_image()
+            offset_x, offset_y = self.get_image_offset()
+            self.get_parent().update_composed_image(self, None, offset_x, offset_y)
 
 
 class GridPlaneButtons(ToggleButtonGroup):
 
-    def __init__(self, btn_parent):
+    def __init__(self, toolbar):
 
         ToggleButtonGroup.__init__(self)
 
@@ -87,12 +129,6 @@ class GridPlaneButtons(ToggleButtonGroup):
             "xz": ("icon_gridplane_xz", "Grid plane XZ"),
             "yz": ("icon_gridplane_yz", "Grid plane YZ")
         }
-
-        sizer = btn_parent.GetSizer()
-        separator_bitmap_path = os.path.join(GFX_PATH, "toolbar_separator.png")
-        sizer.AddSpacer(50)
-
-        bitmap_paths = Button.get_bitmap_paths("toolbar_button")
 
         def add_toggle(grid_plane):
 
@@ -105,11 +141,9 @@ class GridPlaneButtons(ToggleButtonGroup):
             if grid_plane == "xy":
                 self.set_default_toggle(grid_plane, toggle)
             else:
-                icon_name, tooltip_text = btn_data[grid_plane]
-                icon_path = os.path.join(GFX_PATH, icon_name + ".png")
-                bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-                btn = self.add_button(btn_parent, grid_plane, toggle, bitmaps, tooltip_text)
-                sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+                icon_id, tooltip_text = btn_data[grid_plane]
+                btn = ToolbarButton(toolbar, icon_id=icon_id, tooltip_text=tooltip_text)
+                self.add_button(btn, grid_plane, toggle)
 
         for grid_plane in ("xy", "xz", "yz"):
             add_toggle(grid_plane)
@@ -123,6 +157,22 @@ class GridPlaneButtons(ToggleButtonGroup):
 
         Mgr.add_app_updater("active_grid_plane", set_active_grid_plane)
 
-        sizer.AddStretchSpacer()
-        btn_parent.add_separator(separator_bitmap_path)
-        sizer.Layout()
+
+class GridToolbar(Toolbar):
+
+    def __init__(self, parent):
+
+        Toolbar.__init__(self, parent, "grid", "Grid")
+
+        borders = (0, 5, 0, 0)
+
+        self._grid_spacing_box = box = GridSpacingBox(self)
+        self.add(box, borders=borders, alignment="center_v")
+
+        self._plane_btns = btns = GridPlaneButtons(self)
+
+        for grid_plane in ("xz", "yz"):
+            btn = btns.get_button(grid_plane)
+            self.add(btn, borders=borders, alignment="center_v")
+
+        # TODO: add "Hide/Show Grid" button

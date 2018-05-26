@@ -154,7 +154,7 @@ class CoordSysManager(BaseObject):
             Mgr.update_app("active_obj_level")
 
         Mgr.add_task(self.__update_cursor, "update_cs_picking_cursor")
-        Mgr.update_app("status", "pick_coord_sys")
+        Mgr.update_app("status", ["pick_coord_sys"])
 
     def __exit_picking_mode(self, next_state_id, is_active):
 

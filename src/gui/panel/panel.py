@@ -1,638 +1,860 @@
 from ..base import *
+from ..button import Button
+from ..menu import Menu
 from .section import PanelSection
 
 
-class Panel(wx.PyPanel, BaseObject, FocusResetter):
+class PanelHeader(Widget):
 
-    _gfx = {"arrows": {}, "body": {}, "header": {}}
-    _heights = {}
-    _main_color = None
+    images = {}
+    height = 0
+    _gfx = {"": (("expanded_panel_header_left", "expanded_panel_header_center",
+            "expanded_panel_header_right"),)}
 
-    @classmethod
-    def init(cls):
+    def __init__(self, parent):
 
-        PanelSection.init()
+        Widget.__init__(self, "panel_header", parent, self._gfx, stretch_dir="horizontal")
 
-        arrows = cls._gfx["arrows"]
+        if not self.height:
+            PanelHeader.height = self.get_min_size()[1]
 
-        for extent, direction in (("expanded", "up"), ("collapsed", "down")):
+        self.get_node().set_name("panel_header")
 
-            arrows[extent] = {}
+    def set_size(self, size, includes_borders=True, is_min=False):
+
+        Widget.set_size(self, size, includes_borders, is_min)
+
+        parent = self.get_parent()
+        parent.get_collapsed_header().set_size(size)
+        parent.get_collapsed_bottom().set_size(size)
+
+    def set_pos(self, pos): pass
+
+    def update_images(self):
+
+        if self.images:
+            self._images = self.images
+        else:
+            PanelHeader.images = Widget.update_images(self)
+
+        parent = self.get_parent()
+        parent.get_collapsed_header().update_images()
+        parent.get_collapsed_bottom().update_images()
+
+    def update_mouse_region_frames(self, exclude=""):
+
+        Widget.update_mouse_region_frames(self, exclude)
+        parent = self.get_parent()
+        parent.get_collapsed_header().update_mouse_region_frames(exclude)
+        parent.get_collapsed_bottom().update_mouse_region_frames(exclude)
+
+    def on_left_up(self):
+
+        self.get_parent().expand(False)
+
+    def is_hidden(self, check_ancestors=True):
+
+        return self.get_parent().is_hidden(check_ancestors=True)
+
+
+class PanelBottom(Button):
+
+    images = {}
+    height = 0
+    _gfx = {
+        "normal": (("expanded_panel_bottom_normal",),),
+        "hilited": (("expanded_panel_bottom_hilited",),)
+    }
+
+    def __init__(self, parent):
+
+        Button.__init__(self, parent, self._gfx)
+
+        self.set_widget_type("panel_bottom")
+
+        if not self.height:
+            PanelBottom.height = self.get_min_size()[1]
+
+        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        node = self.get_node()
+        node.set_name("panel_bottom")
+        node.set_z(-b)
+        self._hook_node = hook_node = node.attach_new_node("hook_node")
+        hook_node.set_z(-self.height)
+
+    def set_pos(self, pos): pass
+
+    def get_hook_node(self):
+
+        return self._hook_node
+
+    def update_images(self):
+
+        if self.images:
+
+            self._images = self.images
+
+        else:
+
+            Widget.update_images(self)
+            width, height = self.get_size()
+            tex_atlas = TextureAtlas["image"]
+            tex_atlas_regions = TextureAtlas["regions"]
 
             for state in ("normal", "hilited"):
-                values = (direction, state)
-                path = os.path.join(GFX_PATH, "panel_arrow_%s_%s.png" % values)
-                arrows[extent][state] = wx.Bitmap(path)
+                x, y, w, h = tex_atlas_regions["expanded_panel_arrow_{}".format(state)]
+                img = PNMImage(w, h, 4)
+                img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
+                image = self._images[state]
+                x = (width - w) // 2
+                y = height - h
+                image.blend_sub_image(img, x, y, 0, 0, w, h)
 
-        cls._heights["arrow"] = arrows["expanded"]["normal"].GetHeight()
+            PanelBottom.images = self._images
 
-        imgs = []
-        body = cls._gfx["body"]
+    def on_left_up(self):
 
-        for part in ("top", "bottom", "bottom_hilited", "collapsed"):
-            path = os.path.join(GFX_PATH, "panel_%s.png" % part)
-            img = wx.Image(path)
-            body[part] = img
-            cls._heights[part] = img.GetHeight()
+        if Button.on_left_up(self):
+            self.get_parent().expand(False)
 
-        path = os.path.join(GFX_PATH, "panel_main.png")
-        img = Cache.load("image", path)
-        r = img.GetRed(0, 0)
-        g = img.GetGreen(0, 0)
-        b = img.GetBlue(0, 0)
-        cls._main_color = wx.Colour(r, g, b)
+    def on_leave(self):
 
-        header = cls._gfx["header"]
+        if not self.get_parent().is_expanded():
+            self._current_state = "normal"
+            return
 
-        for size in ("exp", "coll"):
+        Button.on_leave(self)
 
-            header[size] = {}
+    def is_hidden(self, check_ancestors=True):
 
-            for part in ("left", "right"):
-                values = (size, part)
-                path = os.path.join(GFX_PATH, "panel_%s_header_%s.png" % values)
-                header[size][part] = wx.Bitmap(path)
+        return self.get_parent().is_hidden(check_ancestors=True)
 
-            path = os.path.join(GFX_PATH, "panel_%s_header_center.png" % size)
-            header_center = wx.Image(path)
-            imgs.append(header_center)
-            header[size]["center"] = header_center
 
-        for img in imgs:
-            if not img.HasAlpha():
-                img.InitAlpha()
+class CollapsedPanelHeader(Widget):
 
-    @classmethod
-    def get_main_color(cls):
+    images = {}
+    height = 0
+    _gfx = {"": (("collapsed_panel_header_left", "collapsed_panel_header_center",
+            "collapsed_panel_header_right"),)}
 
-        return cls._main_color
+    def __init__(self, parent):
 
-    def __init__(self, parent, header_text="", focus_receiver=None, interface_id=""):
+        Widget.__init__(self, "panel_header", parent, self._gfx, "", "horizontal")
 
-        self._is_finalized = False
+        if not self.height:
+            CollapsedPanelHeader.height = self.get_min_size()[1]
 
-        wx.PyPanel.__init__(self, parent)
-        BaseObject.__init__(self, interface_id)
-        FocusResetter.__init__(self, focus_receiver)
+        self.get_node().set_name("collapsed_panel_header")
 
-        self.refuse_focus(on_click=self.__on_left_down)
+    def set_pos(self, pos): pass
 
-        self._bitmaps = {}
-        self._arrow_pos = None
-        self._bottom_hilited = None
-        self._bottom_rect = None
-        self._header_text = header_text
-        self._header_bitmaps = {}
-        self._header_rect = None
-        self._text_items = {"top": [], "bottom": []}
-        self._child_controls = []
-        self._sections = {}
+    def update_images(self):
 
-        self._is_enabled = True
-        self._has_mouse = False
-        self._is_clicked = False
-        self._is_expanded = True
+        if self.images:
+            self._images = self.images
+        else:
+            CollapsedPanelHeader.images = Widget.update_images(self)
 
-        self._are_top_ctrls_shown = True
-        self._are_bottom_ctrls_shown = True
+    def on_left_up(self):
 
-        self._sizer = wx.BoxSizer(wx.VERTICAL)
-        self._top_ctrl_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._section_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._bottom_ctrl_sizer = wx.BoxSizer(wx.VERTICAL)
-        h_top = self._heights["top"]
-        h_header = self._gfx["header"]["exp"]["left"].GetHeight()
-        self._sizer.Add(wx.Size(0, h_top + 1))
-        self._sizer.Add(wx.Size(0, h_header + 7 - h_top))
-        self._sizer.Add(self._top_ctrl_sizer, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
-        self._sizer.Add(self._section_sizer, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
-        self._sizer.Add(self._bottom_ctrl_sizer, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 2)
-        h_bottom = self._heights["bottom"]
-        self._sizer.Add(wx.Size(0, h_bottom + 1))
-        self.SetSizer(self._sizer)
+        self.get_parent().expand()
+
+    def is_hidden(self, check_ancestors=True):
+
+        return self.get_parent().is_hidden(check_ancestors=True)
+
+
+class CollapsedPanelBottom(Button):
+
+    images = {}
+    height = 0
+    _gfx = {
+        "normal": (("collapsed_panel_bottom_normal",),),
+        "hilited": (("collapsed_panel_bottom_hilited",),)
+    }
+
+    def __init__(self, parent):
+
+        Button.__init__(self, parent, self._gfx)
+
+        self.set_widget_type("panel_bottom")
+
+        if not self.height:
+            CollapsedPanelBottom.height = self.get_min_size()[1]
+
+        node = self.get_node()
+        node.set_name("collapsed_panel_bottom")
+        node.set_z(-CollapsedPanelHeader.height)
+        self._hook_node = hook_node = node.attach_new_node("hook_node")
+        hook_node.set_z(-self.height)
+
+    def set_pos(self, pos): pass
+
+    def get_hook_node(self):
+
+        return self._hook_node
+
+    def update_images(self):
+
+        if self.images:
+
+            self._images = self.images
+
+        else:
+
+            Widget.update_images(self)
+            width, height = self.get_size()
+            tex_atlas = TextureAtlas["image"]
+            tex_atlas_regions = TextureAtlas["regions"]
+
+            for state in ("normal", "hilited"):
+                x, y, w, h = tex_atlas_regions["collapsed_panel_arrow_{}".format(state)]
+                img = PNMImage(w, h, 4)
+                img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
+                image = self._images[state]
+                x = (width - w) // 2
+                y = height - h
+                image.blend_sub_image(img, x, y, 0, 0, w, h)
+
+            CollapsedPanelBottom.images = self._images
+
+    def on_left_up(self):
+
+        if Button.on_left_up(self):
+            self.get_parent().expand()
+
+    def on_leave(self):
+
+        if self.get_parent().is_expanded():
+            self._current_state = "normal"
+            return
+
+        Button.on_leave(self)
+
+    def is_hidden(self, check_ancestors=True):
+
+        return self.get_parent().is_hidden(check_ancestors=True)
+
+
+class PanelContainer(Widget):
+
+    _gfx = {"": (("panel_main",),)}
+
+    def __init__(self, parent):
+
+        Widget.__init__(self, "panel_container", parent, self._gfx, "", "both", has_mouse_region=False)
+
+        sizer = Sizer("vertical")
+        self.set_sizer(sizer)
+        self._mouse_region_group = set()
+
+        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        node = self.get_node()
+        node.set_name("panel_container")
+        node.set_pos(l, 0, -t)
+        self._bottom_node = bottom_node = node.attach_new_node("panel_container_bottom")
+        bottom_node.set_x(-l)
+        self._hook_node = hook_node = bottom_node.attach_new_node("hook_node")
 
     def finalize(self):
 
-        self.SetBackgroundStyle(wx.BG_STYLE_CUSTOM)
-        self.Bind(wx.EVT_PAINT, self.__draw)
-        self.Bind(wx.EVT_ENTER_WINDOW, self.__on_enter)
-        self.Bind(wx.EVT_LEAVE_WINDOW, self.__on_leave)
-        self.Bind(wx.EVT_RIGHT_DOWN, self.__on_right_down)
-        self.Bind(wx.EVT_LEFT_UP, self.__on_left_up)
-        self.Bind(wx.EVT_LEFT_DCLICK, self.__on_left_doubleclick)
-        self.Bind(wx.EVT_SIZE, self.__on_size)
+        mouse_region_group = self._mouse_region_group
 
-        self._sizer.Layout()
-        self._sizer.Fit(self)
-        w, h = self.GetSize()
+        for widget in self.get_sizer().get_widgets():
 
-        for section in self._sections.itervalues():
+            mouse_region = widget.get_mouse_region()
+
+            if mouse_region:
+                mouse_region_group.add(mouse_region)
+
+        if self.is_hidden(check_ancestors=False):
+
+            mouse_watcher = self.get_mouse_watcher()
+
+            for mouse_region in mouse_region_group:
+                mouse_watcher.remove_region(mouse_region)
+
+    def set_pos(self, pos): pass
+
+    def set_size(self, size, includes_borders=True, is_min=False):
+
+        width, height = new_size = Widget.set_size(self, size, includes_borders, is_min)
+        self._bottom_node.set_z(-height)
+
+        return new_size
+
+    def update_images(self, recurse=True, size=None):
+
+        if recurse:
+            self._sizer.update_images()
+
+    def get_image(self, state=None, composed=True):
+
+        w, h = self.get_size()
+        x, y = self.get_pos()
+        image = PNMImage(w, h, 4)
+        parent_img = self.get_parent().get_image(composed=False)
+        image.copy_sub_image(parent_img, 0, 0, x, y, w, h)
+
+        if composed:
+            image = self._sizer.get_composed_image(image)
+
+        return image
+
+    def get_mouse_region_group(self):
+
+        return self._mouse_region_group
+
+    def get_hook_node(self):
+
+        return self._hook_node
+
+    def add(self, *args, **kwargs):
+
+        self.get_sizer().add(*args, **kwargs)
+
+    def hide(self):
+
+        if not Widget.hide(self, recurse=False):
+            return False
+
+        if self.get_parent().is_expanded():
+
+            mouse_watcher = self.get_mouse_watcher()
+            mouse_region_group = self._mouse_region_group
+
+            for region in mouse_region_group:
+                mouse_watcher.remove_region(region)
+
+        self._hook_node.reparent_to(self.get_node().get_parent())
+
+        return True
+
+    def show(self):
+
+        if not Widget.show(self, recurse=False):
+            return False
+
+        if self.get_parent().is_expanded():
+
+            mouse_watcher = self.get_mouse_watcher()
+            mouse_region_group = self._mouse_region_group
+
+            for region in mouse_region_group:
+
+                name = region.get_name()
+                widget_id = int(name.replace("widget_", ""))
+                widget = Widget.registry[widget_id]
+
+                if not widget.is_hidden():
+                    mouse_watcher.add_region(region)
+
+        self._hook_node.reparent_to(self._bottom_node)
+
+        return True
+
+
+class Panel(Widget):
+
+    collapsed_height = 0
+    _collapsed_img = None
+    _gfx = {"": (("panel_main",),)}
+
+    def __init__(self, stack, panel_id, name=""):
+
+        Widget.__init__(self, "panel", stack, self._gfx, stretch_dir="both")
+
+        self._id = panel_id
+        self._name = name
+        sizer = Sizer("vertical")
+        Widget.set_sizer(self, sizer)
+        self._top_container = None
+        self._bottom_container = None
+        self._header = header = PanelHeader(self)
+        self._bottom = bottom = PanelBottom(self)
+        self._collapsed_header = collapsed_header = CollapsedPanelHeader(self)
+        self._collapsed_bottom = collapsed_bottom = CollapsedPanelBottom(self)
+        self._client_sizer = client_sizer = Sizer("vertical")
+        sizer.add(header, expand=True)
+        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        borders = (0, 0, b, 0)
+        sizer.add(client_sizer, expand=True, borders=borders)
+        sizer.add(bottom, expand=True)
+        header_region = header.get_mouse_region()
+        bottom_region = bottom.get_mouse_region()
+        collapsed_header_region = collapsed_header.get_mouse_region()
+        collapsed_bottom_region = collapsed_bottom.get_mouse_region()
+        mouse_watcher = stack.get_mouse_watcher()
+        mouse_watcher.remove_region(collapsed_header_region)
+        mouse_watcher.remove_region(collapsed_bottom_region)
+        regions_expanded = set([header_region, bottom_region, self.get_mouse_region()])
+        regions_collapsed = set([collapsed_header_region, collapsed_bottom_region])
+        self._mouse_region_groups = {"expanded": regions_expanded, "collapsed": regions_collapsed}
+
+        if not Panel.collapsed_height:
+            Panel.collapsed_height = collapsed_header.height + collapsed_bottom.height
+
+        # Build the node hierarchy
+
+        prev_panels = stack.get_panels()
+
+        if prev_panels:
+            last_node = prev_panels[-1].get_hook_node()
+        else:
+            last_node = stack.get_widget_root_node()
+
+        top_node = self.get_node()
+        top_node.set_name("panel_top__{}".format(panel_id))
+        top_node.reparent_to(last_node)
+        self._client_node = client_node = header.get_node().attach_new_node("panel_client")
+        client_node.set_z(-header.height)
+        bottom.get_node().reparent_to(client_node)
+        self._hook_node = bottom.get_hook_node().attach_new_node("panel_hook__{}".format(panel_id))
+        collapsed_header_node = collapsed_header.get_node()
+        collapsed_header_node.reparent_to(top_node)
+        collapsed_bottom.get_node().reparent_to(collapsed_header_node)
+
+        stack.add_panel(self)
+
+        self._sections = []
+        self._last_section_hook_node = client_node
+        self._is_expanded = True
+        self._widgets_to_update = []
+
+        skin_text = Skin["text"]["panel_label"]
+        font = skin_text["font"]
+        color = skin_text["color"]
+        self._label = font.create_image(name, color)
+        self._is_dragged = False
+        self._start_mouse_y = 0
+        self._start_drag_offset = 0
+        self._listener = DirectObject()
+
+    def finalize(self):
+
+        mouse_region_group = self._mouse_region_groups["expanded"]
+
+        if self._top_container:
+
+            self._top_container.finalize()
+
+            if not self._top_container.is_hidden(check_ancestors=False):
+                mouse_regions = self._top_container.get_mouse_region_group()
+                mouse_region_group.update(mouse_regions)
+
+        for section in self._sections:
+
             section.finalize()
 
-        body = self._gfx["body"]
-        image_top = body["top"]
-        image_bottom = body["bottom"]
-        image_collapsed = body["collapsed"]
-        image_bottom_hilited = body["bottom_hilited"]
-        h_top = self._heights["top"]
-        h_bottom = self._heights["bottom"]
-        h_main = h - h_top - h_bottom
+            if not section.is_hidden(check_ancestors=False):
+                mouse_regions = section.get_mouse_region_groups()["expanded"]
+                mouse_region_group.update(mouse_regions)
 
-        header_parts = self._gfx["header"].copy()
+        if self._bottom_container:
 
-        for state in header_parts:
-            header_parts[state] = header_parts[state].copy()
+            self._bottom_container.finalize()
 
-        header_center_imgs = {}
-        w_header_side, h_header = header_parts["exp"]["left"].GetSize()
-        header_center = header_parts["exp"]["center"]
-        header_center_img = header_center.Scale(w - 2 * w_header_side - 16, h_header)
-        header_center_imgs["exp"] = header_center_img
-        header_center = header_center_img.ConvertToBitmap()
-        header_parts["exp"]["center"] = header_center
-        header_center = header_parts["coll"]["center"]
-        header_center_img = header_center.Scale(w - 2 * w_header_side - 16, h_header)
-        header_center_imgs["coll"] = header_center_img
-        header_center = header_center_img.ConvertToBitmap()
-        header_parts["coll"]["center"] = header_center
+            if not self._bottom_container.is_hidden(check_ancestors=False):
+                mouse_regions = self._bottom_container.get_mouse_region_group()
+                mouse_region_group.update(mouse_regions)
 
-        gfx_id = ("panel", "top", w)
-        self._bitmaps["top"] = Cache.create("bitmap", gfx_id, lambda:
-            image_top.Scale(w, h_top).ConvertToBitmap())
-        gfx_id = ("panel", "bottom", w)
-        self._bitmaps["bottom"] = Cache.create("bitmap", gfx_id, lambda:
-            image_bottom.Scale(w, h_bottom).ConvertToBitmap())
-        arrows = self._gfx["arrows"]
-        arrow_up_normal = arrows["expanded"]["normal"]
-        w_a, h_a = arrow_up_normal.GetSize()
-        self._arrow_pos = wx.Size((w - w_a) // 2, h - h_a)
-        h_b = self._heights["bottom_hilited"]
-        gfx_id = ("panel", "bottom_hilited", w)
-        self._bottom_hilited = Cache.create("bitmap", gfx_id, lambda:
-            image_bottom_hilited.Scale(w, h_b).ConvertToBitmap())
-        self._bottom_rect = wx.Rect(0, h - h_b, w, h_b)
-        self._header_rect = wx.Rect(8, 8, w - 16, h_header)
-        dc = wx.MemoryDC()
+    def destroy(self):
 
-        def create_header(state):
+        Widget.destroy(self)
 
-            if PLATFORM_ID == "Linux":
-                header_bitmap = wx.EmptyBitmap(w - 16, h_header)
+        self._listener.ignore_all()
+        self._listener = None
+
+    def get_id(self):
+
+        return self._id
+
+    def get_name(self):
+
+        return self._name
+
+    def get_hook_node(self):
+
+        return self._hook_node
+
+    def get_collapsed_header(self):
+
+        return self._collapsed_header
+
+    def get_collapsed_bottom(self):
+
+        return self._collapsed_bottom
+
+    def set_pos(self, pos): pass
+
+    def get_pos(self, from_root=False):
+
+        node = self.get_node()
+        x, y, z = node.get_pos(node.get_top())
+        y = -z
+
+        return (int(x), int(y))
+
+    def set_sizer(self, sizer): pass
+
+    def __offset_mouse_region_frames(self):
+
+        exclude = "lr"
+
+        for widget in self._widgets_to_update:
+            recurse = widget is not self
+            widget.update_mouse_region_frames(exclude, recurse)
+
+        self._widgets_to_update = []
+
+    def get_top_container(self):
+
+        if not self._top_container:
+
+            client_node = self._client_node
+            child_node = client_node.get_child(0)
+            self._top_container = top_container = PanelContainer(self)
+            top_container.get_node().reparent_to(client_node)
+            hook_node = top_container.get_hook_node()
+            child_node.reparent_to(hook_node)
+            l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+            borders = (l, r, 0, t)
+            self._client_sizer.add(top_container, expand=True, borders=borders)
+
+            if self._last_section_hook_node is client_node:
+                self._last_section_hook_node = hook_node
+
+        return self._top_container
+
+    def get_bottom_container(self):
+
+        if not self._bottom_container:
+            node = self._last_section_hook_node
+            child_node = node.get_child(0)
+            self._bottom_container = bottom_container = PanelContainer(self)
+            bottom_container.get_node().reparent_to(node)
+            hook_node = bottom_container.get_hook_node()
+            child_node.reparent_to(hook_node)
+            l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+            borders = (l, r, 0, t)
+            self._client_sizer.add(bottom_container, expand=True, borders=borders)
+
+        return self._bottom_container
+
+    def show_container(self, container_id, show=True):
+
+        container = self._top_container if container_id == "top" else self._bottom_container
+
+        if not (container and (container.show() if show else container.hide())):
+            return
+
+        groups_expanded = self._mouse_region_groups["expanded"]
+        w, h_old = self.get_size()
+        h_c = container.get_size()[1]
+        mouse_region_group = container.get_mouse_region_group()
+        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+
+        if show:
+            groups_expanded.update(mouse_region_group)
+            container.update_mouse_region_frames(exclude="lr")
+            h_new = h_old + h_c + t
+        else:
+            groups_expanded.difference_update(mouse_region_group)
+            h_new = h_old - h_c - t
+
+        size = (w, h_new)
+        self.get_sizer().set_size(size, force=True)
+
+        widgets_to_update = self._widgets_to_update
+        widgets_to_update.append(self)
+        widgets_to_update.append(self._bottom)
+
+        if container_id == "top":
+
+            sections_to_update = [s for s in self._sections if not s.is_hidden(check_ancestors=False)]
+            widgets_to_update.extend(sections_to_update)
+            bottom_container = self._bottom_container
+
+            if bottom_container and not bottom_container.is_hidden(check_ancestors=False):
+                widgets_to_update.append(bottom_container)
+
+        task = lambda: self.update_images(recurse=False)
+        task_id = "update_panel_image"
+        PendingTasks.add(task, task_id, id_prefix=self._id, batch_id="panel_redraw")
+
+        task = self.__offset_mouse_region_frames
+        task_id = "offset_container_mouse_region_frames"
+        PendingTasks.add(task, task_id, id_prefix=self._id, batch_id="panel_mouse_region_update")
+
+        if self._is_expanded:
+            self.get_parent().handle_panel_resize(self)
+
+    def handle_section_change(self, changed_section, change=""):
+
+        groups_expanded = self._mouse_region_groups["expanded"]
+        w, h_old = self.get_size()
+        h_s = changed_section.get_size()[1]
+        mouse_region_groups = changed_section.get_mouse_region_groups()
+        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+
+        if change == "collapse":
+
+            groups_expanded.difference_update(mouse_region_groups["expanded"])
+            groups_expanded.update(mouse_region_groups["collapsed"])
+            h_new = h_old - h_s + changed_section.collapsed_height
+
+        elif change == "expand":
+
+            groups_expanded.difference_update(mouse_region_groups["collapsed"])
+            groups_expanded.update(mouse_region_groups["expanded"])
+            h_new = h_old + h_s - changed_section.collapsed_height
+
+        elif change == "hide":
+
+            if changed_section.is_expanded():
+                groups_expanded.difference_update(mouse_region_groups["expanded"])
             else:
-                header_bitmap = wx.EmptyBitmapRGBA(w - 16, h_header)
+                groups_expanded.difference_update(mouse_region_groups["collapsed"])
+                h_s = changed_section.collapsed_height
 
-            dc.SelectObject(header_bitmap)
-            dc.DrawBitmap(header_parts[state]["left"], 0, 0)
-            dc.DrawBitmap(header_parts[state]["center"], w_header_side, 0)
-            dc.DrawBitmap(header_parts[state]["right"], w - w_header_side - 16, 0)
-            dc.SelectObject(wx.NullBitmap)
+            h_new = h_old - h_s - t
 
-            if PLATFORM_ID == "Linux":
+        elif change == "show":
 
-                img = header_bitmap.ConvertToImage()
+            if changed_section.is_expanded():
+                groups_expanded.update(mouse_region_groups["expanded"])
+            else:
+                groups_expanded.update(mouse_region_groups["collapsed"])
+                h_s = changed_section.collapsed_height
 
-                if not img.HasAlpha():
-                    img.InitAlpha()
+            h_new = h_old + h_s + t
+            changed_section.update_mouse_region_frames(exclude="lr")
 
-                center_img = header_center_imgs[state]
+        size = (w, h_new)
+        self.get_sizer().set_size(size, force=True)
 
-                if not center_img.HasAlpha():
-                    center_img.InitAlpha()
+        widgets_to_update = self._widgets_to_update
+        widgets_to_update.append(self)
+        index = self._sections.index(changed_section)
+        sections_to_update = [s for s in self._sections[index + 1:]
+            if not s.is_hidden(check_ancestors=False)]
+        widgets_to_update.extend(sections_to_update)
+        widgets_to_update.append(self._bottom)
+        bottom_container = self._bottom_container
 
-                alpha_map = []
-                get_alpha(center_img, alpha_map)
-            
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + w_header_side, y, alpha)
+        if bottom_container and not bottom_container.is_hidden(check_ancestors=False):
+            widgets_to_update.append(bottom_container)
 
-                left_img = header_parts[state]["left"].ConvertToImage()
+        task = lambda: self.update_images(recurse=False)
+        task_id = "update_panel_image"
+        PendingTasks.add(task, task_id, id_prefix=self._id, batch_id="panel_redraw")
 
-                if not left_img.HasAlpha():
-                    left_img.InitAlpha()
-
-                alpha_map = []
-                get_alpha(left_img, alpha_map)
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x, y, alpha)
-
-                header_bitmap = img.ConvertToBitmap()
-
-                right_img = header_parts[state]["right"].ConvertToImage()
-
-                if not right_img.HasAlpha():
-                    right_img.InitAlpha()
-
-                alpha_map = []
-                get_alpha(right_img, alpha_map)
-                offset_x = w - w_header_side - 16
-
-                for y, row in enumerate(alpha_map):
-                    for x, alpha in enumerate(row):
-                        img.SetAlpha(x + offset_x, y, alpha)
-
-                header_bitmap = img.ConvertToBitmap()
-
-            return header_bitmap
-
-        gfx_id = ("panel", "header_expanded", w)
-        self._header_bitmaps["expanded"] = Cache.create("bitmap", gfx_id, lambda:
-            create_header("exp"))
-        gfx_id = ("panel", "header_collapsed", w)
-        self._header_bitmaps["collapsed"] = Cache.create("bitmap", gfx_id, lambda:
-            create_header("coll"))
-        h = self._heights["collapsed"]
-        gfx_id = ("panel", "collapsed", w)
-        self._bitmaps["collapsed"] = Cache.create("bitmap", gfx_id, lambda:
-            image_collapsed.Scale(w, h).ConvertToBitmap())
-
-        def create_header_back(state):
-
-            header_back_bitmap = wx.EmptyBitmap(w - 8, h_header + 8)
-            dc.SelectObject(header_back_bitmap)
-            dc.SetPen(wx.Pen(wx.Colour(), 1, wx.TRANSPARENT))
-            dc.SetBrush(wx.Brush(self._main_color))
-            dc.DrawRectangle(0, 0, w - 8, h_header + 8)
-            dc.DrawBitmap(self._bitmaps["top"], 0, 0)
-            header_back = header_back_bitmap.ConvertToImage().GetSubImage(self._header_rect)
-            intensity = [1.6 if state == "expanded" else 1.2] * 3
-
-            return header_back.AdjustChannels(*intensity).ConvertToBitmap()
-
-        gfx_id = ("panel", "header_back_expanded", w)
-        header_back_expanded = Cache.create("bitmap", gfx_id, lambda:
-            create_header_back("expanded"))
-        gfx_id = ("panel", "header_back_collapsed", w)
-        header_back_collapsed = Cache.create("bitmap", gfx_id, lambda:
-            create_header_back("collapsed"))
-        self._bitmaps["header_back_expanded"] = header_back_expanded
-        self._bitmaps["header_back_collapsed"] = header_back_collapsed
-        dc.SelectObject(wx.NullBitmap)
-
-        self.Refresh()
-
-        self._is_finalized = True
-
-    def get_header(self):
-
-        return self._header_text
-
-    def get_section_sizer(self):
-
-        return self._section_sizer
-
-    def get_top_ctrl_sizer(self):
-
-        return self._top_ctrl_sizer
-
-    def get_bottom_ctrl_sizer(self):
-
-        return self._bottom_ctrl_sizer
-
-    def add_child_control(self, child_control):
-
-        self._child_controls.append(child_control)
-
-    def add_text(self, text, sizer, sizer_args=None, insertion_index=-1, top=True):
-
-        text_item = Text(text)
-        self._text_items["top" if top else "bottom"].append(text_item)
-        text_sizer = text_item.get_sizer()
-        args = sizer_args if sizer_args else ()
-
-        if insertion_index > -1:
-            sizer.Insert(insertion_index, text_sizer, *args)
-        else:
-            sizer.Add(text_sizer, *args)
-
-    def add_section(self, section_id, title=""):
-
-        section = PanelSection(self, title)
-        self._sections[section_id] = section
-
-        return section
-
-    def insert_section(self, section_id, title="", index=0, update=True):
-
-        section = PanelSection(self, title, index)
-        self._sections[section_id] = section
-
-        if update and self._is_expanded:
-            self.update_parent()
-            self._sizer.Layout()
-
-        return section
-
-    def remove_section(self, section_id):
-
-        section = self._sections[section_id]
-        del self._sections[section_id]
-        self._section_sizer.Remove(section.get_sizer())
-        section.destroy()
+        task = self.__offset_mouse_region_frames
+        task_id = "offset_section_mouse_region_frames"
+        PendingTasks.add(task, task_id, id_prefix=self._id, batch_id="panel_mouse_region_update")
 
         if self._is_expanded:
-            self.update_parent()
-            self._sizer.Layout()
-
-    def get_sections(self):
-
-        return self._sections.values()
-
-    def get_section(self, section_id):
-
-        return self._sections[section_id]
-
-    def show_section(self, section_id, show=True, update=True):
-
-        section = self._sections[section_id]
-        section.show(show)
-
-        if self._is_expanded and update:
-            self.GetParent().Refresh()
-            self._sizer.Layout()
-
-    def show_top_controls(self, show=True, update=True):
-
-        if self._are_top_ctrls_shown == show:
-            return
-
-        if self._is_expanded:
-            self._sizer.Show(1, show)
-
-        self._are_top_ctrls_shown = show
-
-        if self._is_expanded and update:
-            self.GetParent().Refresh()
-            self._sizer.Layout()
-
-    def show_bottom_controls(self, show=True, update=True):
-
-        if self._are_bottom_ctrls_shown == show:
-            return
-
-        if self._is_expanded:
-            self._sizer.Show(4, show)
-
-        self._are_bottom_ctrls_shown = show
-
-        if self._is_expanded and update:
-            self.GetParent().Refresh()
-            self._sizer.Layout()
-
-    def get_clipping_rect(self):
-        """
-        Return Rect to which the drawing of this panel will be restricted.
-
-        Override in derived class.
-
-        """
-
-        return
-
-    def __draw(self, event):
-
-        panel_rect = self.GetRect()
-        panel_rect.y = 0
-        clipping_rect = self.get_clipping_rect()
-
-        dc = wx.AutoBufferedPaintDCFactory(self)
-
-        if clipping_rect and not clipping_rect.Intersects(panel_rect):
-            return
-
-        if clipping_rect:
-            dc.ClippingRect = clipping_rect
-
-        extent = "expanded" if self._is_expanded else "collapsed"
-
-        if self._is_expanded:
-            width, height = panel_rect.size
-            h_t = self._heights["top"]
-            h_b = self._heights["bottom"]
-            pen = wx.Pen(wx.Colour(), 1, wx.TRANSPARENT)
-            brush = wx.Brush(self._main_color)
-            dc.SetPen(pen)
-            dc.SetBrush(brush)
-            dc.DrawRectangle(0, h_t, width, height - h_t - h_b)
-            dc.DrawBitmap(self._bitmaps["top"], 0, 0)
-            dc.DrawBitmap(self._bitmaps["bottom"], 0, height - h_b)
-        else:
-            dc.DrawBitmap(self._bitmaps["collapsed"], 0, 0)
-
-        header_back = self._bitmaps["header_back_%s" % extent]
-        x, y, w, h = self._header_rect
-        dc.DrawBitmap(header_back, x, y)
-        dc.SetFont(Fonts.get("default"))
-        dc.DrawLabel(self._header_text, self._header_rect, wx.ALIGN_CENTER)
-        dc.DrawBitmap(self._header_bitmaps[extent], x, y)
-
-        if self._has_mouse:
-            dc.DrawBitmap(self._bottom_hilited, * self._bottom_rect.GetPosition())
-            arrow = self._gfx["arrows"][extent]["hilited"]
-        else:
-            arrow = self._gfx["arrows"][extent]["normal"]
-
-        dc.DrawBitmap(arrow, *self._arrow_pos)
-
-        if not self._is_expanded:
-            return
-
-        dc.SetPen(wx.NullPen)
-
-        if self._are_top_ctrls_shown:
-            for item in self._text_items["top"]:
-                sizer = item.get_sizer()
-                x, y = sizer.GetPosition()
-                dc.DrawLabel(item.get(), wx.Rect(x, y, 0, 0))
-
-        if self._are_bottom_ctrls_shown:
-            for item in self._text_items["bottom"]:
-                sizer = item.get_sizer()
-                x, y = sizer.GetPosition()
-                dc.DrawLabel(item.get(), wx.Rect(x, y, 0, 0))
-
-        for section in self._sections.itervalues():
-            section.draw(dc, clipping_rect)
-
-    def __on_size(self, event):
-
-        if not self._is_finalized:
-            return
-
-        w, h = self.GetSize()
-        self._bottom_rect.y = h - self._heights["bottom_hilited"]
-        self._arrow_pos.y = h - self._heights["arrow"]
-
-    def __on_enter(self, event=None):
-
-        self.Bind(wx.EVT_MOTION, self.__on_motion)
-        self.SetCursor(Cursors.get("drag"))
-
-    def __on_leave(self, event=None):
-
-        self.Unbind(wx.EVT_MOTION)
-        self._has_mouse = False
-        self._is_clicked = False
-        self.RefreshRect(self._bottom_rect)
-        self.SetCursor(wx.NullCursor)
-
-    def __on_motion(self, event):
-
-        mouse_pos = event.GetPosition()
-        has_mouse = self._bottom_rect.Contains(mouse_pos)
-
-        if self._has_mouse != has_mouse:
-            self.RefreshRect(self._bottom_rect)
-            self._has_mouse = has_mouse
-
-        show_drag_cursor = not self._has_mouse
-
-        if show_drag_cursor:
-            for section in self._sections.itervalues():
-                if section.title_has_mouse(mouse_pos):
-                    show_drag_cursor = False
-                    break
-
-        self.SetCursor(Cursors.get("drag") if show_drag_cursor else wx.NullCursor)
-
-        if self._is_clicked and not has_mouse:
-            self._is_clicked = False
-
-    def __on_right_down(self, event):
-
-        self.dispatch_event("panel_right_down", event, self)
-
-    def __on_left_down(self, event):
-
-        if self._has_mouse:
-
-            self._is_clicked = True
-            Mgr.do("reject_field_input")
-
-        else:
-
-            mouse_pos = wx.GetMousePosition() - self.GetScreenPosition()
-
-            for section in self._sections.itervalues():
-                if section.handle_left_down(mouse_pos):
-                    return
-
-            self.dispatch_event("panel_left_down", event)
-
-    def __on_left_doubleclick(self, event):
-
-        mouse_pos = wx.GetMousePosition() - self.GetScreenPosition()
-
-        if mouse_pos.y < self._header_rect.bottom:
-            self.expand(not self._is_expanded)
-        else:
-            self.__on_left_down(event)
-
-    def __on_left_up(self, event):
-
-        if self._is_clicked:
-            self._is_clicked = False
-            self.expand(not self._is_expanded)
+            self.get_parent().handle_panel_resize(self)
 
     def expand(self, expand=True):
 
         if self._is_expanded == expand:
             return
 
-        self._sizer.Show(1, expand)
-        self._sizer.Show(2, expand)
-        self._sizer.Show(3, expand)
-        self._sizer.Show(4, expand)
         self._is_expanded = expand
+        self.set_contents_hidden(not expand)
+        mouse_watcher = self.get_parent().get_mouse_watcher()
+        mouse_region_groups = self._mouse_region_groups
+
+        for region in mouse_region_groups["collapsed" if expand else "expanded"]:
+            mouse_watcher.remove_region(region)
 
         if expand:
 
-            if not self._are_top_ctrls_shown:
-                self._sizer.Show(1, False)
+            for region in mouse_region_groups["expanded"]:
 
-            if not self._are_bottom_ctrls_shown:
-                self._sizer.Show(4, False)
+                name = region.get_name()
+                widget_id = int(name.replace("widget_", ""))
+                widget = Widget.registry[widget_id]
 
-            for section in self._sections.itervalues():
-                section.check_collapsed_state()
+                if (widget in (self, self._header, self._bottom)
+                        or widget.get_widget_type() == "section_header"
+                        or not widget.is_hidden()):
+                    mouse_watcher.add_region(region)
 
-        self.update_parent()
-        self._sizer.Layout()
+        else:
+
+            for region in mouse_region_groups["collapsed"]:
+                mouse_watcher.add_region(region)
+
+        if expand:
+            self._hook_node.reparent_to(self._bottom.get_hook_node())
+        else:
+            self._hook_node.reparent_to(self._collapsed_bottom.get_hook_node())
+
+        self.get_parent().handle_panel_resize(self)
 
     def is_expanded(self):
 
         return self._is_expanded
 
-    def update_parent(self):
+    def update_images(self, recurse=True, size=None):
 
-        parent = self.GetParent()
-        sizer = parent.GetSizer()
-        sizer.Layout()
-        sizer.Fit(parent)
-        parent.Refresh()
+        images = Widget.update_images(self, recurse, size)
 
-    def update(self):
+        if not self._collapsed_img:
+            collapsed_header = self._collapsed_header
+            collapsed_header_img = collapsed_header.get_image()
+            w, h_ch = collapsed_header.get_size()
+            image = PNMImage(w, self.collapsed_height, 4)
+            image.copy_sub_image(collapsed_header_img, 0, 0, 0, 0, w, h_ch)
+            collapsed_bottom = self._collapsed_bottom
+            collapsed_bottom_img = collapsed_bottom.get_image()
+            h_cb = collapsed_bottom.get_size()[1]
+            image.copy_sub_image(collapsed_bottom_img, 0, h_ch, 0, 0, w, h_cb)
+            Panel._collapsed_img = image
 
-        self._sizer.Layout()
-        self._sizer.Fit(self)
+        return images
 
-    def enable(self, enable=True):
+    def get_image(self, state=None, composed=True):
 
-        if self._is_enabled == enable:
+        if self._is_expanded:
+            image = Widget.get_image(self, state, composed)
+        else:
+            image = PNMImage(self._collapsed_img)
+
+        if composed:
+            width, height = self._header.get_size()
+            l, r, b, t = TextureAtlas["inner_borders"]["panel_header"]
+            w = self._label.get_x_size()
+            h = self._label.get_y_size()
+            x = (width - w) // 2
+            y = t + (height - b - t - h) // 2 + 1
+            image.blend_sub_image(self._label, x, y, 0, 0, w, h)
+
+        return image
+
+    def add_section(self, section_id, label="", hidden=False):
+
+        section = PanelSection(self, section_id, label, hidden)
+        self._sections.append(section)
+        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        borders = (l, r, 0, t)
+        self._client_sizer.add(section, expand=True, borders=borders)
+
+        section.get_node().reparent_to(self._last_section_hook_node)
+        hook_node = section.get_hook_node()
+        self._bottom.get_node().reparent_to(hook_node)
+
+        if hidden:
+            section.get_hook_node().reparent_to(self._last_section_hook_node)
+
+        self._last_section_hook_node = hook_node
+
+        return section
+
+    def get_sections(self):
+
+        return self._sections
+
+    def get_section(self, section_id):
+
+        return PanelSection.registry[section_id]
+
+    def on_enter(self):
+
+        Mgr.set_cursor("drag" if self._is_dragged else "hand")
+
+    def on_leave(self):
+
+        if not self._is_dragged:
+            Mgr.set_cursor("main")
+
+    def __drag(self, task):
+
+        mouse_y = int(Mgr.get("mouse_pointer", 0).get_y())
+
+        if mouse_y != self._start_mouse_y:
+            scrollthumb = self.get_parent().get_scrollthumb()
+            scrollthumb.set_offset(self._start_drag_offset - mouse_y + self._start_mouse_y)
+
+        return task.cont
+
+    def on_left_down(self):
+
+        self._is_dragged = True
+        self._start_mouse_y = int(Mgr.get("mouse_pointer", 0).get_y())
+        scrollthumb = self.get_parent().get_scrollthumb()
+        self._start_drag_offset = scrollthumb.get_offset()
+        Mgr.add_task(self.__drag, "drag panel")
+        self._listener.accept("gui_mouse1-up", self.__on_left_up)
+        Mgr.set_cursor("drag")
+
+    def __on_left_up(self):
+
+        if self._is_dragged:
+            region = self.get_mouse_watcher().get_over_region()
+            Mgr.set_cursor("hand" if region == self.get_mouse_region() else "main")
+            self._listener.ignore("gui_mouse1-up")
+            Mgr.remove_task("drag panel")
+            self._start_mouse_y = 0
+            self._start_drag_offset = 0
+            self._is_dragged = False
+
+    def on_right_up(self):
+
+        self.get_parent().show_menu(self)
+
+    def hide(self):
+
+        if not Widget.hide(self, recurse=False):
             return False
 
-        for ctrl in self._child_controls:
-            ctrl.enable(enable)
+        mouse_watcher = self.get_mouse_watcher()
+        mouse_region_groups = self._mouse_region_groups
 
-        for section in self._sections.itervalues():
-            section.enable(enable)
+        for region in mouse_region_groups["expanded" if self._is_expanded else "collapsed"]:
+            mouse_watcher.remove_region(region)
 
-        self._is_enabled = enable
+        self._hook_node.reparent_to(self.get_node().get_parent())
 
-        if enable:
+        return True
 
-            self.Bind(wx.EVT_ENTER_WINDOW, self.__on_enter)
-            self.Bind(wx.EVT_LEAVE_WINDOW, self.__on_leave)
-            self.Bind(wx.EVT_LEFT_UP, self.__on_left_up)
-            self.Bind(wx.EVT_LEFT_DCLICK, self.__on_left_doubleclick)
-            self.refuse_focus(on_click=self.__on_left_down)
+    def show(self):
 
-            mouse_pos = wx.GetMousePosition() - self.GetScreenPosition()
-            rect = wx.Rect(0, 0, *self.GetSize())
+        if not Widget.show(self, recurse=False):
+            return False
 
-            if rect.Contains(mouse_pos):
-                self.__on_enter()
+        mouse_watcher = self.get_mouse_watcher()
+        mouse_region_groups = self._mouse_region_groups
+
+        if self._is_expanded:
+
+            for region in mouse_region_groups["expanded"]:
+
+                name = region.get_name()
+                widget_id = int(name.replace("widget_", ""))
+                widget = Widget.registry[widget_id]
+
+                if (widget in (self, self._header, self._bottom)
+                        or widget.get_widget_type() == "section_header"
+                        or not widget.is_hidden()):
+                    mouse_watcher.add_region(region)
 
         else:
 
-            self.Unbind(wx.EVT_ENTER_WINDOW)
-            self.Unbind(wx.EVT_LEAVE_WINDOW)
-            self.Unbind(wx.EVT_LEFT_DOWN)
-            self.Unbind(wx.EVT_LEFT_UP)
-            self.Unbind(wx.EVT_LEFT_DCLICK)
-            self.__on_leave()
+            for region in mouse_region_groups["collapsed"]:
+                mouse_watcher.add_region(region)
+
+        if self._is_expanded:
+            self._hook_node.reparent_to(self._bottom.get_hook_node())
+        else:
+            self._hook_node.reparent_to(self._collapsed_bottom.get_hook_node())
 
         return True
 
-    def disable(self, show=True):
+    def enable_hotkeys(self, enable=True):
 
-        if not self._is_enabled:
-            return False
-
-        for ctrl in self._child_controls:
-            ctrl.disable(show)
-
-        for section in self._sections.itervalues():
-            section.disable(show)
-
-        self._is_enabled = False
-        self.Unbind(wx.EVT_ENTER_WINDOW)
-        self.Unbind(wx.EVT_LEAVE_WINDOW)
-        self.Unbind(wx.EVT_LEFT_DOWN)
-        self.Unbind(wx.EVT_LEFT_UP)
-        self.Unbind(wx.EVT_LEFT_DCLICK)
-        self.__on_leave()
-
-        return True
+        for widget in self._client_sizer.get_widgets():
+            if widget.get_widget_type() == "panel_button":
+                widget.enable_hotkey(enable)

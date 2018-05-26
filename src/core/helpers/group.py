@@ -589,6 +589,7 @@ class GroupManager(ObjectManager):
         status_data["sel_grouping_mode"] = {"mode": mode_text, "info": info_text}
 
         Mgr.add_app_updater("group", self.__update_groups)
+        Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
         Mgr.expose("const_sized_group_bbox", self.__get_const_sized_bbox_origins)
         Mgr.accept("make_group_const_size", self.__make_bbox_const_size)
         Mgr.accept("update_group_bboxes", self.__update_group_bboxes)
@@ -625,11 +626,21 @@ class GroupManager(ObjectManager):
         bind("grouping_mode", "exit grouping mode", "mouse3-up", exit_mode)
         bind("grouping_mode", "add members", "mouse1", self.__add_members)
 
+    def __handle_viewport_resize(self):
+
+        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        scale = 800. / max(w, h)
+        bbox_origins = self._bbox_origins
+
+        for group_id in self._bbox_bases:
+            for origins in bbox_origins.itervalues():
+                origins[group_id].set_scale(.5 * scale)
+
     def __create_group(self, name, member_types=None, member_types_id="any", transform=None,
                        color_unsel=(1., .5, .25, 1.)):
 
         member_type = ("multi" if len(member_types) > 1 else member_types[0]) if member_types else ""
-        group_type = "%s_group" % member_type if member_type else "group"
+        group_type = "{}_group".format(member_type) if member_type else "group"
         group_id = (group_type,) + self._id_generator.next()
         group = Group(set(member_types if member_types else []), member_types_id, group_id,
                       name, color_unsel)
@@ -656,13 +667,15 @@ class GroupManager(ObjectManager):
                 bbox_base.set_billboard_point_world(group_origin, 2000.)
                 pivot = bbox_base.attach_new_node("group_bbox_pivot")
                 pivot.set_scale(100.)
+                w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+                scale = 800. / max(w, h)
                 origin_persp = origin.copy_to(pivot)
                 origin_persp.set_name("group_bbox_origin_persp")
-                origin_persp.set_scale(.5)
+                origin_persp.set_scale(.5 * scale)
                 bbox_origins["persp"][group_id] = origin_persp
                 origin_ortho = origin.copy_to(bbox_roots["ortho"])
                 origin_ortho.set_name("group_bbox_origin_ortho")
-                origin_ortho.set_scale(.5)
+                origin_ortho.set_scale(.5 * scale)
                 bbox_origins["ortho"][group_id] = origin_ortho
                 origin_persp.set_compass(group_origin)
                 bbox_bases[group_id] = bbox_base
@@ -931,14 +944,14 @@ class GroupManager(ObjectManager):
             if len(members) == 1:
 
                 names = (new_group.get_name(), members[0].get_name())
-                event_descr = 'Add to group "%s":\n    "%s"' % names
+                event_descr = 'Add to group "{}":\n    "{}"'.format(*names)
 
             else:
 
-                event_descr = 'Add to group "%s":\n' % new_group.get_name()
+                event_descr = 'Add to group "{}":\n'.format(new_group.get_name())
 
                 for member in members:
-                    event_descr += '\n    "%s"' % member.get_name()
+                    event_descr += '\n    "{}"'.format(member.get_name())
 
         else:
 
@@ -975,7 +988,7 @@ class GroupManager(ObjectManager):
             GlobalData["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
-        Mgr.update_app("status", "sel_grouping_mode")
+        Mgr.update_app("status", ["sel_grouping_mode"])
 
     def __exit_grouping_mode(self, next_state_id, is_active):
 
@@ -1043,16 +1056,16 @@ class GroupManager(ObjectManager):
 
             namelist = GlobalData["obj_names"]
             search_pattern = r"^group\s*(\d+)$"
-            naming_pattern = "group %04d"
+            naming_pattern = "group {:04d}"
             name = get_unique_name("", namelist, search_pattern, naming_pattern)
             group.set_name(name)
 
             # make undo/redoable
 
-            event_descr = 'Create group "%s":\n' % name
+            event_descr = 'Create group "{}":\n'.format(name)
 
             for member in members:
-                event_descr += '\n    "%s"' % member.get_name()
+                event_descr += '\n    "{}"'.format(member.get_name())
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -1135,7 +1148,7 @@ class GroupManager(ObjectManager):
             event_descr = 'Change member type of groups:\n'
 
             for group in groups:
-                event_descr += '\n    "%s"' % group.get_name()
+                event_descr += '\n    "{}"'.format(group.get_name())
                 data = group.get_data_to_store("prop_change", "member_types")
                 obj_data.setdefault(group.get_id(), {}).update(data)
 
@@ -1194,14 +1207,14 @@ class GroupManager(ObjectManager):
 
             if grp_count == 1:
 
-                event_descr = '%s group "%s"' % (val_descr, changed_groups[0].get_name())
+                event_descr = '{} group "{}"'.format(val_descr, changed_groups[0].get_name())
 
             else:
 
-                event_descr = '%s %d groups:\n' % (val_descr, grp_count)
+                event_descr = '{} {:d} groups:\n'.format(val_descr, grp_count)
 
                 for group in changed_groups:
-                    event_descr += '\n    "%s"' % group.get_name()
+                    event_descr += '\n    "{}"'.format(group.get_name())
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -1285,14 +1298,14 @@ class GroupManager(ObjectManager):
 
             if member_count == 1:
 
-                event_descr = 'Select "%s"' % selected_members[0].get_name()
+                event_descr = 'Select "{}"'.format(selected_members[0].get_name())
 
             else:
 
-                event_descr = 'Select %d group members:\n' % member_count
+                event_descr = 'Select {:d} group members:\n'.format(member_count)
 
                 for member in selected_members:
-                    event_descr += '\n    "%s"' % member.get_name()
+                    event_descr += '\n    "{}"'.format(member.get_name())
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -1391,14 +1404,14 @@ class GroupManager(ObjectManager):
 
             if grp_count == 1:
 
-                event_descr = 'Dissolve group "%s"' % groups[0].get_name()
+                event_descr = 'Dissolve group "{}"'.format(groups[0].get_name())
 
             else:
 
-                event_descr = 'Dissolve %d groups:\n' % grp_count
+                event_descr = 'Dissolve {:d} groups:\n'.format(grp_count)
 
                 for group in groups:
-                    event_descr += '\n    "%s"' % group.get_name()
+                    event_descr += '\n    "{}"'.format(group.get_name())
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -1453,14 +1466,14 @@ class GroupManager(ObjectManager):
 
             if len(ungrouped_members) == 1:
 
-                event_descr = 'Ungroup "%s"' % ungrouped_members[0].get_name()
+                event_descr = 'Ungroup "{}"'.format(ungrouped_members[0].get_name())
 
             else:
 
                 event_descr = 'Ungroup objects:\n'
 
                 for obj in ungrouped_members:
-                    event_descr += '\n    "%s"' % obj.get_name()
+                    event_descr += '\n    "{}"'.format(obj.get_name())
 
             for obj in ungrouped_members:
                 data = obj.get_data_to_store("prop_change", "link")

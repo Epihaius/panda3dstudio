@@ -34,8 +34,8 @@ class SelectionManager(BaseObject):
         bind("uv_edit_mode", "uv edit -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("uv_edit_mode", "default select uvs", "mouse1", self.__select)
-        mod_ctrl = Mgr.get("mod_ctrl")
-        bind("uv_edit_mode", "toggle-select uvs", "%d|mouse1" % mod_ctrl,
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("uv_edit_mode", "toggle-select uvs", "{:d}|mouse1".format(mod_ctrl),
              lambda: self.__select(toggle=True))
         bind("uv_edit_mode", "uv edit -> center view on objects", "c",
              lambda: Mgr.do("center_view_on_objects"))
@@ -45,8 +45,8 @@ class SelectionManager(BaseObject):
              "mouse3-up", self.__cancel_select_via_poly)
 
         status_data = GlobalData["status_data"]
-        mode_text = "Edit UVs"
-        info_text = "(<Ctrl>-)LMB to (toggle-)select subobjects; <space> to navigate"
+        mode_text = "Select UVs"
+        info_text = "<Space> to navigate; (<Ctrl>-)LMB to (toggle-)select subobjects"
         status_data["edit_uvs"] = {"mode": mode_text, "info": info_text}
 
     def __get_models(self, objs):
@@ -108,12 +108,12 @@ class SelectionManager(BaseObject):
 
                 if not GlobalData["uv_edit_options"]["pick_via_poly"]:
                     GlobalData["subobj_edit_options"]["pick_via_poly"] = False
-                    Mgr.update_app("picking_via_poly")
+                    Mgr.update_interface("", "picking_via_poly")
 
             elif GlobalData["uv_edit_options"]["pick_via_poly"]:
 
                 GlobalData["subobj_edit_options"]["pick_via_poly"] = True
-                Mgr.update_app("picking_via_poly", True)
+                Mgr.update_interface("", "picking_via_poly", True)
 
             if GlobalData["subobj_edit_options"]["pick_by_aiming"]:
 
@@ -157,7 +157,7 @@ class SelectionManager(BaseObject):
 
         Mgr.add_task(self.__update_cursor, "update_cursor")
 
-        Mgr.update_app("status", "edit_uvs")
+        Mgr.update_app("status", ["edit_uvs"])
 
     def __exit_edit_mode(self, next_state_id, is_active):
 
@@ -179,7 +179,7 @@ class SelectionManager(BaseObject):
             if self._restore_pick_via_poly:
                 GlobalData["subobj_edit_options"]["pick_via_poly"] = True
             else:
-                Mgr.update_locally("picking_via_poly", False)
+                Mgr.update_interface_locally("", "picking_via_poly", False)
 
             if self._restore_pick_by_aiming:
                 GlobalData["subobj_edit_options"]["pick_by_aiming"] = True
@@ -365,7 +365,7 @@ class SelectionManager(BaseObject):
         if toggle:
             self.__toggle_select()
         else:
-            self.__default_select()
+            self.__regular_select()
 
     def __get_selected_subobjects(self, subobj):
 
@@ -401,7 +401,7 @@ class SelectionManager(BaseObject):
 
         return selected_subobjs, selected_uv_objs
 
-    def __default_select(self):
+    def __regular_select(self):
 
         obj_lvl = self._obj_lvl
         models = self._models
@@ -550,7 +550,7 @@ class SelectionManager(BaseObject):
             if other_geom_data_obj is not geom_data_obj:
                 other_geom_data_obj.set_pickable(False)
 
-        Mgr.update_app("status", "picking_via_poly")
+        Mgr.update_app("status", ["picking_via_poly"])
 
     def __hilite_subobj(self, task):
 
@@ -636,7 +636,7 @@ class SelectionManager(BaseObject):
         if self._toggle_select:
             self.__toggle_select()
         else:
-            self.__default_select()
+            self.__regular_select()
 
         geom_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 

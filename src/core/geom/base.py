@@ -166,6 +166,14 @@ class GeomDataOwner(BaseObject):
     def replace(self, other):
 
         geom_data_obj = self._geom_data_obj
+
+        if other.get_type() == "basic_geom":
+            geom_data_obj.destroy()
+            other.get_geom().reparent_to(self._model.get_origin())
+            other.register()
+            other.update_render_mode(self._model.is_selected())
+            return
+
         geom_data_obj.set_owner(other)
         other.set_geom_data_object(geom_data_obj)
         other.set_flipped_normals(self._normals_flipped)
@@ -291,6 +299,9 @@ class GeomDataOwner(BaseObject):
 
         else:
 
+            if "geom_data" in data_ids:
+                self.restore_property("geom_data", restore_type, old_time_id, new_time_id)
+
             prop_ids = self.get_property_ids()
             prop_ids.remove("geom_data")
 
@@ -298,9 +309,6 @@ class GeomDataOwner(BaseObject):
                 if prop_id in data_ids:
                     self.restore_property(prop_id, restore_type, old_time_id, new_time_id)
                     data_ids.remove(prop_id)
-
-            if "geom_data" in data_ids:
-                self.restore_property("geom_data", restore_type, old_time_id, new_time_id)
 
             if data_ids and "geom_data" not in data_ids:
                 self._geom_data_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)

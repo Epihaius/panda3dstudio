@@ -495,7 +495,7 @@ class TriangulationManager(BaseObject):
         GlobalData["active_transform_type"] = ""
         Mgr.update_app("active_transform_type", "")
         Mgr.add_task(self._update_cursor, "update_diagonal_turning_cursor")
-        Mgr.update_app("status", "turn_diagonal")
+        Mgr.update_app("status", ["turn_diagonal"])
 
     def __exit_diagonal_turning_mode(self, next_state_id, is_active):
 
@@ -537,6 +537,6 @@ class TriangulationManager(BaseObject):
 
         Mgr.do("update_history_time")
         obj_data = {obj_id: geom_data_obj.get_data_to_store("prop_change", "poly_tris")}
-        event_descr = 'Turn polygon diagonal of object:\n\n    "%s"' % obj_name
+        event_descr = 'Turn polygon diagonal of object:\n\n    "{}"'.format(obj_name)
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

@@ -1,27 +1,21 @@
 from ..base import *
-from ..button import Button, ButtonGroup
-from ..toggle import ToggleButtonGroup
-from ..combobox import ComboBox
-from ..field import InputField
-from ..checkbox import CheckBox
-from ..colorctrl import ColorPickerCtrl
+from ..button import *
+from ..toolbar import *
 from ..panel import *
+from ..dialog import *
 
 
 class MaterialPanel(Panel):
 
-    def __init__(self, parent, focus_receiver=None):
+    def __init__(self, stack):
 
-        Panel.__init__(self, parent, "Materials", focus_receiver)
-
-        self._parent = parent
-        self._width = parent.get_width()
+        Panel.__init__(self, stack, "materials", "Materials")
 
         self._picking_op = ""
 
         self._comboboxes = {}
         self._checkboxes = {}
-        self._color_pickers = {}
+        self._colorboxes = {}
         self._fields = {}
         self._btns = {}
         self._radio_btns = {}
@@ -32,78 +26,67 @@ class MaterialPanel(Panel):
         self._layer_file_main = ""
         self._layer_file_alpha = ""
 
-        panel_sizer = self.GetSizer()
-        panel_sizer.Add(wx.Size(self._width, 0))
-        parent.GetSizer().Add(self)
-
-        bitmap_paths = Button.get_bitmap_paths("panel_button")
-
         # ************************** Scene section ****************************
 
-        scene_section = section = self.add_section("scene", "Scene")
-        sizer = section.get_client_sizer()
-        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 2)
+        section = self.add_section("scene", "Scene")
 
-        label = "Clear"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, sizer, bitmaps, label,
-                          "Remove materials from all objects in scene",
-                          self.__clear_scene, sizer_args,
-                          focus_receiver=focus_receiver)
+        text = "Clear"
+        tooltip_text = "Remove materials from all objects in scene"
+        btn = PanelButton(section, text, "", tooltip_text, self.__clear_scene)
+        section.add(btn, alignment="center_h")
 
         # ************************* Library section ***************************
 
-        lib_section = section = self.add_section("library", "Library")
-        sizer = section.get_client_sizer()
+        section = self.add_section("library", "Library")
 
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-        sizer_args = (0, wx.ALL, 2)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
 
-        label = "Save"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label,
-                          "Save material library",
-                          self.__save_library, sizer_args,
-                          focus_receiver=focus_receiver)
+        sizer.add((0, 0), proportion=1.)
 
-        btn_sizer.Add(wx.Size(15, 0))
+        text = "Save"
+        tooltip_text = "Save material library"
+        btn = PanelButton(section, text, "", tooltip_text, self.__save_library)
+        sizer.add(btn)
 
-        label = "Clear"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label,
-                          "Remove all materials from library",
-                          self.__clear_library, sizer_args,
-                          focus_receiver=focus_receiver)
+        sizer.add((0, 0), proportion=1.)
 
-        sizer.Add(wx.Size(0, 5))
+        text = "Clear"
+        tooltip_text = "Remove all materials from library"
+        btn = PanelButton(section, text, "", tooltip_text, self.__clear_library)
+        sizer.add(btn)
+
+        sizer.add((0, 0), proportion=1.)
+
         group = section.add_group("Load/merge")
-        grp_sizer = group.get_client_sizer()
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        grp_sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-        sizer_args = (0, wx.ALL, 2)
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
 
-        label = "Load"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label,
-                          "Load material library",
-                          self.__load_library,
-                          focus_receiver=focus_receiver)
+        sizer.add((0, 0), proportion=1.)
 
-        btn_sizer.Add(wx.Size(15, 0))
+        text = "Load"
+        tooltip_text = "Load material library"
+        btn = PanelButton(group, text, "", tooltip_text, self.__load_library)
+        sizer.add(btn)
 
-        label = "Merge"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, label,
-                          "Merge material library",
-                          lambda: self.__load_library(merge=True),
-                          focus_receiver=focus_receiver)
+        sizer.add((0, 0), proportion=1.)
 
-        grp_sizer.Add(wx.Size(0, 5))
-        group.add_text("From:", grp_sizer)
-        grp_sizer.Add(wx.Size(0, 3))
+        text = "Merge"
+        tooltip_text = "Merge material library"
+        btn = PanelButton(group, text, "", tooltip_text, lambda: self.__load_library(merge=True))
+        self._btns["merge_lib"] = btn
+        sizer.add(btn)
 
-        radio_btns = PanelRadioButtonGroup(self, group, "", grp_sizer)
+        sizer.add((0, 0), proportion=1.)
+
+        group.add((0, 5))
+
+        text = "From:"
+        group.add(PanelText(group, text))
+
+        group.add((0, 3))
+
+        radio_btns = PanelRadioButtonGroup(group, columns=1)
         btn_ids = ("file", "scene")
         texts = ("file", "scene")
 
@@ -112,12 +95,16 @@ class MaterialPanel(Panel):
 
         radio_btns.set_selected_button("file")
         self._radio_btns["lib_load_src"] = radio_btns
+        group.add(radio_btns.get_sizer())
 
-        grp_sizer.Add(wx.Size(0, 7))
-        group.add_text("Duplicate materials:", grp_sizer)
-        grp_sizer.Add(wx.Size(0, 3))
+        group.add((0, 5))
 
-        radio_btns = PanelRadioButtonGroup(self, group, "", grp_sizer)
+        text = "Duplicate materials:"
+        group.add(PanelText(group, text))
+
+        group.add((0, 3))
+
+        radio_btns = PanelRadioButtonGroup(group, columns=1)
         btn_ids = ("skip", "copy", "replace")
         texts = ("skip", "add as copy", "replace existing")
         get_command = lambda handling: lambda: Mgr.update_app("dupe_material_handling", handling)
@@ -129,16 +116,15 @@ class MaterialPanel(Panel):
 
         radio_btns.set_selected_button("skip")
         self._radio_btns["dupe_mat_load"] = radio_btns
+        group.add(radio_btns.get_sizer())
 
         # ************************* Material section **************************
 
         section = self.add_section("material", "Material")
-        sizer = section.get_client_sizer()
 
-        combobox = EditablePanelComboBox(self, section, sizer, "Selected material",
-                                         164, focus_receiver=focus_receiver)
-        combobox.set_editable(False)
+        combobox = PanelComboBox(section, 100, tooltip_text="Selected material", editable=True)
         self._comboboxes["material"] = combobox
+        section.add(combobox, expand=True)
 
         self._selected_mat_id = None
         self._selected_layer_id = None
@@ -149,100 +135,98 @@ class MaterialPanel(Panel):
         field.set_input_parser(val_id, self.__parse_name)
         field.show_value(val_id)
         self._fields[val_id] = field
+        combobox.show_input_field(False)
 
-        sizer.Add(wx.Size(0, 2))
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 2)
-        sizer_args = (0, wx.RIGHT, 15)
+        section.add((0, 5))
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True)
 
-        icon_path = os.path.join(GFX_PATH, "icon_marker.png")
-        bitmaps = PanelButton.create_button_bitmaps(icon_path, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, "",
-                          "Edit selected material name",
-                          self.__toggle_material_name_editable, sizer_args,
-                          focus_receiver=focus_receiver)
+        icon_id = "icon_caret"
+        tooltip_text = "Edit selected material name"
+        btn = PanelButton(section, "", icon_id, tooltip_text, self.__toggle_material_name_editable)
         self._edit_mat_name_btn = btn
+        btn_sizer.add(btn, proportion=1.)
 
-        icon_path = os.path.join(GFX_PATH, "icon_plus_equal.png")
-        bitmaps = PanelButton.create_button_bitmaps(icon_path, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, "",
-                          "Add copy of selected material",
-                          self.__copy_material, sizer_args,
-                          focus_receiver=focus_receiver)
+        btn_sizer.add((5, 0))
 
-        icon_path = os.path.join(GFX_PATH, "icon_plus.png")
-        bitmaps = PanelButton.create_button_bitmaps(icon_path, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, "",
-                          "Add new material",
-                          self.__create_material, sizer_args,
-                          focus_receiver=focus_receiver)
+        icon_id = "icon_copy"
+        tooltip_text = "Add copy of selected material"
+        btn = PanelButton(section, "", icon_id, tooltip_text, self.__copy_material)
+        btn_sizer.add(btn, proportion=1.)
 
-        icon_path = os.path.join(GFX_PATH, "icon_minus.png")
-        bitmaps = PanelButton.create_button_bitmaps(icon_path, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, "",
-                          "Remove selected material",
-                          self.__remove_material, sizer_args=(),
-                          focus_receiver=focus_receiver)
+        btn_sizer.add((5, 0))
 
-        sizer.Add(wx.Size(0, 2))
+        icon_id = "icon_add"
+        tooltip_text = "Add new material"
+        btn = PanelButton(section, "", icon_id, tooltip_text, self.__create_material)
+        btn_sizer.add(btn, proportion=1.)
+
+        btn_sizer.add((5, 0))
+
+        icon_id = "icon_remove"
+        tooltip_text = "Remove selected material"
+        btn = PanelButton(section, "", icon_id, tooltip_text, self.__remove_material)
+        btn_sizer.add(btn, proportion=1.)
+
         group = section.add_group("Extract from objects")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
+        btn_sizer = Sizer("horizontal")
+        group.add(btn_sizer, expand=True)
 
-        label = "Selection"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Extract materials from selected objects",
-                          self.__extract_material, focus_receiver=focus_receiver)
+        btn_sizer.add((0, 0), proportion=1.)
 
-        subsizer.Add(wx.Size(15, 0))
-        label = "Pick..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Extract material from single object",
-                          lambda: self.__start_owner_picking("extract"),
-                          focus_receiver=focus_receiver)
+        text = "Selection"
+        tooltip_text = "Extract materials from selected objects"
+        btn = PanelButton(group, text, "", tooltip_text, self.__extract_material)
+        btn_sizer.add(btn)
+
+        btn_sizer.add((0, 0), proportion=1.)
+
+        text = "Pick..."
+        tooltip_text = "Extract material from single object"
+        command = lambda: self.__start_owner_picking("extract")
+        btn = PanelButton(group, text, "", tooltip_text, command)
         self._btns["owner_picking_extract"] = btn
+        btn_sizer.add(btn)
 
-        sizer.Add(wx.Size(0, 2))
+        btn_sizer.add((0, 0), proportion=1.)
+
         group = section.add_group("Apply to objects")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
+        btn_sizer = Sizer("horizontal")
+        group.add(btn_sizer, expand=True)
 
-        label = "Selection"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Apply sel. material to sel. objects",
-                          self.__apply_material, focus_receiver=focus_receiver)
+        btn_sizer.add((0, 0), proportion=1.)
 
-        subsizer.Add(wx.Size(15, 0))
-        label = "Pick..."
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Apply sel. material to single object",
-                          lambda: self.__start_owner_picking("apply"),
-                          focus_receiver=focus_receiver)
+        text = "Selection"
+        tooltip_text = "Apply sel. material to sel. objects"
+        btn = PanelButton(group, text, "", tooltip_text, self.__apply_material)
+        btn_sizer.add(btn)
+
+        btn_sizer.add((0, 0), proportion=1.)
+
+        text = "Pick..."
+        tooltip_text = "Apply sel. material to single object"
+        command = lambda: self.__start_owner_picking("apply")
+        btn = PanelButton(group, text, "", tooltip_text, command)
         self._btns["owner_picking_apply"] = btn
+        btn_sizer.add(btn)
 
-        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
+        btn_sizer.add((0, 0), proportion=1.)
 
-        sizer.Add(wx.Size(0, 2))
         group = section.add_group("Owner selection")
-        grp_sizer = group.get_client_sizer()
-        label = "(De)select owners"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        btn = PanelButton(self, group, grp_sizer, bitmaps, label,
-                          "Select all objects having the sel. material",
-                          self.__select_material_owners, sizer_args,
-                          focus_receiver=focus_receiver)
-        grp_sizer.Add(wx.Size(0, 5))
 
-        group.add_text("Current selection:", grp_sizer)
-        grp_sizer.Add(wx.Size(0, 3))
+        text = "(De)select owners"
+        tooltip_text = "Select all objects having the sel. material"
+        btn = PanelButton(group, text, "", tooltip_text, self.__select_material_owners)
+        group.add(btn, alignment="center_h")
 
-        radio_btns = PanelRadioButtonGroup(self, group, "", grp_sizer)
+        group.add((0, 5))
+
+        text = "Current selection:"
+        group.add(PanelText(group, text))
+
+        group.add((0, 3))
+
+        radio_btns = PanelRadioButtonGroup(group, columns=1)
         btn_ids = ("replace", "add_to", "remove_from")
         texts = ("replace with owners", "add owners", "remove owners")
         get_command = lambda sel_mode: lambda: Mgr.update_app("material_owner_sel_mode", sel_mode)
@@ -254,76 +238,86 @@ class MaterialPanel(Panel):
 
         radio_btns.set_selected_button("replace")
         self._radio_btns["owner_sel"] = radio_btns
+        group.add(radio_btns.get_sizer())
 
         # *********************** Basic props section *************************
 
-        prop_section = section = self.add_section("basic_props", "Basic properties")
-        sizer = section.get_client_sizer()
+        section = self.add_section("basic_props", "Basic properties")
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=3, hgap=5)
-        sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        sizer = GridSizer(rows=0, columns=3, gap_h=5, gap_v=2)
+        section.add(sizer, expand=True)
 
         prop_id = "show_vert_colors"
-        checkbox = PanelCheckBox(self, section, subsizer, self.__toggle_vertex_colors,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__toggle_vertex_colors)
         self._checkboxes[prop_id] = checkbox
-        section.add_text("Vertex colors", subsizer, sizer_args)
-        subsizer.Add(wx.Size(0, 0))
+        sizer.add(checkbox, alignment_v="center_v")
+        text = "Vertex colors"
+        sizer.add(PanelText(section, text), alignment_v="center_v")
+        sizer.add((0, 0))
 
+        sizer.add((0, 0))
+        text = "Flat color:"
+        sizer.add(PanelText(section, text), alignment_v="center_v")
         prop_id = "flat_color"
-        subsizer.Add(wx.Size(0, 0))
-        section.add_text("Flat color:", subsizer, sizer_args)
-        handler = self.__handle_flat_color
-        color_picker = PanelColorPickerCtrl(self, section, subsizer, handler)
-        self._color_pickers[prop_id] = color_picker
+        dialog_title = "Pick flat color"
+        colorbox = PanelColorBox(section, self.__handle_flat_color, dialog_title=dialog_title)
+        self._colorboxes[prop_id] = colorbox
+        sizer.add(colorbox, alignment_v="center_v")
 
         prop_ids = ("diffuse", "ambient", "emissive", "specular")
         self._base_prop_ids = prop_ids + ("shininess",)
 
         for prop_id in prop_ids:
-            checkbox = PanelCheckBox(self, section, subsizer, self.__get_color_toggler(prop_id),
-                                     sizer_args=sizer_args)
+            checkbox = PanelCheckBox(section, self.__get_color_toggler(prop_id))
             self._checkboxes[prop_id] = checkbox
-            section.add_text("%s color:" % prop_id.title(), subsizer, sizer_args)
-            handler = self.__get_color_handler(prop_id)
-            color_picker = PanelColorPickerCtrl(self, section, subsizer, handler)
-            self._color_pickers[prop_id] = color_picker
+            sizer.add(checkbox, alignment_v="center_v")
+            text = "{} color:".format(prop_id.title())
+            sizer.add(PanelText(section, text), alignment_v="center_v")
+            dialog_title = "Pick {} color".format(prop_id)
+            colorbox = PanelColorBox(section, self.__get_color_handler(prop_id),
+                                     dialog_title=dialog_title)
+            self._colorboxes[prop_id] = colorbox
+            sizer.add(colorbox, alignment_v="center_v")
 
-        subsizer.Add(wx.Size(0, 0))
-        section.add_text("Shininess:", subsizer, sizer_args)
-        field = PanelInputField(self, section, subsizer, 60, sizer_args=sizer_args)
+        sizer.add((0, 0))
+        text = "Shininess:"
+        sizer.add(PanelText(section, text), alignment_v="center_v")
+        field = PanelInputField(section, 60)
         val_id = "shininess"
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_shininess)
         self._fields[val_id] = field
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         val_id = "alpha"
-        checkbox = PanelCheckBox(self, section, subsizer, self.__get_color_toggler(val_id))
+        checkbox = PanelCheckBox(section, self.__get_color_toggler(val_id))
         self._checkboxes[val_id] = checkbox
-        section.add_text("\nTransparency/\nOpacity:\n", subsizer)
-        field = PanelInputField(self, section, subsizer, 60, sizer_args=(0, wx.ALIGN_BOTTOM))
+        sizer.add(checkbox, alignment_v="center_v")
+        text = "Alpha:"
+        sizer.add(PanelText(section, text), alignment_v="center_v")
+        field = PanelInputField(section, 60)
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_alpha)
         self._fields[val_id] = field
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        # ************************* Texmaps section ***************************
+        # ************************* Texture maps section ***************************
 
-        map_section = section = self.add_section("texmaps", "Texture maps")
-        sizer = section.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
+        section = self.add_section("tex_maps", "Texture maps")
+
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
 
         val_id = "tex_map"
-        checkbox = PanelCheckBox(self, section, subsizer, self.__toggle_tex_map,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__toggle_tex_map)
         self._checkboxes[val_id] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        combobox = PanelComboBox(self, section, subsizer, "Selected texture map",
-                                 134, sizer_args=sizer_args, focus_receiver=focus_receiver)
+        borders = (0, 5, 0, 0)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        combobox = PanelComboBox(section, 135, tooltip_text="Selected texture map")
         self._comboboxes["map_type"] = combobox
+        sizer.add(combobox, proportion=1., alignment="center_v")
 
         def get_command(map_type):
 
@@ -340,20 +334,17 @@ class MaterialPanel(Panel):
                          "vertex color"):
             combobox.add_item(map_type, map_type.title(), get_command(map_type))
 
-        sizer.Add(wx.Size(0, 5))
+        combobox.update_popup_menu()
 
         group = section.add_group("Texture files")
-        grp_sizer = group.get_client_sizer()
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
+        group.add(sizer, expand=True)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=4)
-        grp_sizer.Add(subsizer)
-        label = "Main"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths, 40)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Load main texture for selected map",
-                          self.__load_texture_map_main,
-                          sizer_args, focus_receiver=focus_receiver)
-        field = PanelInputField(self, group, subsizer, 100, sizer_args=sizer_args)
+        text = "Main"
+        tooltip_text = "Load main texture for selected map"
+        btn = PanelButton(group, text, "", tooltip_text, self.__load_texture_map_main)
+        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        field = PanelInputField(group, 100)
         val_id = "tex_map_file_main"
         field.add_value(val_id, "string", handler=self.__set_texture_map_main)
         field.show_value(val_id)
@@ -361,14 +352,13 @@ class MaterialPanel(Panel):
         field.set_input_parser(val_id, self.__check_texture_filename)
         field.set_value_parser(val_id, self.__parse_texture_filename)
         self._fields[val_id] = field
-        label = "Alpha"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths, 40)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Load alpha texture for selected map",
-                          self.__load_texture_map_alpha,
-                          sizer_args, focus_receiver=focus_receiver)
-        field = PanelInputField(self, group, subsizer,
-                                100, sizer_args=sizer_args)
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
+
+        text = "Alpha"
+        tooltip_text = "Load alpha texture for selected map"
+        btn = PanelButton(group, text, "", tooltip_text, self.__load_texture_map_alpha)
+        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        field = PanelInputField(group, 100)
         val_id = "tex_map_file_alpha"
         field.add_value(val_id, "string", handler=self.__set_texture_map_alpha)
         field.show_value(val_id)
@@ -376,69 +366,72 @@ class MaterialPanel(Panel):
         field.set_input_parser(val_id, self.__check_texture_filename)
         field.set_value_parser(val_id, self.__parse_texture_filename)
         self._fields[val_id] = field
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        sizer.Add(wx.Size(0, 5))
+        section.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-        section.add_text("Border color:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        color_picker = PanelColorPickerCtrl(self, section, subsizer, self.__handle_border_color)
-        self._color_pickers["tex_map_border_color"] = color_picker
-
-        sizer.Add(wx.Size(0, 5))
+        sizer = Sizer("horizontal")
+        section.add(sizer)
+        text = "Border color:"
+        borders = (0, 5, 0, 0)
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        dialog_title = "Pick texture border color"
+        colorbox = PanelColorBox(section, self.__handle_border_color, dialog_title=dialog_title)
+        self._colorboxes["tex_map_border_color"] = colorbox
+        sizer.add(colorbox, alignment="center_v")
 
         group = section.add_group("Wrapping")
-        grp_sizer = group.get_client_sizer()
 
         mode_ids = ("repeat", "clamp", "border_color", "mirror", "mirror_once")
         mode_names = ("Repeat", "Clamp", "Border color", "Mirror", "Mirror once")
         get_command = lambda axis, mode_id: lambda: Mgr.update_remotely("material_prop",
                                                                         self._selected_mat_id,
-                                                                        "tex_map_wrap_%s" % axis,
+                                                                        "tex_map_wrap_{}".format(axis),
                                                                         mode_id)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=4, vgap=4)
-        grp_sizer.Add(subsizer)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
+        group.add(sizer, expand=True)
 
         for axis in ("u", "v"):
 
-            group.add_text("%s:" % axis.title(), subsizer, sizer_args)
-            combobox = PanelComboBox(self, group, subsizer, "%s wrap mode" % axis.title(),
-                                     130, sizer_args=sizer_args, focus_receiver=focus_receiver)
+            text = "{}:".format(axis.title())
+            sizer.add(PanelText(group, text), alignment_v="center_v")
+            tooltip_text = "{} wrap mode".format(axis.title())
+            combobox = PanelComboBox(group, 130, tooltip_text=tooltip_text)
 
             for mode_id, mode_name in zip(mode_ids, mode_names):
                 combobox.add_item(mode_id, mode_name, get_command(axis, mode_id))
 
-            self._comboboxes["tex_map_wrap_%s" % axis] = combobox
+            combobox.update_popup_menu()
+            self._comboboxes["tex_map_wrap_{}".format(axis)] = combobox
+            sizer.add(combobox, proportion_h=1., alignment_v="center_v")
 
-        grp_sizer.Add(wx.Size(0, 5))
+        group.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-
+        sizer = Sizer("horizontal")
+        group.add(sizer)
+        borders = (0, 5, 0, 0)
         val_id = "tex_map_wrap_lock"
-        checkbox = PanelCheckBox(self, group, subsizer, self.__toggle_wrap_lock,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(group, self.__toggle_wrap_lock)
         self._checkboxes[val_id] = checkbox
-        subsizer.Add(wx.Size(4, 0))
-        group.add_text("Lock U and V modes", subsizer, sizer_args)
-
-        sizer.Add(wx.Size(0, 5))
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Lock U and V modes"
+        sizer.add(PanelText(group, text), alignment="center_v")
 
         group = section.add_group("Filtering")
-        grp_sizer = group.get_client_sizer()
 
         get_command = lambda minmag, type_id: lambda: Mgr.update_remotely("material_prop",
                                                                           self._selected_mat_id,
-                                                                          "tex_map_filter_%s" % minmag,
+                                                                          "tex_map_filter_{}".format(minmag),
                                                                           type_id)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=4, vgap=4)
-        grp_sizer.Add(subsizer)
-        group.add_text("-:", subsizer, sizer_args)
-        combobox = PanelComboBox(self, group, subsizer, "Minification filter",
-                                 130, sizer_args=sizer_args, focus_receiver=focus_receiver)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
+        group.add(sizer, expand=True)
+
+        text = "-:"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
+        tooltip_text = "Minification filter"
+        combobox = PanelComboBox(group, 130, tooltip_text=tooltip_text)
 
         type_ids = ("linear", "nearest", "nearest_mipmap_nearest", "nearest_mipmap_linear",
                     "linear_mipmap_nearest", "linear_mipmap_linear", "shadow")
@@ -448,11 +441,14 @@ class MaterialPanel(Panel):
         for type_id, type_name in zip(type_ids, type_names):
             combobox.add_item(type_id, type_name, get_command("min", type_id))
 
+        combobox.update_popup_menu()
         self._comboboxes["tex_map_filter_min"] = combobox
+        sizer.add(combobox, proportion_h=1., alignment_v="center_v")
 
-        group.add_text("+:", subsizer, sizer_args)
-        combobox = PanelComboBox(self, group, subsizer, "Magnification filter",
-                                 130, sizer_args=sizer_args, focus_receiver=focus_receiver)
+        text = "+:"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
+        tooltip_text = "Magnification filter"
+        combobox = PanelComboBox(group, 130, tooltip_text=tooltip_text)
 
         type_ids = ("linear", "nearest")
         type_names = ("Linear", "Nearest")
@@ -460,237 +456,243 @@ class MaterialPanel(Panel):
         for type_id, type_name in zip(type_ids, type_names):
             combobox.add_item(type_id, type_name, get_command("mag", type_id))
 
+        combobox.update_popup_menu()
         self._comboboxes["tex_map_filter_mag"] = combobox
+        sizer.add(combobox, proportion_h=1., alignment_v="center_v")
 
-        grp_sizer.Add(wx.Size(0, 5))
+        group.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        group.add_text("Anisotropic level:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 40, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        group.add(sizer)
+        borders = (0, 5, 0, 0)
+        text = "Anisotropic level:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 40)
         val_id = "tex_map_anisotropic_degree"
         field.add_value(val_id, "int", handler=self.__handle_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
-        # *************************** Texmap transform section ****************
+        # *************************** Tex. map transform section ****************
 
-        map_xform_section = section = self.add_section("texmap_xform", "Tex. map transform")
-        sizer = section.get_client_sizer()
+        section = self.add_section("tex_map_xform", "Tex. map transform")
 
         group = section.add_group("Offset")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        group.add_text("U:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 54, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        borders = (0, 5, 0, 0)
+
+        text = "U:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 55)
         val_id = "tex_map_offset_u"
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         self._fields[val_id] = field
-        subsizer.Add(wx.Size(8, 0))
-        group.add_text("V:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 54, sizer_args=sizer_args)
+        sizer.add(field, alignment="center_v")
+
+        sizer.add((0, 0), proportion=1.)
+
+        text = "V:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 55)
         val_id = "tex_map_offset_v"
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
-        sizer.Add(wx.Size(0, 5))
+        section.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
-        section.add_text("Rotation:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, section, subsizer, 90, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        section.add(sizer)
+        text = "Rotation:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        field = PanelInputField(section, 90)
         val_id = "tex_map_rotate"
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         self._fields[val_id] = field
-
-        sizer.Add(wx.Size(0, 5))
+        sizer.add(field, alignment="center_v")
 
         group = section.add_group("Scale")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        group.add_text("U:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 54, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        text = "U:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 55)
         val_id = "tex_map_scale_u"
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         self._fields[val_id] = field
-        subsizer.Add(wx.Size(8, 0))
-        group.add_text("V:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 54, sizer_args=sizer_args)
+        sizer.add(field, alignment="center_v")
+
+        sizer.add((0, 0), proportion=1.)
+
+        text = "V:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 55)
         val_id = "tex_map_scale_v"
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
         # *************************** Layer section ***************************
 
-        layer_section = section = self.add_section("layers", "Layers")
-        sizer = section.get_client_sizer()
+        section = self.add_section("layers", "Layers")
 
-        subsizer = wx.BoxSizer()
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
-        sizer.Add(subsizer)
+        sizer = Sizer("horizontal")
+        section.add(sizer)
+        borders = (0, 5, 0, 0)
         val_id = "layers"
-        checkbox = PanelCheckBox(self, section, subsizer, self.__toggle_layers,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__toggle_layers)
         self._checkboxes[val_id] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        section.add_text("Use layers\n(overrides single color map)", subsizer, sizer_args)
-        sizer.Add(wx.Size(0, 5))
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Use layers\n(overrides single color map)"
+        sizer.add(PanelText(section, text), alignment="center_v")
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
+        section.add((0, 5))
 
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
         val_id = "layer_on"
-        checkbox = PanelCheckBox(self, section, subsizer, self.__toggle_layer,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, self.__toggle_layer)
         self._checkboxes[val_id] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        combobox = EditablePanelComboBox(self, section, subsizer, "Selected layer",
-                                         134, sizer_args=sizer_args,
-                                         focus_receiver=focus_receiver)
-        combobox.set_editable(False)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        combobox = PanelComboBox(section, 100, tooltip_text="Selected layer", editable=True)
         self._comboboxes["layer"] = combobox
-
+        sizer.add(combobox, proportion=1., alignment="center_v")
         field = combobox.get_input_field()
         val_id = "layer_name"
         field.add_value(val_id, "string", handler=self.__handle_layer_value)
         field.set_input_parser(val_id, self.__parse_name)
         field.show_value(val_id)
         self._fields[val_id] = field
+        combobox.show_input_field(False)
 
-        sizer.Add(wx.Size(0, 2))
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 2)
-        sizer_args = (0, wx.RIGHT, 15)
+        section.add((0, 5))
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True)
 
-        icon_path = os.path.join(GFX_PATH, "icon_marker.png")
-        bitmaps = PanelButton.create_button_bitmaps(icon_path, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, "",
-                          "Edit selected layer name",
-                          self.__toggle_layer_name_editable, sizer_args,
-                          focus_receiver=focus_receiver)
+        icon_id = "icon_caret"
+        tooltip_text = "Edit selected layer name"
+        btn = PanelButton(section, "", icon_id, tooltip_text, self.__toggle_layer_name_editable)
         self._edit_layer_name_btn = btn
+        btn_sizer.add(btn, proportion=1.)
 
-        icon_path = os.path.join(GFX_PATH, "icon_plus_equal.png")
-        bitmaps = PanelButton.create_button_bitmaps(icon_path, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, "",
-                          "Add copy of selected layer",
-                          self.__copy_layer, sizer_args,
-                          focus_receiver=focus_receiver)
+        btn_sizer.add((5, 0))
 
-        icon_path = os.path.join(GFX_PATH, "icon_plus.png")
-        bitmaps = PanelButton.create_button_bitmaps(icon_path, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, "",
-                          "Add new layer",
-                          self.__create_layer, sizer_args,
-                          focus_receiver=focus_receiver)
+        icon_id = "icon_copy"
+        tooltip_text = "Add copy of selected layer"
+        btn = PanelButton(section, "", icon_id, tooltip_text, self.__copy_layer)
+        btn_sizer.add(btn, proportion=1.)
 
-        icon_path = os.path.join(GFX_PATH, "icon_minus.png")
-        bitmaps = PanelButton.create_button_bitmaps(icon_path, bitmap_paths)
-        btn = PanelButton(self, section, btn_sizer, bitmaps, "",
-                          "Remove selected layer",
-                          self.__remove_layer, sizer_args=(),
-                          focus_receiver=focus_receiver)
+        btn_sizer.add((5, 0))
 
-        sizer.Add(wx.Size(0, 5))
+        icon_id = "icon_add"
+        tooltip_text = "Add new layer"
+        btn = PanelButton(section, "", icon_id, tooltip_text, self.__create_layer)
+        btn_sizer.add(btn, proportion=1.)
 
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        btn_sizer.add((5, 0))
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
-        section.add_text("Sort:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, section, subsizer, 40, sizer_args=sizer_args)
+        icon_id = "icon_remove"
+        tooltip_text = "Remove selected layer"
+        btn = PanelButton(section, "", icon_id, tooltip_text, self.__remove_layer)
+        btn_sizer.add(btn, proportion=1.)
+
+        section.add((0, 5))
+
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
+
+        text = "Sort:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        field = PanelInputField(section, 40)
         val_id = "layer_sort"
         field.add_value(val_id, "int", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
-        subsizer.Add(wx.Size(10, 0))
-        section.add_text("Priority:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, section, subsizer, 40, sizer_args=sizer_args)
+        sizer.add(field, alignment="center_v")
+
+        sizer.add((0, 0), proportion=1.)
+
+        text = "Priority:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        field = PanelInputField(section, 40)
         val_id = "layer_priority"
         field.add_value(val_id, "int", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
         # *************************** Layer color section *********************
 
-        layer_color_section = section = self.add_section("layer_color", "Layer color")
-        sizer = section.get_client_sizer()
+        section = self.add_section("layer_color", "Layer color")
 
         group = section.add_group("Flat color")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        group.add_text("RGB:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        color_picker = PanelColorPickerCtrl(self, group, subsizer, self.__handle_layer_rgb)
-        self._color_pickers["layer_rgb"] = color_picker
-        subsizer.Add(wx.Size(4, 0))
-        group.add_text("Alpha:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 45, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        text = "RGB:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        dialog_title = "Pick layer color"
+        colorbox = PanelColorBox(group, self.__handle_layer_rgb, dialog_title=dialog_title)
+        self._colorboxes["layer_rgb"] = colorbox
+        sizer.add(colorbox, alignment="center_v")
+
+        sizer.add((0, 0), proportion=1.)
+
+        text = "Alpha:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 45)
         val_id = "layer_alpha"
         field.set_input_parser(val_id, self.__parse_alpha)
         field.add_value(val_id, "float", handler=self.__handle_layer_alpha)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
         group = section.add_group("Color scale")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.FlexGridSizer(rows=2, cols=2, hgap=4, vgap=4)
-        grp_sizer.Add(subsizer)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
+        group.add(sizer, expand=True)
 
-        for channels, label in (("rgb", "RGB"), ("alpha", "Alpha")):
+        for channels, text in (("rgb", "RGB"), ("alpha", "Alpha")):
 
-            group.add_text("%s:" % label, subsizer, sizer_args)
-            subsizer2 = wx.BoxSizer()
-            subsizer.Add(subsizer2)
+            sizer.add(PanelText(group, "{}:".format(text)), alignment_v="center_v")
 
-            radio_btns = PanelRadioButtonGroup(self, group, "", subsizer2, size=(3, 1))
+            radio_btns = PanelRadioButtonGroup(group, rows=1, gap_h=10)
             btn_ids = (1, 2, 4)
             get_command = lambda channels, scale: lambda: Mgr.update_remotely("tex_layer_prop",
                                                                               self._selected_mat_id,
                                                                               self._selected_layer_id,
-                                                                              "%s_scale" % channels,
+                                                                              "{}_scale".format(channels),
                                                                               scale)
 
             for btn_id in btn_ids:
                 radio_btns.add_button(btn_id, str(btn_id))
                 radio_btns.set_button_command(btn_id, get_command(channels, btn_id))
 
-            self._radio_btns["layer_%s_scale" % channels] = radio_btns
+            self._radio_btns["layer_{}_scale".format(channels)] = radio_btns
+            sizer.add(radio_btns.get_sizer(), alignment_v="center_v")
 
         # *************************** Layer texture section *******************
 
         layer_tex_section = section = self.add_section("layer_tex", "Layer texture")
-        sizer = section.get_client_sizer()
 
         group = section.add_group("Texture files")
-        grp_sizer = group.get_client_sizer()
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
+        group.add(sizer, expand=True)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=4)
-        grp_sizer.Add(subsizer)
-        label = "Main"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths, 40)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Load main texture for selected layer",
-                          self.__load_layer_main, sizer_args,
-                          focus_receiver=focus_receiver)
-        field = PanelInputField(self, group, subsizer, 100, sizer_args=sizer_args)
+        text = "Main"
+        tooltip_text = "Load main texture for selected layer"
+        btn = PanelButton(group, text, "", tooltip_text, self.__load_layer_main)
+        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        field = PanelInputField(group, 100)
         val_id = "layer_file_main"
         field.add_value(val_id, "string", handler=self.__set_layer_main)
         field.show_value(val_id)
@@ -698,13 +700,13 @@ class MaterialPanel(Panel):
         field.set_input_parser(val_id, self.__check_texture_filename)
         field.set_value_parser(val_id, self.__parse_texture_filename)
         self._fields[val_id] = field
-        label = "Alpha"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths, 40)
-        btn = PanelButton(self, group, subsizer, bitmaps, label,
-                          "Load alpha texture for selected layer",
-                          self.__load_layer_alpha, sizer_args,
-                          focus_receiver=focus_receiver)
-        field = PanelInputField(self, group, subsizer, 100, sizer_args=sizer_args)
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
+
+        text = "Alpha"
+        tooltip_text = "Load alpha texture for selected layer"
+        btn = PanelButton(group, text, "", tooltip_text, self.__load_layer_alpha)
+        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        field = PanelInputField(group, 100)
         val_id = "layer_file_alpha"
         field.add_value(val_id, "string", handler=self.__set_layer_alpha)
         field.show_value(val_id)
@@ -712,74 +714,74 @@ class MaterialPanel(Panel):
         field.set_input_parser(val_id, self.__check_texture_filename)
         field.set_value_parser(val_id, self.__parse_texture_filename)
         self._fields[val_id] = field
+        sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        sizer.Add(wx.Size(0, 5))
+        section.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-        section.add_text("Border color:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        color_picker = PanelColorPickerCtrl(self, section, subsizer,
-                                            self.__handle_layer_border_color)
-        self._color_pickers["layer_border_color"] = color_picker
-
-        sizer.Add(wx.Size(0, 5))
+        sizer = Sizer("horizontal")
+        section.add(sizer)
+        text = "Border color:"
+        borders = (0, 5, 0, 0)
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        dialog_title = "Pick layer border color"
+        colorbox = PanelColorBox(section, self.__handle_layer_border_color, dialog_title=dialog_title)
+        self._colorboxes["layer_border_color"] = colorbox
+        sizer.add(colorbox, alignment="center_v")
 
         group = section.add_group("Wrapping")
-        grp_sizer = group.get_client_sizer()
 
         mode_ids = ("repeat", "clamp", "border_color", "mirror", "mirror_once")
         mode_names = ("Repeat", "Clamp", "Border color", "Mirror", "Mirror once")
         get_command = lambda axis, mode_id: lambda: Mgr.update_remotely("tex_layer_prop",
                                                                         self._selected_mat_id,
                                                                         self._selected_layer_id,
-                                                                        "wrap_%s" % axis,
+                                                                        "wrap_{}".format(axis),
                                                                         mode_id)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=4, vgap=4)
-        grp_sizer.Add(subsizer)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
+        group.add(sizer, expand=True)
 
         for axis in ("u", "v"):
 
-            group.add_text("%s:" % axis.title(), subsizer, sizer_args)
-            combobox = PanelComboBox(self, group, subsizer,
-                                     "%s wrap mode" % axis.title(),
-                                     130, sizer_args=sizer_args,
-                                     focus_receiver=focus_receiver)
+            text = "{}:".format(axis.title())
+            sizer.add(PanelText(group, text), alignment_v="center_v")
+            tooltip_text = "{} wrap mode".format(axis.title())
+            combobox = PanelComboBox(group, 130, tooltip_text=tooltip_text)
 
             for mode_id, mode_name in zip(mode_ids, mode_names):
                 combobox.add_item(mode_id, mode_name, get_command(axis, mode_id))
 
-            self._comboboxes["layer_wrap_%s" % axis] = combobox
+            combobox.update_popup_menu()
+            self._comboboxes["layer_wrap_{}".format(axis)] = combobox
+            sizer.add(combobox, proportion_h=1., alignment_v="center_v")
 
-        grp_sizer.Add(wx.Size(0, 5))
+        group.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-
+        sizer = Sizer("horizontal")
+        group.add(sizer)
+        borders = (0, 5, 0, 0)
         val_id = "layer_wrap_lock"
-        checkbox = PanelCheckBox(self, group, subsizer, self.__toggle_layer_wrap_lock,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(group, self.__toggle_layer_wrap_lock)
         self._checkboxes[val_id] = checkbox
-        subsizer.Add(wx.Size(4, 0))
-        group.add_text("Lock U and V modes", subsizer, sizer_args)
-
-        sizer.Add(wx.Size(0, 5))
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Lock U and V modes"
+        sizer.add(PanelText(group, text), alignment="center_v")
 
         group = section.add_group("Filtering")
-        grp_sizer = group.get_client_sizer()
 
         get_command = lambda minmag, type_id: lambda: Mgr.update_remotely("tex_layer_prop",
                                                                           self._selected_mat_id,
                                                                           self._selected_layer_id,
-                                                                          "filter_%s" % minmag,
+                                                                          "filter_{}".format(minmag),
                                                                           type_id)
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=4, vgap=4)
-        grp_sizer.Add(subsizer)
-        group.add_text("-:", subsizer, sizer_args)
-        combobox = PanelComboBox(self, group, subsizer, "Minification filter",
-                                 130, sizer_args=sizer_args, focus_receiver=focus_receiver)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
+        group.add(sizer, expand=True)
+
+        text = "-:"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
+        tooltip_text = "Minification filter"
+        combobox = PanelComboBox(group, 130, tooltip_text=tooltip_text)
 
         type_ids = ("linear", "nearest", "nearest_mipmap_nearest", "nearest_mipmap_linear",
                     "linear_mipmap_nearest", "linear_mipmap_linear", "shadow")
@@ -789,11 +791,14 @@ class MaterialPanel(Panel):
         for type_id, type_name in zip(type_ids, type_names):
             combobox.add_item(type_id, type_name, get_command("min", type_id))
 
+        combobox.update_popup_menu()
         self._comboboxes["layer_filter_min"] = combobox
+        sizer.add(combobox, proportion_h=1., alignment_v="center_v")
 
-        group.add_text("+:", subsizer, sizer_args)
-        combobox = PanelComboBox(self, group, subsizer, "Magnification filter",
-                                 130, sizer_args=sizer_args, focus_receiver=focus_receiver)
+        text = "+:"
+        sizer.add(PanelText(group, text), alignment_v="center_v")
+        tooltip_text = "Magnification filter"
+        combobox = PanelComboBox(group, 130, tooltip_text=tooltip_text)
 
         type_ids = ("linear", "nearest")
         type_names = ("Linear", "Nearest")
@@ -801,100 +806,110 @@ class MaterialPanel(Panel):
         for type_id, type_name in zip(type_ids, type_names):
             combobox.add_item(type_id, type_name, get_command("mag", type_id))
 
+        combobox.update_popup_menu()
         self._comboboxes["layer_filter_mag"] = combobox
+        sizer.add(combobox, proportion_h=1., alignment_v="center_v")
 
-        grp_sizer.Add(wx.Size(0, 5))
+        group.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        group.add_text("Anisotropic level:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 40, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        group.add(sizer)
+        borders = (0, 5, 0, 0)
+        text = "Anisotropic level:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 40)
         val_id = "layer_anisotropic_degree"
         field.add_value(val_id, "int", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
-        sizer.Add(wx.Size(0, 5))
+        section.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
-        section.add_text("UV set:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, section, subsizer, 40, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        section.add(sizer, alignment="center_h")
+        text = "UV set:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        field = PanelInputField(section, 40)
         val_id = "layer_uv_set"
         field.add_value(val_id, "int", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
         # *************************** Layer transform section *****************
 
-        layer_xform_section = section = self.add_section("layer_xform", "Layer transform")
-        sizer = section.get_client_sizer()
+        section = self.add_section("layer_xform", "Layer transform")
 
         group = section.add_group("Offset")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        group.add_text("U:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 54, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        borders = (0, 5, 0, 0)
+
+        text = "U:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 55)
         val_id = "layer_offset_u"
         field.add_value(val_id, "float", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
-        subsizer.Add(wx.Size(8, 0))
-        group.add_text("V:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 54, sizer_args=sizer_args)
+        sizer.add(field, alignment="center_v")
+
+        sizer.add((0, 0), proportion=1.)
+
+        text = "V:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 55)
         val_id = "layer_offset_v"
         field.add_value(val_id, "float", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
-        sizer.Add(wx.Size(0, 5))
+        section.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer)
-        section.add_text("Rotation:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, section, subsizer, 90, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        section.add(sizer)
+        text = "Rotation:"
+        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        field = PanelInputField(section, 90)
         val_id = "layer_rotate"
         field.add_value(val_id, "float", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
-
-        sizer.Add(wx.Size(0, 5))
+        sizer.add(field, alignment="center_v")
 
         group = section.add_group("Scale")
-        grp_sizer = group.get_client_sizer()
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        group.add_text("U:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 54, sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        text = "U:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 55)
         val_id = "layer_scale_u"
         field.add_value(val_id, "float", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
-        subsizer.Add(wx.Size(8, 0))
-        group.add_text("V:", subsizer, sizer_args)
-        subsizer.Add(wx.Size(4, 0))
-        field = PanelInputField(self, group, subsizer, 54, sizer_args=sizer_args)
+        sizer.add(field, alignment="center_v")
+
+        sizer.add((0, 0), proportion=1.)
+
+        text = "V:"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        field = PanelInputField(group, 55)
         val_id = "layer_scale_v"
         field.add_value(val_id, "float", handler=self.__handle_layer_value)
         field.show_value(val_id)
         self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
         # ************************* Layer blending section ********************
 
-        blend_section = section = self.add_section("layer_blending", "Layer blending")
-        sizer = section.get_client_sizer()
+        section = self.add_section("layer_blending", "Layer blending")
 
         group = section.add_group("Basic blending")
-        grp_sizer = group.get_client_sizer()
-        combobox = PanelComboBox(self, group, grp_sizer, "Blend mode", 140)
-        self._comboboxes["layer_blend_mode"] = combobox
+        combobox = PanelComboBox(group, 140, tooltip_text="Blend mode")
 
         mode_ids = ("modulate", "blend", "replace", "decal", "add",
                     "blend_color_scale", "selector")
@@ -909,22 +924,24 @@ class MaterialPanel(Panel):
         for mode_id, mode_name in zip(mode_ids, mode_names):
             combobox.add_item(mode_id, mode_name, get_command(mode_id))
 
-        group = section.add_group("Advanced combining")
-        grp_sizer = group.get_client_sizer()
-        group.add_text("Using any combine mode\noverrides basic blend mode", grp_sizer)
-        grp_sizer.Add(wx.Size(0, 5))
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
-        val_id = "layer_combine_channels_use"
-        checkbox = PanelCheckBox(self, group, subsizer, self.__toggle_layer_combine_channels,
-                                 sizer_args=sizer_args)
-        self._checkboxes[val_id] = checkbox
-        subsizer.Add(wx.Size(5, 0))
+        combobox.update_popup_menu()
+        self._comboboxes["layer_blend_mode"] = combobox
+        group.add(combobox, expand=True)
 
-        combobox = PanelComboBox(self, group, subsizer, "Channels", 100,
-                                 sizer_args=sizer_args)
-        self._comboboxes["layer_combine_channels"] = combobox
+        group = section.add_group("Advanced combining")
+
+        text = "Using any combine mode\noverrides basic blend mode"
+        group.add(PanelText(group, text))
+
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        val_id = "layer_combine_channels_use"
+        checkbox = PanelCheckBox(group, self.__toggle_layer_combine_channels)
+        self._checkboxes[val_id] = checkbox
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+
+        combobox = PanelComboBox(group, 100, tooltip_text="Channels")
         get_command = lambda channels: lambda: Mgr.update_remotely("tex_layer_prop",
                                                                    self._selected_mat_id,
                                                                    self._selected_layer_id,
@@ -934,10 +951,13 @@ class MaterialPanel(Panel):
         for item_id, item_label in (("rgb", "RGB"), ("alpha", "Alpha")):
             combobox.add_item(item_id, item_label, get_command(item_id))
 
-        grp_sizer.Add(wx.Size(0, 10))
+        combobox.update_popup_menu()
+        self._comboboxes["layer_combine_channels"] = combobox
+        sizer.add(combobox, proportion=1., alignment="center_v")
 
-        combobox = PanelComboBox(self, group, grp_sizer, "Combine mode", 140)
-        self._comboboxes["layer_combine_mode"] = combobox
+        group.add((0, 10))
+
+        combobox = PanelComboBox(group, 140, tooltip_text="Combine mode")
         get_command = lambda mode_id: lambda: Mgr.update_remotely("tex_layer_prop",
                                                                   self._selected_mat_id,
                                                                   self._selected_layer_id,
@@ -951,17 +971,18 @@ class MaterialPanel(Panel):
         for mode_id, mode_name in zip(mode_ids, mode_names):
             combobox.add_item(mode_id, mode_name, get_command(mode_id))
 
-        grp_sizer.Add(wx.Size(0, 5))
+        combobox.update_popup_menu()
+        self._comboboxes["layer_combine_mode"] = combobox
+        group.add(combobox, expand=True)
 
         subgroup = group.add_group("Sources")
-        subgrp_sizer = subgroup.get_client_sizer()
 
-        combobox = PanelComboBox(self, subgroup, subgrp_sizer, "Source type", 125)
+        combobox = PanelComboBox(subgroup, 125, tooltip_text="Source type")
         self._comboboxes["layer_combine_source_index"] = combobox
+        subgroup.add(combobox, expand=True)
 
-        subgrp_sizer.Add(wx.Size(0, 10))
-        combobox = PanelComboBox(self, subgroup, subgrp_sizer, "Source", 125)
-        self._comboboxes["layer_combine_source"] = combobox
+        subgroup.add((0, 10))
+        combobox = PanelComboBox(subgroup, 125, tooltip_text="Source")
         src_ids = ("texture", "previous_layer", "primary_color", "constant_color",
                    "const_color_scale", "last_stored_layer")
         src_names = ("Texture", "Previous layer", "Primary color", "Flat color",
@@ -975,7 +996,11 @@ class MaterialPanel(Panel):
         for src_id, src_name in zip(src_ids, src_names):
             combobox.add_item(src_id, src_name, get_command(src_id))
 
-        radio_btns = PanelRadioButtonGroup(self, subgroup, "", subgrp_sizer, size=(2, 2))
+        combobox.update_popup_menu()
+        self._comboboxes["layer_combine_source"] = combobox
+        subgroup.add(combobox, expand=True)
+
+        radio_btns = PanelRadioButtonGroup(subgroup, columns=2, gap_h=10)
         btn_ids = ("rgb", "1-rgb", "alpha", "1-alpha")
         texts = ("RGB", "1 - RGB", "Alpha", "1 - Alpha")
         get_command = lambda channels: lambda: Mgr.update_remotely("tex_layer_prop",
@@ -988,42 +1013,21 @@ class MaterialPanel(Panel):
             radio_btns.add_button(btn_id, text)
             radio_btns.set_button_command(btn_id, get_command(btn_id))
 
-        radio_btns.set_selected_button("rgb")
         self._radio_btns["layer_combine_source_channels"] = radio_btns
+        subgroup.add(radio_btns.get_sizer())
 
-        grp_sizer.Add(wx.Size(0, 5))
+        group.add((0, 5))
 
-        subsizer = wx.BoxSizer()
-        grp_sizer.Add(subsizer)
+        sizer = Sizer("horizontal")
+        group.add(sizer)
         val_id = "layer_is_stored"
-        checkbox = PanelCheckBox(self, group, subsizer, self.__store_layer,
-                                 sizer_args=sizer_args)
+        checkbox = PanelCheckBox(group, self.__store_layer)
         self._checkboxes[val_id] = checkbox
-        subsizer.Add(wx.Size(5, 0))
-        group.add_text("Store layer", subsizer, sizer_args)
+        sizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Store layer"
+        sizer.add(PanelText(group, text), alignment="center_v")
 
         # **************************************************************************
-
-        parent.add_panel(self)
-        self.update()
-        self.finalize()
-
-        def finalize_sections():
-
-            scene_section.expand(False)
-            lib_section.expand(False)
-            prop_section.expand(False)
-            map_section.expand(False)
-            map_xform_section.expand(False)
-            layer_section.expand(False)
-            layer_color_section.expand(False)
-            layer_tex_section.expand(False)
-            layer_xform_section.expand(False)
-            blend_section.expand(False)
-            self.expand(False)
-            self.update_parent()
-
-        wx.CallAfter(finalize_sections)
 
         Mgr.add_app_updater("material_prop", self.__set_material_property)
         Mgr.add_app_updater("new_material", self.__update_new_material, ["select"])
@@ -1039,39 +1043,42 @@ class MaterialPanel(Panel):
         add_state("material_owner_picking_mode", -10, self.__enter_owner_picking_mode,
                   self.__exit_owner_picking_mode)
 
+        self.get_section("scene").expand(False)
+        self.get_section("library").expand(False)
+        self.get_section("basic_props").expand(False)
+        self.get_section("tex_maps").expand(False)
+        self.get_section("tex_map_xform").expand(False)
+        self.get_section("layers").expand(False)
+        self.get_section("layer_color").expand(False)
+        self.get_section("layer_tex").expand(False)
+        self.get_section("layer_xform").expand(False)
+        self.get_section("layer_blending").expand(False)
+        self.expand(False)
+
     def __enter_owner_picking_mode(self, prev_state_id, is_active):
 
-        Mgr.do("set_viewport_border_color", (0, 255, 255))
-        self._btns["owner_picking_%s" % self._picking_op].set_active()
+        Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
+        self._btns["owner_picking_{}".format(self._picking_op)].set_active()
 
     def __exit_owner_picking_mode(self, next_state_id, is_active):
 
         if not is_active:
-            self._btns["owner_picking_%s" % self._picking_op].set_active(False)
+            self._btns["owner_picking_{}".format(self._picking_op)].set_active(False)
             self._picking_op = ""
-
-    def get_clipping_rect(self):
-
-        panel_rect = self.GetRect()
-        width, height = panel_rect.size
-        y_orig = self.GetParent().GetPosition()[1] + panel_rect.y
-        clipping_rect = wx.Rect(0, -y_orig, *self.GetGrandParent().GetSize())
-
-        return clipping_rect
 
     def __toggle_material_name_editable(self):
 
         combobox = self._comboboxes["material"]
-        editable = not combobox.is_editable()
-        combobox.set_editable(editable)
-        self._edit_mat_name_btn.set_active(editable)
+        show = combobox.is_input_field_hidden()
+        combobox.show_input_field(show)
+        self._edit_mat_name_btn.set_active(show)
 
     def __toggle_layer_name_editable(self):
 
         combobox = self._comboboxes["layer"]
-        editable = not combobox.is_editable()
-        combobox.set_editable(editable)
-        self._edit_layer_name_btn.set_active(editable)
+        show = combobox.is_input_field_hidden()
+        combobox.show_input_field(show)
+        self._edit_layer_name_btn.set_active(show)
 
     def __extract_material(self):
 
@@ -1108,20 +1115,22 @@ class MaterialPanel(Panel):
         Mgr.update_remotely("removed_material", old_id)
 
         if mat_id:
-            name = combobox.get_item_label(mat_id)
-            self._fields["name"].set_value("name", name)
+            name = combobox.get_item_text(mat_id)
+            self._fields["name"].set_value("name", name, handle_value=False)
             self._selected_mat_id = mat_id
             self._comboboxes["layer"].clear()
             Mgr.update_remotely("material_selection", mat_id)
 
     def __save_library(self):
 
-        filename = wx.FileSelector("Save material library",
-                                   "", "", "mtlib", "*.mtlib",
-                                   wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
-
-        if filename:
-            Mgr.update_remotely("material_library", "save", filename)
+        on_yes = lambda filename: Mgr.update_remotely("material_library", "save", filename)
+        file_types = ("Material libraries|mtlib", "All types|*")
+        FileDialog(title="Save material library",
+                   ok_alias="Save",
+                   on_yes=on_yes,
+                   file_op="write",
+                   incr_filename=True,
+                   file_types=file_types)
 
     def __load_library(self, merge=False):
 
@@ -1129,14 +1138,14 @@ class MaterialPanel(Panel):
             Mgr.update_remotely("material_library", "merge" if merge else "load")
             return
 
-        file_types = "Material libraries (*.mtlib)|*.mtlib"
-        filename = wx.FileSelector("%s material library" % ("Merge" if merge else "Load"),
-                                   "", "", "Material library", file_types,
-                                   wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
-                                   self)
-
-        if filename:
-            Mgr.update_remotely("material_library", "merge" if merge else "load", filename)
+        alias = "Merge" if merge else "Load"
+        on_yes = lambda filename: Mgr.update_remotely("material_library", alias.lower(), filename)
+        file_types = ("Material libraries|mtlib", "All types|*")
+        FileDialog(title="{} material library".format(alias),
+                   ok_alias=alias,
+                   file_op="read",
+                   on_yes=on_yes,
+                   file_types=file_types)
 
     def __clear_scene(self):
 
@@ -1149,9 +1158,9 @@ class MaterialPanel(Panel):
 
         Mgr.update_remotely("material_library", "clear")
 
-    def __update_library(self, update_id):
+    def __update_library(self, update_type):
 
-        if update_id == "clear":
+        if update_type == "clear":
             self._selected_mat_id = None
             self._comboboxes["material"].clear()
 
@@ -1177,53 +1186,51 @@ class MaterialPanel(Panel):
 
         def handle_color(color):
 
-            color_values = Mgr.convert_to_remote_format("color", color.Get() + (255,))
+            r, g, b = color
             mat_id = self._selected_mat_id
-            prop_data = {"value": color_values}
+            prop_data = {"value": (r, g, b, 1.)}
             Mgr.update_remotely("material_prop", mat_id, value_id, prop_data)
 
         return handle_color
 
     def __handle_flat_color(self, color):
 
-        color_values = Mgr.convert_to_remote_format("color", color.Get() + (255,))
+        r, g, b = color
         mat_id = self._selected_mat_id
-        Mgr.update_remotely("material_prop", mat_id, "flat_color", color_values)
+        Mgr.update_remotely("material_prop", mat_id, "flat_color", (r, g, b, 1.))
 
     def __handle_layer_rgb(self, color):
 
-        color_values = Mgr.convert_to_remote_format("color", color.Get() + (255,))
+        r, g, b = color
         alpha = float(self._fields["layer_alpha"].get_text("layer_alpha"))
-        color_values = color_values[:3] + (alpha,)
         mat_id = self._selected_mat_id
         layer_id = self._selected_layer_id
 
-        Mgr.update_remotely("tex_layer_prop", mat_id,layer_id, "color", color_values)
+        Mgr.update_remotely("tex_layer_prop", mat_id,layer_id, "color", (r, g, b, alpha))
 
     def __handle_layer_alpha(self, value_id, value):
 
-        color = self._color_pickers["layer_rgb"].get_color()
-        color_values = Mgr.convert_to_remote_format("color", color.Get() + (255,))
-        color_values = color_values[:3] + (value,)
+        r, g, b = self._colorboxes["layer_rgb"].get_color()
+        color = (r, g, b, value)
         mat_id = self._selected_mat_id
         layer_id = self._selected_layer_id
 
-        Mgr.update_remotely("tex_layer_prop", mat_id, layer_id, "color", color_values)
+        Mgr.update_remotely("tex_layer_prop", mat_id, layer_id, "color", color)
 
     def __handle_border_color(self, color):
 
-        color_values = Mgr.convert_to_remote_format("color", color.Get() + (255,))
+        r, g, b = color
         mat_id = self._selected_mat_id
 
-        Mgr.update_remotely("material_prop", mat_id, "tex_map_border_color", color_values)
+        Mgr.update_remotely("material_prop", mat_id, "tex_map_border_color", (r, g, b, 1.))
 
     def __handle_layer_border_color(self, color):
 
-        color_values = Mgr.convert_to_remote_format("color", color.Get() + (255,))
+        r, g, b = color
         mat_id = self._selected_mat_id
         layer_id = self._selected_layer_id
 
-        Mgr.update_remotely("tex_layer_prop", mat_id, layer_id, "border_color", color_values)
+        Mgr.update_remotely("tex_layer_prop", mat_id, layer_id, "border_color", (r, g, b, 1.))
 
     def __toggle_vertex_colors(self, on):
 
@@ -1298,20 +1305,20 @@ class MaterialPanel(Panel):
 
         if prop_id == "name":
             if self._selected_mat_id == mat_id:
-                self._fields[prop_id].set_value(prop_id, value)
-            self._comboboxes["material"].set_item_label(mat_id, value)
+                self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+            self._comboboxes["material"].set_item_text(mat_id, value)
         elif prop_id == "show_vert_colors":
             self._checkboxes[prop_id].check(value)
         elif prop_id == "flat_color":
-            self._color_pickers[prop_id].set_color(value)
+            self._colorboxes[prop_id].set_color(value[:3])
         elif prop_id == "shininess":
-            self._fields[prop_id].set_value(prop_id, value["value"])
+            self._fields[prop_id].set_value(prop_id, value["value"], handle_value=False)
         elif prop_id == "alpha":
             self._checkboxes[prop_id].check(value["on"])
-            self._fields[prop_id].set_value(prop_id, value["value"])
+            self._fields[prop_id].set_value(prop_id, value["value"], handle_value=False)
         elif prop_id in self._base_prop_ids:
             self._checkboxes[prop_id].check(value["on"])
-            self._color_pickers[prop_id].set_color(value["value"])
+            self._colorboxes[prop_id].set_color(value["value"][:3])
         elif prop_id == "layers_on":
             self._checkboxes["layers"].check(value)
         elif prop_id == "tex_map_select":
@@ -1321,12 +1328,12 @@ class MaterialPanel(Panel):
             self._checkboxes["tex_map"].check(value)
         elif prop_id == "tex_map_file_main":
             self._tex_map_file_main = value
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
         elif prop_id == "tex_map_file_alpha":
             self._tex_map_file_alpha = value
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
         elif prop_id == "tex_map_border_color":
-            self._color_pickers[prop_id].set_color(value)
+            self._colorboxes[prop_id].set_color(value[:3])
         elif prop_id == "tex_map_wrap_u":
             self._comboboxes[prop_id].select_item(value)
         elif prop_id == "tex_map_wrap_v":
@@ -1338,30 +1345,32 @@ class MaterialPanel(Panel):
         elif prop_id == "tex_map_filter_mag":
             self._comboboxes[prop_id].select_item(value)
         elif prop_id == "tex_map_anisotropic_degree":
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
         elif prop_id == "tex_map_transform":
             u, v = value["offset"]
             rot = value["rotate"][0]
             su, sv = value["scale"]
-            self._fields["tex_map_offset_u"].set_value("tex_map_offset_u", u)
-            self._fields["tex_map_offset_v"].set_value("tex_map_offset_v", v)
-            self._fields["tex_map_rotate"].set_value("tex_map_rotate", rot)
-            self._fields["tex_map_scale_u"].set_value("tex_map_scale_u", su)
-            self._fields["tex_map_scale_v"].set_value("tex_map_scale_v", sv)
+            self._fields["tex_map_offset_u"].set_value("tex_map_offset_u", u, handle_value=False)
+            self._fields["tex_map_offset_v"].set_value("tex_map_offset_v", v, handle_value=False)
+            self._fields["tex_map_rotate"].set_value("tex_map_rotate", rot, handle_value=False)
+            self._fields["tex_map_scale_u"].set_value("tex_map_scale_u", su, handle_value=False)
+            self._fields["tex_map_scale_v"].set_value("tex_map_scale_v", sv, handle_value=False)
         elif prop_id in ("tex_map_offset_u", "tex_map_offset_v", "tex_map_rotate",
                          "tex_map_scale_u", "tex_map_scale_v"):
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
         elif prop_id == "layers":
             get_command = lambda layer_id: lambda: self.__select_layer(layer_id)
+            combobox = self._comboboxes["layer"]
             for layer_id, name in value:
-                self._comboboxes["layer"].add_item(layer_id, name, get_command(layer_id))
+                combobox.add_item(layer_id, name, get_command(layer_id))
+            combobox.update_popup_menu()
 
     def __select_material(self, mat_id):
 
         combobox = self._comboboxes["material"]
         combobox.select_item(mat_id)
-        name = combobox.get_item_label(mat_id)
-        self._fields["name"].set_value("name", name)
+        name = combobox.get_item_text(mat_id)
+        self._fields["name"].set_value("name", name, handle_value=False)
         self._selected_mat_id = mat_id
         self._comboboxes["layer"].clear()
         Mgr.update_remotely("material_selection", mat_id)
@@ -1369,7 +1378,8 @@ class MaterialPanel(Panel):
     def __update_new_material(self, mat_id, name="", select=True):
 
         self._comboboxes["material"].add_item(mat_id, name,
-                                              lambda: self.__select_material(mat_id))
+                                              lambda: self.__select_material(mat_id),
+                                              update=True)
 
         if select:
             self.__select_material(mat_id)
@@ -1386,19 +1396,9 @@ class MaterialPanel(Panel):
 
         return os.path.basename(filename) if filename else "<None>"
 
-    def __load_texture_file(self, map_type, channel_type):
+    def __load_texture_file(self, map_type, channel_type, command):
 
-        file_types = "Bitmap files (*.bmp;*.jpg;*.png)|*.bmp;*.jpg;*.png"
-        channel_descr = "main" if channel_type == "rgb" else "alpha channel of"
-        caption = "Load " + channel_descr + " %s texture map"
-        tex_filename = wx.FileSelector(caption % map_type,
-                                       "", "", "bitmap", file_types,
-                                       wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
-                                       self)
-
-        if tex_filename:
-
-            import cPickle
+        def load(tex_filename):
 
             config_data = GlobalData["config"]
             texfile_paths = config_data["texfile_paths"]
@@ -1410,7 +1410,17 @@ class MaterialPanel(Panel):
             with open("config", "wb") as config_file:
                 cPickle.dump(config_data, config_file, -1)
 
-        return tex_filename
+            command(tex_filename)
+
+        channel_descr = "main" if channel_type == "rgb" else "alpha channel of"
+        caption = "Load " + channel_descr + " {} texture map"
+        file_types = ("Bitmap files|bmp;jpg;png", "All types|*")
+
+        FileDialog(title=caption.format(map_type),
+                   ok_alias="Load",
+                   on_yes=load,
+                   file_op="read",
+                   file_types=file_types)
 
     def __set_texture_map(self):
 
@@ -1428,27 +1438,25 @@ class MaterialPanel(Panel):
 
     def __load_texture_map_main(self):
 
-        rgb_filename = self.__load_texture_file(self._map_type, "rgb")
+        def command(rgb_filename):
 
-        if not rgb_filename:
-            return
+            self._fields["tex_map_file_main"].set_value("tex_map_file_main", rgb_filename)
+            self._tex_map_file_main = rgb_filename
+            self.__set_texture_map()
 
-        self._fields["tex_map_file_main"].set_value("tex_map_file_main", rgb_filename)
-        self._tex_map_file_main = rgb_filename
-        self.__set_texture_map()
+        self.__load_texture_file(self._map_type, "rgb", command)
 
     def __load_texture_map_alpha(self):
 
-        alpha_filename = self.__load_texture_file(self._map_type, "alpha")
+        def command(alpha_filename):
 
-        if not alpha_filename:
-            return
+            self._fields["tex_map_file_alpha"].set_value("tex_map_file_alpha", alpha_filename)
+            self._tex_map_file_alpha = alpha_filename
 
-        self._fields["tex_map_file_alpha"].set_value("tex_map_file_alpha", alpha_filename)
-        self._tex_map_file_alpha = alpha_filename
+            if self._tex_map_file_main:
+                self.__set_texture_map()
 
-        if self._tex_map_file_main:
-            self.__set_texture_map()
+        self.__load_texture_file(self._map_type, "alpha", command)
 
     def __init_main_filename_input(self):
 
@@ -1498,8 +1506,8 @@ class MaterialPanel(Panel):
         Mgr.update_remotely("removed_tex_layer", self._selected_mat_id, old_id)
 
         if layer_id:
-            name = combobox.get_item_label(layer_id)
-            self._fields["layer_name"].set_value("layer_name", name)
+            name = combobox.get_item_text(layer_id)
+            self._fields["layer_name"].set_value("layer_name", name, handle_value=False)
             self._selected_layer_id = layer_id
             Mgr.update_remotely("tex_layer_selection", self._selected_mat_id, layer_id)
 
@@ -1517,6 +1525,8 @@ class MaterialPanel(Panel):
         for i in range(count):
             combobox.add_item(i, labels[i], get_command(i))
 
+        combobox.update_popup_menu()
+
     def __store_layer(self, on):
 
         mat_id = self._selected_mat_id
@@ -1532,11 +1542,11 @@ class MaterialPanel(Panel):
         val_id = "layer_" + prop_id
 
         if prop_id == "name":
-            self._fields[val_id].set_value(val_id, value)
-            self._comboboxes["layer"].set_item_label(layer_id, value)
+            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._comboboxes["layer"].set_item_text(layer_id, value)
         elif prop_id == "color":
-            self._color_pickers["layer_rgb"].set_color(value)
-            self._fields["layer_alpha"].set_value("layer_alpha", value[3])
+            self._colorboxes["layer_rgb"].set_color(value[:3])
+            self._fields["layer_alpha"].set_value("layer_alpha", value[3], handle_value=False)
         elif prop_id == "rgb_scale":
             self._radio_btns[val_id].set_selected_button(value)
         elif prop_id == "alpha_scale":
@@ -1545,17 +1555,17 @@ class MaterialPanel(Panel):
             self._checkboxes[val_id].check(value)
         elif prop_id == "file_main":
             self._layer_file_main = value
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(val_id, value, handle_value=False)
         elif prop_id == "file_alpha":
             self._layer_file_alpha = value
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(val_id, value, handle_value=False)
         elif prop_id == "sort":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(val_id, value, handle_value=False)
             self._comboboxes["layer"].set_item_index(layer_id, value)
         elif prop_id == "priority":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(val_id, value, handle_value=False)
         elif prop_id == "border_color":
-            self._color_pickers[val_id].set_color(value)
+            self._colorboxes[val_id].set_color(value[:3])
         elif prop_id == "wrap_u":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "wrap_v":
@@ -1567,20 +1577,20 @@ class MaterialPanel(Panel):
         elif prop_id == "filter_mag":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "anisotropic_degree":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(val_id, value, handle_value=False)
         elif prop_id == "uv_set":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(val_id, value, handle_value=False)
         elif prop_id == "transform":
             u, v = value["offset"]
             rot = value["rotate"][0]
             su, sv = value["scale"]
-            self._fields["layer_offset_u"].set_value("layer_offset_u", u)
-            self._fields["layer_offset_v"].set_value("layer_offset_v", v)
-            self._fields["layer_rotate"].set_value("layer_rotate", rot)
-            self._fields["layer_scale_u"].set_value("layer_scale_u", su)
-            self._fields["layer_scale_v"].set_value("layer_scale_v", sv)
+            self._fields["layer_offset_u"].set_value("layer_offset_u", u, handle_value=False)
+            self._fields["layer_offset_v"].set_value("layer_offset_v", v, handle_value=False)
+            self._fields["layer_rotate"].set_value("layer_rotate", rot, handle_value=False)
+            self._fields["layer_scale_u"].set_value("layer_scale_u", su, handle_value=False)
+            self._fields["layer_scale_v"].set_value("layer_scale_v", sv, handle_value=False)
         elif prop_id in ("offset_u", "offset_v", "rotate", "scale_u", "scale_v"):
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(val_id, value, handle_value=False)
         elif prop_id == "blend_mode":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "combine_mode":
@@ -1604,15 +1614,16 @@ class MaterialPanel(Panel):
 
         combobox = self._comboboxes["layer"]
         combobox.select_item(layer_id)
-        name = combobox.get_item_label(layer_id)
-        self._fields["layer_name"].set_value("layer_name", name)
+        name = combobox.get_item_text(layer_id)
+        self._fields["layer_name"].set_value("layer_name", name, handle_value=False)
         self._selected_layer_id = layer_id
         Mgr.update_remotely("tex_layer_selection", self._selected_mat_id, layer_id)
 
     def __update_new_layer(self, layer_id, name="", select=True):
 
         self._comboboxes["layer"].add_item(layer_id, name,
-                                           lambda: self.__select_layer(layer_id))
+                                           lambda: self.__select_layer(layer_id),
+                                           update=True)
 
         if select:
             self.__select_layer(layer_id)
@@ -1633,27 +1644,25 @@ class MaterialPanel(Panel):
 
     def __load_layer_main(self):
 
-        rgb_filename = self.__load_texture_file("layer", "rgb")
+        def command(rgb_filename):
 
-        if not rgb_filename:
-            return
+            self._fields["layer_file_main"].set_value("layer_file_main", rgb_filename)
+            self._layer_file_main = rgb_filename
+            self.__set_layer()
 
-        self._fields["layer_file_main"].set_value("layer_file_main", rgb_filename)
-        self._layer_file_main = rgb_filename
-        self.__set_layer()
+        self.__load_texture_file("layer", "rgb", command)
 
     def __load_layer_alpha(self):
 
-        alpha_filename = self.__load_texture_file("layer", "alpha")
+        def command(alpha_filename):
 
-        if not alpha_filename:
-            return
+            self._fields["layer_file_alpha"].set_value("layer_file_alpha", alpha_filename)
+            self._layer_file_alpha = alpha_filename
 
-        self._fields["layer_file_alpha"].set_value("layer_file_alpha", alpha_filename)
-        self._layer_file_alpha = alpha_filename
+            if self._layer_file_main:
+                self.__set_layer()
 
-        if self._layer_file_main:
-            self.__set_layer()
+        self.__load_texture_file("layer", "alpha", command)
 
     def __init_layer_main_filename_input(self):
 
@@ -1685,37 +1694,26 @@ class MaterialPanel(Panel):
         if self._layer_file_main:
             self.__set_layer()
 
-    def get_width(self):
-
-        return self._width
-
-    def get_client_width(self):
-
-        return self._width - self.get_client_offset() * 2
-
 
 class MaterialToolbar(Toolbar):
 
-    def __init__(self, parent, pos, width):
+    def __init__(self, parent):
 
-        Toolbar.__init__(self, parent, pos, width)
+        Toolbar.__init__(self, parent, "material", "Material")
 
-        sizer = self.GetSizer()
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
-
+        self._btns = {}
+        self._fields = {}
         self._comboboxes = {}
-        bitmap_paths = ComboBox.get_bitmap_paths("toolbar_button")
-        icon_path = os.path.join(GFX_PATH, "icon_arrow_down.png")
-        bitmaps = ComboBox.create_button_bitmaps(icon_path, bitmap_paths, 135, flat=True)
-        btn_data = (self, bitmaps, "", "Selected texture map")
-        self._comboboxes["map_type"] = ComboBox(btn_data)
-        bitmaps = ComboBox.create_button_bitmaps(icon_path, bitmap_paths, 105, flat=True)
-        btn_data = (self, bitmaps, "", "Selected material color")
-        self._comboboxes["color_type"] = ComboBox(btn_data)
+        self._checkboxes = {}
+        self._colorboxes = {}
 
-        sizer.AddSpacer(5)
-        combobox = self._comboboxes["map_type"]
-        sizer.Add(combobox, *sizer_args)
+        borders = (0, 5, 0, 0)
+
+        tooltip_text = "Selected texture map"
+        combobox = ToolbarComboBox(self, 95, "", "", tooltip_text)
+        self.add(combobox, borders=borders, alignment="center_v")
+        self._comboboxes["map_type"] = combobox
+
         self._map_type = "color"
 
         def get_command(map_type):
@@ -1732,47 +1730,39 @@ class MaterialToolbar(Toolbar):
                          "vertex color"):
             combobox.add_item(map_type, map_type.title(), get_command(map_type))
 
-        self._btns = {}
-        bitmap_paths = Button.get_bitmap_paths("toolbar_button")
+        combobox.update_popup_menu()
 
-        sizer.AddSpacer(5)
-
-        icon_path = os.path.join(GFX_PATH, "icon_open.png")
-        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Load texture map"
-        btn = Button(self, bitmaps, "", tooltip_label, self.__load_texture)
-        sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        icon_id = "icon_open"
+        tooltip_text = "Load texture map"
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, self.__load_texture)
+        self.add(btn, borders=borders, alignment="center_v")
         self._btns["load_map"] = btn
 
-        icon_path = os.path.join(GFX_PATH, "icon_clear_one.png")
-        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Clear selected texture map"
-        btn = Button(self, bitmaps, "", tooltip_label, self.__clear_texture)
-        sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        icon_id = "icon_clear_one"
+        tooltip_text = "Clear selected texture map"
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, self.__clear_texture)
+        self.add(btn, borders=borders, alignment="center_v")
         self._btns["clear_map"] = btn
 
-        icon_path = os.path.join(GFX_PATH, "icon_clear_all.png")
-        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Clear all texture maps"
-        btn = Button(self, bitmaps, "", tooltip_label, self.__clear_all_textures)
-        sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        icon_id = "icon_clear_all"
+        tooltip_text = "Clear all texture maps"
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, self.__clear_all_textures)
+        self.add(btn, borders=borders, alignment="center_v")
         self._btns["clear_all_maps"] = btn
 
-        separator_bitmap_path = os.path.join(GFX_PATH, "toolbar_separator.png")
-        sizer.AddSpacer(5)
-        self.add_separator(separator_bitmap_path)
-        self.add_separator(separator_bitmap_path)
-        sizer.AddSpacer(5)
+        self.add(ToolbarSeparator(self), borders=borders)
 
-        self._color_type = "diffuse"
-
-        self._checkboxes = {}
-        checkbox = CheckBox(self, self.__toggle_color)
+        checkbox = ToolbarCheckBox(self, self.__toggle_color)
         checkbox.check()
-        sizer.Add(checkbox, *sizer_args)
+        self.add(checkbox, borders=borders, alignment="center_v")
         self._checkboxes["color_type"] = checkbox
 
-        combobox = self._comboboxes["color_type"]
+        tooltip_text = "Selected material color"
+        combobox = ToolbarComboBox(self, 95, "", "", tooltip_text)
+        self.add(combobox, borders=borders, alignment="center_v")
+        self._comboboxes["color_type"] = combobox
+
+        self._color_type = "diffuse"
 
         def get_command(color_type):
 
@@ -1783,89 +1773,68 @@ class MaterialToolbar(Toolbar):
             return set_color_type
 
         color_types = ("diffuse", "ambient", "emissive", "specular", "alpha")
-        labels = ("Diffuse", "Ambient", "Emissive", "Specular", "Transp./opacity")
+        texts = ("Diffuse", "Ambient", "Emissive", "Specular", "Transp./opacity")
 
-        for color_type, label in zip(color_types, labels):
-            combobox.add_item(color_type, label, get_command(color_type))
+        for color_type, text in zip(color_types, texts):
+            combobox.add_item(color_type, text, get_command(color_type))
 
-        sizer.Add(combobox, *sizer_args)
+        colorbox = ToolbarColorBox(self, self.__handle_color)
+        self.add(colorbox, borders=borders, alignment="center_v")
+        self._colorboxes["color_type"] = colorbox
 
-        self._color_pickers = {}
-        color_picker = ColorPickerCtrl(self, self.__handle_color)
-        sizer.Add(color_picker, *sizer_args)
-        self._color_pickers["color_type"] = color_picker
-
-        icon_path = os.path.join(GFX_PATH, "icon_apply_one.png")
-        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Apply selected material color"
+        icon_id = "icon_apply_one"
+        tooltip_text = "Apply selected material color"
         command = lambda: Mgr.update_remotely("selected_obj_mat_prop", self._color_type)
-        btn = Button(self, bitmaps, "", tooltip_label, command)
-        sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, command)
+        self.add(btn, borders=borders, alignment="center_v")
         self._btns["apply_color"] = btn
 
-        sizer.AddSpacer(5)
-        self.add_separator(separator_bitmap_path)
-        sizer.AddSpacer(5)
+        self.add(ToolbarSeparator(self), borders=borders)
 
-        self._fields = {}
-
-        self.add_text("Shininess: ", sizer, sizer_args)
-        field = InputField(self, 60)
-        sizer.Add(field, *sizer_args)
+        self.add(ToolbarText(self, "Shininess: "), borders=borders, alignment="center_v")
+        field = ToolbarInputField(self, 70)
+        self.add(field, borders=borders, alignment="center_v")
         val_id = "shininess"
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
-        field.set_value(val_id, 1.)
+        field.set_text(val_id, "{:.5f}".format(1.))
         field.set_input_parser(val_id, self.__parse_shininess)
         self._fields[val_id] = field
 
-        tooltip_label = "Apply shininess"
+        tooltip_text = "Apply shininess"
         command = lambda: Mgr.update_remotely("selected_obj_mat_prop", "shininess")
-        btn = Button(self, bitmaps, "", tooltip_label, command)
-        sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, command)
+        self.add(btn, borders=borders, alignment="center_v")
         self._btns["apply_shininess"] = btn
 
-        sizer.AddSpacer(5)
-        self.add_separator(separator_bitmap_path)
-        sizer.AddSpacer(5)
+        self.add(ToolbarSeparator(self), borders=borders)
 
-        icon_path = os.path.join(GFX_PATH, "icon_apply_all.png")
-        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Apply all material properties"
+        icon_id = "icon_apply_all"
+        tooltip_text = "Apply all material properties"
         command = lambda: Mgr.update_remotely("selected_obj_mat_props")
-        btn = Button(self, bitmaps, "", tooltip_label, command)
-        sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, command)
+        self.add(btn, borders=borders, alignment="center_v")
         self._btns["apply_all"] = btn
 
-        sizer.AddSpacer(5)
-
-        icon_path = os.path.join(GFX_PATH, "icon_reset_all.png")
-        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Reset all material properties"
+        icon_id = "icon_reset_all"
+        tooltip_text = "Reset all material properties"
         command = lambda: Mgr.update_remotely("reset_ready_material_props")
-        btn = Button(self, bitmaps, "", tooltip_label, command)
-        sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, command)
+        self.add(btn, borders=borders, alignment="center_v")
         self._btns["reset_all"] = btn
 
-        sizer.AddSpacer(5)
+        self.add(ToolbarSeparator(self), borders=borders)
 
-        icon_path = os.path.join(GFX_PATH, "icon_clear.png")
-        bitmaps = Button.create_button_bitmaps(icon_path, bitmap_paths, flat=True)
-        tooltip_label = "Clear material"
+        icon_id = "icon_clear"
+        tooltip_text = "Clear material"
         command = lambda: Mgr.update_remotely("applied_material", None, True)
-        btn = Button(self, bitmaps, "", tooltip_label, command)
-        sizer.Add(btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, command)
+        self.add(btn, borders=borders, alignment="center_v")
         self._btns["clear_material"] = btn
-
-        sizer.Layout()
 
         Mgr.add_app_updater("ready_material_prop", self.__set_material_property)
 
-    def setup(self): pass
-
     def __add_path_to_config(self, path):
-
-        import cPickle
 
         config_data = GlobalData["config"]
         texfile_paths = config_data["texfile_paths"]
@@ -1879,33 +1848,48 @@ class MaterialToolbar(Toolbar):
     def __load_texture(self):
 
         map_type = self._map_type
-        file_types = "Bitmap files (*.bmp;*.jpg;*.png)|*.bmp;*.jpg;*.png"
+        file_types = ("Bitmap files|bmp;jpg;png", "All types|*")
 
-        rgb_filename = wx.FileSelector("Load main %s texture map" % map_type,
-                                       "", "", "bitmap", file_types,
-                                       wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
-                                       self)
+        def load(rgb_filename):
 
-        if not rgb_filename:
-            return
+            self.__add_path_to_config(os.path.dirname(rgb_filename))
+            tex_data = {
+                "map_type": map_type,
+                "rgb_filename": rgb_filename,
+                "alpha_filename": ""
+            }
 
-        self.__add_path_to_config(os.path.dirname(rgb_filename))
+            def update_obj_tex():
 
-        alpha_filename = wx.FileSelector("Load alpha channel of %s texture map" % map_type,
-                                         "", "", "bitmap", file_types,
-                                         wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
-                                         self)
+                Mgr.update_remotely("selected_obj_tex", tex_data)
 
-        if alpha_filename:
-            self.__add_path_to_config(os.path.dirname(alpha_filename))
+            def show_alpha_dialog():
 
-        tex_data = {
-            "map_type": map_type,
-            "rgb_filename": rgb_filename,
-            "alpha_filename": alpha_filename
-        }
+                def load_alpha_channel(alpha_filename=""):
 
-        Mgr.update_remotely("selected_obj_tex", tex_data)
+                    self.__add_path_to_config(os.path.dirname(alpha_filename))
+                    tex_data["alpha_filename"] = alpha_filename
+                    Mgr.update_remotely("selected_obj_tex", tex_data)
+
+                default_filename = Filename.from_os_specific(rgb_filename)
+                FileDialog(title="Load alpha channel of {} texture map".format(map_type),
+                           ok_alias="Load",
+                           on_yes=load_alpha_channel,
+                           file_op="read",
+                           file_types=file_types,
+                           default_filename=default_filename)
+
+            MessageDialog(title="Load alpha channel",
+                          message="Do you want to load the alpha channel\nfrom a separate file?",
+                          choices="yesnocancel",
+                          on_yes=show_alpha_dialog,
+                          on_no=update_obj_tex)
+
+        FileDialog(title="Load main {} texture map".format(map_type),
+                   ok_alias="Load",
+                   on_yes=load,
+                   file_op="read",
+                   file_types=file_types)
 
     def __clear_texture(self):
 
@@ -1936,13 +1920,12 @@ class MaterialToolbar(Toolbar):
 
     def __handle_color(self, color):
 
-        color_values = Mgr.convert_to_remote_format("color", color.Get() + (255,))
-
         if self._color_type == "alpha":
-            intensity = sum(color_values[:3]) / 3.
-            prop_data = {"value": intensity}
+            alpha = sum(color) / 3.
+            prop_data = {"value": alpha}
         else:
-            prop_data = {"value": color_values}
+            r, g, b = color
+            prop_data = {"value": (r, g, b, 1.)}
 
         Mgr.update_remotely("ready_material_prop", self._color_type, prop_data)
 
@@ -1963,43 +1946,12 @@ class MaterialToolbar(Toolbar):
     def __set_material_property(self, prop_id, value):
 
         if prop_id == "shininess":
-            self._fields[prop_id].set_value(prop_id, value["value"])
+            self._fields[prop_id].set_text(prop_id, "{:.5f}".format(value["value"]))
         else:
             self._color_type = prop_id
             self._comboboxes["color_type"].select_item(prop_id)
             check = value["on"]
             self._checkboxes["color_type"].check(check)
             val = value["value"]
-            color_values = (val,) * 3 + (1.,) if prop_id == "alpha" else val
-            self._color_pickers["color_type"].set_color(color_values)
-
-    def __enable_fields(self, enable=True):
-
-        for field in self._fields.itervalues():
-            field.enable(enable)
-
-    def enable(self):
-
-        for combobox in self._comboboxes.itervalues():
-            combobox.enable()
-
-        for btn in self._btns.itervalues():
-            btn.enable()
-
-        for picker in self._color_pickers.itervalues():
-            picker.enable()
-
-        self.__enable_fields()
-
-    def disable(self, show=True):
-
-        for combobox in self._comboboxes.itervalues():
-            combobox.disable(show)
-
-        for btn in self._btns.itervalues():
-            btn.disable(show)
-
-        for picker in self._color_pickers.itervalues():
-            picker.disable(show)
-
-        self.__enable_fields(False)
+            color = (val,) * 3 if prop_id == "alpha" else val[:3]
+            self._colorboxes["color_type"].set_color(color)

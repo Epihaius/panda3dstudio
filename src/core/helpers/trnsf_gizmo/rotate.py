@@ -145,7 +145,7 @@ class RotationGizmo(TransformationGizmo):
 
         circle_geom = Geom(vertex_data)
         circle_geom.add_primitive(circle)
-        circle_node = GeomNode("%s_axis_handle" % axis)
+        circle_node = GeomNode("{}_axis_handle".format(axis))
         circle_node.add_geom(circle_geom)
         circle_np = parent.attach_new_node(circle_node)
 
@@ -234,7 +234,7 @@ class RotationGizmo(TransformationGizmo):
         lines.add_vertices(0, 1)
         lines_geom = Geom(vertex_data)
         lines_geom.add_primitive(lines)
-        lines_node = GeomNode("center_axis_%s" % axis)
+        lines_node = GeomNode("center_axis_{}".format(axis))
         lines_node.add_geom(lines_geom)
         lines_np = parent.attach_new_node(lines_node)
         lines_np.hide(self._picking_mask)

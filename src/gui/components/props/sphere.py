@@ -1,7 +1,7 @@
 from .base import *
 
 
-class SphereProperties(BaseObject):
+class SphereProperties(object):
 
     def __init__(self, panel):
 
@@ -9,35 +9,39 @@ class SphereProperties(BaseObject):
         self._fields = {}
         self._checkboxes = {}
 
-        section = panel.add_section("sphere_props", "Sphere properties")
-        sizer = section.get_client_sizer()
+        section = panel.add_section("sphere_props", "Sphere properties", hidden=True)
 
         prop_ids = ("radius", "segments")
         val_types = ("float", "int")
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        sizer.Add(subsizer)
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
+        section.add(sizer, expand=True)
 
         for prop_id, val_type in zip(prop_ids, val_types):
-            section.add_text("%s:" % prop_id.title(), subsizer, sizer_args)
-            field = PanelInputField(panel, section, subsizer, 80)
+            text = "{}:".format(prop_id.title())
+            sizer.add(PanelText(section, text), alignment_v="center_v")
+            field = PanelInputField(section, 80)
             field.add_value(prop_id, val_type, handler=self.__handle_value)
             field.show_value(prop_id)
             self._fields[prop_id] = field
+            sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         self._fields["radius"].set_input_parser("radius", self.__parse_radius)
         self._fields["segments"].set_input_parser("segments", self.__parse_segments)
 
-        sizer.Add(wx.Size(0, 4))
+        section.add((0, 5))
 
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        sizer.Add(subsizer)
-        checkbox = PanelCheckBox(panel, section, subsizer,
-                                 lambda val: self.__handle_value("smoothness", val))
+        subsizer = Sizer("horizontal")
+        section.add(subsizer)
+        checkbox = PanelCheckBox(section, lambda val: self.__handle_value("smoothness", val))
         checkbox.check(True)
         self._checkboxes["smoothness"] = checkbox
-        section.add_text("Smooth", subsizer, sizer_args)
+        borders = (0, 5, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Smooth"
+        subsizer.add(PanelText(section, text), alignment="center_v")
+
+    def setup(self): pass
 
     def __handle_value(self, value_id, value):
 
@@ -75,15 +79,15 @@ class SphereProperties(BaseObject):
 
     def set_object_property_default(self, prop_id, value):
 
-        color = wx.Colour(255, 255, 0)
+        color = (1., 1., 0., 1.)
 
         if prop_id == "smoothness":
             self._checkboxes["smoothness"].check(value)
-            self._checkboxes["smoothness"].set_checkmark_color(color.Get())
+            self._checkboxes["smoothness"].set_checkmark_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(prop_id, value, handle_value=False)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -92,13 +96,13 @@ class SphereProperties(BaseObject):
             self._checkboxes["smoothness"].check(value)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
-            field.set_value(prop_id, value)
+            field.set_value(prop_id, value, handle_value=False)
 
     def check_selection_count(self):
 
         sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
-        color = wx.Colour(127, 127, 127) if multi_sel else None
+        color = (.5, .5, .5, 1.) if multi_sel else None
 
         if multi_sel:
             self._checkboxes["smoothness"].check(False)

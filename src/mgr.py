@@ -1,4 +1,77 @@
-from .base import logging, EventBinder, StateManager, StateBinder
+from .base import logging, GlobalData, EventBinder, StateManager, StateBinder, DirectObject
+from panda3d.core import loadPrcFileData, MouseWatcherRegion, WindowProperties, Filename
+from direct.showbase.ShowBase import ShowBase
+
+loadPrcFileData("", """
+                    sync-video #f
+                    model-cache-dir
+                    geom-cache-size 0
+                    window-type none
+                    depth-bits 24
+                    notify-output p3ds.log
+                    garbage-collect-states #f
+
+                    """
+                )
+
+
+# the CursorManager class is used to set the mouse cursor image, but also to reset it to the image
+# that was last used for a particular region (GUI, viewport, etc.) when entering that region again
+class CursorManager(object):
+
+    def __init__(self, base, mouse_watcher_node):
+
+        self._base = base
+        self._mouse_watcher_node = mouse_watcher_node
+        self._regions = {}
+        self._cursor_filenames = {}
+        self._listener = listener = DirectObject()
+        pattern = "cursor_region_enter"
+        listener.accept(pattern, self.__set_cursor)
+        mouse_watcher_node.set_enter_pattern(pattern)
+
+    def add_cursor_region(self, interface_id, region):
+
+        self._regions.setdefault(interface_id, []).append(region)
+        self._mouse_watcher_node.add_region(region)
+        self._cursor_filenames[region.get_name()] = Filename()
+
+    def remove_cursor_regions(self, interface_id):
+
+        if interface_id in self._regions:
+
+            for region in self._regions[interface_id]:
+                self._mouse_watcher_node.remove_region(region)
+                del self._cursor_filenames[region.get_name()]
+
+            del self._regions[interface_id]
+
+    def set_cursor_regions_active(self, interface_id, active=True):
+
+        if interface_id in self._regions:
+            for region in self._regions[interface_id]:
+                region.set_active(active)
+
+    def __set_cursor(self, *args):
+
+        region_id = args[0].get_name()
+        self.set_cursor(region_id)
+
+    def set_cursor(self, region_id, cursor_filename=None):
+
+        filenames = self._cursor_filenames
+
+        if region_id not in filenames:
+            return
+
+        c_f = filenames[region_id] if cursor_filename is None else cursor_filename
+        filenames[region_id] = c_f
+        region = self._mouse_watcher_node.get_over_region()
+
+        if region and region.get_name() == region_id:
+            win_props = WindowProperties()
+            win_props.set_cursor_filename(c_f)
+            self._base.win.request_properties(win_props)
 
 
 # the AppManager is responsible for unifying the two main components of the
@@ -7,39 +80,30 @@ class AppManager(object):
 
     def __init__(self, verbose=False):
 
+        self._base = ShowBase()
         self._verbose = verbose
         self._updaters = {}
         self._state_mgrs = {}
         self._key_handlers = {}
-        self._keymap = {}
-        self._mod_key_codes = {}
-        self._format_converters = {}
+        self._cursor_manager = None
+        GlobalData["mod_key_codes"] = {"alt": 1, "ctrl": 2, "shift": 4}
 
-    def setup(self, core_listener, core_key_handlers, core_key_evt_ids,
-              gui_key_handlers, gui_key_evt_ids, gui_mod_key_codes,
-              core_color_max, gui_color_max):
+    def setup(self, listener, key_handlers):
 
-        self._state_mgrs[""] = {"CORE": StateBinder(EventBinder(core_listener)),
-                                "GUI": StateManager()}
+        self._state_mgrs["main"] = {"CORE": StateBinder(EventBinder(listener)),
+                                    "GUI": StateManager()}
+        self._key_handlers["main"] = key_handlers
 
-        self._key_handlers[""] = {"CORE": core_key_handlers, "GUI": gui_key_handlers}
+    def get_base(self):
 
-        self._keymap["CORE"] = dict((v, core_key_evt_ids[k]) for k, v in gui_key_evt_ids.iteritems())
-        self._keymap["GUI"] = dict((v, gui_key_evt_ids[k]) for k, v in core_key_evt_ids.iteritems())
-
-        self._mod_key_codes = gui_mod_key_codes
-
-        core_to_gui = gui_color_max / core_color_max
-        converter = lambda color: None if color is None else tuple(x / core_to_gui for x in color)
-        self._format_converters["CORE"] = {"color": converter}
-        converter = lambda color: None if color is None else tuple(x * core_to_gui for x in color)
-        self._format_converters["GUI"] = {"color": converter}
+        return self._base
 
     def remove_interface(self, interface_id):
 
         self.remove_state_managers(interface_id)
         self.remove_key_handlers(interface_id)
         self.remove_updaters(interface_id)
+        self.remove_cursor_regions(interface_id)
 
     def add_state_manager(self, interface_id, component_id, listener=None):
 
@@ -67,9 +131,9 @@ class AppManager(object):
 
         del self._state_mgrs[interface_id]
 
-    def add_key_handlers(self, interface_id, component_id, key_handlers):
+    def add_key_handlers(self, interface_id, key_handlers):
 
-        self._key_handlers.setdefault(interface_id, {})[component_id] = key_handlers
+        self._key_handlers[interface_id] = key_handlers
 
     def remove_key_handlers(self, interface_id):
 
@@ -78,9 +142,25 @@ class AppManager(object):
         if interface_id in handlers:
             del handlers[interface_id]
 
-    def get_mod_key_code(self, mod_key_id):
+    def init_cursor_manager(self, mouse_watcher):
 
-        return self._mod_key_codes[mod_key_id]
+        self._cursor_manager = CursorManager(self._base, mouse_watcher)
+
+    def add_cursor_region(self, interface_id, mouse_region):
+
+        self._cursor_manager.add_cursor_region(interface_id, mouse_region)
+
+    def remove_cursor_regions(self, interface_id):
+
+        self._cursor_manager.remove_cursor_regions(interface_id)
+
+    def set_cursor_regions_active(self, interface_id, active=True):
+
+        self._cursor_manager.set_cursor_regions_active(interface_id, active)
+
+    def set_cursor(self, region_id, cursor_filename):
+
+        self._cursor_manager.set_cursor(region_id, cursor_filename)
 
     def add_state(self, interface_id, component_id, state_id, persistence,
                   on_enter=None, on_exit=None):
@@ -127,11 +207,11 @@ class AppManager(object):
 
         self._state_mgrs[interface_id]["CORE"].accept(binding_ids, exclusive)
 
-    def add_updater(self, component_id, update_id, updater, param_ids=None):
+    def add_updater(self, component_id, update_id, updater, kwargs=None, interface_id="main"):
         """
         Add an updater for the property with the given update_id, in either the core
         or the GUI.
-        The optional param_ids is a list of parameter names that are defined for
+        The optional kwargs is a list of parameter names that are defined for
         this updater, but not necessarily for other updaters for the same property.
         This list includes names of parameters for which values will be passed as
         keyword arguments, especially parameters that are not defined for at least
@@ -142,8 +222,8 @@ class AppManager(object):
 
         """
 
-        data = (updater, param_ids if param_ids else [])
-        self._updaters.setdefault("", {}).setdefault(
+        data = (updater, kwargs if kwargs else [])
+        self._updaters.setdefault(interface_id, {}).setdefault(
             component_id, {}).setdefault(update_id, []).append(data)
 
     def update(self, component_id, locally, remotely, update_id, *args, **kwargs):
@@ -159,8 +239,14 @@ class AppManager(object):
         """
 
         dest = "GUI" if component_id == "CORE" else "CORE"
-        local_updaters = self._updaters.get("", {}).get(component_id, {}).get(update_id, [])
-        remote_updaters = self._updaters.get("", {}).get(dest, {}).get(update_id, [])
+        local_updaters = []
+        remote_updaters = []
+
+        for updaters in self._updaters.itervalues():
+            local_updaters.extend(updaters.get(component_id, {}).get(update_id, []))
+
+        for updaters in self._updaters.itervalues():
+            remote_updaters.extend(updaters.get(dest, {}).get(update_id, []))
 
         if locally:
             for updater, param_ids in local_updaters:
@@ -171,17 +257,6 @@ class AppManager(object):
             for updater, param_ids in remote_updaters:
                 _kwargs = dict((k, v) for k, v in kwargs.iteritems() if k in param_ids)
                 updater(*args, **_kwargs)
-
-    def add_interface_updater(self, interface_id, component_id, update_id, updater,
-                              param_ids=None):
-        """
-        Same as add_updater(), but for a specific interface.
-
-        """
-
-        data = (updater, param_ids if param_ids else [])
-        self._updaters.setdefault(interface_id, {}).setdefault(
-            component_id, {}).setdefault(update_id, []).append(data)
 
     def update_interface(self, interface_id, component_id, locally, remotely,
                          update_id, *args, **kwargs):
@@ -213,46 +288,10 @@ class AppManager(object):
         if interface_id in self._updaters:
             del self._updaters[interface_id]
 
-    def convert_to_format(self, component_id, format_type, data):
+    def handle_key_down(self, interface_id, key_code):
 
-        dest = "GUI" if component_id == "CORE" else "CORE"
+        return self._key_handlers[interface_id]["down"](key_code)
 
-        return self._format_converters[dest][format_type](data)
+    def handle_key_up(self, interface_id, key_code):
 
-    def convert_from_format(self, component_id, format_type, data):
-
-        return self._format_converters[component_id][format_type](data)
-
-    def remotely_handle_key_down(self, interface_id, component_id, key_code):
-
-        dest = "GUI" if component_id == "CORE" else "CORE"
-
-        if key_code not in self._keymap[dest]:
-
-            if "mouse" not in str(key_code):
-
-                logging.warning('The pressed key "%s" is not defined.', str(key_code))
-
-                if self._verbose:
-                    print "The pressed key is not defined:", key_code
-
-            return
-
-        return self._key_handlers[interface_id][dest]["down"](self._keymap[dest][key_code])
-
-    def remotely_handle_key_up(self, interface_id, component_id, key_code):
-
-        dest = "GUI" if component_id == "CORE" else "CORE"
-
-        if key_code not in self._keymap[dest]:
-
-            if "mouse" not in str(key_code):
-
-                logging.warning('The released key "%s" is not defined.', str(key_code))
-
-                if self._verbose:
-                    print "The released key is not defined:", key_code
-
-            return
-
-        return self._key_handlers[interface_id][dest]["up"](self._keymap[dest][key_code])
+        return self._key_handlers[interface_id]["up"](key_code)

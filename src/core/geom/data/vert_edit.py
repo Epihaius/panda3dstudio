@@ -326,7 +326,7 @@ class VertexEditManager(BaseObject):
             if obj_id in changed_selections:
                 obj_data[obj_id].update(geom_data_obj.get_property_to_store("subobj_selection"))
 
-        event_descr = "%s vertex selection" % ("Smooth" if smooth else "Sharpen")
+        event_descr = "{} vertex selection".format("Smooth" if smooth else "Sharpen")
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 

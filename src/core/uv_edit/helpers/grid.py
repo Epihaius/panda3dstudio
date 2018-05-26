@@ -49,18 +49,18 @@ class Grid(BaseObject):
 
         def update_remotely():
 
-            Mgr.update_interface_remotely("uv_window", "uv_background", "tex_filename",
+            Mgr.update_interface_remotely("uv", "uv_background", "tex_filename",
                                           self._background_tex_filename)
-            Mgr.update_interface_remotely("uv_window", "uv_background", "brightness",
+            Mgr.update_interface_remotely("uv", "uv_background", "brightness",
                                           self._background_brightness)
-            Mgr.update_interface_remotely("uv_window", "uv_background", "tiling",
+            Mgr.update_interface_remotely("uv", "uv_background", "tiling",
                                           self._background_tiling)
 
         UVMgr.accept("remotely_update_background", update_remotely)
 
     def add_interface_updaters(self):
 
-        Mgr.add_interface_updater("uv_window", "uv_background", self.__update_background)
+        Mgr.add_app_updater("uv_background", self.__update_background, interface_id="uv")
 
     def __update_background(self, value_id, value):
 
@@ -85,7 +85,7 @@ class Grid(BaseObject):
             self._background_on_models = value
             self.__show_background_on_models(value)
 
-        Mgr.update_interface_remotely("uv_window", "uv_background", value_id, value)
+        Mgr.update_interface_remotely("uv", "uv_background", value_id, value)
 
     def __show_background_on_models(self, show):
 

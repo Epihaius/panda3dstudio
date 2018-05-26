@@ -1,5 +1,6 @@
 from ...base import *
 from ...panel import *
+from ...button import *
 
 
 class ObjectTypes(object):
@@ -27,52 +28,49 @@ class PropertyPanel(Panel):
 
         cls._property_classes[obj_type] = properties
 
-    def __init__(self, parent):
+    def __init__(self, stack):
 
-        Panel.__init__(self, parent, "Object properties")
+        Panel.__init__(self, stack, "obj_props", "Object properties")
 
         self._obj_types = ()
         self._sel_obj_types = ()
         self._sel_obj_count = 0
-        self._parent = parent
-        self._width = parent.get_width()
 
         self._colors = {
-            "disabled": wx.Colour(127, 127, 127),
-            "custom": wx.Colour(255, 255, 0)
+            "disabled": (.5, .5, .5, 1.),
+            "custom": (1., 1., 0., 1.)
         }
         self._checkboxes = {}
         self._radio_btns = {}
         self._comboboxes = {}
 
-        self.GetSizer().SetMinSize(wx.Size(self._width, 1))
-        self._parent.GetSizer().Add(self)
-
         # ************************* Selection section **************************
 
-        sel_section = section = self.add_section("selection", "Selection")
+        section = self.add_section("selection", "Selection")
 
-        radio_btns = PanelRadioButtonGroup(self, section, "Choice from name box")
+        group = section.add_group("Choice from name box")
+        radio_btns = PanelRadioButtonGroup(group, columns=1)
         radio_btns.add_button("deselect", "Deselect")
         radio_btns.add_button("deselect_others", "Deselect others")
         radio_btns.add_button("center", "Center in view")
         radio_btns.set_selected_button("deselect_others")
+        group.add(radio_btns.get_sizer())
         self._radio_btns["selection"] = radio_btns
 
         # **************************** ID section ******************************
 
-        id_section = section = self.add_section("id", "Name and color")
-        section_sizer = section.get_client_sizer()
-        sizer = wx.BoxSizer()
-        section_sizer.Add(sizer)
+        section = self.add_section("id", "Name and color")
 
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
-        combobox = EditablePanelComboBox(self, section, sizer, "Selected object(s)", 130,
-                                         sizer_args=sizer_args)
+        sizer = Sizer("horizontal")
+        section.add(sizer, expand=True)
+
+        combobox = PanelComboBox(section, 120, tooltip_text="Selected object(s)", editable=True)
         combobox.add_disabler("creating", lambda: GlobalData["active_creation_type"])
         combobox.enable(False)
         val_id = "name"
         self._comboboxes[val_id] = combobox
+        borders = (5, 10, 0, 0)
+        sizer.add(combobox, proportion=1., alignment="center_v", borders=borders)
         field = combobox.get_input_field()
         field.add_value(val_id, "string", handler=self.__handle_value)
         field.set_input_init(val_id, self.__init_input)
@@ -81,104 +79,85 @@ class PropertyPanel(Panel):
         field.enable(False)
         field.set_input_parser(val_id, self.__parse_object_name)
         self._name_field = field
-        sizer.Add((5, 0))
-        self._color_picker = PanelColorPickerCtrl(self, section, sizer, self.__handle_color,
-                                                  sizer_args=sizer_args)
-        self._color_picker.show_color("none")
-        self._color_picker.Enable(False)
+
+        title = "Pick object color"
+        self._colorbox = colorbox = PanelColorBox(section, self.__handle_color, dialog_title=title)
+        colorbox.set_color_type("")
+        colorbox.enable(False)
+        borders = (0, 5, 0, 0)
+        sizer.add(colorbox, alignment="center_v", borders=borders)
 
         # ************************* Creation section ***************************
 
-        create_section = section = self.add_section("create", "Creation")
+        section = self.add_section("create", "Creation", hidden=True)
 
-        yellow = wx.Colour(255, 255, 0)
-        radio_btns = PanelRadioButtonGroup(self, section, "Position", dot_color=yellow)
+        group = section.add_group("Position")
+        color = (1., 1., 0., 1.)
+        radio_btns = PanelRadioButtonGroup(group, bullet_color=color, columns=1)
         radio_btns.add_button("grid_pos", "Coord. system origin")
         radio_btns.add_button("cam_target_pos", "Camera target")
         radio_btns.set_selected_button("grid_pos")
         self._radio_btns["creation"] = radio_btns
+        group.add(radio_btns.get_sizer())
 
-        sizer = section.get_client_sizer()
-
-        bitmap_paths = PanelButton.get_bitmap_paths("panel_button")
-
-        label = "Create object"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        sizer_args = (0, wx.ALIGN_CENTER_HORIZONTAL)
-        btn = PanelButton(self, section, sizer, bitmaps, label, "",
-                          self.__create_object, sizer_args)
+        text = "Create object"
+        btn = PanelButton(section, text, command=self.__create_object)
+        borders = (0, 0, 0, 10)
+        section.add(btn, alignment="center_h", borders=borders)
 
         for obj_type, prop_cls in self._property_classes.iteritems():
             self._properties[obj_type] = prop_cls(self)
 
         # ********************** Surface properties section ********************
 
-        surface_section = section = self.add_section("surface_props", "Surface properties")
-        sizer = section.get_client_sizer()
+        section = self.add_section("surface_props", "Surface properties", hidden=True)
 
-        sizer.Add(wx.Size(0, 4))
+        subsizer = Sizer("horizontal")
+        borders = (0, 0, 0, 4)
+        section.add(subsizer, alignment="center_h", borders=borders)
 
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
-
-        subsizer = wx.BoxSizer()
-        sizer.Add(subsizer, 0, wx.ALIGN_CENTER_HORIZONTAL)
         command = lambda on: Mgr.update_remotely("normal_flip", on)
-        checkbox = PanelCheckBox(self, self, subsizer, command, sizer_args=sizer_args)
+        checkbox = PanelCheckBox(section, command)
         checkbox.check(False)
         self._checkboxes["normal_flip"] = checkbox
-        section.add_text("Invert (render inside-out)", subsizer, sizer_args)
+        borders = (2, 2, 2, 2)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Invert (render inside-out)"
+        subsizer.add(PanelText(section, text), alignment="center_v", borders=borders)
 
-        sizer.Add(wx.Size(0, 8))
+        section.add((0, 8))
 
         group = section.add_group("Tangent space")
-        grp_sizer = group.get_client_sizer()
-        sizer_args = (0, wx.ALIGN_CENTER_VERTICAL)
-
-        subsizer = wx.FlexGridSizer(rows=0, cols=2, hgap=5)
-        grp_sizer.Add(subsizer)
+        subsizer = Sizer("horizontal")
+        group.add(subsizer)
         command = lambda on: Mgr.update_remotely("tangent_flip", on)
-        checkbox = PanelCheckBox(self, group, subsizer, command)
+        checkbox = PanelCheckBox(group, command)
         checkbox.check(False)
         self._checkboxes["tangent_flip"] = checkbox
-        group.add_text("Flip tangent vectors", subsizer, sizer_args)
+        borders = (0, 5, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Flip tangent vectors"
+        subsizer.add(PanelText(group, text), alignment="center_v")
+        subsizer = Sizer("horizontal")
+        group.add(subsizer)
         command = lambda on: Mgr.update_remotely("bitangent_flip", on)
-        checkbox = PanelCheckBox(self, group, subsizer, command)
+        checkbox = PanelCheckBox(group, command)
         checkbox.check(False)
         self._checkboxes["bitangent_flip"] = checkbox
-        group.add_text("Flip bitangent vectors", subsizer, sizer_args)
+        borders = (0, 5, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = "Flip bitangent vectors"
+        subsizer.add(PanelText(group, text), alignment="center_v")
 
         # **********************************************************************
 
-        sizer = self.get_bottom_ctrl_sizer()
-        sizer_args = (0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
-
-        label = "Make geometry editable"
-        bitmaps = PanelButton.create_button_bitmaps("*%s" % label, bitmap_paths)
-        PanelButton(self, self, sizer, bitmaps, label, "Turn into editable geometry",
-                    self.__make_editable, sizer_args)
-
-        parent.add_panel(self)
-        self.update()
-        self.finalize()
-
-        def finalize_sections():
-
-            sel_section.expand(False)
-            create_section.set_title_hilite_color((1., 1., .5, .65))
-            create_section.set_title_hilited()
-            create_section.expand(False)
-            surface_section.expand(False)
-            self.show_section("create", False, update=False)
-            self.show_section("surface_props", False, update=False)
-            self.show_bottom_controls(False, update=False)
-
-            for props in self._properties.itervalues():
-                for section_id in props.get_section_ids():
-                    self.show_section(section_id, False, update=False)
-
-            self.update_parent()
-
-        wx.CallAfter(finalize_sections)
+        bottom_container = self.get_bottom_container()
+        text = "Unlock geometry"
+        tooltip_text = "Enable subobject editing"
+        command = self.__unlock_geometry
+        btn = PanelButton(bottom_container, text, "", tooltip_text, command)
+        borders = (10, 10, 10, 10)
+        bottom_container.add(btn, alignment="center_h", borders=borders)
 
         def set_obj_prop(obj_type, prop_id, value):
 
@@ -195,7 +174,7 @@ class PropertyPanel(Panel):
             if obj_type:
                 self._properties[obj_type].set_object_property_default(prop_id, value)
 
-        Mgr.add_app_updater("selected_obj_types", self.show)
+        Mgr.add_app_updater("selected_obj_types", self.__show)
         Mgr.add_app_updater("selected_obj_prop", set_obj_prop)
         Mgr.add_app_updater("obj_prop_default", set_obj_prop_default)
         Mgr.add_app_updater("interactive_creation", self.__update_sections)
@@ -211,27 +190,12 @@ class PropertyPanel(Panel):
         for props in self._properties.itervalues():
             props.setup()
 
-    def get_clipping_rect(self):
+        self.get_section("selection").expand(False)
+        self.get_section("create").expand(False)
+        self.get_section("surface_props").expand(False)
+        self.show_container("bottom", False)
 
-        panel_rect = self.GetRect()
-        width, height = panel_rect.size
-        y_orig = self.GetParent().GetPosition()[1] + panel_rect.y
-        clipping_rect = wx.Rect(0, -y_orig, *self.GetGrandParent().GetSize())
-
-        return clipping_rect
-
-    def update_layout(self):
-
-        def task():
-
-            self._parent.Refresh()
-            self.GetSizer().Layout()
-            self.update_parent()
-
-        task_id = "update_props_panel"
-        PendingTasks.add(task, task_id, sort=100)
-
-    def __make_editable(self):
+    def __unlock_geometry(self):
 
         Mgr.update_remotely("geometry_access")
 
@@ -244,31 +208,29 @@ class PropertyPanel(Panel):
 
         if creation_status == "started":
 
-            self.show_section("create", update=False)
-            self.show_bottom_controls(False, update=False)
-            self.show_section("surface_props", False, update=False)
+            self.get_section("create").show()
+            self.show_container("bottom", False)
+            self.get_section("surface_props").hide()
 
             for section_id in extra_section_ids:
-                self.show_section(section_id, False, update=False)
+                self.get_section(section_id).hide()
 
         elif creation_status == "ended":
 
             if self._sel_obj_count == 1:
                 for section_id in extra_section_ids:
-                    self.show_section(section_id, update=False)
+                    self.get_section(section_id).show()
 
             props = self._properties
             base_types = set(props[o_type].get_base_type() for o_type in obj_types)
 
-            if base_types == set(["primitive"]):
-                self.show_bottom_controls(update=False)
+            if base_types and not base_types - set(["primitive", "basic_geom"]):
+                self.show_container("bottom")
 
             if base_types and not base_types - set(["primitive", "editable_geom", "basic_geom"]):
-                self.show_section("surface_props", update=False)
+                self.get_section("surface_props").show()
 
-            self.show_section("create", False, update=False)
-
-        self.update_layout()
+            self.get_section("create").hide()
 
     def __init_input(self):
 
@@ -318,7 +280,7 @@ class PropertyPanel(Panel):
         count = len(names)
 
         if count > 1:
-            name = "%s Objects selected" % count
+            name = "{:d} Objects selected".format(count)
             combobox.add_item(None, name, lambda: None)
 
         get_command = lambda obj_id: lambda: self.__update_selection(obj_id)
@@ -329,35 +291,35 @@ class PropertyPanel(Panel):
         if count == 1:
             name = names.popitem()[1]
         else:
-            name = "%s Objects selected" % count
+            name = "{:d} Objects selected".format(count)
 
-        self._name_field.set_value("name", name)
+        combobox.update_popup_menu()
+        self._name_field.set_value("name", name, handle_value=False)
         self._name_field.show_text()
 
     def __set_next_object_name(self, name):
 
-        self._name_field.enable()
+        self._name_field.enable(ignore_parent=True)
         self._name_field.set_text_color(self._colors["custom"])
-        self._name_field.set_value("name", name)
+        self._name_field.set_value("name", name, handle_value=False)
         self._name_field.show_text()
 
     def __handle_color(self, color):
 
-        color_values = Mgr.convert_to_remote_format("color", color.Get())
+        r, g, b = color
 
         if GlobalData["active_creation_type"]:
             obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
-            GlobalData["next_%s_color" % obj_type] = color_values
-            self._color_picker.set_color(color_values)
+            GlobalData["next_{}_color".format(obj_type)] = color
         else:
-            Mgr.update_remotely("selected_obj_color", color_values)
+            Mgr.update_remotely("selected_obj_color", color)
 
-    def __set_object_color(self, color_values):
+    def __set_object_color(self, color):
 
         if GlobalData["active_creation_type"] != "":
             return
 
-        self._color_picker.set_color(color_values)
+        self._colorbox.set_color(color[:3])
 
     def __set_next_object_color(self):
 
@@ -366,12 +328,12 @@ class PropertyPanel(Panel):
         if not obj_type or obj_type == "editable_geom":
             return
 
-        next_color = GlobalData["next_%s_color" % obj_type]
-        self._color_picker.Enable(True if next_color else False)
-        self._color_picker.show_color("single" if next_color else "none")
+        next_color = GlobalData["next_{}_color".format(obj_type)]
+        self._colorbox.enable(True if next_color else False)
+        self._colorbox.set_color_type("single" if next_color else "")
 
         if next_color:
-            self._color_picker.set_color(next_color)
+            self._colorbox.set_color(next_color)
 
     def __check_selection_count(self, on_enable=False):
 
@@ -417,12 +379,10 @@ class PropertyPanel(Panel):
 
                 if sel_count > 1:
                     for section_id in extra_section_ids:
-                        self.show_section(section_id, False, update=False)
+                        self.get_section(section_id).hide()
                 else:
                     for section_id in extra_section_ids:
-                        self.show_section(section_id, True, update=False)
-
-                self.update_layout()
+                        self.get_section(section_id).show()
 
     def __check_selection_color_count(self):
 
@@ -431,11 +391,11 @@ class PropertyPanel(Panel):
 
         if GlobalData["active_obj_level"] == "top":
             count = GlobalData["sel_color_count"]
-            self._color_picker.Enable(count > 0)
-            self._color_picker.show_color(("single" if count == 1 else "multiple")
-                                          if count > 0 else "none")
+            self._colorbox.enable(count > 0)
+            self._colorbox.set_color_type(("single" if count == 1 else "multi")
+                                          if count > 0 else "")
         else:
-            self._color_picker.Enable(False)
+            self._colorbox.enable(False)
 
     def __create_object(self):
 
@@ -456,18 +416,10 @@ class PropertyPanel(Panel):
 
         if GlobalData["active_creation_type"]:
             self._name_field.enable()
-            self._color_picker.enable()
+            self._colorbox.enable()
         else:
             self.__check_selection_count(on_enable=True)
             self.__check_selection_color_count()
-
-    def disable(self, show=True):
-
-        if not Panel.disable(self, show):
-            return
-
-        self._name_field.enable(False)
-        self._color_picker.disable()
 
     def get_width(self):
 
@@ -477,7 +429,7 @@ class PropertyPanel(Panel):
 
         return self._width - self.get_client_offset() * 2
 
-    def show(self, obj_types):
+    def __show(self, obj_types):
 
         creation_type = GlobalData["active_creation_type"]
         new_types = set([creation_type]) if creation_type else set(obj_types)
@@ -499,37 +451,35 @@ class PropertyPanel(Panel):
         in_creation_mode = creation_type != ""
 
         for section_id in next_section_ids:
-            self.show_section(section_id, update=False)
+            self.get_section(section_id).show()
 
         base_types = set(props[o_type].get_base_type() for o_type in obj_types)
 
-        if base_types == set(["primitive"]):
-            self.show_bottom_controls(update=False)
+        if base_types and not base_types - set(["primitive", "basic_geom"]):
+            self.show_container("bottom")
         else:
-            self.show_bottom_controls(False, update=False)
+            self.show_container("bottom", False)
 
         if base_types and not base_types - set(["primitive", "editable_geom", "basic_geom"]):
-            self.show_section("surface_props", update=False)
+            self.get_section("surface_props").show()
         else:
-            self.show_section("surface_props", False, update=False)
+            self.get_section("surface_props").hide()
 
         if in_creation_mode:
 
-            self.show_bottom_controls(False, update=False)
-            self.show_section("surface_props", False, update=False)
+            self.show_container("bottom", False)
+            self.get_section("surface_props").hide()
 
             for section_id in extra_section_ids:
-                self.show_section(section_id, False, update=False)
+                self.get_section(section_id).hide()
 
         for section_id in prev_section_ids:
-            self.show_section(section_id, False, update=False)
+            self.get_section(section_id).hide()
 
         self._obj_types = obj_types
 
         if in_creation_mode:
-            self._color_picker.show_color("single")
+            self._colorbox.set_color_type("single")
             self.__set_next_object_color()
-        else:
-            self._sel_obj_types = obj_types
 
-        self.update_layout()
+        self._sel_obj_types = obj_types

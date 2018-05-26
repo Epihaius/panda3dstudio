@@ -83,7 +83,7 @@ class TemporaryTexProjector(object):
 
         for proj_type in ("orthographic", "perspective"):
 
-            vertex_data = GeomVertexData("tex_proj_lens_%s_viz_data" % proj_type,
+            vertex_data = GeomVertexData("tex_proj_lens_{}_viz_data".format(proj_type),
                                          vertex_format, Geom.UH_static)
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -98,7 +98,7 @@ class TemporaryTexProjector(object):
 
             geom = Geom(vertex_data)
             geom.add_primitive(lines)
-            node = GeomNode("tex_proj_lens_%s_viz" % proj_type)
+            node = GeomNode("tex_proj_lens_{}_viz".format(proj_type))
             node.add_geom(geom)
             lens_viz = tmp_geom.attach_new_node(node)
             lens_viz.hide(Mgr.get("picking_masks")["all"])
@@ -156,7 +156,7 @@ class TemporaryTexProjector(object):
         else:
             tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
 
-        lens_viz = tmp_geom.find("**/tex_proj_lens_%s_viz" % projection_type)
+        lens_viz = tmp_geom.find("**/tex_proj_lens_{}_viz".format(projection_type))
         lens_viz.show()
 
     def __del__(self):
@@ -344,7 +344,7 @@ class TexProjector(TopLevelObject):
         for proj_type in ("orthographic", "perspective"):
 
             vertex_format = GeomVertexFormat.get_v3cp()
-            vertex_data = GeomVertexData("tex_proj_lens_%s_viz_data" % proj_type,
+            vertex_data = GeomVertexData("tex_proj_lens_{}_viz_data".format(proj_type),
                                          vertex_format, Geom.UH_static)
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -359,7 +359,7 @@ class TexProjector(TopLevelObject):
 
             geom = Geom(vertex_data)
             geom.add_primitive(lines)
-            node = GeomNode("tex_proj_lens_%s_viz" % proj_type)
+            node = GeomNode("tex_proj_lens_{}_viz".format(proj_type))
             node.add_geom(geom)
             lens_viz = parent.attach_new_node(node)
             lens_viz.hide(Mgr.get("picking_masks")["all"])
@@ -469,7 +469,7 @@ class TexProjector(TopLevelObject):
 
         self._subobj_root = subobj_root = self.original.copy_to(origin)
         self._body = subobj_root.find("**/tex_proj_body")
-        self._lens_viz = dict((proj_type, subobj_root.find("**/tex_proj_lens_%s_viz" % proj_type))
+        self._lens_viz = dict((proj_type, subobj_root.find("**/tex_proj_lens_{}_viz".format(proj_type)))
                               for proj_type in ("orthographic", "perspective"))
         self._lens_viz[projection_type].show()
         self._tripod = subobj_root.find("**/tex_proj_tripod")
@@ -549,13 +549,13 @@ class TexProjector(TopLevelObject):
         TopLevelObject.register(self)
 
         obj_type = "tex_proj_edge"
-        Mgr.do("register_%s_objs" % obj_type, self._edges.itervalues(), restore)
+        Mgr.do("register_{}_objs".format(obj_type), self._edges.itervalues(), restore)
 
     def unregister(self, unregister=True):
 
         if unregister:
             obj_type = "tex_proj_edge"
-            Mgr.do("unregister_%s_objs" % obj_type, self._edges.itervalues())
+            Mgr.do("unregister_{}_objs".format(obj_type), self._edges.itervalues())
 
         Mgr.do("unregister_texproj_targets", self._targets.iterkeys())
 
@@ -830,7 +830,7 @@ class TexProjector(TopLevelObject):
                 task = lambda: restore_on(value)
                 task_id = "update_texproj"
                 PendingTasks.add(task, task_id, "object",
-                                 id_prefix="on_%s" % (self.get_id(),))
+                                 id_prefix="on_{}".format(self.get_id()))
             elif self.set_on(value):
                 update_app()
                 return True
@@ -863,7 +863,7 @@ class TexProjector(TopLevelObject):
                 task = lambda: restore_proj_targets(value)
                 task_id = "update_texproj"
                 PendingTasks.add(task, task_id, "object",
-                                 id_prefix="targets_%s" % (self.get_id(),))
+                                 id_prefix="targets_{}".format(self.get_id()))
             elif self.set_projection_targets(value):
                 update_app()
                 return True
@@ -989,10 +989,10 @@ class TexProjector(TopLevelObject):
             obj_data[target_id] = target.get_data_to_store("prop_change", "uvs")
 
         if len(targets) > 1:
-            event_descr = 'Apply projected UVs to "%s" targets:\n' % self.get_name()
-            event_descr += "".join(['\n    "%s"' % name for name in names])
+            event_descr = 'Apply projected UVs to "{}" targets:\n'.format(self.get_name())
+            event_descr += "".join(['\n    "{}"'.format(name) for name in names])
         else:
-            event_descr = 'Apply projected UVs to "%s" target:\n    "%s"' % (
+            event_descr = 'Apply projected UVs to "{}" target:\n    "{}"'.format(
                 self.get_name(), names[0])
 
         event_data = {"objects": obj_data}
@@ -1150,7 +1150,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
     def __enter_picking_mode(self, prev_state_id, is_active):
 
         Mgr.add_task(self.__update_cursor, "update_tpt_picking_cursor")
-        Mgr.update_app("status", "pick_texproj_target")
+        Mgr.update_app("status", ["pick_texproj_target"])
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
@@ -1321,10 +1321,10 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
             if len(changed_objs) == 1:
                 obj = changed_objs[0]
-                event_descr = 'Turn %s "%s"' % ("on" if value else "off", obj.get_name())
+                event_descr = 'Turn {} "{}"'.format("on" if value else "off", obj.get_name())
             else:
-                event_descr = 'Turn %s texture projectors:\n' % ("on" if value else "off")
-                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
+                event_descr = 'Turn {} texture projectors:\n'.format("on" if value else "off")
+                event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
 
         elif prop_id == "targets":
 
@@ -1335,31 +1335,31 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
                 target_data = value[target_id]
 
             if target_prop == "add":
-                event_descr = 'Add projection target to "%s":\n' % obj.get_name()
-                event_descr += '\n    "%s"' % target_name
+                event_descr = 'Add projection target to "{}":\n'.format(obj.get_name())
+                event_descr += '\n    "{}"'.format(target_name)
             elif target_prop == "remove":
                 if target_name:
-                    event_descr = 'Remove projection target from "%s":\n' % obj.get_name()
-                    event_descr += '\n    "%s"' % target_name
+                    event_descr = 'Remove projection target from "{}":\n'.format(obj.get_name())
+                    event_descr += '\n    "{}"'.format(target_name)
                 else:
-                    event_descr = 'Remove deleted projection target from "%s"' % obj.get_name()
+                    event_descr = 'Remove deleted projection target from "{}"'.format(obj.get_name())
             elif target_prop == "clear":
-                event_descr = 'Clear projection targets from "%s"' % obj.get_name()
+                event_descr = 'Clear projection targets from "{}"'.format(obj.get_name())
             elif target_prop == "use_poly_sel":
-                event_descr = 'Change projection property of "%s"' % obj.get_name()
-                event_descr += '\nfor target "%s":\n' % target_name
-                event_descr += "\n    project onto %s" % ("entire target"
+                event_descr = 'Change projection property of "{}"'.format(obj.get_name())
+                event_descr += '\nfor target "{}":\n'.format(target_name)
+                event_descr += "\n    project onto {}".format("entire target"
                     if target_data["toplvl"] else "selected polys only")
             elif target_prop == "show_poly_sel":
-                event_descr = 'Change projection property of "%s"' % obj.get_name()
-                event_descr += '\nfor target "%s":\n' % target_name
-                event_descr += "\n    %s selection state of affected polys" % ("show"
+                event_descr = 'Change projection property of "{}"'.format(obj.get_name())
+                event_descr += '\nfor target "{}":\n'.format(target_name)
+                event_descr += "\n    {} selection state of affected polys".format("show"
                     if target_data["show_poly_sel"] else "hide")
             elif target_prop == "uv_set_ids":
                 uv_set_id_str = str(target_data["uv_set_ids"]).strip("(),")
-                event_descr = 'Change projection property of "%s"' % obj.get_name()
-                event_descr += '\nfor target "%s":\n' % target_name
-                event_descr += "\n    affect UV sets: %s" % uv_set_id_str
+                event_descr = 'Change projection property of "{}"'.format(obj.get_name())
+                event_descr += '\nfor target "{}":\n'.format(target_name)
+                event_descr += "\n    affect UV sets: {}".format(uv_set_id_str)
 
         else:
 
@@ -1378,11 +1378,11 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
             if len(changed_objs) == 1:
                 obj = changed_objs[0]
-                event_descr = 'Change %s of "%s"\nto %s' % (prop_descr, obj.get_name(), value)
+                event_descr = 'Change {} of "{}"\nto {}'.format(prop_descr, obj.get_name(), value)
             else:
-                event_descr = 'Change %s of texture projectors:\n' % prop_descr
-                event_descr += "".join(['\n    "%s"' % obj.get_name() for obj in changed_objs])
-                event_descr += '\n\nto %s' % value
+                event_descr = 'Change {} of texture projectors:\n'.format(prop_descr)
+                event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
+                event_descr += '\n\nto {}'.format(value)
 
         event_data = {"objects": obj_data}
 

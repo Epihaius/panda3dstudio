@@ -199,7 +199,7 @@ class VertexEditManager(BaseObject):
 
     def setup(self):
 
-        Mgr.add_interface_updater("uv_window", "vert_break", self.__break_vertices)
+        Mgr.add_app_updater("vert_break", self.__break_vertices, interface_id="uv")
 
     def __break_vertices(self):
 

@@ -180,39 +180,62 @@ class UVSelectionBase(BaseObject):
         UVMgr.accept("update_sel_obj_ids", self.__update_selected_object_ids)
         UVMgr.accept("update_active_selection", self.__update_active_selection)
 
+        GlobalData["status_data"]["select_uvs"] = status_data = {}
+        info_start = "RMB to pan, MWheel or LMB+RMB to zoom; (<Ctrl>-)LMB to (toggle-)select subobjects; "
+        info_text = info_start + "<W>, <E>, <R> to set transform type"
+        status_data[""] = {"mode": "Select UVs", "info": info_text}
+        info_idle = info_start + "LMB-drag selection or gizmo handle to transform;" \
+            " <Q> to disable transforms"
+        info_text = "LMB-drag to transform selection; RMB to cancel transformation"
+
+        for transf_type in ("translate", "rotate", "scale"):
+            mode_text = "Select and {} UVs".format(transf_type)
+            status_data[transf_type] = {}
+            status_data[transf_type]["idle"] = {"mode": mode_text, "info": info_idle}
+            status_data[transf_type]["in_progress"] = {"mode": mode_text, "info": info_text}
+
     def setup(self):
 
         add_state = Mgr.add_state
         add_state("uv_edit_mode", 0, self.__enter_selection_mode, self.__exit_selection_mode,
-                  interface_id="uv_window")
+                  interface_id="uv")
         add_state("checking_mouse_offset", -1, self.__start_mouse_check,
-                  interface_id="uv_window")
+                  interface_id="uv")
         add_state("picking_via_poly", -1, self.__start_subobj_picking_via_poly,
-                  interface_id="uv_window")
+                  interface_id="uv")
 
         bind = Mgr.bind_state
         bind("uv_edit_mode", "normal select uvs",
-             "mouse1", self.__select, "uv_window")
-        mod_ctrl = Mgr.get("mod_ctrl")
-        bind("uv_edit_mode", "toggle-select uvs", "%d|mouse1" % mod_ctrl,
-             lambda: self.__select(toggle=True), "uv_window")
+             "mouse1", self.__select, "uv")
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("uv_edit_mode", "toggle-select uvs", "{:d}|mouse1".format(mod_ctrl),
+             lambda: self.__select(toggle=True), "uv")
+        bind("uv_edit_mode", "transf off", "q",
+             self.__set_active_transform_off, "uv")
         bind("picking_via_poly", "select subobj via poly",
-             "mouse1-up", self.__select_subobj_via_poly, "uv_window")
+             "mouse1-up", self.__select_subobj_via_poly, "uv")
         bind("picking_via_poly", "cancel subobj select via poly",
-             "mouse3-up", self.__cancel_select_via_poly, "uv_window")
+             "mouse3-up", self.__cancel_select_via_poly, "uv")
 
         def cancel_mouse_check():
 
-            Mgr.enter_state("uv_edit_mode", "uv_window")
+            Mgr.enter_state("uv_edit_mode", "uv")
             self.__cancel_mouse_check()
 
         bind("checking_mouse_offset", "cancel mouse check uvs", "mouse1-up",
-             cancel_mouse_check, "uv_window")
+             cancel_mouse_check, "uv")
 
     def __enter_selection_mode(self, prev_state_id, is_active):
 
         Mgr.add_task(self.__update_cursor, "update_cursor_uvs", sort=2)
         self._transf_gizmo.enable()
+
+        transf_type = GlobalData["active_uv_transform_type"]
+
+        if transf_type:
+            Mgr.update_app("status", ["select_uvs", transf_type, "idle"], "uv")
+        else:
+            Mgr.update_app("status", ["select_uvs", ""], "uv")
 
     def __exit_selection_mode(self, next_state_id, is_active):
 
@@ -221,9 +244,9 @@ class UVSelectionBase(BaseObject):
                                             # next time self.__update_cursor()
                                             # is called
             Mgr.remove_task("update_cursor_uvs")
-            self._set_cursor("main")
+            Mgr.set_cursor("main", "viewport2")
 
-        self._transf_gizmo.disable()
+        self._transf_gizmo.enable(False)
 
     def __update_cursor(self, task):
 
@@ -279,10 +302,19 @@ class UVSelectionBase(BaseObject):
                     if active_transform_type:
                         cursor_id = active_transform_type
 
-            self._set_cursor(cursor_id)
+                gizmo_cursor_id = GlobalData["uv_cursor"]
+                cursor_id = gizmo_cursor_id if gizmo_cursor_id else cursor_id
+
+            Mgr.set_cursor(cursor_id, "viewport2")
             self._pixel_under_mouse = pixel_under_mouse
 
         return task.cont
+
+    def __set_active_transform_off(self):
+
+        GlobalData["active_uv_transform_type"] = ""
+        Mgr.update_interface("uv", "active_transform_type", "")
+        Mgr.update_app("status", ["select_uvs", ""], "uv")
 
     def __update_selected_object_ids(self, obj_ids):
 
@@ -315,7 +347,7 @@ class UVSelectionBase(BaseObject):
 
         """
 
-        mouse_pointer = self._window.get_pointer(0)
+        mouse_pointer = Mgr.get("base").win.get_pointer(0)
         mouse_x = mouse_pointer.get_x()
         mouse_y = mouse_pointer.get_y()
         mouse_start_x, mouse_start_y = self._mouse_start_pos
@@ -361,7 +393,7 @@ class UVSelectionBase(BaseObject):
             return
 
         self._can_select_single = False
-        mouse_pointer = self._window.get_pointer(0)
+        mouse_pointer = Mgr.get("base").win.get_pointer(0)
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
         obj_lvl = self._obj_lvl
 
@@ -379,8 +411,8 @@ class UVSelectionBase(BaseObject):
         if pickable_type == "transf_gizmo":
             transf_type = picked_obj.get_transform_type()
             GlobalData["active_uv_transform_type"] = transf_type
-            Mgr.update_interface("uv_window", "active_transform_type", transf_type)
-            Mgr.enter_state("checking_mouse_offset", "uv_window")
+            Mgr.update_interface("uv", "active_transform_type", transf_type)
+            Mgr.enter_state("checking_mouse_offset", "uv")
             return
 
         if obj_lvl == "vert":
@@ -422,7 +454,7 @@ class UVSelectionBase(BaseObject):
 
         if self._picked_poly:
             self._toggle_select = toggle
-            Mgr.enter_state("picking_via_poly", "uv_window")
+            Mgr.enter_state("picking_via_poly", "uv")
             return
 
         self._color_id = obj.get_picking_color_id() if obj else None
@@ -430,9 +462,9 @@ class UVSelectionBase(BaseObject):
         if toggle:
             self.__toggle_select()
         else:
-            self.__default_select()
+            self.__regular_select()
 
-    def __default_select(self, check_mouse=True, ignore_transform=False):
+    def __regular_select(self, check_mouse=True, ignore_transform=False):
 
         obj_lvl = self._obj_lvl
         uv_set_id = self._uv_set_id
@@ -472,7 +504,7 @@ class UVSelectionBase(BaseObject):
                     self._world_sel_mgr.sync_selection(color_ids)
 
                 if check_mouse:
-                    Mgr.enter_state("checking_mouse_offset", "uv_window")
+                    Mgr.enter_state("checking_mouse_offset", "uv")
 
             else:
 
@@ -546,7 +578,7 @@ class UVSelectionBase(BaseObject):
                 transform_allowed = GlobalData["active_uv_transform_type"]
 
             if check_mouse and transform_allowed:
-                Mgr.enter_state("checking_mouse_offset", "uv_window")
+                Mgr.enter_state("checking_mouse_offset", "uv")
 
     def sync_selection(self, color_ids, op="replace", keep=None):
 
@@ -580,7 +612,7 @@ class UVSelectionBase(BaseObject):
         if picked_poly:
             self._picked_poly = picked_poly
             self._toggle_select = toggle
-            Mgr.enter_state("picking_via_poly", "uv_window")
+            Mgr.enter_state("picking_via_poly", "uv")
 
     def __start_subobj_picking_via_poly(self, prev_state_id, is_active):
 
@@ -654,7 +686,7 @@ class UVSelectionBase(BaseObject):
                 self._aux_pixel_under_mouse = aux_pixel_under_mouse
 
         if self._cursor_id != cursor_id:
-            self._set_cursor(cursor_id)
+            Mgr.set_cursor(cursor_id, "viewport2")
             self._cursor_id = cursor_id
 
         return task.cont
@@ -662,7 +694,7 @@ class UVSelectionBase(BaseObject):
     def __select_subobj_via_poly(self, transform=False):
 
         Mgr.remove_task("hilite_subobj")
-        Mgr.enter_state("uv_edit_mode", "uv_window")
+        Mgr.enter_state("uv_edit_mode", "uv")
         subobj_lvl = self._obj_lvl
         uv_data_obj = self._picked_poly.get_uv_data_object()
 
@@ -687,7 +719,7 @@ class UVSelectionBase(BaseObject):
             self.__toggle_select(False)
         else:
             ignore_transform = not transform
-            self.__default_select(False, ignore_transform)
+            self.__regular_select(False, ignore_transform)
 
         uv_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 
@@ -712,14 +744,14 @@ class UVSelectionBase(BaseObject):
                 picked_point = UVMgr.get("picked_point")
 
             UVMgr.do("init_transform", picked_point)
-            self._set_cursor(active_transform_type)
+            Mgr.set_cursor(active_transform_type, "viewport2")
 
         self._transf_gizmo.set_pickable()
 
     def __cancel_select_via_poly(self):
 
         Mgr.remove_task("hilite_subobj")
-        Mgr.enter_state("uv_edit_mode", "uv_window")
+        Mgr.enter_state("uv_edit_mode", "uv")
         subobj_lvl = self._obj_lvl
 
         uv_data_obj = self._picked_poly.get_uv_data_object()

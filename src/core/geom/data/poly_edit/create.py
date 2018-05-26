@@ -898,7 +898,7 @@ class CreationBase(BaseObject):
                 # as an optimization, one temporary merged subobject references all newly
                 # created subobjects, so self.update_selection() needs to be called only
                 # once
-                tmp_merged_subobj = Mgr.do("create_merged_%s" % subobj_type, self)
+                tmp_merged_subobj = Mgr.do("create_merged_{}".format(subobj_type), self)
                 for s_id in subobjs_to_select[subobj_type]:
                     tmp_merged_subobj.append(s_id)
                 merged_subobjs[subobj_type][subobj_id] = tmp_merged_subobj
@@ -1005,11 +1005,10 @@ class CreationManager(BaseObject):
             GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
             Mgr.do("enable_view_gizmo", False)
-            Mgr.do("enable_view_tiles", False)
             Mgr.set_cursor("create")
             Mgr.add_task(self.__check_vertex_under_mouse, "check_vertex_under_mouse", sort=3)
 
-        Mgr.update_app("status", "create_poly")
+        Mgr.update_app("status", ["create_poly"])
 
     def __exit_creation_mode(self, next_state_id, is_active):
 
@@ -1028,7 +1027,6 @@ class CreationManager(BaseObject):
 
             Mgr.remove_task("check_vertex_under_mouse")
             Mgr.do("enable_view_gizmo")
-            Mgr.do("enable_view_tiles")
 
     def __check_vertex_under_mouse(self, task):
 
@@ -1091,7 +1089,7 @@ class CreationManager(BaseObject):
         self._interactive_creation_started = True
         self._interactive_creation_ended = False
 
-        Mgr.update_app("status", "start_poly_creation")
+        Mgr.update_app("status", ["start_poly_creation"])
         Mgr.enter_state("poly_creation")
         Mgr.add_task(self.__update_polygon, "update_polygon", sort=4)
 

@@ -9,7 +9,7 @@ class SmoothingGroup(object):
 
     def __repr__(self):
 
-        return "SmoothingGroup(%s)" % self._poly_ids
+        return "SmoothingGroup({})".format(self._poly_ids)
 
     def __eq__(self, other):
 
@@ -749,14 +749,14 @@ class SmoothingManager(BaseObject):
         GlobalData["active_transform_type"] = ""
         Mgr.update_app("active_transform_type", "")
         Mgr.add_task(self._update_cursor, "update_poly_picking_cursor")
-        Mgr.update_app("status", "smooth_with_poly")
+        Mgr.update_app("status", ["smooth_with_poly"])
 
     def __enter_unsmoothing_poly_picking_mode(self, prev_state_id, is_active):
 
         GlobalData["active_transform_type"] = ""
         Mgr.update_app("active_transform_type", "")
         Mgr.add_task(self._update_cursor, "update_poly_picking_cursor")
-        Mgr.update_app("status", "unsmooth_with_poly")
+        Mgr.update_app("status", ["unsmooth_with_poly"])
 
     def __exit_smoothing_poly_picking_mode(self, next_state_id, is_active):
 

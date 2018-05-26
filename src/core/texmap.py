@@ -490,9 +490,8 @@ class Layer(TextureMap):
 
         return self._name
 
-    def set_color(self, color_values):
+    def set_color(self, color):
 
-        color = VBase4(*color_values)
         self.get_tex_stage().set_color(color)
 
     def get_color(self):
@@ -745,7 +744,7 @@ class TexMapManager(object):
                  TS.M_modulate_gloss, TS.M_normal_gloss, TS.M_glow, TS.M_modulate_glow)
 
         for map_type, mode in zip(map_types, modes):
-            stage = TS("tex_stage_%s" % map_type)
+            stage = TS("tex_stage_{}".format(map_type))
             stage.set_mode(mode)
             stages[map_type] = stage
 
@@ -775,7 +774,7 @@ class TexMapManager(object):
 
         namelist = [l.get_name() for l in layers]
         search_pattern = r"^Layer\s*(\d+)$"
-        naming_pattern = "Layer %02d"
+        naming_pattern = "Layer {:02d}"
 
         return get_unique_name(requested_name, namelist, search_pattern, naming_pattern)
 

@@ -15,7 +15,6 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         uv_space = NodePath("uv_space")
         lens = OrthographicLens()
         lens.set_near(-10.)
-        lens.set_film_size(600. / 512.)
         cam_node = Camera("main_uv_cam", lens)
         cam_node.set_active(False)
         mask = BitMask32.bit(24)
@@ -56,8 +55,6 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         normal = Vec3.forward()
         self._draw_plane = Plane(normal, cam.get_pos() + normal * 10.)
 
-        self._window = None
-
         self._obj_lvl = "top"
         UVMgr.expose("active_obj_level", lambda: self._obj_lvl)
 
@@ -88,17 +85,21 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         poly_unsel_color = VBase4(.3, .3, .3, .5)
         poly_unsel_state_np.set_color(poly_unsel_color)
 
+        # A separate LensNode projects the selection texture onto selected polygons
+
         poly_sel_state_np = NodePath(poly_unsel_state_np.node().make_copy())
         poly_sel_color = VBase4(1., 0., 0., 1.)
         poly_sel_state_np.set_color(poly_sel_color)
         tex_stage = TextureStage("uv_poly_selection")
         tex_stage.set_mode(TextureStage.M_add)
         poly_sel_state_np.set_tex_gen(tex_stage, RenderAttrib.M_world_position)
-        poly_sel_state_np.set_tex_projector(tex_stage, BaseObject.uv_space, BaseObject.cam)
+        self._projector_lens = projector_lens = OrthographicLens()
+        projector_node = LensNode("projector", projector_lens)
+        projector = cam.attach_new_node(projector_node)
+        poly_sel_state_np.set_tex_projector(tex_stage, uv_space, projector)
         tex = Texture()
         tex.read(Filename(GFX_PATH + "sel_tex.png"))
         poly_sel_state_np.set_texture(tex_stage, tex)
-        poly_sel_state_np.set_tex_scale(tex_stage, 100.)
 
         vert_state = vert_state_np.get_state()
         edge_state = edge_state_np.get_state()
@@ -127,7 +128,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         UVMgr.accept("start_drawing_aux_picking_viz", self.__start_drawing_aux_picking_viz)
         UVMgr.accept("end_drawing_aux_picking_viz", self.__end_drawing_aux_picking_viz)
 
-        Mgr.add_app_updater("uv_viewport", self.__toggle_viewport)
+        Mgr.add_app_updater("uv_interface", self.__toggle_interface)
 
     def setup(self):
 
@@ -140,61 +141,42 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
         return True
 
-    def __toggle_viewport(self, create, size=None, parent_handle=None):
+    def __toggle_interface(self, show, display_region=None, mouse_watcher_node=None):
 
-        if GlobalData["ctrl_down"]:
-            GlobalData["ctrl_down"] = False
+        base = Mgr.get("base")
+        transf_gizmo = self._transf_gizmo
 
-        core = Mgr.get("core")
+        if not show:
 
-        if not create:
-
-            if self._window:
-                self.__update_history()
-                Mgr.update_interface_locally("uv_window", "uv_background", "show_on_models", False)
-                Mgr.remove_task("update_cursor_uvs")
-                Mgr.remove_interface("uv_window")
-                UVMgr.get("picking_cam").set_active(False)
-                self.cam_node.set_active(False)
-                self.delete_selections()
-                self.__destroy_uv_data()
-                self._obj_lvl = "top"
-                self._uv_set_id = 0
-                self.__update_object_level()
-                self._transf_gizmo.hide()
-                Mgr.exit_state("uv_edit_mode")
-                core.close_window(self._window, keepCamera=True)
-                self._window = None
-                self._models = []
+            self.__update_history()
+            Mgr.update_interface_locally("uv", "uv_background", "show_on_models", False)
+            Mgr.remove_task("update_cursor_uvs")
+            Mgr.remove_interface("uv")
+            UVMgr.get("picking_cam").set_active(False)
+            self.cam_node.set_active(False)
+            self.delete_selections()
+            self.__destroy_uv_data()
+            self._obj_lvl = "top"
+            self._uv_set_id = 0
+            self.__update_object_level()
+            transf_gizmo.hide()
+            Mgr.exit_state("uv_edit_mode")
+            Mgr.update_remotely("active_obj_level")
+            BaseObject.mouse_watcher = None
+            self._models = []
+            Mgr.remove_notification_handler("suppressed_state_enter", "uv_editor")
+            Mgr.remove_notification_handler("suppressed_state_exit", "uv_editor")
+            GlobalData["active_interface"] = "main"
 
             return
 
-        wp = WindowProperties.get_default()
-        wp.set_foreground(False)
-        wp.set_origin(0, 0)
-        wp.set_size(*size)
-
-        try:
-            wp.set_parent_window(parent_handle)
-        except OverflowError:
-            wp.set_parent_window(parent_handle & 0xffffffff)
-
-        self._window = win = core.open_window(props=wp, name="uv_window", makeCamera=False)
-        display_region = win.get_display_region(0)
+        Mgr.add_notification_handler("suppressed_state_enter", "uv_editor", self.__enter_suppressed_state)
+        Mgr.add_notification_handler("suppressed_state_exit", "uv_editor", self.__exit_suppressed_state)
+        self.__handle_viewport_resize(start=True)
         display_region.set_camera(self.cam)
-        display_region.set_active(True)
-        data_root = core.buttonThrowers[0].get_top()
-        input_ctrl = data_root.attach_new_node(MouseAndKeyboard(win, 0, "input_ctrl_uv_win"))
-        mouse_watcher_node = MouseWatcher()
-        mouse_watcher_node.set_display_region(display_region)
-        mouse_watcher_node.set_modifier_buttons(ModifierButtons())
-        Mgr.add_interface("uv_window", "uv_win_", mouse_watcher_node)
-        BaseObject.set_mouse_watcher(mouse_watcher_node)
-        mouse_watcher = input_ctrl.attach_new_node(mouse_watcher_node)
-        btn_thrower_node = ButtonThrower("btn_thrower_uv_win")
-        btn_thrower_node.set_prefix("uv_win_")
-        btn_thrower_node.set_modifier_buttons(ModifierButtons())
-        mouse_watcher.attach_new_node(btn_thrower_node)
+        Mgr.add_interface("uv", "uv_edit_", mouse_watcher_node)
+        GlobalData["active_interface"] = "uv"
+        BaseObject.mouse_watcher = mouse_watcher_node
         self._reset_view()
         self.cam_node.set_active(True)
         UVMgr.get("picking_cam").set_active()
@@ -206,33 +188,34 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         VertexEditManager.setup(self)
         EdgeEditManager.setup(self)
         PolygonEditManager.setup(self)
-        Mgr.set_initial_state("uv_edit_mode", "uv_window")
+        Mgr.set_initial_state("uv_edit_mode", "uv")
 
         def set_obj_level(obj_lvl):
 
             self._obj_lvl = obj_lvl
             self.__update_object_level()
 
-        Mgr.add_interface_updater("uv_window", "uv_level", set_obj_level)
-        Mgr.add_interface_updater("uv_window", "active_uv_set", self.__update_uv_set)
-        Mgr.add_interface_updater("uv_window", "uv_set_copy", self.__copy_uv_set)
-        Mgr.add_interface_updater("uv_window", "uv_set_paste", self.__paste_uv_set)
-        Mgr.add_interface_updater("uv_window", "uv_name", self.__set_uv_name)
-        Mgr.add_interface_updater("uv_window", "uv_name_target_select", self.__select_uv_name_target)
-        Mgr.add_interface_updater("uv_window", "poly_color", self.__update_poly_color)
-        Mgr.add_interface_updater("uv_window", "picking_via_poly", self.__set_uv_picking_via_poly)
+        Mgr.add_app_updater("uv_level", set_obj_level, interface_id="uv")
+        Mgr.add_app_updater("active_uv_set", self.__update_uv_set, interface_id="uv")
+        Mgr.add_app_updater("uv_set_copy", self.__copy_uv_set, interface_id="uv")
+        Mgr.add_app_updater("uv_set_paste", self.__paste_uv_set, interface_id="uv")
+        Mgr.add_app_updater("uv_name", self.__set_uv_name, interface_id="uv")
+        Mgr.add_app_updater("uv_name_target_select", self.__select_uv_name_target, interface_id="uv")
+        Mgr.add_app_updater("poly_color", self.__update_poly_color, interface_id="uv")
+        Mgr.add_app_updater("picking_via_poly", self.__set_uv_picking_via_poly, interface_id="uv")
+        Mgr.add_app_updater("viewport", self.__handle_viewport_resize, interface_id="uv")
 
         self._grid.add_interface_updaters()
         self._uv_template_saver.add_interface_updaters()
-        self._transf_gizmo.add_interface_updaters()
-        self._transf_gizmo.update_transform_handles()
+        transf_gizmo.add_interface_updaters()
+        transf_gizmo.update_transform_handles()
         GlobalData["active_uv_transform_type"] = ""
-        Mgr.update_interface("uv_window", "active_transform_type", "")
+        Mgr.update_interface("uv", "active_transform_type", "")
 
         for sel_state in ("unselected", "selected"):
             r, g, b, a = self._poly_colors[sel_state]
-            Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, "rgb", (r, g, b))
-            Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, "alpha", a)
+            Mgr.update_interface_remotely("uv", "poly_color", sel_state, "rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv", "poly_color", sel_state, "alpha", a)
 
         self.__create_uv_data()
         self.create_selections()
@@ -248,11 +231,39 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             uv_set_names[geom_data_obj] = geom_data_obj.get_uv_set_names()[:]
             target_names[model.get_id()] = model.get_name()
 
-        Mgr.update_interface_remotely("uv_window", "uv_name_targets", target_names)
-        Mgr.update_interface_remotely("uv_window", "uv_edit_options")
+        Mgr.update_interface_remotely("uv", "uv_name_targets", target_names)
+        Mgr.update_interface_remotely("uv", "uv_edit_options")
 
         UVMgr.do("remotely_update_background")
         UVMgr.do("remotely_update_template_props")
+
+    def __handle_viewport_resize(self, start=False):
+
+        w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
+        lens = self.cam_lens
+        size_h, size_v = (1., 1.) if start else lens.get_film_size()
+
+        if h < w:
+            size_v = min(size_h, size_v)
+            size_h = size_v * w / h
+        else:
+            size_h = min(size_h, size_v)
+            size_v = size_h * h / w
+
+        lens.set_film_size(size_h, size_v)
+
+        self._transf_gizmo.set_relative_scale(512. / min(w, h))
+        self._projector_lens.set_film_size(7. / min(w, h))
+
+    def __enter_suppressed_state(self, info=""):
+
+        self._transf_gizmo.enable(False)
+        UVMgr.get("picking_cam").set_active(False)
+
+    def __exit_suppressed_state(self, info=""):
+
+        UVMgr.get("picking_cam").set_active()
+        self._transf_gizmo.enable()
 
     def get_uv_data_object(self, geom_data_obj):
 
@@ -337,7 +348,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             uv_set_name = uv_set_names[geom_data_obj][uv_set_id]
             uv_names[model.get_id()] = uv_set_name
 
-        Mgr.update_interface_remotely("uv_window", "target_uv_name", uv_names)
+        Mgr.update_interface_remotely("uv", "target_uv_name", uv_names)
 
         self.update_selection()
 
@@ -449,7 +460,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             uv_set_name = get_unique_name(uv_set_name, uv_set_names)
 
         self._uv_set_names[geom_data_obj][uv_set_id] = uv_set_name
-        Mgr.update_interface_remotely("uv_window", "uv_name", uv_set_name)
+        Mgr.update_interface_remotely("uv", "uv_name", uv_set_name)
 
     def __select_uv_name_target(self, model_id):
 
@@ -457,7 +468,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         uv_set_id = self._uv_set_id
         geom_data_obj = model.get_geom_object().get_geom_data_object()
         uv_set_name = self._uv_set_names[geom_data_obj][uv_set_id]
-        Mgr.update_interface_remotely("uv_window", "uv_name", uv_set_name)
+        Mgr.update_interface_remotely("uv", "uv_name", uv_set_name)
 
     def __clear_unselected_poly_state(self):
 
@@ -499,22 +510,11 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
         r, g, b, a = poly_colors[sel_state]
         value = {"rgb": (r, g, b), "alpha": a}[channels]
-        Mgr.update_interface_remotely("uv_window", "poly_color", sel_state, channels, value)
-
-    def _set_cursor(self, cursor_id):
-
-        win_props = WindowProperties()
-
-        if cursor_id == "main":
-            win_props.set_cursor_filename(Filename())
-        else:
-            win_props.set_cursor_filename(Mgr.get("cursors")[cursor_id])
-
-        self._window.request_properties(win_props)
+        Mgr.update_interface_remotely("uv", "poly_color", sel_state, channels, value)
 
     def __set_uv_picking_via_poly(self, via_poly=False):
 
-        Mgr.update_locally("picking_via_poly", via_poly)
+        Mgr.update_interface_locally("", "picking_via_poly", via_poly)
         GlobalData["uv_edit_options"]["pick_via_poly"] = via_poly
         uv_data_objs = self._uv_data_objs[self._uv_set_id]
 
@@ -626,9 +626,9 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             if len(names) > 1:
                 event_descr += 'Change UV set name(s) of objects:\n'
-                event_descr += ''.join(['\n    "%s"' % name for name in names])
+                event_descr += ''.join(['\n    "{}"'.format(name) for name in names])
             else:
-                event_descr += 'Change UV set name(s) of "%s"' % names[0]
+                event_descr += 'Change UV set name(s) of "{}"'.format(names[0])
 
             if changed_objs:
                 event_descr += '\n\n'
@@ -645,12 +645,12 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             if len(names) > 1:
                 event_descr += 'Edit UVs of objects:\n'
-                event_descr += ''.join(['\n    "%s"' % name for name in names])
+                event_descr += ''.join(['\n    "{}"'.format(name) for name in names])
             else:
-                event_descr += 'Edit UVs of "%s"' % names[0]
+                event_descr += 'Edit UVs of "{}"'.format(names[0])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
 
-MainObjects.add_class(UVEditor, "uv_window")
+MainObjects.add_class(UVEditor, "uv")
