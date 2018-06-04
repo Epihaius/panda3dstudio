@@ -186,7 +186,12 @@ class UVEditGUI(object):
                     panel.enable_hotkeys()
                     panel_stack.show_panel(panel)
 
-                transform_toolbar = Toolbar.registry["uv_transform"]
+                toolbars = Toolbar.registry
+
+                for toolbar_id in ("transform", "material", "history"):
+                    toolbars[toolbar_id].enable_hotkeys(False)
+
+                transform_toolbar = toolbars["uv_transform"]
                 transform_toolbar.setup()
                 transform_toolbar.add_interface_updaters()
                 transform_toolbar.enable_hotkeys()
@@ -239,7 +244,12 @@ class UVEditGUI(object):
                 menu.enable_item("export")
                 menu.enable_item("import")
 
-                transform_toolbar = Toolbar.registry["uv_transform"]
+                toolbars = Toolbar.registry
+
+                for toolbar_id in ("transform", "material", "history"):
+                    toolbars[toolbar_id].enable_hotkeys()
+
+                transform_toolbar = toolbars["uv_transform"]
                 transform_toolbar.enable_hotkeys(False)
 
                 self.__clear_layout()
