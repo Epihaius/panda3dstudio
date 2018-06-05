@@ -358,6 +358,8 @@ class ComboBox(Button):
         self._popup_menu.set_item_text(item_id, text, update=True)
  
         if self._selected_item_id == item_id:
+            item = self._items[self._selected_item_id]
+            item.set_text(text)
             self.set_text(text)
 
     def get_item_text(self, item_id):
