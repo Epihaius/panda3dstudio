@@ -857,9 +857,10 @@ class ViewTileManager(object):
 
         viewport_id = GlobalData["viewport"][2]
         x, y = pos = GlobalData["viewport"]["pos_aux" if viewport_id == "main" else "pos"]
-        size = GlobalData["viewport"]["size_aux" if viewport_id == "main" else "size"]
+        w, h = GlobalData["viewport"]["size_aux" if viewport_id == "main" else "size"]
         sizer = self._sizer
-        sizer.update_min_size()
+        h_min = sizer.update_min_size()[1]
+        size = (w, min(h, h_min + self._pane.get_sizer().get_virtual_size()[1]))
         sizer.set_size(size)
         sizer.calculate_positions(pos)
         sizer.update_images()

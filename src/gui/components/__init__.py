@@ -230,6 +230,7 @@ class Components(object):
         Mgr.accept("update_main_layout", self.__update_layout)
         Mgr.accept("reset_layout_data", self.__reset_layout_data)
         Mgr.accept("set_right_dock_side", self.__set_right_dock_side)
+        Mgr.accept("update_window", self.__update_window)
         Mgr.add_app_updater("object_name_tag", update_object_name_tag)
         Mgr.add_app_updater("viewport", self.__update_viewport_display_regions)
         Mgr.add_app_updater("active_viewport", self.__set_active_viewport)
@@ -358,7 +359,10 @@ class Components(object):
         viewport_sizer.set_default_size((800, 600))
         borders = (3, 3, 3, 3)
         sizer.add(viewport_sizer, proportion=1., expand=True, borders=borders)
-        self._aux_viewport = AuxiliaryViewport(window, viewport_sizer)
+        # create a sizer for the adjacent auxiliary viewport
+        viewport_sizer_adj = Sizer("horizontal")
+        sizer.add(viewport_sizer_adj, expand=True)
+        self._aux_viewport = AuxiliaryViewport(window, viewport_sizer, viewport_sizer_adj)
         docks["right"] = dock = Dock(window, "right")
         sizer.add(dock, expand=True)
 
@@ -571,7 +575,7 @@ class Components(object):
 
         self.__clear_layout()
         self.__create_layout()
-        Mgr.send("window-event", [Mgr.get("base").win, True])
+        self.__update_window()
 
     def __update_layout_data(self):
 
@@ -905,12 +909,12 @@ class Components(object):
             self.__update_screenshot("remove")
             self.__update_screenshot("create")
 
-    def __handle_window_event(self, window, force_resize=False):
+    def __handle_window_event(self, window):
 
         win_props = window.get_properties()
         w, h = max(1, win_props.get_x_size()), max(1, win_props.get_y_size())
 
-        if force_resize or self._window_size != (w, h):
+        if self._window_size != (w, h):
 
             self._window_size = (w, h)
             win_props = WindowProperties()
@@ -918,7 +922,7 @@ class Components(object):
             window.request_properties(win_props)
             Mgr.get("gui_root").set_scale(2./w, 1., 2./h)
 
-            if force_resize or PLATFORM_ID == "Windows":
+            if PLATFORM_ID == "Windows":
                 self.__update_window()
             else:
                 self._black_card.set_scale(w, 1., h)

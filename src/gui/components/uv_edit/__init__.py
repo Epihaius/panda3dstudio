@@ -135,7 +135,7 @@ class UVEditGUI(object):
 
         self.__clear_layout()
         self.__create_layout()
-        Mgr.send("window-event", [Mgr.get("base").win, True])
+        Mgr.do("update_window")
 
     def setup(self):
 
@@ -214,7 +214,7 @@ class UVEditGUI(object):
                 self._display_region = region
                 self._mouse_watcher = mouse_watcher_node
 
-                Mgr.send("window-event", [Mgr.get("base").win, True])
+                Mgr.do("update_window")
                 Mgr.update_remotely("uv_interface", True, region, mouse_watcher_node)
                 Mgr.do("set_interface_status", "uv")
 
@@ -271,7 +271,7 @@ class UVEditGUI(object):
                     panel.enable_hotkeys()
                     panel_stack.show_panel(panel)
 
-                Mgr.send("window-event", [Mgr.get("base").win, True])
+                Mgr.do("update_window")
 
         add_state = Mgr.add_state
         add_state("uv_edit_mode", -10, enter_editing_mode, exit_editing_mode)

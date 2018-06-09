@@ -189,7 +189,12 @@ class ComboBox(Button):
         item = self._popup_menu.add(item_id, item_text, item_command, index=index)
         self._items[item_id] = item
         self._selection_handlers[item_id] = lambda: self.__on_select(item_id)
-        self._item_ids.append(item_id)
+
+        if index is None:
+            self._item_ids.append(item_id)
+        else:
+            self._item_ids.insert(index, item_id)
+
         self._item_texts[item_id] = item_text
 
         if persistent:

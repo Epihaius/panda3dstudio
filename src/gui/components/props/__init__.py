@@ -1,6 +1,7 @@
 from .base import PropertyPanel
 import os
 import logging
+from importlib import import_module
 
 path = os.path.join("src", "gui", "components", "props")
 
@@ -11,7 +12,7 @@ package_path = "src.gui.components.props."
 
 for name in names:
     try:
-        __import__(package_path + name)
+        import_module(package_path + name)
     except ImportError:
         logging.critical('Failed to load module "{}"!'.format(name))
         raise ImportError('Failed to load module "{}"!'.format(name))

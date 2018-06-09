@@ -451,6 +451,29 @@ class Sizer(object):
 
         return self._min_size
 
+    def __check_proportions(self, items, total_size, sizes, dim):
+
+        proportions = [i.get_proportion() for i in items]
+        p_sum = sum(proportions)
+        tmp_size = total_size
+
+        for item, proportion in zip(items, proportions):
+
+            s_min = item.get_min_size()[dim]
+            s_new = int(round(tmp_size * proportion / p_sum))
+
+            if s_new < s_min:
+                items.remove(item)
+                index = self._items.index(item)
+                sizes[index] = s_min
+                total_size -= s_min
+                return True, total_size
+
+            p_sum -= proportion
+            tmp_size -= s_new
+
+        return False, total_size
+
     def set_size(self, size, force=False):
 
         if force:
@@ -484,6 +507,11 @@ class Sizer(object):
                     w_min = item.get_min_size()[0]
                     width -= w_min
                     widths[index] = w_min
+
+            check_proportions = True
+
+            while check_proportions:
+                check_proportions, width = self.__check_proportions(sizer_items, width, widths, 0)
 
             proportions = [i.get_proportion() for i in sizer_items]
             p_sum = sum(proportions)
@@ -522,6 +550,11 @@ class Sizer(object):
                     h_min = item.get_min_size()[1]
                     height -= h_min
                     heights[index] = h_min
+
+            check_proportions = True
+
+            while check_proportions:
+                check_proportions, height = self.__check_proportions(sizer_items, height, heights, 1)
 
             proportions = [i.get_proportion() for i in sizer_items]
             p_sum = sum(proportions)
