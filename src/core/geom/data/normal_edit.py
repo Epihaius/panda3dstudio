@@ -23,6 +23,10 @@ class SharedNormal(object):
 
         return SharedNormal(self._geom_data_obj, self._ids)
 
+    def __hash__(self):
+
+        return hash(tuple(sorted(self._ids)))
+
     def __eq__(self, other):
 
         return self._ids == set(other)

@@ -11,6 +11,10 @@ class SmoothingGroup(object):
 
         return "SmoothingGroup({})".format(self._poly_ids)
 
+    def __hash__(self):
+
+        return hash(tuple(sorted(self._poly_ids)))
+
     def __eq__(self, other):
 
         return False if other is None else self._poly_ids == other.get()
