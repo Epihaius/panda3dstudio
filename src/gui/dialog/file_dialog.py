@@ -3,6 +3,7 @@ from .message_dialog import MessageDialog
 from ..menu import Menu
 from direct.stdpy.file import *
 from direct.stdpy.glob import *
+from functools import cmp_to_key
 
 
 def get_incremented_filename(filename, namestring):
@@ -25,7 +26,7 @@ def get_incremented_filename(filename, namestring):
     inds = [int(name.group(1)) for name in names]
     max_index = min_index + len(inds)
 
-    for i in xrange(min_index, max_index):
+    for i in range(min_index, max_index):
         if i not in inds:
             return naming_pattern.format(i)
 
@@ -407,7 +408,7 @@ class FilePane(DialogScrollPane):
 
         self.__update_directory_list(update_layout=False)
 
-    def _copy_widget_images(self, pane_image): 
+    def _copy_widget_images(self, pane_image):
 
         root_node = self.get_widget_root_node()
 
@@ -843,7 +844,7 @@ class FileDialog(Dialog):
             recent_dirs.append(path)
 
             with open("config", "wb") as config_file:
-                cPickle.dump(config_data, config_file, -1)
+                pickle.dump(config_data, config_file, -1)
 
         def command():
 
@@ -959,7 +960,7 @@ class FileDialog(Dialog):
         recent_dirs.remove(dir_path)
 
         with open("config", "wb") as config_file:
-            cPickle.dump(config_data, config_file, -1)
+            pickle.dump(config_data, config_file, -1)
 
         self._dir_combobox.remove_item(item_id)
         self._recent_dirs.remove(dir_path)

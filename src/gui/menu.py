@@ -414,7 +414,7 @@ class Menu(WidgetCard):
 
         WidgetCard.destroy(self)
 
-        for menu in self._menus.itervalues():
+        for menu in self._menus.values():
             menu.destroy()
 
         self._menus = {}
@@ -439,7 +439,7 @@ class Menu(WidgetCard):
 
         self._mouse_regions = mouse_regions = [self._mouse_region]
 
-        for item in self._items.itervalues():
+        for item in self._items.values():
 
             mouse_region = item.get_mouse_region()
 
@@ -448,7 +448,7 @@ class Menu(WidgetCard):
 
         self.hide()
 
-        for menu in self._menus.itervalues():
+        for menu in self._menus.values():
             menu.update()
 
     def set_active_item(self, item):
@@ -875,7 +875,7 @@ class Menu(WidgetCard):
         scaled_img.unfiltered_stretch_from(part_img)
         img.copy_sub_image(scaled_img, w_tl, h_tr + scaled_h, 0, 0)
 
-        for item in self._items.itervalues():
+        for item in self._items.values():
             x, y = item.get_pos()
             img.copy_sub_image(item.get_image(), x + w_tl, y + h_tl, 0, 0)
 
@@ -919,10 +919,10 @@ class Menu(WidgetCard):
 
     def enable(self, enable=True):
 
-        for item in self._items.itervalues():
+        for item in self._items.values():
             item.enable(enable)
 
     def enable_hotkeys(self, enable=True):
 
-        for item in self._items.itervalues():
+        for item in self._items.values():
             item.enable_hotkey(enable)

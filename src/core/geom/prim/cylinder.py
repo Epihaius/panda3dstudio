@@ -29,11 +29,11 @@ def _define_geom_data(segments, smooth, temp=False):
 
     vert_id = 0
 
-    for i in xrange(segs_h + 1):
+    for i in range(segs_h + 1):
 
         z = 1. - 1. * i / segs_h
 
-        for j in xrange(segs_c + 1):
+        for j in range(segs_c + 1):
 
             angle_h = angle * j
             x = cos(angle_h)
@@ -90,17 +90,17 @@ def _define_geom_data(segments, smooth, temp=False):
             vert_id = segs_c + 1
 
             if not temp:
-                for j in xrange(segs_c + 1):
+                for j in range(segs_c + 1):
                     angle_h = angle * j
                     u = .5 + cos(angle_h) * .5
                     v = .5 - sin(angle_h) * .5
                     uvs.append((u, v))
 
-            for i in xrange(1, segs_cap):
+            for i in range(1, segs_cap):
 
                 r = 1. - 1. * i / segs_cap
 
-                for j in xrange(segs_c + 1):
+                for j in range(segs_c + 1):
 
                     angle_h = angle * j
                     x = r * cos(angle_h)
@@ -143,12 +143,12 @@ def _define_geom_data(segments, smooth, temp=False):
 
         return normal
 
-    for i in xrange(segs_h):
+    for i in range(segs_h):
 
         s = segs_c + 1
         k = i * s
 
-        for j in xrange(segs_c):
+        for j in range(segs_c):
 
             vi1 = k + j
             vi2 = vi1 + s
@@ -220,12 +220,12 @@ def _define_geom_data(segments, smooth, temp=False):
 
             # Define quadrangular faces of cap
 
-            for i in xrange(segs_cap - 1):
+            for i in range(segs_cap - 1):
 
                 s = segs_c + 1
                 k = i * s
 
-                for j in xrange(segs_c):
+                for j in range(segs_c):
 
                     vi1 = k + j
                     vi2 = vi1 + s
@@ -272,7 +272,7 @@ def _define_geom_data(segments, smooth, temp=False):
             s = segs_c + 1
             vi1 = segs_cap * s
 
-            for j in xrange(segs_c):
+            for j in range(segs_c):
 
                 vi2 = vi1 - 1 - j
                 vi3 = vi2 - 1
@@ -525,7 +525,7 @@ class Cylinder(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
+                task = lambda: self.get_geom_data_object().set_smoothing(iter(self._smoothing.values())
                                                                          if value else None)
                 PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
 

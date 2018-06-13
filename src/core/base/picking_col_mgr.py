@@ -1,5 +1,6 @@
 from .mgr import CoreManager as Mgr
 from .base import logging, PendingTasks
+from functools import reduce
 
 
 # All managers of pickable objects should derive from the following class
@@ -20,7 +21,7 @@ class PickingColorIDManager(object):
     @classmethod
     def __reset_id_ranges(cls):
 
-        for mgr in cls._mgrs.itervalues():
+        for mgr in cls._mgrs.values():
             mgr.reset()
 
     @classmethod
@@ -28,7 +29,7 @@ class PickingColorIDManager(object):
 
         def task():
 
-            for mgr in cls._mgrs.itervalues():
+            for mgr in cls._mgrs.values():
                 mgr.update_picking_color_id_ranges()
 
         task_id = "update_picking_col_id_ranges"
@@ -40,7 +41,7 @@ class PickingColorIDManager(object):
         if cls._id_range_backups_created:
             return
 
-        for mgr in cls._mgrs.itervalues():
+        for mgr in cls._mgrs.values():
             mgr.create_id_ranges_backup()
 
         task = cls.__remove_id_range_backups
@@ -56,7 +57,7 @@ class PickingColorIDManager(object):
 
         logging.info('Restoring ID ranges;\ninfo: {}'.format(info))
 
-        for mgr in cls._mgrs.itervalues():
+        for mgr in cls._mgrs.values():
             mgr.restore_id_ranges_backup()
 
         cls.__remove_id_range_backups()
@@ -67,7 +68,7 @@ class PickingColorIDManager(object):
         if not cls._id_range_backups_created:
             return
 
-        for mgr in cls._mgrs.itervalues():
+        for mgr in cls._mgrs.values():
             mgr.remove_id_ranges_backup()
 
         cls._id_range_backups_created = False
@@ -94,8 +95,8 @@ class PickingColorIDManager(object):
         l = iter([None] + lst[:-1])
         m = iter(lst[1:] + [None])
 
-        return zip(filter(lambda i: i - 1 != next(l), lst),
-                   map(lambda i: i + 1, filter(lambda i: i + 1 != next(m), lst)))
+        return list(zip([i for i in lst if i - 1 != next(l)],
+                   [i + 1 for i in [i for i in lst if i + 1 != next(m)]]))
 
     def __merge_ranges(self, range_list, next_range):
 

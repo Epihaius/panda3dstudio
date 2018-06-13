@@ -430,13 +430,13 @@ class ViewManager(BaseObject):
         self._grid_planes = data["grid"]
         grid_defaults = self._grid_plane_defaults
 
-        for view_id, plane in data["grid_user"].iteritems():
+        for view_id, plane in data["grid_user"].items():
             grid_defaults[view_id] = plane
 
         self._render_modes = data["render_mode"]
         render_mode_defaults = self._render_mode_defaults
 
-        for view_id, render_mode in data["render_mode_user"].iteritems():
+        for view_id, render_mode in data["render_mode_user"].items():
             render_mode_defaults[view_id] = render_mode
 
         self.__set_view(data["view"], force=True)
@@ -530,7 +530,7 @@ class ViewManager(BaseObject):
                 Mgr.update_remotely("view", "request_new_name", self._view_names[view_id])
         elif update_type == "rename":
             name = args[0]
-            name = get_unique_name(name, self._view_names.itervalues())
+            name = get_unique_name(name, iter(self._view_names.values()))
             self._view_names[view_id] = name
             lens_type = self.cam.lens_type
             Mgr.update_remotely("view", "rename", lens_type, view_id, name)
@@ -611,7 +611,7 @@ class ViewManager(BaseObject):
         """ Copy the current view using the given lens type and make it a user view """
 
         current_view_id = GlobalData["view"]
-        name = get_unique_name(name, self._view_names.itervalues())
+        name = get_unique_name(name, iter(self._view_names.values()))
         view_id = str(self._user_view_index)
         self._view_names[view_id] = name
 
@@ -665,7 +665,7 @@ class ViewManager(BaseObject):
         """ Take a snapshot of the current view and make it a user view """
 
         current_view_id = GlobalData["view"]
-        name = get_unique_name(view_name, self._view_names.itervalues())
+        name = get_unique_name(view_name, iter(self._view_names.values()))
         view_id = str(self._user_view_index)
         self._view_names[view_id] = name
 
@@ -1020,7 +1020,7 @@ class ViewManager(BaseObject):
 
         bboxes = dict((obj, obj.get_bbox()) for obj in objs if obj.get_type() == "model")
 
-        for bbox in bboxes.itervalues():
+        for bbox in bboxes.values():
             bbox.get_origin().detach_node()
 
         for obj in objs:
@@ -1041,10 +1041,10 @@ class ViewManager(BaseObject):
 
         bounds = tmp_np.get_tight_bounds()
 
-        for orig, parent in parents.iteritems():
+        for orig, parent in parents.items():
             orig.reparent_to(parent)
 
-        for obj, bbox in bboxes.iteritems():
+        for obj, bbox in bboxes.items():
             bbox.get_origin().reparent_to(obj.get_origin())
 
         centers = {}

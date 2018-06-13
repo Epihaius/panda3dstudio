@@ -440,7 +440,7 @@ class TexProjector(TopLevelObject):
         self._body.reparent_to(subobj_root)
         self._tripod.reparent_to(subobj_root)
 
-        for np in self._lens_viz.itervalues():
+        for np in self._lens_viz.values():
             np.reparent_to(subobj_root)
 
     def __init__(self, projector_id, name, origin_pos, on, projection_type,
@@ -480,7 +480,7 @@ class TexProjector(TopLevelObject):
         lens_np.node().set_lens(self._lenses[projection_type])
         lens_np.reparent_to(origin)
 
-        for lens in self._lenses.itervalues():
+        for lens in self._lenses.values():
             lens.set_film_size(1., 1.)
             lens.set_focal_length(1.5)
 
@@ -516,7 +516,7 @@ class TexProjector(TopLevelObject):
 
         if self.is_selected():
 
-            for target_id, target_data in self._targets.iteritems():
+            for target_id, target_data in self._targets.items():
 
                 model = Mgr.get("model", target_id)
 
@@ -533,7 +533,7 @@ class TexProjector(TopLevelObject):
         self.unregister(unregister)
         self._edges = {}
 
-        for np in self._lens_viz.itervalues():
+        for np in self._lens_viz.values():
             np.remove_node()
 
         self._lens_viz = {}
@@ -549,15 +549,15 @@ class TexProjector(TopLevelObject):
         TopLevelObject.register(self)
 
         obj_type = "tex_proj_edge"
-        Mgr.do("register_{}_objs".format(obj_type), self._edges.itervalues(), restore)
+        Mgr.do("register_{}_objs".format(obj_type), iter(self._edges.values()), restore)
 
     def unregister(self, unregister=True):
 
         if unregister:
             obj_type = "tex_proj_edge"
-            Mgr.do("unregister_{}_objs".format(obj_type), self._edges.itervalues())
+            Mgr.do("unregister_{}_objs".format(obj_type), iter(self._edges.values()))
 
-        Mgr.do("unregister_texproj_targets", self._targets.iterkeys())
+        Mgr.do("unregister_texproj_targets", iter(self._targets.keys()))
 
     def get_subobject_root(self):
 
@@ -589,7 +589,7 @@ class TexProjector(TopLevelObject):
 
         if on:
 
-            for target_id, target_data in self._targets.iteritems():
+            for target_id, target_data in self._targets.items():
 
                 model = Mgr.get("model", target_id)
 
@@ -603,7 +603,7 @@ class TexProjector(TopLevelObject):
 
         else:
 
-            for target_id, target_data in self._targets.iteritems():
+            for target_id, target_data in self._targets.items():
 
                 model = Mgr.get("model", target_id)
 
@@ -640,7 +640,7 @@ class TexProjector(TopLevelObject):
 
         self._film_w = film_w
 
-        for lens in self._lenses.itervalues():
+        for lens in self._lenses.values():
             lens.set_film_size(film_w, self._film_h)
 
         return True
@@ -656,7 +656,7 @@ class TexProjector(TopLevelObject):
 
         self._film_h = film_h
 
-        for lens in self._lenses.itervalues():
+        for lens in self._lenses.values():
             lens.set_film_size(self._film_w, film_h)
 
         return True
@@ -672,7 +672,7 @@ class TexProjector(TopLevelObject):
 
         self._film_x = film_x
 
-        for lens in self._lenses.itervalues():
+        for lens in self._lenses.values():
             lens.set_film_offset(film_x, self._film_y)
 
         return True
@@ -688,7 +688,7 @@ class TexProjector(TopLevelObject):
 
         self._film_y = film_y
 
-        for lens in self._lenses.itervalues():
+        for lens in self._lenses.values():
             lens.set_film_offset(self._film_x, film_y)
 
         return True
@@ -887,7 +887,7 @@ class TexProjector(TopLevelObject):
         elif prop_id == "projection_type":
             return self._projection_type
         elif prop_id == "targets":
-            targets = dict((k, v.copy()) for k, v in self._targets.iteritems())
+            targets = dict((k, v.copy()) for k, v in self._targets.items())
             if for_remote_update:
                 target_names = dict((k, Mgr.get("model", k).get_name())
                                     for k in targets)
@@ -907,7 +907,7 @@ class TexProjector(TopLevelObject):
     def add_target(self, target_id):
 
         uv_set_ids = (0,)
-        targets = dict((k, v.copy()) for k, v in self._targets.iteritems())
+        targets = dict((k, v.copy()) for k, v in self._targets.items())
         targets[target_id] = {"uv_set_ids": uv_set_ids,
                               "toplvl": True, "show_poly_sel": True}
 
@@ -920,7 +920,7 @@ class TexProjector(TopLevelObject):
 
     def remove_target(self, target_id, add_to_hist=True):
 
-        targets = dict((k, v.copy()) for k, v in self._targets.iteritems())
+        targets = dict((k, v.copy()) for k, v in self._targets.items())
 
         if self._is_on and self.is_selected():
 
@@ -950,7 +950,7 @@ class TexProjector(TopLevelObject):
         geoms = {}
         targets = self._targets
 
-        for target_id, target_data in targets.iteritems():
+        for target_id, target_data in targets.items():
             uv_set_ids.update(target_data["uv_set_ids"])
             target = Mgr.get("model", target_id).get_geom_object().get_geom_data_object()
             origin = target.get_origin()
@@ -965,7 +965,7 @@ class TexProjector(TopLevelObject):
 
             screen.recompute()
 
-        for target_id, target_data in targets.iteritems():
+        for target_id, target_data in targets.items():
             geom = geoms[target_id]
             vertex_data = geom.node().get_geom(0).get_vertex_data()
             uv_set_ids = target_data["uv_set_ids"]
@@ -1014,7 +1014,7 @@ class TexProjector(TopLevelObject):
 
         if is_selected:
 
-            for target_id, target_data in self._targets.iteritems():
+            for target_id, target_data in self._targets.items():
 
                 model = Mgr.get("model", target_id)
 
@@ -1028,7 +1028,7 @@ class TexProjector(TopLevelObject):
 
         else:
 
-            for target_id, target_data in self._targets.iteritems():
+            for target_id, target_data in self._targets.items():
 
                 model = Mgr.get("model", target_id)
 

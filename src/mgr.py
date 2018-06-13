@@ -242,20 +242,20 @@ class AppManager(object):
         local_updaters = []
         remote_updaters = []
 
-        for updaters in self._updaters.itervalues():
+        for updaters in self._updaters.values():
             local_updaters.extend(updaters.get(component_id, {}).get(update_id, []))
 
-        for updaters in self._updaters.itervalues():
+        for updaters in self._updaters.values():
             remote_updaters.extend(updaters.get(dest, {}).get(update_id, []))
 
         if locally:
             for updater, param_ids in local_updaters:
-                _kwargs = dict((k, v) for k, v in kwargs.iteritems() if k in param_ids)
+                _kwargs = dict((k, v) for k, v in kwargs.items() if k in param_ids)
                 updater(*args, **_kwargs)
 
         if remotely:
             for updater, param_ids in remote_updaters:
-                _kwargs = dict((k, v) for k, v in kwargs.iteritems() if k in param_ids)
+                _kwargs = dict((k, v) for k, v in kwargs.items() if k in param_ids)
                 updater(*args, **_kwargs)
 
     def update_interface(self, interface_id, component_id, locally, remotely,
@@ -271,12 +271,12 @@ class AppManager(object):
 
         if locally:
             for updater, param_ids in local_updaters:
-                _kwargs = dict((k, v) for k, v in kwargs.iteritems() if k in param_ids)
+                _kwargs = dict((k, v) for k, v in kwargs.items() if k in param_ids)
                 updater(*args, **_kwargs)
 
         if remotely:
             for updater, param_ids in remote_updaters:
-                _kwargs = dict((k, v) for k, v in kwargs.iteritems() if k in param_ids)
+                _kwargs = dict((k, v) for k, v in kwargs.items() if k in param_ids)
                 updater(*args, **_kwargs)
 
     def remove_updaters(self, interface_id):

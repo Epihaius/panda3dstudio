@@ -192,10 +192,10 @@ class ImportDialog(Dialog):
         client_sizer = self.get_client_sizer()
 
         info = 'Displayed below is the following object info, found in the chosen file:'
-        info += u'\n    \u2022 the type of object (regular geometry, collision geometry or a node of some other kind);'
-        info += u'\n    \u2022 the original name of the object ("<Unnamed>" if no name was found);'
-        info += u'\n    \u2022 the unique name the object will have in the scene (editable);'
-        info += u'\n    \u2022 the object hierarchy.'
+        info += '\n    \u2022 the type of object (regular geometry, collision geometry or a node of some other kind);'
+        info += '\n    \u2022 the original name of the object ("<Unnamed>" if no name was found);'
+        info += '\n    \u2022 the unique name the object will have in the scene (editable);'
+        info += '\n    \u2022 the object hierarchy.'
         text = DialogText(self, info)
         borders = (50, 50, 20, 20)
         client_sizer.add(text, borders=borders)

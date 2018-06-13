@@ -160,7 +160,7 @@ class CylinderProperties(object):
         if multi_sel:
             self._checkboxes["smoothness"].check(False)
 
-        for field in self._fields.itervalues():
+        for field in self._fields.values():
             field.set_text_color(color)
             field.show_text(not multi_sel)
 

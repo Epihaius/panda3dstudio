@@ -19,8 +19,8 @@ def _define_geom_data(segments, temp=False):
     segs2 = segments["y"]
     i1 = 0
     i2 = 1
-    range1 = xrange(segs1 + 1)
-    range2 = xrange(segs2 + 1)
+    range1 = range(segs1 + 1)
+    range2 = range(segs2 + 1)
 
     vert_id = 0
     vert_data = {}
@@ -49,9 +49,9 @@ def _define_geom_data(segments, temp=False):
 
     # Define faces
 
-    for i in xrange(segs2):
+    for i in range(segs2):
 
-        for j in xrange(segs1):
+        for j in range(segs1):
 
             vi1 = i * (segs1 + 1) + j
             vi2 = vi1 + 1
@@ -110,7 +110,7 @@ class TemporaryPlane(TemporaryPrimitive):
 
     def is_valid(self):
 
-        return max(self._size.itervalues()) > .001
+        return max(self._size.values()) > .001
 
     def finalize(self):
 

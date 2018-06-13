@@ -29,7 +29,7 @@ class Widget(object):
         h_sizes = []
         v_sizes = []
 
-        for parts in gfx_data.itervalues():
+        for parts in gfx_data.values():
 
             if parts:
 
@@ -337,7 +337,7 @@ class Widget(object):
 
             return scaled_img
 
-        for state, part_rows in self._gfx_data.iteritems():
+        for state, part_rows in self._gfx_data.items():
 
             if not part_rows:
                 images[state] = None
@@ -534,7 +534,7 @@ class Widget(object):
             if not (ignore_parent or self._parent.is_enabled()):
                 return False
 
-            for disabler in self._disablers.itervalues():
+            for disabler in self._disablers.values():
                 if disabler():
                     return False
 

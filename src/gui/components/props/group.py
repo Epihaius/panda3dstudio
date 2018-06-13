@@ -105,7 +105,7 @@ class GroupProperties(object):
 
     def __update_group_options(self):
 
-        for option, value in GlobalData["group_options"]["main"].iteritems():
+        for option, value in GlobalData["group_options"]["main"].items():
             self._checkboxes[option].check(value)
 
     def __toggle_recursive_open(self, recursive):

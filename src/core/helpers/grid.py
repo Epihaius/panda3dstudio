@@ -93,7 +93,7 @@ class Grid(BaseObject):
         # drawn completely on top of the grid planes without any z-fighting);
         # as with the axis lines, depth testing *must* be enabled for them so they
         # are drawn correctly with respect to previously drawn geometry
-        for plane in self._grid_planes.itervalues():
+        for plane in self._grid_planes.values():
             plane.set_bin("fixed", 1)
             plane.set_depth_write(False)
 

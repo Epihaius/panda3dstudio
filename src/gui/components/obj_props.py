@@ -56,7 +56,7 @@ class TagPane(DialogScrollPane):
         command = lambda: self.__remove_tag(self._active_key_index)
         menu.add("remove_tag", "Remove tag", command, update=True)
 
-        for key, value in tags.iteritems():
+        for key, value in tags.items():
             self.add_tag(key, value, update=False)
 
     def _copy_widget_images(self, pane_image): 

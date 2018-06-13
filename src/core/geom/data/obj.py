@@ -148,7 +148,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for subobj_type in ("vert", "edge", "poly"):
 
-            Mgr.do("register_{}_objs".format(subobj_type), subobjs[subobj_type].itervalues(), restore)
+            Mgr.do("register_{}_objs".format(subobj_type), iter(subobjs[subobj_type].values()), restore)
 
             if locally:
                 self._subobjs[subobj_type].update(subobjs[subobj_type])
@@ -161,7 +161,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for subobj_type in ("vert", "edge", "poly"):
 
-            Mgr.do("unregister_{}_objs".format(subobj_type), subobjs[subobj_type].itervalues())
+            Mgr.do("unregister_{}_objs".format(subobj_type), iter(subobjs[subobj_type].values()))
 
             if locally:
 
@@ -369,9 +369,9 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         if gradual:
             poly_count = 0
 
-        for poly_id, connections in connectivity.iteritems():
+        for poly_id, connections in connectivity.items():
 
-            for edge_pos, neighbors in connections["neighbors"].iteritems():
+            for edge_pos, neighbors in connections["neighbors"].items():
 
                 edge_id = edges_by_pos[poly_id][edge_pos]
 
@@ -746,7 +746,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         verts = self._subobjs["vert"]
 
-        return dict((vert_id, vert.get_pos()) for vert_id, vert in verts.iteritems())
+        return dict((vert_id, vert.get_pos()) for vert_id, vert in verts.items())
 
     def set_vertex_coords(self, coords):
 
@@ -755,7 +755,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         vertex_data_top = node.modify_geom(0).modify_vertex_data()
         pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
 
-        for vert_id, pos in coords.iteritems():
+        for vert_id, pos in coords.items():
             row = verts[vert_id].get_row_index()
             pos_writer.set_row(row)
             pos_writer.set_data3f(pos)
@@ -787,7 +787,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         vertex_data_copy = GeomVertexData(self._vertex_data["poly"])
         col_writer = GeomVertexWriter(vertex_data_copy, "color")
 
-        for vert in self._subobjs["vert"].itervalues():
+        for vert in self._subobjs["vert"].values():
             row = vert.get_row_index()
             col_writer.set_row(row)
             col_writer.set_data4f(vert.get_color())
@@ -814,7 +814,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             picking_color = get_color_vec(poly.get_picking_color_id(), pickable_id_poly)
             verts = poly.get_vertices()
 
-            for i in xrange(len(verts)):
+            for i in range(len(verts)):
                 col_writer_poly.add_data4f(picking_color)
 
             for vert in verts:
@@ -833,7 +833,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         picking_colors = {}
         count = self._data_row_count
 
-        for edge in edge_subobjs.itervalues():
+        for edge in edge_subobjs.values():
             picking_color = get_color_vec(edge.get_picking_color_id(), pickable_id_edge)
             row_index = vert_subobjs[edge[0]].get_row_index()
             picking_colors[row_index] = picking_color
@@ -1227,7 +1227,7 @@ class GeomDataManager(ObjectManager):
         uv_array.add_column(InternalName.make("texcoord"), 2, Geom.NT_float32, Geom.C_texcoord)
         uv_arrays.append(uv_array)
 
-        for i in xrange(1, 8):
+        for i in range(1, 8):
             uv_array = GeomVertexArrayFormat()
             uv_array.add_column(InternalName.make("texcoord.{:d}".format(i)), 2, Geom.NT_float32, Geom.C_texcoord)
             uv_arrays.append(uv_array)

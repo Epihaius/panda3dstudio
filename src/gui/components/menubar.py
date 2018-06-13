@@ -135,7 +135,7 @@ class MenuBar(Widget):
 
     def finalize(self):
 
-        for menu in self._menus.itervalues():
+        for menu in self._menus.values():
             menu.update()
 
     def __check_undo_redo(self, update_type, *args, **kwargs):

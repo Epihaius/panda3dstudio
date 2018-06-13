@@ -64,7 +64,7 @@ class UVSelection(SelectionTransformBase):
             uv_data_obj = obj.get_uv_data_object()
             uv_data_objs.setdefault(uv_data_obj, []).append(obj)
 
-        for uv_data_obj, objs in uv_data_objs.iteritems():
+        for uv_data_obj, objs in uv_data_objs.items():
             uv_data_obj.update_selection(self._obj_level, objs, [])
 
         sel.extend(sel_to_add)
@@ -89,7 +89,7 @@ class UVSelection(SelectionTransformBase):
             uv_data_obj = obj.get_uv_data_object()
             uv_data_objs.setdefault(uv_data_obj, []).append(obj)
 
-        for uv_data_obj, objs in uv_data_objs.iteritems():
+        for uv_data_obj, objs in uv_data_objs.items():
             uv_data_obj.update_selection(self._obj_level, [], objs)
 
         self.update()
@@ -119,7 +119,7 @@ class UVSelection(SelectionTransformBase):
             uv_data_obj = new_obj.get_uv_data_object()
             uv_data_objs.setdefault(uv_data_obj, {"sel": [], "desel": []})["sel"].append(new_obj)
 
-        for uv_data_obj, objs in uv_data_objs.iteritems():
+        for uv_data_obj, objs in uv_data_objs.items():
             uv_data_obj.update_selection(self._obj_level, objs["sel"], objs["desel"])
 
         sel.extend(new_sel)
@@ -329,7 +329,7 @@ class UVSelectionBase(BaseObject):
 
             subobjs = []
 
-            for uv_data_obj in self._uv_data_objs[self._uv_set_id].itervalues():
+            for uv_data_obj in self._uv_data_objs[self._uv_set_id].values():
                 subobjs.extend(uv_data_obj.get_selection(obj_lvl))
 
             selections[obj_lvl] = UVSelection(obj_lvl, subobjs)
@@ -631,7 +631,7 @@ class UVSelectionBase(BaseObject):
         # temporarily select picked poly
         uv_data_obj.update_selection("poly", [self._picked_poly], [], False)
 
-        for other_uv_data_obj in self._uv_data_objs[self._uv_set_id].itervalues():
+        for other_uv_data_obj in self._uv_data_objs[self._uv_set_id].values():
             if other_uv_data_obj is not uv_data_obj:
                 other_uv_data_obj.set_pickable(False)
 
@@ -723,7 +723,7 @@ class UVSelectionBase(BaseObject):
 
         uv_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 
-        for other_uv_data_obj in self._uv_data_objs[self._uv_set_id].itervalues():
+        for other_uv_data_obj in self._uv_data_objs[self._uv_set_id].values():
             if other_uv_data_obj is not uv_data_obj:
                 other_uv_data_obj.set_pickable()
 
@@ -757,7 +757,7 @@ class UVSelectionBase(BaseObject):
         uv_data_obj = self._picked_poly.get_uv_data_object()
         uv_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 
-        for other_uv_data_obj in self._uv_data_objs[self._uv_set_id].itervalues():
+        for other_uv_data_obj in self._uv_data_objs[self._uv_set_id].values():
             if other_uv_data_obj is not uv_data_obj:
                 other_uv_data_obj.set_pickable()
 

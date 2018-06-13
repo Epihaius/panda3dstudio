@@ -200,11 +200,11 @@ class GeneralObjectManager(BaseObject):
         namelist = [obj.get_name() for obj in Mgr.get("objects") if obj not in selection]
         old_names = [obj.get_name() for obj in selection]
         new_names = []
-        objs_by_name = dict(zip(old_names, selection))
+        objs_by_name = dict(list(zip(old_names, selection)))
         objs_to_rename = [obj for obj in selection]
         sel_count = len(selection)
 
-        for i in xrange(sel_count):
+        for i in range(sel_count):
 
             new_name = get_unique_name(name, namelist)
             namelist.append(new_name)
@@ -504,8 +504,8 @@ class ObjectManager(BaseObject):
         Mgr.accept("register_{}_objs".format(obj_type), self.__register_objects)
         Mgr.accept("unregister_{}_objs".format(obj_type), self.__unregister_objects)
         Mgr.expose(obj_type, lambda obj_id: self._objects.get(obj_id))
-        Mgr.expose("{}_objs".format(obj_type), lambda: self._objects.values())
-        Mgr.expose("{}_obj_ids".format(obj_type), lambda: self._objects.keys())
+        Mgr.expose("{}_objs".format(obj_type), lambda: list(self._objects.values()))
+        Mgr.expose("{}_obj_ids".format(obj_type), lambda: list(self._objects.keys()))
         Mgr.expose("last_{}_obj_id".format(obj_type), lambda: self._object_id)
         Mgr.accept("set_last_{}_obj_id".format(obj_type), self.__set_last_id)
         Mgr.accept("reset_{}_registry".format(obj_type), self.__reset_registry)

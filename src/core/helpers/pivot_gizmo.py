@@ -252,7 +252,7 @@ class PivotGizmo(object):
 
         self._axis_objs = None
 
-        for origin in self._origins.itervalues():
+        for origin in self._origins.values():
             origin.remove_node()
 
         self._origins = None
@@ -266,14 +266,14 @@ class PivotGizmo(object):
 
         if not self._is_registered:
             obj_type = "pivot_axis"
-            Mgr.do("register_{}_objs".format(obj_type), self._axis_objs.itervalues(), restore=False)
+            Mgr.do("register_{}_objs".format(obj_type), iter(self._axis_objs.values()), restore=False)
             self._is_registered = True
 
     def unregister(self):
 
         if self._is_registered:
             obj_type = "pivot_axis"
-            Mgr.do("unregister_{}_objs".format(obj_type), self._axis_objs.itervalues())
+            Mgr.do("unregister_{}_objs".format(obj_type), iter(self._axis_objs.values()))
             self._is_registered = False
 
     def __create_geoms_for_ortho_lens(self):
@@ -309,7 +309,7 @@ class PivotGizmo(object):
 
     def show(self, show=True):
 
-        for origin in self._origins.itervalues():
+        for origin in self._origins.values():
             origin.show() if show else origin.hide()
 
 

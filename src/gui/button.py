@@ -359,7 +359,7 @@ class Button(Widget):
     def enable(self, enable=True, check_group_disablers=True):
 
         if enable and not self.is_always_enabled() and self._group and check_group_disablers:
-            for disabler in self._group.get_disablers().itervalues():
+            for disabler in self._group.get_disablers().values():
                 if disabler():
                     return False
 
@@ -399,7 +399,7 @@ class ButtonGroup(object):
 
     def get_buttons(self):
 
-        return self._btns.values()
+        return list(self._btns.values())
 
     def get_button(self, btn_id):
 
@@ -420,11 +420,11 @@ class ButtonGroup(object):
     def enable(self, enable=True):
 
         if enable:
-            for disabler in self._disablers.itervalues():
+            for disabler in self._disablers.values():
                 if disabler():
                     return False
 
-        for btn in self._btns.itervalues():
+        for btn in self._btns.values():
             btn.enable(enable, check_group_disablers=False)
 
         return True

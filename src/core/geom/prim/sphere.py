@@ -24,7 +24,7 @@ def _define_geom_data(segments, smooth, temp=False):
 
     vert_id = 0
 
-    for i in xrange(1, segments // 2):
+    for i in range(1, segments // 2):
 
         z = cos(angle * i)
 
@@ -33,7 +33,7 @@ def _define_geom_data(segments, smooth, temp=False):
         if not temp:
             v = 2. * i / segments
 
-        for j in xrange(segments + 1):
+        for j in range(segments + 1):
 
             angle_h = angle * j
             x = r2 * cos(angle_h)
@@ -66,12 +66,12 @@ def _define_geom_data(segments, smooth, temp=False):
 
     z_vec = V3D(0., 0., 1.)
 
-    for i in xrange(1, segments // 2 - 1):
+    for i in range(1, segments // 2 - 1):
 
         s = segments + 1
         k = (i - 1) * s
 
-        for j in xrange(segments):
+        for j in range(segments):
 
             vi1 = k + j
             vi2 = vi1 + s
@@ -127,7 +127,7 @@ def _define_geom_data(segments, smooth, temp=False):
     if not temp:
         v = 1.
 
-    for j in xrange(segments):
+    for j in range(segments):
 
         vi2 = segments - j
         vi3 = vi2 - 1
@@ -175,7 +175,7 @@ def _define_geom_data(segments, smooth, temp=False):
     if not temp:
         v = 0.
 
-    for j in xrange(segments):
+    for j in range(segments):
 
         vi2 = segments - j
         vi3 = vi2 - 1
@@ -389,7 +389,7 @@ class Sphere(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
+                task = lambda: self.get_geom_data_object().set_smoothing(iter(self._smoothing.values())
                                                                          if value else None)
                 PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
 

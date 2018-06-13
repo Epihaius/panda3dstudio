@@ -11,7 +11,7 @@ class ExportManager(BaseObject):
 
         verts = geom_data_obj.get_subobjects("vert")
         merged_verts = set(geom_data_obj.get_merged_vertex(v_id) for v_id in verts)
-        rows = range(len(verts))
+        rows = list(range(len(verts)))
         dupes = {}
 
         for merged_vert in merged_verts:
@@ -55,7 +55,7 @@ class ExportManager(BaseObject):
         for row_dest, row_src in enumerate(rows):
             vdata_dest.copy_row_from(row_dest, vdata_src, row_src, thread)
 
-        for row2, row1 in dupes.items():
+        for row2, row1 in list(dupes.items()):
             dupes[row2] = rows.index(row1)
 
         prim_src = geom.get_primitive(0)
@@ -63,7 +63,7 @@ class ExportManager(BaseObject):
         rows_src = prim_src.get_vertex_list()
         rows_dest = [dupes[row] if row in dupes else rows.index(row) for row in rows_src]
 
-        for indices in (rows_dest[i:i + 3] for i in xrange(0, len(rows_dest), 3)):
+        for indices in (rows_dest[i:i + 3] for i in range(0, len(rows_dest), 3)):
             prim_dest.add_vertices(*indices)
 
         geom_dest = Geom(vdata_dest)
@@ -360,7 +360,7 @@ class ExportManager(BaseObject):
                                 index_list = geom.get_primitive(0).get_vertex_list()
                                 index_count = len(index_list)
 
-                                for indices in (index_list[i:i+3] for i in xrange(0, len(index_list), 3)):
+                                for indices in (index_list[i:i+3] for i in range(0, len(index_list), 3)):
 
                                     points = []
 
@@ -373,7 +373,7 @@ class ExportManager(BaseObject):
 
                             else:
 
-                                polys = geom_data_obj.get_subobjects("poly").itervalues()
+                                polys = iter(geom_data_obj.get_subobjects("poly").values())
                                 verts = geom_data_obj.get_subobjects("vert")
                                 epsilon = 1.e-005
 
@@ -444,11 +444,11 @@ class ExportManager(BaseObject):
                 if child.get_children():
                     data.append((child.get_children(), node, None, None))
 
-        for name, child_geom_node in child_geom_nodes.iteritems():
+        for name, child_geom_node in child_geom_nodes.items():
             if child_geom_node.get_num_geoms() == 0:
                 PandaNode(name).replace_node(child_geom_node)
 
-        for name, child_collision_node in child_collision_nodes.iteritems():
+        for name, child_collision_node in child_collision_nodes.items():
             if child_collision_node.get_num_solids() == 0:
                 PandaNode(name).replace_node(child_collision_node)
 
@@ -565,7 +565,7 @@ class ExportManager(BaseObject):
                     normal_reader = GeomVertexReader(vertex_data, "normal")
                     row_count = vertex_data.get_num_rows()
 
-                    for i in xrange(row_count):
+                    for i in range(row_count):
                         x, y, z = pos_reader.get_data3f()
                         u, v = uv_reader.get_data2f()
                         xn, yn, zn = normal_reader.get_data3f()
@@ -579,7 +579,7 @@ class ExportManager(BaseObject):
                     index_list = node.node().get_geom(0).get_primitive(0).get_vertex_list()
                     index_count = len(index_list)
 
-                    for i in xrange(0, index_count, 3):
+                    for i in range(0, index_count, 3):
                         i1, i2, i3 = [j + row_offset for j in index_list[i:i+3]]
                         indices = (i1, i1, i1, i2, i2, i2, i3, i3, i3)
                         obj_file.write("f {:d}/{:d}/{:d} {:d}/{:d}/{:d} {:d}/{:d}/{:d}\n".format(*indices))
@@ -597,7 +597,7 @@ class ExportManager(BaseObject):
 
             mtl_file.write("# Created with Panda3D Studio\n\n")
 
-            for material, data in material_data.iteritems():
+            for material, data in material_data.items():
 
                 material_alias = data["alias"]
                 mtl_file.write("\n\nnewmtl {}\n".format(material_alias))

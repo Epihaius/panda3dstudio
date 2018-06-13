@@ -25,7 +25,7 @@ class CreationManager(object):
 
             return handler
 
-        for object_type, object_type_name in ObjectTypes.get_types().iteritems():
+        for object_type, object_type_name in ObjectTypes.get_types().items():
             handler = get_handler(object_type)
             creation_data[object_type] = {"name": object_type_name, "handler": handler}
 

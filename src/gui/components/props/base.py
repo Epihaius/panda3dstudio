@@ -105,7 +105,7 @@ class PropertyPanel(Panel):
         borders = (0, 0, 0, 10)
         section.add(btn, alignment="center_h", borders=borders)
 
-        for obj_type, prop_cls in self._property_classes.iteritems():
+        for obj_type, prop_cls in self._property_classes.items():
             self._properties[obj_type] = prop_cls(self)
 
         # ********************** Surface properties section ********************
@@ -187,7 +187,7 @@ class PropertyPanel(Panel):
 
     def setup(self):
 
-        for props in self._properties.itervalues():
+        for props in self._properties.values():
             props.setup()
 
         self.get_section("selection").expand(False)
@@ -285,7 +285,7 @@ class PropertyPanel(Panel):
 
         get_command = lambda obj_id: lambda: self.__update_selection(obj_id)
 
-        for obj_id, name in names.iteritems():
+        for obj_id, name in names.items():
             combobox.add_item(obj_id, name, get_command(obj_id))
 
         if count == 1:
@@ -350,10 +350,10 @@ class PropertyPanel(Panel):
             if not on_enable:
 
                 if multi_sel:
-                    for checkbox in self._checkboxes.itervalues():
+                    for checkbox in self._checkboxes.values():
                         checkbox.check(False)
 
-                for checkbox in self._checkboxes.itervalues():
+                for checkbox in self._checkboxes.values():
                     checkbox.set_checkmark_color(color)
 
             self._comboboxes["name"].enable(sel_count > 0)

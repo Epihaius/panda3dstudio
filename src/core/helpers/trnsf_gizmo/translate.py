@@ -114,7 +114,7 @@ class TranslationGizmo(TransformationGizmo):
         quat = Quat()
         points = []
 
-        for i in xrange(segments):
+        for i in range(segments):
             quat.set_from_axis_angle(angle * i, axis_vec)
             points.append(pos + quat.xform(cone_vec))
 
@@ -124,7 +124,7 @@ class TranslationGizmo(TransformationGizmo):
 
         cone = GeomTriangles(Geom.UH_static)
 
-        indexes = xrange(1, segments + 1)
+        indexes = range(1, segments + 1)
 
         for i in indexes:
             cone.add_vertices(0, i, indexes[i % segments])
@@ -149,7 +149,7 @@ class TranslationGizmo(TransformationGizmo):
 
         cap = GeomTriangles(Geom.UH_static)
 
-        for i in xrange(1, segments - 1):
+        for i in range(1, segments - 1):
             cap.add_vertices(0, i + 1, i)
 
         cap_geom = Geom(vertex_data)

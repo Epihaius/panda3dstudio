@@ -65,7 +65,7 @@ class CreationManager(BaseObject):
                 Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", creation_type))
                 obj_prop_defaults = Mgr.get("{}_prop_defaults".format(creation_type))
 
-                for prop_id, value in obj_prop_defaults.iteritems():
+                for prop_id, value in obj_prop_defaults.items():
                     Mgr.update_app("obj_prop_default", creation_type, prop_id, value)
 
             self._creation_type = creation_type
@@ -195,7 +195,7 @@ class CreationManager(BaseObject):
         object_type = GlobalData["active_creation_type"]
         process = Mgr.do("create_{}".format(object_type), origin_pos)
 
-        if process.next():
+        if next(process):
             descr = "Creating {}...".format(object_type)
             Mgr.do_gradually(process, "creation", descr, cancellable=True)
 

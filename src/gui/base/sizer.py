@@ -610,7 +610,7 @@ class Sizer(object):
             pos = (x + offset_x, y + offset_y)
 
             if item.get_type() == "widget":
- 
+
                 obj.set_pos(pos)
                 sizer = obj.get_sizer()
 

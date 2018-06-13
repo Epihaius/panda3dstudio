@@ -39,7 +39,7 @@ class UVEditGUI(object):
         toolbars = Toolbar.registry
         layout = GlobalData["config"]["gui_layout"]["uv"]
 
-        for side, toolbar_rows in layout.iteritems():
+        for side, toolbar_rows in layout.items():
 
             dock = docks[side]
             dock_sizer = dock.get_sizer()

@@ -302,14 +302,14 @@ class ScalingComponent(object):
             rgb = (.5, .5, .5, 1.)
             rgba = (.5, .5, .5, .25)
 
-        for handle in self._handles["planes"].itervalues():
+        for handle in self._handles["planes"].values():
             handle[0].set_color(rgb)
             handle[1].set_color(rgb)
 
-        for handle in self._handles["quads"].itervalues():
+        for handle in self._handles["quads"].values():
             handle.set_color(rgba)
 
-        for handle in self._handles["axes"].itervalues():
+        for handle in self._handles["axes"].values():
             handle.set_color(rgb)
 
         self._is_active = is_active

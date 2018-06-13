@@ -89,7 +89,7 @@ class BackgroundPanel(Panel):
                 texfile_paths.append(path)
 
             with open("config", "wb") as config_file:
-                cPickle.dump(config_data, config_file, -1)
+                pickle.dump(config_data, config_file, -1)
 
             self._fields["tex_filename"].set_value("tex_filename", tex_filename, handle_value=False)
             self._tex_filename = tex_filename

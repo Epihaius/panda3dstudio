@@ -68,12 +68,12 @@ class Material(object):
         base_material = BaseMaterial(self._base_mat)
         base_props = {}
 
-        for k, v in self._base_props.iteritems():
+        for k, v in self._base_props.items():
             base_props[k] = v.copy()
 
         tex_maps = {}
 
-        for map_type, tex_map in self._tex_maps.iteritems():
+        for map_type, tex_map in self._tex_maps.items():
             tex_maps[map_type] = tex_map.copy()
 
         if copy_layers is False:
@@ -84,7 +84,7 @@ class Material(object):
 
             layers = {}
 
-            for uv_set_id, maps in self._layers.iteritems():
+            for uv_set_id, maps in self._layers.items():
                 layers[uv_set_id] = [m.copy(copy_name=True) for m in maps]
 
         uses_layers = False if copy_layers is False else self._uses_layers
@@ -122,7 +122,7 @@ class Material(object):
             if set(self._layers) != set(other.get_uv_sets()):
                 return False
 
-            for uv_set_id, layers in self._layers.iteritems():
+            for uv_set_id, layers in self._layers.items():
                 for layer_index, layer in enumerate(layers):
                     if not other.get_layer(uv_set_id, layer_index).equals(layer):
                         return False
@@ -400,7 +400,7 @@ class Material(object):
 
     def set_base_properties(self, properties):
 
-        for prop_id, value in properties.iteritems():
+        for prop_id, value in properties.items():
             self.set_property(prop_id, value, apply_base_mat=False)
 
         self.__apply_base_material()
@@ -435,7 +435,7 @@ class Material(object):
 
     def get_tex_maps(self):
 
-        return self._tex_maps.iteritems()
+        return iter(self._tex_maps.items())
 
     def use_layers(self, uses_layers=True):
 
@@ -444,7 +444,7 @@ class Material(object):
 
         origins = [Mgr.get("model", owner_id).get_origin()
                    for owner_id in self._owner_ids]
-        layers = [l for group in self._layers.itervalues()
+        layers = [l for group in self._layers.values()
                   for l in group if l.is_active()]
         color_map = self._tex_maps["color"]
 
@@ -523,13 +523,13 @@ class Material(object):
 
     def get_layers(self):
 
-        d = dict((l.get_sort(), l) for group in self._layers.itervalues() for l in group)
+        d = dict((l.get_sort(), l) for group in self._layers.values() for l in group)
 
         return [d[i] for i in sorted(d)]
 
     def add_layer(self, layer):
 
-        count = sum([len(group) for group in self._layers.itervalues()])
+        count = sum([len(group) for group in self._layers.values()])
         layer.set_sort(count)
         self._layers.setdefault(layer.get_uv_set_id(), []).append(layer)
 
@@ -620,7 +620,7 @@ class Material(object):
 
     def get_uv_sets(self):
 
-        return self._layers.keys()
+        return list(self._layers.keys())
 
     def set_texture(self, tex_data, layer_id=None):
 
@@ -842,7 +842,7 @@ class Material(object):
 
     def has_tex_maps(self):
 
-        for map_type, tex_map in self._tex_maps.iteritems():
+        for map_type, tex_map in self._tex_maps.items():
             if tex_map.get_texture():
                 return True
 
@@ -854,7 +854,7 @@ class Material(object):
         owners = [Mgr.get("model", owner_id) for owner_id in self._owner_ids]
         origins = [owner.get_origin() for owner in owners]
 
-        for map_type, tex_map in self._tex_maps.iteritems():
+        for map_type, tex_map in self._tex_maps.items():
 
             if tex_map.get_texture():
 
@@ -897,7 +897,7 @@ class Material(object):
         origin.set_transparency(attrib)
         origin.set_alpha_scale(alpha)
 
-        for map_type, tex_map in self._tex_maps.iteritems():
+        for map_type, tex_map in self._tex_maps.items():
 
             if not tex_map.is_active() or (map_type == "color" and self._uses_layers):
                 continue
@@ -931,7 +931,7 @@ class Material(object):
 
         if self._uses_layers:
 
-            layers = [l for group in self._layers.itervalues()
+            layers = [l for group in self._layers.values()
                       for l in group if l.is_active()]
 
             for layer in layers:
@@ -987,7 +987,7 @@ class Material(object):
 
         Mgr.do("register_material", self, in_library=True)
 
-        for layers in self._layers.itervalues():
+        for layers in self._layers.values():
             for layer in layers:
                 Mgr.do("register_tex_layer", layer)
 
@@ -995,7 +995,7 @@ class Material(object):
 
         Mgr.do("unregister_material", self, in_library=True)
 
-        for layers in self._layers.itervalues():
+        for layers in self._layers.values():
             for layer in layers:
                 Mgr.do("unregister_tex_layer", layer)
 
@@ -1081,7 +1081,7 @@ class MaterialManager(object):
         self._base_props = base_props
 
         self.__init_new_material(base_props, select=True)
-        mat_id = self._materials.keys()[0]
+        mat_id = list(self._materials.keys())[0]
 
         for prop_id, default in zip(prop_ids, defaults):
             Mgr.update_remotely("material_prop", mat_id, prop_id, default)
@@ -1093,7 +1093,7 @@ class MaterialManager(object):
             self._ready_props = dict((prop_id, default)
                                      for prop_id, default in zip(prop_ids, ready_defaults))
 
-            for prop_id, default in reversed(zip(prop_ids, ready_defaults)):
+            for prop_id, default in reversed(list(zip(prop_ids, ready_defaults))):
                 Mgr.update_remotely("ready_material_prop", prop_id, default)
 
         reset_ready_props()
@@ -1191,7 +1191,7 @@ class MaterialManager(object):
 
     def __get_unique_material_name(self, requested_name="", material=None):
 
-        materials = self._library.values()
+        materials = list(self._library.values())
 
         if material and material in materials:
             materials.remove(material)
@@ -1204,11 +1204,11 @@ class MaterialManager(object):
 
     def __init_new_material(self, base_props, select=False):
 
-        material_id = ("material",) + self._id_generator.next()
+        material_id = ("material",) + next(self._id_generator)
         material_name = self.__get_unique_material_name()
         material = Material(material_id, material_name)
 
-        for prop_id, prop_data in base_props.iteritems():
+        for prop_id, prop_data in base_props.items():
             material.set_property(prop_id, prop_data)
 
         material.register()
@@ -1218,7 +1218,7 @@ class MaterialManager(object):
     def __create_material(self, shows_vert_colors=None, flat_color=None, base_material=None,
                           base_props=None, tex_maps=None, layers=None, uses_layers=None):
 
-        material_id = ("material",) + self._id_generator.next()
+        material_id = ("material",) + next(self._id_generator)
         name = ""
         material = Material(material_id, name, shows_vert_colors, flat_color, base_material,
                             base_props, tex_maps, layers, uses_layers)
@@ -1294,7 +1294,7 @@ class MaterialManager(object):
         prop_id = "flat_color"
         Mgr.update_remotely("material_prop", material_id, prop_id, flat_color)
 
-        for prop_id, prop_data in material.get_base_properties().iteritems():
+        for prop_id, prop_data in material.get_base_properties().items():
             Mgr.update_remotely("material_prop", material_id, prop_id, prop_data)
 
         map_type = material.get_selected_map_type()
@@ -1334,7 +1334,7 @@ class MaterialManager(object):
 
         owner_ids = []
 
-        for material in self._materials.itervalues():
+        for material in self._materials.values():
             owner_ids.extend(material.get_owner_ids())
 
         owners = [Mgr.get("model", owner_id) for owner_id in owner_ids]
@@ -1443,7 +1443,7 @@ class MaterialManager(object):
     def __save_library(self, filename):
 
         with open(filename, "wb") as lib_file:
-            cPickle.dump(self._library, lib_file, -1)
+            pickle.dump(self._library, lib_file, -1)
 
     def __load_library(self, filename=None, library=None, merge=False):
 
@@ -1451,11 +1451,11 @@ class MaterialManager(object):
 
         if library == "scene":
             from_scene = True
-            library = dict((m_id, m) for m_id, m in self._materials.iteritems()
+            library = dict((m_id, m) for m_id, m in self._materials.items()
                            if m.get_owner_ids())
         elif not library:
             with open(filename, "rb") as lib_file:
-                library = cPickle.load(lib_file)
+                library = pickle.load(lib_file)
 
         if not library:
 
@@ -1528,7 +1528,7 @@ class MaterialManager(object):
                 material.register()
                 self._materials[material_id] = material
 
-        materials = self._library.values()
+        materials = list(self._library.values())
 
         for material in materials[:-1]:
             Mgr.update_remotely("new_material", material.get_id(), material.get_name(), select=False)
@@ -1538,7 +1538,7 @@ class MaterialManager(object):
 
     def __clear_library(self):
 
-        materials = self._library.values()
+        materials = list(self._library.values())
 
         for material in materials:
             material.unregister()
@@ -1653,7 +1653,7 @@ class MaterialManager(object):
         for obj in selection:
             owners.setdefault(obj.get_material(), []).append(obj)
 
-        for material, objects in owners.iteritems():
+        for material, objects in owners.items():
 
             if material:
 
@@ -1715,13 +1715,13 @@ class MaterialManager(object):
         for obj in selection:
             owners.setdefault(obj.get_material(), []).append(obj)
 
-        for material, objects in owners.iteritems():
+        for material, objects in owners.items():
 
             props = properties.copy()
 
             if material:
 
-                for prop_id, value in properties.iteritems():
+                for prop_id, value in properties.items():
                     if material.is_property_equal_to(prop_id, value):
                         del props[prop_id]
 
@@ -1784,7 +1784,7 @@ class MaterialManager(object):
         for obj in selection:
             owners.setdefault(obj.get_material(), []).append(obj)
 
-        for material, objects in owners.iteritems():
+        for material, objects in owners.items():
 
             if material:
 

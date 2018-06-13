@@ -1408,7 +1408,7 @@ class MaterialPanel(Panel):
                 texfile_paths.append(path)
 
             with open("config", "wb") as config_file:
-                cPickle.dump(config_data, config_file, -1)
+                pickle.dump(config_data, config_file, -1)
 
             command(tex_filename)
 
@@ -1843,7 +1843,7 @@ class MaterialToolbar(Toolbar):
             texfile_paths.append(path)
 
         with open("config", "wb") as config_file:
-            cPickle.dump(config_data, config_file, -1)
+            pickle.dump(config_data, config_file, -1)
 
     def __load_texture(self):
 

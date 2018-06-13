@@ -191,7 +191,7 @@ class HierarchyPanel(Panel):
 
     def __update_group_member_linking(self):
 
-        for option, value in GlobalData["group_options"]["member_linking"].iteritems():
+        for option, value in GlobalData["group_options"]["member_linking"].items():
             self._checkboxes["group_member_linking_{}".format(option)].check(value)
 
     def setup(self):

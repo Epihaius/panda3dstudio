@@ -194,19 +194,19 @@ class TexProjectorProperties(object):
             value_id = "targets"
             target_id = self._target_combobox.get_selected_item()
             self._targets[target_id]["toplvl"] = not value
-            value = dict((k, v.copy()) for k, v in self._targets.iteritems())
+            value = dict((k, v.copy()) for k, v in self._targets.items())
             target_prop = "use_poly_sel"
         elif value_id == "show_poly_sel":
             value_id = "targets"
             target_id = self._target_combobox.get_selected_item()
             self._targets[target_id]["show_poly_sel"] = value
-            value = dict((k, v.copy()) for k, v in self._targets.iteritems())
+            value = dict((k, v.copy()) for k, v in self._targets.items())
             target_prop = "show_poly_sel"
         elif value_id == "uv_set_ids":
             value_id = "targets"
             target_id = self._target_combobox.get_selected_item()
             self._targets[target_id]["uv_set_ids"] = value
-            value = dict((k, v.copy()) for k, v in self._targets.iteritems())
+            value = dict((k, v.copy()) for k, v in self._targets.items())
             target_prop = "uv_set_ids"
         else:
             target_id = None
@@ -233,7 +233,7 @@ class TexProjectorProperties(object):
             return
 
         target_id = self._target_combobox.get_selected_item()
-        value = dict((k, v.copy()) for k, v in self._targets.iteritems())
+        value = dict((k, v.copy()) for k, v in self._targets.items())
         del value[target_id]
 
         Mgr.update_remotely("texproj_prop", "targets", value, target_id=target_id,

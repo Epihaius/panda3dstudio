@@ -96,7 +96,7 @@ class EdgeEditBase(BaseObject):
                         if vert_id not in vert_ids:
                             vert_ids[vert_id] = set([vert_id])
 
-            vert_ids = set(tuple(id_set) for id_set in vert_ids.itervalues())
+            vert_ids = set(tuple(id_set) for id_set in vert_ids.values())
 
             if len(vert_ids) > 1:
 
@@ -327,7 +327,7 @@ class EdgeEditBase(BaseObject):
         verts_to_move = set()
         new_merged_verts = []
 
-        for merged_geom_vert, d in uv_by_geom_vert.iteritems():
+        for merged_geom_vert, d in uv_by_geom_vert.items():
 
             src_verts = d["src"]
             dest_verts = d["dest"]

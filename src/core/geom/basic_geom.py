@@ -130,7 +130,7 @@ class BasicGeom(BaseObject):
 
         material, uv_set_names = render_state_to_material(render_state, src_format, materials)
 
-        for src_uv_set, dest_uv_set in uv_set_names.iteritems():
+        for src_uv_set, dest_uv_set in uv_set_names.items():
 
             uv_set_id = uv_set_list.index(dest_uv_set)
             uv_name = src_uv_set.get_name()
@@ -139,7 +139,7 @@ class BasicGeom(BaseObject):
             uv_reader = GeomVertexReader(src_vert_data, src_uv_set)
             uv_writer = GeomVertexWriter(dest_vert_data, dest_uv_set)
 
-            for i in xrange(num_rows):
+            for i in range(num_rows):
                 uv = uv_reader.get_data2f()
                 uv_writer.set_data2f(uv)
 
@@ -254,7 +254,7 @@ class BasicGeom(BaseObject):
         processed_rows = []
         epsilon = 1.e-010
 
-        for rows in (vert_indices[i:i + 3] for i in xrange(0, len(vert_indices), 3)):
+        for rows in (vert_indices[i:i + 3] for i in range(0, len(vert_indices), 3)):
 
             for row in rows:
 
@@ -646,7 +646,7 @@ class BasicGeom(BaseObject):
         if self.has_flipped_normals():
             indices = indices[::-1]
 
-        for rows in (indices[i:i+3] for i in xrange(0, len(indices), 3)):
+        for rows in (indices[i:i+3] for i in range(0, len(indices), 3)):
 
             tri_data = []
 
@@ -798,7 +798,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
     def __create(self, geom, name, materials=None):
 
-        model_id = ("basic_geom",) + self._id_generator.next()
+        model_id = ("basic_geom",) + next(self._id_generator)
         model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1., 1.))
         picking_col_id = self.get_next_picking_color_id()
         basic_geom = BasicGeom(model, geom, picking_col_id, materials)

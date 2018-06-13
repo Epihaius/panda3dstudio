@@ -460,7 +460,7 @@ class HierarchyManager(BaseObject):
                 else:
                     members.remove(group)
 
-        group_children = [child for group, c in group_children.iteritems() for child in c]
+        group_children = [child for group, c in group_children.items() for child in c]
         new_target_id = new_target.get_id()
 
         for child in group_children:

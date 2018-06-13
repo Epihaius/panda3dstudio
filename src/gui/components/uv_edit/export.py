@@ -161,7 +161,7 @@ class ExportPanel(Panel):
                 texfile_paths.append(path)
 
             with open("config", "wb") as config_file:
-                cPickle.dump(config_data, config_file, -1)
+                pickle.dump(config_data, config_file, -1)
 
             Mgr.update_interface_remotely("uv", "uv_template", "save", filename)
 

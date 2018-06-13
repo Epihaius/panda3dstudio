@@ -82,15 +82,15 @@ class TriangulationBase(BaseObject):
             poly = polys[poly_id]
 
             for tri_vert_ids in poly:
-                for i in xrange(3):
+                for i in range(3):
                     side_vert_ids = (tri_vert_ids[i], tri_vert_ids[i - 2])
                     tri_side = TriangleSide(self, poly_id, side_vert_ids)
                     poly_tris.setdefault(tri_side, []).append(tri_vert_ids[i - 1])
 
         diagonals = []
 
-        for poly_tris in tris.itervalues():
-            for tri_side, apex_ids in poly_tris.iteritems():
+        for poly_tris in tris.values():
+            for tri_side, apex_ids in poly_tris.items():
                 if len(apex_ids) == 2:
                     diagonals.append(tri_side)
                     Mgr.do("add_diagonal", tri_side)
@@ -324,13 +324,13 @@ class TriangulationBase(BaseObject):
 
         poly_ids = {}
 
-        for poly_id, time_id in time_ids_to_restore.iteritems():
+        for poly_id, time_id in time_ids_to_restore.items():
 
             if poly_id in polys:
                 time_ids[poly_id] = time_id
                 poly_ids.setdefault(time_id, []).append(poly_id)
 
-        for time_id, ids in poly_ids.iteritems():
+        for time_id, ids in poly_ids.items():
 
             if time_id:
 
@@ -353,13 +353,13 @@ class TriangulationBase(BaseObject):
                     time_ids[poly_id] = time_id
 
         # restore the polys' previous triangulation time IDs
-        for poly_id, time_id in time_ids.iteritems():
+        for poly_id, time_id in time_ids.items():
             poly = polys[poly_id]
             poly.set_previous_property_time("tri_data", time_id)
 
         polys_to_update = {}
 
-        for poly_id, tri_data in tris.iteritems():
+        for poly_id, tri_data in tris.items():
             if poly_id in polys:
                 poly = polys[poly_id]
                 polys_to_update[poly] = tri_data

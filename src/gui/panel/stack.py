@@ -18,7 +18,7 @@ class PanelStackFrame(ScrollPaneFrame):
         if l < x < r and b < -y < t:
 
             dists = {-b - y: "bottom", y + t: "top"}
-            dist = min(dists.iterkeys())
+            dist = min(dists.keys())
 
             side = dists[dist]
             positions = {"bottom": ((l + r) // 2, b), "top": ((l + r) // 2, t)}

@@ -187,7 +187,7 @@ class ViewManager(object):
 
         menu = self._user_view_menu
 
-        for item in menu.get_items().values():
+        for item in list(menu.get_items().values()):
 
             if item.get_widget_type() == "menu_separator":
                 continue
@@ -355,7 +355,7 @@ class ViewTileButton(Button):
 
         menu = self._user_view_menu
 
-        for item in menu.get_items().values():
+        for item in list(menu.get_items().values()):
             item_id = item.get_id()
             menu.remove(item_id, update=False, destroy=True)
 

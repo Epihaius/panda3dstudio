@@ -1,4 +1,4 @@
-from __future__ import with_statement
+
 from .base import *
 
 COMPRESSION = 9
@@ -233,7 +233,7 @@ class HistoryEvent(object):
 
         data = obj_data.copy()
 
-        for obj_id, prop_ids in self._data["objects"].iteritems():
+        for obj_id, prop_ids in self._data["objects"].items():
             if obj_id in data:
                 prop_ids.update(data[obj_id])
                 del data[obj_id]
@@ -368,11 +368,11 @@ class HistoryManager(BaseObject):
 
         hist_file = Multifile()
         hist_file.open_write("hist.dat")
-        time_id_stream = StringStream(cPickle.dumps(self._prev_time_id, -1))
+        time_id_stream = StringStream(pickle.dumps(self._prev_time_id, -1))
         hist_file.add_subfile("time_id", time_id_stream, COMPRESSION)
-        hist_event_stream = StringStream(cPickle.dumps(self._hist_events, -1))
+        hist_event_stream = StringStream(pickle.dumps(self._hist_events, -1))
         hist_file.add_subfile("events", hist_event_stream, COMPRESSION)
-        object_ids_stream = StringStream(cPickle.dumps(set(), -1))
+        object_ids_stream = StringStream(pickle.dumps(set(), -1))
         hist_file.add_subfile("{}/object_ids".format(self._prev_time_id), object_ids_stream, COMPRESSION)
 
         hist_file.repack()
@@ -398,7 +398,7 @@ class HistoryManager(BaseObject):
 
         hist_file.close()
 
-        return cPickle.loads(data_pickled)
+        return pickle.loads(data_pickled)
 
     def __get_last_time_id(self, obj_id, prop_id, time_id=None):
 
@@ -477,7 +477,7 @@ class HistoryManager(BaseObject):
         evt_data_to_store = self._event_data_to_store
         obj_data = evt_data_to_store["objects"]
 
-        for obj_id, data in event_data["objects"].iteritems():
+        for obj_id, data in event_data["objects"].items():
             obj_data.setdefault(obj_id, {}).update(data)
 
         if "object_ids" in event_data:
@@ -514,8 +514,8 @@ class HistoryManager(BaseObject):
         obj_ids = event_data["object_ids"]
 
         objects = dict((obj_id, set([("creation" if (k == "object" and v) else k)
-                       for k, v in prop_data.iteritems()])) for obj_id, prop_data
-                       in obj_data.iteritems())
+                       for k, v in prop_data.items()])) for obj_id, prop_data
+                       in obj_data.items())
 
         data = {"objects": objects,
                 "object_ids": None if obj_ids is None else TimeIDRef(time_id)}
@@ -532,22 +532,22 @@ class HistoryManager(BaseObject):
             if "object" in obj_data[obj_id] and obj_data[obj_id]["object"] is None:
                 del obj_data[obj_id]["object"]
 
-            for prop_id, prop_val_data in obj_data[obj_id].iteritems():
+            for prop_id, prop_val_data in obj_data[obj_id].items():
 
                 subfile_name = "{}/{}/{}".format(time_id, obj_id, prop_id)
                 prop_val = prop_val_data["main"]
-                streams.append(StringStream(cPickle.dumps(prop_val, -1)))
+                streams.append(StringStream(pickle.dumps(prop_val, -1)))
                 hist_file.add_subfile(subfile_name, streams[-1], COMPRESSION)
 
                 if "extra" in prop_val_data:
-                    for data_id, data in prop_val_data["extra"].iteritems():
+                    for data_id, data in prop_val_data["extra"].items():
                         subfile_name = "{}/{}/{}".format(time_id, obj_id, data_id)
-                        streams.append(StringStream(cPickle.dumps(data, -1)))
+                        streams.append(StringStream(pickle.dumps(data, -1)))
                         hist_file.add_subfile(subfile_name, streams[-1], COMPRESSION)
 
         if obj_ids is not None:
             subfile_name = "{}/object_ids".format(time_id)
-            streams.append(StringStream(cPickle.dumps(obj_ids, -1)))
+            streams.append(StringStream(pickle.dumps(obj_ids, -1)))
             hist_file.add_subfile(subfile_name, streams[-1], COMPRESSION)
 
         hist_file.flush()
@@ -662,7 +662,7 @@ class HistoryManager(BaseObject):
 
         prop_val_pickled = hist_file.read_subfile(subfile_index)
 
-        return cPickle.loads(prop_val_pickled)
+        return pickle.loads(prop_val_pickled)
 
     def __get_undo_description(self):
 
@@ -697,7 +697,7 @@ class HistoryManager(BaseObject):
 
         time_ids = {}
 
-        for obj_id, prop_ids in obj_data.iteritems():
+        for obj_id, prop_ids in obj_data.items():
             if "creation" in prop_ids:
                 # the object was created, so it must now be destroyed
                 obj = Mgr.get("object", obj_id)
@@ -726,7 +726,7 @@ class HistoryManager(BaseObject):
             else:
                 obj = Mgr.get("object", obj_id)
 
-            props_to_restore[obj] = obj_time_ids.keys()
+            props_to_restore[obj] = list(obj_time_ids.keys())
 
         hist_file.close()
 
@@ -735,7 +735,7 @@ class HistoryManager(BaseObject):
         logging.debug('Undoing event with time ID {} and restoring event with time ID {}'.format(
                       old_time_id, new_time_id))
 
-        for obj, data_ids in props_to_restore.iteritems():
+        for obj, data_ids in props_to_restore.items():
             obj.restore_data(data_ids, restore_type="undo", old_time_id=old_time_id,
                              new_time_id=new_time_id)
 
@@ -771,7 +771,7 @@ class HistoryManager(BaseObject):
 
         obj_data = {}
 
-        for obj_id, prop_ids in next_event.get_object_data().iteritems():
+        for obj_id, prop_ids in next_event.get_object_data().items():
             if "object" in prop_ids:
                 # the object must be destroyed
                 obj = Mgr.get("object", obj_id)
@@ -785,7 +785,7 @@ class HistoryManager(BaseObject):
         hist_file = Multifile()
         hist_file.open_read("hist.dat")
 
-        for obj_id, prop_ids in obj_data.iteritems():
+        for obj_id, prop_ids in obj_data.items():
 
             # if "object" is in prop_ids, it means that the object was created;
             # to redo this, it has to be restored by unpickling it
@@ -799,7 +799,7 @@ class HistoryManager(BaseObject):
 
         hist_file.close()
 
-        for obj, data_ids in props_to_restore.iteritems():
+        for obj, data_ids in props_to_restore.items():
             obj.restore_data(data_ids, restore_type="redo", old_time_id=old_time_id,
                              new_time_id=new_time_id)
 
@@ -820,9 +820,9 @@ class HistoryManager(BaseObject):
 
         hist_file = Multifile()
         hist_file.open_read_write("hist.dat")
-        time_id_stream = StringStream(cPickle.dumps(self._prev_time_id, -1))
+        time_id_stream = StringStream(pickle.dumps(self._prev_time_id, -1))
         hist_file.add_subfile("time_id", time_id_stream, COMPRESSION)
-        hist_event_stream = StringStream(cPickle.dumps(self._hist_events, -1))
+        hist_event_stream = StringStream(pickle.dumps(self._hist_events, -1))
         hist_file.add_subfile("events", hist_event_stream, COMPRESSION)
 
         if hist_file.needs_repack():
@@ -849,15 +849,15 @@ class HistoryManager(BaseObject):
         hist_file.open_read("hist.dat")
 
         time_id_pickled = hist_file.read_subfile(hist_file.find_subfile("time_id"))
-        self._prev_time_id = self._next_time_id = self._saved_time_id = cPickle.loads(time_id_pickled)
+        self._prev_time_id = self._next_time_id = self._saved_time_id = pickle.loads(time_id_pickled)
         events_pickled = hist_file.read_subfile(hist_file.find_subfile("events"))
-        self._hist_events = cPickle.loads(events_pickled)
+        self._hist_events = pickle.loads(events_pickled)
         event = self._hist_events[self._prev_time_id]
 
         obj_ids_time_id = event.get_last_object_ids().get_time_id()
         subfile_name = "{}/object_ids".format(obj_ids_time_id)
         obj_ids_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-        obj_ids = cPickle.loads(obj_ids_pickled)
+        obj_ids = pickle.loads(obj_ids_pickled)
 
         objs_to_restore = []
 
@@ -923,7 +923,7 @@ class HistoryManager(BaseObject):
             prev_obj_ids_time_id = prev_event.get_last_object_ids().get_time_id()
             subfile_name = "{}/object_ids".format(prev_obj_ids_time_id)
             data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-            obj_ids_before = cPickle.loads(data_pickled)
+            obj_ids_before = pickle.loads(data_pickled)
         else:
             prev_time_id = None
             prev_obj_ids_time_id = None
@@ -934,7 +934,7 @@ class HistoryManager(BaseObject):
         end_obj_ids_time_id = end_obj_ids.get_time_id()
         subfile_name = "{}/object_ids".format(end_obj_ids_time_id)
         data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-        obj_ids_after = cPickle.loads(data_pickled)
+        obj_ids_after = pickle.loads(data_pickled)
         obsolete_obj_ids = set()
         obj_ids_time_id = prev_obj_ids_time_id
 
@@ -945,7 +945,7 @@ class HistoryManager(BaseObject):
             if time_id != obj_ids_time_id:
                 subfile_name = "{}/object_ids".format(time_id)
                 data_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-                obsolete_obj_ids.update(cPickle.loads(data_pickled))
+                obsolete_obj_ids.update(pickle.loads(data_pickled))
                 obj_ids_time_id = time_id
 
         obsolete_obj_ids -= obj_ids_before | obj_ids_after
@@ -973,7 +973,7 @@ class HistoryManager(BaseObject):
             if time_id == end_obj_ids_time_id:
                 obj_ids_subfile_to_move = "{}/object_ids".format(time_id)
 
-            for obj_id, obj_props in obj_data.iteritems():
+            for obj_id, obj_props in obj_data.items():
 
                 if obj_id not in obsolete_obj_ids:
 
@@ -1042,7 +1042,7 @@ class HistoryManager(BaseObject):
             obj_ids_time_id = event_to_restore.get_last_object_ids().get_time_id()
             subfile_name = "{}/object_ids".format(obj_ids_time_id)
             obj_ids_pickled = hist_file.read_subfile(hist_file.find_subfile(subfile_name))
-            obj_ids_after = cPickle.loads(obj_ids_pickled)
+            obj_ids_after = pickle.loads(obj_ids_pickled)
             objects_to_destroy = [Mgr.get("object", obj_id) for obj_id in
                                   obj_ids_before - obj_ids_after]
             objects_to_create = obj_ids_after - obj_ids_before
@@ -1079,7 +1079,7 @@ class HistoryManager(BaseObject):
                           + ' (current event time ID: {}).\n\n'.format(
                           time_to_restore, old_time_id))
 
-            for obj, data_ids in props_to_restore.iteritems():
+            for obj, data_ids in props_to_restore.items():
                 obj.restore_data(data_ids, restore_type="undo_redo", old_time_id=old_time_id,
                                  new_time_id=time_to_restore)
 
@@ -1119,7 +1119,7 @@ class HistoryManager(BaseObject):
         events_to_merge = set()
         subfiles_to_remove = set()
         subfile_names = [hist_file.get_subfile_name(i)
-                         for i in xrange(hist_file.get_num_subfiles())]
+                         for i in range(hist_file.get_num_subfiles())]
         subfile_names.remove("events")
         subfile_names.remove("time_id")
 
@@ -1220,7 +1220,7 @@ class HistoryManager(BaseObject):
         hist_file = Multifile()
         hist_file.open_read_write("hist.dat")
         subfile_names = [hist_file.get_subfile_name(i)
-                         for i in xrange(hist_file.get_num_subfiles())]
+                         for i in range(hist_file.get_num_subfiles())]
         subfile_names.remove("events")
         subfile_names.remove("time_id")
 

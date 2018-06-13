@@ -355,7 +355,7 @@ class EdgeBridgeBase(BaseObject):
             new_edges.extend(poly_edges)
             new_polys.append(poly)
 
-        for src_edge, dest_edge in edges_to_merge.iteritems():
+        for src_edge, dest_edge in edges_to_merge.items():
 
             src_vert1_id, src_vert2_id = edges[src_edge[0]]
             src_vert1 = merged_verts[src_vert1_id]

@@ -108,11 +108,11 @@ class UVSetPanel(Panel):
 
         get_command = lambda obj_id: lambda: self.__select_uv_name_target(obj_id)
 
-        for obj_id, name in names.iteritems():
+        for obj_id, name in names.items():
             combobox.add_item(obj_id, name, get_command(obj_id))
 
         combobox.update_popup_menu()
-        obj_id = names.keys()[0]
+        obj_id = list(names.keys())[0]
         self.__select_uv_name_target(obj_id)
 
     def __handle_value(self, value_id, value):

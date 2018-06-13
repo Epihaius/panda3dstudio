@@ -152,7 +152,7 @@ class SurfaceBase(BaseObject):
 
                     new_tri_data = []
 
-                    for new_tri_vert_ids in dest_triangles.itervalues():
+                    for new_tri_vert_ids in dest_triangles.values():
 
                         ordered_vert_ids = {}
 
@@ -300,7 +300,7 @@ class SurfaceBase(BaseObject):
             vert = verts[vert_id]
             row = vert.get_row_index()
 
-            for uv_set_id, uv in vert.get_uvs().iteritems():
+            for uv_set_id, uv in vert.get_uvs().items():
                 uv_writer = uv_writers[uv_set_id]
                 uv_writer.set_row(row)
                 uv_writer.set_data2f(*uv)
@@ -444,7 +444,7 @@ class SurfaceManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
 
             data = geom_data_obj.get_data_to_store("prop_change", "subobj_merge")
             data.update(geom_data_obj.get_data_to_store("prop_change", "subobj_transform", "check"))

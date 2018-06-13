@@ -1,4 +1,4 @@
-from ...base import logging, re, cPickle, GlobalData, ObjectName, get_unique_name, DirectObject
+from ...base import logging, re, pickle, GlobalData, ObjectName, get_unique_name, DirectObject
 from panda3d.core import *
 from collections import OrderedDict
 import weakref
@@ -78,7 +78,7 @@ class BaseObject(object):
             logging.warning('CORE: data "{}" is not defined.'.format(data_id))
 
             if self._verbose:
-                print('CORE warning: data "{}" is not defined.'.format(data_id))
+                print(('CORE warning: data "{}" is not defined.'.format(data_id)))
 
         retriever = self._data_retrievers.get(data_id, self._defaults["data_retriever"])
 
@@ -165,7 +165,7 @@ class _PendingTask(object):
 
             process = self._func()
 
-            if process.next():
+            if next(process):
                 self._long_process_handler(process, self._process_id, self._descr, self._cancellable)
             else:
                 self.gradual = False
@@ -339,16 +339,16 @@ class PendingTasks(object):
             pending_tasks = cls._tasks
 
             if task_types is None:
-                task_types = pending_tasks.keys()
+                task_types = list(pending_tasks.keys())
 
             if sort_by_type:
                 sorted_tasks = [task for task_type in task_types for sort, tasks in
-                                sorted(pending_tasks.pop(task_type, {}).iteritems())
-                                for task in tasks.itervalues()]
+                                sorted(pending_tasks.pop(task_type, {}).items())
+                                for task in tasks.values()]
             else:
                 sorted_tasks = [task for sort, tasks in sorted([i for task_type in task_types
-                                for i in pending_tasks.pop(task_type, {}).iteritems()])
-                                for task in tasks.itervalues()]
+                                for i in pending_tasks.pop(task_type, {}).items()])
+                                for task in tasks.values()]
 
         while sorted_tasks:
 
@@ -419,7 +419,7 @@ class PickableTypes(object):
     @classmethod
     def get_all(cls):
 
-        return [t for t in cls._types.itervalues() if t not in cls._special_types]
+        return [t for t in cls._types.values() if t not in cls._special_types]
 
     @classmethod
     def get_id(cls, pickable_type):

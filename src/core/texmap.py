@@ -348,7 +348,7 @@ class TextureMap(object):
 
     def copy_transform(self, transform):
 
-        self._transform = dict((k, v[:]) for k, v in transform.iteritems())
+        self._transform = dict((k, v[:]) for k, v in transform.items())
 
 
 class Layer(TextureMap):
@@ -399,7 +399,7 @@ class Layer(TextureMap):
 
         cmbmode_data = {}
         cmbmode_data["channels"] = "rgb"
-        mode_ids = self.combine_modes.keys()
+        mode_ids = list(self.combine_modes.keys())
 
         for channels in ("rgb", "alpha"):
 
@@ -432,7 +432,7 @@ class Layer(TextureMap):
         orig_data = self._combine_mode_data
         copy_data = orig_data.copy()
         copy_data["channels"]
-        mode_ids = self.combine_modes.keys()
+        mode_ids = list(self.combine_modes.keys())
 
         for channels in ("rgb", "alpha"):
 
@@ -440,7 +440,7 @@ class Layer(TextureMap):
             old_sources = orig_data[channels]["sources"]
             copy_data[channels]["sources"] = new_sources = old_sources.copy()
 
-            for mode_id, source_data in old_sources.iteritems():
+            for mode_id, source_data in old_sources.items():
                 new_sources[mode_id] = [source_ids[:] for source_ids in source_data]
 
         return copy_data
@@ -757,7 +757,7 @@ class TexMapManager(object):
         Mgr.expose("tex_layer", lambda layer_id: self._layers.get(layer_id))
         Mgr.expose("tex_stage", lambda map_type: self._tex_stages.get(map_type))
         Mgr.expose("unique_tex_layer_name", self.__get_unique_layer_name)
-        Mgr.expose("next_tex_layer_id", lambda: ("tex_layer",) + self._id_generator.next())
+        Mgr.expose("next_tex_layer_id", lambda: ("tex_layer",) + next(self._id_generator))
         Mgr.add_app_updater("new_tex_layer", self.__update_new_layer)
         Mgr.add_app_updater("tex_layer_selection", self.__select_layer)
         Mgr.add_app_updater("removed_tex_layer", self.__remove_layer)
@@ -784,7 +784,7 @@ class TexMapManager(object):
 
     def __create_layer(self, material=None):
 
-        layer_id = ("tex_layer",) + self._id_generator.next()
+        layer_id = ("tex_layer",) + next(self._id_generator)
 
         if material:
             name = self.__get_unique_layer_name(material)
@@ -808,7 +808,7 @@ class TexMapManager(object):
         material = Mgr.get("material", material_id)
 
         if source_layer_id is None:
-            layer_id = ("tex_layer",) + self._id_generator.next()
+            layer_id = ("tex_layer",) + next(self._id_generator)
             name = self.__get_unique_layer_name(material)
             layer = Layer(layer_id, name)
             material.add_layer(layer)
@@ -836,7 +836,7 @@ class TexMapManager(object):
         del self._layers[layer_id]
 
         if not material.get_layers():
-            layer_id = ("tex_layer",) + self._id_generator.next()
+            layer_id = ("tex_layer",) + next(self._id_generator)
             name = self.__get_unique_layer_name(material)
             layer = Layer(layer_id, name)
             material.add_layer(layer)

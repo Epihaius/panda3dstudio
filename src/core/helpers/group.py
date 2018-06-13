@@ -122,7 +122,7 @@ class Group(TopLevelObject):
 
     def __destroy_collision_geoms(self):
 
-        for coll_geom in self._collision_geoms.itervalues():
+        for coll_geom in self._collision_geoms.values():
             coll_geom.remove_node()
 
         for member in self.get_members():
@@ -335,7 +335,7 @@ class Group(TopLevelObject):
         bbox_orig.reparent_to(group_orig)
         group_orig.set_transform(transform)
 
-        for member, parent in parents.iteritems():
+        for member, parent in parents.items():
             member.wrt_reparent_to(parent)
 
         if bounds:
@@ -573,7 +573,7 @@ class GroupManager(ObjectManager):
                         "recursive_member_selection": False, "subgroup_selection": False}
         link_options = {"allowed": True, "open_groups_only": True, "unlink_only": True}
         group_options = {"main": main_options, "member_linking": link_options}
-        copier = lambda d: dict((k, dict.copy(v)) for k, v in d.iteritems())
+        copier = lambda d: dict((k, dict.copy(v)) for k, v in d.items())
         GlobalData.set_default("group_options", group_options, copier)
 
         self._bbox_roots = {}
@@ -633,7 +633,7 @@ class GroupManager(ObjectManager):
         bbox_origins = self._bbox_origins
 
         for group_id in self._bbox_bases:
-            for origins in bbox_origins.itervalues():
+            for origins in bbox_origins.values():
                 origins[group_id].set_scale(.5 * scale)
 
     def __create_group(self, name, member_types=None, member_types_id="any", transform=None,
@@ -641,7 +641,7 @@ class GroupManager(ObjectManager):
 
         member_type = ("multi" if len(member_types) > 1 else member_types[0]) if member_types else ""
         group_type = "{}_group".format(member_type) if member_type else "group"
-        group_id = (group_type,) + self._id_generator.next()
+        group_id = (group_type,) + next(self._id_generator)
         group = Group(set(member_types if member_types else []), member_types_id, group_id,
                       name, color_unsel)
         group.register(restore=False)
@@ -933,7 +933,7 @@ class GroupManager(ObjectManager):
             else:
                 members.remove(group)
 
-        group_children = [child for g, c in group_children.iteritems() for child in c]
+        group_children = [child for g, c in group_children.items() for child in c]
         new_group_id = new_group.get_id()
 
         for child in group_children:
