@@ -6,7 +6,7 @@ This should avoid any export/import problems, as models are exported from Panda3
 Hopefully, at some point it will also become a full-fledged level editor.
 
 Requirements:
-* a recent development version of the Panda3D SDK.
+* a recent development version of the Panda3D SDK with Python 3.x support. Please note that Python 2.x is no longer supported by this project!
 
 The functionality of this project is still quite basic, with a lot of important features missing or incomplete, so please don't use it for serious work yet.
 
