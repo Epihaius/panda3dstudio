@@ -205,7 +205,7 @@ class ImportManager(BaseObject):
 
                 segments = {"x": 1, "y": 1, "z": 1}
                 creator = Mgr.do("create_custom_box", name, x, y, z, segments, pos, inverted=True)
-                model = creator.next()
+                model = next(creator)
                 model.register(restore=False)
                 model.get_pivot().set_hpr(hpr)
 
@@ -248,7 +248,7 @@ class ImportManager(BaseObject):
             x = y = 10.
             segments = {"x": 1, "y": 1}
             creator = Mgr.do("create_custom_plane", name, x, y, segments, pos)
-            model = creator.next()
+            model = next(creator)
             model.register(restore=False)
             model.get_pivot().set_hpr(hpr)
             plane_models.append(model)
@@ -271,7 +271,7 @@ class ImportManager(BaseObject):
             segments = {"x": 1, "y": 1, "z": 1}
             creator = Mgr.do("create_custom_box", name, x, y, z, segments, pos)
 
-        model = creator.next()
+        model = next(creator)
         model.register(restore=False)
 
         if obj_type == "CollisionTube":
@@ -656,7 +656,7 @@ class ImportManager(BaseObject):
                 do_import = True
                 break
 
-        if do_import and process.next():
+        if do_import and next(process):
             handler = self.__cancel_import_process
             Mgr.add_notification_handler("long_process_cancelled", "import_mgr", handler, once=True)
             task = lambda: Mgr.remove_notification_handler("long_process_cancelled", "import_mgr")

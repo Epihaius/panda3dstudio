@@ -69,7 +69,7 @@ class WidgetGroup(Widget):
         h_half = self._label.get_y_size() // 2
         height2 = height - h_half
 
-        for state, part_rows in self._gfx.iteritems():
+        for state, part_rows in self._gfx.items():
 
             img = PNMImage(width, height, 4)
             images[state] = img

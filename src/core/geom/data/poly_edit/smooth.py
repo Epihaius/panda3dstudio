@@ -85,7 +85,7 @@ class SmoothingBase(BaseObject):
         poly_smoothing = {}
         creases = {}
 
-        for merged_vert in set(merged_verts.itervalues()):
+        for merged_vert in set(merged_verts.values()):
 
             if len(merged_vert) < 2:
                 continue
@@ -155,10 +155,10 @@ class SmoothingBase(BaseObject):
             old_smoothing = set()
             new_smoothing = set()
 
-            for smoothing in self._poly_smoothing.itervalues():
+            for smoothing in self._poly_smoothing.values():
                 old_smoothing.update(smoothing)
 
-            for smoothing in poly_smoothing.itervalues():
+            for smoothing in poly_smoothing.values():
                 new_smoothing.update(smoothing)
 
             old_smoothing = list(old_smoothing)
@@ -225,7 +225,7 @@ class SmoothingBase(BaseObject):
 
                 self._poly_smoothing_change = True
 
-            merged_verts = set(self._merged_verts.itervalues())
+            merged_verts = set(self._merged_verts.values())
             self.update_vertex_normals(merged_verts, update_tangent_space=False)
 
             model = self.get_toplevel_object()
@@ -252,7 +252,7 @@ class SmoothingBase(BaseObject):
 
             return [polys[p_id] for p_id in poly_ids]
 
-        return [poly for p_id, poly in polys.iteritems() if p_id not in self._poly_smoothing]
+        return [poly for p_id, poly in polys.items() if p_id not in self._poly_smoothing]
 
     def set_smooth_shaded(self, smooth=True):
 
@@ -284,7 +284,7 @@ class SmoothingBase(BaseObject):
             merged_verts = self._merged_verts
             selected_normal_ids = set(self._selected_subobj_ids["normal"])
 
-            for merged_vert in set(merged_verts.itervalues()):
+            for merged_vert in set(merged_verts.values()):
 
                 verts_to_smooth = []
                 normal = Vec3()
@@ -344,7 +344,7 @@ class SmoothingBase(BaseObject):
             vertex_data_poly = self._vertex_data["poly"]
             normal_writer = GeomVertexWriter(vertex_data_poly, "normal")
 
-            for poly in polys.itervalues():
+            for poly in polys.values():
 
                 normal = poly.get_normal().normalized()
 
@@ -660,7 +660,7 @@ class SmoothingManager(BaseObject):
         changed_objs = {}
         changed_selections = []
 
-        for obj_id, geom_data_obj in geom_data_objs.iteritems():
+        for obj_id, geom_data_obj in geom_data_objs.items():
 
             change, normals_to_sel = geom_data_obj.set_smooth_shaded(smooth)
 
@@ -677,7 +677,7 @@ class SmoothingManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
 
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
@@ -712,7 +712,7 @@ class SmoothingManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
 
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
@@ -741,7 +741,7 @@ class SmoothingManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
         event_descr = "Update polygon smoothing"

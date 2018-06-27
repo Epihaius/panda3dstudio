@@ -96,7 +96,7 @@ class UVTransformGizmo(BaseObject):
 
     def get_next_picking_color_id(self):
 
-        return self._picking_col_id_generator.next()
+        return next(self._picking_col_id_generator)
 
     def select_handle(self, color_id):
 

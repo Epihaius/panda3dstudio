@@ -177,7 +177,7 @@ class NormalEditBase(BaseObject):
         self._shared_normals = shared_normals = {}
         self._normal_sharing_change = True
 
-        for merged_vert in set(self._merged_verts.itervalues()):
+        for merged_vert in set(self._merged_verts.values()):
 
             vert_ids = merged_vert[:]
 
@@ -203,7 +203,7 @@ class NormalEditBase(BaseObject):
         verts = self._subobjs["vert"]
         shared_normals = self._shared_normals
 
-        for merged_vert in set(self._merged_verts.itervalues()):
+        for merged_vert in set(self._merged_verts.values()):
 
             vert_ids = merged_vert[:]
 
@@ -269,7 +269,7 @@ class NormalEditBase(BaseObject):
 
                         smoothing_grp = None
 
-                    smoothing_grps = vert_ids_by_smoothing.keys()
+                    smoothing_grps = list(vert_ids_by_smoothing.keys())
 
                     if smoothing_grp in smoothing_grps:
                         index = smoothing_grps.index(smoothing_grp)
@@ -278,7 +278,7 @@ class NormalEditBase(BaseObject):
                     else:
                         vert_ids_by_smoothing[smoothing_grp] = [vert_id]
 
-                for smoothing_grp, vert_ids in vert_ids_by_smoothing.iteritems():
+                for smoothing_grp, vert_ids in vert_ids_by_smoothing.items():
 
                     if smoothing_grp:
 
@@ -505,7 +505,7 @@ class NormalEditBase(BaseObject):
         verts = self._subobjs["vert"]
         normals = {}
 
-        for vert_id, vert in verts.iteritems():
+        for vert_id, vert in verts.items():
             normals[vert_id] = vert.get_normal()
 
         return normals
@@ -518,7 +518,7 @@ class NormalEditBase(BaseObject):
         """ Update the normals of the given merged vertices """
 
         if merged_verts is None:
-            merged_verts = set(self._merged_verts.itervalues())
+            merged_verts = set(self._merged_verts.values())
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
@@ -596,7 +596,7 @@ class NormalEditBase(BaseObject):
         shared_normals = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
         self._shared_normals = shared_normals
 
-        for shared_normal in set(shared_normals.itervalues()):
+        for shared_normal in set(shared_normals.values()):
             shared_normal.set_geom_data_object(self)
 
     def _restore_vertex_normals(self, old_time_id, new_time_id):
@@ -650,12 +650,12 @@ class NormalEditBase(BaseObject):
 
         vert_ids = {}
 
-        for vert_id, time_id in time_ids_to_restore.iteritems():
+        for vert_id, time_id in time_ids_to_restore.items():
             if vert_id in verts:
                 time_ids[vert_id] = time_id
                 vert_ids.setdefault(time_id, []).append(vert_id)
 
-        for time_id, ids in vert_ids.iteritems():
+        for time_id, ids in vert_ids.items():
 
             if time_id:
 
@@ -679,14 +679,14 @@ class NormalEditBase(BaseObject):
                     time_ids[vert_id] = time_id
 
         # restore the verts' previous normal change time IDs
-        for vert_id, time_id in time_ids.iteritems():
+        for vert_id, time_id in time_ids.items():
             verts[vert_id].set_previous_property_time("normal", time_id)
 
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
         sign = -1. if self._owner.has_flipped_normals() else 1.
 
-        for vert_id, normal in normals.iteritems():
+        for vert_id, normal in normals.items():
 
             if vert_id not in verts:
                 continue
@@ -756,12 +756,12 @@ class NormalEditBase(BaseObject):
 
         vert_ids = {}
 
-        for vert_id, time_id in time_ids_to_restore.iteritems():
+        for vert_id, time_id in time_ids_to_restore.items():
             if vert_id in verts:
                 time_ids[vert_id] = time_id
                 vert_ids.setdefault(time_id, []).append(vert_id)
 
-        for time_id, ids in vert_ids.iteritems():
+        for time_id, ids in vert_ids.items():
 
             if time_id:
 
@@ -785,13 +785,13 @@ class NormalEditBase(BaseObject):
                     time_ids[vert_id] = time_id
 
         # restore the verts' previous normal lock change time IDs
-        for vert_id, time_id in time_ids.iteritems():
+        for vert_id, time_id in time_ids.items():
             verts[vert_id].set_previous_property_time("normal_lock", time_id)
 
         locked_normal_ids = []
         unlocked_normal_ids = []
 
-        for vert_id, locked in normal_lock.iteritems():
+        for vert_id, locked in normal_lock.items():
 
             if vert_id not in verts:
                 continue
@@ -1400,7 +1400,7 @@ class NormalManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
         event_descr = "{} normals".format("Unify" if unify else "Separate")
@@ -1426,7 +1426,7 @@ class NormalManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
         event_descr = "{} normals".format("Lock" if lock else "Unlock")
@@ -1494,7 +1494,7 @@ class NormalManager(BaseObject):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
         event_descr = "Copy normal direction"

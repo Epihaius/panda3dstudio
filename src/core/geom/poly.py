@@ -167,7 +167,7 @@ class Polygon(BaseObject):
     def update_normal(self):
 
         tri_count = len(self._tri_data)
-        normals = [self.get_triangle_normal(i) for i in xrange(tri_count)]
+        normals = [self.get_triangle_normal(i) for i in range(tri_count)]
         self._normal = sum(normals, Vec3()) / tri_count
 
     def reverse_normal(self):

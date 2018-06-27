@@ -694,7 +694,7 @@ class Selection(SelectionTransformBase):
         """ Return a random top-level object """
 
         if self._groups:
-            return self._groups.keys()[0].get_toplevel_object(get_group)
+            return list(self._groups.keys())[0].get_toplevel_object(get_group)
 
     def update(self):
 
@@ -722,7 +722,7 @@ class Selection(SelectionTransformBase):
             geom_data_objs.setdefault(geom_data_obj, []).append(obj)
             groups.setdefault(geom_data_obj, []).append(obj)
 
-        for geom_data_obj, objs in geom_data_objs.iteritems():
+        for geom_data_obj, objs in geom_data_objs.items():
             geom_data_obj.update_selection(self._obj_level, objs, [])
 
         sel.extend(sel_to_add)
@@ -770,7 +770,7 @@ class Selection(SelectionTransformBase):
             if not groups[geom_data_obj]:
                 del groups[geom_data_obj]
 
-        for geom_data_obj, objs in geom_data_objs.iteritems():
+        for geom_data_obj, objs in geom_data_objs.items():
             geom_data_obj.update_selection(self._obj_level, [], objs)
 
         task = lambda: Mgr.get("selection").update()
@@ -817,7 +817,7 @@ class Selection(SelectionTransformBase):
             geom_data_obj = new_obj.get_geom_data_object()
             geom_data_objs.setdefault(geom_data_obj, {"sel": [], "desel": []})["sel"].append(new_obj)
 
-        for geom_data_obj, objs in geom_data_objs.iteritems():
+        for geom_data_obj, objs in geom_data_objs.items():
             geom_data_obj.update_selection(self._obj_level, objs["sel"], objs["desel"])
 
         sel.extend(new_sel)
@@ -890,7 +890,7 @@ class Selection(SelectionTransformBase):
         if not self._objs:
             return False
 
-        geom_data_objs = self._groups.keys()
+        geom_data_objs = list(self._groups.keys())
 
         self._groups = {}
         self._objs = []

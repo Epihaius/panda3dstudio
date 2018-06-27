@@ -47,7 +47,7 @@ class GUIManager(object):
             logging.warning('GUI: task "{}" is not defined.'.format(task_id))
 
             if cls._verbose:
-                print('GUI warning: task "{}" is not defined.'.format(task_id))
+                print(('GUI warning: task "{}" is not defined.'.format(task_id)))
 
         task_handler = cls._task_handlers.get(task_id, cls._default_task_handler)
 
@@ -72,7 +72,7 @@ class GUIManager(object):
             logging.warning('GUI: data "{}" is not defined.'.format(data_id))
 
             if cls._verbose:
-                print('GUI warning: data "{}" is not defined.'.format(data_id))
+                print(('GUI warning: data "{}" is not defined.'.format(data_id)))
 
         retriever = cls._data_retrievers.get(data_id, cls._default_data_retriever)
 

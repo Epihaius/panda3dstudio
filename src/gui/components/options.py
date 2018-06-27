@@ -69,10 +69,10 @@ class OptionManager(object):
 
             with open(filename, "rb") as layout_file:
                 try:
-                    if cPickle.load(layout_file) != "Panda3D Studio GUI Layout":
+                    if pickle.load(layout_file) != "Panda3D Studio GUI Layout":
                         self.__handle_load_error(filename, "id")
                         return
-                    layout = cPickle.load(layout_file)
+                    layout = pickle.load(layout_file)
                 except:
                     self.__handle_load_error(filename, "read")
 
@@ -85,7 +85,7 @@ class OptionManager(object):
                     config_data["gui_layout"]["right_dock"] = layout["right_dock"]
 
                 with open("config", "wb") as config_file:
-                    cPickle.dump(config_data, config_file, -1)
+                    pickle.dump(config_data, config_file, -1)
 
                 side = layout["right_dock"]
                 Mgr.do("set_right_dock_side", side)
@@ -130,8 +130,8 @@ class OptionManager(object):
         def on_yes(filename):
 
                 with open(filename, "wb") as layout_file:
-                    cPickle.dump("Panda3D Studio GUI Layout", layout_file, -1)
-                    cPickle.dump(GlobalData["config"]["gui_layout"], layout_file, -1)
+                    pickle.dump("Panda3D Studio GUI Layout", layout_file, -1)
+                    pickle.dump(GlobalData["config"]["gui_layout"], layout_file, -1)
 
         FileDialog(title="Save GUI layout",
                    ok_alias="Save", on_yes=on_yes, file_op="write",

@@ -282,11 +282,11 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __destroy_uv_data(self):
 
-        for uv_data_objs in self._uv_data_objs.itervalues():
-            for uv_data_obj in uv_data_objs.itervalues():
+        for uv_data_objs in self._uv_data_objs.values():
+            for uv_data_obj in uv_data_objs.values():
                 uv_data_obj.destroy()
 
-        for geom_data_obj, uv_data_obj in self._uv_data_obj_copies.iteritems():
+        for geom_data_obj, uv_data_obj in self._uv_data_obj_copies.items():
             geom_data_obj.clear_copied_uvs()
 
         self._uv_registry.clear()
@@ -303,7 +303,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             uv_data_objs = self._uv_data_objs[self._uv_set_id]
 
-            for uv_data_obj in uv_data_objs.itervalues():
+            for uv_data_obj in uv_data_objs.values():
                 uv_data_obj.show_subobj_level(obj_lvl)
 
             self.update_selection(recreate=True)
@@ -320,7 +320,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
         uv_data_objs = self._uv_data_objs[self._uv_set_id]
 
-        for uv_data_obj in uv_data_objs.itervalues():
+        for uv_data_obj in uv_data_objs.values():
             uv_data_obj.hide()
 
         self._uv_set_id = uv_set_id
@@ -329,7 +329,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             uv_data_objs = self._uv_data_objs[uv_set_id]
 
-            for geom_data_obj, uv_data_obj in uv_data_objs.iteritems():
+            for geom_data_obj, uv_data_obj in uv_data_objs.items():
                 geom_data_obj.set_tex_seams(uv_set_id)
                 uv_data_obj.show_subobj_level(self._obj_lvl)
                 uv_data_obj.show()
@@ -383,7 +383,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         uv_data_objs = self._uv_data_objs[uv_set_id]
         copies = self._uv_data_obj_copies
 
-        for geom_data_obj, uv_data_obj in uv_data_objs.iteritems():
+        for geom_data_obj, uv_data_obj in uv_data_objs.items():
             copies[geom_data_obj] = uv_data_obj.copy()
             geom_data_obj.copy_uvs(uv_set_id)
 
@@ -404,7 +404,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         selections = {"vert": [], "edge": [], "poly": []}
         del selections[self._obj_lvl]
 
-        for geom_data_obj, uv_data_obj in uv_data_objs.copy().iteritems():
+        for geom_data_obj, uv_data_obj in uv_data_objs.copy().items():
 
             uv_data_obj.destroy()
             copy = copies[geom_data_obj].copy(uv_set_id)
@@ -413,7 +413,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             for subobj_type in ("vert", "edge", "poly"):
                 uv_registry[subobj_type].update(dict((s.get_picking_color_id(), s)
-                                                for s in copy.get_subobjects(subobj_type).itervalues()))
+                                                for s in copy.get_subobjects(subobj_type).values()))
 
             for subobj_type in selections:
                 selections[subobj_type].extend(copy.get_selection(subobj_type))
@@ -475,7 +475,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         uv_data_objs = self._uv_data_objs[self._uv_set_id]
         state = RenderState.make_empty()
 
-        for uv_data_obj in uv_data_objs.itervalues():
+        for uv_data_obj in uv_data_objs.values():
             uv_data_obj.set_poly_state("unselected", state)
 
     def __reset_unselected_poly_state(self):
@@ -483,7 +483,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         uv_data_objs = self._uv_data_objs[self._uv_set_id]
         state = self._poly_states["unselected"]
 
-        for uv_data_obj in uv_data_objs.itervalues():
+        for uv_data_obj in uv_data_objs.values():
             uv_data_obj.set_poly_state("unselected", state)
 
     def __update_poly_color(self, sel_state, channels, value):
@@ -504,8 +504,8 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         poly_colors[sel_state] = color
         poly_states[sel_state] = state
 
-        for uv_data_objs in self._uv_data_objs.itervalues():
-            for uv_data_obj in uv_data_objs.itervalues():
+        for uv_data_objs in self._uv_data_objs.values():
+            for uv_data_obj in uv_data_objs.values():
                 uv_data_obj.set_poly_state(sel_state, state)
 
         r, g, b, a = poly_colors[sel_state]
@@ -519,7 +519,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         uv_data_objs = self._uv_data_objs[self._uv_set_id]
 
         if not via_poly:
-            for uv_data_obj in uv_data_objs.itervalues():
+            for uv_data_obj in uv_data_objs.values():
                 uv_data_obj.restore_selection_backup("poly")
 
         obj_lvl = self._obj_lvl
@@ -527,7 +527,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         if obj_lvl not in ("vert", "edge"):
             return
 
-        for uv_data_obj in uv_data_objs.itervalues():
+        for uv_data_obj in uv_data_objs.values():
             uv_data_obj.init_subobj_picking(obj_lvl)
 
     def __start_drawing_aux_picking_viz(self):
@@ -604,7 +604,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             if geom_data_obj.set_uv_set_names(uv_set_names[geom_data_obj]):
                 uv_name_change.append(geom_data_obj)
 
-        geom_data_objs = self._uv_data_objs[self._uv_set_id].iterkeys()
+        geom_data_objs = iter(self._uv_data_objs[self._uv_set_id].keys())
         changed_objs = [obj for obj in geom_data_objs if obj.get_uv_change()]
 
         if not (uv_name_change or changed_objs):

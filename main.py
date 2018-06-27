@@ -10,14 +10,14 @@ class App(object):
             config_data = {"skin": "default", "texfile_paths": [], "custom_colors": [], "recent_dirs": []}
 
             with open("config", "wb") as config_file:
-                cPickle.dump(config_data, config_file, -1)
+                pickle.dump(config_data, config_file, -1)
 
             return config_data
 
         def read_config():
 
             with open("config", "rb") as config_file:
-                return cPickle.load(config_file)
+                return pickle.load(config_file)
 
         try:
             GlobalData["config"] = read_config()

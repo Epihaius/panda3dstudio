@@ -290,7 +290,7 @@ class Toolbar(Widget):
                 return self, "top", ((l + r) // 2, (b + t) // 2)
 
             dists = {x - l: "left", r - x: "right", -b - y: "bottom", y + t: "top"}
-            dist = min(dists.iterkeys())
+            dist = min(dists.keys())
 
             side = dists[dist]
             positions = {"left": (l, (b + t) // 2), "right": (r, (b + t) // 2),
@@ -582,7 +582,7 @@ class ToolbarBundle(object):
                 break
 
         with open("config", "wb") as config_file:
-            cPickle.dump(config_data, config_file, -1)
+            pickle.dump(config_data, config_file, -1)
 
     def set_pos(self, pos):
 

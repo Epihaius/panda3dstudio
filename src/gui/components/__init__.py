@@ -422,7 +422,7 @@ class Components(object):
         layout["right_dock"] = side
 
         with open("config", "wb") as config_file:
-            cPickle.dump(config_data, config_file, -1)
+            pickle.dump(config_data, config_file, -1)
 
     def __get_default_layout_data(self):
 
@@ -449,7 +449,7 @@ class Components(object):
             config_data["gui_layout"]["right_dock"] = "right"
 
         with open("config", "wb") as config_file:
-            cPickle.dump(config_data, config_file, -1)
+            pickle.dump(config_data, config_file, -1)
 
         return layout
 
@@ -468,7 +468,7 @@ class Components(object):
             config_data["gui_layout"] = layout
 
             with open("config", "wb") as config_file:
-                cPickle.dump(config_data, config_file, -1)
+                pickle.dump(config_data, config_file, -1)
 
         side = layout["right_dock"]
 
@@ -479,7 +479,7 @@ class Components(object):
             sizer.remove_item(sizer_item)
             sizer.add_item(sizer_item, index=0)
 
-        for side, toolbar_rows in layout["main"].iteritems():
+        for side, toolbar_rows in layout["main"].items():
 
             dock = docks[side]
             dock_sizer = dock.get_sizer()
@@ -617,7 +617,7 @@ class Components(object):
                     toolbar_rows.append(None)
 
         with open("config", "wb") as config_file:
-            cPickle.dump(config_data, config_file, -1)
+            pickle.dump(config_data, config_file, -1)
 
     def __update_progress(self, update_type, arg1=None, arg2=None):
 

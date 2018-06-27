@@ -198,7 +198,7 @@ class TransformToolbar(Toolbar):
             is_rel_value = rel_values[self._uv_lvl][transf_type]
             value_id = (transf_type, is_rel_value)
 
-            for field in self._fields.itervalues():
+            for field in self._fields.values():
                 field.show_value(value_id)
 
             self.__check_selection_count(transf_type)
@@ -242,7 +242,7 @@ class TransformToolbar(Toolbar):
         rel_values[transf_type] = use_rel_values
         value_id = (transf_type, use_rel_values)
 
-        for field in self._fields.itervalues():
+        for field in self._fields.values():
 
             field.show_value(value_id)
 
@@ -276,7 +276,7 @@ class TransformToolbar(Toolbar):
 
             return
 
-        for transform_type, values in transform_data.iteritems():
+        for transform_type, values in transform_data.items():
 
             value_id = (transform_type, False)
 
@@ -291,7 +291,7 @@ class TransformToolbar(Toolbar):
         transf_type = GlobalData["active_uv_transform_type"]
         fields = self._fields
 
-        for field in fields.itervalues():
+        for field in fields.values():
             field.show_text(show)
 
         if show:
@@ -310,7 +310,7 @@ class TransformToolbar(Toolbar):
 
         fields = self._fields
 
-        for field in fields.itervalues():
+        for field in fields.values():
             field.enable(enable)
 
         if enable:
@@ -334,12 +334,12 @@ class TransformToolbar(Toolbar):
 
             color = (.5, .5, .5, 1.)
 
-            for field in self._fields.itervalues():
+            for field in self._fields.values():
                 field.set_text_color(color)
 
         else:
 
-            for field in self._fields.itervalues():
+            for field in self._fields.values():
                 field.set_text_color()
 
         use_rel_values = GlobalData["rel_uv_transform_values"][self._uv_lvl][tr_type]
@@ -358,7 +358,7 @@ class TransformToolbar(Toolbar):
         use_rel_values = GlobalData["rel_uv_transform_values"][uv_level][transf_type]
         value_id = (transf_type, use_rel_values)
 
-        for field in self._fields.itervalues():
+        for field in self._fields.values():
             field.show_value(value_id)
 
         self.__check_selection_count(transf_type)

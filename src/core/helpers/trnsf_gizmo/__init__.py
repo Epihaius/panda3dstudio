@@ -71,7 +71,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
             "scale": ScalingGizmo()
         }
 
-        for gizmo in self._gizmos.itervalues():
+        for gizmo in self._gizmos.values():
             gizmo.hide()
 
         self._active_gizmo = disabled_gizmo = self._gizmos[""]
@@ -165,7 +165,7 @@ class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
         picking_mask = Mgr.get("gizmo_picking_mask")
 
-        for root in self._roots.itervalues():
+        for root in self._roots.values():
             root.show(picking_mask) if pickable else root.hide(picking_mask)
 
     def __set_pos(self, pos):

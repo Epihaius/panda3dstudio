@@ -84,7 +84,7 @@ def _define_geom_data(segments, smooth, temp=False):
 
     vert_id = 0
 
-    for i in xrange(segs_s):
+    for i in range(segs_s):
 
         z = cos(angle_v * i)
 
@@ -93,7 +93,7 @@ def _define_geom_data(segments, smooth, temp=False):
         if not temp:
             v = 1. * i / segs_s
 
-        for j in xrange(segs_r + 1):
+        for j in range(segs_r + 1):
 
             if j < segs_r:
                 x = r2 * cos(angle_h * j)
@@ -119,12 +119,12 @@ def _define_geom_data(segments, smooth, temp=False):
 
     # Define quadrangular faces
 
-    for i in xrange(segs_s):
+    for i in range(segs_s):
 
         s = segs_r + 1
         k = i * s
 
-        for j in xrange(segs_r):
+        for j in range(segs_r):
 
             vi1 = k + j
             vi2 = vi1 + s
@@ -426,7 +426,7 @@ class Torus(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                task = lambda: self.get_geom_data_object().set_smoothing(self._smoothing.itervalues()
+                task = lambda: self.get_geom_data_object().set_smoothing(iter(self._smoothing.values())
                                                                          if value else None)
                 PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
 

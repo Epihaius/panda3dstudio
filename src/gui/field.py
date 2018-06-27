@@ -1,6 +1,6 @@
 from .base import *
 from .menu import Menu
-from Tkinter import Tk
+from tkinter import Tk
 
 
 class TextControl(object):
@@ -725,7 +725,7 @@ class InputField(Widget):
 
         Widget.destroy(self)
 
-        for txt_ctrl in self._text_ctrls.itervalues():
+        for txt_ctrl in self._text_ctrls.values():
             txt_ctrl.destroy()
 
         self._text_ctrls = {}
@@ -777,7 +777,7 @@ class InputField(Widget):
 
         self._scissor_effect = effect
 
-        for txt_ctrl in self._text_ctrls.itervalues():
+        for txt_ctrl in self._text_ctrls.values():
             txt_ctrl.set_scissor_effect(effect)
 
     def set_size(self, size, includes_borders=True, is_min=False):
@@ -785,7 +785,7 @@ class InputField(Widget):
         w, h = Widget.set_size(self, size, includes_borders, is_min)
         size = (w, self._height)
 
-        for txt_ctrl in self._text_ctrls.itervalues():
+        for txt_ctrl in self._text_ctrls.values():
             txt_ctrl.set_size(size)
 
     def delay_card_update(self, delay=True):
@@ -1216,7 +1216,7 @@ class InputField(Widget):
         if txt_ctrl.get_color() == color:
             return False
 
-        for value_id, txt_ctrl in self._text_ctrls.iteritems():
+        for value_id, txt_ctrl in self._text_ctrls.items():
             txt_ctrl.set_color(color if color else self._text_color)
             txt_ctrl.set_text(self._texts[value_id])
 

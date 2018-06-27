@@ -135,7 +135,7 @@ class RadioButton(Widget):
     def enable(self, enable=True, check_group_disablers=True):
 
         if enable and not self.is_always_enabled() and check_group_disablers:
-            for disabler in self._group.get_disablers().itervalues():
+            for disabler in self._group.get_disablers().values():
                 if disabler():
                     return False
 
@@ -249,7 +249,7 @@ class RadioButtonGroup(object):
             self._back_color = back_color
 
             if update:
-                for btn in self._btns.itervalues():
+                for btn in self._btns.values():
                     btn.update()
 
     def get_back_color(self):
@@ -274,9 +274,9 @@ class RadioButtonGroup(object):
             return
 
         if enable:
-            for disabler in self._disablers.itervalues():
+            for disabler in self._disablers.values():
                 if disabler():
                     return
 
-        for btn in self._btns.itervalues():
+        for btn in self._btns.values():
             btn.enable(enable)

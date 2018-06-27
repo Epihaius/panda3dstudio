@@ -177,7 +177,7 @@ class MainCamera(BaseObject):
 
         pos = {}
 
-        for view_id, pivot in self._pivots.iteritems():
+        for view_id, pivot in self._pivots.items():
             pos[view_id] = pivot.get_pos()
 
         return pos
@@ -186,14 +186,14 @@ class MainCamera(BaseObject):
 
         pivots = self._pivots
 
-        for view_id, pos in positions.iteritems():
+        for view_id, pos in positions.items():
             pivots[view_id].set_pos(pos)
 
     def get_pivot_hprs(self):
 
         hprs = {}
 
-        for view_id, pivot in self._pivots.iteritems():
+        for view_id, pivot in self._pivots.items():
             hprs[view_id] = pivot.get_hpr()
 
         return hprs
@@ -202,14 +202,14 @@ class MainCamera(BaseObject):
 
         pivots = self._pivots
 
-        for view_id, hpr in hprs.iteritems():
+        for view_id, hpr in hprs.items():
             pivots[view_id].set_hpr(hpr)
 
     def get_target_hprs(self):
 
         hprs = {}
 
-        for view_id, target in self._targets.iteritems():
+        for view_id, target in self._targets.items():
             hprs[view_id] = target.get_hpr()
 
         return hprs
@@ -218,7 +218,7 @@ class MainCamera(BaseObject):
 
         targets = self._targets
 
-        for view_id, hpr in hprs.iteritems():
+        for view_id, hpr in hprs.items():
             targets[view_id].set_hpr(hpr)
 
     def get_zooms(self):
@@ -228,7 +228,7 @@ class MainCamera(BaseObject):
         origs = self._origins
         zooms = {}
 
-        for view_id, lens_type in lens_types.iteritems():
+        for view_id, lens_type in lens_types.items():
             if lens_type == "persp":
                 zooms[view_id] = origs[view_id].get_y()
             else:
@@ -242,7 +242,7 @@ class MainCamera(BaseObject):
         targets = self._targets
         origs = self._origins
 
-        for view_id, zoom in zooms.iteritems():
+        for view_id, zoom in zooms.items():
             if lens_types[view_id] == "persp":
                 origs[view_id].set_y(zoom)
             else:

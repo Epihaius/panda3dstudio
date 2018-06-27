@@ -708,7 +708,7 @@ class TransformationManager(BaseObject):
         for obj_lvl in ("vert", "edge", "poly", "normal"):
             rel_values[obj_lvl] = {"translate": True, "rotate": True, "scale": True}
 
-        copier = lambda data: dict((key, value.copy()) for key, value in data.iteritems())
+        copier = lambda data: dict((key, value.copy()) for key, value in data.items())
         GlobalData.set_default("rel_transform_values", rel_values, copier)
 
         self._obj_transf_info = {}
@@ -763,7 +763,7 @@ class TransformationManager(BaseObject):
         def restore():
 
             transforms_to_restore = self._transforms_to_restore["pivot"]
-            objs_to_process = transforms_to_restore.keys()
+            objs_to_process = list(transforms_to_restore.keys())
 
             while objs_to_process:
 
@@ -789,7 +789,7 @@ class TransformationManager(BaseObject):
         def restore():
 
             transforms_to_restore = self._transforms_to_restore["origin"]
-            objs_to_process = transforms_to_restore.keys()
+            objs_to_process = list(transforms_to_restore.keys())
 
             while objs_to_process:
 
@@ -882,7 +882,7 @@ class TransformationManager(BaseObject):
 
         if not cancel:
 
-            objs_to_process = tmp_pivot_mats.keys()
+            objs_to_process = list(tmp_pivot_mats.keys())
 
             while objs_to_process:
 
@@ -1098,7 +1098,7 @@ class TransformationManager(BaseObject):
             self._transf_axis = axis
         else:
             normal = V3D()
-            normal["xyz".index(filter(lambda a: a not in axis_constraints, "xyz"))] = 1.
+            normal["xyz".index([a for a in "xyz" if a not in axis_constraints])] = 1.
             self._transf_axis = None
 
         if normal is None:

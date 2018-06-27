@@ -246,7 +246,7 @@ class SubobjectPanel(Panel):
 
     def __update_uv_edit_options(self):
 
-        for option, value in GlobalData["uv_edit_options"].iteritems():
+        for option, value in GlobalData["uv_edit_options"].items():
             if option == "pick_via_poly":
                 for subobj_type in ("vert", "edge"):
                     self._checkboxes["pick_{}_via_poly".format(subobj_type)].check(value)

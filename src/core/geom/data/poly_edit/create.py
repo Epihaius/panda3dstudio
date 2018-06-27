@@ -537,7 +537,7 @@ class CreationBase(BaseObject):
 
             poly_tris.append(tuple(tri_vert_ids))
 
-        owned_verts = owned_verts.values()
+        owned_verts = list(owned_verts.values())
 
         for merged_vert in owned_verts:
             for vert_id in merged_vert:

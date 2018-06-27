@@ -24,13 +24,13 @@ def _define_geom_data(segments, temp=False):
 
         for sign in (-1, 1):
             d[sign] = {
-                "normal": tuple(map(lambda x: sign * 1. if x == i else 0., range(3))),
+                "normal": tuple([sign * 1. if x == i else 0. for x in range(3)]),
                 "vert_data": {}
             }
 
         return "xyz"[i - 2] + "xyz"[i - 1], d
 
-    sides = dict(map(get_side_data, range(3)))
+    sides = dict(list(map(get_side_data, list(range(3)))))
 
     offsets = {"x": -.5, "y": -.5, "z": 0.}
 
@@ -46,8 +46,8 @@ def _define_geom_data(segments, temp=False):
         segs3 = segments[axis3]
         i1 = "xyz".index(axis1)
         i2 = "xyz".index(axis2)
-        range1 = xrange(segs1 + 1)
-        range2 = xrange(segs2 + 1)
+        range1 = range(segs1 + 1)
+        range2 = range(segs2 + 1)
         side_pair = sides[plane]
 
         for direction in side_pair:
@@ -114,9 +114,9 @@ def _define_geom_data(segments, temp=False):
             side = side_pair[direction]
             vert_data = side["vert_data"]
 
-            for i in xrange(segs2):
+            for i in range(segs2):
 
-                for j in xrange(segs1):
+                for j in range(segs1):
 
                     vi1 = i * (segs1 + 1) + j
                     vi2 = vi1 + 1
@@ -189,7 +189,7 @@ class TemporaryBox(TemporaryPrimitive):
 
     def is_valid(self):
 
-        return max(self._size.itervalues()) > .001
+        return max(self._size.values()) > .001
 
     def finalize(self):
 
@@ -626,7 +626,7 @@ class BoxManager(PrimitiveManager):
             box = obj.get_geom_object()
             side_data = box.get_side_data()
 
-            for side_id, data in side_data.iteritems():
+            for side_id, data in side_data.items():
 
                 name = box_name + " " + side_id
                 name = get_unique_name(name, obj_names)
@@ -708,7 +708,7 @@ class BoxManager(PrimitiveManager):
         Mgr.do("create_id_range_backups")
         process = self.__boxes_to_planes_conversion()
 
-        if process.next():
+        if next(process):
             handler = self.__cancel_conversion_process
             Mgr.add_notification_handler("long_process_cancelled", "box_mgr", handler, once=True)
             task = lambda: Mgr.remove_notification_handler("long_process_cancelled", "box_mgr")

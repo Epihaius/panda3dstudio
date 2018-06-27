@@ -371,7 +371,7 @@ class PolygonEditManager(CreationManager, TriangulationManager, SmoothingManager
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
             obj_data[obj_id] = geom_data_obj.get_data_to_store("prop_change", "subobj_merge")
 
         event_descr = "Detach polygon selection"

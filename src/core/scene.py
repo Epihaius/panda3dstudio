@@ -67,7 +67,7 @@ class SceneManager(BaseObject):
         Mgr.update_app("group_options")
         Mgr.update_app("subobj_edit_options")
 
-        for transf_type, axes in GlobalData["axis_constraints"].iteritems():
+        for transf_type, axes in GlobalData["axis_constraints"].items():
             Mgr.update_app("axis_constraints", transf_type, axes)
 
         for obj_type in Mgr.get("object_types"):
@@ -113,7 +113,7 @@ class SceneManager(BaseObject):
         GlobalData["loading_scene"] = True
         Mgr.update_remotely("screenshot", "create")
         scene_data_str = scene_file.read_subfile(scene_file.find_subfile("scene/data"))
-        scene_data = cPickle.loads(scene_data_str)
+        scene_data = pickle.loads(scene_data_str)
         Mgr.do("set_material_library", scene_data["material_library"])
         Mgr.do("load_history", scene_file)
         scene_file.close()
@@ -124,7 +124,7 @@ class SceneManager(BaseObject):
 
         GlobalData["axis_constraints"] = constraints = scene_data["axis_constraints"]
 
-        for transf_type, axes in constraints.iteritems():
+        for transf_type, axes in constraints.items():
             Mgr.update_app("axis_constraints", transf_type, axes)
 
         GlobalData["rel_transform_values"] = scene_data["rel_transform_values"]
@@ -178,7 +178,7 @@ class SceneManager(BaseObject):
         scene_file.open_write(Filename(filename))
         id_stream = StringStream("")
         scene_file.add_subfile("Panda3DStudio", id_stream, 9)
-        scene_data_stream = StringStream(cPickle.dumps(scene_data, -1))
+        scene_data_stream = StringStream(pickle.dumps(scene_data, -1))
         scene_file.add_subfile("scene/data", scene_data_stream, 9)
         Mgr.do("save_history", scene_file, set_saved_state)
 

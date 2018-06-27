@@ -641,7 +641,7 @@ class TopLevelObject(BaseObject):
         for key in orig.get_tag_keys():
             orig.clear_tag(key)
 
-        for key, val in tags.iteritems():
+        for key, val in tags.items():
             orig.set_tag(key, val)
 
     def get_tags(self):

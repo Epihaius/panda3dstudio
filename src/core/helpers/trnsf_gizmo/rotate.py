@@ -49,7 +49,7 @@ class RotationGizmo(TransformationGizmo):
             color_id = self.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
             self._handle_names[color_id] = plane
-            axis = filter(lambda a: a not in plane, "xyz")
+            axis = [a for a in "xyz" if a not in plane]
 
             if axis == "y":
                 pivot = self._origin.attach_new_node("y_handle_pivot")
@@ -134,13 +134,13 @@ class RotationGizmo(TransformationGizmo):
 
         circle = GeomLines(Geom.UH_static)
 
-        for i in xrange(segments + 1):
+        for i in range(segments + 1):
             x = math.cos(angle * i)
             y = -math.sin(angle * i)
             pos_writer.add_data3f(x, y, 0.)
             col_writer.add_data4f(color)
 
-        for i in xrange(segments):
+        for i in range(segments):
             circle.add_vertices(i, i + 1)
 
         circle_geom = Geom(vertex_data)
@@ -167,12 +167,12 @@ class RotationGizmo(TransformationGizmo):
 
         disc = GeomTriangles(Geom.UH_static)
 
-        for i in xrange(segments + 1):
+        for i in range(segments + 1):
             x = math.cos(angle * i - offset)
             y = math.sin(angle * i - offset)
             pos_writer.add_data3f(x, y, 0.)
 
-        for i in xrange(1, segments):
+        for i in range(1, segments):
             disc.add_vertices(0, i, i + 1)
 
         disc_geom = Geom(vertex_data)
@@ -276,13 +276,13 @@ class RotationGizmo(TransformationGizmo):
 
         disc = GeomTriangles(Geom.UH_static)
 
-        for i in xrange(segments):
+        for i in range(segments):
             x = math.cos(angle * i)
             z = math.sin(angle * i)
             pos_writer.add_data3f(x, 0., z)
             col_writer.add_data4f(color)
 
-        for i in xrange(2, segments):
+        for i in range(2, segments):
             disc.add_vertices(0, i - 1, i)
 
         disc_geom = Geom(vertex_data)
@@ -356,7 +356,7 @@ class RotationGizmo(TransformationGizmo):
         if axes in ("screen", "trackball"):
             constraints = axes
         else:
-            axis = filter(lambda a: a not in axes, "xyz") if len(axes) == 2 else axes
+            axis = [a for a in "xyz" if a not in axes] if len(axes) == 2 else axes
             constraints = axis
 
         Mgr.update_app("axis_constraints", "rotate", constraints)
@@ -379,7 +379,7 @@ class RotationGizmo(TransformationGizmo):
             else:
                 self._handles["planes"][plane].set_color(self._axis_colors[plane])
 
-        for axis_np in self._center_axes.itervalues():
+        for axis_np in self._center_axes.values():
             axis_np.clear_color_scale()
 
         if self._selected_axes == "screen":

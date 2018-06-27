@@ -744,7 +744,7 @@ class SelectionManager(BaseObject):
 
                     selection.difference_update(uv_objects)
 
-            for geom_data_obj, subobjs in subobj_sel.iteritems():
+            for geom_data_obj, subobjs in subobj_sel.items():
                 geom_data_obj.update_selection(obj_lvl, [], subobjs, False)
 
         else:
@@ -760,5 +760,5 @@ class SelectionManager(BaseObject):
                     subobj_sel.setdefault(geom_data_obj, []).append(subobj)
                     selection.update(uv_objects)
 
-            for geom_data_obj, subobjs in subobj_sel.iteritems():
+            for geom_data_obj, subobjs in subobj_sel.items():
                 geom_data_obj.update_selection(obj_lvl, subobjs, [], False)

@@ -146,7 +146,7 @@ class BoxProperties(object):
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 
-        for field in self._fields.itervalues():
+        for field in self._fields.values():
             field.set_text_color(color)
             field.show_text(not multi_sel)
 

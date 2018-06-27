@@ -28,7 +28,7 @@ class FileManager(object):
             "import": "Import...",
         }
 
-        for file_op, handler in handlers.iteritems():
+        for file_op, handler in handlers.items():
             descr = descriptions[file_op]
             file_data[file_op] = {"descr": descr, "handler": handler}
 

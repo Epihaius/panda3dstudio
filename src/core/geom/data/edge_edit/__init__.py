@@ -97,7 +97,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
                         if vert_id not in vert_ids:
                             vert_ids[vert_id] = set([vert_id])
 
-            vert_ids = set(tuple(id_set) for id_set in vert_ids.itervalues())
+            vert_ids = set(tuple(id_set) for id_set in vert_ids.values())
 
             if len(vert_ids) > 1:
 
@@ -904,7 +904,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
             obj_data[obj_id] = geom_data_obj.get_data_to_store("prop_change", "subobj_merge")
 
         event_descr = "Split edge selection"
@@ -935,7 +935,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.iteritems():
+        for obj_id, geom_data_obj in changed_objs.items():
 
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 

@@ -232,7 +232,7 @@ class ViewGizmo(BaseObject):
                 handle_ids[picking_col_id] = handle_id
                 picking_colors[handle_id] = picking_col
 
-                normal = V3D(*map(lambda x: sign * 1. if x == i else 0., range(3)))
+                normal = V3D(*[sign * 1. if x == i else 0. for x in range(3)])
                 handle_normals[handle_id] = normal
                 quat = Quat()
                 quat.set_hpr(V3D(normal * -1.).get_hpr())
@@ -819,7 +819,7 @@ class ViewGizmo(BaseObject):
 
         # make the auxiliary handles more or less transparent, depending on their
         # direction relative to the camera
-        for handle_id, normal in self._handle_normals.iteritems():
+        for handle_id, normal in self._handle_normals.items():
             dot_prod = cam_vec * normal
             alpha = 1. + min(0., max(-.4, dot_prod)) * 2.5
             handle = handles[handle_id]
@@ -1100,12 +1100,12 @@ class WorldAxesTripod(BaseObject):
         radius = .11
         angle = 2. * math.pi / segments
 
-        for i in xrange(segments):
+        for i in range(segments):
             x = math.cos(angle * i) * radius
             z = math.sin(angle * i) * radius
             pos_writer.add_data3f(x, 0., z)
 
-        for i in xrange(segments):
+        for i in range(segments):
             circle.add_vertices(i, (i + 1) % segments)
 
         circle_geom = Geom(vertex_data)

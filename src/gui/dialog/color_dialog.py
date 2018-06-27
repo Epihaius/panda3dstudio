@@ -212,7 +212,7 @@ class CustomColorGroup(ColorSwatchGroup):
         colors.append(color)
 
         with open("config", "wb") as config_file:
-            cPickle.dump(config_data, config_file, -1)
+            pickle.dump(config_data, config_file, -1)
 
         img = self._swatches
         w = Skin["options"]["small_colorswatch_width"]
@@ -253,9 +253,9 @@ class HueSatControl(WidgetCard):
         cls._gradient = img = PNMImage(w, h, 4)
         img.alpha_fill(1.)
 
-        for x in xrange(w):
+        for x in range(w):
 
-            for y in xrange(h):
+            for y in range(h):
 
                 if 0. <= x < rng:
                     # between red and green
@@ -528,12 +528,12 @@ class LuminanceControl(WidgetCard):
         h_ = h - 1
         cls._gradient = img = PNMImage(w, h, 4)
 
-        for y in xrange(h):
+        for y in range(h):
 
             c = 1. if y < h_ / 2 else 0.
             a = 1. - 2. * y / h_ if y < h_ / 2 else 2. * y / h_ - 1.
 
-            for x in xrange(w):
+            for x in range(w):
                 img.set_xel(x, y, c, c, c)
                 img.set_alpha(x, y, a)
 

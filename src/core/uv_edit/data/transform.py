@@ -158,7 +158,7 @@ class UVDataTransformBase(BaseObject):
         index = "u_v".index(axis)
         pos_rewriter = GeomVertexRewriter(tmp_vertex_data, "vertex")
 
-        for rows in verts.itervalues():
+        for rows in verts.values():
             for row in rows:
                 pos_rewriter.set_row(row)
                 pos = Point3(pos_rewriter.get_data3f())
@@ -255,7 +255,7 @@ class UVDataTransformBase(BaseObject):
             polys = self._subobjs["poly"]
             poly_ids = set()
 
-            for merged_vert, indices in self._verts_to_transf[subobj_lvl].iteritems():
+            for merged_vert, indices in self._verts_to_transf[subobj_lvl].items():
 
                 pos_reader.set_row(indices[0])
                 pos = Point3(pos_reader.get_data3f())

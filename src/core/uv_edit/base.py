@@ -76,7 +76,7 @@ class UVManager(object):
             logging.warning('CORE: task "{}" is not defined.'.format(task_id))
 
             if cls._verbose:
-                print('CORE warning: task "{}" is not defined.'.format(task_id))
+                print(('CORE warning: task "{}" is not defined.'.format(task_id)))
 
         task_handler = cls._task_handlers.get(task_id, cls._defaults["task_handler"])
 

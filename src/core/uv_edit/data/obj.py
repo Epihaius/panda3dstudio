@@ -27,13 +27,13 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             geoms = data_copy["geoms"]
 
             for subobj_type in ("vert", "edge", "poly"):
-                for subobj in subobjs[subobj_type].itervalues():
+                for subobj in subobjs[subobj_type].values():
                     subobj.set_uv_data_object(self)
 
-            for merged_vert in merged_verts.itervalues():
+            for merged_vert in merged_verts.values():
                 merged_vert.set_uv_data_object(self)
 
-            for merged_edge in merged_edges.itervalues():
+            for merged_edge in merged_edges.values():
                 merged_edge.set_uv_data_object(self)
 
         else:
@@ -94,7 +94,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         geoms["seam"] = origin_copy.find("**/seam_geom")
 
         for subobj_type in ("vert", "edge", "poly"):
-            subobjs[subobj_type] = dict((k, v.copy()) for k, v in self._subobjs[subobj_type].iteritems())
+            subobjs[subobj_type] = dict((k, v.copy()) for k, v in self._subobjs[subobj_type].items())
             geoms[subobj_type] = {}
 
         for subobj_type in ("vert", "edge"):
@@ -117,13 +117,13 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         data_copy["geom_data_obj"] = self._geom_data_obj
         data_copy["subobjs"] = subobjs
         merged_verts = self._merged_verts
-        merged_vert_copies = dict((mv, mv.copy()) for mv in set(merged_verts.itervalues()))
+        merged_vert_copies = dict((mv, mv.copy()) for mv in set(merged_verts.values()))
         data_copy["merged_verts"] = dict((k, merged_vert_copies[v])
-                                         for k, v in merged_verts.iteritems())
+                                         for k, v in merged_verts.items())
         merged_edges = self._merged_edges
-        merged_edge_copies = dict((me, me.copy()) for me in set(merged_edges.itervalues()))
+        merged_edge_copies = dict((me, me.copy()) for me in set(merged_edges.values()))
         data_copy["merged_edges"] = dict((k, merged_edge_copies[v])
-                                         for k, v in merged_edges.iteritems())
+                                         for k, v in merged_edges.items())
         data_copy["seam_edge_ids"] = self._seam_edge_ids[:]
         data_copy["data_row_count"] = self._data_row_count
         data_copy["vertex_data_poly"] = vertex_data_poly
@@ -155,7 +155,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         self._data_row_count = len(verts)
 
-        for poly_id, poly in polys.iteritems():
+        for poly_id, poly in polys.items():
 
             row_index = 0
 
@@ -189,7 +189,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         merged_uv_verts = self._merged_verts
         merged_uv_edges = self._merged_edges
 
-        for vert_id, uv_vert in uv_verts.iteritems():
+        for vert_id, uv_vert in uv_verts.items():
 
             if vert_id in merged_uv_verts:
                 continue
@@ -203,7 +203,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                     merged_uv_vert.append(v_id)
                     merged_uv_verts[v_id] = merged_uv_vert
 
-        for edge_id, uv_edge in uv_edges.iteritems():
+        for edge_id, uv_edge in uv_edges.items():
 
             if edge_id in merged_uv_edges:
                 continue
@@ -217,7 +217,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                     merged_uv_edge.append(e_id)
                     merged_uv_edges[e_id] = merged_uv_edge
 
-        seam_edges = [m_e for m_e in merged_uv_edges.itervalues() if len(m_e) == 1]
+        seam_edges = [m_e for m_e in merged_uv_edges.values() if len(m_e) == 1]
         self.fix_seams(seam_edges)
         self._seam_edge_ids.extend(s_e.get_id() for s_e in seam_edges)
 
@@ -227,7 +227,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         verts = subobjs["vert"]
         polys = subobjs["poly"]
         self._data_row_count = count = len(verts)
-        tri_vert_count = sum(len(poly) for poly in polys.itervalues())
+        tri_vert_count = sum(len(poly) for poly in polys.values())
 
         sel_data = self._poly_selection_data["unselected"]
 
@@ -263,7 +263,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         row_index_offset = 0
 
-        for poly_id, poly in polys.iteritems():
+        for poly_id, poly in polys.items():
 
             poly_corners = []
             processed_verts = []

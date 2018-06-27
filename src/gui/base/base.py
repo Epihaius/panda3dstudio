@@ -1,5 +1,5 @@
 from panda3d.core import *
-from ...base import logging, re, cPickle, GlobalData, get_unique_name, DirectObject
+from ...base import logging, re, pickle, GlobalData, get_unique_name, DirectObject
 import platform
 import math
 import os
@@ -198,7 +198,7 @@ def load_skin(skin_id):
                 option, data_type, value = line.split()
                 Skin["options"][option] = typecast(value, data_type)
 
-            for text_id, text_data in text.iteritems():
+            for text_id, text_data in text.items():
                 font_id, color = text_data
                 Skin["text"][text_id] = {"font": fonts[font_id], "color": color}
 
@@ -326,16 +326,16 @@ class PendingTaskBatch(object):
         pending_tasks = self._tasks
 
         if task_types is None:
-            task_types = pending_tasks.keys()
+            task_types = list(pending_tasks.keys())
 
         if sort_by_type:
             sorted_tasks = [task for task_type in task_types for sort, tasks in
-                            sorted(pending_tasks.pop(task_type, {}).iteritems())
-                            for task in tasks.itervalues()]
+                            sorted(pending_tasks.pop(task_type, {}).items())
+                            for task in tasks.values()]
         else:
             sorted_tasks = [task for sort, tasks in sorted([i for task_type in task_types
-                            for i in pending_tasks.pop(task_type, {}).iteritems()])
-                            for task in tasks.itervalues()]
+                            for i in pending_tasks.pop(task_type, {}).items()])
+                            for task in tasks.values()]
 
         for task in sorted_tasks:
             task()

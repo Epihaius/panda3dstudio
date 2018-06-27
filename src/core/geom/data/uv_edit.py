@@ -31,7 +31,7 @@ class UVEditBase(BaseObject):
                 row = vert.get_row_index()
                 uvs = vert.get_uvs()
 
-                for uv_set_id, uv in uvs.iteritems():
+                for uv_set_id, uv in uvs.items():
                     uv_writer = uv_writers[uv_set_id]
                     uv_writer.set_row(row)
                     uv_writer.set_data2f(uv)
@@ -365,7 +365,7 @@ class UVEditBase(BaseObject):
                 arrays.append(array)
                 vertex_data_top.set_array(4 + uv_set_id, GeomVertexArrayData(array))
 
-            for vert in verts.itervalues():
+            for vert in verts.values():
 
                 row_index = vert.get_row_index()
 
@@ -480,7 +480,7 @@ class UVEditBase(BaseObject):
 
         verts = self._subobjs["vert"]
 
-        for vert_id, vert in verts.iteritems():
+        for vert_id, vert in verts.items():
             self._copied_uvs[vert_id] = vert.get_uvs(uv_set_id)
 
         vertex_data = self._vertex_data["poly"]
@@ -491,7 +491,7 @@ class UVEditBase(BaseObject):
         verts = self._subobjs["vert"]
         self._uv_change = set(verts)
 
-        for vert_id, vert in verts.iteritems():
+        for vert_id, vert in verts.items():
             vert.set_uvs(self._copied_uvs[vert_id], uv_set_id)
 
         array = self._copied_uv_array
@@ -593,12 +593,12 @@ class UVEditBase(BaseObject):
 
         vert_ids = {}
 
-        for vert_id, time_id in time_ids_to_restore.iteritems():
+        for vert_id, time_id in time_ids_to_restore.items():
             if vert_id in verts:
                 time_ids[vert_id] = time_id
                 vert_ids.setdefault(time_id, []).append(vert_id)
 
-        for time_id, ids in vert_ids.iteritems():
+        for time_id, ids in vert_ids.items():
 
             if time_id:
 
@@ -621,7 +621,7 @@ class UVEditBase(BaseObject):
             subobj_data = Mgr.do("load_from_history", obj_id, data_id, time_id)
             restored_uv_data = subobj_data.get("uvs", {})
 
-            for vert_id, uvs in restored_uv_data.iteritems():
+            for vert_id, uvs in restored_uv_data.items():
                 if vert_id in uv_set_ids:
                     uv_set_ids[vert_id].update(uvs)
 
@@ -632,7 +632,7 @@ class UVEditBase(BaseObject):
                     time_ids[vert_id] = time_id
 
         # restore the verts' previous UV-mapping time IDs
-        for vert_id, time_id in time_ids.iteritems():
+        for vert_id, time_id in time_ids.items():
             verts[vert_id].set_previous_property_time("uvs", time_id)
 
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
@@ -643,7 +643,7 @@ class UVEditBase(BaseObject):
 
         uv_sets_to_restore = set()
 
-        for vert_id, uvs in uv_data.iteritems():
+        for vert_id, uvs in uv_data.items():
 
             if vert_id in verts:
 
@@ -664,7 +664,7 @@ class UVEditBase(BaseObject):
                 vert = verts[vert_id]
                 row = vert.get_row_index()
 
-                for uv_set_id, uv in uvs.iteritems():
+                for uv_set_id, uv in uvs.items():
                     uv_writer = uv_writers[uv_set_id]
                     uv_writer.set_row(row)
                     uv_writer.set_data2f(uv)

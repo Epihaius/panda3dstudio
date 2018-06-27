@@ -148,7 +148,7 @@ class GeomTransformBase(BaseObject):
         vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
         pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
 
-        for vert in self._subobjs["vert"].itervalues():
+        for vert in self._subobjs["vert"].values():
             row = vert.get_row_index()
             old_pos = vert.get_initial_pos()
             new_pos = computation(Point3(*old_pos))
@@ -212,7 +212,7 @@ class GeomTransformBase(BaseObject):
 
         pos_reader = GeomVertexReader(vertex_data_top, "vertex")
 
-        for vert in self._subobjs["vert"].itervalues():
+        for vert in self._subobjs["vert"].values():
             row = vert.get_row_index()
             pos_reader.set_row(row)
             pos = pos_reader.get_data3f()
@@ -267,7 +267,7 @@ class GeomTransformBase(BaseObject):
         index = "xyz".index(axis)
         pos_rewriter = GeomVertexRewriter(tmp_vertex_data, "vertex")
 
-        for rows in verts.itervalues():
+        for rows in verts.values():
             for row in rows:
                 pos_rewriter.set_row(row)
                 pos = pos_rewriter.get_data3f()
@@ -370,7 +370,7 @@ class GeomTransformBase(BaseObject):
             polys = self._subobjs["poly"]
             poly_ids = set()
 
-            for merged_vert, indices in self._verts_to_transf[subobj_lvl].iteritems():
+            for merged_vert, indices in self._verts_to_transf[subobj_lvl].items():
                 pos_reader.set_row(indices[0])
                 pos = Point3(pos_reader.get_data3f())
                 merged_vert.set_pos(pos)
@@ -456,7 +456,7 @@ class GeomTransformBase(BaseObject):
 
         # time_ids_to_restore.keys() are the IDs of vertices that need a
         # transform update
-        for vert_id, time_id in time_ids_to_restore.iteritems():
+        for vert_id, time_id in time_ids_to_restore.items():
 
             if vert_id in verts:
                 prev_prop_times[vert_id] = time_id
@@ -464,7 +464,7 @@ class GeomTransformBase(BaseObject):
                 # datafile, make sure each datafile is loaded only once
                 data_for_loading.setdefault(time_id, []).append(vert_id)
 
-        for time_id, vert_ids in data_for_loading.iteritems():
+        for time_id, vert_ids in data_for_loading.items():
 
             pos_data = Mgr.do("load_from_history", obj_id, data_id, time_id)["pos"]
 
@@ -486,14 +486,14 @@ class GeomTransformBase(BaseObject):
                     prev_prop_times[vert_id] = time_id
 
         # restore the verts' previous transform time IDs
-        for vert_id, time_id in prev_prop_times.iteritems():
+        for vert_id, time_id in prev_prop_times.items():
             verts[vert_id].set_previous_property_time("transform", time_id)
 
         polys_to_update = set()
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
 
-        for vert_id, pos in positions.iteritems():
+        for vert_id, pos in positions.items():
             if vert_id in verts:
                 vert = verts[vert_id]
                 poly = polys[vert.get_polygon_id()]

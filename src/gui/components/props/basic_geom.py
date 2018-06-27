@@ -131,15 +131,15 @@ class BasicGeomProperties(object):
 
         if multi_sel:
 
-            for checkbox in self._checkboxes.itervalues():
+            for checkbox in self._checkboxes.values():
                 checkbox.check(False)
 
             self._colorbox.set_color(color[:3])
 
-        for checkbox in self._checkboxes.itervalues():
+        for checkbox in self._checkboxes.values():
             checkbox.set_checkmark_color(color)
 
-        for field in self._fields.itervalues():
+        for field in self._fields.values():
             field.set_text_color(color)
             field.show_text(not multi_sel)
 

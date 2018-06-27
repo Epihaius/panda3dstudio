@@ -504,7 +504,7 @@ class Dummy(TopLevelObject):
         self._geom_roots = {}
         self._geoms = {"box": {}, "cross": {}}
 
-        for geom_type, geoms in self._geoms.iteritems():
+        for geom_type, geoms in self._geoms.items():
             self._geom_roots[geom_type] = root.find("**/{}_root".format(geom_type))
             geoms["unselected"] = root.find("**/{}_geom_unselected".format(geom_type))
             geoms["selected"] = root.find("**/{}_geom_selected".format(geom_type))
@@ -528,7 +528,7 @@ class Dummy(TopLevelObject):
         self._geoms = {"box": {}, "cross": {}}
         self._geoms_ortho = {}
 
-        for geom_type, geoms in self._geoms.iteritems():
+        for geom_type, geoms in self._geoms.items():
             self._geom_roots[geom_type] = root.find("**/{}_root".format(geom_type))
             geoms["unselected"] = root.find("**/{}_geom_unselected".format(geom_type))
             geoms["selected"] = root.find("**/{}_geom_selected".format(geom_type))
@@ -587,12 +587,12 @@ class Dummy(TopLevelObject):
         TopLevelObject.register(self)
 
         obj_type = "dummy_edge"
-        Mgr.do("register_{}_objs".format(obj_type), self._edges.itervalues(), restore)
+        Mgr.do("register_{}_objs".format(obj_type), iter(self._edges.values()), restore)
 
     def unregister(self):
 
         obj_type = "dummy_edge"
-        Mgr.do("unregister_{}_objs".format(obj_type), self._edges.itervalues())
+        Mgr.do("unregister_{}_objs".format(obj_type), iter(self._edges.values()))
 
     def set_geoms_for_ortho_lens(self, root=None):
         """
@@ -607,7 +607,7 @@ class Dummy(TopLevelObject):
 
         self._geoms_ortho = {"box": {}, "cross": {}}
 
-        for geom_type, geoms in self._geoms_ortho.iteritems():
+        for geom_type, geoms in self._geoms_ortho.items():
             geoms["unselected"] = root.find("**/{}_geom_unselected".format(geom_type))
             geoms["selected"] = root.find("**/{}_geom_selected".format(geom_type))
 
@@ -931,7 +931,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
             const_size = const_sizes[dummy_id]
 
-            for origins in dummy_origins.itervalues():
+            for origins in dummy_origins.values():
                 origins[dummy_id].set_scale(const_size * scale)
 
     def __make_dummy_const_size(self, dummy, const_size_state=True):
@@ -994,7 +994,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
             scale = 800. / max(w, h)
             self._const_sizes[dummy_id] = const_size
 
-            for origins in self._dummy_origins.itervalues():
+            for origins in self._dummy_origins.values():
                 origins[dummy_id].set_scale(const_size * scale)
 
     def __create_object(self, dummy_id, name, origin_pos):

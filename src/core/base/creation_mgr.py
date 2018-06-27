@@ -137,7 +137,7 @@ class CreationPhaseManager(object):
 
     def generate_object_id(self):
 
-        obj_id = (self._obj_type,) + self._id_generator.next()
+        obj_id = (self._obj_type,) + next(self._id_generator)
 
         return obj_id
 
@@ -185,7 +185,7 @@ class CreationPhaseManager(object):
 
                 def finalize():
 
-                    finalization.next()
+                    next(finalization)
 
                     for step in finalization:
                         yield True
@@ -219,7 +219,7 @@ class CreationPhaseManager(object):
         Mgr.notify("creation_ended")
         Mgr.enter_state("creation_mode")
 
-        if process and process.next():
+        if process and next(process):
             Mgr.update_remotely("screenshot", "create")
             descr = "Creating {}...".format(self._obj_type)
             Mgr.do_gradually(process, "creation", descr, cancellable=True)

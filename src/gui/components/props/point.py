@@ -147,10 +147,10 @@ class PointProperties(object):
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 
-        for checkbox in checkboxes.itervalues():
+        for checkbox in checkboxes.values():
             checkbox.set_checkmark_color(color)
 
-        for field in fields.itervalues():
+        for field in fields.values():
             field.set_text_color(color)
             field.show_text(not multi_sel)
 

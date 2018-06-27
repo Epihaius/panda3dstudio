@@ -33,7 +33,7 @@ class HistoryToolbar(Toolbar):
             if update_type == "show":
                 HistoryDialog(*args, **kwargs)
             elif update_type == "archive":
-                for btn in self._btns.itervalues():
+                for btn in self._btns.values():
                     btn.enable(False)
             elif update_type == "check":
                 self.__check_undo_redo()

@@ -160,7 +160,7 @@ class Vertex(BaseObject):
     def set_uvs(self, uvs, uv_set_id=None):
 
         if uv_set_id is None:
-            uv_data = dict((k, v) for k, v in uvs.iteritems() if v != (0., 0.))
+            uv_data = dict((k, v) for k, v in uvs.items() if v != (0., 0.))
             self._data["uvs"] = uv_data
         elif uvs != (0., 0.):
             self._data["uvs"][uv_set_id] = uvs

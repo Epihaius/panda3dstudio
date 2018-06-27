@@ -152,7 +152,7 @@ class UVTransformationBase(BaseObject):
         for obj_lvl in ("vert", "edge", "poly"):
             rel_values[obj_lvl] = {"translate": True, "rotate": True, "scale": True}
 
-        copier = lambda data: dict((key, value.copy()) for key, value in data.iteritems())
+        copier = lambda data: dict((key, value.copy()) for key, value in data.items())
         GlobalData.set_default("rel_uv_transform_values", rel_values, copier)
 
         self._selection = None

@@ -121,7 +121,7 @@ class EdgeMergeBase(BaseObject):
 
             return set(src_vert.get_polygon_ids()).isdisjoint(dest_vert.get_polygon_ids())
 
-        for src_edge, dest_edge in edges_to_merge.iteritems():
+        for src_edge, dest_edge in edges_to_merge.items():
 
             src_vert1_id, src_vert2_id = edges[src_edge[0]]
             src_vert1 = merged_verts[src_vert1_id]
@@ -161,7 +161,7 @@ class EdgeMergeBase(BaseObject):
         vert_ids = set()
         update_polys_to_transf = False
 
-        for src_vert, dest_vert in verts_to_merge.iteritems():
+        for src_vert, dest_vert in verts_to_merge.items():
 
             src_vert_selected = src_vert.get_id() in selected_vert_ids
             dest_vert_selected = dest_vert.get_id() in selected_vert_ids

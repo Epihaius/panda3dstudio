@@ -105,7 +105,7 @@ class Core(object):
                 logging.debug('Long-running process to be handled over {:d} frames.'.format(progress_steps))
                 GlobalData["progress_steps"] = 0
 
-            if process.next():
+            if next(process):
                 Mgr.update_remotely("progress", "advance")
                 return task.cont
 
@@ -137,7 +137,7 @@ class Core(object):
     def suppress_mouse_events(self, suppress=True, interface_id=None):
 
         if interface_id is None:
-            for listener in self._listeners.itervalues():
+            for listener in self._listeners.values():
                 listener.suppress_mouse_events(suppress)
         else:
             self._listeners[interface_id].suppress_mouse_events(suppress)
@@ -145,17 +145,17 @@ class Core(object):
     def suppress_key_events(self, suppress=True, keys=None, interface_id=None):
 
         if interface_id is None:
-            for listener in self._listeners.itervalues():
+            for listener in self._listeners.values():
                 listener.suppress_key_events(suppress, keys)
         else:
             self._listeners[interface_id].suppress_key_events(suppress, keys)
 
     def __suppress_events(self, suppress=True):
 
-        for listener in self._listeners.itervalues():
+        for listener in self._listeners.values():
             listener.suppress_mouse_events(suppress)
 
-        for listener in self._listeners.itervalues():
+        for listener in self._listeners.values():
             listener.suppress_key_events(suppress)
 
     def add_listener(self, interface_id, key_prefix="", mouse_watcher=None):
@@ -192,7 +192,7 @@ class KeyEventListener(object):
             char = chr(key_code)
             cls._event_ids.append(char.lower())
 
-        for key_code in range(0x21, 0x41) + range(0x5b, 0x61) + range(0x7b, 0x80):
+        for key_code in list(range(0x21, 0x41)) + list(range(0x5b, 0x61)) + list(range(0x7b, 0x80)):
             cls._event_ids.append(chr(key_code))
 
         for i in range(12):

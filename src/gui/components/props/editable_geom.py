@@ -435,7 +435,7 @@ class EditableGeomProperties(object):
 
     def __update_subobj_edit_options(self):
 
-        for option, value in GlobalData["subobj_edit_options"].iteritems():
+        for option, value in GlobalData["subobj_edit_options"].items():
             if option == "pick_via_poly":
                 for subobj_type in ("vert", "edge", "normal"):
                     self._checkboxes["pick_{}_via_poly".format(subobj_type)].check(value)
@@ -780,7 +780,7 @@ class EditableGeomProperties(object):
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 
-        for prop_id, field in self._fields.iteritems():
+        for prop_id, field in self._fields.items():
             if prop_id not in ("normal_length", "edge_bridge_segments"):
                 field.set_text_color(color)
                 field.show_text(not multi_sel)

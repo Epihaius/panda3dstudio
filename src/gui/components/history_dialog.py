@@ -1288,7 +1288,7 @@ class HistoryPane(DialogScrollPane):
 
     def get_history_to_delete(self):
 
-        entries = self.get_dialog().get_rejected_history_button().get_menu().get_items().iterkeys()
+        entries = iter(self.get_dialog().get_rejected_history_button().get_menu().get_items().keys())
 
         return [entry.get_event() for entry in entries]
 

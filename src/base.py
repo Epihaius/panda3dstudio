@@ -1,7 +1,7 @@
 from direct.showbase.DirectObject import DirectObject
 import logging
 import re
-import cPickle
+import pickle
 
 logging.basicConfig(filename='p3ds.log', filemode='w',
                     format='%(asctime)s - %(levelname)s: %(message)s',
@@ -63,16 +63,16 @@ class GlobalMeta(type):
         data = cls._data
         data.clear()
 
-        for data_id, value in cls._defaults.iteritems():
+        for data_id, value in cls._defaults.items():
             copier = cls._copiers.get(data_id)
             data[data_id] = copier(value) if copier else value
 
 
 # Global data - accessible from both the Core and the GUI - can be set and
 # retrieved through the following class.
-class GlobalData(object):
+class GlobalData(object, metaclass=GlobalMeta):
 
-    __metaclass__ = GlobalMeta
+    pass
 
 
 # Using the following class to set the name of an object allows updating the
@@ -103,7 +103,7 @@ class ObjectName(object):
         updaters = self._updaters
 
         if final_update:
-            for updater in updaters.itervalues():
+            for updater in updaters.values():
                 updater(None)
 
         updaters.clear()
@@ -114,7 +114,7 @@ class ObjectName(object):
         updaters = self._updaters
 
         if update_id is None:
-            for updater in updaters.itervalues():
+            for updater in updaters.values():
                 updater(value)
         elif update_id in updaters:
             updaters[update_id](value)
@@ -179,7 +179,7 @@ def get_unique_name(requested_name, namelist, default_search_pattern="",
     inds = [int(name.group(1)) for name in names]
     max_index = min_index + len(inds)
 
-    for i in xrange(min_index, max_index):
+    for i in range(min_index, max_index):
         if i not in inds:
             return naming_pattern.format(i)
 
@@ -290,7 +290,7 @@ class EventBinder(object):
 
         """
 
-        return self._active_bindings.values()
+        return list(self._active_bindings.values())
 
 
 class StateObject(object):
