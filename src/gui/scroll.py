@@ -82,7 +82,7 @@ class ScrollThumb(Widget):
         else:
             self._scroll_size = size_scroll = size + b_f + t_f - b_s - t_s - border
 
-        size_thumb = border + int(1. * size_scroll * min(1., 1. * size / size_virt))
+        size_thumb = border + int(size_scroll * min(1., size / size_virt))
 
         if d == "horizontal":
             self.set_size((size_thumb, 0))
@@ -136,7 +136,7 @@ class ScrollThumb(Widget):
         d = self._dir
         dim = 0 if d == "horizontal" else 1
         size_virt = pane.get_sizer().get_virtual_size()[dim]
-        incr = int((1. * self._scroll_offset / size_virt) * self._scroll_size)
+        incr = int((self._scroll_offset / size_virt) * self._scroll_size)
 
         if d == "horizontal":
             x += incr
@@ -163,7 +163,7 @@ class ScrollThumb(Widget):
         d = self._dir
         dim = 0 if d == "horizontal" else 1
         size_virt = pane.get_sizer().get_virtual_size()[dim]
-        offset = int((1. * self._scroll_offset / size_virt) * self._scroll_size)
+        offset = int((self._scroll_offset / size_virt) * self._scroll_size)
         # temporarily update the thumb position with the scroll offset
         self.set_pos((x + offset, y) if d == "horizontal" else (x, y + offset))
         Widget.update_mouse_region_frames(self, exclude)
@@ -200,7 +200,7 @@ class ScrollThumb(Widget):
         pane = self._pane
         dim = 0 if d == "horizontal" else 1
         size_virt = pane.get_sizer().get_virtual_size()[dim]
-        offset = int(1. * size_virt * d_crd / self._scroll_size)
+        offset = int(size_virt * d_crd / self._scroll_size)
         self._scroll_offset = self._start_scroll_offset + offset
         self.update_offset()
         self.update_pos()
@@ -632,7 +632,7 @@ class ScrollPane(WidgetCard):
 
         size = width if scroll_dir == "horizontal" else height
         size_subimg = w_subimg if scroll_dir == "horizontal" else h_subimg
-        tex_scale = min(1., 1. * size / size_subimg)
+        tex_scale = min(1., size / size_subimg)
         quad = self.get_quad()
 
         if max_size_exceeded:
@@ -665,10 +665,10 @@ class ScrollPane(WidgetCard):
             self._subimg_index = -1
 
         if scroll_dir == "horizontal":
-            tex_offset = (1. * scroll_offset / size) * tex_scale
+            tex_offset = (scroll_offset / size) * tex_scale
             quad.set_tex_offset(TextureStage.get_default(), tex_offset, 0.)
         else:
-            tex_offset = 1. - tex_scale - (1. * scroll_offset / size) * tex_scale
+            tex_offset = 1. - tex_scale - (scroll_offset / size) * tex_scale
             quad.set_tex_offset(TextureStage.get_default(), 0., tex_offset)
 
     def set_size(self, size, is_min=False):
@@ -693,10 +693,10 @@ class ScrollPane(WidgetCard):
 
         if scroll_dir == "horizontal":
             tex_offset = (self.get_quad().get_tex_offset(TextureStage.get_default())[0], 1.)
-            tex_scale = (min(1., 1. * width / w_subimg), 1.)
+            tex_scale = (min(1., width / w_subimg), 1.)
         else:
             tex_offset = (1., self.get_quad().get_tex_offset(TextureStage.get_default())[1])
-            tex_scale = (1., min(1., 1. * height / h_subimg))
+            tex_scale = (1., min(1., height / h_subimg))
 
         tex = self._tex
 
@@ -804,10 +804,10 @@ class ScrollPane(WidgetCard):
         w_ref, h_ref = Mgr.get("window_size")
         w, h = self.get_size()
         x, y = self.get_pos(from_root=True)
-        l = 1. * x / w_ref
-        r = 1. * (x + (min(w, w_virt) if scroll_dir == "horizontal" else w)) / w_ref
-        b = 1. - 1. * (y + (h if scroll_dir == "horizontal" else min(h, h_virt))) / h_ref
-        t = 1. - 1. * y / h_ref
+        l = x / w_ref
+        r = (x + (min(w, w_virt) if scroll_dir == "horizontal" else w)) / w_ref
+        b = 1. - (y + (h if scroll_dir == "horizontal" else min(h, h_virt))) / h_ref
+        t = 1. - y / h_ref
         self._display_region.set_dimensions(l, r, b, t)
 
         # Update the nodes controlling the ScissorEffect so it keeps geometry of input fields

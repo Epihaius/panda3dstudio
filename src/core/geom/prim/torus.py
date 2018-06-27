@@ -91,7 +91,7 @@ def _define_geom_data(segments, smooth, temp=False):
         r2 = 2. + sin(angle_v * i)
 
         if not temp:
-            v = 1. * i / segs_s
+            v = i / segs_s
 
         for j in range(segs_r + 1):
 
@@ -106,7 +106,7 @@ def _define_geom_data(segments, smooth, temp=False):
             positions.append(pos_obj)
 
             if not temp:
-                u = 1. * j / segs_r
+                u = j / segs_r
                 uvs.append((u, 1. - v))
 
             vert_id += 1

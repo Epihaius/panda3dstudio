@@ -369,7 +369,7 @@ class HueSatControl(WidgetCard):
         quad.set_bin("dialog", sort)
         quad.set_texture(ts1, gradient_tex)
         quad.set_texture(ts2, marker_tex)
-        quad.set_tex_scale(ts2, 1. * w_b / w_m, 1. * h_b / h_m)
+        quad.set_tex_scale(ts2, w_b / w_m, h_b / h_m)
         quad.set_texture(ts3, border_tex)
 
         self._mouse_region = mouse_region = MouseWatcherRegion("hue_sat_control", 0., 0., 0., 0.)
@@ -431,9 +431,9 @@ class HueSatControl(WidgetCard):
         w_m, h_m = marker.get_x_size(), marker.get_y_size()
         offset_x, offset_y = self._img_offset
         x -= offset_x
-        x = .5 - (1. * x / w_b) * w_b / w_m
+        x = .5 - (x / w_b) * w_b / w_m
         y -= offset_y
-        y = .5 - (1. - 1. * y / h_b) * h_b / h_m
+        y = .5 - (1. - y / h_b) * h_b / h_m
         self.get_quad().set_tex_offset(self._ts2, x, y)
 
     def set_hue_sat(self, hue, saturation):
@@ -444,12 +444,12 @@ class HueSatControl(WidgetCard):
         marker = self._marker
         w_m, h_m = marker.get_x_size(), marker.get_y_size()
         offset_x, offset_y = self._img_offset
-        x = int(1. * w * hue)
+        x = int(w * hue)
         x -= offset_x
-        x = .5 - (1. * x / w_b) * w_b / w_m
-        y = int(1. * h * saturation)
+        x = .5 - (x / w_b) * w_b / w_m
+        y = int(h * saturation)
         y -= offset_y
-        y = .5 - (1. * y / h_b) * h_b / h_m
+        y = .5 - (y / h_b) * h_b / h_m
         self.get_quad().set_tex_offset(self._ts2, x, y)
 
     def __pick_color(self, task):
@@ -561,7 +561,7 @@ class LuminanceControl(WidgetCard):
         offset_x = cls._img_offset[0]
         x = int(.5 * w_g)
         x -= offset_x
-        cls._marker_x = .5 - (1. * x / w_b) * w_b / h
+        cls._marker_x = .5 - (x / w_b) * w_b / h
 
     def __init__(self, parent, command):
 
@@ -627,7 +627,7 @@ class LuminanceControl(WidgetCard):
         quad.set_texture(ts1, self._tex)
         quad.set_texture(ts2, gradient_tex)
         quad.set_texture(ts3, marker_tex)
-        quad.set_tex_scale(ts3, 1. * w_b / w_m, 1. * h_b / h_m)
+        quad.set_tex_scale(ts3, w_b / w_m, h_b / h_m)
         quad.set_texture(ts4, border_tex)
 
         self._mouse_region = mouse_region = MouseWatcherRegion("lum_control", 0., 0., 0., 0.)
@@ -687,9 +687,9 @@ class LuminanceControl(WidgetCard):
         marker = self._marker
         h_m = marker.get_y_size()
         offset_y = self._img_offset[1]
-        y = int(1. * h * luminance)
+        y = int(h * luminance)
         y -= offset_y
-        y = .5 - (1. * y / h_b) * h_b / h_m
+        y = .5 - (y / h_b) * h_b / h_m
         self.get_quad().set_tex_offset(self._ts3, self._marker_x, y)
         self._luminance = luminance
 
@@ -718,7 +718,7 @@ class LuminanceControl(WidgetCard):
         if self._prev_mouse_pos != mouse_pos:
             x, y = self.get_pos(from_root=True)
             y = max(0, min(mouse_y - y, h_))
-            lum = 1. - 1. * y / h_
+            lum = 1. - y / h_
             self.set_luminance(lum)
             self.__apply_luminance()
             self._prev_mouse_pos = mouse_pos

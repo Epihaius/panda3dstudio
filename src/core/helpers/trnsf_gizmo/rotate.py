@@ -49,7 +49,7 @@ class RotationGizmo(TransformationGizmo):
             color_id = self.get_next_picking_color_id()
             color_vec = get_color_vec(color_id, pickable_type_id)
             self._handle_names[color_id] = plane
-            axis = [a for a in "xyz" if a not in plane]
+            axis = "".join(a for a in "xyz" if a not in plane)
 
             if axis == "y":
                 pivot = self._origin.attach_new_node("y_handle_pivot")
@@ -356,7 +356,7 @@ class RotationGizmo(TransformationGizmo):
         if axes in ("screen", "trackball"):
             constraints = axes
         else:
-            axis = [a for a in "xyz" if a not in axes] if len(axes) == 2 else axes
+            axis = "".join(a for a in "xyz" if a not in axes) if len(axes) == 2 else axes
             constraints = axis
 
         Mgr.update_app("axis_constraints", "rotate", constraints)

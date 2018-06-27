@@ -176,7 +176,7 @@ class SceneManager(BaseObject):
 
         scene_file = Multifile()
         scene_file.open_write(Filename(filename))
-        id_stream = StringStream("")
+        id_stream = StringStream()
         scene_file.add_subfile("Panda3DStudio", id_stream, 9)
         scene_data_stream = StringStream(pickle.dumps(scene_data, -1))
         scene_file.add_subfile("scene/data", scene_data_stream, 9)

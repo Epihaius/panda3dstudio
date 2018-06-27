@@ -96,7 +96,7 @@ class ViewGizmo(BaseObject):
     def __update_region_size(self):
 
         win_w, win_h = Mgr.get("window_size")
-        aspect_ratio = 1. * win_w / win_h
+        aspect_ratio = win_w / win_h
         l, r, b, t = GlobalData["viewport"]["frame_aux" if GlobalData["viewport"][2] == "main" else "frame"]
         w = r - l
         h = t - b
@@ -548,7 +548,7 @@ class ViewGizmo(BaseObject):
         factor = self._time ** (.2 if self._reached_full_size else 5.)
         size = self._size = self._size_min + self._size_delta * factor
         win_w, win_h = Mgr.get("window_size")
-        aspect_ratio = 1. * win_w / win_h
+        aspect_ratio = win_w / win_h
         l, r, b, t = GlobalData["viewport"]["frame_aux" if GlobalData["viewport"][2] == "main" else "frame"]
         w = r - l
         h = t - b
@@ -1050,7 +1050,7 @@ class WorldAxesTripod(BaseObject):
     def __update_region_size(self):
 
         win_w, win_h = Mgr.get("window_size")
-        aspect_ratio = 1. * win_w / win_h
+        aspect_ratio = win_w / win_h
         l, r, b, t = GlobalData["viewport"]["frame_aux" if GlobalData["viewport"][2] == "main" else "frame"]
         w = r - l
         h = t - b

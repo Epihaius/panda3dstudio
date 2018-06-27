@@ -834,7 +834,7 @@ class GeomHistoryBase(BaseObject):
             sel_data[state] = []
 
         prim = geoms["poly"]["selected"].node().modify_geom(0).modify_primitive(0)
-        prim.modify_vertices().modify_handle().set_data("")
+        prim.modify_vertices().modify_handle().set_num_rows(0)
         # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
         # remove all data from the primitive, and adding new data through
         # prim.modify_vertices().modify_handle().set_data(data) will not
@@ -905,13 +905,13 @@ class GeomHistoryBase(BaseObject):
 
         vert_array = vertex_data_vert.modify_array(1)
         vert_handle = vert_array.modify_handle()
-        vert_stride = vert_array.get_array_format().get_stride()
+        vert_stride = vert_array.array_format.get_stride()
         edge_array = vertex_data_edge.modify_array(1)
         edge_handle = edge_array.modify_handle()
-        edge_stride = edge_array.get_array_format().get_stride()
+        edge_stride = edge_array.array_format.get_stride()
         picking_array = vertex_data_poly_picking.modify_array(1)
         picking_handle = picking_array.modify_handle()
-        picking_stride = picking_array.get_array_format().get_stride()
+        picking_stride = picking_array.array_format.get_stride()
 
         poly_handles = []
         poly_strides = []
@@ -919,17 +919,17 @@ class GeomHistoryBase(BaseObject):
         for i in range(vertex_data_top.get_num_arrays()):
             poly_array = vertex_data_top.modify_array(i)
             poly_handles.append(poly_array.modify_handle())
-            poly_strides.append(poly_array.get_array_format().get_stride())
+            poly_strides.append(poly_array.array_format.get_stride())
 
         for start, size in row_ranges_to_delete:
 
-            vert_handle.set_subdata(start * vert_stride, size * vert_stride, "")
-            edge_handle.set_subdata((start + old_count) * edge_stride, size * edge_stride, "")
-            edge_handle.set_subdata(start * edge_stride, size * edge_stride, "")
-            picking_handle.set_subdata(start * picking_stride, size * picking_stride, "")
+            vert_handle.set_subdata(start * vert_stride, size * vert_stride, bytes())
+            edge_handle.set_subdata((start + old_count) * edge_stride, size * edge_stride, bytes())
+            edge_handle.set_subdata(start * edge_stride, size * edge_stride, bytes())
+            picking_handle.set_subdata(start * picking_stride, size * picking_stride, bytes())
 
             for poly_handle, poly_stride in zip(poly_handles, poly_strides):
-                poly_handle.set_subdata(start * poly_stride, size * poly_stride, "")
+                poly_handle.set_subdata(start * poly_stride, size * poly_stride, bytes())
 
             old_count -= size
 
@@ -1039,9 +1039,10 @@ class GeomHistoryBase(BaseObject):
         yield
 
         vertex_data_edge = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_tmp = GeomVertexData(vertex_data_edge)
-        vertex_data_tmp.set_num_rows(count)
-        col_writer = GeomVertexWriter(vertex_data_tmp, "color")
+        col_array = vertex_data_edge.get_array(1)
+        col_array_tmp1 = GeomVertexArrayData(col_array)
+        col_array_tmp1.set_num_rows(count)
+        col_writer = GeomVertexWriter(col_array_tmp1, 0)
         col_writer.set_row(old_count)
 
         for row_index in sorted(picking_colors1):
@@ -1050,14 +1051,16 @@ class GeomHistoryBase(BaseObject):
 
         yield
 
-        data = vertex_data_tmp.get_array(1).get_handle().get_data()
-
-        vertex_data_tmp = GeomVertexData(vertex_data_edge)
-        array = vertex_data_tmp.modify_array(1)
-        stride = array.get_array_format().get_stride()
-        array.modify_handle().set_subdata(0, old_count * stride, "")
-        vertex_data_tmp.set_num_rows(count)
-        col_writer = GeomVertexWriter(vertex_data_tmp, "color")
+        col_array_tmp2 = GeomVertexArrayData(col_array.array_format, col_array.usage_hint)
+        col_array_tmp2.unclean_set_num_rows(count)
+        stride = col_array_tmp2.array_format.get_stride()
+        # the second temporary array contains only the second half of the original vertex data
+        # (to be extended with [count - old_count] rows)
+        size = old_count * stride
+        from_handle = col_array.get_handle()
+        to_handle = col_array_tmp2.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, size, size)
+        col_writer = GeomVertexWriter(col_array_tmp2, 0)
         col_writer.set_row(old_count)
 
         for row_index in sorted(picking_colors2):
@@ -1066,10 +1069,14 @@ class GeomHistoryBase(BaseObject):
 
         yield
 
-        data += vertex_data_tmp.get_array(1).get_handle().get_data()
-
         vertex_data_edge.set_num_rows(count * 2)
-        vertex_data_edge.modify_array(1).modify_handle().set_data(data)
+        col_array = vertex_data_edge.modify_array(1)
+        size = col_array_tmp1.data_size_bytes
+        to_handle = col_array.modify_handle()
+        from_handle = col_array_tmp1.get_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        from_handle = col_array_tmp2.get_handle()
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
 
         self._data_row_count = count
 
@@ -1129,14 +1136,19 @@ class GeomHistoryBase(BaseObject):
         vertex_data_normal.set_array(1, new_data.get_array(1))
         vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
 
-        pos_data = pos_array.get_handle().get_data()
-        array = GeomVertexArrayData(pos_array)
-        array.modify_handle().set_data(pos_data * 2)
-        vertex_data_edge.set_array(0, array)
+        size = pos_array.data_size_bytes
+        pos_array_edge = GeomVertexArrayData(pos_array.array_format, pos_array.usage_hint)
+        pos_array_edge.unclean_set_num_rows(pos_array.get_num_rows() * 2)
+
+        from_handle = pos_array.get_handle()
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        vertex_data_edge.set_array(0, pos_array_edge)
 
         vertex_data_edge = edge_sel_state_geom.modify_vertex_data()
         vertex_data_edge.set_num_rows(count * 2)
-        vertex_data_edge.set_array(0, GeomVertexArrayData(array))
+        vertex_data_edge.set_array(0, GeomVertexArrayData(pos_array_edge))
         new_data = vertex_data_edge.set_color(sel_colors["edge"]["unselected"])
         vertex_data_edge.set_array(1, new_data.get_array(1))
 

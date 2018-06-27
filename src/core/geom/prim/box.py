@@ -24,13 +24,13 @@ def _define_geom_data(segments, temp=False):
 
         for sign in (-1, 1):
             d[sign] = {
-                "normal": tuple([sign * 1. if x == i else 0. for x in range(3)]),
+                "normal": tuple(sign * 1. if x == i else 0. for x in range(3)),
                 "vert_data": {}
             }
 
         return "xyz"[i - 2] + "xyz"[i - 1], d
 
-    sides = dict(list(map(get_side_data, list(range(3)))))
+    sides = {k: v for k, v in (get_side_data(i) for i in range(3))}
 
     offsets = {"x": -.5, "y": -.5, "z": 0.}
 

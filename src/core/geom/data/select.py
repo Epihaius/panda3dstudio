@@ -43,7 +43,7 @@ class GeomSelectionBase(BaseObject):
             data_unselected = sel_data["unselected"]
             prim = geom_selected.node().modify_geom(0).modify_primitive(0)
             array = prim.modify_vertices()
-            stride = array.get_array_format().get_stride()
+            stride = array.array_format.get_stride()
             handle_sel = array.modify_handle()
             prim = geom_unselected.node().modify_geom(0).modify_primitive(0)
             handle_unsel = prim.modify_vertices().modify_handle()
@@ -64,8 +64,6 @@ class GeomSelectionBase(BaseObject):
 
             row_ranges_sel.sort(reverse=True)
             row_ranges_unsel.sort(reverse=True)
-            subdata_sel = ""
-            subdata_unsel = ""
 
             for start, size, poly in row_ranges_unsel:
 
@@ -74,10 +72,10 @@ class GeomSelectionBase(BaseObject):
 
                 data_selected.extend(poly)
 
-                subdata_unsel += handle_unsel.get_subdata(start * stride, size * stride)
-                handle_unsel.set_subdata(start * stride, size * stride, "")
-
-            handle_sel.set_data(handle_sel.get_data() + subdata_unsel)
+                offset = handle_sel.data_size_bytes
+                handle_sel.copy_subdata_from(offset, size * stride, handle_unsel,
+                                             start * stride, size * stride)
+                handle_unsel.set_subdata(start * stride, size * stride, bytes())
 
             for start, size, poly in row_ranges_sel:
 
@@ -86,10 +84,10 @@ class GeomSelectionBase(BaseObject):
 
                 data_unselected.extend(poly)
 
-                subdata_sel += handle_sel.get_subdata(start * stride, size * stride)
-                handle_sel.set_subdata(start * stride, size * stride, "")
-
-            handle_unsel.set_data(handle_unsel.get_data() + subdata_sel)
+                offset = handle_unsel.data_size_bytes
+                handle_unsel.copy_subdata_from(offset, size * stride, handle_sel,
+                                               start * stride, size * stride)
+                handle_sel.set_subdata(start * stride, size * stride, bytes())
 
         else:
 
@@ -213,11 +211,16 @@ class GeomSelectionBase(BaseObject):
             sel_data = self._poly_selection_data
             sel_data["unselected"].extend(sel_data["selected"])
             sel_data["selected"] = []
-            handle = geom_selected.node().modify_geom(0).modify_primitive(0).modify_vertices().modify_handle()
-            data = handle.get_data()
-            handle.set_data("")
-            handle = geom_unselected.node().modify_geom(0).modify_primitive(0).modify_vertices().modify_handle()
-            handle.set_data(handle.get_data() + data)
+
+            from_array = geom_selected.node().modify_geom(0).modify_primitive(0).modify_vertices()
+            from_handle = from_array.modify_handle()
+            to_array = geom_unselected.node().modify_geom(0).modify_primitive(0).modify_vertices()
+            to_handle = to_array.modify_handle()
+            from_size = from_array.data_size_bytes
+            to_size = to_array.data_size_bytes
+            to_array.set_num_rows(to_array.get_num_rows() + from_array.get_num_rows())
+            to_handle.copy_subdata_from(to_size, from_size, from_handle, 0, from_size)
+            from_array.set_num_rows(0)
 
         elif subobj_lvl == "normal":
 
@@ -357,7 +360,7 @@ class GeomSelectionBase(BaseObject):
         for state in ("selected", "unselected"):
             sel_data[state] = []
             prim = geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
-            prim.modify_vertices().modify_handle().set_data("")
+            prim.modify_vertices().set_num_rows(0)
             # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
             # remove all data from the primitive, and adding new data through
             # prim.modify_vertices().modify_handle().set_data(data) will not
@@ -418,13 +421,13 @@ class GeomSelectionBase(BaseObject):
 
         vert_array = vertex_data_vert.modify_array(1)
         vert_handle = vert_array.modify_handle()
-        vert_stride = vert_array.get_array_format().get_stride()
+        vert_stride = vert_array.array_format.get_stride()
         edge_array = vertex_data_edge.modify_array(1)
         edge_handle = edge_array.modify_handle()
-        edge_stride = edge_array.get_array_format().get_stride()
+        edge_stride = edge_array.array_format.get_stride()
         picking_array = vertex_data_poly_picking.modify_array(1)
         picking_handle = picking_array.modify_handle()
-        picking_stride = picking_array.get_array_format().get_stride()
+        picking_stride = picking_array.array_format.get_stride()
 
         poly_arrays = []
         poly_handles = []
@@ -434,7 +437,7 @@ class GeomSelectionBase(BaseObject):
             poly_array = vertex_data_poly.modify_array(i)
             poly_arrays.append(poly_array)
             poly_handles.append(poly_array.modify_handle())
-            poly_strides.append(poly_array.get_array_format().get_stride())
+            poly_strides.append(poly_array.array_format.get_stride())
 
         pos_array = poly_arrays[0]
 
@@ -442,13 +445,13 @@ class GeomSelectionBase(BaseObject):
 
         for start, size in row_ranges_to_delete:
 
-            vert_handle.set_subdata(start * vert_stride, size * vert_stride, "")
-            edge_handle.set_subdata((start + count) * edge_stride, size * edge_stride, "")
-            edge_handle.set_subdata(start * edge_stride, size * edge_stride, "")
-            picking_handle.set_subdata(start * picking_stride, size * picking_stride, "")
+            vert_handle.set_subdata(start * vert_stride, size * vert_stride, bytes())
+            edge_handle.set_subdata((start + count) * edge_stride, size * edge_stride, bytes())
+            edge_handle.set_subdata(start * edge_stride, size * edge_stride, bytes())
+            picking_handle.set_subdata(start * picking_stride, size * picking_stride, bytes())
 
             for poly_handle, poly_stride in zip(poly_handles, poly_strides):
-                poly_handle.set_subdata(start * poly_stride, size * poly_stride, "")
+                poly_handle.set_subdata(start * poly_stride, size * poly_stride, bytes())
 
             count -= size
 
@@ -476,15 +479,21 @@ class GeomSelectionBase(BaseObject):
         vertex_data_normal.set_array(1, new_data.get_array(1))
         vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
 
-        tmp_array = GeomVertexArrayData(pos_array)
-        handle = tmp_array.modify_handle()
-        handle.set_data(handle.get_data() * 2)
+        size = pos_array.data_size_bytes
+        from_handle = pos_array.get_handle()
+
         vertex_data_edge.set_num_rows(count * 2)
-        vertex_data_edge.set_array(0, tmp_array)
+        pos_array_edge = vertex_data_edge.modify_array(0)
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
 
         vertex_data_edge = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data_edge.set_num_rows(count * 2)
-        vertex_data_edge.set_array(0, GeomVertexArrayData(tmp_array))
+        pos_array_edge = vertex_data_edge.modify_array(0)
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
         new_data = vertex_data_edge.set_color(sel_colors["edge"]["unselected"])
         vertex_data_edge.set_array(1, new_data.get_array(1))
 

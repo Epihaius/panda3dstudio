@@ -515,7 +515,7 @@ class Sizer(object):
 
             proportions = [i.get_proportion() for i in sizer_items]
             p_sum = sum(proportions)
-            sizer_items = sorted(((i.get_min_size()[0], i) for i in sizer_items), reverse=True)
+            sizer_items = [(i.get_min_size()[0], i) for i in sizer_items]
             last_item = sizer_items.pop() if sizer_items else None
 
             for w_min, item in sizer_items:
@@ -558,7 +558,7 @@ class Sizer(object):
 
             proportions = [i.get_proportion() for i in sizer_items]
             p_sum = sum(proportions)
-            sizer_items = sorted(((i.get_min_size()[1], i) for i in sizer_items), reverse=True)
+            sizer_items = [(i.get_min_size()[1], i) for i in sizer_items]
             last_item = sizer_items.pop() if sizer_items else None
 
             for h_min, item in sizer_items:

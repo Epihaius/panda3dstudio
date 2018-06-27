@@ -97,17 +97,20 @@ class UVEditBase(BaseObject):
 
         row_indices = tmp_merged_edge.get_start_row_indices()
         array = edge_prim.modify_vertices()
-        stride = array.get_array_format().get_stride()
+        stride = array.array_format.get_stride()
         edge_handle = array.modify_handle()
+        seam_handle = seam_prim.modify_vertices().modify_handle()
+        seam_handle.unclean_set_num_rows(len(row_indices) * 2)
         rows = edge_prim.get_vertex_list()[::2]
         data_rows = sorted((rows.index(i) * 2 for i in row_indices), reverse=True)
-        data = ""
+
+        for i, start in enumerate(data_rows):
+            seam_handle.copy_subdata_from(i * stride * 2, stride * 2, edge_handle,
+                                          start * stride, stride * 2)
 
         for start in data_rows:
-            data += edge_handle.get_subdata(start * stride, stride * 2)
-            edge_handle.set_subdata(start * stride, stride * 2, "")
+            edge_handle.set_subdata(start * stride, stride * 2, bytes())
 
-        seam_prim.modify_vertices().modify_handle().set_data(data)
         edge_geom.node().modify_geom(0).set_primitive(0, edge_prim)
         seam_geom.node().modify_geom(0).set_primitive(0, seam_prim)
         edge_prims[uv_set_id] = edge_prim
@@ -128,18 +131,20 @@ class UVEditBase(BaseObject):
 
         row_indices = tmp_merged_edge.get_start_row_indices()
         array = edge_prim.modify_vertices()
-        stride = array.get_array_format().get_stride()
+        stride = array.array_format.get_stride()
         edge_handle = array.modify_handle()
+        seam_handle = seam_prim.modify_vertices().modify_handle()
+        row_count = seam_prim.get_num_vertices()
+        seam_handle.set_num_rows(row_count + len(row_indices) * 2)
         rows = edge_prim.get_vertex_list()[::2]
         data_rows = sorted((rows.index(i) * 2 for i in row_indices), reverse=True)
-        data = ""
+
+        for i, start in enumerate(data_rows):
+            seam_handle.copy_subdata_from((row_count + i * 2) * stride, stride * 2, edge_handle,
+                                          start * stride, stride * 2)
 
         for start in data_rows:
-            data += edge_handle.get_subdata(start * stride, stride * 2)
-            edge_handle.set_subdata(start * stride, stride * 2, "")
-
-        seam_handle = seam_prim.modify_vertices().modify_handle()
-        seam_handle.set_data(seam_handle.get_data() + data)
+            edge_handle.set_subdata(start * stride, stride * 2, bytes())
 
     def remove_tex_seam_edges(self, uv_set_id, edge_ids):
 
@@ -184,18 +189,20 @@ class UVEditBase(BaseObject):
 
         row_indices = tmp_merged_edge.get_start_row_indices()
         array = seam_prim.modify_vertices()
-        stride = array.get_array_format().get_stride()
+        stride = array.array_format.get_stride()
         seam_handle = array.modify_handle()
+        edge_handle = edge_prim.modify_vertices().modify_handle()
+        row_count = edge_prim.get_num_vertices()
+        edge_handle.set_num_rows(row_count + len(row_indices) * 2)
         rows = seam_prim.get_vertex_list()[::2]
         data_rows = sorted((rows.index(i) * 2 for i in row_indices), reverse=True)
-        data = ""
+
+        for i, start in enumerate(data_rows):
+            edge_handle.copy_subdata_from((row_count + i * 2) * stride, stride * 2, seam_handle,
+                                          start * stride, stride * 2)
 
         for start in data_rows:
-            data += seam_handle.get_subdata(start * stride, stride * 2)
-            seam_handle.set_subdata(start * stride, stride * 2, "")
-
-        edge_handle = edge_prim.modify_vertices().modify_handle()
-        edge_handle.set_data(edge_handle.get_data() + data)
+            seam_handle.set_subdata(start * stride, stride * 2, bytes())
 
     def set_selected_tex_seam_edge(self, uv_set_id, colors, edge, is_selected=True):
 

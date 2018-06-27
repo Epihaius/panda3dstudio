@@ -66,7 +66,7 @@ class UVDataSelectionBase(BaseObject):
             data_unselected = sel_data["unselected"]
             prim = sel_state_geom.node().modify_geom(1).modify_primitive(0)
             array = prim.modify_vertices()
-            stride = array.get_array_format().get_stride()
+            stride = array.array_format.get_stride()
             handle_sel = array.modify_handle()
             prim = sel_state_geom.node().modify_geom(0).modify_primitive(0)
             handle_unsel = prim.modify_vertices().modify_handle()
@@ -87,8 +87,6 @@ class UVDataSelectionBase(BaseObject):
 
             row_ranges_sel.sort(reverse=True)
             row_ranges_unsel.sort(reverse=True)
-            subdata_sel = ""
-            subdata_unsel = ""
 
             for start, size, poly in row_ranges_unsel:
 
@@ -97,10 +95,10 @@ class UVDataSelectionBase(BaseObject):
 
                 data_selected.extend(poly)
 
-                subdata_unsel += handle_unsel.get_subdata(start * stride, size * stride)
-                handle_unsel.set_subdata(start * stride, size * stride, "")
-
-            handle_sel.set_data(handle_sel.get_data() + subdata_unsel)
+                offset = handle_sel.data_size_bytes
+                handle_sel.copy_subdata_from(offset, size * stride, handle_unsel,
+                                             start * stride, size * stride)
+                handle_unsel.set_subdata(start * stride, size * stride, bytes())
 
             for start, size, poly in row_ranges_sel:
 
@@ -109,10 +107,10 @@ class UVDataSelectionBase(BaseObject):
 
                 data_unselected.extend(poly)
 
-                subdata_sel += handle_sel.get_subdata(start * stride, size * stride)
-                handle_sel.set_subdata(start * stride, size * stride, "")
-
-            handle_unsel.set_data(handle_unsel.get_data() + subdata_sel)
+                offset = handle_unsel.data_size_bytes
+                handle_unsel.copy_subdata_from(offset, size * stride, handle_sel,
+                                               start * stride, size * stride)
+                handle_sel.set_subdata(start * stride, size * stride, bytes())
 
         else:
 
@@ -262,11 +260,16 @@ class UVDataSelectionBase(BaseObject):
             sel_data = self._poly_selection_data
             sel_data["unselected"].extend(sel_data["selected"])
             sel_data["selected"] = []
-            handle = sel_state_geom.node().modify_geom(1).modify_primitive(0).modify_vertices().modify_handle()
-            data = handle.get_data()
-            handle.set_data("")
-            handle = sel_state_geom.node().modify_geom(0).modify_primitive(0).modify_vertices().modify_handle()
-            handle.set_data(handle.get_data() + data)
+
+            from_array = sel_state_geom.node().modify_geom(1).modify_primitive(0).modify_vertices()
+            from_handle = from_array.modify_handle()
+            to_array = sel_state_geom.node().modify_geom(0).modify_primitive(0).modify_vertices()
+            to_handle = to_array.modify_handle()
+            from_size = from_array.data_size_bytes
+            to_size = to_array.data_size_bytes
+            to_array.set_num_rows(to_array.get_num_rows() + from_array.get_num_rows())
+            to_handle.copy_subdata_from(to_size, from_size, from_handle, 0, from_size)
+            from_array.set_num_rows(0)
         else:
             vertex_data = geoms["sel_state"].node().modify_geom(0).modify_vertex_data()
             colors = UVMgr.get("uv_selection_colors")[subobj_lvl]

@@ -48,7 +48,7 @@ def _define_geom_data(segments, smooth, temp=False):
             positions_main.append(pos_obj)
 
             if not temp:
-                u = 1. * j / segments
+                u = j / segments
                 uvs_main.append((u, 1. - v))
 
             vert_id += 1
@@ -142,7 +142,7 @@ def _define_geom_data(segments, smooth, temp=False):
         vert_props = {"pos": pole_pos, "normal": pole_normal if smooth else poly_normal}
 
         if not temp:
-            u = 1. * j / segments
+            u = j / segments
             vert_props["uvs"] = {0: (u, v)}
 
         tri_data = [vert_props]
@@ -190,7 +190,7 @@ def _define_geom_data(segments, smooth, temp=False):
         vert_props = {"pos": pole_pos, "normal": pole_normal if smooth else poly_normal}
 
         if not temp:
-            u = 1. - 1. * j / segments
+            u = 1. - j / segments
             vert_props["uvs"] = {0: (u, v)}
 
         tri_data = [vert_props]

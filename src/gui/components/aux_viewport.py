@@ -569,11 +569,11 @@ class AuxiliaryViewport(object):
             h = min(h_v, max(1, h))
 
             if delta_x:
-                proportion = 1. * (w_v - w) / w
+                proportion = (w_v - w) / w
                 self._spacer_h_item.set_proportion(proportion)
 
             if delta_y:
-                proportion = 1. * (h_v - h) / h
+                proportion = (h_v - h) / h
                 self._spacer_v_item.set_proportion(proportion)
 
             viewport_sizer.set_min_size_stale()
@@ -594,7 +594,7 @@ class AuxiliaryViewport(object):
             sizer_item = self._viewport_sizer.get_sizer_item()
             w2 -= delta_x
             w2 = min(w1, max(1, w2))
-            proportion = max(.0001, 1. * (w1 - w2) / w2)
+            proportion = max(.0001, (w1 - w2) / w2)
             sizer_item.set_proportion(proportion)
             viewport_sizer.update_min_size()
             viewport_sizer.set_size(viewport_sizer.get_size())

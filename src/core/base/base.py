@@ -78,7 +78,7 @@ class BaseObject(object):
             logging.warning('CORE: data "{}" is not defined.'.format(data_id))
 
             if self._verbose:
-                print(('CORE warning: data "{}" is not defined.'.format(data_id)))
+                print('CORE warning: data "{}" is not defined.'.format(data_id))
 
         retriever = self._data_retrievers.get(data_id, self._defaults["data_retriever"])
 
@@ -342,11 +342,11 @@ class PendingTasks(object):
                 task_types = list(pending_tasks.keys())
 
             if sort_by_type:
-                sorted_tasks = [task for task_type in task_types for sort, tasks in
+                sorted_tasks = [task for task_type in task_types for _, tasks in
                                 sorted(pending_tasks.pop(task_type, {}).items())
                                 for task in tasks.values()]
             else:
-                sorted_tasks = [task for sort, tasks in sorted([i for task_type in task_types
+                sorted_tasks = [task for _, tasks in sorted([i for task_type in task_types
                                 for i in pending_tasks.pop(task_type, {}).items()])
                                 for task in tasks.values()]
 

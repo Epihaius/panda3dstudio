@@ -119,7 +119,7 @@ class TemporaryDummy(BaseObject):
 
                 vert_index += 1
 
-                coord2 = coord + 1. * sign
+                coord2 = coord + sign
                 pos = Point3(*corner)
                 pos[index] = coord2
                 pos_writer.add_data3f(pos)
@@ -381,7 +381,7 @@ class Dummy(TopLevelObject):
                     lines.add_vertices(vert_index - 1, vert_index)
                     vert_index += 1
 
-                coord2 = coord + 1. * sign
+                coord2 = coord + sign
                 pos = Point3(*corner)
                 pos[index] = coord2
                 pos_writer.add_data3f(pos)

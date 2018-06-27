@@ -572,13 +572,20 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                     yield
                     poly_count = 0
 
-        pos_array = vertex_data_poly.get_array(0)
-        vertex_data_vert.set_array(0, pos_array)
-        vertex_data_poly_picking.set_array(0, pos_array)
-        pos_data = pos_array.get_handle().get_data()
-        pos_array = GeomVertexArrayData(pos_array)
-        pos_array.modify_handle().set_data(pos_data * 2)
-        vertex_data_edge.set_array(0, pos_array)
+        pos_array_poly = vertex_data_poly.get_array(0)
+        vertex_data_vert.set_array(0, pos_array_poly)
+        vertex_data_poly_picking.set_array(0, pos_array_poly)
+
+        size = pos_array_poly.data_size_bytes
+        pos_array_edge = GeomVertexArrayData(pos_array_poly.array_format, pos_array_poly.usage_hint)
+        pos_array_edge.unclean_set_num_rows(pos_array_poly.get_num_rows() * 2)
+
+        from_handle = pos_array_poly.get_handle()
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+
+        vertex_data_edge.set_array(0, pos_array_edge)
 
         render_masks = Mgr.get("render_masks")["all"]
         picking_masks = Mgr.get("picking_masks")["all"]

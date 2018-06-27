@@ -124,7 +124,7 @@ def _define_geom_data(segments, smooth, temp=False):
 
     for i in range(segs_h + 1):
 
-        z = 1. - 1. * i / segs_h
+        z = 1. - i / segs_h
 
         for j in range(segs_c + 1):
 
@@ -141,7 +141,7 @@ def _define_geom_data(segments, smooth, temp=False):
             positions_main.append(pos_obj)
 
             if not temp:
-                u = 1. * j / segs_c
+                u = j / segs_c
                 uvs_main.append((u, z))
 
             vert_id += 1
@@ -189,7 +189,7 @@ def _define_geom_data(segments, smooth, temp=False):
 
             for i in range(1, segs_cap):
 
-                r = 1. - 1. * i / segs_cap
+                r = 1. - i / segs_cap
 
                 for j in range(segs_c + 1):
 

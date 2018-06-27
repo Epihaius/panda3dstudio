@@ -144,7 +144,7 @@ class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, SurfaceBas
         for state in ("selected", "unselected"):
             sel_data[state] = []
             prim = geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
-            prim.modify_vertices().modify_handle().set_data("")
+            prim.modify_vertices().set_num_rows(0)
             # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
             # remove all data from the primitive, and adding new data through
             # prim.modify_vertices().modify_handle().set_data(data) will not
@@ -201,13 +201,13 @@ class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, SurfaceBas
 
         vert_array = vertex_data_vert.modify_array(1)
         vert_handle = vert_array.modify_handle()
-        vert_stride = vert_array.get_array_format().get_stride()
+        vert_stride = vert_array.array_format.get_stride()
         edge_array = vertex_data_edge.modify_array(1)
         edge_handle = edge_array.modify_handle()
-        edge_stride = edge_array.get_array_format().get_stride()
+        edge_stride = edge_array.array_format.get_stride()
         picking_array = vertex_data_poly_picking.modify_array(1)
         picking_handle = picking_array.modify_handle()
-        picking_stride = picking_array.get_array_format().get_stride()
+        picking_stride = picking_array.array_format.get_stride()
 
         poly_arrays = []
         poly_handles = []
@@ -217,7 +217,7 @@ class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, SurfaceBas
             poly_array = vertex_data_poly.modify_array(i)
             poly_arrays.append(poly_array)
             poly_handles.append(poly_array.modify_handle())
-            poly_strides.append(poly_array.get_array_format().get_stride())
+            poly_strides.append(poly_array.array_format.get_stride())
 
         pos_array = poly_arrays[0]
 
@@ -225,13 +225,13 @@ class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, SurfaceBas
 
         for start, size in row_ranges_to_delete:
 
-            vert_handle.set_subdata(start * vert_stride, size * vert_stride, "")
-            edge_handle.set_subdata((start + count) * edge_stride, size * edge_stride, "")
-            edge_handle.set_subdata(start * edge_stride, size * edge_stride, "")
-            picking_handle.set_subdata(start * picking_stride, size * picking_stride, "")
+            vert_handle.set_subdata(start * vert_stride, size * vert_stride, bytes())
+            edge_handle.set_subdata((start + count) * edge_stride, size * edge_stride, bytes())
+            edge_handle.set_subdata(start * edge_stride, size * edge_stride, bytes())
+            picking_handle.set_subdata(start * picking_stride, size * picking_stride, bytes())
 
             for poly_handle, poly_stride in zip(poly_handles, poly_strides):
-                poly_handle.set_subdata(start * poly_stride, size * poly_stride, "")
+                poly_handle.set_subdata(start * poly_stride, size * poly_stride, bytes())
 
             count -= size
 
@@ -259,15 +259,21 @@ class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, SurfaceBas
         vertex_data_normal.set_array(1, new_data.get_array(1))
         vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
 
-        tmp_array = GeomVertexArrayData(pos_array)
-        handle = tmp_array.modify_handle()
-        handle.set_data(handle.get_data() * 2)
+        size = pos_array.data_size_bytes
+        from_handle = pos_array.get_handle()
+
         vertex_data_edge.set_num_rows(count * 2)
-        vertex_data_edge.set_array(0, tmp_array)
+        pos_array_edge = vertex_data_edge.modify_array(0)
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
 
         vertex_data_edge = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data_edge.set_num_rows(count * 2)
-        vertex_data_edge.set_array(0, GeomVertexArrayData(tmp_array))
+        pos_array_edge = vertex_data_edge.modify_array(0)
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
         new_data = vertex_data_edge.set_color(sel_colors["edge"]["unselected"])
         vertex_data_edge.set_array(1, new_data.get_array(1))
 

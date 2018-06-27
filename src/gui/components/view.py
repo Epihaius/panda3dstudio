@@ -748,6 +748,7 @@ class ViewTileManager(object):
 
         def task():
 
+            self.__update_sizer()
             sizer = pane.get_sizer()
             sizer.lock_item_size()
             sizer.lock_mouse_regions()

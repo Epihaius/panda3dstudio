@@ -307,11 +307,19 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             poly.set_center_pos(poly_center)
 
         pos_array = vertex_data_poly.get_array(0)
-        pos_data = pos_array.get_handle().get_data()
         vertex_data_vert.set_array(0, pos_array)
-        array = GeomVertexArrayData(pos_array)
-        array.modify_handle().set_data(pos_data * 2)
-        vertex_data_edge.set_array(0, array)
+
+        size = pos_array.data_size_bytes
+        pos_array_edge = GeomVertexArrayData(pos_array.array_format, pos_array.usage_hint)
+        pos_array_edge.unclean_set_num_rows(pos_array.get_num_rows() * 2)
+
+        from_handle = pos_array.get_handle()
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+
+        vertex_data_edge.set_array(0, pos_array_edge)
+
         geoms = self._geoms
         origin = self._origin
 
@@ -404,7 +412,6 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         seam_geom = geoms["seam"]
         seam_prim = seam_geom.node().modify_geom(0).modify_primitive(0)
-        seam_handle = seam_prim.modify_vertices().modify_handle()
 
         edge_geom = geoms["edge"]["pickable"]
         edge_prim = edge_geom.node().get_geom(0).get_primitive(0)
@@ -416,16 +423,16 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         row_indices = tmp_merged_edge.get_start_row_indices()
         array = edge_prim.get_vertices()
-        stride = array.get_array_format().get_stride()
+        stride = array.array_format.get_stride()
         edge_handle = array.get_handle()
+        seam_handle = seam_prim.modify_vertices().modify_handle()
+        seam_handle.unclean_set_num_rows(len(row_indices) * 2)
         rows = edge_prim.get_vertex_list()[::2]
         data_rows = sorted(rows.index(i) * 2 for i in row_indices)
-        data = ""
 
-        for start in data_rows:
-            data += edge_handle.get_subdata(start * stride, stride * 2)
-
-        seam_handle.set_data(data)
+        for i, start in enumerate(data_rows):
+            seam_handle.copy_subdata_from(i * stride * 2, stride * 2, edge_handle,
+                                          start * stride, stride * 2)
 
     def add_seam_edges(self, edge_ids):
 
@@ -437,21 +444,22 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         seam_geom = geoms["seam"]
         seam_prim = seam_geom.node().modify_geom(0).modify_primitive(0)
-        seam_handle = seam_prim.modify_vertices().modify_handle()
 
         edge_geom = geoms["edge"]["pickable"]
         edge_prim = edge_geom.node().get_geom(0).get_primitive(0)
         array = edge_prim.get_vertices()
         rows = edge_prim.get_vertex_list()[::2]
-        stride = array.get_array_format().get_stride()
+        stride = array.array_format.get_stride()
         edge_handle = array.get_handle()
+        seam_handle = seam_prim.modify_vertices().modify_handle()
+        row_count = seam_prim.get_num_vertices()
+        seam_handle.set_num_rows(row_count + len(row_indices) * 2)
         data_rows = sorted(rows.index(i) * 2 for i in row_indices)
-        data = ""
 
-        for start in data_rows:
-            data += edge_handle.get_subdata(start * stride, stride * 2)
+        for i, start in enumerate(data_rows):
+            seam_handle.copy_subdata_from((row_count + i * 2) * stride, stride * 2, edge_handle,
+                                          start * stride, stride * 2)
 
-        seam_handle.set_data(seam_handle.get_data() + data)
         self._geom_data_obj.add_tex_seam_edges(self._uv_set_id, edge_ids)
 
     def remove_seam_edges(self, edge_ids):
@@ -495,11 +503,11 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         seam_handle = seam_prim.modify_vertices().modify_handle()
         array = seam_prim.get_vertices()
         rows = seam_prim.get_vertex_list()[::2]
-        stride = array.get_array_format().get_stride()
+        stride = array.array_format.get_stride()
         data_rows = sorted((rows.index(i) * 2 for i in row_indices), reverse=True)
 
         for start in data_rows:
-            seam_handle.set_subdata(start * stride, stride * 2, "")
+            seam_handle.set_subdata(start * stride, stride * 2, bytes())
 
         self._geom_data_obj.remove_tex_seam_edges(self._uv_set_id, edge_ids)
 

@@ -257,7 +257,7 @@ class Dialog(WidgetCard):
             w, h = btn.get_min_size()
             btn.set_size((width, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((width / 5, 0))
+            btn_sizer.add((width // 5, 0))
 
         if "no" in choices:
             command = lambda: self.close("no")
@@ -265,7 +265,7 @@ class Dialog(WidgetCard):
             w, h = btn.get_min_size()
             btn.set_size((width, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((width / 5, 0))
+            btn_sizer.add((width // 5, 0))
 
         if "ok" in choices:
             command = lambda: self.close("yes")
@@ -273,14 +273,14 @@ class Dialog(WidgetCard):
             w, h = btn.get_min_size()
             btn.set_size((width, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((width / 5, 0))
+            btn_sizer.add((width // 5, 0))
 
         if "cancel" in choices:
             btn = DialogStandardButton(self, "Cancel", command=self.close)
             w, h = btn.get_min_size()
             btn.set_size((width, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((width / 5, 0))
+            btn_sizer.add((width // 5, 0))
 
         sizer.add(btn_sizer, expand=True)
         self._on_yes = on_yes if on_yes else lambda: None
@@ -347,8 +347,8 @@ class Dialog(WidgetCard):
         w, h = self.get_size()
         w_w, h_w = Mgr.get("window_size")
         h_t = Skin["options"]["dialog_title_height"]
-        x = (w_w - w) / 2
-        y = (h_w - h + h_t) / 2
+        x = (w_w - w) // 2
+        y = (h_w - h + h_t) // 2
         pos = (x, y)
         self.set_pos(pos)
         self.get_sizer().update_mouse_region_frames()
@@ -470,8 +470,8 @@ class Dialog(WidgetCard):
             w_l = label.get_x_size()
             h_l = label.get_y_size()
             h_title = Skin["options"]["dialog_title_height"]
-            x = (width - w_l) / 2
-            y = (h_title - h_l) / 2 + Skin["options"]["dialog_title_top"]
+            x = (width - w_l) // 2
+            y = (h_title - h_l) // 2 + Skin["options"]["dialog_title_top"]
             img.blend_sub_image(label, x, y, 0, 0)
 
         self._background_image = bg_image = PNMImage(width - bl, height - bt, 4)

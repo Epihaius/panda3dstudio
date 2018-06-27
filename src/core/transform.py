@@ -1098,7 +1098,7 @@ class TransformationManager(BaseObject):
             self._transf_axis = axis
         else:
             normal = V3D()
-            normal["xyz".index([a for a in "xyz" if a not in axis_constraints])] = 1.
+            normal["xyz".index("".join(a for a in "xyz" if a not in axis_constraints))] = 1.
             self._transf_axis = None
 
         if normal is None:

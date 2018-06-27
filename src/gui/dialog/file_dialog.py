@@ -470,18 +470,18 @@ class FilePane(DialogScrollPane):
 
         FileButton.set_selected_filebutton(None)
 
-        f = lambda x, y: cmp(x.lower(), y.lower())
+        f = lambda x, y: (x.lower() > y.lower()) - (x.lower() < y.lower())
 
         def get_command(dir_path):
 
             return lambda: self.set_directory(dir_path)
 
-        for name in sorted(subdirnames, cmp=f):
+        for name in sorted(subdirnames, key=cmp_to_key(f)):
             path = join(directory_path, name)
             command = get_command(path)
             btns.append(FileButton(self, name, command=command, is_dir=True))
 
-        for name in sorted(filenames, cmp=f):
+        for name in sorted(filenames, key=cmp_to_key(f)):
             btns.append(FileButton(self, name, self._file_selection_handler, self._file_command))
 
         count = Skin["options"]["file_row_count"]

@@ -245,25 +245,32 @@ class TriangulationBase(BaseObject):
         prim_poly_sel = geom_poly_selected.node().modify_geom(0).modify_primitive(0)
         stride = prim_poly_sel.get_index_stride()
         handle = prim_poly_sel.modify_vertices().modify_handle()
-        top_array = geom_node_top.modify_geom(0).modify_primitive(0).modify_vertices()
+        top_prim = geom_node_top.modify_geom(0).modify_primitive(0)
+        top_array = top_prim.modify_vertices()
         top_handle = top_array.modify_handle()
-        top_data = top_handle.get_data()
 
         for vert_ids_to_replace, new_tri_vert_ids in zip(tris_to_replace, new_tris_vert_ids):
             tris_prim = GeomTriangles(Geom.UH_static)
             rows = [verts[vert_id].get_row_index() for vert_id in new_tri_vert_ids]
             tris_prim.reserve_num_vertices(3)
             tris_prim.add_vertices(*rows)
-            data = tris_prim.get_vertices().get_handle().get_data()
+            tmp_handle = tris_prim.get_vertices().get_handle()
             index = new_tri_data.index(vert_ids_to_replace)
             start_row = index * 3 + poly_start
-            old_data = handle.get_subdata(start_row * stride, 3 * stride)
-            handle.set_subdata(start_row * stride, 3 * stride, data)
-            top_data = top_data.replace(old_data, data)
+            start = start_row * stride
+            size = 3 * stride
+            handle.copy_subdata_from(start, size, tmp_handle, 0, size)
             new_tri_data[index] = new_tri_vert_ids
-            sel_data[start_row / 3] = new_tri_vert_ids
+            sel_data[start_row // 3] = new_tri_vert_ids
 
-        top_handle.set_data(top_data)
+        vert_id = new_tri_data[0][0]
+        row_index = verts[vert_id].get_row_index()
+        from_start = prim_poly_sel.get_vertex_list().index(row_index) * stride
+        vert_id = poly[0][0]
+        row_index = verts[vert_id].get_row_index()
+        to_start = top_prim.get_vertex_list().index(row_index) * stride
+        size = len(poly) * stride
+        top_handle.copy_subdata_from(to_start, size, handle, from_start, size)
 
         poly.set_triangle_data(new_tri_data)
         self._tri_change = set(self._selected_subobj_ids["poly"])
@@ -369,7 +376,7 @@ class TriangulationBase(BaseObject):
         geoms = self._geoms
         geom_poly_selected = geoms["poly"]["selected"].node().modify_geom(0)
         array_selected = geom_poly_selected.modify_primitive(0).modify_vertices()
-        stride = array_selected.get_array_format().get_stride()
+        stride = array_selected.array_format.get_stride()
         handle_selected = array_selected.modify_handle()
         geom_poly_unselected = geoms["poly"]["unselected"].node().modify_geom(0)
         array_unselected = geom_poly_unselected.modify_primitive(0).modify_vertices()
@@ -405,10 +412,10 @@ class TriangulationBase(BaseObject):
                 for tri_verts in tri_data:
                     prim.add_vertices(*[verts[vert_id].get_row_index() for vert_id in tri_verts])
 
-                data = prim.get_vertices().get_handle().get_data()
+                from_handle = prim.get_vertices().get_handle()
 
-                size = len(poly)
-                handle_top.set_subdata(row_offset * stride, size * stride, data)
+                size = len(poly) * stride
+                handle_top.copy_subdata_from(row_offset * stride, size, from_handle, 0, size)
 
                 if poly.get_id() in selected_poly_ids:
                     sel_data = data_selected
@@ -422,7 +429,7 @@ class TriangulationBase(BaseObject):
                 for i, tri_verts in enumerate(tri_data):
                     sel_data[start + i] = tri_verts
 
-                handle.set_subdata(start * 3 * stride, size * stride, data)
+                handle.copy_subdata_from(start * 3 * stride, size, from_handle, 0, size)
                 poly.set_triangle_data(tri_data)
 
             row_offset += len(poly)

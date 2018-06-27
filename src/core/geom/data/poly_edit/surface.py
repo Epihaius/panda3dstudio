@@ -68,7 +68,7 @@ class SurfaceBase(BaseObject):
             poly.reverse_normal()
             poly_vert_ids = poly.get_vertex_ids()
             l = len(poly_vert_ids)
-            l_half = l / 2
+            l_half = l // 2
             vert_ids1 = poly_vert_ids[::-1][:l_half]
             vert_ids2 = poly_vert_ids[:l_half]
 
@@ -101,8 +101,8 @@ class SurfaceBase(BaseObject):
                     # if a center point of symmetry is at index i in a list with length l,
                     # then it is at index (l-i-1) in the reversed list;
                     # the offset of the reversed list in the doubled list equals i - (l-i-1),
-                    # or 2 * i - l + 1, so i equals (offset + l - 1) / 2
-                    i = (offset + l - 1) / 2
+                    # or 2 * i - l + 1, so i equals (offset + l - 1) // 2
+                    i = (offset + l - 1) // 2
 
                     poly_vert_ids2 = poly_vert_ids * 2
                     j = i + 1
@@ -324,11 +324,13 @@ class SurfaceBase(BaseObject):
             vertex_data = geoms[geom_type]["sel_state"].node().modify_geom(0).modify_vertex_data()
             vertex_data.set_array(0, pos_array)
 
-        pos_array = GeomVertexArrayData(pos_array)
-        handle = pos_array.modify_handle()
-        handle.set_data(handle.get_data() * 2)
+        size = pos_array.data_size_bytes
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array)
+        from_handle = pos_array.get_handle()
+        to_handle = vertex_data.modify_array(0).modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        pos_array = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array)
 

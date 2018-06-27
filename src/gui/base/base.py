@@ -205,10 +205,10 @@ def load_skin(skin_id):
 
 def get_relative_region_frame(x, y, width, height, ref_width, ref_height):
 
-    l = 1. * x / ref_width
-    r = 1. * (x + width) / ref_width
-    b = 1. - 1. * (y + height) / ref_height
-    t = 1. - 1. * y / ref_height
+    l = x / ref_width
+    r = (x + width) / ref_width
+    b = 1. - (y + height) / ref_height
+    t = 1. - y / ref_height
 
     if b * t < 0.:
         b -= 1. / ref_height
@@ -329,11 +329,11 @@ class PendingTaskBatch(object):
             task_types = list(pending_tasks.keys())
 
         if sort_by_type:
-            sorted_tasks = [task for task_type in task_types for sort, tasks in
+            sorted_tasks = [task for task_type in task_types for _, tasks in
                             sorted(pending_tasks.pop(task_type, {}).items())
                             for task in tasks.values()]
         else:
-            sorted_tasks = [task for sort, tasks in sorted([i for task_type in task_types
+            sorted_tasks = [task for _, tasks in sorted([i for task_type in task_types
                             for i in pending_tasks.pop(task_type, {}).items()])
                             for task in tasks.values()]
 

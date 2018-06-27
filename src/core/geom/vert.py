@@ -261,6 +261,22 @@ class MergedVertex(object):
         self._geom_data_obj = geom_data_obj
         self._ids = [] if vert_id is None else [vert_id]
 
+    def __lt__(self, other):
+
+        return id(self) < id(other)
+
+    def __le__(self, other):
+
+        return id(self) <= id(other)
+
+    def __gt__(self, other):
+
+        return id(self) < id(other)
+
+    def __ge__(self, other):
+
+        return id(self) <= id(other)
+
     def __getitem__(self, index):
 
         try:

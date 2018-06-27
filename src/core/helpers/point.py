@@ -643,8 +643,8 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             for i in range(2):
                 array = vertex_data.modify_array(i)
                 handle = array.modify_handle()
-                stride = array.get_array_format().get_stride()
-                handle.set_subdata(row_index * stride, stride, "")
+                stride = array.array_format.get_stride()
+                handle.set_subdata(row_index * stride, stride, bytes())
 
         task = self.__rebuild_geoms
         task_id = "rebuild_point_geoms"
@@ -729,8 +729,8 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
                 for i in range(2):
                     array = vertex_data.modify_array(i)
                     handle = array.modify_handle()
-                    stride = array.get_array_format().get_stride()
-                    handle.set_subdata(row_index * stride, stride, "")
+                    stride = array.array_format.get_stride()
+                    handle.set_subdata(row_index * stride, stride, bytes())
 
         count = len(point_helpers)
         point_helpers.append(point_helper)

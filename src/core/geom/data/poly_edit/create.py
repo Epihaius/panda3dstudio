@@ -782,12 +782,14 @@ class CreationBase(BaseObject):
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
 
-        data = vertex_data_tmp.get_array(1).get_handle().get_data()
+        from_array = vertex_data_tmp.get_array(1)
+        size = from_array.data_size_bytes
+        from_handle = from_array.get_handle()
 
         vertex_data_tmp = GeomVertexData(vertex_data_edge1)
         array = vertex_data_tmp.modify_array(1)
-        stride = array.get_array_format().get_stride()
-        array.modify_handle().set_subdata(0, old_count * stride, "")
+        stride = array.array_format.get_stride()
+        array.modify_handle().set_subdata(0, old_count * stride, bytes())
         vertex_data_tmp.set_num_rows(count)
         col_writer1 = GeomVertexWriter(vertex_data_tmp, "color")
         col_writer1.set_row(old_count)
@@ -798,10 +800,14 @@ class CreationBase(BaseObject):
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
 
-        data += vertex_data_tmp.get_array(1).get_handle().get_data()
-
         vertex_data_edge1.set_num_rows(count * 2)
-        vertex_data_edge1.modify_array(1).modify_handle().set_data(data)
+        to_array = vertex_data_edge1.modify_array(1)
+        to_handle = to_array.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+
+        from_array = vertex_data_tmp.get_array(1)
+        from_handle = from_array.get_handle()
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
 
         lines_prim = GeomLines(Geom.UH_static)
         lines_prim.reserve_num_vertices(count * 2)
@@ -824,7 +830,8 @@ class CreationBase(BaseObject):
 
         vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
         pos_array = vertex_data_top.get_array(0)
-        pos_data = pos_array.get_handle().get_data()
+        size = pos_array.data_size_bytes
+        from_handle = pos_array.get_handle()
         normal_array = vertex_data_top.get_array(2)
         tan_array = vertex_data_top.get_array(3)
         vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
@@ -837,45 +844,57 @@ class CreationBase(BaseObject):
         vertex_data_poly.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_poly.set_array(2, GeomVertexArrayData(normal_array))
         vertex_data_poly.set_array(3, GeomVertexArrayData(tan_array))
-        pos_array = GeomVertexArrayData(pos_array)
-        pos_array.modify_handle().set_data(pos_data * 2)
-        vertex_data_edge1.set_array(0, pos_array)
-        vertex_data_edge2.set_array(0, pos_array)
+        pos_array_edge = GeomVertexArrayData(pos_array.array_format, pos_array.usage_hint)
+        pos_array_edge.unclean_set_num_rows(pos_array.get_num_rows() * 2)
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        vertex_data_edge1.set_array(0, pos_array_edge)
+        vertex_data_edge2.set_array(0, pos_array_edge)
 
         tris_prim = geom_node_top.modify_geom(0).modify_primitive(0)
-        start = tris_prim.get_num_vertices()
+        from_start = tris_prim.get_num_vertices()
 
         for vert_ids in poly_tris:
             tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
 
-        array = tris_prim.get_vertices()
-        stride = array.get_array_format().get_stride()
-        start *= stride
+        from_array = tris_prim.get_vertices()
+        stride = from_array.array_format.get_stride()
+        from_start *= stride
         size = len(polygon) * stride
-        data = array.get_handle().get_subdata(start, size)
+        from_handle = from_array.get_handle()
         geom_node = geoms["poly"]["unselected"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
-        handle = prim.modify_vertices().modify_handle()
-        handle.set_data(handle.get_data() + data)
+        to_array = prim.modify_vertices()
+        to_start = to_array.data_size_bytes
+        to_handle = to_array.modify_handle()
+        to_handle.copy_subdata_from(to_start, size, from_handle, from_start, size)
         geom_node = geoms["poly"]["pickable"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
-        handle = prim.modify_vertices().modify_handle()
-        handle.set_data(handle.get_data() + data)
+        to_array = prim.modify_vertices()
+        to_start = to_array.data_size_bytes
+        to_handle = to_array.modify_handle()
+        to_handle.copy_subdata_from(to_start, size, from_handle, from_start, size)
 
         tmp_prim = GeomPoints(Geom.UH_static)
         tmp_prim.reserve_num_vertices(vert_count)
         tmp_prim.add_next_vertices(vert_count)
         tmp_prim.offset_vertices(old_count)
-        array = tmp_prim.get_vertices()
-        data = array.get_handle().get_data()
+        from_array = tmp_prim.get_vertices()
+        size = from_array.data_size_bytes
+        from_handle = from_array.get_handle()
         geom_node = geoms["vert"]["pickable"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
-        handle = prim.modify_vertices().modify_handle()
-        handle.set_data(handle.get_data() + data)
+        to_array = prim.modify_vertices()
+        to_start = to_array.data_size_bytes
+        to_handle = to_array.modify_handle()
+        to_handle.copy_subdata_from(to_start, size, from_handle, 0, size)
         geom_node = geoms["vert"]["sel_state"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
-        handle = prim.modify_vertices().modify_handle()
-        handle.set_data(handle.get_data() + data)
+        to_array = prim.modify_vertices()
+        to_start = to_array.data_size_bytes
+        to_handle = to_array.modify_handle()
+        to_handle.copy_subdata_from(to_start, size, from_handle, 0, size)
         geom_node = geoms["normal"]["pickable"].node()
         geom_node.modify_geom(0).set_primitive(0, GeomPoints(prim))
         geom_node = geoms["normal"]["sel_state"].node()

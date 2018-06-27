@@ -386,8 +386,16 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                         del stages_by_uv_set[uv_set_name]
 
                 # sort stages
-                sorted_stages = sorted((stage.get_sort(), stage) for stage in layer_stages)
-                layer_stages = [stage for sort, stage in sorted_stages]
+
+                d = {}
+
+                for stage in layer_stages:
+                    d.setdefault(stage.get_sort(), []).append(stage)
+
+                layer_stages = []
+
+                for sort in sorted(d):
+                    layer_stages.extend(d[sort])
 
                 # give the stages consecutive sort values
                 for i, stage in enumerate(layer_stages):

@@ -47,15 +47,18 @@ class UVDataTransformBase(BaseObject):
         vertex_data = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array)
 
-        pos_array = GeomVertexArrayData(pos_array)
-        handle = pos_array.modify_handle()
-        handle.set_data(handle.get_data() * 2)
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array)
+        pos_array_edge = vertex_data.modify_array(0)
+        size = pos_array.data_size_bytes
+        from_handle = pos_array.get_handle()
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        pos_array_edge = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array)
+        vertex_data.set_array(0, pos_array_edge)
         vertex_data = geoms["seam"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array)
+        vertex_data.set_array(0, pos_array_edge)
 
         for poly in polys_to_update:
             poly.update_center_pos()
@@ -134,16 +137,19 @@ class UVDataTransformBase(BaseObject):
         vertex_data.set_array(0, pos_array)
         self._pos_arrays["main"] = pos_array
 
-        pos_array = GeomVertexArrayData(pos_array)
-        handle = pos_array.modify_handle()
-        handle.set_data(handle.get_data() * 2)
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array)
+        pos_array_edge = vertex_data.modify_array(0)
+        size = pos_array.data_size_bytes
+        from_handle = pos_array.get_handle()
+        to_handle = pos_array_edge.modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        self._pos_arrays["edge"] = pos_array_edge
+        pos_array_edge = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array)
+        vertex_data.set_array(0, pos_array_edge)
         vertex_data = geoms["seam"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array)
-        self._pos_arrays["edge"] = pos_array
+        vertex_data.set_array(0, pos_array_edge)
 
     def set_vert_sel_coordinate(self, axis, value):
 
@@ -167,13 +173,15 @@ class UVDataTransformBase(BaseObject):
 
         pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
         vertex_data.set_array(0, pos_array)
+        from_handle = pos_array.get_handle()
 
-        handle = self._pos_arrays["main"].modify_handle()
-        data = pos_array.get_handle().get_data()
-        handle.set_data(data)
+        to_handle = self._pos_arrays["main"].modify_handle()
+        to_handle.copy_data_from(from_handle)
 
-        handle = self._pos_arrays["edge"].modify_handle()
-        handle.set_data(data * 2)
+        size = pos_array.data_size_bytes
+        to_handle = self._pos_arrays["edge"].modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
 
     def transform_selection(self, subobj_lvl, transf_type, value):
 
@@ -212,13 +220,15 @@ class UVDataTransformBase(BaseObject):
         tmp_vertex_data.transform_vertices(mat, rows)
         pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
         vertex_data.set_array(0, pos_array)
+        from_handle = pos_array.get_handle()
 
-        handle = self._pos_arrays["main"].modify_handle()
-        data = pos_array.get_handle().get_data()
-        handle.set_data(data)
+        to_handle = self._pos_arrays["main"].modify_handle()
+        to_handle.copy_data_from(from_handle)
 
-        handle = self._pos_arrays["edge"].modify_handle()
-        handle.set_data(data * 2)
+        size = pos_array.data_size_bytes
+        to_handle = self._pos_arrays["edge"].modify_handle()
+        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
 
     def finalize_transform(self, cancelled=False):
 
@@ -229,15 +239,17 @@ class UVDataTransformBase(BaseObject):
 
             bounds = start_data["bounds"]
 
-            pos_array = start_data["pos_array"]
-            vertex_data.set_array(0, pos_array)
+            pos_array_start = start_data["pos_array"]
+            vertex_data.set_array(0, pos_array_start)
+            from_handle = pos_array_start.get_handle()
 
-            handle = self._pos_arrays["main"].modify_handle()
-            data = pos_array.get_handle().get_data()
-            handle.set_data(data)
+            to_handle = self._pos_arrays["main"].modify_handle()
+            to_handle.copy_data_from(from_handle)
 
-            handle = self._pos_arrays["edge"].modify_handle()
-            handle.set_data(data * 2)
+            size = pos_array_start.data_size_bytes
+            to_handle = self._pos_arrays["edge"].modify_handle()
+            to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+            to_handle.copy_subdata_from(size, size, from_handle, 0, size)
 
         else:
 
