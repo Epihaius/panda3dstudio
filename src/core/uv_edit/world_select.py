@@ -170,7 +170,7 @@ class SelectionManager(BaseObject):
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
 
                 for subobj_lvl in ("vert", "edge", "poly"):
-                    geom_data_obj.clear_selection(subobj_lvl, force=True)
+                    geom_data_obj.clear_selection(subobj_lvl, update_verts_to_transf=False, force=True)
                     geom_data_obj.restore_selection_backup(subobj_lvl)
 
                 poly_sel = original_poly_sel[geom_data_obj]
