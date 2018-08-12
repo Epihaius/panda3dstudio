@@ -210,13 +210,13 @@ class SelectionManager(BaseObject):
         self._obj_lvl = obj_lvl
         GlobalData["active_obj_level"] = obj_lvl
         obj_root = Mgr.get("object_root")
-        picking_masks = Mgr.get("picking_masks")
+        picking_mask = Mgr.get("picking_mask")
 
         models = self._models
 
         if obj_lvl == "top":
 
-            obj_root.show(picking_masks["all"])
+            obj_root.show(picking_mask)
 
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
@@ -224,7 +224,7 @@ class SelectionManager(BaseObject):
 
         else:
 
-            obj_root.hide(picking_masks["all"])
+            obj_root.hide(picking_mask)
 
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()

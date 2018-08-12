@@ -17,7 +17,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         lens.set_near(-10.)
         cam_node = Camera("main_uv_cam", lens)
         cam_node.set_active(False)
-        mask = BitMask32.bit(24)
+        mask = BitMask32.bit(14)
         cam_node.set_camera_mask(mask)
         UVMgr.expose("render_mask", lambda: mask)
         cam = uv_space.attach_new_node(cam_node)

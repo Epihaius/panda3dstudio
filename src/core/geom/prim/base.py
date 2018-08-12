@@ -210,7 +210,7 @@ class TemporaryPrimitive(BaseObject):
 
         origin = self._origin
 
-        picking_masks = Mgr.get("picking_masks")["all"]
+        picking_mask = Mgr.get("picking_mask")
 
         render_mode = GlobalData["render_mode"]
         create_wire = "wire" in render_mode
@@ -258,7 +258,7 @@ class TemporaryPrimitive(BaseObject):
             geom_node.add_geom(lines_geom)
             wire_geom = origin.attach_new_node(geom_node)
             wire_geom.set_state(wire_state)
-            wire_geom.hide(picking_masks)
+            wire_geom.hide(picking_mask)
 
         if create_shaded:
 
@@ -267,7 +267,7 @@ class TemporaryPrimitive(BaseObject):
             geom_node = GeomNode("shaded_geom")
             geom_node.add_geom(tris_geom)
             shaded_geom = origin.attach_new_node(geom_node)
-            shaded_geom.hide(picking_masks)
+            shaded_geom.hide(picking_mask)
 
             if GlobalData["two_sided"]:
                 origin.set_two_sided(True)

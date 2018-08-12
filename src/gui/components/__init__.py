@@ -183,6 +183,7 @@ class Components(object):
         self._listener.accept("gui_mouse1", self.__on_left_down)
         self._listener.accept("gui_mouse1-up", self.__on_left_up)
         self._aux_viewport = None
+        self._selection_rect = None
         self._screenshot = None
         d = 100000.
         self._gui_region_mask = mask = MouseWatcherRegion("viewport_mask", -d, d, -d, d)
@@ -196,7 +197,8 @@ class Components(object):
 
         self._uv_editing_initialized = False
 
-        self.__create()
+        self.__create_selection_rectangle()
+        self.__create_components()
         self.__create_layout()
 
         self._window_size = win.update_min_size()
@@ -273,6 +275,37 @@ class Components(object):
             self.__set_viewport_border_color("viewport_frame_default")
             self.__enable()
 
+        def enter_region_selection_mode(prev_state_id, is_active):
+
+            self.__enable(False)
+            Mgr.add_task(self.__draw_selection_rectangle, "draw_selection_rectangle")
+            mouse_pointer = Mgr.get("mouse_pointer", 0)
+            mouse_x = mouse_pointer.get_x()
+            mouse_y = mouse_pointer.get_y()
+            rect = self._selection_rect
+            rect.show()
+            rect.set_pos(mouse_x, 0., -mouse_y)
+
+        def exit_region_selection_mode(next_state_id, is_active):
+
+            Mgr.remove_task("draw_selection_rectangle")
+            x, y = GlobalData["viewport"]["pos_aux" if GlobalData["viewport"][2] == "main" else "pos"]
+            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+            rect = self._selection_rect
+            rect.hide()
+            l, _, t = rect.get_pos()
+            vertex_data = rect.node().get_geom(0).get_vertex_data()
+            pos_reader = GeomVertexReader(vertex_data, "vertex")
+            pos_reader.set_row(3)
+            r, _, b = pos_reader.get_data3f()
+            l, r = min(l, l + r) - x, max(l, l + r) - x
+            b, t = min(t + b, t) + y, max(t + b, t) + y
+            l /= w
+            r /= w
+            b = 1. + b / h
+            t = 1. + t / h
+            Mgr.update_remotely("region_selection", (l, r, b, t))
+
         def enter_navigation_mode(prev_state_id, is_active):
 
             self.__set_viewport_border_color("viewport_frame_navigate_scene")
@@ -282,6 +315,7 @@ class Components(object):
 
         add_state = Mgr.add_state
         add_state("selection_mode", 0, enter_selection_mode)
+        add_state("region_selection_mode", -1, enter_region_selection_mode, exit_region_selection_mode)
         add_state("navigation_mode", -100, enter_navigation_mode)
         enter_state = lambda prev_state_id, is_active: self.__enable(False)
         exit_state = lambda next_state_id, is_active: self.__enable()
@@ -310,7 +344,76 @@ class Components(object):
         task_id = "update_viewport"
         PendingTasks.add(task, task_id)
 
-    def __create(self):
+    def __create_selection_rectangle(self):
+
+        vertex_format = GeomVertexFormat.get_v3t2()
+        vertex_data = GeomVertexData("selection_rect", vertex_format, Geom.UH_dynamic)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        uv_writer = GeomVertexWriter(vertex_data, "texcoord")
+
+        for _ in range(8):
+            pos_writer.add_data3f(0., 0., 0.)
+            uv_writer.add_data2f(.25, .25)
+
+        geom_node = GeomNode("selection_rect")
+        geom = Geom(vertex_data)
+        geom_node.add_geom(geom)
+        lines = GeomLines(Geom.UH_static)
+        geom.add_primitive(lines)
+        lines.add_next_vertices(8)
+        self._selection_rect = rect = Mgr.get("gui_root").attach_new_node(geom_node)
+        rect.hide()
+        rect.set_bin("gui", 4)
+        img = PNMImage(8, 8, 4)
+
+        for i in range(4):
+            for j in range(4):
+                img.set_xel_a(i, j, 0., 0., 0., 1.)
+
+        for i in range(4, 8):
+            for j in range(4):
+                img.set_xel_a(i, j, 1., 1., 1., 1.)
+
+        for i in range(4):
+            for j in range(4, 8):
+                img.set_xel_a(i, j, 1., 1., 1., 1.)
+
+        tex = Texture("marquee")
+        tex.load(img)
+        rect.set_texture(tex)
+
+    def __draw_selection_rectangle(self, task):
+
+        x, y = GlobalData["viewport"]["pos_aux" if GlobalData["viewport"][2] == "main" else "pos"]
+        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        mouse_pointer = Mgr.get("mouse_pointer", 0)
+        mouse_x = mouse_pointer.get_x()
+        mouse_y = mouse_pointer.get_y()
+        rect = self._selection_rect
+        l, _, t = rect.get_pos()
+        r = max(x - l, min(x + w - l, mouse_x - l))
+        b = -max(y + t, min(y + h + t, mouse_y + t))
+        vertex_data = rect.node().modify_geom(0).modify_vertex_data()
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        uv_writer = GeomVertexWriter(vertex_data, "texcoord")
+        pos_writer.set_row(1)
+        pos_writer.set_data3f(r, 0., 0.)
+        pos_writer.set_data3f(r, 0., 0.)
+        pos_writer.set_data3f(r, 0., b)
+        pos_writer.set_data3f(r, 0., b)
+        pos_writer.set_data3f(0., 0., b)
+        pos_writer.set_data3f(0., 0., b)
+        uv_writer.set_row(1)
+        uv_writer.set_data2f(r/8., .25)
+        uv_writer.set_row(3)
+        uv_writer.set_data2f(.25, b/8.)
+        uv_writer.set_data2f(r/8., .25)
+        uv_writer.set_row(6)
+        uv_writer.set_data2f(.25, b/8.)
+
+        return task.cont
+
+    def __create_components(self):
 
         window = self._window
         components = self._registry

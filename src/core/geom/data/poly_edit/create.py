@@ -8,16 +8,16 @@ class CreationBase(BaseObject):
         # Make the vertices pickable at polygon level instead of the polygons, to
         # assist with polygon creation
 
-        picking_masks = Mgr.get("picking_masks")["all"]
+        picking_mask = Mgr.get("picking_mask")
         geoms = self._geoms
-        geoms["vert"]["pickable"].show_through(picking_masks)
-        geoms["poly"]["pickable"].show(picking_masks)
+        geoms["vert"]["pickable"].show_through(picking_mask)
+        geoms["poly"]["pickable"].show(picking_mask)
 
     def init_poly_creation(self):
 
         origin = self._origin
         geoms = self._geoms
-        render_masks = Mgr.get("render_masks")
+        render_mask = Mgr.get("render_mask")
 
         # Create temporary geometry
 
@@ -47,7 +47,7 @@ class CreationBase(BaseObject):
         geom_node = GeomNode("new_vertices_geom")
         geom_node.add_geom(point_geom)
         new_vert_geom = geoms["vert"]["pickable"].attach_new_node(geom_node)
-        new_vert_geom.show_through(render_masks["all"])
+        new_vert_geom.show_through(render_mask)
         new_vert_geom.set_color(1., 1., 0., 1.)
         new_vert_geom.set_render_mode_thickness(7)
         new_vert_geom.set_light_off()
@@ -63,7 +63,7 @@ class CreationBase(BaseObject):
         geom_node = GeomNode("edges_geom")
         geom_node.add_geom(lines_geom)
         edge_geom = origin.attach_new_node(geom_node)
-        edge_geom.show_through(render_masks["all"])
+        edge_geom.show_through(render_mask)
         edge_geom.set_render_mode_thickness(3)
         edge_geom.set_color_off()
         edge_geom.set_light_off()
@@ -947,10 +947,10 @@ class CreationBase(BaseObject):
         # Make the polygons pickable again at polygon level instead of the
         # vertices
 
-        picking_masks = Mgr.get("picking_masks")["all"]
+        picking_mask = Mgr.get("picking_mask")
         geoms = self._geoms
-        geoms["vert"]["pickable"].show(picking_masks)
-        geoms["poly"]["pickable"].show_through(picking_masks)
+        geoms["vert"]["pickable"].show(picking_mask)
+        geoms["poly"]["pickable"].show_through(picking_mask)
 
 
 class CreationManager(BaseObject):

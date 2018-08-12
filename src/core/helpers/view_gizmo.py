@@ -896,8 +896,8 @@ class PickingCamera(BaseObject):
         base = Mgr.get("base")
         self._tex = Texture("picking_texture")
         props = FrameBufferProperties()
-        props.set_rgba_bits(16, 16, 16, 16)
-        props.set_depth_bits(16)
+        props.set_rgba_bits(8, 8, 8, 8)
+        props.set_depth_bits(8)
         self._buffer = bfr = base.win.make_texture_buffer("picking_buffer",
                                                           1, 1,
                                                           self._tex,
@@ -907,15 +907,11 @@ class PickingCamera(BaseObject):
         bfr.set_active(False)
         bfr.set_clear_color(VBase4())
         bfr.set_clear_color_active(True)
-        bfr.set_sort(-100)
         self._np = base.make_camera(bfr)
         self._np.reparent_to(self._parent_cam)
         node = self._np.node()
         lens = node.get_lens()
-        lens.set_fov(1.)
-        cull_bounds = lens.make_bounds()
         lens.set_fov(.1)
-        node.set_cull_bounds(cull_bounds)
 
         state_np = NodePath("picking_color_state")
         state_np.set_texture_off(1)
@@ -931,16 +927,13 @@ class PickingCamera(BaseObject):
 
     def set_active(self, is_active=True):
 
-        if self._np.node().is_active() == is_active:
-            return
-
         self._buffer.set_active(is_active)
         self._np.node().set_active(is_active)
+        Mgr.remove_task("get_pixel_under_mouse")
 
         if is_active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_pixel_under_mouse", sort=0)
         else:
-            Mgr.remove_task("get_pixel_under_mouse")
             self._pixel_color = VBase4()
 
     def __get_pixel_under_mouse(self, task):

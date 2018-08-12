@@ -180,29 +180,34 @@ class TextureMap(object):
 
                 if rgb_fname:
 
-                    texture = Texture(self._type)
+                    texture = Mgr.load_tex(rgb_fname)
+                    alpha_fullpath = ""
 
-                    if alpha_filename:
+                    if not texture.is_of_type(MovieTexture):
 
-                        a_fname = Filename.from_os_specific(alpha_filename)
+                        texture = Texture(self._type)
 
-                        if a_fname.exists():
-                            alpha_fullpath = alpha_filename
+                        if alpha_filename:
+
+                            a_fname = Filename.from_os_specific(alpha_filename)
+
+                            if a_fname.exists():
+                                alpha_fullpath = alpha_filename
+                            else:
+                                alpha_basename = a_fname.get_basename()
+                                a_fname = Filename.from_os_specific(alpha_basename)
+                                a_fname = DSearchPath.search_path(a_fname, paths, ",")
+                                alpha_fullpath = a_fname.to_os_specific()
+
+                            if a_fname:
+                                texture.read(rgb_fname, a_fname, 0, 0)
+                            else:
+                                texture = None
+
                         else:
-                            alpha_basename = a_fname.get_basename()
-                            a_fname = Filename.from_os_specific(alpha_basename)
-                            a_fname = DSearchPath.search_path(a_fname, paths, ",")
-                            alpha_fullpath = a_fname.to_os_specific()
 
-                        if a_fname:
-                            texture.read(rgb_fname, a_fname, 0, 0)
-                        else:
-                            texture = None
-
-                    else:
-
-                        alpha_fullpath = ""
-                        texture.read(rgb_fname)
+                            alpha_fullpath = ""
+                            texture.read(rgb_fname)
 
                 else:
 

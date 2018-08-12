@@ -479,7 +479,7 @@ class Widget(object):
 
         mouse_watcher = self.get_mouse_watcher()
 
-        if self._mouse_region and not mouse_watcher.has_region(self._mouse_region):
+        if self._mouse_region:
             mouse_watcher.add_region(self._mouse_region)
 
         if recurse and self._sizer:
@@ -489,8 +489,7 @@ class Widget(object):
                 mouse_region = widget.get_mouse_region()
 
                 if mouse_region and not widget.is_hidden(check_ancestors=False):
-                    if not mouse_watcher.has_region(mouse_region):
-                        mouse_watcher.add_region(mouse_region)
+                    mouse_watcher.add_region(mouse_region)
 
         self._is_hidden = False
 

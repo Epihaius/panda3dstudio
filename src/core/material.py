@@ -144,19 +144,7 @@ class Material(object):
 
         return self._name
 
-    def __apply_base_material(self):
-
-        # since attributes get locked when the BaseMaterial is applied to a Node, a
-        # new BaseMaterial must be copied from the original one and applied
-        # instead
-        base_material = BaseMaterial(self._base_mat)
-
-        for owner_id in self._owner_ids:
-            owner = Mgr.get("model", owner_id)
-            origin = owner.get_origin()
-            origin.set_material(base_material)
-
-    def set_property(self, prop_id, value, apply_base_mat=True):
+    def set_property(self, prop_id, value):
 
         base_props = self._base_props
 
@@ -209,27 +197,24 @@ class Material(object):
                 diffuse_props["value"] = tuple(diffuse_value)
 
                 if diffuse_props["on"]:
-                    bm.set_diffuse(VBase4(*diffuse_value))
+                    bm.set_diffuse(tuple(diffuse_value))
 
             if prop_id == "diffuse":
                 val = list(val)
                 alpha_props = base_props["alpha"]
                 val[3] = alpha_props["value"] if alpha_props["on"] else 1.
                 base_props["diffuse"]["value"] = tuple(val)
-                bm.set_diffuse(VBase4(*val)) if on else bm.clear_diffuse()
+                bm.set_diffuse(tuple(val)) if on else bm.clear_diffuse()
             elif prop_id == "ambient":
-                bm.set_ambient(VBase4(*val)) if on else bm.clear_ambient()
+                bm.set_ambient(tuple(val)) if on else bm.clear_ambient()
             elif prop_id == "emissive":
-                bm.set_emission(VBase4(*val)) if on else bm.clear_emission()
+                bm.set_emission(tuple(val)) if on else bm.clear_emission()
             elif prop_id == "specular":
-                bm.set_specular(VBase4(*val)) if on else bm.clear_specular()
+                bm.set_specular(tuple(val)) if on else bm.clear_specular()
             elif prop_id == "shininess":
                 bm.set_shininess(val)
             elif prop_id == "alpha":
                 set_alpha(val, on)
-
-            if apply_base_mat:
-                self.__apply_base_material()
 
             return props
 
@@ -401,9 +386,7 @@ class Material(object):
     def set_base_properties(self, properties):
 
         for prop_id, value in properties.items():
-            self.set_property(prop_id, value, apply_base_mat=False)
-
-        self.__apply_base_material()
+            self.set_property(prop_id, value)
 
     def get_base_properties(self):
 
@@ -888,7 +871,7 @@ class Material(object):
 
         origin = owner.get_origin()
         origin.set_color_off() if self._shows_vert_colors else origin.set_color(self._flat_color)
-        origin.set_material(BaseMaterial(self._base_mat))
+        origin.set_material(self._base_mat)
 
         alpha_prop = self._base_props["alpha"]
         alpha = alpha_prop["value"]

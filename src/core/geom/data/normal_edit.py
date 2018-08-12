@@ -1071,17 +1071,17 @@ class NormalEditBase(BaseObject):
         geom_poly_pickable.set_bin("fixed", 50)
         geom_poly_pickable.set_shader_off()
 
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
-        geom_pickable.hide(render_masks)
-        geom_pickable.show_through(picking_masks)
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
+        geom_pickable.hide(render_mask)
+        geom_pickable.show_through(picking_mask)
 
         if by_aiming:
             aux_picking_cam.set_active()
             Mgr.do("start_drawing_aux_picking_viz")
 
         geoms = self._geoms
-        geoms["poly"]["pickable"].show(picking_masks)
+        geoms["poly"]["pickable"].show(picking_mask)
 
     def init_normal_transform(self):
 

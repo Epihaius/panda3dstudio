@@ -587,9 +587,9 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         vertex_data_edge.set_array(0, pos_array_edge)
 
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
-        all_masks = render_masks | picking_masks
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
+        all_masks = render_mask | picking_mask
 
         sel_colors = Mgr.get("subobj_selection_colors")
 
@@ -657,7 +657,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geom_node.add_geom(tris_geom)
         self._toplvl_node = geom_node
         toplvl_geom = origin.attach_new_node(geom_node)
-        toplvl_geom.hide(picking_masks)
+        toplvl_geom.hide(picking_mask)
         self._toplvl_geom = toplvl_geom
         geoms["top"] = toplvl_geom
         origin.node().set_bounds(geom_node.get_bounds())
@@ -671,7 +671,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geom_node = GeomNode("poly_picking_geom")
         geom_node.add_geom(tris_geom)
         poly_picking_geom = origin.attach_new_node(geom_node)
-        poly_picking_geom.hide(render_masks)
+        poly_picking_geom.hide(render_mask)
         geoms["poly"]["pickable"] = poly_picking_geom
 
         tris_prim = GeomTriangles(Geom.UH_static)
@@ -728,17 +728,17 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         render_mode = GlobalData["render_mode"]
 
         if "shaded" in render_mode:
-            toplvl_geom.show(render_masks)
+            toplvl_geom.show(render_mask)
         else:
-            toplvl_geom.hide(render_masks)
+            toplvl_geom.hide(render_mask)
 
         if "wire" in render_mode:
-            edge_picking_geom.show(render_masks)
+            edge_picking_geom.show(render_mask)
         else:
-            edge_picking_geom.hide(render_masks)
+            edge_picking_geom.hide(render_mask)
 
         if render_mode == "wire":
-            edge_picking_geom.show(picking_masks)
+            edge_picking_geom.show(picking_mask)
 
         logging.debug('+++++++++++ Geometry created +++++++++++++++')
 
@@ -896,30 +896,30 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
     def update_selection_state(self, is_selected=True):
 
         geoms = self._geoms
-        picking_masks = Mgr.get("picking_masks")["all"]
+        picking_mask = Mgr.get("picking_mask")
         render_mode = GlobalData["render_mode"]
 
         if is_selected:
 
             if render_mode == "wire":
-                geoms["poly"]["pickable"].show(picking_masks)
-                geoms["edge"]["pickable"].hide(picking_masks)
+                geoms["poly"]["pickable"].show(picking_mask)
+                geoms["edge"]["pickable"].hide(picking_mask)
 
             self.set_wireframe_color((1., 1., 1., 1.))
 
         else:
 
             if render_mode == "wire":
-                geoms["poly"]["pickable"].hide(picking_masks)
-                geoms["edge"]["pickable"].show(picking_masks)
+                geoms["poly"]["pickable"].hide(picking_mask)
+                geoms["edge"]["pickable"].show(picking_mask)
 
             self.set_wireframe_color(self.get_toplevel_object().get_color())
 
     def update_render_mode(self, is_selected):
 
         render_mode = GlobalData["render_mode"]
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
         geoms = self._geoms
 
         if is_selected:
@@ -929,75 +929,75 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         else:
 
             if render_mode == "wire":
-                geoms["poly"]["pickable"].hide(picking_masks)
-                geoms["edge"]["pickable"].show(picking_masks)
+                geoms["poly"]["pickable"].hide(picking_mask)
+                geoms["edge"]["pickable"].show(picking_mask)
             else:
-                geoms["poly"]["pickable"].show(picking_masks)
-                geoms["edge"]["pickable"].hide(picking_masks)
+                geoms["poly"]["pickable"].show(picking_mask)
+                geoms["edge"]["pickable"].hide(picking_mask)
 
             obj_lvl = "top"
 
         if "wire" in render_mode:
             if obj_lvl == "edge":
-                geoms["edge"]["pickable"].hide(render_masks)
+                geoms["edge"]["pickable"].hide(render_mask)
             else:
-                geoms["edge"]["pickable"].show(render_masks)
+                geoms["edge"]["pickable"].show(render_mask)
         else:
-            geoms["edge"]["pickable"].hide(render_masks)
+            geoms["edge"]["pickable"].hide(render_mask)
 
         if "shaded" in render_mode:
             if obj_lvl == "poly" or (obj_lvl == "top" and self._has_poly_tex_proj):
-                geoms["top"].hide(render_masks)
-                geoms["poly"]["unselected"].show(render_masks)
+                geoms["top"].hide(render_mask)
+                geoms["poly"]["unselected"].show(render_mask)
             else:
-                geoms["top"].show(render_masks)
-                geoms["poly"]["unselected"].hide(render_masks)
+                geoms["top"].show(render_mask)
+                geoms["poly"]["unselected"].hide(render_mask)
         else:
-            geoms["top"].hide(render_masks)
-            geoms["poly"]["unselected"].hide(render_masks)
+            geoms["top"].hide(render_mask)
+            geoms["poly"]["unselected"].hide(render_mask)
 
         if obj_lvl in ("vert", "edge", "normal"):
             self.init_subobj_picking(obj_lvl)
 
     def show_top_level(self):
 
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
         geoms = self._geoms
 
         for lvl in ("vert", "edge", "normal"):
-            geoms[lvl]["pickable"].hide(picking_masks)
-            geoms[lvl]["sel_state"].hide(render_masks)
+            geoms[lvl]["pickable"].hide(picking_mask)
+            geoms[lvl]["sel_state"].hide(render_mask)
 
         if GlobalData["subobj_edit_options"]["pick_via_poly"]:
             self.restore_selection_backup("poly")
 
         self.set_normal_shader(False)
-        geoms["poly"]["pickable"].show(picking_masks)
+        geoms["poly"]["pickable"].show(picking_mask)
 
         if self._has_poly_tex_proj:
-            geoms["poly"]["selected"].show(render_masks)
-            geoms["poly"]["unselected"].show(render_masks)
+            geoms["poly"]["selected"].show(render_mask)
+            geoms["poly"]["unselected"].show(render_mask)
         else:
-            geoms["poly"]["selected"].hide(render_masks)
-            geoms["poly"]["unselected"].hide(render_masks)
+            geoms["poly"]["selected"].hide(render_mask)
+            geoms["poly"]["unselected"].hide(render_mask)
 
         self.update_render_mode(self.get_toplevel_object().is_selected())
 
     def show_subobj_level(self, subobj_lvl):
 
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
-        all_masks = render_masks | picking_masks
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
+        all_masks = render_mask | picking_mask
 
         geoms = self._geoms
 
         if subobj_lvl == "poly":
 
-            geoms["poly"]["pickable"].show_through(picking_masks)
-            geoms["poly"]["selected"].show(render_masks)
+            geoms["poly"]["pickable"].show_through(picking_mask)
+            geoms["poly"]["selected"].show(render_mask)
             geoms["poly"]["selected"].set_state(Mgr.get("poly_selection_state"))
-            geoms["poly"]["unselected"].show(render_masks)
+            geoms["poly"]["unselected"].show(render_mask)
 
             for lvl in ("vert", "edge", "normal"):
                 geoms[lvl]["pickable"].hide(all_masks)
@@ -1005,14 +1005,14 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         else:
 
-            geoms["poly"]["pickable"].show(picking_masks)
-            geoms["poly"]["selected"].hide(render_masks)
-            geoms["poly"]["unselected"].hide(render_masks)
+            geoms["poly"]["pickable"].show(picking_mask)
+            geoms["poly"]["selected"].hide(render_mask)
+            geoms["poly"]["unselected"].hide(render_mask)
 
             other_lvls = ["vert", "edge", "normal"]
             other_lvls.remove(subobj_lvl)
-            geoms[subobj_lvl]["pickable"].show_through(picking_masks)
-            geoms[subobj_lvl]["sel_state"].show(render_masks)
+            geoms[subobj_lvl]["pickable"].show_through(picking_mask)
+            geoms[subobj_lvl]["sel_state"].show(render_mask)
 
             for other_lvl in other_lvls:
                 geoms[other_lvl]["pickable"].hide(all_masks)
@@ -1035,20 +1035,20 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         geoms = self._geoms
         active_obj_lvl = GlobalData["active_obj_level"]
-        picking_masks = Mgr.get("picking_masks")["all"]
+        picking_mask = Mgr.get("picking_mask")
 
         if is_pickable:
 
             for obj_lvl in ("vert", "edge", "normal", "poly"):
                 if obj_lvl == active_obj_lvl:
-                    geoms[obj_lvl]["pickable"].show_through(picking_masks)
+                    geoms[obj_lvl]["pickable"].show_through(picking_mask)
 
             self.update_render_mode(True)
 
         else:
 
             for obj_lvl in ("vert", "edge", "normal", "poly"):
-                geoms[obj_lvl]["pickable"].hide(picking_masks)
+                geoms[obj_lvl]["pickable"].hide(picking_mask)
 
     def init_subobj_picking(self, subobj_lvl):
 
@@ -1062,15 +1062,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         else:
 
-            render_masks = Mgr.get("render_masks")["all"]
-            picking_masks = Mgr.get("picking_masks")["all"]
-            geoms[subobj_lvl]["pickable"].show_through(picking_masks)
-            geoms["poly"]["pickable"].show(picking_masks)
-            geoms["poly"]["selected"].hide(render_masks)
+            render_mask = Mgr.get("render_mask")
+            picking_mask = Mgr.get("picking_mask")
+            geoms[subobj_lvl]["pickable"].show_through(picking_mask)
+            geoms["poly"]["pickable"].show(picking_mask)
+            geoms["poly"]["selected"].hide(render_mask)
 
-            if not geoms["poly"]["unselected"].is_hidden(render_masks):
-                geoms["poly"]["unselected"].hide(render_masks)
-                geoms["top"].show(render_masks)
+            if not geoms["poly"]["unselected"].is_hidden(render_mask):
+                geoms["poly"]["unselected"].hide(render_mask)
+                geoms["top"].show(render_mask)
 
     def prepare_subobj_picking_via_poly(self, subobj_type):
 
@@ -1097,16 +1097,16 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         # as soon as a poly is clicked, its subobjects (of the given type) become
         # pickable instead of polys.
 
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
         geoms = self._geoms
-        geoms[subobj_type]["pickable"].hide(picking_masks)
-        geoms["poly"]["pickable"].show_through(picking_masks)
-        geoms["poly"]["selected"].show(render_masks)
+        geoms[subobj_type]["pickable"].hide(picking_mask)
+        geoms["poly"]["pickable"].show_through(picking_mask)
+        geoms["poly"]["selected"].show(render_mask)
 
-        if not geoms["top"].is_hidden(render_masks):
-            geoms["top"].hide(render_masks)
-            geoms["poly"]["unselected"].show(render_masks)
+        if not geoms["top"].is_hidden(render_mask):
+            geoms["top"].hide(render_mask)
+            geoms["poly"]["unselected"].show(render_mask)
 
     def init_subobj_picking_via_poly(self, subobj_lvl, picked_poly, category="", extra_data=None):
 
@@ -1348,9 +1348,9 @@ class GeomDataManager(ObjectManager):
         if "picking_camera_ok" not in MainObjects.get_setup_results():
             return False
 
-        picking_masks = Mgr.get("picking_masks")["all"]
-        self._aux_picking_viz.hide(picking_masks)
-        self._rubber_band.hide(picking_masks)
+        picking_mask = Mgr.get("picking_mask")
+        self._aux_picking_viz.hide(picking_mask)
+        self._rubber_band.hide(picking_mask)
 
         return True
 

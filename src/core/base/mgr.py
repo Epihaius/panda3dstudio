@@ -66,8 +66,8 @@ class CoreManager(object):
         cls.expose("mouse_pointer", lambda i: cls._app_mgr.get_base().win.get_pointer(i))
 
         light_node = DirectionalLight("default_light")
-        light_node.set_color(VBase4(1., 1., 1., 1.))
-        cls._default_light = base.render.attach_new_node(light_node)
+        light_node.set_color((1., 1., 1., 1.))
+        cls._default_light = NodePath(light_node)
         cls._default_light.set_hpr(20., -20., 0.)
         cls.expose("default_light", lambda: cls._default_light)
 

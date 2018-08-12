@@ -193,7 +193,7 @@ class ExportManager(BaseObject):
                         if geom_obj.has_flipped_normals():
                             node.node().modify_geom(0).reverse_in_place()
 
-                    masks = Mgr.get("render_masks")["all"] | Mgr.get("picking_masks")["all"]
+                    masks = Mgr.get("render_mask") | Mgr.get("picking_mask")
                     node.show(masks)
 
                     origin = child.get_origin()

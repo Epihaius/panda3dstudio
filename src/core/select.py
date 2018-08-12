@@ -2,6 +2,33 @@ from .base import *
 from .transform import SelectionTransformBase
 
 
+VERT_SHADER = """
+    #version 420
+
+    uniform mat4 p3d_ModelViewProjectionMatrix;
+    in vec4 p3d_Vertex;
+    uniform int index;
+    flat out int oindex;
+
+    void main() {
+        gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;
+        oindex = index;
+    }
+"""
+
+FRAG_SHADER = """
+    #version 420
+
+    layout(r32i) uniform iimageBuffer selections;
+    flat in int oindex;
+
+    void main() {
+        // Write 1 to the location corresponding to the custom index
+        imageAtomicOr(selections, (oindex >> 5), 1 << (oindex & 31));
+    }
+"""
+
+
 class Selection(SelectionTransformBase):
 
     def __init__(self):
@@ -359,6 +386,9 @@ class SelectionManager(BaseObject):
         self._obj_id = None
         self._selection = Selection()
         self._pixel_under_mouse = None
+        self._region_sel_cam = None
+        self._toggle_region_sel = False
+        self._region_sel_cancelled = False
 
         GlobalData.set_default("selection_count", 0)
         GlobalData.set_default("sel_color_count", 0)
@@ -378,18 +408,25 @@ class SelectionManager(BaseObject):
         Mgr.add_app_updater("active_obj_level", self.__update_active_selection,
                             kwargs=["restore"])
         Mgr.add_app_updater("object_selection", self.__update_object_selection)
+        Mgr.add_app_updater("region_selection", self.__region_select)
         Mgr.accept("update_active_selection", self.__update_active_selection)
 
         add_state = Mgr.add_state
         add_state("selection_mode", 0, self.__enter_selection_mode,
                   self.__exit_selection_mode)
+        add_state("region_selection_mode", -1)
         add_state("checking_mouse_offset", -1, self.__start_mouse_check)
 
         bind = Mgr.bind_state
+        mod_alt = GlobalData["mod_key_codes"]["alt"]
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("selection_mode", "select -> region-select", "{:d}|mouse1".format(mod_alt),
+             lambda: Mgr.enter_state("region_selection_mode"))
+        bind("selection_mode", "select -> toggle-region-select",
+             "{:d}|mouse1".format(mod_alt | mod_ctrl), self.__toggle_region_select)
         bind("selection_mode", "select -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("selection_mode", "default select", "mouse1", self.__select)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
         bind("selection_mode", "toggle-select", "{:d}|mouse1".format(mod_ctrl),
              lambda: self.__select(toggle=True))
         bind("selection_mode", "access obj props", "mouse3", self.__access_obj_props)
@@ -397,6 +434,10 @@ class SelectionManager(BaseObject):
              "delete", self.__delete_selection)
         bind("selection_mode", "transf off", "q",
              self.__set_active_transform_off)
+        bind("region_selection_mode", "cancel region-select", "mouse3-up",
+             self.__cancel_region_selection)
+        bind("region_selection_mode", "exit region-select", "mouse1-up",
+             lambda: Mgr.exit_state("region_selection_mode"))
 
         def cancel_mouse_check():
 
@@ -419,6 +460,119 @@ class SelectionManager(BaseObject):
             status_data[transf_type] = {}
             status_data[transf_type]["idle"] = {"mode": mode_text, "info": info_idle}
             status_data[transf_type]["in_progress"] = {"mode": mode_text, "info": info_text}
+
+    def setup(self):
+
+        root = Mgr.get("object_root")
+        cam = Camera("region_selection_cam")
+        cam.set_active(False)
+        cam.set_scene(root)
+        self._region_sel_cam = self.cam().attach_new_node(cam)
+
+        return True
+
+    def __cancel_region_selection(self):
+
+        self._region_sel_cancelled = True
+        Mgr.exit_state("region_selection_mode")
+        self._region_sel_cancelled = False
+
+    def __toggle_region_select(self):
+
+        self._toggle_region_sel = True
+        Mgr.enter_state("region_selection_mode")
+
+    def __region_select(self, frame):
+
+        if self._region_sel_cancelled:
+            self._toggle_region_sel = False
+            return
+
+        lens = self.cam.lens
+        w, h = lens.get_film_size()
+        l, r, b, t = frame
+        # compute film size and offset
+        w_f = (r - l) * w
+        h_f = (t - b) * h
+        x_f = ((r + l) * .5 - .5) * w
+        y_f = ((t + b) * .5 - .5) * h
+        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        # compute buffer size
+        w_b = int(round((r - l) * w))
+        h_b = int(round((t - b) * h))
+
+        if min(w_b, h_b) < 2:
+            return
+
+        Mgr.get("picking_cam").set_active(False)
+        Mgr.do("make_point_helpers_pickable", False)
+
+        focal_len = lens.get_focal_length()
+        lens = lens.make_copy()
+        lens.set_film_size(w_f, h_f)
+        lens.set_film_offset(x_f, y_f)
+        lens.set_focal_length(focal_len)
+        picking_mask = Mgr.get("picking_mask")
+        cam_np = self._region_sel_cam
+        cam = cam_np.node()
+        cam.set_lens(lens)
+        cam.set_camera_mask(picking_mask)
+        base = Mgr.get("base")
+        bfr = base.win.make_texture_buffer("tex_buffer", w_b, h_b, Texture(""))
+        cam.set_active(True)
+        base.make_camera(bfr, useCamera=cam_np)
+
+        toggle_select = self.mouse_watcher.is_button_down(KeyboardButton.control())
+        toggle_select = toggle_select or self._toggle_region_sel
+        new_sel = set()
+
+        objs = Mgr.get("objects", "top")
+        obj_count = len(objs)
+        tex = Texture()
+        tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
+        tex.set_clear_color(0)
+        shader = Shader.make(Shader.SL_GLSL, VERT_SHADER, FRAG_SHADER)
+        state_np = NodePath("state_np")
+        state_np.set_shader(shader, 1)
+        state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
+        state_np.set_light_off(1)
+        state = state_np.get_state()
+        cam.set_initial_state(state)
+
+        for i, obj in enumerate(objs):
+            obj.get_pivot().set_shader_input("index", i)
+
+        Mgr.update_locally("region_picking", True)
+
+        ge = base.graphics_engine
+        ge.render_frame()
+
+        if ge.extract_texture_data(tex, base.win.get_gsg()):
+
+            texels = memoryview(tex.get_ram_image()).cast("I")
+
+            for i, mask in enumerate(texels):
+                for j in range(32):
+                    if mask & (1 << j):
+                        index = 32 * i + j
+                        new_sel.add(objs[index].get_toplevel_object(get_group=True))
+
+        state_np.clear_shader()
+        Mgr.update_locally("region_picking", False)
+        Mgr.do("make_point_helpers_pickable")
+        Mgr.do("region_select_point_helpers", cam, new_sel)
+
+        if toggle_select:
+            old_sel = set(self._selection)
+            self._selection.remove(old_sel & new_sel)
+            self._selection.add(new_sel - old_sel)
+        else:
+            self._selection.replace(new_sel)
+
+        cam.set_active(False)
+        ge.remove_window(bfr)
+        Mgr.get("picking_cam").set_active()
+        self._toggle_region_sel = False
 
     def __get_selection(self, obj_lvl=""):
 

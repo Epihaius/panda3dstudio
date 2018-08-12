@@ -394,6 +394,7 @@ class ImportManager(BaseObject):
                     if geom_count > 1:
 
                         obj = self.__create_model_group(obj_name, node_path.get_transform())
+                        obj.get_origin().node().copy_tags(node)
                         obj_names = GlobalData["obj_names"] + self._obj_names
                         obj_names.remove(obj_name)
 
@@ -439,6 +440,7 @@ class ImportManager(BaseObject):
                         new_node.unify(1000000, False)
                         obj = Mgr.do("create_basic_geom", new_geom, obj_name, materials).get_model()
                         obj.register(restore=False)
+                        obj.get_origin().node().copy_tags(node)
                         material = obj.get_material()
 
                         if material and material not in materials:

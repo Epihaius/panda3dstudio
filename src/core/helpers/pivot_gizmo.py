@@ -96,8 +96,8 @@ class PivotGizmo(object):
         label = cls.__create_axis_label(axis_label_root, "z", points, (.6, .6, 1., 1.))
         label.set_z(1.3)
 
-        picking_masks = Mgr.get("picking_masks")
-        axis_label_root.hide(picking_masks["all"])
+        picking_mask = Mgr.get("picking_mask")
+        axis_label_root.hide(picking_mask)
 
     @classmethod
     def __create_geom(cls, origin):
@@ -341,10 +341,14 @@ class PivotGizmoManager(BaseObject):
         Mgr.accept("create_pivot_gizmo", self.__create_pivot_gizmo)
         Mgr.accept("show_pivot_gizmos", self.__show_pivot_gizmos)
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
+        Mgr.add_app_updater("region_picking", self.__make_region_pickable)
+        Mgr.add_app_updater("lens_type", self.__show_root)
 
     def setup(self):
 
         pivot_gizmo_root = self.cam().attach_new_node("pivot_gizmo_root")
+        pivot_gizmo_root.set_light_off()
+        pivot_gizmo_root.set_shader_off()
         pivot_gizmo_root.set_bin("fixed", 50)
         pivot_gizmo_root.set_depth_test(False)
         pivot_gizmo_root.set_depth_write(False)
@@ -352,13 +356,9 @@ class PivotGizmoManager(BaseObject):
         pivot_gizmo_root.node().set_final(True)
         pivot_gizmo_root.hide()
         self._pivot_gizmo_root = pivot_gizmo_root
-        render_masks = Mgr.get("render_masks")
-        picking_masks = Mgr.get("picking_masks")
         root_persp = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_persp")
-        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
         root_ortho = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_ortho")
         root_ortho.set_scale(50.)
-        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
         self._pivot_gizmo_roots["persp"] = root_persp
         self._pivot_gizmo_roots["ortho"] = root_ortho
 
@@ -374,6 +374,30 @@ class PivotGizmoManager(BaseObject):
             pivot_gizmo = obj.get_pivot_gizmo()
             pivot_gizmo.get_origin().set_scale(scale)
             pivot_gizmo.get_origin("ortho").set_scale(scale)
+
+    def __make_region_pickable(self, pickable):
+
+        if pickable:
+            self._pivot_gizmo_root.wrt_reparent_to(Mgr.get("object_root"))
+            for obj in Mgr.get("objects"):
+                index = int(obj.get_pivot().get_shader_input("index").get_vector().x)
+                pivot_gizmo = obj.get_pivot_gizmo()
+                pivot_gizmo.get_origin("persp").set_shader_input("index", index)
+                pivot_gizmo.get_origin("ortho").set_shader_input("index", index)
+        else:
+            self._pivot_gizmo_root.reparent_to(self.cam())
+            self._pivot_gizmo_root.clear_transform()
+
+    def __show_root(self, lens_type):
+
+        masks = Mgr.get("render_mask") | Mgr.get("picking_mask")
+
+        if lens_type == "persp":
+            self._pivot_gizmo_roots["persp"].show(masks)
+            self._pivot_gizmo_roots["ortho"].hide(masks)
+        else:
+            self._pivot_gizmo_roots["persp"].hide(masks)
+            self._pivot_gizmo_roots["ortho"].show(masks)
 
     def __create_pivot_gizmo(self, owner):
 

@@ -32,6 +32,7 @@ class Grid(BaseObject):
         Mgr.accept("align_grid_to_screen", self.__align_to_screen)
         Mgr.add_app_updater("active_grid_plane", self.__set_plane)
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
+        Mgr.add_app_updater("lens_type", self.__show_horizon)
 
         self._ref_dist = 1.
         self._scale = 1.
@@ -49,12 +50,12 @@ class Grid(BaseObject):
         angle = self.cam.lens.get_fov()[1] * .5
         self._ref_dist = .25 * 300. / math.tan(math.radians(angle))
 
-        picking_masks = Mgr.get("picking_masks")
+        picking_mask = Mgr.get("picking_mask")
 
-        if picking_masks is None:
+        if picking_mask is None:
             return False
 
-        self._origin.hide(picking_masks["all"])
+        self._origin.hide(picking_mask)
 
         for plane_id in ("xy", "xz", "yz"):
             plane = self.__create_plane(plane_id)
@@ -130,6 +131,17 @@ class Grid(BaseObject):
         scale = 800. / max(w, h)
         self._axis_indicator.set_scale(scale)
 
+    def __show_horizon(self, lens_type):
+
+        render_mask = Mgr.get("render_mask")
+
+        if lens_type == "persp":
+            self._horizon_line.show(render_mask)
+            self._axis_indicator.show(render_mask)
+        else:
+            self._horizon_line.hide(render_mask)
+            self._axis_indicator.hide(render_mask)
+
     def __create_horizon(self):
 
         vertex_format = GeomVertexFormat.get_v3()
@@ -155,8 +167,7 @@ class Grid(BaseObject):
         self._horizon_line.set_bin("background", 0)
         self._horizon_line.set_depth_test(False)
         self._horizon_line.set_depth_write(False)
-        self._horizon_line.hide(Mgr.get("render_masks")["ortho"])
-        self._horizon_line.hide(Mgr.get("picking_masks")["all"])
+        self._horizon_line.hide(Mgr.get("picking_mask"))
 
     def __create_axis_indicator(self):
 
@@ -191,7 +202,6 @@ class Grid(BaseObject):
         self._axis_indicator.set_bin("background", 0)
         self._axis_indicator.set_depth_test(False)
         self._axis_indicator.set_depth_write(False)
-        self._axis_indicator.hide(Mgr.get("render_masks")["ortho"])
         self._horizon_point_pivot = self._origin.attach_new_node("horizon_point_pivot")
         self._horizon_point = self._horizon_point_pivot.attach_new_node("horizon_point")
 

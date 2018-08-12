@@ -590,6 +590,8 @@ class GroupManager(ObjectManager):
 
         Mgr.add_app_updater("group", self.__update_groups)
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
+        Mgr.add_app_updater("region_picking", self.__make_region_pickable)
+        Mgr.add_app_updater("lens_type", self.__show_root)
         Mgr.expose("const_sized_group_bbox", self.__get_const_sized_bbox_origins)
         Mgr.accept("make_group_const_size", self.__make_bbox_const_size)
         Mgr.accept("update_group_bboxes", self.__update_group_bboxes)
@@ -598,19 +600,20 @@ class GroupManager(ObjectManager):
         Mgr.accept("close_groups", self.__close_groups)
         Mgr.accept("prune_empty_groups", self.__prune_empty_groups)
 
-        bbox_root = self.cam().attach_new_node("group_bbox_root")
+        self._bbox_root = bbox_root = self.cam().attach_new_node("group_bbox_root")
+        bbox_root.set_light_off()
+        bbox_root.set_shader_off()
         bbox_root.set_bin("fixed", 52)
         bbox_root.set_depth_test(False)
         bbox_root.set_depth_write(False)
         bbox_root.node().set_bounds(OmniBoundingVolume())
         bbox_root.node().set_final(True)
-        render_masks = Mgr.get("render_masks")
-        picking_masks = Mgr.get("picking_masks")
+        masks = Mgr.get("render_mask") | Mgr.get("picking_mask")
         root_persp = bbox_root.attach_new_node("group_bbox_root_persp")
-        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
+        root_persp.show(masks)
         root_ortho = bbox_root.attach_new_node("group_bbox_root_ortho")
         root_ortho.set_scale(20.)
-        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
+        root_ortho.hide(masks)
         self._bbox_roots["persp"] = root_persp
         self._bbox_roots["ortho"] = root_ortho
 
@@ -635,6 +638,33 @@ class GroupManager(ObjectManager):
         for group_id in self._bbox_bases:
             for origins in bbox_origins.values():
                 origins[group_id].set_scale(.5 * scale)
+
+    def __make_region_pickable(self, pickable):
+
+        if pickable:
+            self._bbox_root.wrt_reparent_to(Mgr.get("object_root"))
+            bbox_origins = self._bbox_origins
+            bbox_origins_persp = bbox_origins["persp"]
+            bbox_origins_ortho = bbox_origins["ortho"]
+            for group_id in self._bbox_bases:
+                group = Mgr.get("group", group_id)
+                index = int(group.get_pivot().get_shader_input("index").get_vector().x)
+                bbox_origins_persp[group_id].set_shader_input("index", index)
+                bbox_origins_ortho[group_id].set_shader_input("index", index)
+        else:
+            self._bbox_root.reparent_to(self.cam())
+            self._bbox_root.clear_transform()
+
+    def __show_root(self, lens_type):
+
+        masks = Mgr.get("render_mask") | Mgr.get("picking_mask")
+
+        if lens_type == "persp":
+            self._bbox_roots["persp"].show(masks)
+            self._bbox_roots["ortho"].hide(masks)
+        else:
+            self._bbox_roots["persp"].hide(masks)
+            self._bbox_roots["ortho"].show(masks)
 
     def __create_group(self, name, member_types=None, member_types_id="any", transform=None,
                        color_unsel=(1., .5, .25, 1.)):

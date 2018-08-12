@@ -133,7 +133,7 @@ class TemporaryDummy(BaseObject):
         node = GeomNode("box_geom")
         node.add_geom(geom)
         np = tmp_geom.attach_new_node(node)
-        np.hide(Mgr.get("picking_masks")["all"])
+        np.hide(Mgr.get("picking_mask"))
         np.hide()
 
         # Create cross.
@@ -174,7 +174,7 @@ class TemporaryDummy(BaseObject):
         node = GeomNode("cross_geom")
         node.add_geom(geom)
         np = tmp_geom.attach_new_node(node)
-        np.hide(Mgr.get("picking_masks")["all"])
+        np.hide(Mgr.get("picking_mask"))
         np.hide()
 
     def __get_original_geom(self):
@@ -213,36 +213,34 @@ class TemporaryDummy(BaseObject):
             geoms["cross"].set_scale(cross_size * .01)
 
         if is_const_size:
+
             root = self.cam().attach_new_node("dummy_helper_root")
             root.set_bin("fixed", 50)
             root.set_depth_test(False)
             root.set_depth_write(False)
             root.node().set_bounds(OmniBoundingVolume())
             root.node().set_final(True)
+            root.hide(Mgr.get("picking_mask"))
             self._root = root
-            render_masks = Mgr.get("render_masks")
-            picking_masks = Mgr.get("picking_masks")
-            root_persp = root.attach_new_node("dummy_helper_root_persp")
-            root_persp.hide(render_masks["ortho"] | picking_masks["all"])
-            root_ortho = root.attach_new_node("dummy_helper_root_ortho")
-            root_ortho.set_scale(20.)
-            root_ortho.hide(render_masks["persp"] | picking_masks["all"])
-            dummy_base = root_persp.attach_new_node("dummy_base")
-            dummy_base.set_billboard_point_world(tmp_geom, 2000.)
-            pivot = dummy_base.attach_new_node("dummy_pivot")
-            pivot.set_scale(100.)
-            origin_persp = pivot.attach_new_node("dummy_origin_persp")
-            tmp_geom.get_children().reparent_to(origin_persp)
+            origin = NodePath("dummy_origin")
+            tmp_geom.get_children().reparent_to(origin)
             w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
             scale = 800. / max(w, h)
-            origin_persp.set_scale(const_size * scale)
-            origin_ortho = origin_persp.copy_to(root_ortho)
-            origin_persp.set_compass(tmp_geom)
-            compass_props = CompassEffect.P_pos | CompassEffect.P_rot
-            compass_effect = CompassEffect.make(tmp_geom, compass_props)
-            origin_ortho.set_effect(compass_effect)
-        else:
-            self._root = None
+            origin.set_scale(const_size * scale)
+
+            if self.cam.lens_type == "persp":
+                dummy_base = root.attach_new_node("dummy_base")
+                dummy_base.set_billboard_point_world(tmp_geom, 2000.)
+                pivot = dummy_base.attach_new_node("dummy_pivot")
+                pivot.set_scale(100.)
+                origin.reparent_to(pivot)
+                origin.set_compass(tmp_geom)
+            else:
+                root.set_scale(20.)
+                origin.reparent_to(root)
+                compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+                compass_effect = CompassEffect.make(tmp_geom, compass_props)
+                origin.set_effect(compass_effect)
 
         if on_top:
             tmp_geom.set_bin("fixed", 50)
@@ -399,7 +397,7 @@ class Dummy(TopLevelObject):
         node = GeomNode("box_geom_{}".format(state))
         node.add_geom(geom)
         np = parent.attach_new_node(node)
-        np.hide(Mgr.get("{}_masks".format("render" if state == "pickable" else "picking"))["all"])
+        np.hide(Mgr.get("{}_mask".format("render" if state == "pickable" else "picking")))
         np.hide() if state == "selected" else np.show()
 
     @classmethod
@@ -458,7 +456,7 @@ class Dummy(TopLevelObject):
         node = GeomNode("cross_geom_{}".format(state))
         node.add_geom(geom)
         np = parent.attach_new_node(node)
-        np.hide(Mgr.get("{}_masks".format("render" if state == "pickable" else "picking"))["all"])
+        np.hide(Mgr.get("{}_mask".format("render" if state == "pickable" else "picking")))
         np.hide() if state == "selected" else np.show()
 
     def __get_corners(self):
@@ -889,22 +887,22 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
         Mgr.accept("create_custom_dummy", self.__create_custom_dummy)
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
+        Mgr.add_app_updater("region_picking", self.__make_region_pickable)
+        Mgr.add_app_updater("lens_type", self.__show_root)
 
     def setup(self):
 
-        dummy_root = self.cam().attach_new_node("dummy_helper_root")
+        self._dummy_root = dummy_root = self.cam().attach_new_node("dummy_helper_root")
+        dummy_root.set_light_off()
+        dummy_root.set_shader_off()
         dummy_root.set_bin("fixed", 50)
         dummy_root.set_depth_test(False)
         dummy_root.set_depth_write(False)
         dummy_root.node().set_bounds(OmniBoundingVolume())
         dummy_root.node().set_final(True)
-        render_masks = Mgr.get("render_masks")
-        picking_masks = Mgr.get("picking_masks")
         root_persp = dummy_root.attach_new_node("dummy_helper_root_persp")
-        root_persp.hide(render_masks["ortho"] | picking_masks["ortho"])
         root_ortho = dummy_root.attach_new_node("dummy_helper_root_ortho")
         root_ortho.set_scale(20.)
-        root_ortho.hide(render_masks["persp"] | picking_masks["persp"])
         self._dummy_roots["persp"] = root_persp
         self._dummy_roots["ortho"] = root_ortho
 
@@ -933,6 +931,33 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
             for origins in dummy_origins.values():
                 origins[dummy_id].set_scale(const_size * scale)
+
+    def __make_region_pickable(self, pickable):
+
+        if pickable:
+            self._dummy_root.wrt_reparent_to(Mgr.get("object_root"))
+            dummy_origins = self._dummy_origins
+            dummy_origins_persp = dummy_origins["persp"]
+            dummy_origins_ortho = dummy_origins["ortho"]
+            for dummy_id in self._dummy_bases:
+                dummy = Mgr.get("dummy", dummy_id)
+                index = int(dummy.get_pivot().get_shader_input("index").get_vector().x)
+                dummy_origins_persp[dummy_id].set_shader_input("index", index)
+                dummy_origins_ortho[dummy_id].set_shader_input("index", index)
+        else:
+            self._dummy_root.reparent_to(self.cam())
+            self._dummy_root.clear_transform()
+
+    def __show_root(self, lens_type):
+
+        masks = Mgr.get("render_mask") | Mgr.get("picking_mask")
+
+        if lens_type == "persp":
+            self._dummy_roots["persp"].show(masks)
+            self._dummy_roots["ortho"].hide(masks)
+        else:
+            self._dummy_roots["persp"].hide(masks)
+            self._dummy_roots["ortho"].show(masks)
 
     def __make_dummy_const_size(self, dummy, const_size_state=True):
 

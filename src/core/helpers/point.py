@@ -1,6 +1,34 @@
 from ..base import *
 
 
+VERT_SHADER = """
+    #version 420
+
+    uniform mat4 p3d_ModelViewProjectionMatrix;
+    in vec4 p3d_Vertex;
+    in int index;
+    uniform int index_offset;
+    flat out int oindex;
+
+    void main() {
+        gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;
+        oindex = index + index_offset;
+    }
+"""
+
+FRAG_SHADER = """
+    #version 420
+
+    layout(r32i) uniform iimageBuffer selections;
+    flat in int oindex;
+
+    void main() {
+        // Write 1 to the location corresponding to the custom index
+        imageAtomicOr(selections, (oindex >> 5), 1 << (oindex & 31));
+    }
+"""
+
+
 class TemporaryPointHelper(object):
 
     _original_geom = None
@@ -29,7 +57,7 @@ class TemporaryPointHelper(object):
         tmp_geom.set_material_off()
         tmp_geom.set_shader_off()
         tmp_geom.set_transparency(TransparencyAttrib.M_none)
-        tmp_geom.hide(Mgr.get("picking_masks")["all"])
+        tmp_geom.hide(Mgr.get("picking_mask"))
         cls._original_geom = tmp_geom
 
     def __init__(self, pos, color, size, on_top):
@@ -339,6 +367,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         self._point_helpers_to_transf = {"normal": [], "on_top": []}
         self._transf_start_arrays = {"normal": None, "on_top": None}
 
+        Mgr.accept("make_point_helpers_pickable", self.__make_point_helpers_pickable)
         Mgr.accept("create_custom_point_helper", self.__create_custom_point_helper)
         Mgr.accept("add_point_helper", self.__add_point_helper)
         Mgr.accept("remove_point_helper", self.__remove_point_helper)
@@ -350,11 +379,12 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         Mgr.accept("transform_point_helpers", self.__transform_point_helpers)
         Mgr.accept("finalize_point_helper_transform", self.__finalize_point_helper_transform)
         Mgr.accept("set_point_helper_pos", self.__set_point_helper_pos)
+        Mgr.accept("region_select_point_helpers", self.__region_select_point_helpers)
 
     def setup(self):
 
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
 
         array1 = GeomVertexArrayFormat()
         array1.add_column(InternalName.make("vertex"), 3, Geom.NT_float32, Geom.C_point)
@@ -363,9 +393,13 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         array2.add_column(InternalName.make("size"), 1, Geom.NT_float32, Geom.C_other)
         array2.add_column(InternalName.make("color"), 4, Geom.NT_float32, Geom.C_color)
 
+        array3 = GeomVertexArrayFormat()
+        array3.add_column(InternalName.make("index"), 1, Geom.NT_int32, Geom.C_index)
+
         vertex_format = GeomVertexFormat()
         vertex_format.add_array(array1)
         vertex_format.add_array(array2)
+        vertex_format.add_array(array3)
         vertex_format_points = GeomVertexFormat.register_format(vertex_format)
         vertex_data = GeomVertexData("point_data", vertex_format_points, Geom.UH_dynamic)
 
@@ -378,6 +412,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         geom_node.set_final(True)
 
         object_root = Mgr.get("object_root")
+        self._pickable_geoms = pickable_geoms = []
         pickable_geom = object_root.attach_new_node(geom_node)
         pickable_geom.set_light_off()
         pickable_geom.set_color_off()
@@ -385,19 +420,21 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         pickable_geom.set_material_off()
         pickable_geom.set_shader_off()
         pickable_geom.set_transparency(TransparencyAttrib.M_none)
-        pickable_geom.show(picking_masks)
-        pickable_geom.hide(render_masks)
+        pickable_geom.show(picking_mask)
+        pickable_geom.hide(render_mask)
+        pickable_geoms.append(pickable_geom)
         viz_geom = pickable_geom.copy_to(object_root)
-        viz_geom.show(render_masks)
-        viz_geom.hide(picking_masks)
+        viz_geom.show(render_mask)
+        viz_geom.hide(picking_mask)
         geoms_normal = {"pickable": pickable_geom, "viz": viz_geom}
         pickable_geom = pickable_geom.copy_to(object_root)
         pickable_geom.set_bin("fixed", 51)
         pickable_geom.set_depth_test(False)
         pickable_geom.set_depth_write(False)
+        pickable_geoms.append(pickable_geom)
         viz_geom = pickable_geom.copy_to(object_root)
-        viz_geom.show(render_masks)
-        viz_geom.hide(picking_masks)
+        viz_geom.show(render_mask)
+        viz_geom.hide(picking_mask)
         geoms_on_top = {"pickable": pickable_geom, "viz": viz_geom}
         self._geoms = {"normal": geoms_normal, "on_top": geoms_on_top}
 
@@ -411,6 +448,17 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         TemporaryPointHelper.init()
 
         return True
+
+    def __make_point_helpers_pickable(self, pickable=True):
+
+        picking_mask = Mgr.get("picking_mask")
+
+        if pickable:
+            for geom in self._pickable_geoms:
+                geom.show(picking_mask)
+        else:
+            for geom in self._pickable_geoms:
+                geom.hide(picking_mask)
 
     def __create_object(self, name, origin_pos):
 
@@ -449,6 +497,9 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
             size_writer.add_data1f(sizes[geom_type])
+            index_writer = GeomVertexWriter(vertex_data, "index")
+            index_writer.set_row(count)
+            index_writer.add_data1i(count)
             prim = geom_node.modify_geom(0).modify_primitive(0)
             prim.clear_vertices()
             prim.reserve_num_vertices(count + 1)
@@ -621,6 +672,9 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
             size_writer.add_data1f(sizes[geom_type])
+            index_writer = GeomVertexWriter(vertex_data, "index")
+            index_writer.set_row(count)
+            index_writer.add_data1i(count)
 
         task = self.__rebuild_geoms
         task_id = "rebuild_point_geoms"
@@ -634,6 +688,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         point_helpers = self._point_helpers[draw_mode]
         row_index = point_helpers.index(point_helper)
         point_helpers.remove(point_helper)
+        count = len(point_helpers)
 
         for geom_type in ("pickable", "viz"):
 
@@ -645,6 +700,13 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
                 handle = array.modify_handle()
                 stride = array.array_format.get_stride()
                 handle.set_subdata(row_index * stride, stride, bytes())
+
+            array = vertex_data.modify_array(2)
+            array.unclean_set_num_rows(count)
+            index_writer = GeomVertexWriter(vertex_data, "index")
+
+            for i in range(count):
+                index_writer.set_data1i(i)
 
         task = self.__rebuild_geoms
         task_id = "rebuild_point_geoms"
@@ -720,6 +782,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             geoms = self._geoms[other_draw_mode]
             row_index = other_point_helpers.index(point_helper)
             other_point_helpers.remove(point_helper)
+            count = len(other_point_helpers)
 
             for geom_type in ("pickable", "viz"):
 
@@ -731,6 +794,13 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
                     handle = array.modify_handle()
                     stride = array.array_format.get_stride()
                     handle.set_subdata(row_index * stride, stride, bytes())
+
+                array = vertex_data.modify_array(2)
+                array.unclean_set_num_rows(count)
+                index_writer = GeomVertexWriter(vertex_data, "index")
+
+                for i in range(count):
+                    index_writer.set_data1i(i)
 
         count = len(point_helpers)
         point_helpers.append(point_helper)
@@ -757,11 +827,60 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
             size_writer.add_data1f(sizes[geom_type])
+            index_writer = GeomVertexWriter(vertex_data, "index")
+            index_writer.set_row(count)
+            index_writer.add_data1i(count)
 
         task = self.__rebuild_geoms
         task_id = "rebuild_point_geoms"
         sort = PendingTasks.get_sort("update_selection", "object") - 1
         PendingTasks.add(task, task_id, "object", sort)
+
+    def __region_select_point_helpers(self, cam, new_sel):
+
+        point_helpers_normal = self._point_helpers["normal"]
+        point_helpers_on_top = self._point_helpers["on_top"]
+        objs = point_helpers_normal + point_helpers_on_top
+        obj_count = len(objs)
+        index_offset = len(point_helpers_normal)
+        picking_mask = Mgr.get("picking_mask")
+        object_root = Mgr.get("object_root")
+        object_root.hide(picking_mask)
+        geoms = self._geoms
+        geoms["normal"]["pickable"].set_shader_input("index_offset", 0)
+        geoms["on_top"]["pickable"].set_shader_input("index_offset", index_offset)
+        geoms["normal"]["pickable"].show_through(picking_mask)
+        geoms["on_top"]["pickable"].show_through(picking_mask)
+
+        tex = Texture()
+        tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
+        tex.set_clear_color(0)
+        shader = Shader.make(Shader.SL_GLSL, VERT_SHADER, FRAG_SHADER)
+        state_np = NodePath("state_np")
+        state_np.set_shader(shader, 1)
+        state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
+        state_np.set_light_off(1)
+        state = state_np.get_state()
+        cam.set_initial_state(state)
+
+        base = Mgr.get("base")
+        ge = base.graphics_engine
+        ge.render_frame()
+
+        if ge.extract_texture_data(tex, base.win.get_gsg()):
+
+            texels = memoryview(tex.get_ram_image()).cast("I")
+
+            for i, mask in enumerate(texels):
+                for j in range(32):
+                    if mask & (1 << j):
+                        index = 32 * i + j
+                        new_sel.add(objs[index].get_toplevel_object(get_group=True))
+
+        object_root.show(picking_mask)
+        state_np.clear_shader()
+        geoms["normal"]["pickable"].show(picking_mask)
+        geoms["on_top"]["pickable"].show(picking_mask)
 
 
 MainObjects.add_class(PointHelperVizManager)

@@ -354,7 +354,7 @@ class GeneralObjectManager(BaseObject):
 
         obj_lvl = GlobalData["active_obj_level"]
         obj_root = Mgr.get("object_root")
-        picking_masks = Mgr.get("picking_masks")
+        picking_mask = Mgr.get("picking_mask")
 
         models = set(obj for obj in Mgr.get("selection_top")
                       if obj.get_type() == "model" and obj.get_geom_type() == "editable_geom")
@@ -368,14 +368,14 @@ class GeneralObjectManager(BaseObject):
 
         if obj_lvl == "top":
 
-            obj_root.show(picking_masks["all"])
+            obj_root.show(picking_mask)
 
             for model in models:
                 model.get_geom_object().show_top_level()
 
         else:
 
-            obj_root.hide(picking_masks["all"])
+            obj_root.hide(picking_mask)
 
             for model in models:
                 model.get_geom_object().show_subobj_level(obj_lvl)

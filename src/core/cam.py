@@ -49,11 +49,9 @@ class MainCamera(BaseObject):
         BaseObject.set_cam(self)
 
         base = Mgr.get("base")
-        mask_persp = BitMask32.bit(10)
-        mask_ortho = BitMask32.bit(11)
-        self._masks = {"persp": mask_persp, "ortho": mask_ortho, "all": mask_persp | mask_ortho}
+        self._mask = mask = BitMask32.bit(10)
         self._node = base.camNode
-        self._node.set_camera_mask(mask_persp)
+        self._node.set_camera_mask(mask)
 
         lens_persp = base.camLens
         lens_ortho = OrthographicLens()
@@ -96,7 +94,7 @@ class MainCamera(BaseObject):
         self.expose("node", lambda: self._node)
         self.expose("lens", lambda: self.lens)
         self.expose("target", lambda: self.target)
-        Mgr.expose("render_masks", lambda: self._masks)
+        Mgr.expose("render_mask", lambda: self._mask)
         Mgr.expose("cam", lambda: self)
         Mgr.accept("update_zoom_indicator", self.__update_zoom_indicator)
 
@@ -106,7 +104,7 @@ class MainCamera(BaseObject):
         dr = base.win.make_display_region()
         GlobalData["viewport"]["display_regions"].append(dr)
         dr.set_sort(1)
-        gizmo_cam_mask = BitMask32.bit(22)
+        gizmo_cam_mask = BitMask32.bit(11)
         gizmo_cam_node = Camera("gizmo_cam")
         gizmo_cam_node.set_camera_mask(gizmo_cam_mask)
         gizmo_cam_node.set_lens(lens_persp)
@@ -132,7 +130,7 @@ class MainCamera(BaseObject):
         GlobalData["view"] = "ortho"
         Mgr.update_app("view", "set", "persp")
 
-        return True
+        return "main_camera_ok"
 
     def __update_lens_aspect_ratio(self):
 
@@ -303,11 +301,12 @@ class MainCamera(BaseObject):
     def update(self):
 
         lens = self.lens
+        lens_type = self.lens_type
         self._camera.reparent_to(self.origin)
         self._node.set_lens(lens)
-        self._node.set_camera_mask(self._masks[self.lens_type])
         self._gizmo_cam.node().set_lens(lens)
-        self._projector.node().set_lens(self._projector_lenses[self.lens_type])
+        self._projector.node().set_lens(self._projector_lenses[lens_type])
+        Mgr.update_app("lens_type", lens_type)
 
     def __update_zoom_indicator(self):
 
@@ -329,13 +328,10 @@ class PickingCamera(BaseObject):
         self._buffer = None
         self._np = None
         self._lenses = {}
-        self._cull_bounds = {}
-        mask_persp = BitMask32.bit(15)
-        mask_ortho = BitMask32.bit(16)
-        self._masks = {"persp": mask_persp, "ortho": mask_ortho, "all": mask_persp | mask_ortho}
+        self._mask = BitMask32.bit(12)
         self._pixel_color = VBase4()
 
-        Mgr.expose("picking_masks", lambda: self._masks)
+        Mgr.expose("picking_mask", lambda: self._mask)
         Mgr.expose("pixel_under_mouse", lambda: VBase4(self._pixel_color))
         Mgr.add_app_updater("viewport", self.__update_frustum)
 
@@ -344,31 +340,25 @@ class PickingCamera(BaseObject):
         base = Mgr.get("base")
         self._tex = Texture("picking_texture")
         props = FrameBufferProperties()
-        props.set_rgba_bits(16, 16, 16, 16)
+        props.set_rgba_bits(8, 8, 8, 8)
         props.set_depth_bits(16)
         self._buffer = bfr = base.win.make_texture_buffer("picking_buffer",
-                                                          1, 1,
+                                                          16, 16,
                                                           self._tex,
                                                           to_ram=True,
                                                           fbp=props)
 
         bfr.set_clear_color(VBase4())
         bfr.set_clear_color_active(True)
-        bfr.set_sort(-100)
         self._np = base.make_camera(bfr)
         node = self._np.node()
         lens_persp = node.get_lens()
-        lens_persp.set_fov(1.)
-        cull_bounds_persp = lens_persp.make_bounds()
-        node.set_cull_bounds(cull_bounds_persp)
-        lens_persp.set_fov(.1)
+        lens_persp.set_fov(1.5)
         lens_ortho = OrthographicLens()
-        lens_ortho.set_film_size(.75)
+        lens_ortho.set_film_size(11.25)
         lens_ortho.set_near(-100000.)
-        cull_bounds_ortho = lens_ortho.make_bounds()
         self._lenses = {"persp": lens_persp, "ortho": lens_ortho}
-        self._cull_bounds = {"persp": cull_bounds_persp, "ortho": cull_bounds_ortho}
-        node.set_camera_mask(self._masks["persp"])
+        node.set_camera_mask(self._mask)
         Mgr.expose("picking_cam", lambda: self)
 
         state_np = NodePath("state_np")
@@ -392,11 +382,10 @@ class PickingCamera(BaseObject):
 
         dr = self._buffer.make_display_region()
         dr.set_sort(1)
-        gizmo_cam_mask = BitMask32.bit(23)
+        gizmo_cam_mask = BitMask32.bit(13)
         gizmo_cam_node = Camera("gizmo_cam")
         gizmo_cam_node.set_camera_mask(gizmo_cam_mask)
         gizmo_cam_node.set_lens(lens_persp)
-        gizmo_cam_node.set_cull_bounds(cull_bounds_persp)
         gizmo_cam_node.set_initial_state(state)
         gizmo_cam = Mgr.get("gizmo_cam").attach_new_node(gizmo_cam_node)
         gizmo_cam.set_effect(CompassEffect.make(self._np, CompassEffect.P_all))
@@ -415,36 +404,17 @@ class PickingCamera(BaseObject):
 
         w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
         s = 800. / max(w, h)
-
-        lens_persp = self._lenses["persp"]
-        lens_persp.set_fov(1. * s)
-        cull_bounds_persp = lens_persp.make_bounds()
-        lens_persp.set_fov(.1 * s)
-        lens_ortho = self._lenses["ortho"]
-        lens_ortho.set_film_size(.75 * s)
-        cull_bounds_ortho = lens_ortho.make_bounds()
-        self._cull_bounds = {"persp": cull_bounds_persp, "ortho": cull_bounds_ortho}
-
-        lens_type = self.cam.lens_type
-        node = self._np.node()
-
-        if lens_type == "persp":
-            node.set_cull_bounds(cull_bounds_persp)
-        else:
-            node.set_cull_bounds(cull_bounds_ortho)
+        self._lenses["persp"].set_fov(1.5 * s)
+        self._lenses["ortho"].set_film_size(11.25 * s)
 
     def __adjust_to_lens(self):
 
         lens_type = self.cam.lens_type
         lens = self._lenses[lens_type]
-        bounds = self._cull_bounds[lens_type]
         node = self._np.node()
         node.set_lens(lens)
-        node.set_cull_bounds(bounds)
-        node.set_camera_mask(self._masks[lens_type])
         gizmo_cam_node = self._gizmo_cam.node()
         gizmo_cam_node.set_lens(lens)
-        gizmo_cam_node.set_cull_bounds(bounds)
 
         if lens_type == "persp":
             self._np.set_pos(0., 0., 0.)
@@ -453,27 +423,26 @@ class PickingCamera(BaseObject):
 
     def set_active(self, is_active=True):
 
-        if self._np.node().is_active() == is_active:
-            return
-
         self._buffer.set_active(is_active)
         self._np.node().set_active(is_active)
+        Mgr.remove_task("get_pixel_under_mouse")
 
         if is_active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_pixel_under_mouse", sort=0)
         else:
-            Mgr.remove_task("get_pixel_under_mouse")
             self._pixel_color = VBase4()
 
     def __get_pixel_under_mouse(self, task):
 
         if not self.mouse_watcher.is_mouse_open():
             self._buffer.set_active(False)
+            self._np.node().set_active(False)
             self._pixel_color = VBase4()
             return task.cont
 
-        if not self._buffer.is_active():
+        if not self._np.node().is_active():
             self._buffer.set_active(True)
+            self._np.node().set_active(True)
 
         screen_pos = self.mouse_watcher.get_mouse()
         far_point = Point3()
@@ -507,7 +476,7 @@ class AuxiliaryPickingCamera(BaseObject):
         self._tex = Texture("aux_picking_texture")
         self._tex_peeker = None
         props = FrameBufferProperties()
-        props.set_rgba_bits(16, 16, 16, 16)
+        props.set_rgba_bits(8, 8, 8, 8)
         props.set_depth_bits(16)
         self._buffer = bfr = base.win.make_texture_buffer("aux_picking_buffer",
                                                           1, 1,
@@ -518,7 +487,6 @@ class AuxiliaryPickingCamera(BaseObject):
         bfr.set_active(False)
         bfr.set_clear_color(VBase4())
         bfr.set_clear_color_active(True)
-        bfr.set_sort(-100)
         self._np = base.make_camera(bfr)
         node = self._np.node()
         self._lens = lens = OrthographicLens()
@@ -578,26 +546,25 @@ class AuxiliaryPickingCamera(BaseObject):
 
     def set_active(self, is_active=True):
 
-        if self._np.node().is_active() == is_active:
-            return
-
         self._buffer.set_active(is_active)
         self._np.node().set_active(is_active)
+        Mgr.remove_task("get_aux_pixel_under_mouse")
 
         if is_active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_aux_pixel_under_mouse", sort=0)
         else:
-            Mgr.remove_task("get_aux_pixel_under_mouse")
             self._pixel_color = VBase4()
 
     def __get_pixel_under_mouse(self, task):
 
-        if not self.mouse_watcher.has_mouse():
+        if not self.mouse_watcher.is_mouse_open():
             self._buffer.set_active(False)
+            self._np.node().set_active(False)
             return task.cont
 
-        if not self._buffer.is_active():
+        if not self._np.node().is_active():
             self._buffer.set_active(True)
+            self._np.node().set_active(True)
 
         cam = self.cam()
         screen_pos = self.mouse_watcher.get_mouse()

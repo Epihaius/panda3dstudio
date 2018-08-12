@@ -72,9 +72,9 @@ class UVEditBase(BaseObject):
         self._tex_seam_edge_ids[uv_set_id] = seam_edge_ids
         edge_geom = self._geoms["edge"]["pickable"]
         edge_prims = self._edge_prims
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
-        all_masks = render_masks | picking_masks
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
+        all_masks = render_mask | picking_mask
 
         if self._tex_seam_geom:
             seam_geom = self._tex_seam_geom
@@ -277,12 +277,12 @@ class UVEditBase(BaseObject):
         if not seam_geom:
             return
 
-        render_masks = Mgr.get("render_masks")["all"]
+        render_mask = Mgr.get("render_mask")
 
         if obj_level == "edge":
-            seam_geom.show(render_masks)
+            seam_geom.show(render_mask)
         else:
-            seam_geom.show_through(render_masks)
+            seam_geom.show_through(render_mask)
 
     def destroy_tex_seams(self, uv_set_id):
 
@@ -307,13 +307,13 @@ class UVEditBase(BaseObject):
             return
 
         self._has_poly_tex_proj = project and not toplvl
-        render_masks = Mgr.get("render_masks")["all"]
+        render_mask = Mgr.get("render_mask")
 
         if toplvl:
 
             geom = self._toplvl_geom
-            self._geoms["poly"]["unselected"].hide(render_masks)
-            self._geoms["poly"]["selected"].hide(render_masks)
+            self._geoms["poly"]["unselected"].hide(render_mask)
+            self._geoms["poly"]["selected"].hide(render_mask)
             self._geoms["poly"]["selected"].set_state(Mgr.get("poly_selection_state"))
 
         else:
@@ -323,12 +323,12 @@ class UVEditBase(BaseObject):
             if project:
                 state = "poly_selection_state" + ("" if show_poly_sel else "_off")
                 geom.set_state(Mgr.get(state))
-                geom.show(render_masks)
-                self._geoms["poly"]["unselected"].show(render_masks)
+                geom.show(render_mask)
+                self._geoms["poly"]["unselected"].show(render_mask)
             else:
                 geom.set_state(Mgr.get("poly_selection_state"))
-                geom.hide(render_masks)
-                self._geoms["poly"]["unselected"].hide(render_masks)
+                geom.hide(render_mask)
+                self._geoms["poly"]["unselected"].hide(render_mask)
 
         self.update_render_mode(self.get_toplevel_object().is_selected())
 

@@ -473,7 +473,7 @@ class BasicGeom(BaseObject):
             normal_geom.set_shader(shader)
             normal_geom.set_shader_input("normal_length", self._normal_length)
             normal_geom.set_color(self._normal_color)
-            normal_geom.hide(Mgr.get("picking_masks")["all"])
+            normal_geom.hide(Mgr.get("picking_mask"))
         else:
             normal_geom = self._geom.find("**/normals_geom")
             normal_geom.remove_node()

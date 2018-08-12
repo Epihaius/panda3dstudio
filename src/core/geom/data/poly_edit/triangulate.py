@@ -100,10 +100,10 @@ class TriangulationBase(BaseObject):
 
         # Create a temporary geom for diagonals
 
-        render_masks = Mgr.get("render_masks")["all"]
-        picking_masks = Mgr.get("picking_masks")["all"]
+        render_mask = Mgr.get("render_mask")
+        picking_mask = Mgr.get("picking_mask")
         geoms = self._geoms
-        geoms["poly"]["pickable"].show(picking_masks)
+        geoms["poly"]["pickable"].show(picking_mask)
 
         count = self._data_row_count
         vertex_format = GeomVertexFormat.get_v3c4()
@@ -137,7 +137,7 @@ class TriangulationBase(BaseObject):
         geom_node = GeomNode("diagonals_geom")
         geom_node.add_geom(lines_geom)
         diagonals_geom = self._origin.attach_new_node(geom_node)
-        diagonals_geom.show_through(render_masks | picking_masks)
+        diagonals_geom.show_through(render_mask | picking_mask)
         diagonals_geom.set_render_mode_thickness(3)
         diagonals_geom.set_color(.5, .5, .5)
         diagonals_geom.set_light_off()
@@ -152,8 +152,8 @@ class TriangulationBase(BaseObject):
 
     def clear_triangulation_data(self):
 
-        picking_masks = Mgr.get("picking_masks")["all"]
-        self._geoms["poly"]["pickable"].show_through(picking_masks)
+        picking_mask = Mgr.get("picking_mask")
+        self._geoms["poly"]["pickable"].show_through(picking_mask)
 
         self._tmp_tris = {}
 

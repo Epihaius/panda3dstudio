@@ -180,7 +180,7 @@ class HierarchyManager(BaseObject):
         link_geom.set_bin("fixed", 100)
         link_geom.set_depth_test(False)
         link_geom.set_depth_write(False)
-        link_geom.hide(Mgr.get("picking_masks")["all"])
+        link_geom.hide(Mgr.get("picking_mask"))
         self._obj_link_viz[child_id] = link_geom
         self._obj_link_viz_nps.add_path(link_geom)
 

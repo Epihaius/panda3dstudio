@@ -101,7 +101,7 @@ class TemporaryTexProjector(object):
             node = GeomNode("tex_proj_lens_{}_viz".format(proj_type))
             node.add_geom(geom)
             lens_viz = tmp_geom.attach_new_node(node)
-            lens_viz.hide(Mgr.get("picking_masks")["all"])
+            lens_viz.hide(Mgr.get("picking_mask"))
             lens_viz.hide()
             lens_viz.set_color(.5, .8, .5)
 
@@ -127,7 +127,7 @@ class TemporaryTexProjector(object):
         node.add_geom(geom)
 
         tripod = tmp_geom.attach_new_node(node)
-        tripod.hide(Mgr.get("picking_masks")["all"])
+        tripod.hide(Mgr.get("picking_mask"))
         tripod.set_z(-.6)
         tripod.set_color(.5, .8, .5)
 
@@ -362,7 +362,7 @@ class TexProjector(TopLevelObject):
             node = GeomNode("tex_proj_lens_{}_viz".format(proj_type))
             node.add_geom(geom)
             lens_viz = parent.attach_new_node(node)
-            lens_viz.hide(Mgr.get("picking_masks")["all"])
+            lens_viz.hide(Mgr.get("picking_mask"))
             lens_viz.hide()
             lens_viz.set_color(.5, .8, .5)
 
@@ -390,7 +390,7 @@ class TexProjector(TopLevelObject):
         node.add_geom(geom)
 
         tripod = parent.attach_new_node(node)
-        tripod.hide(Mgr.get("picking_masks")["all"])
+        tripod.hide(Mgr.get("picking_mask"))
         tripod.set_z(-.6)
         tripod.set_color(.5, .8, .5)
 

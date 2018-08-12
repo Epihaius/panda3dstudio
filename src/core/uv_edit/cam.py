@@ -9,7 +9,7 @@ class PickingCamera(BaseObject):
         self._tex_peeker = None
         self._buffer = None
         self._np = None
-        self._mask = BitMask32.bit(25)
+        self._mask = BitMask32.bit(15)
 
         self._pixel_color = VBase4()
 
@@ -23,23 +23,22 @@ class PickingCamera(BaseObject):
         base = Mgr.get("base")
         self._tex = Texture("uv_picking_texture")
         props = FrameBufferProperties()
-        props.set_rgba_bits(16, 16, 16, 16)
-        props.set_depth_bits(16)
+        props.set_rgba_bits(8, 8, 8, 8)
+        props.set_depth_bits(8)
         self._buffer = bfr = base.win.make_texture_buffer("uv_picking_buffer",
-                                                          1, 1,
+                                                          16, 16,
                                                           self._tex,
                                                           to_ram=True,
                                                           fbp=props)
 
         bfr.set_clear_color(VBase4())
         bfr.set_clear_color_active(True)
-        bfr.set_sort(-100)
         self._np = base.make_camera(bfr)
         self._np.reparent_to(self.cam)
         node = self._np.node()
         self._lens = lens = OrthographicLens()
         lens.set_near(-10.)
-        lens.set_film_size(.004)
+        lens.set_film_size(.06)
         node.set_lens(lens)
         node.set_camera_mask(self._mask)
 
@@ -60,28 +59,31 @@ class PickingCamera(BaseObject):
     def __update_frustum(self):
 
         w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
-        self._lens.set_film_size(.004 * 512. / min(w, h))
+        self._lens.set_film_size(.06 * 512. / min(w, h))
 
     def set_active(self, is_active=True):
 
-        if self._np.node().is_active() == is_active:
-            return
-
         self._buffer.set_active(is_active)
         self._np.node().set_active(is_active)
+        Mgr.remove_task("get_uv_pixel_under_mouse")
 
         if is_active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_uv_pixel_under_mouse", sort=0)
             Mgr.add_app_updater("viewport", self.__update_frustum, interface_id="uv")
             self.__update_frustum()
         else:
-            Mgr.remove_task("get_uv_pixel_under_mouse")
             self._pixel_color = VBase4()
 
     def __get_pixel_under_mouse(self, task):
 
         if not self.mouse_watcher.has_mouse():
+            self._buffer.set_active(False)
+            self._np.node().set_active(False)
             return task.cont
+
+        if not self._np.node().is_active():
+            self._buffer.set_active(True)
+            self._np.node().set_active(True)
 
         screen_pos = self.mouse_watcher.get_mouse()
         far_point = Point3()
@@ -118,8 +120,8 @@ class AuxiliaryPickingCamera(BaseObject):
         self._tex = Texture("aux_picking_texture")
         self._tex_peeker = None
         props = FrameBufferProperties()
-        props.set_rgba_bits(16, 16, 16, 16)
-        props.set_depth_bits(16)
+        props.set_rgba_bits(8, 8, 8, 8)
+        props.set_depth_bits(8)
         self._buffer = bfr = base.win.make_texture_buffer("aux_picking_buffer",
                                                           1, 1,
                                                           self._tex,
@@ -128,7 +130,6 @@ class AuxiliaryPickingCamera(BaseObject):
 
         bfr.set_clear_color(VBase4())
         bfr.set_clear_color_active(True)
-        bfr.set_sort(-100)
         self._np = base.make_camera(bfr)
         node = self._np.node()
         self._lens = lens = OrthographicLens()
@@ -159,7 +160,7 @@ class AuxiliaryPickingCamera(BaseObject):
     def __update_frustum(self):
 
         w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
-        self._lens.set_film_size(.004 * 512. / min(w, h))
+        self._lens.set_film_size(.75 * 512. / min(w, h))
 
     def get_origin(self):
 
@@ -186,25 +187,28 @@ class AuxiliaryPickingCamera(BaseObject):
 
     def set_active(self, is_active=True):
 
-        if self._np.node().is_active() == is_active:
-            return
-
         self._buffer.set_active(is_active)
         self._np.node().set_active(is_active)
+        Mgr.remove_task("get_aux_pixel_under_mouse")
 
         if is_active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_aux_pixel_under_mouse", sort=0)
             Mgr.add_app_updater("viewport", self.__update_frustum, interface_id="uv")
             self.__update_frustum()
         else:
-            Mgr.remove_task("get_aux_pixel_under_mouse")
             self._pixel_color = VBase4()
 
     def __get_pixel_under_mouse(self, task):
 
         if not self.mouse_watcher.is_mouse_open():
+            self._buffer.set_active(False)
+            self._np.node().set_active(False)
             self._pixel_color = VBase4()
             return task.cont
+
+        if not self._np.node().is_active():
+            self._buffer.set_active(True)
+            self._np.node().set_active(True)
 
         cam = self.cam
         screen_pos = self.mouse_watcher.get_mouse()
@@ -360,7 +364,7 @@ class UVTemplateSaver(BaseObject):
 
     def __init__(self):
 
-        self._template_mask = BitMask32.bit(26)
+        self._template_mask = BitMask32.bit(16)
         self._size = 512
         self._edge_color = VBase4(1., 1., 1., 1.)
         self._poly_color = VBase4(1., 1., 1., 0.)
@@ -419,8 +423,8 @@ class UVTemplateSaver(BaseObject):
         res = self._size
         base = Mgr.get("base")
         props = FrameBufferProperties()
-        props.set_rgba_bits(32, 32, 32, 32)
-        props.set_depth_bits(32)
+        props.set_rgba_bits(8, 8, 8, 8)
+        props.set_depth_bits(8)
         tex_buffer = base.win.make_texture_buffer("uv_template_buffer",
                                                   res, res,
                                                   Texture("uv_template"),
