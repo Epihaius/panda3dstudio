@@ -144,7 +144,7 @@ class PolygonEditBase(CreationBase, TriangulationBase, SmoothingBase, SurfaceBas
         for state in ("selected", "unselected"):
             sel_data[state] = []
             prim = geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
-            prim.modify_vertices().set_num_rows(0)
+            prim.modify_vertices().clear_rows()
             # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
             # remove all data from the primitive, and adding new data through
             # prim.modify_vertices().modify_handle().set_data(data) will not

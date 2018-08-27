@@ -40,7 +40,7 @@ class RotationComponent(object):
         segments = 10
         angle = .4 * math.pi / segments
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("axis_circle_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")

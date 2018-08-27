@@ -89,7 +89,7 @@ class BoundingBox(BaseObject):
         if not cls._corners:
             cls.__define_corners()
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("bbox_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 

@@ -22,8 +22,7 @@ class ImportManager(BaseObject):
 
         self._imported_file = filename
         path = Filename.from_os_specific(filename)
-        loader_options = LoaderOptions(LoaderOptions.LF_no_cache)
-        model_root = Mgr.load_model(path, okMissing=True, loaderOptions=loader_options)
+        model_root = Mgr.load_model(path, noCache=True, okMissing=True)
 
         if not (model_root and model_root.get_children()):
             return

@@ -269,7 +269,7 @@ class UVDataSelectionBase(BaseObject):
             to_size = to_array.data_size_bytes
             to_array.set_num_rows(to_array.get_num_rows() + from_array.get_num_rows())
             to_handle.copy_subdata_from(to_size, from_size, from_handle, 0, from_size)
-            from_array.set_num_rows(0)
+            from_array.clear_rows()
         else:
             vertex_data = geoms["sel_state"].node().modify_geom(0).modify_vertex_data()
             colors = UVMgr.get("uv_selection_colors")[subobj_lvl]

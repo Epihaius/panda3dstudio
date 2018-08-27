@@ -1,18 +1,20 @@
 from .base import logging, GlobalData, EventBinder, StateManager, StateBinder, DirectObject
-from panda3d.core import loadPrcFileData, MouseWatcherRegion, WindowProperties, Filename
+from panda3d.core import load_prc_file_data, MouseWatcherRegion, WindowProperties, Filename
 from direct.showbase.ShowBase import ShowBase
 
-loadPrcFileData("", """
-                    sync-video #f
-                    model-cache-dir
-                    geom-cache-size 0
-                    window-type none
-                    depth-bits 24
-                    notify-output p3ds.log
-                    garbage-collect-states #f
+load_prc_file_data("",
+"""
+sync-video #f
+model-cache-dir
+geom-cache-size 0
+window-type none
+depth-bits 24
+notify-output p3ds.log
+garbage-collect-states #f
+load-file-type p3assimp
 
-                    """
-                )
+"""
+)
 
 
 # the CursorManager class is used to set the mouse cursor image, but also to reset it to the image

@@ -102,7 +102,7 @@ class PivotGizmo(object):
     @classmethod
     def __create_geom(cls, origin):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
 
         angle = math.pi * 2. / 3.
         shaft_radius = .035

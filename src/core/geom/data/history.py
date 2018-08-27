@@ -834,7 +834,7 @@ class GeomHistoryBase(BaseObject):
             sel_data[state] = []
 
         prim = geoms["poly"]["selected"].node().modify_geom(0).modify_primitive(0)
-        prim.modify_vertices().modify_handle().set_num_rows(0)
+        prim.modify_vertices().modify_handle().clear_rows()
         # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
         # remove all data from the primitive, and adding new data through
         # prim.modify_vertices().modify_handle().set_data(data) will not
@@ -1086,7 +1086,8 @@ class GeomHistoryBase(BaseObject):
 
         count = self._data_row_count
         ordered_polys = self._ordered_polys
-        verts = self._subobjs["vert"]
+        subobjs = self._subobjs
+        verts = subobjs["vert"]
         sel_data = self._poly_selection_data["unselected"]
 
         geoms = self._geoms
@@ -1193,6 +1194,8 @@ class GeomHistoryBase(BaseObject):
 
         poly_picking_geom.add_primitive(GeomTriangles(tris_prim))
         poly_unselected_geom.add_primitive(GeomTriangles(tris_prim))
+
+        self.update_subobject_indices()
 
         self._origin.node().set_bounds(self._toplvl_node.get_bounds())
 

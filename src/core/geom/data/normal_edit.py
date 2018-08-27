@@ -891,10 +891,13 @@ class NormalEditBase(BaseObject):
     def set_normal_shader(self, set_shader=True):
 
         if set_shader:
-            shader = Shader.make(Shader.SL_GLSL, VERT_SHADER_NORMALS, FRAG_SHADER_NORMALS,
-                                 GEOM_SHADER_NORMALS)
-            self._geoms["normal"]["pickable"].set_shader(shader)
-            self._geoms["normal"]["sel_state"].set_shader(shader)
+            shaders = shader.normal
+            vs = shaders.VERT_SHADER
+            fs = shaders.FRAG_SHADER
+            gs = shaders.GEOM_SHADER
+            sh = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+            self._geoms["normal"]["pickable"].set_shader(sh)
+            self._geoms["normal"]["sel_state"].set_shader(sh)
         else:
             self._geoms["normal"]["pickable"].clear_shader()
             self._geoms["normal"]["sel_state"].clear_shader()
@@ -1010,9 +1013,12 @@ class NormalEditBase(BaseObject):
         geom_pickable.set_bin("fixed", 51)
         geom_pickable.set_depth_test(False)
         geom_pickable.set_depth_write(False)
-        shader = Shader.make(Shader.SL_GLSL, VERT_SHADER_NORMALS, FRAG_SHADER_NORMALS,
-                             GEOM_SHADER_NORMALS)
-        geom_pickable.set_shader(shader)
+        shaders = shader.normal
+        vs = shaders.VERT_SHADER
+        fs = shaders.FRAG_SHADER
+        gs = shaders.GEOM_SHADER
+        sh = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+        geom_pickable.set_shader(sh)
         normal_length = self._normal_length
         geom_pickable.set_shader_input("normal_length", normal_length)
         geom_sel_state = geom_pickable.copy_to(origin)

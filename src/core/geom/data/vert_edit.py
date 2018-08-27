@@ -101,7 +101,7 @@ class VertexEditBase(BaseObject):
 
         # create pickable geometry, specifically for the vertices of the
         # given polygon and belonging to the given category, if any
-        vertex_format = Mgr.get("vertex_format_basic")
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("vert_data", vertex_format, Geom.UH_static)
         vertex_data.reserve_num_rows(count)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -223,20 +223,14 @@ class VertexEditBase(BaseObject):
         vertex_data_poly = GeomVertexData("vert_data_poly", vertex_format, Geom.UH_static)
         vertex_data_poly.reserve_num_rows(count)
         pos_writer_poly = GeomVertexWriter(vertex_data_poly, "vertex")
-        col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
         tmp_poly_prim = GeomTriangles(Geom.UH_static)
         tmp_poly_prim.reserve_num_vertices(len(poly))
         vert_ids = poly.get_vertex_ids()
-        white = (1., 1., 1., 1.)
 
         for vert_id in vert_ids:
             vertex = verts[vert_id]
             pos = vertex.get_pos()
             pos_writer_poly.add_data3f(pos)
-            col_writer_poly.add_data4f(white)
-
-        for _ in range(count):
-            col_writer_poly.add_data4f(white)
 
         for tri_vert_ids in poly:
             for vert_id in tri_vert_ids:

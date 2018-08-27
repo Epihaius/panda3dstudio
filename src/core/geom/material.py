@@ -259,16 +259,16 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
             specular = {"value": tuple(m.get_specular()), "on": m.has_specular()}
             shininess = {"value": m.get_shininess(), "on": True}
 
-            material.set_property("diffuse", diffuse, apply_base_mat=False)
-            material.set_property("ambient", ambient, apply_base_mat=False)
-            material.set_property("emissive", emissive, apply_base_mat=False)
-            material.set_property("specular", specular, apply_base_mat=False)
-            material.set_property("shininess", shininess, apply_base_mat=False)
+            material.set_property("diffuse", diffuse)
+            material.set_property("ambient", ambient)
+            material.set_property("emissive", emissive)
+            material.set_property("specular", specular)
+            material.set_property("shininess", shininess)
 
         alpha_value = color_scale_attrib.get_scale()[3]
         alpha_on = transp_attrib.get_mode() != TransparencyAttrib.M_none
         alpha = {"value": alpha_value, "on": alpha_on}
-        material.set_property("alpha", alpha, apply_base_mat=False)
+        material.set_property("alpha", alpha)
 
         if not tex_attrib.is_off():
 

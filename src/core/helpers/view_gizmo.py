@@ -117,7 +117,7 @@ class ViewGizmo(BaseObject):
 
     def __create_icon(self, icon_name, color_id):
 
-        vertex_format = GeomVertexFormat.get_v3cpt2()
+        vertex_format = GeomVertexFormat.get_v3c4t2()
 
         vertex_data = GeomVertexData("icon_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -208,7 +208,7 @@ class ViewGizmo(BaseObject):
 
         # create side handles
 
-        vertex_format = GeomVertexFormat.get_v3n3cpt2()
+        vertex_format = GeomVertexFormat.get_v3n3c4t2()
         color = VBase4(.75, .75, .75, 1.)
 
         for i in range(3):
@@ -283,7 +283,7 @@ class ViewGizmo(BaseObject):
 
         # create edge handles
 
-        vertex_format = GeomVertexFormat.get_v3n3cp()
+        vertex_format = GeomVertexFormat.get_v3n3c4()
 
         edge_root = handle_root_main.attach_new_node("edge_root")
         edge_root.set_texture_off()
@@ -444,7 +444,7 @@ class ViewGizmo(BaseObject):
         handles_aux = self._handles_aux
         handle_root_aux = self._handle_root_aux
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
 
         colors = {"x":VBase4(.75, 0., 0., 1.),
                   "y":VBase4(0., .75, 0., 1.),
@@ -1054,7 +1054,7 @@ class WorldAxesTripod(BaseObject):
 
     def __create_axis_tripod(self):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
 
         vertex_data = GeomVertexData("axis_tripod_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")

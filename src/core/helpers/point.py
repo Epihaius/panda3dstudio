@@ -1,34 +1,6 @@
 from ..base import *
 
 
-VERT_SHADER = """
-    #version 420
-
-    uniform mat4 p3d_ModelViewProjectionMatrix;
-    in vec4 p3d_Vertex;
-    in int index;
-    uniform int index_offset;
-    flat out int oindex;
-
-    void main() {
-        gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;
-        oindex = index + index_offset;
-    }
-"""
-
-FRAG_SHADER = """
-    #version 420
-
-    layout(r32i) uniform iimageBuffer selections;
-    flat in int oindex;
-
-    void main() {
-        // Write 1 to the location corresponding to the custom index
-        imageAtomicOr(selections, (oindex >> 5), 1 << (oindex & 31));
-    }
-"""
-
-
 class TemporaryPointHelper(object):
 
     _original_geom = None
@@ -855,9 +827,11 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         tex = Texture()
         tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
         tex.set_clear_color(0)
-        shader = Shader.make(Shader.SL_GLSL, VERT_SHADER, FRAG_SHADER)
+        vs = shader.region_sel_subobj.VERT_SHADER
+        fs = shader.region_sel.FRAG_SHADER
+        sh = Shader.make(Shader.SL_GLSL, vs, fs)
         state_np = NodePath("state_np")
-        state_np.set_shader(shader, 1)
+        state_np.set_shader(sh, 1)
         state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
         state_np.set_light_off(1)
         state = state_np.get_state()

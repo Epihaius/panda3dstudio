@@ -220,7 +220,7 @@ class GeomSelectionBase(BaseObject):
             to_size = to_array.data_size_bytes
             to_array.set_num_rows(to_array.get_num_rows() + from_array.get_num_rows())
             to_handle.copy_subdata_from(to_size, from_size, from_handle, 0, from_size)
-            from_array.set_num_rows(0)
+            from_array.clear_rows()
 
         elif subobj_lvl == "normal":
 
@@ -360,7 +360,7 @@ class GeomSelectionBase(BaseObject):
         for state in ("selected", "unselected"):
             sel_data[state] = []
             prim = geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
-            prim.modify_vertices().set_num_rows(0)
+            prim.modify_vertices().clear_rows()
             # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
             # remove all data from the primitive, and adding new data through
             # prim.modify_vertices().modify_handle().set_data(data) will not
@@ -565,6 +565,8 @@ class GeomSelectionBase(BaseObject):
             selected_normals = (shared_normals[normal_id] for normal_id in selected_normal_ids)
             self.update_selection("normal", selected_normals, [])
 
+        self.update_subobject_indices()
+
         poly_ids = [poly.get_id() for poly in polys_to_delete]
         self.smooth_polygons(poly_ids, smooth=False, update_normals=False)
         self._normal_sharing_change = True
@@ -710,11 +712,11 @@ class Selection(SelectionTransformBase):
         self.update_center_pos()
         self.update_ui()
 
-    def add(self, subobj, add_to_hist=True):
+    def add(self, subobjs, add_to_hist=True):
 
         sel = self._objs
         old_sel = set(sel)
-        sel_to_add = set(subobj.get_special_selection())
+        sel_to_add = set(subobjs)
         common = old_sel & sel_to_add
 
         if common:
@@ -755,11 +757,11 @@ class Selection(SelectionTransformBase):
 
         return True
 
-    def remove(self, subobj, add_to_hist=True):
+    def remove(self, subobjs, add_to_hist=True):
 
         sel = self._objs
         old_sel = set(sel)
-        sel_to_remove = set(subobj.get_special_selection())
+        sel_to_remove = set(subobjs)
         common = old_sel & sel_to_remove
 
         if not common:
@@ -801,11 +803,11 @@ class Selection(SelectionTransformBase):
 
         return True
 
-    def replace(self, subobj, add_to_hist=True):
+    def replace(self, subobjs, add_to_hist=True):
 
         sel = self._objs
         old_sel = set(sel)
-        new_sel = set(subobj.get_special_selection())
+        new_sel = set(subobjs)
         common = old_sel & new_sel
 
         if common:
@@ -1001,6 +1003,7 @@ class SelectionManager(BaseObject):
         Mgr.accept("select_single_edge", lambda: self.__select_single("edge"))
         Mgr.accept("select_single_poly", lambda: self.__select_single("poly"))
         Mgr.accept("select_single_normal", lambda: self.__select_single("normal"))
+        Mgr.accept("region_select_subobjs", self.__region_select)
         Mgr.accept("start_selection_via_poly", self.__start_selection_via_poly)
         Mgr.add_app_updater("active_obj_level", lambda: self.__clear_prev_selection(True))
         Mgr.add_app_updater("picking_via_poly", self.__set_subobj_picking_via_poly)
@@ -1176,13 +1179,13 @@ class SelectionManager(BaseObject):
 
                 else:
 
-                    selection.replace(obj)
+                    selection.replace(obj.get_special_selection())
 
                 start_mouse_checking = True
 
             else:
 
-                selection.replace(obj)
+                selection.replace(obj.get_special_selection())
 
         else:
 
@@ -1207,7 +1210,7 @@ class SelectionManager(BaseObject):
         elif obj_lvl == "normal":
             obj = obj.get_shared_normal() if obj else None
 
-        self._selections[obj_lvl].replace(obj)
+        self._selections[obj_lvl].replace(obj.get_special_selection())
 
     def __toggle_select(self, obj_lvl):
 
@@ -1229,16 +1232,118 @@ class SelectionManager(BaseObject):
         if obj:
 
             if obj in selection:
-                selection.remove(obj)
+                selection.remove(obj.get_special_selection())
                 transform_allowed = False
             else:
-                selection.add(obj)
+                selection.add(obj.get_special_selection())
                 transform_allowed = GlobalData["active_transform_type"]
 
             if transform_allowed:
                 start_mouse_checking = True
 
         return False, start_mouse_checking
+
+    def __region_select(self, cam, toggle_select):
+
+        obj_lvl = GlobalData["active_obj_level"]
+
+        subobjs = {}
+        index_offset = 0
+
+        for obj in Mgr.get("selection_top"):
+
+            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+            obj_type = "vert" if obj_lvl == "normal" else obj_lvl
+            indexed_subobjs = geom_data_obj.get_indexed_subobjects(obj_type)
+
+            for index, subobj in indexed_subobjs.items():
+                subobjs[index + index_offset] = subobj
+
+            geom_data_obj.get_origin().set_shader_input("index_offset", index_offset)
+            index_offset += len(indexed_subobjs)
+
+        obj_count = len(subobjs)
+
+        tex = Texture()
+        tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
+        tex.set_clear_color(0)
+
+        fs = shader.region_sel.FRAG_SHADER
+
+        if obj_lvl == "normal":
+            shaders = shader.region_sel_normal
+            vs = shaders.VERT_SHADER
+            gs = shaders.GEOM_SHADER
+            sh = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+        else:
+            vs = shader.region_sel_subobj.VERT_SHADER
+            sh = Shader.make(Shader.SL_GLSL, vs, fs)
+
+        state_np = NodePath("state_np")
+        state_np.set_shader(sh, 1)
+        state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
+        state_np.set_light_off(1)
+        state = state_np.get_state()
+        cam.set_initial_state(state)
+
+        subobj_edit_options = GlobalData["subobj_edit_options"]
+        pick_via_poly = subobj_edit_options["pick_via_poly"]
+
+        if pick_via_poly:
+            Mgr.update_locally("picking_via_poly", False)
+
+        new_sel = set()
+        base = Mgr.get("base")
+        ge = base.graphics_engine
+        ge.render_frame()
+
+        if ge.extract_texture_data(tex, base.win.get_gsg()):
+
+            texels = memoryview(tex.get_ram_image()).cast("I")
+
+            if obj_lvl == "edge":
+
+                sel_edges_by_border = subobj_edit_options["sel_edges_by_border"]
+
+                for i, mask in enumerate(texels):
+                    for j in range(32):
+                        if mask & (1 << j):
+                            index = 32 * i + j
+                            subobj = subobjs[index].get_merged_object()
+                            if not sel_edges_by_border or len(subobj) == 1:
+                                new_sel.update(subobj.get_special_selection())
+
+            elif obj_lvl == "normal":
+
+                for i, mask in enumerate(texels):
+                    for j in range(32):
+                        if mask & (1 << j):
+                            index = 32 * i + j
+                            subobj = subobjs[index].get_shared_normal()
+                            new_sel.update(subobj.get_special_selection())
+
+            else:
+
+                for i, mask in enumerate(texels):
+                    for j in range(32):
+                        if mask & (1 << j):
+                            index = 32 * i + j
+                            subobj = subobjs[index].get_merged_object()
+                            new_sel.update(subobj.get_special_selection())
+
+        state_np.clear_shader()
+
+        if pick_via_poly:
+            Mgr.update_locally("picking_via_poly", True)
+
+        selection = self._selections[obj_lvl]
+
+        if toggle_select:
+            old_sel = set(selection)
+            selection.remove(old_sel & new_sel)
+            selection.add(new_sel - old_sel)
+        else:
+            selection.replace(new_sel)
 
     def __set_subobj_picking_via_poly(self, via_poly=False):
 

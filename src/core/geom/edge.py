@@ -201,6 +201,12 @@ class MergedEdge(object):
 
         return edge.get_picking_color_id() if edge else None
 
+    def get_picking_color_ids(self):
+
+        edges = self._geom_data_obj.get_subobjects("edge")
+
+        return [edges[e_id].get_picking_color_id() for e_id in self._ids]
+
     def get_polygon_ids(self):
 
         edges = self._geom_data_obj.get_subobjects("edge")

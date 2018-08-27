@@ -156,6 +156,7 @@ class UVEditGUI(object):
                 Mgr.add_interface("uv", key_handlers)
                 Mgr.add_state("uv_edit_mode", 0, lambda prev_state_id, is_active:
                               Mgr.do("enable_gui"), interface_id="uv")
+                Mgr.add_state("aux_viewport_resize", -200, interface_id="uv")
                 base = Mgr.get("base")
 
                 GlobalData["viewport"][1] = "uv"

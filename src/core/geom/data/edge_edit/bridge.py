@@ -216,8 +216,14 @@ class EdgeBridgeBase(BaseObject):
 
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
-        verts = self._subobjs["vert"]
-        edges = self._subobjs["edge"]
+        subobjs = self._subobjs
+        verts = subobjs["vert"]
+        edges = subobjs["edge"]
+        polys = subobjs["poly"]
+        indexed_subobjs = self._indexed_subobjs
+        indexed_verts = indexed_subobjs["vert"]
+        indexed_edges = indexed_subobjs["edge"]
+        indexed_polys = indexed_subobjs["poly"]
         selection_ids = self._selected_subobj_ids
         selected_vert_ids = selection_ids["vert"]
         selected_edge_ids = selection_ids["edge"]
@@ -446,6 +452,8 @@ class EdgeBridgeBase(BaseObject):
         pos_writer.set_row(old_count)
         col_writer = GeomVertexWriter(vertex_data_poly_picking, "color")
         col_writer.set_row(old_count)
+        ind_writer_poly = GeomVertexWriter(vertex_data_poly_picking, "index")
+        ind_writer_poly.set_row(old_count)
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
         normal_writer.set_row(old_count)
         sign = -1. if self._owner.has_flipped_normals() else 1.
@@ -455,6 +463,8 @@ class EdgeBridgeBase(BaseObject):
         prev_count = old_count
         verts_by_row = {}
         poly_picking_colors = {}
+        poly_indices = {}
+        poly_index = len(polys)
         sel_data = self._poly_selection_data["unselected"]
 
         for poly in new_polys:
@@ -469,6 +479,9 @@ class EdgeBridgeBase(BaseObject):
             picking_col_id = poly.get_picking_color_id()
             picking_color = get_color_vec(picking_col_id, poly_type_id)
             poly_picking_colors[poly.get_id()] = picking_color
+            poly_indices[poly.get_id()] = poly_index
+            indexed_polys[poly_index] = poly
+            poly_index += 1
             sel_data.extend(poly)
 
         for row in sorted(verts_by_row):
@@ -477,6 +490,8 @@ class EdgeBridgeBase(BaseObject):
             pos_writer.add_data3f(pos)
             picking_color = poly_picking_colors[vert.get_polygon_id()]
             col_writer.add_data4f(picking_color)
+            poly_index = poly_indices[vert.get_polygon_id()]
+            ind_writer_poly.add_data1i(poly_index)
             normal = vert.get_normal()
             normal_writer.add_data3f(normal * sign)
 
@@ -494,6 +509,8 @@ class EdgeBridgeBase(BaseObject):
         col_writer2.set_row(old_count)
         col_writer3 = GeomVertexWriter(vertex_data_normal2, "color")
         col_writer3.set_row(old_count)
+        ind_writer_vert = GeomVertexWriter(vertex_data_vert1, "index")
+        ind_writer_vert.set_row(old_count)
 
         sel_colors = Mgr.get("subobj_selection_colors")
         color_vert = sel_colors["vert"]["unselected"]
@@ -506,6 +523,8 @@ class EdgeBridgeBase(BaseObject):
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color_vert)
             col_writer3.add_data4f(color_normal)
+            ind_writer_vert.add_data1i(row)
+            indexed_verts[row] = vert
 
         col_array = GeomVertexArrayData(vertex_data_vert1.get_array(1))
         vertex_data_normal1.set_array(1, col_array)
@@ -513,12 +532,19 @@ class EdgeBridgeBase(BaseObject):
         picking_colors1 = {}
         picking_colors2 = {}
         edge_type_id = PickableTypes.get_id("edge")
+        indices1 = {}
+        indices2 = {}
+        edge_index = len(edges)
 
         for edge in new_edges:
             row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
             picking_color = get_color_vec(edge.get_picking_color_id(), edge_type_id)
             picking_colors1[row1] = picking_color
             picking_colors2[row2 + count] = picking_color
+            indices1[row1] = edge_index
+            indices2[row2 + count] = edge_index
+            indexed_edges[edge_index] = edge
+            edge_index += 1
 
         vertex_data_edge1 = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data_edge2 = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
@@ -529,12 +555,15 @@ class EdgeBridgeBase(BaseObject):
         col_writer1.set_row(old_count)
         col_writer2 = GeomVertexWriter(vertex_data_edge2, "color")
         col_writer2.set_row(old_count)
+        ind_writer_edge = GeomVertexWriter(vertex_data_tmp, "index")
+        ind_writer_edge.set_row(old_count)
         color = sel_colors["edge"]["unselected"]
 
         for row_index in sorted(picking_colors1):
             picking_color = picking_colors1[row_index]
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
+            ind_writer_edge.add_data1i(indices1[row_index])
 
         from_array = vertex_data_tmp.get_array(1)
         size = from_array.data_size_bytes
@@ -548,11 +577,14 @@ class EdgeBridgeBase(BaseObject):
         col_writer1 = GeomVertexWriter(vertex_data_tmp, "color")
         col_writer1.set_row(old_count)
         col_writer2.set_row(count + old_count)
+        ind_writer_edge = GeomVertexWriter(vertex_data_tmp, "index")
+        ind_writer_edge.set_row(old_count)
 
         for row_index in sorted(picking_colors2):
             picking_color = picking_colors2[row_index]
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
+            ind_writer_edge.add_data1i(indices2[row_index])
 
         vertex_data_edge1.set_num_rows(count * 2)
         to_array = vertex_data_edge1.modify_array(1)

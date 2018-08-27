@@ -37,7 +37,7 @@ class TemporaryTexProjector(object):
 
         # Create body.
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("tex_proj_body_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -294,7 +294,7 @@ class TexProjector(TopLevelObject):
     @classmethod
     def __create_body(cls, parent):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("tex_proj_body_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -343,7 +343,7 @@ class TexProjector(TopLevelObject):
 
         for proj_type in ("orthographic", "perspective"):
 
-            vertex_format = GeomVertexFormat.get_v3cp()
+            vertex_format = GeomVertexFormat.get_v3c4()
             vertex_data = GeomVertexData("tex_proj_lens_{}_viz_data".format(proj_type),
                                          vertex_format, Geom.UH_static)
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -372,7 +372,7 @@ class TexProjector(TopLevelObject):
         angle = 2. * pi / 3.
         positions = [Point3(sin(angle * i), cos(angle * i), -1.5) for i in range(3)]
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("tex_proj_tripod_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 

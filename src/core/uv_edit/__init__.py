@@ -514,7 +514,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __set_uv_picking_via_poly(self, via_poly=False):
 
-        Mgr.update_interface_locally("", "picking_via_poly", via_poly)
+        Mgr.update_interface_locally("main", "picking_via_poly", via_poly)
         GlobalData["uv_edit_options"]["pick_via_poly"] = via_poly
         uv_data_objs = self._uv_data_objs[self._uv_set_id]
 

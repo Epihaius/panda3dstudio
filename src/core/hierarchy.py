@@ -156,7 +156,7 @@ class HierarchyManager(BaseObject):
             self._obj_link_viz_nps.remove_path(link_geom)
             link_geom.remove_node()
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
 
         vertex_data = GeomVertexData("link_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")

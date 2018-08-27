@@ -322,6 +322,12 @@ class MergedVertex(object):
 
         return vert.get_picking_color_id() if vert else None
 
+    def get_picking_color_ids(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+
+        return [verts[v_id].get_picking_color_id() for v_id in self._ids]
+
     def is_border_vertex(self):
 
         geom_data_obj = self._geom_data_obj

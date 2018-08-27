@@ -171,7 +171,7 @@ class Grid(BaseObject):
 
     def __create_axis_indicator(self):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("axis_indicator_data", vertex_format, Geom.UH_static)
         axis_indicator_geom = Geom(vertex_data)
 

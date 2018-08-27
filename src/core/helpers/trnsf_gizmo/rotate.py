@@ -127,7 +127,7 @@ class RotationGizmo(TransformationGizmo):
         segments = 50
         angle = math.pi / segments
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("axis_circle_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -187,7 +187,7 @@ class RotationGizmo(TransformationGizmo):
         segments = 100
         angle = 2. * math.pi / segments
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("axis_circle_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -220,7 +220,7 @@ class RotationGizmo(TransformationGizmo):
         color = VBase4(0., 0., 0., 1.)
         color[index] = .3
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("center_axis_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -269,7 +269,7 @@ class RotationGizmo(TransformationGizmo):
         segments = 100
         angle = 2. * math.pi / segments
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("disc_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")

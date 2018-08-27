@@ -18,6 +18,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
             geom_data_obj = data_copy["geom_data_obj"]
             subobjs = data_copy["subobjs"]
+            indexed_subobjs = data_copy["indexed_subobjs"]
             merged_verts = data_copy["merged_verts"]
             merged_edges = data_copy["merged_edges"]
             seam_edge_ids = data_copy["seam_edge_ids"]
@@ -39,6 +40,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         else:
 
             subobjs = {}
+            indexed_subobjs = {}
             merged_verts = {}
             merged_edges = {}
             seam_edge_ids = []
@@ -52,6 +54,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
             for subobj_type in ("vert", "edge", "poly"):
                 subobjs[subobj_type] = {}
+                indexed_subobjs[subobj_type] = {}
                 geoms[subobj_type] = {"pickable": None, "sel_state": None}
 
             del geoms["poly"]["pickable"]
@@ -59,6 +62,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         self._uv_set_id = uv_set_id
         self._geom_data_obj = geom_data_obj
         self._subobjs = subobjs
+        self._indexed_subobjs = indexed_subobjs
         self._merged_verts = merged_verts
         self._merged_edges = merged_edges
         self._seam_edge_ids = seam_edge_ids
@@ -86,6 +90,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
     def copy(self, uv_set_id=None):
 
         subobjs = {}
+        indexed_subobjs = {}
         vertex_data_poly = GeomVertexData(self._vertex_data_poly)
         origin = self._origin
         origin_copy = origin.copy_to(self.geom_root)
@@ -94,7 +99,9 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         geoms["seam"] = origin_copy.find("**/seam_geom")
 
         for subobj_type in ("vert", "edge", "poly"):
-            subobjs[subobj_type] = dict((k, v.copy()) for k, v in self._subobjs[subobj_type].items())
+            subobjs[subobj_type] = d = dict((k, v.copy()) for k, v in self._subobjs[subobj_type].items())
+            indexed_subobjs[subobj_type] = dict((k, d[v.get_id()])
+                for k, v in self._indexed_subobjs[subobj_type].items())
             geoms[subobj_type] = {}
 
         for subobj_type in ("vert", "edge"):
@@ -116,6 +123,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         data_copy = {}
         data_copy["geom_data_obj"] = self._geom_data_obj
         data_copy["subobjs"] = subobjs
+        data_copy["indexed_subobjs"] = indexed_subobjs
         merged_verts = self._merged_verts
         merged_vert_copies = dict((mv, mv.copy()) for mv in set(merged_verts.values()))
         data_copy["merged_verts"] = dict((k, merged_vert_copies[v])
@@ -226,21 +234,24 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         subobjs = self._subobjs
         verts = subobjs["vert"]
         polys = subobjs["poly"]
+        indexed_subobjs = self._indexed_subobjs
+        indexed_verts = indexed_subobjs["vert"]
+        indexed_edges = indexed_subobjs["edge"]
+        indexed_polys = indexed_subobjs["poly"]
         self._data_row_count = count = len(verts)
         tri_vert_count = sum(len(poly) for poly in polys.values())
 
         sel_data = self._poly_selection_data["unselected"]
 
-        vertex_format_vert = Mgr.get("vertex_format_basic")
-        vertex_data_vert = GeomVertexData("vert_data", vertex_format_vert, Geom.UH_dynamic)
+        vertex_format_basic = Mgr.get("vertex_format_basic")
+        vertex_format_picking = Mgr.get("vertex_format_picking")
+        vertex_data_vert = GeomVertexData("vert_data", vertex_format_picking, Geom.UH_dynamic)
         vertex_data_vert.reserve_num_rows(count)
         vertex_data_vert.set_num_rows(count)
-        vertex_format_edge = Mgr.get("vertex_format_basic")
-        vertex_data_edge = GeomVertexData("edge_data", vertex_format_edge, Geom.UH_dynamic)
+        vertex_data_edge = GeomVertexData("edge_data", vertex_format_picking, Geom.UH_dynamic)
         vertex_data_edge.reserve_num_rows(count * 2)
         vertex_data_edge.set_num_rows(count * 2)
-        vertex_format_poly = Mgr.get("vertex_format_full")
-        vertex_data_poly = GeomVertexData("poly_data", vertex_format_poly, Geom.UH_dynamic)
+        vertex_data_poly = GeomVertexData("poly_data", vertex_format_picking, Geom.UH_dynamic)
         vertex_data_poly.reserve_num_rows(count)
         vertex_data_poly.set_num_rows(count)
         self._vertex_data_poly = vertex_data_poly
@@ -257,10 +268,16 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         col_writer_vert = GeomVertexWriter(vertex_data_vert, "color")
         col_writer_edge = GeomVertexWriter(vertex_data_edge, "color")
         col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
+        ind_writer_vert = GeomVertexWriter(vertex_data_vert, "index")
+        ind_writer_edge = GeomVertexWriter(vertex_data_edge, "index")
+        ind_writer_poly = GeomVertexWriter(vertex_data_poly, "index")
         pickable_id_vert = PickableTypes.get_id("vert")
         pickable_id_edge = PickableTypes.get_id("edge")
         pickable_id_poly = PickableTypes.get_id("poly")
 
+        vert_index = 0
+        edge_index = 0
+        poly_index = 0
         row_index_offset = 0
 
         for poly_id, poly in polys.items():
@@ -282,9 +299,13 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                         poly_corners.append(pos)
                         pos_writer.add_data3f(pos)
                         col_writer_poly.add_data4f(picking_color_poly)
+                        ind_writer_poly.add_data1i(poly_index)
                         picking_color_vert = get_color_vec(vert.get_picking_color_id(),
                                                            pickable_id_vert)
                         col_writer_vert.add_data4f(picking_color_vert)
+                        ind_writer_vert.add_data1i(vert_index)
+                        indexed_verts[vert_index] = vert
+                        vert_index += 1
                         processed_verts.append(vert)
 
                     tris_prim.add_vertex(vert.get_row_index())
@@ -298,6 +319,12 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                 col_writer_edge.set_data4f(picking_color_edge)
                 col_writer_edge.set_row(row2 + count)
                 col_writer_edge.set_data4f(picking_color_edge)
+                ind_writer_edge.set_row(row1)
+                ind_writer_edge.set_data1i(edge_index)
+                ind_writer_edge.set_row(row2 + count)
+                ind_writer_edge.set_data1i(edge_index)
+                indexed_edges[edge_index] = edge
+                edge_index += 1
 
             row_index_offset += poly.get_vertex_count()
 
@@ -305,6 +332,8 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
             poly_center = sum(poly_corners, Point3()) / len(poly_corners)
             poly.set_center_pos(poly_center)
+            indexed_polys[poly_index] = poly
+            poly_index += 1
 
         pos_array = vertex_data_poly.get_array(0)
         vertex_data_vert.set_array(0, pos_array)
@@ -542,6 +571,10 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
     def get_subobject(self, subobj_type, subobj_id):
 
         return self._subobjs[subobj_type].get(subobj_id)
+
+    def get_indexed_subobjects(self, subobj_type):
+
+        return self._indexed_subobjs[subobj_type]
 
     def show_subobj_level(self, subobj_lvl, affect_sel_backup=True):
 

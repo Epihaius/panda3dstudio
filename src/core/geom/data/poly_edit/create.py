@@ -26,7 +26,7 @@ class CreationBase(BaseObject):
 
         vertex_format_vert = GeomVertexFormat.get_v3()
         vertex_data_vert = GeomVertexData("vert_data", vertex_format_vert, Geom.UH_dynamic)
-        vertex_format_line = GeomVertexFormat.get_v3cp()
+        vertex_format_line = GeomVertexFormat.get_v3c4()
         vertex_data_line = GeomVertexData("line_data", vertex_format_line, Geom.UH_dynamic)
         vertex_format_tri = GeomVertexFormat.get_v3n3()
         vertex_data_tri = GeomVertexData("tri_data", vertex_format_tri, Geom.UH_dynamic)
@@ -301,7 +301,7 @@ class CreationBase(BaseObject):
             array = tris_prim.modify_vertices()
             array.set_num_rows(array.get_num_rows() - 3)
         else:
-            tris_prim.modify_vertices().set_num_rows(0)
+            tris_prim.modify_vertices().clear_rows()
 
         if tmp_data["flip_normal"]:
             geom.reverse_in_place()
@@ -448,6 +448,10 @@ class CreationBase(BaseObject):
         verts = subobjs["vert"]
         edges = subobjs["edge"]
         polys = subobjs["poly"]
+        indexed_subobjs = self._indexed_subobjs
+        indexed_verts = indexed_subobjs["vert"]
+        indexed_edges = indexed_subobjs["edge"]
+        indexed_polys = indexed_subobjs["poly"]
         ordered_polys = self._ordered_polys
         merged_verts = self._merged_verts
         merged_verts_by_pos = {}
@@ -455,7 +459,6 @@ class CreationBase(BaseObject):
         merged_edges_tmp = {}
         sel_vert_ids = self._selected_subobj_ids["vert"]
         sel_edge_ids = self._selected_subobj_ids["edge"]
-        self._selected_subobj_ids["edge"] = []
         subobjs_to_select = {"vert": [], "edge": []}
         subobj_change = self._subobj_change
 
@@ -701,6 +704,8 @@ class CreationBase(BaseObject):
         pos_writer.set_row(old_count)
         col_writer = GeomVertexWriter(vertex_data_poly_picking, "color")
         col_writer.set_row(old_count)
+        ind_writer_poly = GeomVertexWriter(vertex_data_poly_picking, "index")
+        ind_writer_poly.set_row(old_count)
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
         normal_writer.set_row(old_count)
         sign = -1. if self._owner.has_flipped_normals() else 1.
@@ -708,6 +713,8 @@ class CreationBase(BaseObject):
         pickable_type_id = PickableTypes.get_id("poly")
         picking_col_id = polygon.get_picking_color_id()
         picking_color = get_color_vec(picking_col_id, pickable_type_id)
+        poly_index = len(polys)
+        indexed_polys[poly_index] = polygon
 
         verts_by_row = {}
 
@@ -721,6 +728,7 @@ class CreationBase(BaseObject):
             pos = vert.get_pos()
             pos_writer.add_data3f(pos)
             col_writer.add_data4f(picking_color)
+            ind_writer_poly.add_data1i(poly_index)
             normal_writer.add_data3f(normal * sign)
 
         vertex_data_vert1 = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
@@ -737,6 +745,8 @@ class CreationBase(BaseObject):
         col_writer2.set_row(old_count)
         col_writer3 = GeomVertexWriter(vertex_data_normal2, "color")
         col_writer3.set_row(old_count)
+        ind_writer_vert = GeomVertexWriter(vertex_data_vert1, "index")
+        ind_writer_vert.set_row(old_count)
 
         sel_colors = Mgr.get("subobj_selection_colors")
         color_vert = sel_colors["vert"]["unselected"]
@@ -749,6 +759,8 @@ class CreationBase(BaseObject):
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color_vert)
             col_writer3.add_data4f(color_normal)
+            ind_writer_vert.add_data1i(row)
+            indexed_verts[row] = vert
 
         col_array = GeomVertexArrayData(vertex_data_vert1.get_array(1))
         vertex_data_normal1.set_array(1, col_array)
@@ -759,12 +771,19 @@ class CreationBase(BaseObject):
         picking_colors1 = {}
         picking_colors2 = {}
         pickable_type_id = PickableTypes.get_id("edge")
+        indices1 = {}
+        indices2 = {}
+        edge_index = len(edges)
 
         for edge in poly_edges:
             row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
             picking_color = get_color_vec(edge.get_picking_color_id(), pickable_type_id)
             picking_colors1[row1] = picking_color
             picking_colors2[row2 + count] = picking_color
+            indices1[row1] = edge_index
+            indices2[row2 + count] = edge_index
+            indexed_edges[edge_index] = edge
+            edge_index += 1
 
         vertex_data_edge1 = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data_edge2 = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
@@ -775,12 +794,15 @@ class CreationBase(BaseObject):
         col_writer1.set_row(old_count)
         col_writer2 = GeomVertexWriter(vertex_data_edge2, "color")
         col_writer2.set_row(old_count)
+        ind_writer_edge = GeomVertexWriter(vertex_data_tmp, "index")
+        ind_writer_edge.set_row(old_count)
         color = sel_colors["edge"]["unselected"]
 
         for row_index in sorted(picking_colors1):
             picking_color = picking_colors1[row_index]
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
+            ind_writer_edge.add_data1i(indices1[row_index])
 
         from_array = vertex_data_tmp.get_array(1)
         size = from_array.data_size_bytes
@@ -794,11 +816,14 @@ class CreationBase(BaseObject):
         col_writer1 = GeomVertexWriter(vertex_data_tmp, "color")
         col_writer1.set_row(old_count)
         col_writer2.set_row(count + old_count)
+        ind_writer_edge = GeomVertexWriter(vertex_data_tmp, "index")
+        ind_writer_edge.set_row(old_count)
 
         for row_index in sorted(picking_colors2):
             picking_color = picking_colors2[row_index]
             col_writer1.add_data4f(picking_color)
             col_writer2.add_data4f(color)
+            ind_writer_edge.add_data1i(indices2[row_index])
 
         vertex_data_edge1.set_num_rows(count * 2)
         to_array = vertex_data_edge1.modify_array(1)

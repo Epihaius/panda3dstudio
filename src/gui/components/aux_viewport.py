@@ -259,9 +259,13 @@ class ViewportBorder(Widget):
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
         Mgr.add_task(self._resize_aux_viewport, "resize_aux_viewport")
         self._listener.accept("gui_mouse1-up", self.__on_left_up)
+        Mgr.enter_state("aux_viewport_resize", interface_id=GlobalData["viewport"][1])
+        Mgr.enter_state("aux_viewport_resize", interface_id=GlobalData["viewport"][2])
 
     def __on_left_up(self):
 
+        Mgr.exit_state("aux_viewport_resize", interface_id=GlobalData["viewport"][1])
+        Mgr.exit_state("aux_viewport_resize", interface_id=GlobalData["viewport"][2])
         Mgr.remove_task("resize_aux_viewport")
         self._sequence.finish()
         self._listener.ignore_all()

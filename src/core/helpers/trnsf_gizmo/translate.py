@@ -77,7 +77,7 @@ class TranslationGizmo(TransformationGizmo):
 
     def __create_axis_handle(self, parent, color, pos1, pos2, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -101,7 +101,7 @@ class TranslationGizmo(TransformationGizmo):
 
         # Create the arrow cone
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("axis_arrow_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -163,7 +163,7 @@ class TranslationGizmo(TransformationGizmo):
 
     def __create_plane_handle(self, parent, color, pos1, pos2, pos3, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
 
         def create_line(pos1, pos2):
 
@@ -214,7 +214,7 @@ class TranslationGizmo(TransformationGizmo):
 
     def __create_screen_handle(self, parent, color, size, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("screen_handle_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")

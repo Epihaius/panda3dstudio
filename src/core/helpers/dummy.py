@@ -90,7 +90,7 @@ class TemporaryDummy(BaseObject):
 
         # Create box.
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("dummy_helper_box_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
@@ -338,7 +338,7 @@ class Dummy(TopLevelObject):
     @classmethod
     def __create_box_geom(cls, parent, state):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("dummy_helper_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -403,7 +403,7 @@ class Dummy(TopLevelObject):
     @classmethod
     def __create_cross_geom(cls, parent, state):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("dummy_helper_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 

@@ -69,7 +69,7 @@ class ScalingComponent(object):
 
     def __create_axis_handle(self, parent, color, pos1, pos2, node_name):
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -141,7 +141,7 @@ class ScalingComponent(object):
 
         # Create quad
 
-        vertex_format = GeomVertexFormat.get_v3cp()
+        vertex_format = GeomVertexFormat.get_v3c4()
         vertex_data = GeomVertexData("axes_quad_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
