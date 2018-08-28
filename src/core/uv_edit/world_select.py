@@ -13,6 +13,7 @@ class SelectionManager(BaseObject):
         self._color_id = None
         self._models = []
         self._selections = {"vert": set(), "edge": set(), "poly": set()}
+        self._selection_op = "replace"
         self._original_poly_sel = {}
         self._restore_pick_via_poly = False
         self._restore_pick_by_aiming = False
@@ -20,7 +21,6 @@ class SelectionManager(BaseObject):
         # the following variables are used to pick a subobject using its polygon
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._aux_pixel_under_mouse = None
 
@@ -30,18 +30,27 @@ class SelectionManager(BaseObject):
 
         add_state = Mgr.add_state
         add_state("uv_edit_mode", -10, self.__enter_edit_mode, self.__exit_edit_mode)
-        add_state("uv_picking_via_poly", -11, self.__start_uv_picking_via_poly)
+        add_state("uv_picking_via_poly", -11, self.__init_uv_picking_via_poly)
 
         mod_alt = GlobalData["mod_key_codes"]["alt"]
         mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        mod_shift = GlobalData["mod_key_codes"]["shift"]
         bind = Mgr.bind_state
-        bind("uv_edit_mode", "regular select uvs", "mouse1", self.__select)
-        bind("uv_edit_mode", "toggle-select uvs", "{:d}|mouse1".format(mod_ctrl),
-             lambda: self.__select(toggle=True))
-        bind("uv_edit_mode", "region-select uvs", "{:d}|mouse1".format(mod_alt),
-             lambda: Mgr.enter_state("region_selection_mode"))
-        bind("uv_edit_mode", "region-toggle-select uvs",
-             "{:d}|mouse1".format(mod_alt | mod_ctrl), lambda: Mgr.do("region_toggle_select"))
+        bind("uv_edit_mode", "select (replace) uvs", "mouse1", self.__init_select)
+        bind("uv_edit_mode", "select (add) uvs", "{:d}|mouse1".format(mod_ctrl),
+             lambda: self.__init_select(op="add"))
+        bind("uv_edit_mode", "select (remove) uvs", "{:d}|mouse1".format(mod_shift),
+             lambda: self.__init_select(op="remove"))
+        bind("uv_edit_mode", "select (toggle) uvs", "{:d}|mouse1".format(mod_ctrl | mod_shift),
+             lambda: self.__init_select(op="toggle"))
+        bind("uv_edit_mode", "region-select (replace) uvs", "{:d}|mouse1".format(mod_alt),
+             lambda: Mgr.do("init_region_select"))
+        bind("uv_edit_mode", "region-select (add) uvs", "{:d}|mouse1".format(mod_alt | mod_ctrl),
+             lambda: Mgr.do("init_region_select", "add"))
+        bind("uv_edit_mode", "region-select (remove) uvs", "{:d}|mouse1".format(mod_alt | mod_shift),
+             lambda: Mgr.do("init_region_select", "remove"))
+        bind("uv_edit_mode", "region-select (toggle) uvs", "{:d}|mouse1".format(mod_alt | mod_ctrl | mod_shift),
+             lambda: Mgr.do("init_region_select", "toggle"))
         bind("uv_edit_mode", "uv edit -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("uv_edit_mode", "uv edit -> center view on objects", "c",
@@ -53,7 +62,7 @@ class SelectionManager(BaseObject):
 
         status_data = GlobalData["status_data"]
         mode_text = "Select UVs"
-        info_text = "<Space> to navigate; (<Ctrl>-)LMB to (toggle-)select subobjects"
+        info_text = "<Space> to navigate; (<Alt>-)LMB to (region-)select subobjects"
         status_data["edit_uvs"] = {"mode": mode_text, "info": info_text}
 
     def __get_models(self, objs):
@@ -305,11 +314,12 @@ class SelectionManager(BaseObject):
 
         return (pickable_type, picked_obj) if picked_obj else ("", None)
 
-    def __select(self, toggle=False):
+    def __init_select(self, op="replace"):
 
         if not (self.mouse_watcher.has_mouse() and self._pixel_under_mouse):
             return
 
+        self._selection_op = op
         screen_pos = Point2(self.mouse_watcher.get_mouse())
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
@@ -363,16 +373,11 @@ class SelectionManager(BaseObject):
             obj = picked_obj
 
         if self._picked_poly:
-            self._toggle_select = toggle
             Mgr.enter_state("uv_picking_via_poly")
             return
 
         self._color_id = obj.get_picking_color_id() if obj else None
-
-        if toggle:
-            self.__toggle_select()
-        else:
-            self.__regular_select()
+        self.__select()
 
     def __get_selected_uv_objects(self, subobjs):
 
@@ -426,13 +431,13 @@ class SelectionManager(BaseObject):
 
         return selected_uv_objs
 
-    def __regular_select(self):
+    def __select(self):
 
         obj_lvl = self._obj_lvl
         selection = self._selections[obj_lvl]
-        selection.clear()
         subobj = Mgr.get(obj_lvl, self._color_id)
-        color_ids = set()
+        op = self._selection_op
+        sync_selection = True
 
         if subobj:
 
@@ -445,42 +450,30 @@ class SelectionManager(BaseObject):
                 ids.intersection_update(merged_subobj)
                 subobj = geom_data_obj.get_subobject(obj_lvl, ids.pop())
 
-            selected_uv_objs = self.__get_selected_uv_objects([subobj])
-            selection.update(selected_uv_objs)
+            if op == "replace":
+                selection.clear()
+                selection.update(self.__get_selected_uv_objects([subobj]))
+            elif op == "add":
+                selection |= self.__get_selected_uv_objects([subobj])
+            elif op == "remove":
+                selection -= self.__get_selected_uv_objects([subobj])
+            elif op == "toggle":
+                old_sel = set(selection)
+                new_sel = self.__get_selected_uv_objects([subobj])
+                selection -= old_sel & new_sel
+                selection |= new_sel - old_sel
 
-            if obj_lvl == "poly":
-                color_ids.update(poly.get_picking_color_id() for poly in selection)
-            else:
-                for subobj in selection:
-                    color_ids.update(subobj.get_picking_color_ids())
+        elif op == "replace":
 
-        self._uv_editor.sync_selection(color_ids)
-        self.sync_selection(color_ids)
+            selection.clear()
 
-    def __toggle_select(self):
+        else:
 
-        obj_lvl = self._obj_lvl
-        selection = self._selections[obj_lvl]
-        subobj = Mgr.get(obj_lvl, self._color_id)
+            sync_selection = False
 
-        if subobj:
+        if sync_selection:
 
-            merged_subobj = subobj.get_merged_object()
-            geom_data_obj = subobj.get_geom_data_object()
-
-            if obj_lvl != "poly" and GlobalData["uv_edit_options"]["pick_via_poly"]:
-                poly = self._picked_poly
-                ids = set(poly.get_vertex_ids() if obj_lvl == "vert" else poly.get_edge_ids())
-                ids.intersection_update(merged_subobj)
-                subobj = geom_data_obj.get_subobject(obj_lvl, ids.pop())
-
-            selected_uv_objs = self.__get_selected_uv_objects([subobj])
             color_ids = set()
-
-            old_sel = set(selection)
-            new_sel = selected_uv_objs
-            selection -= old_sel & new_sel
-            selection |= new_sel - old_sel
 
             if obj_lvl == "poly":
                 color_ids.update(poly.get_picking_color_id() for poly in selection)
@@ -491,7 +484,7 @@ class SelectionManager(BaseObject):
             self._uv_editor.sync_selection(color_ids)
             self.sync_selection(color_ids)
 
-    def __region_select(self, cam, toggle_select):
+    def __region_select(self, cam, op):
 
         obj_lvl = self._obj_lvl
 
@@ -557,13 +550,17 @@ class SelectionManager(BaseObject):
         selection = self._selections[obj_lvl]
         color_ids = set()
 
-        if toggle_select:
+        if op == "replace":
+            selection.clear()
+            selection.update(new_sel)
+        elif op == "add":
+            selection |= new_sel
+        elif op == "remove":
+            selection -= new_sel
+        elif op == "toggle":
             old_sel = set(selection)
             selection -= old_sel & new_sel
             selection |= new_sel - old_sel
-        else:
-            selection.clear()
-            selection.update(new_sel)
 
         if obj_lvl == "poly":
             color_ids.update(poly.get_picking_color_id() for poly in selection)
@@ -574,7 +571,7 @@ class SelectionManager(BaseObject):
         self._uv_editor.sync_selection(color_ids)
         self.sync_selection(color_ids)
 
-    def __start_uv_picking_via_poly(self, prev_state_id, is_active):
+    def __init_uv_picking_via_poly(self, prev_state_id, is_active):
 
         Mgr.add_task(self.__hilite_subobj, "hilite_subobj")
         Mgr.remove_task("update_cursor")
@@ -680,11 +677,7 @@ class SelectionManager(BaseObject):
                         obj = None
 
         self._color_id = obj.get_picking_color_id() if obj else None
-
-        if self._toggle_select:
-            self.__toggle_select()
-        else:
-            self.__regular_select()
+        self.__select()
 
         geom_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 
@@ -697,7 +690,6 @@ class SelectionManager(BaseObject):
 
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._pixel_under_mouse = None
         self._aux_pixel_under_mouse = None
@@ -720,7 +712,6 @@ class SelectionManager(BaseObject):
 
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._pixel_under_mouse = None
         self._aux_pixel_under_mouse = None

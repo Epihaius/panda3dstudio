@@ -162,11 +162,11 @@ class UVSelectionBase(BaseObject):
         self._color_id = None
         self._selections = {}
         self._can_select_single = False
+        self._selection_op = "replace"
         self._selection_border = self.__create_selection_border()
         self._selection_border_pos = ()
         self._draw_plane = Plane(Vec3.forward(), Point3())
         self._region_sel_cancelled = False
-        self._region_toggle_sel = False
         cam = Camera("uv_region_selection_cam")
         cam.set_active(False)
         cam.set_scene(self.geom_root)
@@ -175,7 +175,6 @@ class UVSelectionBase(BaseObject):
         # the following variables are used to pick a subobject using its polygon
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._aux_pixel_under_mouse = None
 
@@ -191,7 +190,7 @@ class UVSelectionBase(BaseObject):
         UVMgr.accept("update_active_selection", self.__update_active_selection)
 
         GlobalData["status_data"]["select_uvs"] = status_data = {}
-        info_start = "RMB to pan, MWheel or LMB+RMB to zoom; (<Ctrl>-)LMB to (toggle-)select subobjects; "
+        info_start = "RMB to pan, MWheel or LMB+RMB to zoom; (<Alt>-)LMB to (region-)select subobjects; "
         info_text = info_start + "<W>, <E>, <R> to set transform type"
         status_data[""] = {"mode": "Select UVs", "info": info_text}
         info_idle = info_start + "LMB-drag selection or gizmo handle to transform;" \
@@ -211,7 +210,7 @@ class UVSelectionBase(BaseObject):
                   interface_id="uv")
         add_state("checking_mouse_offset", -1, self.__start_mouse_check,
                   interface_id="uv")
-        add_state("picking_via_poly", -1, self.__start_subobj_picking_via_poly,
+        add_state("picking_via_poly", -1, self.__init_subobj_picking_via_poly,
                   interface_id="uv")
         add_state("aux_viewport_resize", -200, interface_id="uv")
         add_state("region_selection_mode", -1, self.__enter_region_selection_mode,
@@ -219,15 +218,24 @@ class UVSelectionBase(BaseObject):
 
         mod_alt = GlobalData["mod_key_codes"]["alt"]
         mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        mod_shift = GlobalData["mod_key_codes"]["shift"]
         bind = Mgr.bind_state
-        bind("uv_edit_mode", "regular select uvs",
-             "mouse1", self.__select, "uv")
-        bind("uv_edit_mode", "toggle-select uvs", "{:d}|mouse1".format(mod_ctrl),
-             lambda: self.__select(toggle=True), "uv")
-        bind("uv_edit_mode", "region-select uvs", "{:d}|mouse1".format(mod_alt),
-             lambda: Mgr.enter_state("region_selection_mode", "uv"), "uv")
-        bind("uv_edit_mode", "region-toggle-select uvs",
-             "{:d}|mouse1".format(mod_alt | mod_ctrl), self.__region_toggle_select, "uv")
+        bind("uv_edit_mode", "select (replace) uvs",
+             "mouse1", self.__init_select, "uv")
+        bind("uv_edit_mode", "select (add) uvs", "{:d}|mouse1".format(mod_ctrl),
+             lambda: self.__init_select(op="add"), "uv")
+        bind("uv_edit_mode", "select (remove) uvs", "{:d}|mouse1".format(mod_shift),
+             lambda: self.__init_select(op="remove"), "uv")
+        bind("uv_edit_mode", "select (toggle) uvs", "{:d}|mouse1".format(mod_ctrl | mod_shift),
+             lambda: self.__init_select(op="toggle"), "uv")
+        bind("uv_edit_mode", "region-select (replace) uvs", "{:d}|mouse1".format(mod_alt),
+             self.__init_region_select, "uv")
+        bind("uv_edit_mode", "region-select (add) uvs", "{:d}|mouse1".format(mod_alt | mod_ctrl),
+             lambda: self.__init_region_select(op="add"), "uv")
+        bind("uv_edit_mode", "region-select (remove) uvs", "{:d}|mouse1".format(mod_alt | mod_shift),
+             lambda: self.__init_region_select(op="remove"), "uv")
+        bind("uv_edit_mode", "region-select (toggle) uvs", "{:d}|mouse1".format(mod_alt | mod_ctrl | mod_shift),
+             lambda: self.__init_region_select(op="toggle"), "uv")
         bind("uv_edit_mode", "transf off", "q",
              self.__set_active_transform_off, "uv")
         bind("picking_via_poly", "select subobj via poly",
@@ -348,15 +356,14 @@ class UVSelectionBase(BaseObject):
         Mgr.exit_state("region_selection_mode", "uv")
         self._region_sel_cancelled = False
 
-    def __region_toggle_select(self):
+    def __init_region_select(self, op="replace"):
 
-        self._region_toggle_sel = True
+        self._selection_op = op
         Mgr.enter_state("region_selection_mode", "uv")
 
     def __region_select(self, frame):
 
         if self._region_sel_cancelled:
-            self._region_toggle_sel = False
             return
 
         lens = self.cam_lens
@@ -393,8 +400,16 @@ class UVSelectionBase(BaseObject):
         base.make_camera(bfr, useCamera=cam_np)
         cam_np.reparent_to(self.cam)
 
-        toggle_select = self.mouse_watcher.is_button_down(KeyboardButton.control())
-        toggle_select = toggle_select or self._region_toggle_sel
+        ctrl_down = self.mouse_watcher.is_button_down(KeyboardButton.control())
+        shift_down = self.mouse_watcher.is_button_down(KeyboardButton.shift())
+
+        if ctrl_down:
+            op = "toggle" if shift_down else "add"
+        elif shift_down:
+            op = "remove"
+        else:
+            op = self._selection_op
+
         new_sel = set()
 
         uv_set_id = self._uv_set_id
@@ -457,12 +472,16 @@ class UVSelectionBase(BaseObject):
         selection = self._selections[uv_set_id][obj_lvl]
         color_ids = set()
 
-        if toggle_select:
+        if op == "replace":
+            selection.replace(new_sel)
+        elif op == "add":
+            selection.add(new_sel)
+        elif op == "remove":
+            selection.remove(new_sel)
+        elif op == "toggle":
             old_sel = set(selection)
             selection.remove(old_sel & new_sel)
             selection.add(new_sel - old_sel)
-        else:
-            selection.replace(new_sel)
 
         if obj_lvl == "poly":
             color_ids.update(poly.get_picking_color_id() for poly in selection)
@@ -475,7 +494,6 @@ class UVSelectionBase(BaseObject):
         cam.set_active(False)
         ge.remove_window(bfr)
         UVMgr.get("picking_cam").set_active()
-        self._region_toggle_sel = False
 
     def __enter_selection_mode(self, prev_state_id, is_active):
 
@@ -639,11 +657,12 @@ class UVSelectionBase(BaseObject):
 
         return (pickable_type, picked_obj) if picked_obj else ("", None)
 
-    def __select(self, toggle=False):
+    def __init_select(self, op="replace"):
 
         if not (self.mouse_watcher.has_mouse() and self._pixel_under_mouse):
             return
 
+        self._selection_op = op
         self._can_select_single = False
         mouse_pointer = Mgr.get("base").win.get_pointer(0)
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
@@ -655,7 +674,7 @@ class UVSelectionBase(BaseObject):
 
         if (GlobalData["active_uv_transform_type"] and obj_lvl != pickable_type == "poly"
                 and GlobalData["uv_edit_options"]["pick_via_poly"]):
-            self.__start_selection_via_poly(picked_obj, toggle)
+            self.__init_selection_via_poly(picked_obj)
             return
 
         self._picked_point = UVMgr.get("picked_point") if picked_obj else None
@@ -705,64 +724,98 @@ class UVSelectionBase(BaseObject):
             obj = picked_obj
 
         if self._picked_poly:
-            self._toggle_select = toggle
             Mgr.enter_state("picking_via_poly", "uv")
             return
 
         self._color_id = obj.get_picking_color_id() if obj else None
+        self.__select()
 
-        if toggle:
-            self.__toggle_select()
-        else:
-            self.__regular_select()
-
-    def __regular_select(self, check_mouse=True, ignore_transform=False):
+    def __select(self, check_mouse=True, ignore_transform=False):
 
         obj_lvl = self._obj_lvl
         uv_set_id = self._uv_set_id
         selection = self._selections[uv_set_id][obj_lvl]
         subobj = self._uv_registry[uv_set_id][obj_lvl].get(self._color_id)
-        color_ids = set()
+        subobj = subobj.get_merged_object() if subobj else None
+        sync_selection = True
+        op = self._selection_op
 
         if subobj:
 
-            subobj = subobj.get_merged_object()
+            if op == "replace":
 
-            if GlobalData["active_uv_transform_type"] and not ignore_transform:
+                if GlobalData["active_uv_transform_type"] and not ignore_transform:
 
-                if subobj in selection and len(selection) > 1:
+                    if subobj in selection and len(selection) > 1:
 
-                    # When the user clicks one of multiple selected subobjects, updating the
-                    # selection must be delayed until it is clear whether he wants to
-                    # transform the entire selection or simply have only this subobject
-                    # selected (this is determined by checking if the mouse has moved at
-                    # least a certain number of pixels by the time the left mouse button
-                    # is released).
+                        # When the user clicks one of multiple selected subobjects, updating the
+                        # selection must be delayed until it is clear whether he wants to
+                        # transform the entire selection or simply have only this subobject
+                        # selected (this is determined by checking if the mouse has moved at
+                        # least a certain number of pixels by the time the left mouse button
+                        # is released).
 
-                    self._can_select_single = True
+                        self._can_select_single = True
+
+                    else:
+
+                        selection.replace(subobj.get_special_selection())
+
+                    if check_mouse:
+                        Mgr.enter_state("checking_mouse_offset", "uv")
 
                 else:
 
                     selection.replace(subobj.get_special_selection())
 
-                if check_mouse:
+            elif op == "add":
+
+                new_sel = set(subobj.get_special_selection())
+                selection.add(new_sel)
+                transform_allowed = GlobalData["active_uv_transform_type"]
+
+                if check_mouse and transform_allowed:
                     Mgr.enter_state("checking_mouse_offset", "uv")
 
-            else:
+            elif op == "remove":
 
-                selection.replace(subobj.get_special_selection())
+                new_sel = set(subobj.get_special_selection())
+                selection.remove(new_sel)
 
-        else:
+            elif op == "toggle":
+
+                old_sel = set(selection)
+                new_sel = set(subobj.get_special_selection())
+                selection.remove(old_sel & new_sel)
+                selection.add(new_sel - old_sel)
+
+                if subobj in selection:
+                    transform_allowed = GlobalData["active_uv_transform_type"]
+                else:
+                    transform_allowed = False
+
+                if check_mouse and transform_allowed:
+                    Mgr.enter_state("checking_mouse_offset", "uv")
+
+        elif op == "replace":
 
             selection.clear()
 
-        if obj_lvl == "poly":
-            color_ids.update(poly.get_picking_color_id() for poly in selection)
         else:
-            for subobj in selection:
-                color_ids.update(subobj.get_picking_color_ids())
 
-        self._world_sel_mgr.sync_selection(color_ids)
+            sync_selection = False
+
+        if sync_selection:
+
+            color_ids = set()
+
+            if obj_lvl == "poly":
+                color_ids.update(poly.get_picking_color_id() for poly in selection)
+            else:
+                for subobj in selection:
+                    color_ids.update(subobj.get_picking_color_ids())
+
+            self._world_sel_mgr.sync_selection(color_ids)
 
     def __select_single(self):
 
@@ -774,7 +827,6 @@ class UVSelectionBase(BaseObject):
         selection = self._selections[uv_set_id][obj_lvl]
         subobj = self._uv_registry[uv_set_id][obj_lvl].get(self._color_id)
         subobj = subobj.get_merged_object()
-        uv_data_obj = subobj.get_uv_data_object()
         color_ids = set()
         selection.replace(subobj.get_special_selection())
 
@@ -786,40 +838,6 @@ class UVSelectionBase(BaseObject):
 
         self._world_sel_mgr.sync_selection(color_ids)
 
-    def __toggle_select(self, check_mouse=True):
-
-        obj_lvl = self._obj_lvl
-        uv_set_id = self._uv_set_id
-        subobj = self._uv_registry[uv_set_id][obj_lvl].get(self._color_id)
-
-        if subobj:
-
-            selection = self._selections[uv_set_id][obj_lvl]
-            subobj = subobj.get_merged_object()
-            uv_data_obj = subobj.get_uv_data_object()
-            color_ids = set()
-
-            if subobj in selection:
-                transform_allowed = False
-            else:
-                transform_allowed = GlobalData["active_uv_transform_type"]
-
-            old_sel = set(selection)
-            new_sel = set(subobj.get_special_selection())
-            selection.remove(old_sel & new_sel)
-            selection.add(new_sel - old_sel)
-
-            if obj_lvl == "poly":
-                color_ids.update(poly.get_picking_color_id() for poly in selection)
-            else:
-                for subobj in selection:
-                    color_ids.update(subobj.get_picking_color_ids())
-
-            self._world_sel_mgr.sync_selection(color_ids)
-
-            if check_mouse and transform_allowed:
-                Mgr.enter_state("checking_mouse_offset", "uv")
-
     def sync_selection(self, color_ids):
 
         obj_lvl = self._obj_lvl
@@ -829,14 +847,13 @@ class UVSelectionBase(BaseObject):
         subobjects = set(uv_registry[color_id].get_merged_object() for color_id in color_ids)
         selection.replace(subobjects)
 
-    def __start_selection_via_poly(self, picked_poly, toggle):
+    def __init_selection_via_poly(self, picked_poly):
 
         if picked_poly:
             self._picked_poly = picked_poly
-            self._toggle_select = toggle
             Mgr.enter_state("picking_via_poly", "uv")
 
-    def __start_subobj_picking_via_poly(self, prev_state_id, is_active):
+    def __init_subobj_picking_via_poly(self, prev_state_id, is_active):
 
         self._transf_gizmo.set_pickable(False)
         Mgr.add_task(self.__hilite_subobj, "hilite_subobj")
@@ -937,11 +954,8 @@ class UVSelectionBase(BaseObject):
 
         self._color_id = obj.get_picking_color_id() if obj else None
 
-        if self._toggle_select:
-            self.__toggle_select(False)
-        else:
-            ignore_transform = not transform
-            self.__regular_select(False, ignore_transform)
+        ignore_transform = not transform
+        self.__select(False, ignore_transform)
 
         uv_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 
@@ -951,7 +965,6 @@ class UVSelectionBase(BaseObject):
 
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._pixel_under_mouse = None
         self._aux_pixel_under_mouse = None
@@ -985,7 +998,6 @@ class UVSelectionBase(BaseObject):
 
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._pixel_under_mouse = None
         self._aux_pixel_under_mouse = None

@@ -939,11 +939,11 @@ class SelectionManager(BaseObject):
         self._color_id = None
         self._selections = {}
         self._prev_obj_lvl = None
+        self._selection_op = "replace"
 
         # the following variables are used to pick a subobject using its polygon
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._pixel_under_mouse = None
         self._aux_pixel_under_mouse = None
@@ -995,22 +995,22 @@ class SelectionManager(BaseObject):
         Mgr.accept("update_selection_edge", lambda: self.__update_selection("edge"))
         Mgr.accept("update_selection_poly", lambda: self.__update_selection("poly"))
         Mgr.accept("update_selection_normal", lambda: self.__update_selection("normal"))
-        Mgr.accept("select_vert", lambda *args: self.__select("vert", *args))
-        Mgr.accept("select_edge", lambda *args: self.__select("edge", *args))
-        Mgr.accept("select_poly", lambda *args: self.__select("poly", *args))
-        Mgr.accept("select_normal", lambda *args: self.__select("normal", *args))
+        Mgr.accept("select_vert", lambda *args: self.__init_select("vert", *args))
+        Mgr.accept("select_edge", lambda *args: self.__init_select("edge", *args))
+        Mgr.accept("select_poly", lambda *args: self.__init_select("poly", *args))
+        Mgr.accept("select_normal", lambda *args: self.__init_select("normal", *args))
         Mgr.accept("select_single_vert", lambda: self.__select_single("vert"))
         Mgr.accept("select_single_edge", lambda: self.__select_single("edge"))
         Mgr.accept("select_single_poly", lambda: self.__select_single("poly"))
         Mgr.accept("select_single_normal", lambda: self.__select_single("normal"))
         Mgr.accept("region_select_subobjs", self.__region_select)
-        Mgr.accept("start_selection_via_poly", self.__start_selection_via_poly)
+        Mgr.accept("init_selection_via_poly", self.__init_selection_via_poly)
         Mgr.add_app_updater("active_obj_level", lambda: self.__clear_prev_selection(True))
         Mgr.add_app_updater("picking_via_poly", self.__set_subobj_picking_via_poly)
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
 
         add_state = Mgr.add_state
-        add_state("picking_via_poly", -1, self.__start_subobj_picking_via_poly)
+        add_state("picking_via_poly", -1, self.__init_subobj_picking_via_poly)
 
         bind = Mgr.bind_state
         bind("picking_via_poly", "select subobj via poly",
@@ -1066,7 +1066,9 @@ class SelectionManager(BaseObject):
         sel.update()
         self._prev_obj_lvl = obj_lvl
 
-    def __select(self, obj_lvl, picked_obj, toggle):
+    def __init_select(self, obj_lvl, picked_obj, op):
+
+        self._selection_op = op
 
         if obj_lvl == "vert":
 
@@ -1114,17 +1116,11 @@ class SelectionManager(BaseObject):
             obj = picked_obj
 
         if self._picked_poly:
-            self._toggle_select = toggle
             Mgr.enter_state("picking_via_poly")
             return False, False
 
         self._color_id = obj.get_picking_color_id() if obj else None
-
-        if toggle:
-            r = self.__toggle_select(obj_lvl)
-        else:
-            r = self.__regular_select(obj_lvl)
-
+        r = self.__select(obj_lvl)
         selection = self._selections[obj_lvl]
 
         if not (obj and obj in selection):
@@ -1144,7 +1140,7 @@ class SelectionManager(BaseObject):
 
         return r
 
-    def __regular_select(self, obj_lvl, ignore_transform=False):
+    def __select(self, obj_lvl, ignore_transform=False):
 
         if obj_lvl == "normal":
             obj = Mgr.get("vert", self._color_id)
@@ -1161,33 +1157,63 @@ class SelectionManager(BaseObject):
         selection = self._selections[obj_lvl]
         can_select_single = False
         start_mouse_checking = False
+        op = self._selection_op
 
         if obj:
 
-            if GlobalData["active_transform_type"] and not ignore_transform:
+            if op == "replace":
 
-                if obj in selection and len(selection) > 1:
+                if GlobalData["active_transform_type"] and not ignore_transform:
 
-                    # When the user clicks one of multiple selected objects, updating the
-                    # selection must be delayed until it is clear whether he wants to
-                    # transform the entire selection or simply have only this object
-                    # selected (this is determined by checking if the mouse has moved at
-                    # least a certain number of pixels by the time the left mouse button
-                    # is released).
+                    if obj in selection and len(selection) > 1:
 
-                    can_select_single = True
+                        # When the user clicks one of multiple selected objects, updating the
+                        # selection must be delayed until it is clear whether he wants to
+                        # transform the entire selection or simply have only this object
+                        # selected (this is determined by checking if the mouse has moved at
+                        # least a certain number of pixels by the time the left mouse button
+                        # is released).
+
+                        can_select_single = True
+
+                    else:
+
+                        selection.replace(obj.get_special_selection())
+
+                    start_mouse_checking = True
 
                 else:
 
                     selection.replace(obj.get_special_selection())
 
-                start_mouse_checking = True
+            elif op == "add":
 
-            else:
+                selection.add(obj.get_special_selection())
+                transform_allowed = GlobalData["active_transform_type"]
 
-                selection.replace(obj.get_special_selection())
+                if transform_allowed:
+                    start_mouse_checking = True
 
-        else:
+            elif op == "remove":
+
+                selection.remove(obj.get_special_selection())
+
+            elif op == "toggle":
+
+                old_sel = set(selection)
+                new_sel = set(obj.get_special_selection())
+                selection.remove(old_sel & new_sel)
+                selection.add(new_sel - old_sel)
+
+                if obj in selection:
+                    transform_allowed = GlobalData["active_transform_type"]
+                else:
+                    transform_allowed = False
+
+                if transform_allowed:
+                    start_mouse_checking = True
+
+        elif op == "replace":
 
             selection.clear()
 
@@ -1212,38 +1238,7 @@ class SelectionManager(BaseObject):
 
         self._selections[obj_lvl].replace(obj.get_special_selection())
 
-    def __toggle_select(self, obj_lvl):
-
-        if obj_lvl == "normal":
-            obj = Mgr.get("vert", self._color_id)
-        else:
-            obj = Mgr.get(obj_lvl, self._color_id)
-
-        if obj_lvl == "vert":
-            obj = obj.get_merged_vertex() if obj else None
-        elif obj_lvl == "edge":
-            obj = obj.get_merged_edge() if obj else None
-        elif obj_lvl == "normal":
-            obj = obj.get_shared_normal() if obj else None
-
-        selection = self._selections[obj_lvl]
-        start_mouse_checking = False
-
-        if obj:
-
-            if obj in selection:
-                selection.remove(obj.get_special_selection())
-                transform_allowed = False
-            else:
-                selection.add(obj.get_special_selection())
-                transform_allowed = GlobalData["active_transform_type"]
-
-            if transform_allowed:
-                start_mouse_checking = True
-
-        return False, start_mouse_checking
-
-    def __region_select(self, cam, toggle_select):
+    def __region_select(self, cam, op):
 
         obj_lvl = GlobalData["active_obj_level"]
 
@@ -1338,12 +1333,16 @@ class SelectionManager(BaseObject):
 
         selection = self._selections[obj_lvl]
 
-        if toggle_select:
+        if op == "replace":
+            selection.replace(new_sel)
+        elif op == "add":
+            selection.add(new_sel)
+        elif op == "remove":
+            selection.remove(new_sel)
+        elif op == "toggle":
             old_sel = set(selection)
             selection.remove(old_sel & new_sel)
             selection.add(new_sel - old_sel)
-        else:
-            selection.replace(new_sel)
 
     def __set_subobj_picking_via_poly(self, via_poly=False):
 
@@ -1366,15 +1365,15 @@ class SelectionManager(BaseObject):
         for obj in Mgr.get("selection_top"):
             obj.get_geom_object().get_geom_data_object().init_subobj_picking(obj_lvl)
 
-    def __start_selection_via_poly(self, picked_poly, toggle):
+    def __init_selection_via_poly(self, picked_poly, op):
 
         if picked_poly:
             Mgr.do("set_transf_gizmo_pickable", False)
             self._picked_poly = picked_poly
-            self._toggle_select = toggle
+            self._selection_op = op
             Mgr.enter_state("picking_via_poly")
 
-    def __start_subobj_picking_via_poly(self, prev_state_id, is_active):
+    def __init_subobj_picking_via_poly(self, prev_state_id, is_active):
 
         Mgr.add_task(self.__hilite_subobj, "hilite_subobj")
         Mgr.remove_task("update_cursor")
@@ -1492,11 +1491,8 @@ class SelectionManager(BaseObject):
 
         self._color_id = obj.get_picking_color_id() if obj else None
 
-        if self._toggle_select:
-            self.__toggle_select(subobj_lvl)
-        else:
-            ignore_transform = not transform
-            self.__regular_select(subobj_lvl, ignore_transform)
+        ignore_transform = not transform
+        self.__select(subobj_lvl, ignore_transform)
 
         geom_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 
@@ -1509,7 +1505,6 @@ class SelectionManager(BaseObject):
 
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._pixel_under_mouse = None
         self._aux_pixel_under_mouse = None
@@ -1553,7 +1548,6 @@ class SelectionManager(BaseObject):
 
         self._picked_poly = None
         self._tmp_color_id = None
-        self._toggle_select = False
         self._cursor_id = ""
         self._pixel_under_mouse = None
         self._aux_pixel_under_mouse = None

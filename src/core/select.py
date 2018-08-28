@@ -356,12 +356,12 @@ class SelectionManager(BaseObject):
         self._mouse_end_pos = ()
         self._picked_point = None
         self._can_select_single = False
+        self._selection_op = "replace"
 
         self._obj_id = None
         self._selection = Selection()
         self._pixel_under_mouse = None
         self._region_sel_cam = None
-        self._region_toggle_sel = False
         self._region_sel_cancelled = False
 
         GlobalData.set_default("selection_count", 0)
@@ -371,7 +371,7 @@ class SelectionManager(BaseObject):
         Mgr.expose("selection_top", lambda: self._selection)
         Mgr.accept("select_top", self.__select_toplvl_obj)
         Mgr.accept("select_single_top", self.__select_single)
-        Mgr.accept("region_toggle_select", self.__region_toggle_select)
+        Mgr.accept("init_region_select", self.__init_region_select)
 
         def force_cursor_update(transf_type):
 
@@ -394,14 +394,23 @@ class SelectionManager(BaseObject):
 
         mod_alt = GlobalData["mod_key_codes"]["alt"]
         mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        mod_shift = GlobalData["mod_key_codes"]["shift"]
         bind = Mgr.bind_state
-        bind("selection_mode", "regular select", "mouse1", self.__select)
-        bind("selection_mode", "toggle-select", "{:d}|mouse1".format(mod_ctrl),
-             lambda: self.__select(toggle=True))
-        bind("selection_mode", "select -> region-select", "{:d}|mouse1".format(mod_alt),
-             lambda: Mgr.enter_state("region_selection_mode"))
-        bind("selection_mode", "select -> region-toggle-select",
-             "{:d}|mouse1".format(mod_alt | mod_ctrl), self.__region_toggle_select)
+        bind("selection_mode", "replace selection", "mouse1", self.__init_select)
+        bind("selection_mode", "add to selection", "{:d}|mouse1".format(mod_ctrl),
+             lambda: self.__init_select(op="add"))
+        bind("selection_mode", "remove from selection", "{:d}|mouse1".format(mod_shift),
+             lambda: self.__init_select(op="remove"))
+        bind("selection_mode", "toggle-select", "{:d}|mouse1".format(mod_ctrl | mod_shift),
+             lambda: self.__init_select(op="toggle"))
+        bind("selection_mode", "region-select (replace)", "{:d}|mouse1".format(mod_alt),
+             self.__init_region_select)
+        bind("selection_mode", "region-select (add)", "{:d}|mouse1".format(mod_alt | mod_ctrl),
+             lambda: self.__init_region_select(op="add"))
+        bind("selection_mode", "region-select (remove)", "{:d}|mouse1".format(mod_alt | mod_shift),
+             lambda: self.__init_region_select(op="remove"))
+        bind("selection_mode", "region-select (toggle)", "{:d}|mouse1".format(mod_alt | mod_ctrl | mod_shift),
+             lambda: self.__init_region_select(op="toggle"))
         bind("selection_mode", "select -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("selection_mode", "access obj props", "mouse3", self.__access_obj_props)
@@ -423,7 +432,7 @@ class SelectionManager(BaseObject):
              "mouse1-up", cancel_mouse_check)
 
         GlobalData["status_data"]["select"] = status_data = {}
-        info_start = "<Space> to navigate; (<Ctrl>-)LMB to (toggle-)select; <Del> to delete selection; "
+        info_start = "<Space> to navigate; (<Alt>-)LMB to (region-)select; <Del> to delete selection; "
         info_text = info_start + "<W>, <E>, <R> to set transform type"
         status_data[""] = {"mode": "Select", "info": info_text}
         info_idle = info_start + "LMB-drag selection or gizmo handle to transform;" \
@@ -546,15 +555,14 @@ class SelectionManager(BaseObject):
         Mgr.exit_state("region_selection_mode")
         self._region_sel_cancelled = False
 
-    def __region_toggle_select(self):
+    def __init_region_select(self, op="replace"):
 
-        self._region_toggle_sel = True
+        self._selection_op = op
         Mgr.enter_state("region_selection_mode")
 
     def __region_select(self, frame):
 
         if self._region_sel_cancelled:
-            self._region_toggle_sel = False
             return
 
         lens = self.cam.lens
@@ -591,14 +599,21 @@ class SelectionManager(BaseObject):
         base.make_camera(bfr, useCamera=cam_np)
         ge = base.graphics_engine
 
-        toggle_select = self.mouse_watcher.is_button_down(KeyboardButton.control())
-        toggle_select = toggle_select or self._region_toggle_sel
+        ctrl_down = self.mouse_watcher.is_button_down(KeyboardButton.control())
+        shift_down = self.mouse_watcher.is_button_down(KeyboardButton.shift())
+
+        if ctrl_down:
+            op = "toggle" if shift_down else "add"
+        elif shift_down:
+            op = "remove"
+        else:
+            op = self._selection_op
 
         obj_lvl = GlobalData["active_obj_level"]
 
         if self._region_sel_uvs:
 
-            Mgr.do("region_select_uvs", cam, toggle_select)
+            Mgr.do("region_select_uvs", cam, op)
 
         elif obj_lvl == "top":
 
@@ -644,21 +659,24 @@ class SelectionManager(BaseObject):
             Mgr.do("make_point_helpers_pickable")
             Mgr.do("region_select_point_helpers", cam, new_sel)
 
-            if toggle_select:
+            if op == "replace":
+                self._selection.replace(new_sel)
+            elif op == "add":
+                self._selection.add(new_sel)
+            elif op == "remove":
+                self._selection.remove(new_sel)
+            elif op == "toggle":
                 old_sel = set(self._selection)
                 self._selection.remove(old_sel & new_sel)
                 self._selection.add(new_sel - old_sel)
-            else:
-                self._selection.replace(new_sel)
 
         else:
 
-            Mgr.do("region_select_subobjs", cam, toggle_select)
+            Mgr.do("region_select_subobjs", cam, op)
 
         cam.set_active(False)
         ge.remove_window(bfr)
         Mgr.get("picking_cam").set_active()
-        self._region_toggle_sel = False
 
     def __get_selection(self, obj_lvl=""):
 
@@ -854,7 +872,7 @@ class SelectionManager(BaseObject):
 
         return (pickable_type, picked_obj) if picked_obj else ("", None)
 
-    def __select(self, toggle=False):
+    def __init_select(self, op="replace"):
 
         if not (self.mouse_watcher.has_mouse() and self._pixel_under_mouse):
             return
@@ -871,7 +889,7 @@ class SelectionManager(BaseObject):
 
         if (GlobalData["active_transform_type"] and obj_lvl != pickable_type == "poly"
                 and GlobalData["subobj_edit_options"]["pick_via_poly"]):
-            Mgr.do("start_selection_via_poly", picked_obj, toggle)
+            Mgr.do("init_selection_via_poly", picked_obj, op)
             return
 
         self._picked_point = picked_obj.get_point_at_screen_pos(screen_pos) if picked_obj else None
@@ -880,23 +898,18 @@ class SelectionManager(BaseObject):
             Mgr.enter_state("checking_mouse_offset")
             return
 
-        can_select_single, start_mouse_checking = Mgr.do("select_" + obj_lvl, picked_obj, toggle)
+        can_select_single, start_mouse_checking = Mgr.do("select_" + obj_lvl, picked_obj, op)
 
         self._can_select_single = can_select_single
 
         if start_mouse_checking:
             Mgr.enter_state("checking_mouse_offset")
 
-    def __select_toplvl_obj(self, picked_obj, toggle):
+    def __select_toplvl_obj(self, picked_obj, op):
 
         obj = picked_obj.get_toplevel_object(get_group=True) if picked_obj else None
         self._obj_id = obj.get_id() if obj else None
-
-        if toggle:
-            r = self.__toggle_select()
-        else:
-            r = self.__regular_select()
-
+        r = self.__select(op)
         selection = self._selection
 
         if not (obj and obj in selection):
@@ -915,7 +928,7 @@ class SelectionManager(BaseObject):
 
         return r
 
-    def __regular_select(self):
+    def __select(self, op):
 
         obj = Mgr.get("object", self._obj_id)
         selection = self._selection
@@ -924,30 +937,59 @@ class SelectionManager(BaseObject):
 
         if obj:
 
-            if GlobalData["active_transform_type"]:
+            if op == "replace":
 
-                if obj in selection and len(selection) > 1:
+                if GlobalData["active_transform_type"]:
 
-                    # When the user clicks one of multiple selected objects, updating the
-                    # selection must be delayed until it is clear whether he wants to
-                    # transform the entire selection or simply have only this object
-                    # selected (this is determined by checking if the mouse has moved at
-                    # least a certain number of pixels by the time the left mouse button
-                    # is released).
+                    if obj in selection and len(selection) > 1:
 
-                    can_select_single = True
+                        # When the user clicks one of multiple selected objects, updating the
+                        # selection must be delayed until it is clear whether he wants to
+                        # transform the entire selection or simply have only this object
+                        # selected (this is determined by checking if the mouse has moved at
+                        # least a certain number of pixels by the time the left mouse button
+                        # is released).
+
+                        can_select_single = True
+
+                    else:
+
+                        selection.replace([obj])
+
+                    start_mouse_checking = True
 
                 else:
 
                     selection.replace([obj])
 
-                start_mouse_checking = True
+            elif op == "add":
 
-            else:
+                if obj not in selection:
+                    selection.add([obj])
 
-                selection.replace([obj])
+                transform_allowed = GlobalData["active_transform_type"]
 
-        else:
+                if transform_allowed:
+                    start_mouse_checking = True
+
+            elif op == "remove":
+
+                if obj in selection:
+                    selection.remove([obj])
+
+            elif op == "toggle":
+
+                if obj in selection:
+                    selection.remove([obj])
+                    transform_allowed = False
+                else:
+                    selection.add([obj])
+                    transform_allowed = GlobalData["active_transform_type"]
+
+                if transform_allowed:
+                    start_mouse_checking = True
+
+        elif op == "replace":
 
             selection.clear()
 
@@ -960,26 +1002,6 @@ class SelectionManager(BaseObject):
 
         obj = Mgr.get("object", self._obj_id)
         self._selection.replace([obj])
-
-    def __toggle_select(self):
-
-        obj = Mgr.get("object", self._obj_id)
-        selection = self._selection
-        start_mouse_checking = False
-
-        if obj:
-
-            if obj in selection:
-                selection.remove([obj])
-                transform_allowed = False
-            else:
-                selection.add([obj])
-                transform_allowed = GlobalData["active_transform_type"]
-
-            if transform_allowed:
-                start_mouse_checking = True
-
-        return False, start_mouse_checking
 
     def __access_obj_props(self):
 
