@@ -314,14 +314,14 @@ class Menu(WidgetCard):
     _ignoring_dialog_events = False
 
     @classmethod
-    def __enter_suppressed_state(cls):
+    def enter_suppressed_state(cls):
 
         if not cls._entered_suppressed_state:
             Mgr.enter_state("suppressed")
             cls._entered_suppressed_state = True
 
     @classmethod
-    def __exit_suppressed_state(cls):
+    def exit_suppressed_state(cls):
 
         if cls._entered_suppressed_state:
             Mgr.exit_state("suppressed")
@@ -352,7 +352,7 @@ class Menu(WidgetCard):
 
         if menu is cls._shown_menu:
             cls._shown_menu = None
-            cls.__exit_suppressed_state()
+            cls.exit_suppressed_state()
             Mgr.do("accept_field_events")
             cls.__accept_dialog_events()
 
@@ -723,7 +723,7 @@ class Menu(WidgetCard):
             Menu._shown_menu = self
 
             if Mgr.get_state_id() != "suppressed":
-                self.__enter_suppressed_state()
+                self.enter_suppressed_state()
 
             Mgr.do("ignore_field_events")
             self.__ignore_dialog_events()

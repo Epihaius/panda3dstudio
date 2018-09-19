@@ -314,10 +314,10 @@ class TemporaryCone(TemporaryPrimitive):
         geom_data = _define_geom_data(segments, is_smooth, True)
         self.create_geometry(geom_data)
         origin = self.get_origin()
-        vs = shader.cone.VERT_SHADER
-        fs = shader.prim.FRAG_SHADER
-        sh = Shader.make(Shader.SL_GLSL, vs, fs)
-        origin.set_shader(sh, 1)
+        vs = shaders.cone.VERT_SHADER
+        fs = shaders.prim.FRAG_SHADER
+        shader = Shader.make(Shader.SL_GLSL, vs, fs)
+        origin.set_shader(shader, 1)
         origin.set_shader_input("bottom_radius", 1.)
         origin.set_shader_input("top_radius", 1.)
         origin.set_shader_input("height", .001)

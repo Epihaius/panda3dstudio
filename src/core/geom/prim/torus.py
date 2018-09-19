@@ -138,10 +138,10 @@ class TemporaryTorus(TemporaryPrimitive):
         geom_data = _define_geom_data(segments, is_smooth, True)
         self.create_geometry(geom_data)
         origin = self.get_origin()
-        vs = shader.torus.VERT_SHADER
-        fs = shader.prim.FRAG_SHADER
-        sh = Shader.make(Shader.SL_GLSL, vs, fs)
-        origin.set_shader(sh, 1)
+        vs = shaders.torus.VERT_SHADER
+        fs = shaders.prim.FRAG_SHADER
+        shader = Shader.make(Shader.SL_GLSL, vs, fs)
+        origin.set_shader(shader, 1)
         origin.set_shader_input("ring_radius", 2.)
 
     def update_size(self, ring_radius=None, section_radius=None):

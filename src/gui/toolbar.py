@@ -104,7 +104,7 @@ class ToolbarGhostImage(object):
         self._geom.set_z(-y)
 
 
-class Toolbar(Widget):
+class Toolbar(Widget, HotkeyManager):
 
     registry = {}
     _gfx = {"": (("toolbar_left", "toolbar_main", "toolbar_right"),)}
@@ -130,6 +130,8 @@ class Toolbar(Widget):
         self.get_mouse_watcher().add_region(self._grip_mouse_region)
         self._composed_image = None
         self._ghost_image = None
+        self._hotkey_handlers = {}
+        self._interface_id = ""
 
     def destroy(self):
 
@@ -139,6 +141,7 @@ class Toolbar(Widget):
         Widget.destroy(self)
 
         self._bundle = None
+        self._hotkeys = {}
 
     def set_parent(self, parent, update_bundle=True):
 
@@ -351,7 +354,38 @@ class Toolbar(Widget):
         if Widget.enable(self, enable):
             self._grip_mouse_region.set_active(enable)
 
+    def add_hotkey(self, hotkey, command, interface_id="main"):
+
+        registry = self.get_hotkey_registry().setdefault(interface_id, {})
+        registry[hotkey] = self
+        self._hotkey_handlers[hotkey] = command
+        self._interface_id = interface_id
+
+    def remove_hotkey(self, hotkey):
+
+        registry = self.get_hotkey_registry().get(self._interface_id, {})
+
+        if hotkey in registry:
+            del registry[hotkey]
+
+        if hotkey in self._hotkey_handlers:
+            del self._hotkey_handlers[hotkey]
+
+    def handle_hotkey(self, hotkey):
+
+        self._hotkey_handlers.get(hotkey, lambda: None)()
+
     def enable_hotkeys(self, enable=True):
+
+        registry = self.get_hotkey_registry().get(self._interface_id, {})
+
+        if enable:
+            for hotkey in self._hotkey_handlers:
+                registry[hotkey] = self
+        else:
+            for hotkey in self._hotkey_handlers:
+                if hotkey in registry:
+                    del registry[hotkey]
 
         for widget in self._client_sizer.get_widgets():
             if widget.get_widget_type() == "toolbar_button":

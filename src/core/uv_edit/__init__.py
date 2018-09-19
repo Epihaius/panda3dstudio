@@ -148,6 +148,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
         if not show:
 
+            Mgr.update_interface_remotely("uv", "uv_level", "poly")
             self.__update_history()
             Mgr.update_interface_locally("uv", "uv_background", "show_on_models", False)
             Mgr.remove_task("update_cursor_uvs")

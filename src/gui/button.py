@@ -2,19 +2,17 @@ from .base import *
 from .tooltip import ToolTip
 
 
-class Button(Widget):
-
-    _btns = {}
+class Button(Widget, HotkeyManager):
 
     def set_hotkey(self, hotkey=None, interface_id="main"):
 
-        btns = self._btns.setdefault(interface_id, {})
+        registry = self.get_hotkey_registry().setdefault(interface_id, {})
 
-        if self._hotkey in btns:
-            del btns[self._hotkey]
+        if self._hotkey in registry:
+            del registry[self._hotkey]
 
         if hotkey:
-            btns[hotkey] = self
+            registry[hotkey] = self
 
         self._hotkey = hotkey
         self._interface_id = interface_id
@@ -26,28 +24,16 @@ class Button(Widget):
         if hotkey is None:
             return
 
-        btns = self._btns.get(self._interface_id, {})
+        registry = self.get_hotkey_registry().get(self._interface_id, {})
 
         if enable:
-            btns[hotkey] = self
-        elif hotkey in btns:
-            del btns[hotkey]
+            registry[hotkey] = self
+        elif hotkey in registry:
+            del registry[hotkey]
 
-    @classmethod
-    def handle_hotkey(cls, hotkey, is_repeat, interface_id="main"):
+    def handle_hotkey(self, hotkey=None):
 
-        btns = cls._btns.get(interface_id, {})
-
-        if hotkey in btns:
-
-            btn = btns[hotkey]
-
-            if not is_repeat:
-                btn.press()
-
-            return True
-
-        return False
+        self.press()
 
     def __init__(self, parent, gfx_data, text="", icon_id="", tooltip_text="", command=None,
                  text_alignment="center", icon_alignment="center", button_type="",

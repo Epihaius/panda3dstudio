@@ -42,13 +42,13 @@ class ViewManager(object):
 
         for view_id, name, accel, hotkey in zip(view_ids, names, accelerators, hotkeys):
             menu.add(view_id, name, get_command(view_id), item_type="radio")
-            menu.set_item_hotkey(view_id, "SHIFT+{}".format(accel.upper()), hotkey)
+            menu.set_item_hotkey(view_id, "Shift+{}".format(accel.upper()), hotkey)
 
         mod_code = mod_key_codes["shift"] | mod_key_codes["alt"]
         hotkey = ("b", mod_code)
         menu.add("bottom", "Bottom", get_command("bottom"), item_type="radio", index=6)
         menu.check_radio_item("persp")
-        menu.set_item_hotkey("bottom", "SHIFT+ALT+B", hotkey)
+        menu.set_item_hotkey("bottom", "Shift+Alt+B", hotkey)
         item = main_menu.add("user_views", "User views", item_type="submenu")
         self._user_view_menu = menu = item.get_submenu()
         item = menu.add("edit_user_views", "Edit", item_type="submenu")
@@ -61,18 +61,18 @@ class ViewManager(object):
         mod_code = mod_key_codes["shift"]
         hotkey = ("u", mod_code)
         submenu.add("snapshot", "Create as snapshot", _init_snapshot)
-        submenu.set_item_hotkey("snapshot", "SHIFT+U", hotkey)
+        submenu.set_item_hotkey("snapshot", "Shift+U", hotkey)
         submenu.add("sep0", item_type="separator")
         submenu.add("toggle_lens_type", "Toggle lens type",
                     lambda: Mgr.update_locally("view", "toggle_lens_type"))
         submenu.add("sep1", item_type="separator")
         hotkey = ("f2", mod_code)
         submenu.add("rename", "Rename", lambda: Mgr.update_remotely("view", "init_rename"))
-        submenu.set_item_hotkey("rename", "SHIFT+F2", hotkey)
+        submenu.set_item_hotkey("rename", "Shift+F2", hotkey)
         submenu.add("sep2", item_type="separator")
         hotkey = ("delete", mod_code)
         submenu.add("remove", "Remove", lambda: Mgr.update_remotely("view", "init_remove"))
-        submenu.set_item_hotkey("remove", "SHIFT+DEL", hotkey)
+        submenu.set_item_hotkey("remove", "Shift+Del", hotkey)
         submenu.add("clear", "Remove all", lambda: Mgr.update_remotely("view", "init_clear"))
         main_menu.add("sep0", item_type="separator")
 
@@ -95,7 +95,7 @@ class ViewManager(object):
 
         main_menu.add("home", "Home", command)
         hotkey = ("home", 0)
-        main_menu.set_item_hotkey("home", "HOME", hotkey)
+        main_menu.set_item_hotkey("home", "Home", hotkey)
         main_menu.add("set_home", "Set current as Home",
                       lambda: Mgr.update_remotely("view", "set_as_home"))
         main_menu.add("reset_home", "Reset Home",
@@ -703,17 +703,17 @@ class ViewTileManager(object):
             command = lambda: Mgr.update_remotely("view", "init_copy", "ortho")
             menu.add("copy_to_ortho", "Copy to orthogr. view", command)
             menu.add("snapshot", "Take snapshot", _init_snapshot)
-            menu.set_item_hotkey("snapshot", "SHIFT+U")
+            menu.set_item_hotkey("snapshot", "Shift+U")
 
         menu_user.add("sep0", item_type="separator")
         menu_user.add("toggle_lens_type", "Toggle lens type", self.__toggle_lens_type)
         menu_user.add("sep1", item_type="separator")
         command = lambda: Mgr.update_remotely("view", "init_rename")
         menu_user.add("rename", "Rename", command)
-        menu_user.set_item_hotkey("rename", "SHIFT+F2")
+        menu_user.set_item_hotkey("rename", "Shift+F2")
         command = lambda: Mgr.update_remotely("view", "init_remove")
         menu_user.add("remove", "Remove", command)
-        menu_user.set_item_hotkey("remove", "SHIFT+DEL")
+        menu_user.set_item_hotkey("remove", "Shift+Del")
 
         menu_std.update()
         menu_user.update()

@@ -222,6 +222,15 @@ class TransformToolbar(Toolbar):
         Toolbar.__init__(self, parent, "transform", "Transform")
 
         self._transform_btns = btns = TransformButtons(self)
+
+        def set_active_transform_off():
+
+            GlobalData["active_transform_type"] = ""
+            Mgr.update_app("active_transform_type", "")
+            Mgr.update_app("status", ["select", ""])
+
+        self.add_hotkey(("q", 0), set_active_transform_off)
+
         borders = (0, 5, 0, 0)
 
         for transf_type in ("translate", "rotate", "scale"):

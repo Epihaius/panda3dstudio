@@ -110,7 +110,10 @@ class MenuButton(Button):
         else:
             parent.set_active_button(self)
 
-    def on_left_up(self): pass
+    def on_left_up(self):
+
+        if Mgr.get_state_id() == "suppressed" and self._menu.is_hidden():
+            self._menu.exit_suppressed_state()
 
 
 class MenuBar(Widget):
@@ -131,24 +134,10 @@ class MenuBar(Widget):
         self._btns = {}
         self._active_button = None
 
-        Mgr.add_app_updater("history", self.__check_undo_redo)
-
     def finalize(self):
 
         for menu in self._menus.values():
             menu.update()
-
-    def __check_undo_redo(self, update_type, *args, **kwargs):
-
-        if update_type != "check":
-            return
-
-        to_undo = GlobalData["history_to_undo"]
-        to_redo = GlobalData["history_to_redo"]
-        menu = self._menus["edit"]
-        menu.enable_item("undo", to_undo)
-        menu.enable_item("redo", to_redo)
-        menu.enable_item("hist", to_undo or to_redo)
 
     def add_menu(self, menu_id, menu_name=""):
 

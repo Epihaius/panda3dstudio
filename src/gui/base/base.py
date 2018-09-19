@@ -413,3 +413,47 @@ class PendingTasks(object):
     def get_sort(cls, task_id, task_type="", batch_id=""):
 
         return cls._batches[batch_id].get_sort(task_id, task_type)
+
+
+class HotkeyManager(object):
+
+    _hotkey_registry = {}
+
+    @classmethod
+    def get_hotkey_registry(cls):
+
+        return cls._hotkey_registry
+
+    @classmethod
+    def handle_widget_hotkey(cls, hotkey, is_repeat, interface_id="main"):
+
+        registry = cls._hotkey_registry.get(interface_id, {})
+
+        if hotkey in registry:
+
+            widget = registry[hotkey]
+
+            if not is_repeat:
+                widget.handle_hotkey(hotkey)
+
+            return True
+
+        interface_ids = list(cls._hotkey_registry.keys())
+
+        if interface_id in interface_ids:
+            interface_ids.remove(interface_id)
+
+        for other_interface_id in interface_ids:
+
+            registry = cls._hotkey_registry[other_interface_id]
+
+            if hotkey in registry:
+
+                widget = registry[hotkey]
+
+                if not is_repeat:
+                    widget.handle_hotkey(hotkey)
+
+                return True
+
+        return False

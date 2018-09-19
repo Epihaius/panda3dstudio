@@ -330,10 +330,15 @@ class PickingCamera(BaseObject):
         self._lenses = {}
         self._mask = BitMask32.bit(12)
         self._pixel_color = VBase4()
+        self._pixel_fetcher = None
 
         Mgr.expose("picking_mask", lambda: self._mask)
         Mgr.expose("pixel_under_mouse", lambda: VBase4(self._pixel_color))
         Mgr.add_app_updater("viewport", self.__update_frustum)
+
+    def __call__(self):
+
+        return self._np
 
     def setup(self):
 
@@ -411,8 +416,7 @@ class PickingCamera(BaseObject):
 
         lens_type = self.cam.lens_type
         lens = self._lenses[lens_type]
-        node = self._np.node()
-        node.set_lens(lens)
+        self._np.node().set_lens(lens)
         gizmo_cam_node = self._gizmo_cam.node()
         gizmo_cam_node.set_lens(lens)
 
@@ -420,6 +424,18 @@ class PickingCamera(BaseObject):
             self._np.set_pos(0., 0., 0.)
         else:
             self._np.set_hpr(0., 0., 0.)
+
+    def set_pixel_fetcher(self, pixel_fetcher):
+        """
+        This method is used to change the default behavior of __get_pixel_under_mouse, so
+        the color of the pixel under the mouse cursor can be obtained in a different way.
+        The callable passed in for pixel_fetcher must take one argument: the Camera used
+        by this class.
+        Pass in None for pixel_fetcher to restore the default behavior.
+
+        """
+
+        self._pixel_fetcher = pixel_fetcher
 
     def set_active(self, is_active=True):
 
@@ -444,21 +460,26 @@ class PickingCamera(BaseObject):
             self._buffer.set_active(True)
             self._np.node().set_active(True)
 
-        screen_pos = self.mouse_watcher.get_mouse()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, Point3(), far_point)
+        if self._pixel_fetcher:
 
-        if self.cam.lens_type == "persp":
-            self._np.look_at(far_point)
+            self._pixel_fetcher(self._np)
+
         else:
-            far_point.y = 0.
-            self._np.set_pos(far_point)
 
-        if not self._tex_peeker:
+            screen_pos = self.mouse_watcher.get_mouse()
+            far_point = Point3()
+            self.cam.lens.extrude(screen_pos, Point3(), far_point)
+
+            if self.cam.lens_type == "persp":
+                self._np.look_at(far_point)
+            else:
+                far_point.y = 0.
+                self._np.set_pos(far_point)
+
+        if self._tex_peeker:
+            self._tex_peeker.lookup(self._pixel_color, .5, .5)
+        else:
             self._tex_peeker = self._tex.peek()
-            return task.cont
-
-        self._tex_peeker.lookup(self._pixel_color, .5, .5)
 
         return task.cont
 

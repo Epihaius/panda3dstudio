@@ -259,9 +259,9 @@ class PropertyPanel(Panel):
         radio_btn_id = self._radio_btns["selection"].get_selected_button()
 
         if radio_btn_id == "deselect":
-            Mgr.update_remotely("object_selection", obj_id, "remove")
+            Mgr.update_remotely("object_selection", "remove", obj_id)
         elif radio_btn_id == "deselect_others":
-            Mgr.update_remotely("object_selection", obj_id, "replace")
+            Mgr.update_remotely("object_selection", "replace", obj_id)
         elif radio_btn_id == "center":
             Mgr.update_remotely("view", "center", False, None, obj_id)
 

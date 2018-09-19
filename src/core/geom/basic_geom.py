@@ -468,12 +468,12 @@ class BasicGeom(BaseObject):
             node.set_bounds(OmniBoundingVolume())
             node.set_final(True)
             normal_geom = self._geom.attach_new_node(node)
-            shaders = shader.normal
-            vs = shaders.VERT_SHADER
-            fs = shaders.FRAG_SHADER
-            gs = shaders.GEOM_SHADER
-            sh = Shader.make(Shader.SL_GLSL, vs, fs, gs)
-            normal_geom.set_shader(sh)
+            sh = shaders.normal
+            vs = sh.VERT_SHADER
+            fs = sh.FRAG_SHADER
+            gs = sh.GEOM_SHADER
+            shader = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+            normal_geom.set_shader(shader)
             normal_geom.set_shader_input("normal_length", self._normal_length)
             normal_geom.set_color(self._normal_color)
             normal_geom.hide(Mgr.get("picking_mask"))

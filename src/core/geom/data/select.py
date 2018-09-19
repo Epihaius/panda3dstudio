@@ -1003,6 +1003,9 @@ class SelectionManager(BaseObject):
         Mgr.accept("select_single_edge", lambda: self.__select_single("edge"))
         Mgr.accept("select_single_poly", lambda: self.__select_single("poly"))
         Mgr.accept("select_single_normal", lambda: self.__select_single("normal"))
+        Mgr.accept("inverse_select_subobjs", self.__inverse_select)
+        Mgr.accept("select_all_subobjs", self.__select_all)
+        Mgr.accept("clear_subobj_selection", self.__select_none)
         Mgr.accept("region_select_subobjs", self.__region_select)
         Mgr.accept("init_selection_via_poly", self.__init_selection_via_poly)
         Mgr.add_app_updater("active_obj_level", lambda: self.__clear_prev_selection(True))
@@ -1065,6 +1068,47 @@ class SelectionManager(BaseObject):
         self._selections[obj_lvl] = sel = Selection(obj_lvl, subobjs)
         sel.update()
         self._prev_obj_lvl = obj_lvl
+
+    def __get_all_combined_subobjs(self, obj_lvl):
+
+        subobjs = []
+        geom_data_objs = [obj.get_geom_object().get_geom_data_object()
+                          for obj in Mgr.get("selection_top")]
+
+        if obj_lvl == "vert":
+            for geom_data_obj in geom_data_objs:
+                subobjs.extend(geom_data_obj.get_merged_vertices().values())
+        elif obj_lvl == "edge":
+            for geom_data_obj in geom_data_objs:
+                subobjs.extend(geom_data_obj.get_merged_edges().values())
+        elif obj_lvl == "normal":
+            for geom_data_obj in geom_data_objs:
+                subobjs.extend(geom_data_obj.get_shared_normals().values())
+        elif obj_lvl == "poly":
+            for geom_data_obj in geom_data_objs:
+                subobjs.extend(geom_data_obj.get_subobjects("poly").values())
+
+        return subobjs
+
+    def __inverse_select(self):
+
+        obj_lvl = GlobalData["active_obj_level"]
+        selection = self._selections[obj_lvl]
+        old_sel = set(selection)
+        new_sel = set(self.__get_all_combined_subobjs(obj_lvl))
+        selection.replace(new_sel - old_sel)
+
+    def __select_all(self):
+
+        obj_lvl = GlobalData["active_obj_level"]
+        selection = self._selections[obj_lvl]
+        selection.replace(self.__get_all_combined_subobjs(obj_lvl))
+
+    def __select_none(self):
+
+        obj_lvl = GlobalData["active_obj_level"]
+        selection = self._selections[obj_lvl]
+        selection.clear()
 
     def __init_select(self, obj_lvl, picked_obj, op):
 
@@ -1238,7 +1282,7 @@ class SelectionManager(BaseObject):
 
         self._selections[obj_lvl].replace(obj.get_special_selection())
 
-    def __region_select(self, cam, op):
+    def __region_select(self, cam, lens_exp, tex_buffer, ellipse_data, mask_tex, op):
 
         obj_lvl = GlobalData["active_obj_level"]
 
@@ -1257,76 +1301,110 @@ class SelectionManager(BaseObject):
             geom_data_obj.get_origin().set_shader_input("index_offset", index_offset)
             index_offset += len(indexed_subobjs)
 
+        base = Mgr.get("base")
+        ge = base.graphics_engine
         obj_count = len(subobjs)
-
-        tex = Texture()
-        tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
-        tex.set_clear_color(0)
-
-        fs = shader.region_sel.FRAG_SHADER
-
-        if obj_lvl == "normal":
-            shaders = shader.region_sel_normal
-            vs = shaders.VERT_SHADER
-            gs = shaders.GEOM_SHADER
-            sh = Shader.make(Shader.SL_GLSL, vs, fs, gs)
-        else:
-            vs = shader.region_sel_subobj.VERT_SHADER
-            sh = Shader.make(Shader.SL_GLSL, vs, fs)
-
-        state_np = NodePath("state_np")
-        state_np.set_shader(sh, 1)
-        state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
-        state_np.set_light_off(1)
-        state = state_np.get_state()
-        cam.set_initial_state(state)
-
+        region_type = GlobalData["region_select"]["type"]
         subobj_edit_options = GlobalData["subobj_edit_options"]
         pick_via_poly = subobj_edit_options["pick_via_poly"]
 
         if pick_via_poly:
             Mgr.update_locally("picking_via_poly", False)
 
-        new_sel = set()
-        base = Mgr.get("base")
-        ge = base.graphics_engine
-        ge.render_frame()
+        def region_select_objects(sel, enclose=False):
 
-        if ge.extract_texture_data(tex, base.win.get_gsg()):
+            tex = Texture()
+            tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
+            tex.set_clear_color(0)
+            sh = shaders.region_sel
 
-            texels = memoryview(tex.get_ram_image()).cast("I")
-
-            if obj_lvl == "edge":
-
-                sel_edges_by_border = subobj_edit_options["sel_edges_by_border"]
-
-                for i, mask in enumerate(texels):
-                    for j in range(32):
-                        if mask & (1 << j):
-                            index = 32 * i + j
-                            subobj = subobjs[index].get_merged_object()
-                            if not sel_edges_by_border or len(subobj) == 1:
-                                new_sel.update(subobj.get_special_selection())
-
-            elif obj_lvl == "normal":
-
-                for i, mask in enumerate(texels):
-                    for j in range(32):
-                        if mask & (1 << j):
-                            index = 32 * i + j
-                            subobj = subobjs[index].get_shared_normal()
-                            new_sel.update(subobj.get_special_selection())
-
+            if "rect" in region_type or "square" in region_type:
+                fs = sh.FRAG_SHADER_INV if enclose else sh.FRAG_SHADER
+            elif "ellipse" in region_type or "circle" in region_type:
+                fs = sh.FRAG_SHADER_ELLIPSE_INV if enclose else sh.FRAG_SHADER_ELLIPSE
             else:
+                fs = sh.FRAG_SHADER_FREE_INV if enclose else sh.FRAG_SHADER_FREE
 
-                for i, mask in enumerate(texels):
-                    for j in range(32):
-                        if mask & (1 << j):
-                            index = 32 * i + j
-                            subobj = subobjs[index].get_merged_object()
-                            new_sel.update(subobj.get_special_selection())
+            if obj_lvl == "normal":
+                sh = shaders.region_sel_normal
+                vs = sh.VERT_SHADER
+                gs = sh.GEOM_SHADER
+                shader = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+            else:
+                vs = shaders.region_sel_subobj.VERT_SHADER
+                shader = Shader.make(Shader.SL_GLSL, vs, fs)
 
-        state_np.clear_shader()
+            state_np = NodePath("state_np")
+            state_np.set_shader(shader, 1)
+            state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
+
+            if "ellipse" in region_type or "circle" in region_type:
+                state_np.set_shader_input("ellipse_data", Vec4(*ellipse_data))
+            elif region_type in ("fence", "lasso"):
+                if enclose:
+                    img = PNMImage()
+                    mask_tex.store(img)
+                    img.expand_border(2, 2, 2, 2, (0., 0., 0., 1.))
+                    mask_tex.load(img)
+                state_np.set_shader_input("mask_tex", mask_tex)
+            elif enclose:
+                w_b, h_b = tex_buffer.get_size()
+                state_np.set_shader_input("buffer_size", Vec2(w_b + 2, h_b + 2))
+
+            state = state_np.get_state()
+            cam.node().set_initial_state(state)
+
+            ge.render_frame()
+
+            if ge.extract_texture_data(tex, base.win.get_gsg()):
+
+                texels = memoryview(tex.get_ram_image()).cast("I")
+
+                if obj_lvl == "edge":
+
+                    sel_edges_by_border = subobj_edit_options["sel_edges_by_border"]
+
+                    for i, mask in enumerate(texels):
+                        for j in range(32):
+                            if mask & (1 << j):
+                                index = 32 * i + j
+                                subobj = subobjs[index].get_merged_object()
+                                if not sel_edges_by_border or len(subobj) == 1:
+                                    sel.update(subobj.get_special_selection())
+
+                elif obj_lvl == "normal":
+
+                    for i, mask in enumerate(texels):
+                        for j in range(32):
+                            if mask & (1 << j):
+                                index = 32 * i + j
+                                subobj = subobjs[index].get_shared_normal()
+                                sel.update(subobj.get_special_selection())
+
+                else:
+
+                    for i, mask in enumerate(texels):
+                        for j in range(32):
+                            if mask & (1 << j):
+                                index = 32 * i + j
+                                subobj = subobjs[index].get_merged_object()
+                                sel.update(subobj.get_special_selection())
+
+            state_np.clear_attrib(ShaderAttrib)
+
+        new_sel = set()
+        region_select_objects(new_sel)
+        ge.remove_window(tex_buffer)
+
+        if GlobalData["region_select"]["enclose"]:
+            w_b, h_b = tex_buffer.get_size()
+            bfr_exp = base.win.make_texture_buffer("tex_buffer_exp", w_b + 4, h_b + 4)
+            base.make_camera(bfr_exp, useCamera=cam)
+            cam.node().set_lens(lens_exp)
+            inverse_sel = set()
+            region_select_objects(inverse_sel, True)
+            new_sel -= inverse_sel
+            ge.remove_window(bfr_exp)
 
         if pick_via_poly:
             Mgr.update_locally("picking_via_poly", True)

@@ -43,7 +43,7 @@ class CreationManager(object):
         for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
             data = creation_data[obj_type]
             menu.add(obj_type, "Create {}".format(data["name"]), data["handler"])
-            menu.set_item_hotkey(obj_type, "SHIFT+CTRL+{}".format(accel.upper()), hotkey)
+            menu.set_item_hotkey(obj_type, "Shift+Ctrl+{}".format(accel.upper()), hotkey)
 
         data = creation_data["cone"]
         menu.add("cone", "Create {}".format(data["name"]), data["handler"])
@@ -57,7 +57,7 @@ class CreationManager(object):
         for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
             data = creation_data[obj_type]
             menu.add(obj_type, "Create {}".format(data["name"]), data["handler"])
-            menu.set_item_hotkey(obj_type, "SHIFT+CTRL+{}".format(accel.upper()), hotkey)
+            menu.set_item_hotkey(obj_type, "Shift+Ctrl+{}".format(accel.upper()), hotkey)
 
         data = creation_data["point_helper"]
         menu.add("point_helper", "Create {}".format(data["name"]), data["handler"])

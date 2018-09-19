@@ -10,13 +10,17 @@ class PickingCamera(BaseObject):
         self._buffer = None
         self._np = None
         self._mask = BitMask32.bit(15)
-
         self._pixel_color = VBase4()
+        self._pixel_fetcher = None
 
         UVMgr.expose("picking_mask", lambda: self._mask)
         UVMgr.expose("pixel_under_mouse", lambda: VBase4(self._pixel_color))
         UVMgr.expose("picking_cam", lambda: self)
         UVMgr.expose("picked_point", self.__get_picked_point)
+
+    def __call__(self):
+
+        return self._np
 
     def setup(self):
 
@@ -61,6 +65,22 @@ class PickingCamera(BaseObject):
         w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
         self._lens.set_film_size(.06 * 512. / min(w, h))
 
+    def restore_lens(self):
+
+        self._np.node().set_lens(self._lens)
+
+    def set_pixel_fetcher(self, pixel_fetcher):
+        """
+        This method is used to change the default behavior of __get_pixel_under_mouse, so
+        the color of the pixel under the mouse cursor can be obtained in a different way.
+        The callable passed in for pixel_fetcher must take one argument: the Camera used
+        by this class.
+        Pass in None for pixel_fetcher to restore the default behavior.
+
+        """
+
+        self._pixel_fetcher = pixel_fetcher
+
     def set_active(self, is_active=True):
 
         self._buffer.set_active(is_active)
@@ -85,17 +105,19 @@ class PickingCamera(BaseObject):
             self._buffer.set_active(True)
             self._np.node().set_active(True)
 
-        screen_pos = self.mouse_watcher.get_mouse()
-        far_point = Point3()
-        self.cam_lens.extrude(screen_pos, Point3(), far_point)
-        far_point.y = 0.
-        self._np.set_pos(far_point)
+        if self._pixel_fetcher:
+            self._pixel_fetcher(self._np)
+        else:
+            screen_pos = self.mouse_watcher.get_mouse()
+            far_point = Point3()
+            self.cam_lens.extrude(screen_pos, Point3(), far_point)
+            far_point.y = 0.
+            self._np.set_pos(far_point)
 
-        if not self._tex_peeker:
+        if self._tex_peeker:
+            self._tex_peeker.lookup(self._pixel_color, .5, .5)
+        else:
             self._tex_peeker = self._tex.peek()
-            return task.cont
-
-        self._tex_peeker.lookup(self._pixel_color, .5, .5)
 
         return task.cont
 

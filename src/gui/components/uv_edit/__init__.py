@@ -1,5 +1,4 @@
 from ...base import *
-from ...button import Button
 from ...toolbar import Toolbar
 from .transform import TransformToolbar
 from .uv_set import UVSetPanel
@@ -114,7 +113,7 @@ class UVEditGUI(object):
 
         bundles = set()
 
-        for toolbar_id in ("uv_transform", "render_mode", "grid"):
+        for toolbar_id in ("uv_transform", "selection", "render_mode", "grid"):
 
             toolbar = toolbars[toolbar_id]
             docking_targets.remove(toolbar)
@@ -145,7 +144,6 @@ class UVEditGUI(object):
             index = GlobalData["viewport"]["active"]
             GlobalData["viewport"]["border_color{:d}".format(index)] = color
             GlobalData["viewport"]["border{:d}".format(index)].set_clear_color(color)
-            Mgr.update_app("status", ["select_uvs", ""], "uv")
 
             if not is_active:
 
@@ -156,6 +154,8 @@ class UVEditGUI(object):
                 Mgr.add_interface("uv", key_handlers)
                 Mgr.add_state("uv_edit_mode", 0, lambda prev_state_id, is_active:
                               Mgr.do("enable_gui"), interface_id="uv")
+                Mgr.add_state("region_selection_mode", -11, lambda prev_state_id, is_active:
+                              Mgr.do("enable_gui", False), interface_id="uv")
                 Mgr.add_state("aux_viewport_resize", -200, interface_id="uv")
                 base = Mgr.get("base")
 
@@ -218,6 +218,7 @@ class UVEditGUI(object):
                 Mgr.do("update_window")
                 Mgr.update_remotely("uv_interface", True, region, mouse_watcher_node)
                 Mgr.do("set_interface_status", "uv")
+                Mgr.update_app("status", ["select_uvs", ""], "uv")
 
         def exit_editing_mode(next_state_id, is_active):
 
@@ -238,7 +239,7 @@ class UVEditGUI(object):
 
                 menubar = main_components["menubar"]
                 menubar.show_menu("edit", index=1)
-                menubar.show_menu("create", index=3)
+                menubar.show_menu("create", index=2)
                 menubar.get_menu("edit").enable_hotkeys()
                 menubar.get_menu("create").enable_hotkeys()
                 menu = menubar.get_menu("file")
@@ -313,7 +314,7 @@ class UVEditGUI(object):
             hotkey_repeat = False
             self._hotkey_prev = hotkey
 
-        Button.handle_hotkey(hotkey, hotkey_repeat, "uv")
+        HotkeyManager.handle_widget_hotkey(hotkey, hotkey_repeat, "uv")
 
     def __on_key_up(self, key=None):
 

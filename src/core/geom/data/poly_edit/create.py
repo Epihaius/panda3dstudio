@@ -1017,8 +1017,8 @@ class CreationManager(BaseObject):
         bind("poly_creation", "flip poly normal",
              "control", self.__flip_poly_normal)
         bind("poly_creation", "quit poly creation", "escape", cancel_creation)
-        bind("poly_creation", "cancel poly creation",
-             "mouse3-up", cancel_creation)
+        bind("poly_creation", "cancel poly creation", "mouse3-up", cancel_creation)
+        bind("poly_creation", "abort poly creation", "focus_loss", cancel_creation)
 
         status_data = GlobalData["status_data"]
         mode_text = "Create polygon"

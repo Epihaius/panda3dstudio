@@ -13,6 +13,7 @@ from ..panel import (PanelStack, PanelButton, PanelInputField, PanelCheckBox, Pa
 from ..dialog import *
 from .aux_viewport import AuxiliaryViewport
 from .transform import TransformToolbar
+from .select import SelectionManager, SelectionToolbar
 from .material import MaterialPanel, MaterialToolbar
 from .hierarchy import HierarchyPanel
 from .props import PropertyPanel
@@ -343,14 +344,16 @@ class Components(object):
         self._file_mgr = FileManager(menubar)
         self.exit_handler = self._file_mgr.on_exit
         self._edit_mgr = EditManager(menubar, uv_edit_command)
-        self._view_mgr = ViewManager(menubar)
         self._creation_mgr = CreationManager(menubar)
+        self._sel_mgr = SelectionManager(menubar)
+        self._view_mgr = ViewManager(menubar)
         self._option_mgr = OptionManager(menubar)
 
         # Create the top toolbars
 
         MaterialToolbar(dock)
         TransformToolbar(dock)
+        SelectionToolbar(dock)
         HistoryToolbar(dock)
 
         # Create the viewport and the right-hand side dock
@@ -429,12 +432,12 @@ class Components(object):
     def __get_default_layout_data(self):
 
         layout = {"main": {}, "uv": {}}
-        layout["main"]["top"] = [None, [["material", "transform"], ["history"]]]
-        layout["main"]["right"] = [[["render_mode"]], None, [["grid"]]]
-        layout["main"]["bottom"] = [None]
-        layout["uv"]["top"] = [None, [["uv_transform"]]]
-        layout["uv"]["right"] = [[["render_mode"]], None, [["grid"]]]
-        layout["uv"]["bottom"] = [None]
+        layout["main"]["top"] = [None, [["history"], ["selection"], ["render_mode"], ["grid"]]]
+        layout["main"]["right"] = [None]
+        layout["main"]["bottom"] = [[["material", "transform"]], None]
+        layout["uv"]["top"] = [None, [["selection"], ["render_mode"], ["grid"]]]
+        layout["uv"]["right"] = [None]
+        layout["uv"]["bottom"] = [[["uv_transform"]], None]
         layout["right_dock"] = "right"
 
         return layout
@@ -855,6 +858,7 @@ class Components(object):
         GlobalData["viewport"]["border{:d}".format(3 - index)].set_clear_color(color)
         interface_id = GlobalData["viewport"][index]
         Mgr.do("set_interface_status", interface_id)
+        Mgr.get("base").messenger.send("focus_loss")
 
     def __update_viewport_display_regions(self):
 
@@ -937,7 +941,7 @@ class Components(object):
 
     def handle_hotkey(self, hotkey, hotkey_repeat):
 
-        Button.handle_hotkey(hotkey, hotkey_repeat)
+        HotkeyManager.handle_widget_hotkey(hotkey, hotkey_repeat)
 
     def __enable(self, enable=True):
 

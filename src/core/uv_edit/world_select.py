@@ -24,6 +24,9 @@ class SelectionManager(BaseObject):
         self._cursor_id = ""
         self._aux_pixel_under_mouse = None
 
+        Mgr.accept("inverse_select_uvs", self.__inverse_select)
+        Mgr.accept("select_all_uvs", self.__select_all)
+        Mgr.accept("clear_uv_selection", self.__select_none)
         Mgr.accept("region_select_uvs", self.__region_select)
 
     def setup(self):
@@ -43,14 +46,14 @@ class SelectionManager(BaseObject):
              lambda: self.__init_select(op="remove"))
         bind("uv_edit_mode", "select (toggle) uvs", "{:d}|mouse1".format(mod_ctrl | mod_shift),
              lambda: self.__init_select(op="toggle"))
-        bind("uv_edit_mode", "region-select (replace) uvs", "{:d}|mouse1".format(mod_alt),
-             lambda: Mgr.do("init_region_select"))
-        bind("uv_edit_mode", "region-select (add) uvs", "{:d}|mouse1".format(mod_alt | mod_ctrl),
-             lambda: Mgr.do("init_region_select", "add"))
-        bind("uv_edit_mode", "region-select (remove) uvs", "{:d}|mouse1".format(mod_alt | mod_shift),
-             lambda: Mgr.do("init_region_select", "remove"))
-        bind("uv_edit_mode", "region-select (toggle) uvs", "{:d}|mouse1".format(mod_alt | mod_ctrl | mod_shift),
-             lambda: Mgr.do("init_region_select", "toggle"))
+        bind("uv_edit_mode", "select (replace) uvs alt", "{:d}|mouse1".format(mod_alt),
+             self.__init_select)
+        bind("uv_edit_mode", "select (add) uvs alt", "{:d}|mouse1".format(mod_alt | mod_ctrl),
+             lambda: self.__init_select(op="add"))
+        bind("uv_edit_mode", "select (remove) uvs alt", "{:d}|mouse1".format(mod_alt | mod_shift),
+             lambda: self.__init_select(op="remove"))
+        bind("uv_edit_mode", "select (toggle) uvs alt", "{:d}|mouse1".format(mod_alt | mod_ctrl | mod_shift),
+             lambda: self.__init_select(op="toggle"))
         bind("uv_edit_mode", "uv edit -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("uv_edit_mode", "uv edit -> center view on objects", "c",
@@ -190,7 +193,7 @@ class SelectionManager(BaseObject):
                     geom_data_obj.restore_selection_backup(subobj_lvl)
 
                 poly_sel = original_poly_sel[geom_data_obj]
-                geom_data_obj.update_selection(subobj_lvl, poly_sel, [], False)
+                geom_data_obj.update_selection("poly", poly_sel, [], False)
 
             if self._restore_pick_via_poly:
                 GlobalData["subobj_edit_options"]["pick_via_poly"] = True
@@ -314,7 +317,93 @@ class SelectionManager(BaseObject):
 
         return (pickable_type, picked_obj) if picked_obj else ("", None)
 
+    def __get_all_combined_subobjs(self, obj_lvl):
+
+        subobjs = []
+        geom_data_objs = [model.get_geom_object().get_geom_data_object()
+                          for model in self._models]
+
+        for geom_data_obj in geom_data_objs:
+            subobjs.extend(geom_data_obj.get_subobjects(obj_lvl).values())
+
+        return subobjs
+
+    def __inverse_select(self):
+
+        obj_lvl = self._obj_lvl
+        selection = self._selections[obj_lvl]
+        old_sel = set(selection)
+        new_sel = set(self.__get_all_combined_subobjs(obj_lvl))
+        uv_edit_options = GlobalData["uv_edit_options"]
+        pick_via_poly = uv_edit_options["pick_via_poly"]
+
+        if pick_via_poly:
+            uv_edit_options["pick_via_poly"] = False
+
+        new_sel = self.__get_selected_uv_objects(new_sel)
+
+        if pick_via_poly:
+            uv_edit_options["pick_via_poly"] = True
+
+        selection.clear()
+        selection.update(new_sel - old_sel)
+        color_ids = set()
+
+        if obj_lvl == "poly":
+            color_ids.update(poly.get_picking_color_id() for poly in selection)
+        else:
+            for subobj in selection:
+                color_ids.update(subobj.get_picking_color_ids())
+
+        self._uv_editor.sync_selection(color_ids)
+        self.sync_selection(color_ids)
+
+    def __select_all(self):
+
+        obj_lvl = self._obj_lvl
+        selection = self._selections[obj_lvl]
+        selection.clear()
+        new_sel = set(self.__get_all_combined_subobjs(obj_lvl))
+        uv_edit_options = GlobalData["uv_edit_options"]
+        pick_via_poly = uv_edit_options["pick_via_poly"]
+
+        if pick_via_poly:
+            uv_edit_options["pick_via_poly"] = False
+
+        new_sel = self.__get_selected_uv_objects(new_sel)
+
+        if pick_via_poly:
+            uv_edit_options["pick_via_poly"] = True
+
+        selection.update(new_sel)
+        color_ids = set()
+
+        if obj_lvl == "poly":
+            color_ids.update(poly.get_picking_color_id() for poly in selection)
+        else:
+            for subobj in selection:
+                color_ids.update(subobj.get_picking_color_ids())
+
+        self._uv_editor.sync_selection(color_ids)
+        self.sync_selection(color_ids)
+
+    def __select_none(self):
+
+        obj_lvl = self._obj_lvl
+        selection = self._selections[obj_lvl]
+        selection.clear()
+        self._uv_editor.sync_selection(set())
+        self.sync_selection(set())
+
     def __init_select(self, op="replace"):
+
+        alt_down = self.mouse_watcher.is_button_down(KeyboardButton.alt())
+        region_select = not alt_down if GlobalData["region_select"]["is_default"] else alt_down
+
+        if region_select:
+            Mgr.enter_state("inactive", "uv")
+            Mgr.do("init_region_select", op)
+            return
 
         if not (self.mouse_watcher.has_mouse() and self._pixel_under_mouse):
             return
@@ -484,7 +573,7 @@ class SelectionManager(BaseObject):
             self._uv_editor.sync_selection(color_ids)
             self.sync_selection(color_ids)
 
-    def __region_select(self, cam, op):
+    def __region_select(self, cam, lens_exp, tex_buffer, ellipse_data, mask_tex, op):
 
         obj_lvl = self._obj_lvl
 
@@ -502,21 +591,10 @@ class SelectionManager(BaseObject):
             geom_data_obj.get_origin().set_shader_input("index_offset", index_offset)
             index_offset += len(indexed_subobjs)
 
+        base = Mgr.get("base")
+        ge = base.graphics_engine
         obj_count = len(subobjs)
-
-        tex = Texture()
-        tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
-        tex.set_clear_color(0)
-        vs = shader.region_sel_subobj.VERT_SHADER
-        fs = shader.region_sel.FRAG_SHADER
-        sh = Shader.make(Shader.SL_GLSL, vs, fs)
-        state_np = NodePath("state_np")
-        state_np.set_shader(sh, 1)
-        state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
-        state_np.set_light_off(1)
-        state = state_np.get_state()
-        cam.set_initial_state(state)
-
+        region_type = GlobalData["region_select"]["type"]
         uv_edit_options = GlobalData["uv_edit_options"]
         pick_via_poly = uv_edit_options["pick_via_poly"]
 
@@ -524,24 +602,72 @@ class SelectionManager(BaseObject):
             Mgr.update_locally("picking_via_poly", False)
             GlobalData["uv_edit_options"]["pick_via_poly"] = False
 
+        def region_select_objects(sel, enclose=False):
+
+            tex = Texture()
+            tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
+            tex.set_clear_color(0)
+            sh = shaders.region_sel
+            vs = shaders.region_sel_subobj.VERT_SHADER
+
+            if "rect" in region_type or "square" in region_type:
+                fs = sh.FRAG_SHADER_INV if enclose else sh.FRAG_SHADER
+            elif "ellipse" in region_type or "circle" in region_type:
+                fs = sh.FRAG_SHADER_ELLIPSE_INV if enclose else sh.FRAG_SHADER_ELLIPSE
+            else:
+                fs = sh.FRAG_SHADER_FREE_INV if enclose else sh.FRAG_SHADER_FREE
+
+            shader = Shader.make(Shader.SL_GLSL, vs, fs)
+            state_np = NodePath("state_np")
+            state_np.set_shader(shader, 1)
+            state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
+
+            if "ellipse" in region_type or "circle" in region_type:
+                state_np.set_shader_input("ellipse_data", Vec4(*ellipse_data))
+            elif region_type in ("fence", "lasso"):
+                if enclose:
+                    img = PNMImage()
+                    mask_tex.store(img)
+                    img.expand_border(2, 2, 2, 2, (0., 0., 0., 1.))
+                    mask_tex.load(img)
+                state_np.set_shader_input("mask_tex", mask_tex)
+            elif enclose:
+                w_b, h_b = tex_buffer.get_size()
+                state_np.set_shader_input("buffer_size", Vec2(w_b + 2, h_b + 2))
+
+            state = state_np.get_state()
+            cam.node().set_initial_state(state)
+
+            ge.render_frame()
+
+            if ge.extract_texture_data(tex, base.win.get_gsg()):
+
+                texels = memoryview(tex.get_ram_image()).cast("I")
+
+                for i, mask in enumerate(texels):
+                    for j in range(32):
+                        if mask & (1 << j):
+                            index = 32 * i + j
+                            subobj = subobjs[index]
+                            sel.add(subobj)
+
+            state_np.clear_attrib(ShaderAttrib)
+
         new_sel = set()
-        base = Mgr.get("base")
-        ge = base.graphics_engine
-        ge.render_frame()
-
-        if ge.extract_texture_data(tex, base.win.get_gsg()):
-
-            texels = memoryview(tex.get_ram_image()).cast("I")
-
-            for i, mask in enumerate(texels):
-                for j in range(32):
-                    if mask & (1 << j):
-                        index = 32 * i + j
-                        subobj = subobjs[index]
-                        new_sel.add(subobj)
-
-        state_np.clear_shader()
+        region_select_objects(new_sel)
+        ge.remove_window(tex_buffer)
         new_sel = self.__get_selected_uv_objects(new_sel)
+
+        if GlobalData["region_select"]["enclose"]:
+            w_b, h_b = tex_buffer.get_size()
+            bfr_exp = base.win.make_texture_buffer("tex_buffer_exp", w_b + 4, h_b + 4)
+            base.make_camera(bfr_exp, useCamera=cam)
+            cam.node().set_lens(lens_exp)
+            inverse_sel = set()
+            region_select_objects(inverse_sel, True)
+            inverse_sel = self.__get_selected_uv_objects(inverse_sel)
+            new_sel -= inverse_sel
+            ge.remove_window(bfr_exp)
 
         if pick_via_poly:
             Mgr.update_locally("picking_via_poly", True)

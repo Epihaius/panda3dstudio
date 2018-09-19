@@ -5,18 +5,18 @@ class EditManager(object):
 
     def __init__(self, menubar, uv_edit_command):
 
-        menu = menubar.add_menu("edit", "Edit")
+        self._menu = menu = menubar.add_menu("edit", "Edit")
         mod_key_codes = GlobalData["mod_key_codes"]
 
         handler = lambda: Mgr.update_app("history", "undo")
         menu.add("undo", "Undo", handler)
         hotkey = ("z", mod_key_codes["ctrl"])
-        menu.set_item_hotkey("undo", "CTRL+Z", hotkey)
+        menu.set_item_hotkey("undo", "Ctrl+Z", hotkey)
         handler = lambda: Mgr.update_app("history", "redo")
         menu.add("redo", "Redo", handler)
         mod_code = mod_key_codes["shift"] | mod_key_codes["ctrl"]
         hotkey = ("z", mod_code)
-        menu.set_item_hotkey("redo", "SHIFT+CTRL+Z", hotkey)
+        menu.set_item_hotkey("redo", "Shift+Ctrl+Z", hotkey)
         handler = lambda: Mgr.update_app("history", "edit")
         menu.add("hist", "History...", handler)
 
@@ -25,7 +25,7 @@ class EditManager(object):
         handler = lambda: Mgr.update_remotely("group", "create")
         menu.add("group", "Create group", handler)
         hotkey = ("g", mod_key_codes["ctrl"])
-        menu.set_item_hotkey("group", "CTRL+G", hotkey)
+        menu.set_item_hotkey("group", "Ctrl+G", hotkey)
         handler = lambda: Mgr.enter_state("grouping_mode")
         menu.add("add_to_group", "Add to group...", handler)
         handler = lambda: Mgr.update_remotely("group", "remove_members")
@@ -35,7 +35,9 @@ class EditManager(object):
 
         menu.add("uvs", "Edit UVs", uv_edit_command)
         hotkey = ("u", mod_key_codes["ctrl"])
-        menu.set_item_hotkey("uvs", "CTRL+U", hotkey)
+        menu.set_item_hotkey("uvs", "Ctrl+U", hotkey)
+
+        Mgr.add_app_updater("history", self.__check_undo_redo)
 
     def setup(self):
 
@@ -46,3 +48,15 @@ class EditManager(object):
 
         add_state = Mgr.add_state
         add_state("grouping_mode", -10, enter_grouping_mode)
+
+    def __check_undo_redo(self, update_type, *args, **kwargs):
+
+        if update_type != "check":
+            return
+
+        to_undo = GlobalData["history_to_undo"]
+        to_redo = GlobalData["history_to_redo"]
+        menu = self._menu
+        menu.enable_item("undo", to_undo)
+        menu.enable_item("redo", to_redo)
+        menu.enable_item("hist", to_undo or to_redo)

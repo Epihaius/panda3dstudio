@@ -808,7 +808,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         sort = PendingTasks.get_sort("update_selection", "object") - 1
         PendingTasks.add(task, task_id, "object", sort)
 
-    def __region_select_point_helpers(self, cam, new_sel):
+    def __region_select_point_helpers(self, cam, enclose, buffer_size, ellipse_data, mask_tex, sel):
 
         point_helpers_normal = self._point_helpers["normal"]
         point_helpers_on_top = self._point_helpers["on_top"]
@@ -819,26 +819,47 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         object_root = Mgr.get("object_root")
         object_root.hide(picking_mask)
         geoms = self._geoms
-        geoms["normal"]["pickable"].set_shader_input("index_offset", 0)
-        geoms["on_top"]["pickable"].set_shader_input("index_offset", index_offset)
-        geoms["normal"]["pickable"].show_through(picking_mask)
-        geoms["on_top"]["pickable"].show_through(picking_mask)
+        geoms["normal"]["viz"].set_shader_input("index_offset", 0)
+        geoms["on_top"]["viz"].set_shader_input("index_offset", index_offset)
+        geoms["normal"]["viz"].show_through(picking_mask)
+        geoms["on_top"]["viz"].show_through(picking_mask)
+
+        region_type = GlobalData["region_select"]["type"]
+
+        base = Mgr.get("base")
+        ge = base.graphics_engine
 
         tex = Texture()
         tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
         tex.set_clear_color(0)
-        vs = shader.region_sel_subobj.VERT_SHADER
-        fs = shader.region_sel.FRAG_SHADER
-        sh = Shader.make(Shader.SL_GLSL, vs, fs)
+        sh = shaders.region_sel
+        vs = shaders.region_sel_point.VERT_SHADER
+
+        if "rect" in region_type or "square" in region_type:
+            fs = sh.FRAG_SHADER_INV if enclose else sh.FRAG_SHADER
+        elif "ellipse" in region_type or "circle" in region_type:
+            fs = sh.FRAG_SHADER_ELLIPSE_INV if enclose else sh.FRAG_SHADER_ELLIPSE
+        else:
+            fs = sh.FRAG_SHADER_FREE_INV if enclose else sh.FRAG_SHADER_FREE
+
+        shader = Shader.make(Shader.SL_GLSL, vs, fs)
         state_np = NodePath("state_np")
-        state_np.set_shader(sh, 1)
+        state_np.set_shader(shader, 1)
         state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
-        state_np.set_light_off(1)
+
+        if "ellipse" in region_type or "circle" in region_type:
+            state_np.set_shader_input("ellipse_data", Vec4(*ellipse_data))
+        elif region_type in ("fence", "lasso"):
+            state_np.set_shader_input("mask_tex", mask_tex)
+        elif enclose:
+            w_b, h_b = buffer_size
+            state_np.set_shader_input("buffer_size", Vec2(w_b + 2, h_b + 2))
+
         state = state_np.get_state()
+        attrib = state.get_attrib(ShaderAttrib).set_flag(ShaderAttrib.F_shader_point_size, True)
+        state = state.set_attrib(attrib)
         cam.set_initial_state(state)
 
-        base = Mgr.get("base")
-        ge = base.graphics_engine
         ge.render_frame()
 
         if ge.extract_texture_data(tex, base.win.get_gsg()):
@@ -849,12 +870,12 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
                 for j in range(32):
                     if mask & (1 << j):
                         index = 32 * i + j
-                        new_sel.add(objs[index].get_toplevel_object(get_group=True))
+                        sel.add(objs[index].get_toplevel_object(get_group=True))
 
         object_root.show(picking_mask)
-        state_np.clear_shader()
-        geoms["normal"]["pickable"].show(picking_mask)
-        geoms["on_top"]["pickable"].show(picking_mask)
+        state_np.clear_attrib(ShaderAttrib)
+        geoms["normal"]["viz"].hide(picking_mask)
+        geoms["on_top"]["viz"].hide(picking_mask)
 
 
 MainObjects.add_class(PointHelperVizManager)

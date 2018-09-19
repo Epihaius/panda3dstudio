@@ -62,6 +62,7 @@ class Core(object):
 
         Mgr.add_state("suppressed", -1000, enter_suppressed_state, exit_suppressed_state)
         Mgr.add_state("aux_viewport_resize", -200)
+        Mgr.add_state("inactive", -1000)
 
         Mgr.add_notification_handler("long_process_cancelled", "core", self.__cancel_long_process)
         notifier = lambda: Mgr.notify("long_process_cancelled", self._long_process_id)
@@ -226,7 +227,7 @@ class KeyEventListener(object):
             self._mouse_evt_handlers[prefix + key + "-up"] = handler
 
         handler = lambda: self.__handle_event(self._prefix + "focus_loss")
-        listener.accept(prefix + "focus_loss", handler)
+        listener.accept("focus_loss", handler)
 
     def __get_key_down_handler(self, key, is_mouse_btn=False):
 

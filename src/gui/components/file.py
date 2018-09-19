@@ -42,13 +42,13 @@ class FileManager(object):
         for file_op, accel, hotkey in zip(file_ops, accelerators, hotkeys):
             data = file_data[file_op]
             menu.add(file_op, data["descr"], data["handler"])
-            menu.set_item_hotkey(file_op, "CTRL+{}".format(accel.upper()), hotkey)
+            menu.set_item_hotkey(file_op, "Ctrl+{}".format(accel.upper()), hotkey)
 
         file_op = "save_as"
         data = file_data[file_op]
         menu.add(file_op, data["descr"], data["handler"])
         hotkey = ("s", mod_code | GlobalData["mod_key_codes"]["alt"])
-        menu.set_item_hotkey(file_op, "CTRL+ALT+S", hotkey)
+        menu.set_item_hotkey(file_op, "Ctrl+Alt+S", hotkey)
 
         file_op = "save_incr"
         data = file_data[file_op]
@@ -65,7 +65,7 @@ class FileManager(object):
         menu.add("sep1", item_type="separator")
 
         menu.add("exit", "Exit", self.on_exit)
-        menu.set_item_hotkey("exit", "ALT+F4")
+        menu.set_item_hotkey("exit", "Alt+F4")
 
         Mgr.add_app_updater("import", self.__import_scene)
         Mgr.add_app_updater("scene_label", self.__set_scene_label)
