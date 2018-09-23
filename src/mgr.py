@@ -170,15 +170,15 @@ class AppManager(object):
         self._state_mgrs[interface_id][component_id].add_state(state_id, persistence,
                                                                on_enter, on_exit)
 
-    def set_initial_state(self, interface_id, state_id):
+    def set_default_state(self, interface_id, state_id):
         """
-        Set the initial state of a particular application interface.
+        Set the default state of a particular application interface.
 
         """
 
         state_mgrs = self._state_mgrs[interface_id]
-        state_mgrs["CORE"].set_initial_state(state_id)
-        state_mgrs["GUI"].set_initial_state(state_id)
+        state_mgrs["CORE"].set_default_state(state_id)
+        state_mgrs["GUI"].set_default_state(state_id)
 
     def enter_state(self, interface_id, state_id):
 
@@ -191,6 +191,12 @@ class AppManager(object):
         state_mgrs = self._state_mgrs[interface_id]
         state_mgrs["CORE"].exit_state(state_id)
         state_mgrs["GUI"].exit_state(state_id)
+
+    def exit_states(self, interface_id, min_persistence=None):
+
+        state_mgrs = self._state_mgrs[interface_id]
+        state_mgrs["CORE"].exit_states(min_persistence)
+        state_mgrs["GUI"].exit_states(min_persistence)
 
     def get_state_id(self, interface_id, component_id):
 

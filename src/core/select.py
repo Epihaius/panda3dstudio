@@ -906,6 +906,8 @@ class SelectionManager(BaseObject):
             mouse_coords_x.append(screen_pos.x)
             mouse_coords_y.append(screen_pos.y)
             Mgr.add_task(self.__update_cursor, "update_cursor")
+            self._sel_mask_listener = listener = DirectObject()
+            listener.accept("enter-up", lambda: Mgr.exit_state("region_selection_mode"))
             Mgr.update_app("status", ["select", "fence"])
         else:
             Mgr.update_app("status", ["select", "region"])
@@ -940,8 +942,6 @@ class SelectionManager(BaseObject):
             cam.set_transform(base.cam2d.get_transform())
             background = self._sel_mask_background
             background.set_scale(w, 1., h)
-            self._sel_mask_listener = listener = DirectObject()
-            listener.accept("enter-up", lambda: Mgr.exit_state("region_selection_mode"))
             self._mouse_end_pos = (screen_pos.x, screen_pos.y)
         else:
             shape = self._selection_shapes[shape_type]
@@ -969,13 +969,13 @@ class SelectionManager(BaseObject):
             self._fence_mouse_coords = [[], []]
             self._fence_initialized = False
             self._sel_mask_triangle_coords = []
+            self._sel_mask_listener.ignore_all()
+            self._sel_mask_listener = None
 
         if shape_type in ("fence", "lasso"):
             shape = self._selection_shapes["free"]
             shape.remove_node()
             del self._selection_shapes["free"]
-            self._sel_mask_listener.ignore_all()
-            self._sel_mask_listener = None
             self._sel_mask_cam.node().set_active(False)
             base = Mgr.get("base")
             base.graphics_engine.remove_window(self._sel_mask_buffer)

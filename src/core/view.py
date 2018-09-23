@@ -335,10 +335,6 @@ class ViewManager(BaseObject):
 
     def __enter_picking_mode(self, prev_state_id, is_active):
 
-        if GlobalData["active_obj_level"] != "top":
-            GlobalData["active_obj_level"] = "top"
-            Mgr.update_app("active_obj_level")
-
         Mgr.add_task(self.__update_cursor, "update_view_obj_picking_cursor")
         Mgr.update_app("status", ["pick_view_obj"])
 
@@ -535,6 +531,9 @@ class ViewManager(BaseObject):
             lens_type = self.cam.lens_type
             Mgr.update_remotely("view", "rename", lens_type, view_id, name)
         elif update_type == "obj_align":
+            if GlobalData["active_obj_level"] != "top":
+                GlobalData["active_obj_level"] = "top"
+                Mgr.update_app("active_obj_level")
             Mgr.enter_state("view_obj_picking_mode")
 
         if update_type in ("copy", "take_snapshot", "toggle_lens_type", "remove", "clear", "rename"):

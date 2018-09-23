@@ -593,12 +593,12 @@ class HistoryPane(DialogScrollPane):
         text = "Mark event for merging with preceding event"
         command = self.toggle_entry_to_merge
         menu_items["merge"] = menu.add("merge", text, command, item_type="check")
-        menu.set_item_hotkey("merge", "CTRL+LMB")
+        menu.set_item_hotkey("merge", None, "Ctrl+LMB")
         text = "(Un)mark range of events for merging"
         command = self.set_range_to_merge
         menu_items["merge_range"] = item = menu.add("merge_range", text, command)
         item.enable(False)
-        menu.set_item_hotkey("merge_range", "SHIFT+CTRL+LMB")
+        menu.set_item_hotkey("merge_range", None, "Shift+Ctrl+LMB")
         text = "Reject inactive history, starting here"
         command = self.__reject_events
         menu_items["reject"] = menu.add("reject", text, command)

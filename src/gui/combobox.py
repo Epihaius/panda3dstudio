@@ -15,7 +15,6 @@ class ComboBox(Button):
 
         self.set_widget_type("combobox")
         self._field_text = text
-        self._tooltip_text = tooltip_text
 
         self._items = {}
         self._item_ids = []

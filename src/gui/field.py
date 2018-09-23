@@ -564,13 +564,13 @@ class InputField(Widget):
 
         cls._edit_menu = menu = Menu()
         menu.add("cut", "Cut", lambda: edit_text("cut"))
-        menu.set_item_hotkey("cut", "CTRL+X")
+        menu.set_item_hotkey("cut", None, "Ctrl+X")
         menu.add("copy", "Copy", lambda: edit_text("copy"))
-        menu.set_item_hotkey("copy", "CTRL+C")
+        menu.set_item_hotkey("copy", None, "Ctrl+C")
         menu.add("paste", "Paste", lambda: edit_text("paste"))
-        menu.set_item_hotkey("paste", "CTRL+V")
+        menu.set_item_hotkey("paste", None, "Ctrl+V")
         menu.add("select_all", "Select All", lambda: edit_text("select_all"))
-        menu.set_item_hotkey("select_all", "CTRL+A")
+        menu.set_item_hotkey("select_all", None, "Ctrl+A")
         menu.update()
 
         Mgr.accept("accept_field_events", cls.__accept_events)

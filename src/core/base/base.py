@@ -175,6 +175,33 @@ class _PendingTask(object):
             self._func()
 
 
+class _Tasks(object):
+
+    def __init__(self):
+
+        self._data = {}
+
+    def __call__(self):
+
+        return self._data
+
+    def __lt__(self, other):
+
+        return id(self) < id(other)
+
+    def __le__(self, other):
+
+        return id(self) <= id(other)
+
+    def __gt__(self, other):
+
+        return id(self) < id(other)
+
+    def __ge__(self, other):
+
+        return id(self) <= id(other)
+
+
 class PendingTasks(object):
 
     _tasks = {}
@@ -259,7 +286,8 @@ class PendingTasks(object):
             task_id = "{}_{}".format(id_prefix, task_id)
 
         pending_task = _PendingTask(task, gradual, process_id, descr, cancellable)
-        cls._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = pending_task
+        t = _Tasks()
+        cls._tasks.setdefault(task_type, {}).setdefault(sort, t)()[task_id] = pending_task
 
         return True
 
@@ -283,7 +311,7 @@ class PendingTasks(object):
             else:
                 sort = 0
 
-        return cls._tasks.get(task_type, {}).get(sort, {}).pop(task_id, None)
+        return cls._tasks.get(task_type, {}).get(sort, _Tasks())().pop(task_id, None)
 
     @classmethod
     def clear(cls, task_type=None):
@@ -343,12 +371,11 @@ class PendingTasks(object):
 
             if sort_by_type:
                 sorted_tasks = [task for task_type in task_types for _, tasks in
-                                sorted(pending_tasks.pop(task_type, {}).items())
-                                for task in tasks.values()]
+                                sorted(list(pending_tasks.pop(task_type, {}).items()))
+                                for task in tasks().values()]
             else:
-                sorted_tasks = [task for _, tasks in sorted([i for task_type in task_types
-                                for i in pending_tasks.pop(task_type, {}).items()])
-                                for task in tasks.values()]
+                l = (i for task_type in task_types for i in pending_tasks.pop(task_type, {}).items())
+                sorted_tasks = [task for _, tasks in sorted(l) for task in tasks().values()]
 
         while sorted_tasks:
 

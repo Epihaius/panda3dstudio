@@ -65,9 +65,9 @@ class FileButton(Button):
 
         cls._popup_menu = menu = Menu()
         menu.add("rename", "Rename", lambda: edit_file("rename"))
-        menu.set_item_hotkey("rename", "F2")
+        menu.set_item_hotkey("rename", None, "F2")
         menu.add("remove", "Delete", lambda: edit_file("remove"))
-        menu.set_item_hotkey("remove", "SHIFT+DEL")
+        menu.set_item_hotkey("remove", None, "Shift+Del")
         menu.update()
 
     @classmethod

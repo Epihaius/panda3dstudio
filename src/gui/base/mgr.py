@@ -106,9 +106,9 @@ class GUIManager(object):
         cls._app_mgr.add_state(interface_id, "GUI", state_id, persistence, on_enter, on_exit)
 
     @classmethod
-    def set_initial_state(cls, state_id, interface_id="main"):
+    def set_default_state(cls, state_id, interface_id="main"):
 
-        cls._app_mgr.set_initial_state(interface_id, state_id)
+        cls._app_mgr.set_default_state(interface_id, state_id)
 
     @classmethod
     def enter_state(cls, state_id, interface_id="main"):
@@ -119,6 +119,11 @@ class GUIManager(object):
     def exit_state(cls, state_id, interface_id="main"):
 
         cls._app_mgr.exit_state(interface_id, state_id)
+
+    @classmethod
+    def exit_states(cls, min_persistence=None, interface_id="main"):
+
+        cls._app_mgr.exit_states(interface_id, min_persistence)
 
     @classmethod
     def get_state_id(cls, interface_id="main"):

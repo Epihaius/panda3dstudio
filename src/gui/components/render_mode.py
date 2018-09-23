@@ -10,7 +10,7 @@ class RenderModeButtons(ToggleButtonGroup):
         ToggleButtonGroup.__init__(self)
 
         render_modes = ("shaded", "wire", "shaded+wire")
-        hotkeys = {"wire": ("f3", 0), "shaded+wire": ("f4", 0)}
+        hotkeys = {"wire": [("f3", 0), "F3"], "shaded+wire": [("f4", 0), "F4"]}
 
         btn_data = dict((mode, ("icon_render_mode_" + mode, mode.title()))
                         for mode in render_modes[1:])
@@ -30,7 +30,7 @@ class RenderModeButtons(ToggleButtonGroup):
                 icon_id, tooltip_text = btn_data[render_mode]
                 btn = ToolbarButton(toolbar, "", icon_id, tooltip_text)
                 self.add_button(btn, render_mode, toggle)
-                btn.set_hotkey(hotkeys[render_mode])
+                btn.set_hotkey(*hotkeys[render_mode])
                 borders = (0, 5, 0, 0)
                 toolbar.add(btn, borders=borders, alignment="center_v")
 
@@ -61,11 +61,11 @@ class RenderModeToolbar(Toolbar):
         self.add(ToolbarSeparator(self), borders=borders)
 
         icon_id = "icon_two_sided"
-        tooltip_text = "Toggle two-sided"
+        tooltip_text = "Two-sided"
         command = lambda: Mgr.update_remotely("two_sided")
         hotkey = ("f5", 0)
         btn = ToolbarButton(self, "", icon_id, tooltip_text, command)
-        btn.set_hotkey(hotkey)
+        btn.set_hotkey(hotkey, "F5")
         self._btn_two_sided = btn
         self.add(btn, alignment="center_v")
 

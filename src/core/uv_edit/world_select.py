@@ -145,10 +145,6 @@ class SelectionManager(BaseObject):
 
                 GlobalData["subobj_edit_options"]["pick_by_aiming"] = True
 
-            if GlobalData["active_obj_level"] != "top":
-                GlobalData["active_obj_level"] = "top"
-                Mgr.update_app("active_obj_level")
-
             if GlobalData["active_transform_type"]:
                 GlobalData["active_transform_type"] = ""
                 Mgr.update_app("active_transform_type", "")

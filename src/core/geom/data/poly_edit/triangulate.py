@@ -450,11 +450,6 @@ class TriangulationManager(BaseObject):
         Mgr.accept("add_diagonal", self.__add_diagonal)
         Mgr.add_app_updater("diagonal_turn", self.__init_diagonal_turning_mode)
 
-    def __add_diagonal(self, diagonal):
-
-        self._diagonals.append(diagonal)
-        diagonal.set_id(len(self._diagonals))
-
         add_state = Mgr.add_state
         add_state("diagonal_turning_mode", -10, self.__enter_diagonal_turning_mode,
                   self.__exit_diagonal_turning_mode)
@@ -474,8 +469,14 @@ class TriangulationManager(BaseObject):
         info_text = "LMB to pick a polygon diagonal to turn; RMB to cancel"
         status_data["turn_diagonal"] = {"mode": mode_text, "info": info_text}
 
+    def __add_diagonal(self, diagonal):
+
+        self._diagonals.append(diagonal)
+        diagonal.set_id(len(self._diagonals))
+
     def __init_diagonal_turning_mode(self):
 
+        Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
         geom_data_objs = [obj.get_geom_object().get_geom_data_object()
                           for obj in selection]

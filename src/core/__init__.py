@@ -226,7 +226,7 @@ class KeyEventListener(object):
             listener.accept(prefix + key + "-up", handler)
             self._mouse_evt_handlers[prefix + key + "-up"] = handler
 
-        handler = lambda: self.__handle_event(self._prefix + "focus_loss")
+        handler = lambda: self.__handle_focus_loss()
         listener.accept("focus_loss", handler)
 
     def __get_key_down_handler(self, key, is_mouse_btn=False):
@@ -302,6 +302,27 @@ class KeyEventListener(object):
             mod_code = mod_shift if GlobalData["shift_down"] else 0
             mod_code |= mod_ctrl if GlobalData["ctrl_down"] else 0
             mod_code |= mod_alt if GlobalData["alt_down"] else 0
+
+        if event_id in self._evt_handlers and mod_code in self._evt_handlers[event_id]:
+
+            event_handler, handler_args, once = self._evt_handlers[event_id][mod_code]
+            event_handler(*(handler_args + args))
+
+            if once:
+
+                del self._evt_handlers[event_id][mod_code]
+
+                if not self._evt_handlers[event_id]:
+                    del self._evt_handlers[event_id]
+
+            return True
+
+        return False
+
+    def __handle_focus_loss(self, *args):
+
+        event_id = self._prefix + "focus_loss"
+        mod_code = 0
 
         if event_id in self._evt_handlers and mod_code in self._evt_handlers[event_id]:
 

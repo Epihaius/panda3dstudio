@@ -36,7 +36,7 @@ class App(object):
         gui.setup()
         core.setup()
 
-        mgr.set_initial_state("main", "selection_mode")
+        mgr.set_default_state("main", "selection_mode")
 
         mgr.get_base().run()
 

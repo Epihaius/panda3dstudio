@@ -11,12 +11,11 @@ class EditManager(object):
         handler = lambda: Mgr.update_app("history", "undo")
         menu.add("undo", "Undo", handler)
         hotkey = ("z", mod_key_codes["ctrl"])
-        menu.set_item_hotkey("undo", "Ctrl+Z", hotkey)
+        menu.set_item_hotkey("undo", hotkey, "Ctrl+Z")
         handler = lambda: Mgr.update_app("history", "redo")
         menu.add("redo", "Redo", handler)
-        mod_code = mod_key_codes["shift"] | mod_key_codes["ctrl"]
-        hotkey = ("z", mod_code)
-        menu.set_item_hotkey("redo", "Shift+Ctrl+Z", hotkey)
+        hotkey = ("y", mod_key_codes["ctrl"])
+        menu.set_item_hotkey("redo", hotkey, "Ctrl+Y")
         handler = lambda: Mgr.update_app("history", "edit")
         menu.add("hist", "History...", handler)
 
@@ -25,8 +24,16 @@ class EditManager(object):
         handler = lambda: Mgr.update_remotely("group", "create")
         menu.add("group", "Create group", handler)
         hotkey = ("g", mod_key_codes["ctrl"])
-        menu.set_item_hotkey("group", "Ctrl+G", hotkey)
-        handler = lambda: Mgr.enter_state("grouping_mode")
+        menu.set_item_hotkey("group", hotkey, "Ctrl+G")
+
+        def handler():
+
+            if GlobalData["active_obj_level"] != "top":
+                GlobalData["active_obj_level"] = "top"
+                Mgr.update_app("active_obj_level")
+
+            Mgr.enter_state("grouping_mode")
+
         menu.add("add_to_group", "Add to group...", handler)
         handler = lambda: Mgr.update_remotely("group", "remove_members")
         menu.add("remove_from_group", "Remove from group", handler)
@@ -35,7 +42,7 @@ class EditManager(object):
 
         menu.add("uvs", "Edit UVs", uv_edit_command)
         hotkey = ("u", mod_key_codes["ctrl"])
-        menu.set_item_hotkey("uvs", "Ctrl+U", hotkey)
+        menu.set_item_hotkey("uvs", hotkey, "Ctrl+U")
 
         Mgr.add_app_updater("history", self.__check_undo_redo)
 

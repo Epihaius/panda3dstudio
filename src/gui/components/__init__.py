@@ -339,6 +339,10 @@ class Components(object):
                 Mgr.update_app("uv_edit_init")
                 self._uv_editing_initialized = True
 
+            if GlobalData["active_obj_level"] != "top":
+                GlobalData["active_obj_level"] = "top"
+                Mgr.update_app("active_obj_level")
+
             Mgr.enter_state("uv_edit_mode")
 
         self._file_mgr = FileManager(menubar)

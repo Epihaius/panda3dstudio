@@ -69,10 +69,6 @@ class HierarchyManager(BaseObject):
             GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
-        if GlobalData["active_obj_level"] != "top":
-            GlobalData["active_obj_level"] = "top"
-            Mgr.update_app("active_obj_level")
-
         Mgr.update_app("status", [GlobalData["object_linking_mode"]])
 
     def __exit_linking_mode(self, next_state_id, is_active):

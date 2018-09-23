@@ -74,7 +74,6 @@ class MenuItem(Button):
         self.get_mouse_region().set_sort(parent.get_sort() + 1)
         self._id = item_id
         self._item_type = item_type
-        self._hotkey_str = ""
         self._hotkey_label = None
         self._hotkey_label_disabled = None
         self._is_checked = False
@@ -176,7 +175,7 @@ class MenuItem(Button):
 
         l, r, b, t = self.get_gfx_inner_borders()
 
-        if self._hotkey_str:
+        if self.get_hotkey_text():
             label = self._hotkey_label if self.is_enabled() else self._hotkey_label_disabled
             w = label.get_x_size()
             h = label.get_y_size()
@@ -204,22 +203,20 @@ class MenuItem(Button):
 
         return True
 
-    def set_hotkey(self, hotkey_str="", hotkey=None, interface_id="main"):
+    def set_hotkey(self, hotkey=None, hotkey_text="", interface_id="main"):
 
-        Button.set_hotkey(self, hotkey, interface_id)
-
-        if self._hotkey_str == hotkey_str:
+        if self.get_hotkey_text() == hotkey_text:
             return False
 
-        self._hotkey_str = hotkey_str
+        Button.set_hotkey(self, hotkey, hotkey_text, interface_id)
 
-        if hotkey_str:
+        if hotkey_text:
             skin_text = Skin["text"]["menu_item"]
             font = skin_text["font"]
             color = skin_text["color"]
-            self._hotkey_label = font.create_image(hotkey_str, color)
+            self._hotkey_label = font.create_image(hotkey_text, color)
             color = Skin["colors"]["disabled_menu_item_text"]
-            self._hotkey_label_disabled = font.create_image(hotkey_str, color)
+            self._hotkey_label_disabled = font.create_image(hotkey_text, color)
         else:
             self._hotkey_label = None
 
@@ -477,11 +474,11 @@ class Menu(WidgetCard):
             if update:
                 self.update()
 
-    def set_item_hotkey(self, item_id, hotkey_str, hotkey=None, interface_id="main", update=False):
+    def set_item_hotkey(self, item_id, hotkey=None, hotkey_text="", interface_id="main", update=False):
 
         item = self._items[item_id]
 
-        if item.set_hotkey(hotkey_str, hotkey, interface_id):
+        if item.set_hotkey(hotkey, hotkey_text, interface_id):
 
             sizer_item = item.get_sizer_item()
             index = self._item_sizer.get_item_index(sizer_item)

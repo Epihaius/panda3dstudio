@@ -113,10 +113,6 @@ class CreationManager(BaseObject):
 
         Mgr.do("enable_view_gizmo")
 
-        if GlobalData["active_obj_level"] != "top":
-            GlobalData["active_obj_level"] = "top"
-            Mgr.update_app("active_obj_level")
-
         if self._interactive_creation_ended:
 
             self._interactive_creation_ended = False

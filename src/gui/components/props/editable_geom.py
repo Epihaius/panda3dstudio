@@ -579,7 +579,7 @@ class EditableGeomProperties(object):
         obj_lvl = GlobalData["active_obj_level"]
 
         # exit any subobject modes
-        Mgr.enter_state("selection_mode")
+        Mgr.exit_states(min_persistence=-99)
 
         def task():
 
@@ -600,19 +600,10 @@ class EditableGeomProperties(object):
 
     def __set_topobj_level(self):
 
-        state_id = Mgr.get_state_id()
         GlobalData["active_obj_level"] = "top"
         Mgr.update_app("active_obj_level")
 
-        if state_id == "navigation_mode":
-            Mgr.enter_state("navigation_mode")
-
     def __set_subobj_level(self, subobj_lvl):
-
-        state_id = Mgr.get_state_id()
-
-        if state_id != "navigation_mode":
-            Mgr.enter_state("selection_mode")
 
         if GlobalData["transform_target_type"] != "all":
             GlobalData["transform_target_type"] = "all"
@@ -620,9 +611,6 @@ class EditableGeomProperties(object):
 
         GlobalData["active_obj_level"] = subobj_lvl
         Mgr.update_app("active_obj_level")
-
-        if state_id == "navigation_mode":
-            Mgr.enter_state("navigation_mode")
 
     def __handle_value(self, value_id, value):
 

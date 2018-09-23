@@ -1014,10 +1014,6 @@ class GroupManager(ObjectManager):
             GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
-        if GlobalData["active_obj_level"] != "top":
-            GlobalData["active_obj_level"] = "top"
-            Mgr.update_app("active_obj_level")
-
         Mgr.update_app("status", ["sel_grouping_mode"])
 
     def __exit_grouping_mode(self, next_state_id, is_active):

@@ -18,9 +18,9 @@ class TransformButtons(ToggleButtonGroup):
         self.set_default_toggle("", (toggle_on_default, lambda: None))
 
         btn_data = {
-            "translate": ("icon_translate", "Select and translate", ("w", 0)),
-            "rotate": ("icon_rotate", "Select and rotate", ("e", 0)),
-            "scale": ("icon_scale", "Select and scale", ("r", 0))
+            "translate": ("icon_translate", "Select and translate", [("w", 0), "W"]),
+            "rotate": ("icon_rotate", "Select and rotate", [("e", 0), "E"]),
+            "scale": ("icon_scale", "Select and scale", [("r", 0), "R"])
         }
 
         def add_toggle(transf_type):
@@ -34,7 +34,7 @@ class TransformButtons(ToggleButtonGroup):
             toggle = (toggle_on, lambda: None)
             icon_id, tooltip_text, hotkey = btn_data[transf_type]
             btn = ToolbarButton(toolbar, icon_id=icon_id, tooltip_text=tooltip_text)
-            btn.set_hotkey(hotkey, "uv")
+            btn.set_hotkey(*hotkey, "uv")
             btn.enable_hotkey(False)
             self.add_button(btn, transf_type, toggle)
 
@@ -92,13 +92,13 @@ class AxisButtons(ButtonGroup):
     def create_button(self, toolbar, axis):
 
         icon_id = "icon_{}".format(axis)
-        tooltip_text = "Transform about {}".format(axis.upper())
+        tooltip_text = "Transform about {}-axis".format(axis.upper())
         command = lambda: self.__set_axis_constraint(axis)
         btn = ToolbarButton(toolbar, "", icon_id, tooltip_text, command)
         self.add_button(btn, axis)
 
         if axis != "w":
-            btn.set_hotkey((axis, 0), "uv")
+            btn.set_hotkey((axis, 0), axis.upper(), "uv")
             btn.enable_hotkey(False)
 
         return btn

@@ -355,14 +355,16 @@ class StateObject(object):
 
 
 # The following class manages the different states that the application
-# can be in.
+# can be in for a specific interface.
 class StateManager(object):
 
     def __init__(self):
 
         self._states = {}
+        self._default_state_id = ""
         self._current_state_id = ""
         self._is_state_binder = False
+        self._changing_state = False
 
     def add_state(self, state_id, persistence, on_enter=None, on_exit=None):
         """
@@ -391,14 +393,18 @@ class StateManager(object):
 
         return self._is_state_binder
 
-    def set_initial_state(self, state_id):
+    def set_default_state(self, state_id):
         """
-        Set the current state at the start of the application.
+        Set the default state for the interface this StateManager is associated with.
 
         Returns True if successful or False if the state with the given id has not
         been previously defined or is already the current state.
+        Also returns False if a state change is already in progress.
 
         """
+
+        if self._changing_state:
+            return False
 
         if state_id not in self._states:
             return False
@@ -408,13 +414,16 @@ class StateManager(object):
         if state_id == current_state_id:
             return False
 
+        self._changing_state = True
         state = self._states[state_id]
         state.enter(current_state_id)
 
         if self._is_state_binder:
             self._set_state_bindings(state_id)
 
+        self._default_state_id = state_id
         self._current_state_id = state_id
+        self._changing_state = False
 
         return True
 
@@ -424,8 +433,12 @@ class StateManager(object):
 
         Returns True if successful or False if the state with the given id has not
         been previously defined or is already the current state.
+        Also returns False if a state change is already in progress.
 
         """
+
+        if self._changing_state:
+            return False
 
         if state_id not in self._states:
             return False
@@ -435,6 +448,7 @@ class StateManager(object):
         if state_id == current_state_id:
             return False
 
+        self._changing_state = True
         current_state = self._states[current_state_id]
         state = self._states[state_id]
         state.set_previous_state(current_state)
@@ -457,6 +471,7 @@ class StateManager(object):
             self._set_state_bindings(state_id)
 
         self._current_state_id = state_id
+        self._changing_state = False
 
         return True
 
@@ -468,8 +483,12 @@ class StateManager(object):
 
         Returns True if successful or False if the state with the given id has not
         been previously defined, is inactive or is the default state.
+        Also returns False if a state change is already in progress.
 
         """
+
+        if self._changing_state:
+            return False
 
         if state_id not in self._states:
             return False
@@ -482,9 +501,10 @@ class StateManager(object):
         prev_state = state.get_previous_state()
 
         if not prev_state:
-            # only the default state has no previous state
+            # the default state has no previous state and thus cannot be exited
             return False
 
+        self._changing_state = True
         current_state_id = self._current_state_id
         state.set_active(False)
 
@@ -502,6 +522,48 @@ class StateManager(object):
         else:
 
             state.exit(current_state_id)
+
+        self._changing_state = False
+
+        return True
+
+    def exit_states(self, min_persistence=None):
+        """
+        Exit all states with a persistence lower than or equal to min_persistence.
+        If no persistence is specified, start by exiting the current state.
+        Returns False if a state change is already in progress, True otherwise.
+
+        """
+
+        if self._changing_state:
+            return False
+
+        self._changing_state = True
+        current_state_id = self._current_state_id
+        default_state_id = self._default_state_id
+        current_state = self._states[current_state_id]
+        default_state = self._states[default_state_id]
+        persistence = current_state.get_persistence() if min_persistence is None else min_persistence
+        prev_state = current_state
+
+        while prev_state and prev_state is not default_state:
+
+            if prev_state.get_persistence() >= persistence:
+                prev_state.set_active(False)
+                prev_state.exit(default_state_id)
+
+            prev_state = prev_state.get_previous_state()
+
+        if current_state.get_persistence() >= persistence:
+
+            default_state.enter(current_state_id)
+
+            if self._is_state_binder:
+                self._set_state_bindings(default_state_id)
+
+            self._current_state_id = default_state_id
+
+        self._changing_state = False
 
         return True
 

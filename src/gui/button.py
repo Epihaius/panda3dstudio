@@ -4,37 +4,6 @@ from .tooltip import ToolTip
 
 class Button(Widget, HotkeyManager):
 
-    def set_hotkey(self, hotkey=None, interface_id="main"):
-
-        registry = self.get_hotkey_registry().setdefault(interface_id, {})
-
-        if self._hotkey in registry:
-            del registry[self._hotkey]
-
-        if hotkey:
-            registry[hotkey] = self
-
-        self._hotkey = hotkey
-        self._interface_id = interface_id
-
-    def enable_hotkey(self, enable=True):
-
-        hotkey = self._hotkey
-
-        if hotkey is None:
-            return
-
-        registry = self.get_hotkey_registry().get(self._interface_id, {})
-
-        if enable:
-            registry[hotkey] = self
-        elif hotkey in registry:
-            del registry[hotkey]
-
-    def handle_hotkey(self, hotkey=None):
-
-        self.press()
-
     def __init__(self, parent, gfx_data, text="", icon_id="", tooltip_text="", command=None,
                  text_alignment="center", icon_alignment="center", button_type="",
                  stretch_dir="horizontal"):
@@ -50,6 +19,7 @@ class Button(Widget, HotkeyManager):
                         stretch_dir=stretch_dir)
 
         self._hotkey = None
+        self._hotkey_text = ""
         self._interface_id = ""
         self._text = text
         self._button_type = button_type
@@ -93,6 +63,7 @@ class Button(Widget, HotkeyManager):
         self._is_active = False
         self._delay_card_update = False
         self._command = command if command else lambda: None
+        self._tooltip_text = tooltip_text
 
         if tooltip_text:
             self._tooltip_label = ToolTip.create_label(tooltip_text)
@@ -146,6 +117,46 @@ class Button(Widget, HotkeyManager):
     def get_command(self):
 
         return self._command
+
+    def set_hotkey(self, hotkey=None, hotkey_text="", interface_id="main"):
+
+        registry = self.get_hotkey_registry().setdefault(interface_id, {})
+
+        if self._hotkey in registry:
+            del registry[self._hotkey]
+
+        if hotkey:
+            registry[hotkey] = self
+
+        if hotkey_text and self._tooltip_text:
+            tooltip_text = self._tooltip_text + " ({})".format(hotkey_text)
+            self._tooltip_label = ToolTip.create_label(tooltip_text)
+
+        self._hotkey = hotkey
+        self._hotkey_text = hotkey_text
+        self._interface_id = interface_id
+
+    def get_hotkey_text(self):
+
+        return self._hotkey_text
+
+    def enable_hotkey(self, enable=True):
+
+        hotkey = self._hotkey
+
+        if hotkey is None:
+            return
+
+        registry = self.get_hotkey_registry().get(self._interface_id, {})
+
+        if enable:
+            registry[hotkey] = self
+        elif hotkey in registry:
+            del registry[hotkey]
+
+    def handle_hotkey(self, hotkey=None):
+
+        self.press()
 
     def get_label(self):
 

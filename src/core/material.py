@@ -1128,10 +1128,6 @@ class MaterialManager(object):
 
     def __enter_picking_mode(self, prev_state_id, is_active):
 
-        if GlobalData["active_obj_level"] != "top":
-            GlobalData["active_obj_level"] = "top"
-            Mgr.update_app("active_obj_level")
-
         Mgr.add_task(self.__update_cursor, "update_matrl_owner_picking_cursor")
         Mgr.update_app("status", ["pick_material_owner"])
 
@@ -1168,6 +1164,10 @@ class MaterialManager(object):
         return task.cont
 
     def __start_material_owner_picking(self, picking_op):
+
+        if GlobalData["active_obj_level"] != "top":
+            GlobalData["active_obj_level"] = "top"
+            Mgr.update_app("active_obj_level")
 
         self._picking_op = picking_op
         Mgr.enter_state("material_owner_picking_mode")

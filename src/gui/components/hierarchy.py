@@ -214,6 +214,10 @@ class HierarchyPanel(Panel):
 
     def __toggle_linking_mode(self, linking_mode):
 
+        if GlobalData["active_obj_level"] != "top":
+            GlobalData["active_obj_level"] = "top"
+            Mgr.update_app("active_obj_level")
+
         current_linking_mode = GlobalData["object_linking_mode"]
 
         if current_linking_mode and current_linking_mode != linking_mode:

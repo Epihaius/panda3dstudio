@@ -12,6 +12,10 @@ class CreationManager(object):
 
             def handler():
 
+                if GlobalData["active_obj_level"] != "top":
+                    GlobalData["active_obj_level"] = "top"
+                    Mgr.update_app("active_obj_level")
+
                 if not GlobalData["active_creation_type"]:
                     GlobalData["active_creation_type"] = object_type
                     Mgr.enter_state("creation_mode")
@@ -43,7 +47,7 @@ class CreationManager(object):
         for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
             data = creation_data[obj_type]
             menu.add(obj_type, "Create {}".format(data["name"]), data["handler"])
-            menu.set_item_hotkey(obj_type, "Shift+Ctrl+{}".format(accel.upper()), hotkey)
+            menu.set_item_hotkey(obj_type, hotkey, "Shift+Ctrl+{}".format(accel.upper()))
 
         data = creation_data["cone"]
         menu.add("cone", "Create {}".format(data["name"]), data["handler"])
@@ -57,7 +61,7 @@ class CreationManager(object):
         for obj_type, accel, hotkey in zip(obj_types, accelerators, hotkeys):
             data = creation_data[obj_type]
             menu.add(obj_type, "Create {}".format(data["name"]), data["handler"])
-            menu.set_item_hotkey(obj_type, "Shift+Ctrl+{}".format(accel.upper()), hotkey)
+            menu.set_item_hotkey(obj_type, hotkey, "Shift+Ctrl+{}".format(accel.upper()))
 
         data = creation_data["point_helper"]
         menu.add("point_helper", "Create {}".format(data["name"]), data["handler"])

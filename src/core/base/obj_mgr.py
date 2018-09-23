@@ -423,7 +423,6 @@ class GeneralObjectManager(BaseObject):
         if obj_lvl == "top":
             return
 
-        state_id = Mgr.get_state_id()
         self._obj_lvl_before_hist_change = obj_lvl
         self._sel_before_hist_change = set(obj.get_id() for obj in Mgr.get("selection_top"))
         task = self.__check_selection
@@ -432,13 +431,7 @@ class GeneralObjectManager(BaseObject):
         GlobalData["active_obj_level"] = "top"
         GlobalData["temp_toplevel"] = True
         Mgr.update_locally("active_obj_level", restore=True)
-        Mgr.enter_state("selection_mode")
-
-        if state_id == "navigation_mode":
-            Mgr.enter_state("navigation_mode")
-            task = lambda: Mgr.enter_state("navigation_mode")
-            task_id = "enter_navigation_mode"
-            PendingTasks.add(task, task_id, "ui", sort=100)
+        Mgr.exit_states(min_persistence=-99)
 
     def __reset_registries(self):
 

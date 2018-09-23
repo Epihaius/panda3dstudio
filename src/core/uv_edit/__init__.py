@@ -189,7 +189,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         VertexEditManager.setup(self)
         EdgeEditManager.setup(self)
         PolygonEditManager.setup(self)
-        Mgr.set_initial_state("uv_edit_mode", "uv")
+        Mgr.set_default_state("uv_edit_mode", "uv")
 
         def set_obj_level(obj_lvl):
 

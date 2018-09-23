@@ -216,6 +216,33 @@ def get_relative_region_frame(x, y, width, height, ref_width, ref_height):
     return l, r, b, t
 
 
+class _Tasks(object):
+
+    def __init__(self):
+
+        self._data = {}
+
+    def __call__(self):
+
+        return self._data
+
+    def __lt__(self, other):
+
+        return id(self) < id(other)
+
+    def __le__(self, other):
+
+        return id(self) <= id(other)
+
+    def __gt__(self, other):
+
+        return id(self) < id(other)
+
+    def __ge__(self, other):
+
+        return id(self) <= id(other)
+
+
 class PendingTaskBatch(object):
 
     def __init__(self, sort=0):
@@ -255,7 +282,8 @@ class PendingTaskBatch(object):
         if id_prefix:
             task_id = "{}_{}".format(id_prefix, task_id)
 
-        self._tasks.setdefault(task_type, {}).setdefault(sort, {})[task_id] = task
+        t = _Tasks()
+        self._tasks.setdefault(task_type, {}).setdefault(sort, t)()[task_id] = task
 
         return True
 
@@ -278,7 +306,8 @@ class PendingTaskBatch(object):
             else:
                 sort = 0
 
-            task = self._tasks.get(task_type, {}).get(sort, {}).pop(task_id, None)
+            t = _Tasks()
+            task = self._tasks.get(task_type, {}).get(sort, t)().pop(task_id, None)
 
             if task and not self._tasks[task_type][sort]:
 
@@ -329,13 +358,12 @@ class PendingTaskBatch(object):
             task_types = list(pending_tasks.keys())
 
         if sort_by_type:
-            sorted_tasks = [task for task_type in task_types for _, tasks in
-                            sorted(pending_tasks.pop(task_type, {}).items())
-                            for task in tasks.values()]
+            sorted_tasks = (task for task_type in task_types for _, tasks in
+                            sorted(list(pending_tasks.pop(task_type, {}).items()))
+                            for task in tasks().values())
         else:
-            sorted_tasks = [task for _, tasks in sorted([i for task_type in task_types
-                            for i in pending_tasks.pop(task_type, {}).items()])
-                            for task in tasks.values()]
+            l = (i for task_type in task_types for i in pending_tasks.pop(task_type, {}).items())
+            sorted_tasks = (task for _, tasks in sorted(l) for task in tasks().values())
 
         for task in sorted_tasks:
             task()
