@@ -149,8 +149,9 @@ class Components(object):
 
     def __init__(self):
 
-        Mgr.accept("enable_gui", self.__enable)
         self._is_enabled = False
+        Mgr.expose("gui_enabled", lambda: self._is_enabled)
+        Mgr.accept("enable_gui", self.__enable)
 
         GlobalData["viewport"] = {}
         GlobalData["viewport"]["display_regions2"] = []

@@ -25,7 +25,8 @@ class RegionTypeComboBox(ToolbarComboBox):
             ("square", "Square (from corner)"), ("square_centered", "Square (from center)"),
             ("ellipse", "Ellipse (from corner)"), ("ellipse_centered", "Ellipse (from center)"),
             ("circle", "Circle (from corner)"), ("circle_centered", "Circle (from center)"),
-            ("fence", "Fence (point-to-point)"), ("lasso", "Lasso (freehand)")
+            ("fence", "Fence (point-to-point)"), ("lasso", "Lasso (freehand)"),
+            ("paint", "Paint (using circle)")
         ):
             add_region_type_entry(*entry_data)
 
@@ -71,8 +72,12 @@ class SelectionToolbar(Toolbar):
 
         enclose = not GlobalData["region_select"]["enclose"]
         GlobalData["region_select"]["enclose"] = enclose
-        color = Skin["colors"]["selection_shape_{}".format("enclose" if enclose else "default")]
-        Mgr.update_remotely("object_selection", "enclose", color)
+        colors = Skin["colors"]
+        shape_color = colors["selection_region_shape_{}".format("enclose" if enclose else "default")]
+        fill_color = colors["selection_region_fill_{}".format("enclose" if enclose else "default")]
+        GlobalData["region_select"]["shape_color"] = shape_color
+        GlobalData["region_select"]["fill_color"] = fill_color
+        Mgr.update_remotely("object_selection", "region_color")
         self._btns["enclose"].set_active(enclose)
 
 
@@ -94,3 +99,8 @@ class SelectionManager(object):
         menu.add("clear_sel", "Select none", handler)
         hotkey = ("backspace", mod_ctrl)
         menu.set_item_hotkey("clear_sel", hotkey, "Ctrl+Backspace")
+
+        region_select = {"is_default": False, "type": "rect", "enclose": False}
+        region_select["shape_color"] = Skin["colors"]["selection_region_shape_default"]
+        region_select["fill_color"] = Skin["colors"]["selection_region_fill_default"]
+        GlobalData.set_default("region_select", region_select)

@@ -169,7 +169,7 @@ class UVSelectionBase(BaseObject):
         self._region_sel_cam = self.cam.attach_new_node(cam)
         self._sel_mask_tex = None
         self._sel_mask_buffer = None
-        self._sel_mask_listener = None
+        self._region_sel_listener = None
         self._sel_mask_triangle_vertex = 1  # index of the triangle vertex to move
         self._sel_mask_triangle_coords = []
         self._mouse_prev = (0., 0.)
@@ -185,6 +185,8 @@ class UVSelectionBase(BaseObject):
         self._fence_point_pick_lens = lens = OrthographicLens()
         lens.set_film_size(30.)
         lens.set_near(-10.)
+        self._sel_brush_size = 50.
+        self._sel_brush_size_stale = False
 
         # the following variables are used to pick a subobject using its polygon
         self._picked_poly = None
@@ -216,12 +218,6 @@ class UVSelectionBase(BaseObject):
             status_data[transf_type] = {}
             status_data[transf_type]["idle"] = {"mode": mode_text, "info": info_idle}
             status_data[transf_type]["in_progress"] = {"mode": mode_text, "info": info_text}
-
-        info_text = "LMB-drag to draw shape; RMB or <Escape> to cancel"
-        status_data["region"] = {"mode": "Draw selection shape", "info": info_text}
-        info_text = "Click to add point; <Backspace> to remove point; click existing point or" \
-            " <Enter> to finish; RMB or <Escape> to cancel"
-        status_data["fence"] = {"mode": "Draw selection shape", "info": info_text}
 
     def setup(self):
 
@@ -323,7 +319,52 @@ class UVSelectionBase(BaseObject):
         shape_type = GlobalData["region_select"]["type"]
         selection_shapes = Mgr.get("selection_shapes")
 
-        if shape_type in ("fence", "lasso"):
+        if shape_type == "paint":
+
+            shape = selection_shapes[shape_type]
+            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "uv" else "size"]
+            x, y = GlobalData["viewport"]["pos_aux" if GlobalData["viewport"][2] == "uv" else "pos"]
+            center_x, center_y = screen_pos
+            shape.set_pos(point)
+            sel_mask_data = Mgr.get("selection_mask_data")
+            geom_root = sel_mask_data["geom_root"]
+            mouse_pointer = Mgr.get("mouse_pointer", 0)
+            mouse_x = mouse_pointer.get_x()
+            mouse_y = -mouse_pointer.get_y()
+            brush = geom_root.find("**/brush")
+            brush.set_pos(mouse_x, 1.5, mouse_y)
+
+            if self._sel_brush_size_stale:
+                brush_size = self._sel_brush_size
+                w_f, h_f = self.cam_lens.get_film_size() * self.cam.get_scale()[0]
+                w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "uv" else "size"]
+                shape.set_scale((brush_size * w_f / w, 1., brush_size * h_f / h))
+                brush.set_scale(brush_size)
+                self._sel_brush_size_stale = False
+
+            d_x = self._sel_brush_size * 2. / w
+            d_y = self._sel_brush_size * 2. / h
+            x_min = center_x - d_x
+            x_max = center_x + d_x
+            y_min = center_y - d_y
+            y_max = center_y + d_y
+            x1, y1 = self._mouse_start_pos
+            x2, y2 = self._mouse_end_pos
+
+            if x_min < x1:
+                x1 = x_min
+            elif x_max > x2:
+                x2 = x_max
+
+            if y_min < y1:
+                y1 = y_min
+            elif y_max > y2:
+                y2 = y_max
+
+            self._mouse_start_pos = (x1, y1)
+            self._mouse_end_pos = (x2, y2)
+
+        elif shape_type in ("fence", "lasso"):
 
             shape = selection_shapes["free"]
 
@@ -500,7 +541,7 @@ class UVSelectionBase(BaseObject):
             self._sel_mask_triangle_coords.append((mouse_x, mouse_y))
 
             if count == 2:
-                self._sel_mask_listener.accept("backspace-up", self.__remove_fence_vertex)
+                self._region_sel_listener.accept("backspace-up", self.__remove_fence_vertex)
 
     def __remove_fence_vertex(self):
 
@@ -539,14 +580,14 @@ class UVSelectionBase(BaseObject):
         self._mouse_prev = self._sel_mask_triangle_coords.pop()
 
         if count == 2:
-            self._sel_mask_listener.ignore("backspace-up")
+            self._region_sel_listener.ignore("backspace-up")
         elif count == 3:
             background = sel_mask_data["background"]
             background.clear_texture()
-            background.set_color((0., 0., 0., 1.))
+            background.set_color((0., 0., 0., 0.))
             triangle.hide()
-            self._sel_mask_triangle_vertex = 1
-        elif count > 3:
+
+        if count >= 3:
             self._sel_mask_triangle_vertex = 3 - self._sel_mask_triangle_vertex
             vertex_data = triangle.node().modify_geom(0).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -569,6 +610,16 @@ class UVSelectionBase(BaseObject):
         prim = node.modify_geom(0).modify_primitive(0)
         array = prim.modify_vertices()
         array.set_num_rows(count)
+
+    def __incr_selection_brush_size(self):
+
+        self._sel_brush_size += max(5., self._sel_brush_size * .1)
+        self._sel_brush_size_stale = True
+
+    def __decr_selection_brush_size(self):
+
+        self._sel_brush_size = max(1., self._sel_brush_size - max(5., self._sel_brush_size * .1))
+        self._sel_brush_size_stale = True
 
     def __enter_region_selection_mode(self, prev_state_id, is_active):
 
@@ -603,39 +654,46 @@ class UVSelectionBase(BaseObject):
             mouse_coords_x.append(screen_pos.x)
             mouse_coords_y.append(screen_pos.y)
             Mgr.add_task(self.__update_cursor, "update_cursor_uvs", sort=2)
+            self._region_sel_listener = listener = DirectObject()
+            listener.accept("enter-up", lambda: Mgr.exit_state("region_selection_mode", "uv"))
             Mgr.update_app("status", ["select", "fence"], "uv")
+        elif shape_type == "paint":
+            self._region_sel_listener = listener = DirectObject()
+            listener.accept("wheel_up-up", self.__incr_selection_brush_size)
+            listener.accept("+", self.__incr_selection_brush_size)
+            listener.accept("+-repeat", self.__incr_selection_brush_size)
+            listener.accept("wheel_down-up", self.__decr_selection_brush_size)
+            listener.accept("-", self.__decr_selection_brush_size)
+            listener.accept("--repeat", self.__decr_selection_brush_size)
+            Mgr.update_app("status", ["select", "paint"], "uv")
         else:
             Mgr.update_app("status", ["select", "region"], "uv")
 
-        if shape_type in ("fence", "lasso"):
-            Mgr.enter_state("inactive")
-            selection_shapes["free"] = shape = Mgr.get("free_selection_shape")
+        if shape_type in ("fence", "lasso", "paint"):
+            self._sel_mask_tex = tex = Texture()
             sel_mask_data = Mgr.get("selection_mask_data")
+            card = sel_mask_data["shape_tex_card"]
+            card.reparent_to(self.uv_space)
+            card.set_texture(tex)
+            w_f, h_f = self.cam_lens.get_film_size() * self.cam.get_scale()[0]
+            x, _, y = self.cam.get_pos()
+            x -= w_f *.5
+            y += h_f * .5
+            card.set_scale(w_f, 1., h_f)
+            card.set_pos(x, 2., y)
             geom_root = sel_mask_data["geom_root"]
             geom_root.clear_transform()
-            self._sel_mask_tex = tex = Texture()
-            tri = sel_mask_data["triangle"]
-            tri.set_pos(0., 1.5, 0.)
-            vertex_data = tri.node().modify_geom(0).modify_vertex_data()
-            pos_writer = GeomVertexWriter(vertex_data, "vertex")
-            pos_writer.set_row(0)
-            pos_writer.set_data3f(mouse_x, 0., mouse_y)
             sh = shaders.region_sel
-            vs = sh.VERT_SHADER_MASK
-            fs = sh.FRAG_SHADER_MASK
-            shader = Shader.make(Shader.SL_GLSL, vs, fs)
-            tri.set_shader(shader)
-            tri.set_shader_input("prev_tex", tex)
-            base = Mgr.get("base")
             w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "uv" else "size"]
             x, y = GlobalData["viewport"]["pos_aux" if GlobalData["viewport"][2] == "uv" else "pos"]
+            base = Mgr.get("base")
             self._sel_mask_buffer = bfr = base.win.make_texture_buffer(
                                                                        "sel_mask_buffer",
                                                                        w, h,
                                                                        tex,
                                                                        to_ram=True
                                                                       )
-            bfr.set_clear_color((0., 0., 0., 1.))
+            bfr.set_clear_color((0., 0., 0., 0.))
             bfr.set_clear_color_active(True)
             cam = sel_mask_data["cam"]
             base.make_camera(bfr, useCamera=cam)
@@ -646,11 +704,40 @@ class UVSelectionBase(BaseObject):
             background = sel_mask_data["background"]
             background.set_scale(w, 1., h)
             background.set_pos(x, 2., -y)
-            self._sel_mask_listener = listener = DirectObject()
-            listener.accept("enter-up", lambda: Mgr.exit_state("region_selection_mode", "uv"))
             self._mouse_end_pos = (screen_pos.x, screen_pos.y)
+
+        if shape_type in ("fence", "lasso"):
+            Mgr.enter_state("inactive")
+            selection_shapes["free"] = shape = Mgr.get("free_selection_shape")
+            tri = sel_mask_data["triangle"]
+            tri.set_pos(0., 1.5, 0.)
+            vertex_data = tri.node().modify_geom(0).modify_vertex_data()
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+            pos_writer.set_row(0)
+            pos_writer.set_data3f(mouse_x, 0., mouse_y)
+            vs = sh.VERT_SHADER_MASK
+            fs = sh.FRAG_SHADER_MASK
+            shader = Shader.make(Shader.SL_GLSL, vs, fs)
+            tri.set_shader(shader)
+            tri.set_shader_input("prev_tex", tex)
+            r, g, b, a = GlobalData["region_select"]["fill_color"]
+            fill_color = (r, g, b, a) if a else (1., 1., 1., 1.)
+            tri.set_shader_input("fill_color", fill_color)
+            card.show() if a else card.hide()
         else:
             shape = selection_shapes[shape_type]
+
+        if shape_type == "paint":
+            card.show()
+            brush_size = self._sel_brush_size
+            shape.set_scale((brush_size * w_f / w, 1., brush_size * h_f / h))
+            brush = shape.get_child(0).copy_to(geom_root)
+            brush.set_name("brush")
+            brush.set_scale(brush_size)
+            brush.clear_attrib(TransparencyAttrib)
+            base.graphics_engine.render_frame()
+            background.set_color((1., 1., 1., 1.))
+            background.set_texture(tex)
 
         shape.reparent_to(self.uv_space)
         shape.set_pos(point)
@@ -680,17 +767,29 @@ class UVSelectionBase(BaseObject):
             self._fence_initialized = False
             self._sel_mask_triangle_coords = []
 
-        if shape_type in ("fence", "lasso"):
-            shape = selection_shapes["free"]
-            shape.remove_node()
-            del selection_shapes["free"]
-            self._sel_mask_listener.ignore_all()
-            self._sel_mask_listener = None
+        if shape_type in ("fence", "paint"):
+            self._region_sel_listener.ignore_all()
+            self._region_sel_listener = None
+
+        if shape_type in ("fence", "lasso", "paint"):
             sel_mask_data = Mgr.get("selection_mask_data")
+            card = sel_mask_data["shape_tex_card"]
+            card.detach_node()
+            card.clear_texture()
+            card.set_pos(0., 0., 0.)
             sel_mask_data["cam"].node().set_active(False)
             base = Mgr.get("base")
             base.graphics_engine.remove_window(self._sel_mask_buffer)
             self._sel_mask_buffer = None
+            background = sel_mask_data["background"]
+            background.clear_texture()
+            background.set_color((0., 0., 0., 0.))
+            background.set_pos(0., 2., 0.)
+
+        if shape_type in ("fence", "lasso"):
+            shape = selection_shapes["free"]
+            shape.remove_node()
+            del selection_shapes["free"]
             tri = sel_mask_data["triangle"]
             tri.hide()
             tri.clear_attrib(ShaderAttrib)
@@ -698,14 +797,15 @@ class UVSelectionBase(BaseObject):
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(0)
             pos_writer.set_data3f(0., 0., 0.)
-            background = sel_mask_data["background"]
-            background.clear_texture()
-            background.set_color((0., 0., 0., 1.))
-            background.set_pos(0., 2., 0.)
             Mgr.exit_state("inactive")
         else:
             shape = selection_shapes[shape_type]
             shape.detach_node()
+
+        if shape_type == "paint":
+            geom_root = sel_mask_data["geom_root"]
+            brush = geom_root.find("**/brush")
+            brush.remove_node()
 
         x1, y1 = self._mouse_start_pos
         x2, y2 = self._mouse_end_pos
@@ -824,10 +924,10 @@ class UVSelectionBase(BaseObject):
         else:
             ellipse_data = ()
 
-        if region_type in ("fence", "lasso"):
+        if region_type in ("fence", "lasso", "paint"):
             img = PNMImage()
             self._sel_mask_tex.store(img)
-            cropped_img = PNMImage(w_b, h_b)
+            cropped_img = PNMImage(w_b, h_b, 4)
             cropped_img.copy_sub_image(img, 0, 0, int(round(l * w)), int(round((1. - t) * h)))
             self._sel_mask_tex.load(cropped_img)
 
@@ -902,11 +1002,11 @@ class UVSelectionBase(BaseObject):
 
             if "ellipse" in region_type or "circle" in region_type:
                 state_np.set_shader_input("ellipse_data", Vec4(*ellipse_data))
-            elif region_type in ("fence", "lasso"):
+            elif region_type in ("fence", "lasso", "paint"):
                 if enclose:
                     img = PNMImage()
                     self._sel_mask_tex.store(img)
-                    img.expand_border(2, 2, 2, 2, (0., 0., 0., 1.))
+                    img.expand_border(2, 2, 2, 2, (0., 0., 0., 0.))
                     self._sel_mask_tex.load(img)
                 state_np.set_shader_input("mask_tex", self._sel_mask_tex)
             elif enclose:
@@ -945,7 +1045,7 @@ class UVSelectionBase(BaseObject):
             new_sel -= inverse_sel
             ge.remove_window(bfr_exp)
 
-        if region_type in ("fence", "lasso"):
+        if region_type in ("fence", "lasso", "paint"):
             self._sel_mask_tex = None
 
         if pick_via_poly:

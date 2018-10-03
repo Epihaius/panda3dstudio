@@ -618,7 +618,8 @@ class ViewPane(ScrollPane):
 
     def _can_scroll(self):
 
-        if Dialog.get_dialogs() or Mgr.get("active_input_field") or Menu.is_menu_shown():
+        if (Dialog.get_dialogs() or Mgr.get("active_input_field") or Menu.is_menu_shown()
+                or not Mgr.get("gui_enabled")):
             return False
 
         return True

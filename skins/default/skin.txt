@@ -104,8 +104,10 @@ viewport_frame_pick_objects             0. 1. 1. 1.
 viewport_frame_group_objects            1. .5 1. 1.
 viewport_frame_link_objects             1. .5 1. 1.
 viewport_frame_edit_uvs                 .4 1. .4 1.
-selection_shape_default                 1. 1. 1. 1.
-selection_shape_enclose                 1. 1. .7 1.
+selection_region_shape_default          1. 1. 1. 1.
+selection_region_shape_enclose          1. 1. .7 1.
+selection_region_fill_default           .5 .5 .75 .5
+selection_region_fill_enclose           .65 .65 .5 .5
 combobox_field_tint_default             1.05 1. 1.4 1.
 combobox_field_tint_pick                .8 1.8 1.8 1.
 disabled_file_button_text               .1 .1 .1 .75

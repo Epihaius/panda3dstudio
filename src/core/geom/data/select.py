@@ -1336,15 +1336,15 @@ class SelectionManager(BaseObject):
 
             state_np = NodePath("state_np")
             state_np.set_shader(shader, 1)
-            state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
+            state_np.set_shader_input("selections", tex, read=False, write=True)
 
             if "ellipse" in region_type or "circle" in region_type:
                 state_np.set_shader_input("ellipse_data", Vec4(*ellipse_data))
-            elif region_type in ("fence", "lasso"):
+            elif region_type in ("fence", "lasso", "paint"):
                 if enclose:
                     img = PNMImage()
                     mask_tex.store(img)
-                    img.expand_border(2, 2, 2, 2, (0., 0., 0., 1.))
+                    img.expand_border(2, 2, 2, 2, (0., 0., 0., 0.))
                     mask_tex.load(img)
                 state_np.set_shader_input("mask_tex", mask_tex)
             elif enclose:

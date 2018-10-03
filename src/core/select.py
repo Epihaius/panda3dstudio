@@ -373,6 +373,23 @@ class SelectionManager(BaseObject):
         for alt_shape_type, shape_type in zip(alt_prim_types, prim_types):
             shapes[alt_shape_type] = shapes[shape_type]
 
+        shapes["paint"] = shapes["circle_centered"]
+        self._sel_brush_size = 50.
+        self._sel_brush_size_stale = False
+
+        # Create a card to visualize the interior area of a free-form selection
+        # shape; the mask texture used as input for the selection shader will be
+        # applied to this card.
+
+        cm = CardMaker("selection_shape_tex_card")
+        cm.set_frame(0., 1., -1., 0.)
+        card = NodePath(cm.generate())
+        card.set_depth_test(False)
+        card.set_depth_write(False)
+        card.set_bin("fixed", 99)
+        card.set_transparency(TransparencyAttrib.M_alpha)
+        self._sel_shape_tex_card = card
+
         self._sel_shape_pos = ()
         self._region_center_pos = ()
         self._region_sel_uvs = False
@@ -388,8 +405,6 @@ class SelectionManager(BaseObject):
 
         GlobalData.set_default("selection_count", 0)
         GlobalData.set_default("sel_color_count", 0)
-        region_select = {"is_default": False, "type": "rect", "enclose": False}
-        GlobalData.set_default("region_select", region_select)
 
         Mgr.expose("selection", self.__get_selection)
         Mgr.expose("selection_top", lambda: self._selection)
@@ -400,7 +415,8 @@ class SelectionManager(BaseObject):
                          "geom_root": self._sel_mask_geom_root,
                          "cam": self._sel_mask_cam,
                          "triangle": self._sel_mask_triangle,
-                         "background": self._sel_mask_background
+                         "background": self._sel_mask_background,
+                         "shape_tex_card": self._sel_shape_tex_card
                         }
         Mgr.expose("selection_mask_data", lambda: sel_mask_data)
         Mgr.accept("select_top", self.__select_toplvl_obj)
@@ -485,7 +501,9 @@ class SelectionManager(BaseObject):
         status_data["region"] = {"mode": "Draw selection shape", "info": info_text}
         info_text = "Click to add point; <Backspace> to remove point; click existing point or" \
             " <Enter> to finish; RMB or <Escape> to cancel"
-        status_data["fence"] = {"mode": "Draw selection shape", "info": info_text}
+        status_data["fence"] = {"mode": "Draw selection fence", "info": info_text}
+        info_text = "LMB-drag to paint; MWheel or <+>/<-> to resize brush; RMB or <Escape> to cancel"
+        status_data["paint"] = {"mode": "Paint selection", "info": info_text}
 
     def setup(self):
 
@@ -525,10 +543,10 @@ class SelectionManager(BaseObject):
         cm.set_frame(0., 1., -1., 0.)
         self._sel_mask_background = background = geom_root.attach_new_node(cm.generate())
         background.set_y(2.)
-        background.set_color((0., 0., 0., 1.))
+        background.set_color((0., 0., 0., 0.))
         self._sel_mask_tex = None
         self._sel_mask_buffer = None
-        self._sel_mask_listener = None
+        self._region_sel_listener = None
         self._mouse_prev = (0., 0.)
 
     def __get_fence_point_under_mouse(self, cam):
@@ -571,6 +589,7 @@ class SelectionManager(BaseObject):
 
         else:
 
+            tris = GeomTriangles(Geom.UH_static)
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
             if shape_type in ("square", "square_centered", "rect", "rect_centered"):
@@ -590,6 +609,8 @@ class SelectionManager(BaseObject):
                 lines.add_vertices(1, 2)
                 lines.add_vertices(2, 3)
                 lines.add_vertices(3, 0)
+                tris.add_vertices(0, 1, 2)
+                tris.add_vertices(0, 2, 3)
 
             else:
 
@@ -614,6 +635,9 @@ class SelectionManager(BaseObject):
 
                 lines.add_vertices(i, 0)
 
+                for i in range(3, 101):
+                    tris.add_vertices(0, i - 2, i - 1)
+
         state_np = NodePath("state_np")
         state_np.set_depth_test(False)
         state_np.set_depth_write(False)
@@ -621,7 +645,7 @@ class SelectionManager(BaseObject):
 
         if shape_type == "free":
             rect = self._selection_shapes["rect"]
-            color = rect.get_color() if rect.has_color() else (1., 1., 1., 1.)
+            color = rect.get_color()
             state_np.set_color(color)
 
         state1 = state_np.get_state()
@@ -636,7 +660,23 @@ class SelectionManager(BaseObject):
         geom = geom.make_copy()
         geom_node.add_geom(geom, state2)
 
-        return NodePath(geom_node)
+        if shape_type == "free":
+            return NodePath(geom_node)
+
+        shape = NodePath(geom_node)
+        shape.set_color(GlobalData["region_select"]["shape_color"])
+        geom = Geom(vertex_data)
+        geom.add_primitive(tris)
+        geom_node = GeomNode("selection_area")
+        geom_node.add_geom(geom)
+        area = shape.attach_new_node(geom_node)
+        area.set_depth_test(False)
+        area.set_depth_write(False)
+        area.set_bin("fixed", 99)
+        area.set_transparency(TransparencyAttrib.M_alpha)
+        area.set_color(GlobalData["region_select"]["fill_color"])
+
+        return shape
 
     def __draw_selection_shape(self, task):
 
@@ -650,7 +690,45 @@ class SelectionManager(BaseObject):
 
         shape_type = GlobalData["region_select"]["type"]
 
-        if shape_type in ("fence", "lasso"):
+        if shape_type == "paint":
+
+            shape = self._selection_shapes[shape_type]
+            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+            x, y = GlobalData["viewport"]["pos_aux" if GlobalData["viewport"][2] == "main" else "pos"]
+            center_x, center_y = self.mouse_watcher.get_mouse()
+            shape.set_pos(mouse_x - x, 0., mouse_y + y)
+            geom_root = self._sel_mask_geom_root
+            brush = geom_root.find("**/brush")
+            brush.set_pos(mouse_x - x, 10., mouse_y + y)
+
+            if self._sel_brush_size_stale:
+                shape.set_scale(self._sel_brush_size)
+                brush.set_scale(self._sel_brush_size)
+                self._sel_brush_size_stale = False
+
+            d_x = self._sel_brush_size * 2. / w
+            d_y = self._sel_brush_size * 2. / h
+            x_min = center_x - d_x
+            x_max = center_x + d_x
+            y_min = center_y - d_y
+            y_max = center_y + d_y
+            x1, y1 = self._mouse_start_pos
+            x2, y2 = self._mouse_end_pos
+
+            if x_min < x1:
+                x1 = x_min
+            elif x_max > x2:
+                x2 = x_max
+
+            if y_min < y1:
+                y1 = y_min
+            elif y_max > y2:
+                y2 = y_max
+
+            self._mouse_start_pos = (x1, y1)
+            self._mouse_end_pos = (x2, y2)
+
+        elif shape_type in ("fence", "lasso"):
 
             shape = self._selection_shapes["free"]
 
@@ -809,7 +887,7 @@ class SelectionManager(BaseObject):
             self._sel_mask_triangle_coords.append((mouse_x - x, mouse_y - y))
 
             if count == 2:
-                self._sel_mask_listener.accept("backspace-up", self.__remove_fence_vertex)
+                self._region_sel_listener.accept("backspace-up", self.__remove_fence_vertex)
 
     def __remove_fence_vertex(self):
 
@@ -848,13 +926,13 @@ class SelectionManager(BaseObject):
         self._mouse_prev = (prev_x + x, prev_y + y)
 
         if count == 2:
-            self._sel_mask_listener.ignore("backspace-up")
+            self._region_sel_listener.ignore("backspace-up")
         elif count == 3:
             self._sel_mask_background.clear_texture()
-            self._sel_mask_background.set_color((0., 0., 0., 1.))
+            self._sel_mask_background.set_color((0., 0., 0., 0.))
             self._sel_mask_triangle.hide()
-            self._sel_mask_triangle_vertex = 1
-        elif count > 3:
+
+        if count >= 3:
             self._sel_mask_triangle_vertex = 3 - self._sel_mask_triangle_vertex
             vertex_data = self._sel_mask_triangle.node().modify_geom(0).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -877,6 +955,16 @@ class SelectionManager(BaseObject):
         prim = node.modify_geom(0).modify_primitive(0)
         array = prim.modify_vertices()
         array.set_num_rows(count)
+
+    def __incr_selection_brush_size(self):
+
+        self._sel_brush_size += max(5., self._sel_brush_size * .1)
+        self._sel_brush_size_stale = True
+
+    def __decr_selection_brush_size(self):
+
+        self._sel_brush_size = max(1., self._sel_brush_size - max(5., self._sel_brush_size * .1))
+        self._sel_brush_size_stale = True
 
     def __enter_region_selection_mode(self, prev_state_id, is_active):
 
@@ -906,34 +994,39 @@ class SelectionManager(BaseObject):
             mouse_coords_x.append(screen_pos.x)
             mouse_coords_y.append(screen_pos.y)
             Mgr.add_task(self.__update_cursor, "update_cursor")
-            self._sel_mask_listener = listener = DirectObject()
+            self._region_sel_listener = listener = DirectObject()
             listener.accept("enter-up", lambda: Mgr.exit_state("region_selection_mode"))
             Mgr.update_app("status", ["select", "fence"])
+        elif shape_type == "paint":
+            self._region_sel_listener = listener = DirectObject()
+            listener.accept("wheel_up-up", self.__incr_selection_brush_size)
+            listener.accept("+", self.__incr_selection_brush_size)
+            listener.accept("+-repeat", self.__incr_selection_brush_size)
+            listener.accept("wheel_down-up", self.__decr_selection_brush_size)
+            listener.accept("-", self.__decr_selection_brush_size)
+            listener.accept("--repeat", self.__decr_selection_brush_size)
+            Mgr.update_app("status", ["select", "paint"])
         else:
             Mgr.update_app("status", ["select", "region"])
 
-        if shape_type in ("fence", "lasso"):
-            self._selection_shapes["free"] = shape = self.__create_selection_shape("free")
+        if shape_type in ("fence", "lasso", "paint"):
+            self._sel_mask_tex = tex = Texture()
+            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+            card = self._sel_shape_tex_card
+            card.reparent_to(self.viewport)
+            card.set_texture(tex)
+            card.set_scale(w, 1., h)
             geom_root = self._sel_mask_geom_root
             geom_root.set_transform(self.viewport.get_transform())
-            self._sel_mask_tex = tex = Texture()
-            tri = self._sel_mask_triangle
-            tri.set_pos(mouse_x - x, 1.5, mouse_y + y)
             sh = shaders.region_sel
-            vs = sh.VERT_SHADER_MASK
-            fs = sh.FRAG_SHADER_MASK
-            shader = Shader.make(Shader.SL_GLSL, vs, fs)
-            tri.set_shader(shader)
-            tri.set_shader_input("prev_tex", tex)
             base = Mgr.get("base")
-            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
             self._sel_mask_buffer = bfr = base.win.make_texture_buffer(
                                                                        "sel_mask_buffer",
                                                                        w, h,
                                                                        tex,
                                                                        to_ram=True
                                                                       )
-            bfr.set_clear_color((0., 0., 0., 1.))
+            bfr.set_clear_color((0., 0., 0., 0.))
             bfr.set_clear_color_active(True)
             cam = self._sel_mask_cam
             base.make_camera(bfr, useCamera=cam)
@@ -943,8 +1036,33 @@ class SelectionManager(BaseObject):
             background = self._sel_mask_background
             background.set_scale(w, 1., h)
             self._mouse_end_pos = (screen_pos.x, screen_pos.y)
+
+        if shape_type in ("fence", "lasso"):
+            self._selection_shapes["free"] = shape = self.__create_selection_shape("free")
+            tri = self._sel_mask_triangle
+            tri.set_pos(mouse_x - x, 1.5, mouse_y + y)
+            vs = sh.VERT_SHADER_MASK
+            fs = sh.FRAG_SHADER_MASK
+            shader = Shader.make(Shader.SL_GLSL, vs, fs)
+            tri.set_shader(shader)
+            tri.set_shader_input("prev_tex", tex)
+            r, g, b, a = GlobalData["region_select"]["fill_color"]
+            fill_color = (r, g, b, a) if a else (1., 1., 1., 1.)
+            tri.set_shader_input("fill_color", fill_color)
+            card.show() if a else card.hide()
         else:
             shape = self._selection_shapes[shape_type]
+
+        if shape_type == "paint":
+            card.show()
+            shape.set_scale(self._sel_brush_size)
+            brush = shape.get_child(0).copy_to(geom_root)
+            brush.set_name("brush")
+            brush.set_scale(self._sel_brush_size)
+            brush.clear_attrib(TransparencyAttrib)
+            base.graphics_engine.render_frame()
+            background.set_color((1., 1., 1., 1.))
+            background.set_texture(tex)
 
         shape.reparent_to(self.viewport)
         shape.set_pos(mouse_x - x, 0., mouse_y + y)
@@ -969,25 +1087,36 @@ class SelectionManager(BaseObject):
             self._fence_mouse_coords = [[], []]
             self._fence_initialized = False
             self._sel_mask_triangle_coords = []
-            self._sel_mask_listener.ignore_all()
-            self._sel_mask_listener = None
+
+        if shape_type in ("fence", "paint"):
+            self._region_sel_listener.ignore_all()
+            self._region_sel_listener = None
+
+        if shape_type in ("fence", "lasso", "paint"):
+            self._sel_shape_tex_card.detach_node()
+            self._sel_shape_tex_card.clear_texture()
+            self._sel_mask_cam.node().set_active(False)
+            base = Mgr.get("base")
+            base.graphics_engine.remove_window(self._sel_mask_buffer)
+            self._sel_mask_buffer = None
+            self._sel_mask_background.clear_texture()
+            self._sel_mask_background.set_color((0., 0., 0., 0.))
 
         if shape_type in ("fence", "lasso"):
             shape = self._selection_shapes["free"]
             shape.remove_node()
             del self._selection_shapes["free"]
-            self._sel_mask_cam.node().set_active(False)
-            base = Mgr.get("base")
-            base.graphics_engine.remove_window(self._sel_mask_buffer)
-            self._sel_mask_buffer = None
             tri = self._sel_mask_triangle
             tri.hide()
             tri.clear_attrib(ShaderAttrib)
-            self._sel_mask_background.clear_texture()
-            self._sel_mask_background.set_color((0., 0., 0., 1.))
         else:
             shape = self._selection_shapes[shape_type]
             shape.detach_node()
+
+        if shape_type == "paint":
+            geom_root = self._sel_mask_geom_root
+            brush = geom_root.find("**/brush")
+            brush.remove_node()
 
         x1, y1 = self._mouse_start_pos
         x2, y2 = self._mouse_end_pos
@@ -1042,7 +1171,7 @@ class SelectionManager(BaseObject):
         region_type = GlobalData["region_select"]["type"]
 
         if self._region_sel_cancelled:
-            if region_type in ("fence", "lasso"):
+            if region_type in ("fence", "lasso", "paint"):
                 self._sel_mask_tex = None
             return
 
@@ -1110,10 +1239,10 @@ class SelectionManager(BaseObject):
         else:
             ellipse_data = ()
 
-        if region_type in ("fence", "lasso"):
+        if region_type in ("fence", "lasso", "paint"):
             img = PNMImage()
             self._sel_mask_tex.store(img)
-            cropped_img = PNMImage(*bfr_size)
+            cropped_img = PNMImage(*bfr_size, 4)
             cropped_img.copy_sub_image(img, 0, 0, int(round(l * w)), int(round((1. - t) * h)))
             self._sel_mask_tex.load(cropped_img)
 
@@ -1181,15 +1310,15 @@ class SelectionManager(BaseObject):
                 shader = Shader.make(Shader.SL_GLSL, vs, fs)
                 state_np = NodePath("state_np")
                 state_np.set_shader(shader, 1)
-                state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
+                state_np.set_shader_input("selections", tex, read=False, write=True)
 
                 if "ellipse" in region_type or "circle" in region_type:
                     state_np.set_shader_input("ellipse_data", Vec4(*ellipse_data))
-                elif region_type in ("fence", "lasso"):
+                elif region_type in ("fence", "lasso", "paint"):
                     if enclose:
                         img = PNMImage()
                         self._sel_mask_tex.store(img)
-                        img.expand_border(2, 2, 2, 2, (0., 0., 0., 1.))
+                        img.expand_border(2, 2, 2, 2, (0., 0., 0., 0.))
                         self._sel_mask_tex.load(img)
                     state_np.set_shader_input("mask_tex", self._sel_mask_tex)
                 elif enclose:
@@ -1256,7 +1385,7 @@ class SelectionManager(BaseObject):
             Mgr.do("region_select_subobjs", cam_np, lens_exp, bfr,
                    ellipse_data, self._sel_mask_tex, op)
 
-        if region_type in ("fence", "lasso"):
+        if region_type in ("fence", "lasso", "paint"):
             self._sel_mask_tex = None
 
         cam.set_active(False)
@@ -1362,9 +1491,14 @@ class SelectionManager(BaseObject):
             self.__select_all()
         elif update_type == "clear":
             self.__select_none()
-        elif update_type == "enclose":
-            for shape in self._selection_shapes.values():
-                shape.set_color(args[0])
+        elif update_type == "region_color":
+            shapes = self._selection_shapes
+            shape_color = GlobalData["region_select"]["shape_color"]
+            fill_color = GlobalData["region_select"]["fill_color"]
+            for shape_type in ("square", "square_centered", "circle", "circle_centered"):
+                shape = shapes[shape_type]
+                shape.set_color(shape_color)
+                shape.get_child(0).set_color(fill_color)
 
     def __delete_selection(self):
 

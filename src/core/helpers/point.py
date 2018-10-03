@@ -845,11 +845,11 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         shader = Shader.make(Shader.SL_GLSL, vs, fs)
         state_np = NodePath("state_np")
         state_np.set_shader(shader, 1)
-        state_np.set_shader_input("selections", tex, read=False, write=True, priority=1)
+        state_np.set_shader_input("selections", tex, read=False, write=True)
 
         if "ellipse" in region_type or "circle" in region_type:
             state_np.set_shader_input("ellipse_data", Vec4(*ellipse_data))
-        elif region_type in ("fence", "lasso"):
+        elif region_type in ("fence", "lasso", "paint"):
             state_np.set_shader_input("mask_tex", mask_tex)
         elif enclose:
             w_b, h_b = buffer_size

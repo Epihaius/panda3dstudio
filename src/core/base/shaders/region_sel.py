@@ -1,6 +1,7 @@
-# This module contains the shaders used to region-select top-level objects.
+# This module contains the shaders used to region-select objects.
 
 
+# The following vertex shader is used to region-select top-level objects
 VERT_SHADER = """
     #version 420
 
@@ -15,6 +16,8 @@ VERT_SHADER = """
     }
 """
 
+# The following fragment shader is used to determine which objects lie
+# within a rectangular region
 FRAG_SHADER = """
     #version 420
 
@@ -64,7 +67,7 @@ FRAG_SHADER_ELLIPSE = """
 """
 
 # The following fragment shader is used to constrain the selection to a
-# free-form (point-to-point "fence" or lasso) region
+# free-form (point-to-point "fence", lasso or painted) region
 FRAG_SHADER_FREE = """
     #version 420
 
@@ -76,8 +79,8 @@ FRAG_SHADER_FREE = """
 
         vec4 texelValue = texelFetch(mask_tex, ivec2(gl_FragCoord.xy), 0);
 
-        // only consider pixels whose corresponding mask texels are white
-        if (texelValue != vec4(1., 1., 1., 1.)) {
+        // discard pixels whose corresponding mask texels are (0., 0., 0., 0.)
+        if (texelValue == vec4(0., 0., 0., 0.)) {
             discard;
         }
 
@@ -153,8 +156,8 @@ FRAG_SHADER_ELLIPSE_INV = """
     }
 """
 
-# The following fragment shader is used to determine which objects are
-# not completely enclosed within a free-form (fence or lasso) region
+# The following fragment shader is used to determine which objects are not
+# completely enclosed within a free-form (fence, lasso or painted) region
 FRAG_SHADER_FREE_INV = """
     #version 420
 
@@ -166,8 +169,8 @@ FRAG_SHADER_FREE_INV = """
 
         vec4 texelValue = texelFetch(mask_tex, ivec2(gl_FragCoord.xy), 0);
 
-        // only consider pixels whose corresponding mask texels are black
-        if (texelValue != vec4(0., 0., 0., 1.)) {
+        // only consider pixels whose corresponding mask texels are (0., 0., 0., 0.)
+        if (texelValue != vec4(0., 0., 0., 0.)) {
             discard;
         }
 
@@ -196,17 +199,18 @@ FRAG_SHADER_MASK = """
     #version 420
 
     uniform sampler2D prev_tex;
+    uniform vec4 fill_color;
     layout(location = 0) out vec4 out_color;
 
     void main() {
 
         vec4 texelValue = texelFetch(prev_tex, ivec2(gl_FragCoord.xy), 0);
 
-        if (texelValue == vec4(0., 0., 0., 1.)) {
-            out_color = vec4(1., 1., 1., 1.);
+        if (texelValue == vec4(0., 0., 0., 0.)) {
+            out_color = fill_color;
         }
         else {
-            out_color = vec4(0., 0., 0., 1.);
+            out_color = vec4(0., 0., 0., 0.);
         }
 
     }

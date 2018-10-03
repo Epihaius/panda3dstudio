@@ -13,6 +13,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
     def __init__(self):
 
         uv_space = NodePath("uv_space")
+        uv_space.set_two_sided(True)
         lens = OrthographicLens()
         lens.set_near(-10.)
         cam_node = Camera("main_uv_cam", lens)
@@ -79,7 +80,6 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         edge_state_np.set_bin("background", 11)
 
         poly_unsel_state_np = NodePath(state_np.node().make_copy())
-        poly_unsel_state_np.set_two_sided(True)
         poly_unsel_state_np.set_bin("background", 10)
         poly_unsel_state_np.set_transparency(TransparencyAttrib.M_alpha)
         poly_unsel_color = VBase4(.3, .3, .3, .5)
