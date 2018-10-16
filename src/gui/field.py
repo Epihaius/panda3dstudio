@@ -1229,10 +1229,13 @@ class InputField(Widget):
 
         return self._text_ctrls[self._value_id].get_color()
 
-    def clear(self):
+    def clear(self, forget=True):
 
         txt_ctrl = self._text_ctrls[self._value_id]
         txt_ctrl.clear()
+
+        if forget:
+            self._texts[self._value_id] = ""
 
         if self._is_text_shown:
             self.__update_card_image()

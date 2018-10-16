@@ -235,7 +235,7 @@ class PropertyPanel(Panel):
     def __init_input(self):
 
         if self._name_field.get_text_color() == self._colors["disabled"]:
-            self._name_field.clear()
+            self._name_field.clear(forget=False)
 
     def __handle_value(self, value_id, value):
 

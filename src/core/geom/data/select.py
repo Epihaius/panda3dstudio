@@ -707,10 +707,13 @@ class Selection(SelectionTransformBase):
         if self._groups:
             return list(self._groups.keys())[0].get_toplevel_object(get_group)
 
-    def update(self):
+    def update(self, hide_sets=False):
 
         self.update_center_pos()
         self.update_ui()
+
+        if hide_sets:
+            Mgr.update_remotely("selection_set", "show_none")
 
     def add(self, subobjs, add_to_hist=True):
 
@@ -991,6 +994,7 @@ class SelectionManager(BaseObject):
         Mgr.expose("selection_edge", lambda: self._selections["edge"])
         Mgr.expose("selection_poly", lambda: self._selections["poly"])
         Mgr.expose("selection_normal", lambda: self._selections["normal"])
+        Mgr.expose("subobj_selection_set", self.__get_selection_set)
         Mgr.accept("update_selection_vert", lambda: self.__update_selection("vert"))
         Mgr.accept("update_selection_edge", lambda: self.__update_selection("edge"))
         Mgr.accept("update_selection_poly", lambda: self.__update_selection("poly"))
@@ -1006,6 +1010,7 @@ class SelectionManager(BaseObject):
         Mgr.accept("inverse_select_subobjs", self.__inverse_select)
         Mgr.accept("select_all_subobjs", self.__select_all)
         Mgr.accept("clear_subobj_selection", self.__select_none)
+        Mgr.accept("apply_subobj_selection_set", self.__apply_selection_set)
         Mgr.accept("region_select_subobjs", self.__region_select)
         Mgr.accept("init_selection_via_poly", self.__init_selection_via_poly)
         Mgr.add_app_updater("active_obj_level", lambda: self.__clear_prev_selection(True))
@@ -1068,6 +1073,7 @@ class SelectionManager(BaseObject):
         self._selections[obj_lvl] = sel = Selection(obj_lvl, subobjs)
         sel.update()
         self._prev_obj_lvl = obj_lvl
+        Mgr.update_remotely("selection_set", "show_none")
 
     def __get_all_combined_subobjs(self, obj_lvl):
 
@@ -1097,18 +1103,56 @@ class SelectionManager(BaseObject):
         old_sel = set(selection)
         new_sel = set(self.__get_all_combined_subobjs(obj_lvl))
         selection.replace(new_sel - old_sel)
+        Mgr.update_remotely("selection_set", "show_none")
 
     def __select_all(self):
 
         obj_lvl = GlobalData["active_obj_level"]
         selection = self._selections[obj_lvl]
         selection.replace(self.__get_all_combined_subobjs(obj_lvl))
+        Mgr.update_remotely("selection_set", "show_none")
 
     def __select_none(self):
 
         obj_lvl = GlobalData["active_obj_level"]
         selection = self._selections[obj_lvl]
         selection.clear()
+        Mgr.update_remotely("selection_set", "show_none")
+
+    def __get_selection_set(self):
+
+        obj_lvl = GlobalData["active_obj_level"]
+        selection = self._selections[obj_lvl]
+
+        if obj_lvl == "poly":
+            return set(obj.get_id() for obj in selection)
+        else:
+            return set(obj_id for obj in selection for obj_id in obj)
+
+    def __apply_selection_set(self, sel_set):
+
+        obj_lvl = GlobalData["active_obj_level"]
+        selection = self._selections[obj_lvl]
+        geom_data_objs = [model.get_geom_object().get_geom_data_object()
+                          for model in Mgr.get("selection_top")]
+        combined_subobjs = {}
+
+        if obj_lvl == "vert":
+            for geom_data_obj in geom_data_objs:
+                combined_subobjs.update(geom_data_obj.get_merged_vertices())
+        elif obj_lvl == "edge":
+            for geom_data_obj in geom_data_objs:
+                combined_subobjs.update(geom_data_obj.get_merged_edges())
+        elif obj_lvl == "normal":
+            for geom_data_obj in geom_data_objs:
+                combined_subobjs.update(geom_data_obj.get_shared_normals())
+        elif obj_lvl == "poly":
+            for geom_data_obj in geom_data_objs:
+                combined_subobjs.update(geom_data_obj.get_subobjects("poly"))
+
+        new_sel = set(combined_subobjs.get(obj_id) for obj_id in sel_set)
+        new_sel.discard(None)
+        selection.replace(new_sel)
 
     def __init_select(self, obj_lvl, picked_obj, op):
 
@@ -1260,6 +1304,8 @@ class SelectionManager(BaseObject):
         elif op == "replace":
 
             selection.clear()
+
+        Mgr.update_remotely("selection_set", "show_none")
 
         return can_select_single, start_mouse_checking
 
@@ -1600,7 +1646,7 @@ class SelectionManager(BaseObject):
 
             if picked_point:
                 selection = self._selections[subobj_lvl]
-                selection.update()
+                selection.update(hide_sets=True)
                 Mgr.do("init_transform", picked_point)
 
             Mgr.set_cursor(active_transform_type)

@@ -396,9 +396,9 @@ class ToolbarInputField(InputField):
             image = self.get_image(composed=False, draw_border=True, crop=True)
             self.get_parent().update_composed_image(self, image)
 
-    def clear(self):
+    def clear(self, forget=True):
 
-        InputField.clear(self)
+        InputField.clear(self, forget)
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
         self.get_parent().update_composed_image(self, image)
@@ -496,9 +496,9 @@ class ComboBoxInputField(InputField):
             combobox = self.get_parent()
             combobox.get_parent().update_composed_image(combobox)
 
-    def clear(self):
+    def clear(self, forget=True):
 
-        InputField.clear(self)
+        InputField.clear(self, forget)
 
         combobox = self.get_parent()
         combobox.get_parent().update_composed_image(combobox)

@@ -679,7 +679,7 @@ class TopLevelObject(BaseObject):
                 task = lambda: self.set_selected(value, False)
                 task_id = "update_selection"
                 PendingTasks.add(task, task_id, "object", id_prefix=self._id)
-                task = lambda: Mgr.get("selection").update()
+                task = lambda: Mgr.get("selection").update(hide_sets=True)
                 PendingTasks.add(task, "update_selection", "ui")
             else:
                 self.set_selected(value, True)

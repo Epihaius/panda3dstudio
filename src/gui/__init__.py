@@ -19,15 +19,24 @@ class GUI(object):
         gui_cam_root = NodePath("gui_cam_root")
         self._gui_root = gui_root = gui_cam_root.attach_new_node("gui_root")
         CullBinManager.get_global_ptr().add_bin("gui", CullBinManager.BT_fixed, 41)
-        gui_root.set_bin("gui", 1)
-        gui_root.set_depth_test(False)
-        gui_root.set_depth_write(False)
+        gui_cam_root.set_bin("gui", 1)
+        gui_cam_root.set_depth_test(False)
+        gui_cam_root.set_depth_write(False)
         Mgr.expose("gui_root", lambda: gui_root)
         gui_mouse_watcher_node = MouseWatcher("gui")
         cursor_watcher_node = MouseWatcher("cursor")
         GlobalData["mouse_watchers"] = [gui_mouse_watcher_node]
         Mgr.expose("mouse_watcher", lambda: gui_mouse_watcher_node)
         app_mgr.init_cursor_manager(cursor_watcher_node)
+
+        gui_root.set_pos(-1., 0., 1.)
+        cam_node = Camera("gui_cam")
+        gui_cam = gui_cam_root.attach_new_node(cam_node)
+        lens = OrthographicLens()
+        lens.set_near(-10.)
+        lens.set_film_size(2., 2.)
+        cam_node.set_lens(lens)
+        cam_node.set_cull_bounds(OmniBoundingVolume())
 
         self._components = Components()
         self._exit_handler = self._components.exit_handler
@@ -65,14 +74,6 @@ class GUI(object):
         fov_v = base.camLens.get_vfov()
         fov_h = math.degrees(math.atan(math.tan(math.radians(fov_v * .5)) * 4. / 3.) * 2.)
         base.camLens.set_fov(fov_h, fov_v)
-
-        gui_root.set_pos(-1., 0., 1.)
-        gui_cam = gui_cam_root.attach_new_node(Camera("gui_cam"))
-        lens = OrthographicLens()
-        lens.set_near(-10.)
-        lens.set_film_size(2., 2.)
-        gui_cam.node().set_lens(lens)
-        gui_cam.node().set_cull_bounds(OmniBoundingVolume())
 
         region = base.win.make_display_region(0., 1., 0., 1.)
         region.set_sort(10000)

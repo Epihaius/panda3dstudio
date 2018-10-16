@@ -56,6 +56,7 @@ class SceneManager(BaseObject):
         Mgr.update_app("view", "clear")
         Mgr.update_remotely("material_library", "clear")
         Mgr.update_locally("material_library", "clear")
+        Mgr.update_locally("object_selection", "reset_sets")
         Mgr.update_app("view", "reset_all")
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "adaptive")
@@ -127,6 +128,24 @@ class SceneManager(BaseObject):
         for transf_type, axes in constraints.items():
             Mgr.update_app("axis_constraints", transf_type, axes)
 
+        selection_sets = scene_data["selection_sets"]
+        sets_loaded = selection_sets["sets"]
+        names_loaded = selection_sets["names"]
+
+        for obj_lvl in list(sets_loaded):
+
+            lvl_sets_loaded = sets_loaded[obj_lvl]
+            lvl_names_loaded = names_loaded[obj_lvl]
+            sets_loaded[obj_lvl] = sets = {}
+            names_loaded[obj_lvl] = names = {}
+
+            for set_id_loaded, sel_set in lvl_sets_loaded.items():
+                set_id = id(sel_set)
+                sets[set_id] = sel_set
+                names[set_id] = lvl_names_loaded[set_id_loaded]
+
+        Mgr.do("set_selection_sets", selection_sets)
+
         GlobalData["rel_transform_values"] = scene_data["rel_transform_values"]
         transf_type = scene_data["active_transform_type"]
         GlobalData["active_transform_type"] = transf_type
@@ -158,6 +177,7 @@ class SceneManager(BaseObject):
 
         scene_data = {}
         scene_data["material_library"] = Mgr.get("material_library")
+        scene_data["selection_sets"] = Mgr.get("selection_sets")
         scene_data["view_data"] = Mgr.get("view_data")
 
         for x in ("coord_sys", "transf_center"):

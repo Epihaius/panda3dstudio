@@ -84,11 +84,14 @@ class Selection(SelectionTransformBase):
 
         Mgr.update_app("selection_count")
 
-    def update(self):
+    def update(self, hide_sets=False):
 
         self.update_center_pos()
         self.update_ui()
         self.update_obj_props()
+
+        if hide_sets:
+            Mgr.update_remotely("selection_set", "show_none")
 
     def add(self, objs, add_to_hist=True, update=True):
 
@@ -360,6 +363,11 @@ class SelectionManager(BaseObject):
 
         self._obj_id = None
         self._selection = Selection()
+        sel_sets = {"top": {}, "vert": {}, "normal": {}, "edge": {}, "poly": {},
+                    "uv_vert": {}, "uv_edge": {}, "uv_poly": {}}
+        sel_names = {"top": {}, "vert": {}, "normal": {}, "edge": {}, "poly": {},
+                     "uv_vert": {}, "uv_edge": {}, "uv_poly": {}}
+        self._selection_sets = {"sets": sel_sets, "names": sel_names}
         self._pixel_under_mouse = None
 
         self.__setup_selection_mask()
@@ -408,6 +416,7 @@ class SelectionManager(BaseObject):
 
         Mgr.expose("selection", self.__get_selection)
         Mgr.expose("selection_top", lambda: self._selection)
+        Mgr.expose("selection_sets", lambda: self._selection_sets)
         Mgr.expose("selection_shapes", lambda: self._selection_shapes)
         Mgr.expose("free_selection_shape", lambda: self.__create_selection_shape("free"))
         sel_mask_data = {
@@ -422,6 +431,7 @@ class SelectionManager(BaseObject):
         Mgr.accept("select_top", self.__select_toplvl_obj)
         Mgr.accept("select_single_top", self.__select_single)
         Mgr.accept("init_region_select", self.__init_region_select)
+        Mgr.accept("set_selection_sets", self.__set_selection_sets)
 
         def force_cursor_update(transf_type):
 
@@ -1390,6 +1400,7 @@ class SelectionManager(BaseObject):
 
         cam.set_active(False)
         Mgr.get("picking_cam").set_active()
+        Mgr.update_remotely("selection_set", "show_none")
 
     def __get_selection(self, obj_lvl=""):
 
@@ -1422,6 +1433,7 @@ class SelectionManager(BaseObject):
 
     def __update_active_selection(self, restore=False):
 
+        Mgr.update_remotely("selection_set", "show_none")
         obj_lvl = GlobalData["active_obj_level"]
 
         if obj_lvl != "top":
@@ -1459,6 +1471,8 @@ class SelectionManager(BaseObject):
         else:
             Mgr.do("inverse_select_subobjs")
 
+        Mgr.update_remotely("selection_set", "show_none")
+
     def __select_all(self):
 
         if Mgr.get_state_id() == "uv_edit_mode":
@@ -1467,6 +1481,8 @@ class SelectionManager(BaseObject):
             self._selection.replace(Mgr.get("objects", "top"))
         else:
             Mgr.do("select_all_subobjs")
+
+        Mgr.update_remotely("selection_set", "show_none")
 
     def __select_none(self):
 
@@ -1477,14 +1493,198 @@ class SelectionManager(BaseObject):
         else:
             Mgr.do("clear_subobj_selection")
 
+        Mgr.update_remotely("selection_set", "show_none")
+
+    def __add_selection_set(self, name=None):
+
+        obj_level = GlobalData["active_obj_level"]
+
+        if obj_level == "top":
+            new_set = set(obj.get_id() for obj in Mgr.get("selection_top"))
+        elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+            obj_level = "uv_" + obj_level
+            new_set = Mgr.get("uv_selection_set")
+        else:
+            new_set = Mgr.get("subobj_selection_set")
+
+        sel_sets = self._selection_sets
+        sets = sel_sets["sets"][obj_level]
+        set_id = id(new_set)
+        sets[set_id] = new_set
+        names = sel_sets["names"][obj_level]
+
+        if name is None:
+            search_pattern = r"^Set\s*(\d+)$"
+            naming_pattern = "Set {:04d}"
+        else:
+            search_pattern = naming_pattern = ""
+
+        name = get_unique_name(name, list(names.values()), search_pattern, naming_pattern)
+        names[set_id] = name
+        Mgr.update_remotely("selection_set", "add", set_id, name)
+
+    def __copy_selection_set(self, set_id):
+
+        obj_level = GlobalData["active_obj_level"]
+
+        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+            obj_level = "uv_" + obj_level
+
+        sets = self._selection_sets["sets"][obj_level]
+        new_set = sets[set_id].copy()
+        new_set_id = id(new_set)
+        sets[new_set_id] = new_set
+        names = self._selection_sets["names"][obj_level]
+        name = names[set_id]
+        original_name = re.sub(r" - copy$| - copy \(\d+\)$", "", name, 1)
+        copy_name = original_name + " - copy"
+        copy_name = get_unique_name(copy_name, list(names.values()))
+        names[new_set_id] = copy_name
+        Mgr.update_remotely("selection_set", "copy", new_set_id, copy_name)
+
+    def __remove_selection_set(self, set_id):
+
+        obj_level = GlobalData["active_obj_level"]
+
+        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+            obj_level = "uv_" + obj_level
+
+        del self._selection_sets["sets"][obj_level][set_id]
+        del self._selection_sets["names"][obj_level][set_id]
+        Mgr.update_remotely("selection_set", "remove", set_id)
+
+    def __clear_selection_sets(self):
+
+        obj_level = GlobalData["active_obj_level"]
+
+        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+            obj_level = "uv_" + obj_level
+
+        self._selection_sets["sets"][obj_level].clear()
+        self._selection_sets["names"][obj_level].clear()
+        Mgr.update_remotely("selection_set", "clear")
+
+    def __rename_selection_set(self, set_id, name):
+
+        obj_level = GlobalData["active_obj_level"]
+
+        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+            obj_level = "uv_" + obj_level
+
+        names = self._selection_sets["names"][obj_level]
+        name = get_unique_name(name, list(names.values()))
+        names[set_id] = name
+        Mgr.update_remotely("selection_set", "rename", set_id, name)
+
+    def __combine_selection_sets(self, set_id1, set_id2, op, in_place):
+
+        obj_level = GlobalData["active_obj_level"]
+
+        if set_id2 == "cur_sel":
+            if obj_level == "top":
+                set2 = set(obj.get_id() for obj in Mgr.get("selection_top"))
+            elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+                set2 = Mgr.get("uv_selection_set")
+            else:
+                set2 = Mgr.get("subobj_selection_set")
+        else:
+            set2 = None
+
+        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+            obj_level = "uv_" + obj_level
+
+        sets = self._selection_sets["sets"][obj_level]
+        set1 = sets[set_id1]
+
+        if set2 is None:
+            set2 = sets[set_id2]
+
+        if op == "union":
+            if in_place:
+                set1 |= set2
+            else:
+                new_set = set1 | set2
+        if op == "intersection":
+            if in_place:
+                set1 &= set2
+            else:
+                new_set = set1 & set2
+        if op == "difference":
+            if in_place:
+                set1 -= set2
+            else:
+                new_set = set1 - set2
+        if op == "sym_diff":
+            if in_place:
+                set1 ^= set2
+            else:
+                new_set = set1 ^ set2
+
+        if in_place:
+            Mgr.update_remotely("selection_set", "hide", set_id1)
+        else:
+            set_id = id(new_set)
+            sets[set_id] = new_set
+            names = self._selection_sets["names"][obj_level]
+            search_pattern = r"^Set\s*(\d+)$"
+            naming_pattern = "Set {:04d}"
+            name = get_unique_name("", list(names.values()), search_pattern, naming_pattern)
+            names[set_id] = name
+            Mgr.update_remotely("selection_set", "copy", set_id, name)
+
+    def __apply_selection_set(self, set_id):
+
+        obj_level = GlobalData["active_obj_level"]
+
+        if obj_level == "top":
+            sel_set = self._selection_sets["sets"][obj_level][set_id]
+            new_sel = set(Mgr.get("object", obj_id) for obj_id in sel_set)
+            new_sel.discard(None)
+            self._selection.replace(new_sel)
+        elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+            obj_level = "uv_" + obj_level
+            sel_set = self._selection_sets["sets"][obj_level][set_id]
+            Mgr.do("apply_uv_selection_set", sel_set)
+        else:
+            sel_set = self._selection_sets["sets"][obj_level][set_id]
+            Mgr.do("apply_subobj_selection_set", sel_set)
+
+    def __reset_selection_sets(self):
+
+        sets = self._selection_sets["sets"]
+        names = self._selection_sets["names"]
+
+        for obj_level in sets:
+            sets[obj_level].clear()
+            names[obj_level].clear()
+
+        Mgr.update_remotely("selection_set", "reset")
+
+    def __set_selection_sets(self, selection_sets):
+
+        self._selection_sets = selection_sets
+        sets = selection_sets["sets"]
+        names = selection_sets["names"]
+
+        for obj_level in sets:
+
+            Mgr.update_remotely("selection_set", "replace", obj_level)
+            lvl_names = names[obj_level]
+
+            for set_id, sel_set in sets[obj_level].items():
+                name = lvl_names[set_id]
+                Mgr.update_remotely("selection_set", "add", set_id, name)
+
+        Mgr.update_remotely("selection_set", "replace", "top")
+
     def __update_object_selection(self, update_type="", *args):
 
         selection = self._selection
 
         if update_type == "replace":
-            selection.replace([Mgr.get("object", args[0])])
+            selection.replace([Mgr.get("object", *args)])
         elif update_type == "remove":
-            selection.remove([Mgr.get("object", args[0])])
+            selection.remove([Mgr.get("object", *args)])
         elif update_type == "invert":
             self.__inverse_select()
         elif update_type == "all":
@@ -1499,6 +1699,22 @@ class SelectionManager(BaseObject):
                 shape = shapes[shape_type]
                 shape.set_color(shape_color)
                 shape.get_child(0).set_color(fill_color)
+        elif update_type == "add_set":
+            self.__add_selection_set(*args)
+        elif update_type == "copy_set":
+            self.__copy_selection_set(*args)
+        elif update_type == "remove_set":
+            self.__remove_selection_set(*args)
+        elif update_type == "clear_sets":
+            self.__clear_selection_sets(*args)
+        elif update_type == "rename_set":
+            self.__rename_selection_set(*args)
+        elif update_type == "combine_sets":
+            self.__combine_selection_sets(*args)
+        elif update_type == "apply_set":
+            self.__apply_selection_set(*args)
+        elif update_type == "reset_sets":
+            self.__reset_selection_sets(*args)
 
     def __delete_selection(self):
 
@@ -1506,6 +1722,7 @@ class SelectionManager(BaseObject):
 
         if selection.delete():
             Mgr.do("update_picking_col_id_ranges")
+            Mgr.update_remotely("selection_set", "show_none")
 
     def __update_cursor(self, task):
 
@@ -1754,6 +1971,8 @@ class SelectionManager(BaseObject):
         elif op == "replace":
 
             selection.clear()
+
+        Mgr.update_remotely("selection_set", "show_none")
 
         return can_select_single, start_mouse_checking
 

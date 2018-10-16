@@ -13,7 +13,7 @@ from ..panel import (PanelStack, PanelButton, PanelInputField, PanelCheckBox, Pa
 from ..dialog import *
 from .aux_viewport import AuxiliaryViewport
 from .transform import TransformToolbar
-from .select import SelectionManager, SelectionToolbar
+from .select import SelectionManager, SelectionToolbar, SelectionPanel
 from .material import MaterialPanel, MaterialToolbar
 from .hierarchy import HierarchyPanel
 from .props import PropertyPanel
@@ -249,6 +249,7 @@ class Components(object):
         self._option_mgr.setup()
         Toolbar.registry["transform"].setup()
         components["hierarchy_panel"].setup()
+        components["selection_panel"].setup()
         components["prop_panel"].setup()
         components["material_panel"].setup()
         components["uv"].setup()
@@ -393,6 +394,7 @@ class Components(object):
         dock_subsizer.add(panel_stack_frame, expand=True)
         components["panel_stack"] = panel_stack
         components["hierarchy_panel"] = HierarchyPanel(panel_stack)
+        components["selection_panel"] = SelectionPanel(panel_stack)
         components["prop_panel"] = PropertyPanel(panel_stack)
         components["material_panel"] = MaterialPanel(panel_stack)
 

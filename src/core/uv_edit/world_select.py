@@ -24,9 +24,11 @@ class SelectionManager(BaseObject):
         self._cursor_id = ""
         self._aux_pixel_under_mouse = None
 
+        Mgr.expose("uv_selection_set", self.__get_selection_set)
         Mgr.accept("inverse_select_uvs", self.__inverse_select)
         Mgr.accept("select_all_uvs", self.__select_all)
         Mgr.accept("clear_uv_selection", self.__select_none)
+        Mgr.accept("apply_uv_selection_set", self.__apply_selection_set)
         Mgr.accept("region_select_uvs", self.__region_select)
 
     def setup(self):
@@ -237,6 +239,8 @@ class SelectionManager(BaseObject):
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
                 geom_data_obj.show_top_level()
 
+            Mgr.update_remotely("selection_set", "replace", obj_lvl)
+
         else:
 
             obj_root.hide(picking_mask)
@@ -245,6 +249,8 @@ class SelectionManager(BaseObject):
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
                 geom_data_obj.show_subobj_level(obj_lvl)
                 geom_data_obj.show_tex_seams(obj_lvl)
+
+            Mgr.update_remotely("selection_set", "replace", "uv_" + obj_lvl)
 
     def __update_cursor(self, task):
 
@@ -313,7 +319,7 @@ class SelectionManager(BaseObject):
 
         return (pickable_type, picked_obj) if picked_obj else ("", None)
 
-    def __get_all_combined_subobjs(self, obj_lvl):
+    def __get_all_subobjs(self, obj_lvl):
 
         subobjs = []
         geom_data_objs = [model.get_geom_object().get_geom_data_object()
@@ -329,7 +335,7 @@ class SelectionManager(BaseObject):
         obj_lvl = self._obj_lvl
         selection = self._selections[obj_lvl]
         old_sel = set(selection)
-        new_sel = set(self.__get_all_combined_subobjs(obj_lvl))
+        new_sel = set(self.__get_all_subobjs(obj_lvl))
         uv_edit_options = GlobalData["uv_edit_options"]
         pick_via_poly = uv_edit_options["pick_via_poly"]
 
@@ -359,7 +365,7 @@ class SelectionManager(BaseObject):
         obj_lvl = self._obj_lvl
         selection = self._selections[obj_lvl]
         selection.clear()
-        new_sel = set(self.__get_all_combined_subobjs(obj_lvl))
+        new_sel = set(self.__get_all_subobjs(obj_lvl))
         uv_edit_options = GlobalData["uv_edit_options"]
         pick_via_poly = uv_edit_options["pick_via_poly"]
 
@@ -390,6 +396,51 @@ class SelectionManager(BaseObject):
         selection.clear()
         self._uv_editor.sync_selection(set())
         self.sync_selection(set())
+
+    def __get_selection_set(self):
+
+        obj_lvl = self._obj_lvl
+        selection = self._selections[obj_lvl]
+
+        if obj_lvl == "poly":
+            return set(obj.get_id() for obj in selection)
+        else:
+            return set(obj_id for obj in selection for obj_id in obj)
+
+    def __apply_selection_set(self, sel_set):
+
+        obj_lvl = self._obj_lvl
+        get_uv_data_obj = self._uv_editor.get_uv_data_object
+        geom_data_objs = [model.get_geom_object().get_geom_data_object()
+                          for model in self._models]
+        uv_objs = {}
+
+        for geom_data_obj in geom_data_objs:
+
+            uv_data_obj = get_uv_data_obj(geom_data_obj)
+
+            if obj_lvl == "vert":
+                uv_objs.update(uv_data_obj.get_merged_vertices())
+            elif obj_lvl == "edge":
+                uv_objs.update(uv_data_obj.get_merged_edges())
+            elif obj_lvl == "poly":
+                uv_objs.update(uv_data_obj.get_subobjects(obj_lvl))
+
+        new_sel = set(uv_objs.get(obj_id) for obj_id in sel_set)
+        new_sel.discard(None)
+        selection = self._selections[obj_lvl]
+        selection.clear()
+        selection.update(new_sel)
+        color_ids = set()
+
+        if obj_lvl == "poly":
+            color_ids.update(poly.get_picking_color_id() for poly in selection)
+        else:
+            for subobj in selection:
+                color_ids.update(subobj.get_picking_color_ids())
+
+        self._uv_editor.sync_selection(color_ids)
+        self.sync_selection(color_ids, hide_sets=False)
 
     def __init_select(self, op="replace"):
 
@@ -838,7 +889,7 @@ class SelectionManager(BaseObject):
         self._pixel_under_mouse = None
         self._aux_pixel_under_mouse = None
 
-    def sync_selection(self, color_ids, object_level=None):
+    def sync_selection(self, color_ids, object_level=None, hide_sets=True):
 
         obj_lvl = self._obj_lvl if object_level is None else object_level
         selection = self._selections[obj_lvl]
@@ -883,3 +934,6 @@ class SelectionManager(BaseObject):
 
         for geom_data_obj, subobjs in subobj_sel.items():
             geom_data_obj.update_selection(obj_lvl, subobjs, [], False)
+
+        if hide_sets:
+            Mgr.update_remotely("selection_set", "show_none")

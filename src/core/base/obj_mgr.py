@@ -380,6 +380,8 @@ class GeneralObjectManager(BaseObject):
             for model in models:
                 model.get_geom_object().show_subobj_level(obj_lvl)
 
+        Mgr.update_remotely("selection_set", "replace", obj_lvl)
+
     def __check_selection(self):
 
         obj_lvl = self._obj_lvl_before_hist_change

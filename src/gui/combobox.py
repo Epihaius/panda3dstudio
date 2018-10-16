@@ -82,7 +82,7 @@ class ComboBox(Button):
 
     def __show_menu(self):
 
-        if len(self._items) < 2:
+        if not self._popup_menu.get_item_count():
             return
 
         self.set_active()
@@ -246,6 +246,18 @@ class ComboBox(Button):
     def update_popup_menu(self):
 
         self._popup_menu.update()
+
+    def create_popup_menu(self):
+
+        return Menu(on_hide=self.__on_hide)
+
+    def set_popup_menu(self, menu):
+
+        self._popup_menu = menu
+
+    def get_popup_menu(self):
+
+        return self._popup_menu
 
     def clear(self):
 
