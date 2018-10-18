@@ -77,15 +77,16 @@ CURSORS
 # cursor ID:    string
 # filename:     string
 #
-eyedropper  eyedropper.cur
-hand        hand.cur
-drag        drag.cur
-move        move.cur
-move_ew     move_ew.cur
-move_ns     move_ns.cur
-move_nwse   move_nwse.cur
-caret       caret.cur
-i_beam      I-beam.cur
+eyedropper      eyedropper.cur
+hand            hand.cur
+drag            drag.cur
+move            move.cur
+move_ew         move_ew.cur
+move_ns         move_ns.cur
+move_nwse       move_nwse.cur
+caret           caret.cur
+i_beam          I-beam.cur
+input_commit    input_commit.cur
 #
 COLORS
 #

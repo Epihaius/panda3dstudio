@@ -1500,7 +1500,7 @@ class SelectionManager(BaseObject):
         obj_level = GlobalData["active_obj_level"]
 
         if obj_level == "top":
-            new_set = set(obj.get_id() for obj in Mgr.get("selection_top"))
+            new_set = set(obj.get_id() for obj in self._selection)
         elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
             obj_level = "uv_" + obj_level
             new_set = Mgr.get("uv_selection_set")
@@ -1582,7 +1582,7 @@ class SelectionManager(BaseObject):
 
         if set_id2 == "cur_sel":
             if obj_level == "top":
-                set2 = set(obj.get_id() for obj in Mgr.get("selection_top"))
+                set2 = set(obj.get_id() for obj in self._selection)
             elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
                 set2 = Mgr.get("uv_selection_set")
             else:

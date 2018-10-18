@@ -1,4 +1,5 @@
 from .base import *
+from .menu import Menu
 from .components import Components
 import sys
 
@@ -133,7 +134,10 @@ class GUI(object):
 
         elif name.startswith("toolbar_grip_") and not self._components.dragging_toolbar():
 
-            Mgr.set_cursor("main")
+            if Mgr.get("active_input_field") and not Menu.is_menu_shown():
+                Mgr.set_cursor("input_commit")
+            else:
+                Mgr.set_cursor("main")
 
     def __on_left_down(self):
 

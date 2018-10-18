@@ -1,4 +1,5 @@
 from ..base import *
+from ..menu import Menu
 
 
 class SeparatorGhostImage(object):
@@ -83,7 +84,10 @@ class StatusBarSeparator(Widget):
     def on_leave(self):
 
         if not self._is_dragged:
-            Mgr.set_cursor("main")
+            if Mgr.get("active_input_field") and not Menu.is_menu_shown():
+                Mgr.set_cursor("input_commit")
+            else:
+                Mgr.set_cursor("main")
 
     def on_left_down(self):
 

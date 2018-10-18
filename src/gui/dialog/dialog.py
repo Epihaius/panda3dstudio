@@ -24,15 +24,19 @@ class Dialog(WidgetCard):
     _default_btn_width = 0
     _background_overlay = None
 
-    @classmethod
-    def __enter_suppressed_state(cls):
+    @staticmethod
+    def __enter_suppressed_state():
+
+        cls = Dialog
 
         if not cls._entered_suppressed_state:
             Mgr.enter_state("suppressed")
             cls._entered_suppressed_state = True
 
-    @classmethod
-    def __exit_suppressed_state(cls):
+    @staticmethod
+    def __exit_suppressed_state():
+
+        cls = Dialog
 
         if cls._entered_suppressed_state:
             Mgr.exit_state("suppressed")

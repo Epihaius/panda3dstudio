@@ -310,15 +310,19 @@ class Menu(WidgetCard):
     _entered_suppressed_state = False
     _ignoring_dialog_events = False
 
-    @classmethod
-    def enter_suppressed_state(cls):
+    @staticmethod
+    def enter_suppressed_state():
+
+        cls = Menu
 
         if not cls._entered_suppressed_state:
             Mgr.enter_state("suppressed")
             cls._entered_suppressed_state = True
 
-    @classmethod
-    def exit_suppressed_state(cls):
+    @staticmethod
+    def exit_suppressed_state():
+
+        cls = Menu
 
         if cls._entered_suppressed_state:
             Mgr.exit_state("suppressed")
@@ -361,6 +365,9 @@ class Menu(WidgetCard):
                 menu.hide()
             else:
                 parent.hide_menu()
+
+            if Mgr.get("active_input_field"):
+                Mgr.set_cursor("input_commit")
 
         task_id = "hide_menu"
         PendingTasks.add(task, task_id)
@@ -761,6 +768,7 @@ class Menu(WidgetCard):
 
             self._listener.accept("gui_mouse1", self.__hide)
             self._listener.accept("gui_mouse3", self.__hide)
+            Mgr.set_cursor("main")
 
         task_id = "enable_menu_dismiss_by_mouse"
         Mgr.do_next_frame(task, task_id)

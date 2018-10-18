@@ -57,7 +57,10 @@ class ColorSwatchGroup(Widget):
 
     def on_leave(self):
 
-        Mgr.set_cursor("main")
+        if Mgr.get("active_input_field") and not Menu.is_menu_shown():
+            Mgr.set_cursor("input_commit")
+        else:
+            Mgr.set_cursor("main")
 
     def on_left_down(self):
 
@@ -499,7 +502,10 @@ class HueSatControl(WidgetCard):
     def __on_leave(self, *args):
 
         if args[0] == self._mouse_region and not self._picking_color:
-            Mgr.set_cursor("main")
+            if Mgr.get("active_input_field") and not Menu.is_menu_shown():
+                Mgr.set_cursor("input_commit")
+            else:
+                Mgr.set_cursor("main")
 
     def __on_left_down(self):
 
@@ -746,7 +752,10 @@ class LuminanceControl(WidgetCard):
     def __on_leave(self, *args):
 
         if args[0] == self._mouse_region and not self._picking_color:
-            Mgr.set_cursor("main")
+            if Mgr.get("active_input_field") and not Menu.is_menu_shown():
+                Mgr.set_cursor("input_commit")
+            else:
+                Mgr.set_cursor("main")
 
     def __on_left_down(self):
 
@@ -919,7 +928,10 @@ class CurrentColorSwatch(Widget):
 
     def on_leave(self):
 
-        Mgr.set_cursor("main")
+        if Mgr.get("active_input_field") and not Menu.is_menu_shown():
+            Mgr.set_cursor("input_commit")
+        else:
+            Mgr.set_cursor("main")
 
     def on_left_down(self):
 

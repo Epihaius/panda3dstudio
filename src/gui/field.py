@@ -588,19 +588,31 @@ class InputField(Widget):
         if cls._active_field:
             cls._active_field.ignore_events()
 
-    @classmethod
-    def __enter_suppressed_state(cls):
+    @staticmethod
+    def __enter_suppressed_state():
+
+        cls = InputField
 
         if not cls._entered_suppressed_state:
             Mgr.enter_state("suppressed")
             cls._entered_suppressed_state = True
 
-    @classmethod
-    def __exit_suppressed_state(cls):
+    @staticmethod
+    def __exit_suppressed_state():
+
+        cls = InputField
 
         if cls._entered_suppressed_state:
             Mgr.exit_state("suppressed")
             cls._entered_suppressed_state = False
+
+    @classmethod
+    def _get_mouse_watchers(cls):
+
+        if cls._mouse_watchers is None:
+            return GlobalData["mouse_watchers"] 
+
+        return cls._mouse_watchers
 
     @classmethod
     def _on_accept_input(cls):
@@ -611,12 +623,7 @@ class InputField(Widget):
         cls.__exit_suppressed_state()
         cls._listener.ignore_all()
 
-        if cls._mouse_watchers is None:
-            mouse_watchers = GlobalData["mouse_watchers"] 
-        else:
-            mouse_watchers = cls._mouse_watchers
-
-        for watcher in mouse_watchers:
+        for watcher in cls._get_mouse_watchers():
             region_mask = cls._get_mouse_region_mask(watcher.get_name())
             region_mask.set_active(False)
             watcher.remove_region(region_mask)
@@ -632,12 +639,7 @@ class InputField(Widget):
         cls.__exit_suppressed_state()
         cls._listener.ignore_all()
 
-        if cls._mouse_watchers is None:
-            mouse_watchers = GlobalData["mouse_watchers"] 
-        else:
-            mouse_watchers = cls._mouse_watchers
-
-        for watcher in mouse_watchers:
+        for watcher in cls._get_mouse_watchers():
             region_mask = cls._get_mouse_region_mask(watcher.get_name())
             region_mask.set_active(False)
             watcher.remove_region(region_mask)
@@ -981,12 +983,7 @@ class InputField(Widget):
 
             self.set_active_input_field(self)
 
-            if self._mouse_watchers is None:
-                mouse_watchers = GlobalData["mouse_watchers"] 
-            else:
-                mouse_watchers = self._mouse_watchers
-
-            for watcher in mouse_watchers:
+            for watcher in self._get_mouse_watchers():
                 region_mask = self._get_mouse_region_mask(watcher.get_name())
                 region_mask.set_active(True)
                 watcher.add_region(region_mask)
@@ -1003,15 +1000,17 @@ class InputField(Widget):
         listener.accept("focus_loss", lambda: Mgr.do("reject_field_input"))
         self.accept_events()
 
+        if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+            Mgr.set_cursor("input_commit")
+
     def __on_left_up(self):
 
         if self._selecting_text:
 
             Mgr.remove_task("select_text")
-            mouse_watcher = self.get_mouse_watcher()
-            
-            if mouse_watcher.get_over_region() != self.get_mouse_region():
-                Mgr.set_cursor("main")
+
+            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+                Mgr.set_cursor("input_commit")
 
             self._selecting_text = False
 
@@ -1036,7 +1035,10 @@ class InputField(Widget):
     def on_leave(self):
 
         if not self._selecting_text:
-            Mgr.set_cursor("main")
+            if self._active_field and not Menu.is_menu_shown():
+                Mgr.set_cursor("input_commit")
+            else:
+                Mgr.set_cursor("main")
 
     def set_input_init(self, value_id, input_init):
 
@@ -1080,6 +1082,30 @@ class InputField(Widget):
         else:
             self._value_handlers[value_id] = lambda value_id, value: None
 
+    def __reset_cursor(self):
+
+        over_field = False
+
+        for watcher in self._get_mouse_watchers():
+
+            region = watcher.get_over_region()
+
+            if region:
+
+                name = region.get_name()
+
+                if name.startswith("widget_"):
+
+                    widget_id = int(name.replace("widget_", ""))
+                    widget = Widget.registry.get(widget_id)
+
+                    if widget and "field" in widget.get_widget_type():
+                        over_field = True
+                        break
+
+        if not over_field:
+            Mgr.set_cursor("main")
+
     def accept_input(self, text_handler=None):
 
         txt_ctrl = self._text_ctrls[self._value_id]
@@ -1121,6 +1147,7 @@ class InputField(Widget):
             txt_ctrl.set_text(old_text)
 
         txt_ctrl.hide()
+        self.__reset_cursor()
 
         if self._on_accept:
             self._on_accept()
@@ -1140,6 +1167,7 @@ class InputField(Widget):
                 txt_ctrl.clear()
 
         txt_ctrl.hide()
+        self.__reset_cursor()
 
         if self._on_reject:
             self._on_reject()
