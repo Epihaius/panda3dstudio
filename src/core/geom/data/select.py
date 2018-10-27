@@ -713,7 +713,7 @@ class Selection(SelectionTransformBase):
         self.update_ui()
 
         if hide_sets:
-            Mgr.update_remotely("selection_set", "show_none")
+            Mgr.update_remotely("selection_set", "hide_name")
 
     def add(self, subobjs, add_to_hist=True):
 
@@ -1073,7 +1073,7 @@ class SelectionManager(BaseObject):
         self._selections[obj_lvl] = sel = Selection(obj_lvl, subobjs)
         sel.update()
         self._prev_obj_lvl = obj_lvl
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
     def __get_all_combined_subobjs(self, obj_lvl):
 
@@ -1103,21 +1103,21 @@ class SelectionManager(BaseObject):
         old_sel = set(selection)
         new_sel = set(self.__get_all_combined_subobjs(obj_lvl))
         selection.replace(new_sel - old_sel)
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
     def __select_all(self):
 
         obj_lvl = GlobalData["active_obj_level"]
         selection = self._selections[obj_lvl]
         selection.replace(self.__get_all_combined_subobjs(obj_lvl))
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
     def __select_none(self):
 
         obj_lvl = GlobalData["active_obj_level"]
         selection = self._selections[obj_lvl]
         selection.clear()
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
     def __get_selection_set(self):
 
@@ -1305,7 +1305,7 @@ class SelectionManager(BaseObject):
 
             selection.clear()
 
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
         return can_select_single, start_mouse_checking
 

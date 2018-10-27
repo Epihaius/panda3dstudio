@@ -174,6 +174,8 @@ class UVEditGUI(object):
                 menu = menubar.get_menu("file")
                 menu.enable_item("export", False)
                 menu.enable_item("import", False)
+                disabler = lambda: "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2])
+                Mgr.do("disable_selection_dialog", "uv", disabler)
 
                 Mgr.do("clear_main_layout")
                 self.__create_layout()
@@ -245,6 +247,7 @@ class UVEditGUI(object):
                 menu = menubar.get_menu("file")
                 menu.enable_item("export")
                 menu.enable_item("import")
+                Mgr.do("enable_selection_dialog", "uv")
 
                 toolbars = Toolbar.registry
 

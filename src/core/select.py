@@ -91,7 +91,7 @@ class Selection(SelectionTransformBase):
         self.update_obj_props()
 
         if hide_sets:
-            Mgr.update_remotely("selection_set", "show_none")
+            Mgr.update_remotely("selection_set", "hide_name")
 
     def add(self, objs, add_to_hist=True, update=True):
 
@@ -1400,7 +1400,7 @@ class SelectionManager(BaseObject):
 
         cam.set_active(False)
         Mgr.get("picking_cam").set_active()
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
     def __get_selection(self, obj_lvl=""):
 
@@ -1433,7 +1433,7 @@ class SelectionManager(BaseObject):
 
     def __update_active_selection(self, restore=False):
 
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
         obj_lvl = GlobalData["active_obj_level"]
 
         if obj_lvl != "top":
@@ -1471,7 +1471,7 @@ class SelectionManager(BaseObject):
         else:
             Mgr.do("inverse_select_subobjs")
 
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
     def __select_all(self):
 
@@ -1482,7 +1482,7 @@ class SelectionManager(BaseObject):
         else:
             Mgr.do("select_all_subobjs")
 
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
     def __select_none(self):
 
@@ -1493,7 +1493,7 @@ class SelectionManager(BaseObject):
         else:
             Mgr.do("clear_subobj_selection")
 
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
     def __add_selection_set(self, name=None):
 
@@ -1638,8 +1638,8 @@ class SelectionManager(BaseObject):
 
         if obj_level == "top":
             sel_set = self._selection_sets["sets"][obj_level][set_id]
-            new_sel = set(Mgr.get("object", obj_id) for obj_id in sel_set)
-            new_sel.discard(None)
+            new_sel = set(obj.get_toplevel_object(get_group=True) for obj in
+                          (Mgr.get("object", obj_id) for obj_id in sel_set) if obj)
             self._selection.replace(new_sel)
         elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
             obj_level = "uv_" + obj_level
@@ -1681,10 +1681,31 @@ class SelectionManager(BaseObject):
 
         selection = self._selection
 
-        if update_type == "replace":
-            selection.replace([Mgr.get("object", *args)])
+        def get_obj_and_sel_set_data(obj_data, sel_set_data):
+
+            for obj in Mgr.get("objects"):
+
+                obj_type = obj.get_type()
+
+                if obj_type not in ("model", "group", "light", "camera"):
+                    obj_type = "helper"
+
+                data = (obj.get_id(), obj.is_selected(), obj.get_name())
+                obj_data.setdefault(obj_type, []).append(data)
+
+            sel_sets = self._selection_sets
+            sel_set_data["sets"] = sel_sets["sets"]["top"]
+            sel_set_data["names"] = sel_sets["names"]["top"]
+
+        if update_type == "get_data":
+            get_obj_and_sel_set_data(*args)
+        elif update_type == "replace":
+            selection.replace([Mgr.get("object", obj_id).get_toplevel_object(get_group=True)
+                              for obj_id in args])
+            Mgr.update_remotely("selection_set", "hide_name")
         elif update_type == "remove":
             selection.remove([Mgr.get("object", *args)])
+            Mgr.update_remotely("selection_set", "hide_name")
         elif update_type == "invert":
             self.__inverse_select()
         elif update_type == "all":
@@ -1716,13 +1737,19 @@ class SelectionManager(BaseObject):
         elif update_type == "reset_sets":
             self.__reset_selection_sets(*args)
 
+        if update_type in ("add_set", "copy_set", "remove_set", "clear_sets",
+                           "rename_set", "combine_sets"):
+            GlobalData["unsaved_scene"] = True
+            Mgr.update_app("unsaved_scene")
+            Mgr.do("require_scene_save")
+
     def __delete_selection(self):
 
         selection = self.__get_selection()
 
         if selection.delete():
             Mgr.do("update_picking_col_id_ranges")
-            Mgr.update_remotely("selection_set", "show_none")
+            Mgr.update_remotely("selection_set", "hide_name")
 
     def __update_cursor(self, task):
 
@@ -1972,7 +1999,7 @@ class SelectionManager(BaseObject):
 
             selection.clear()
 
-        Mgr.update_remotely("selection_set", "show_none")
+        Mgr.update_remotely("selection_set", "hide_name")
 
         return can_select_single, start_mouse_checking
 

@@ -209,10 +209,13 @@ class ToolbarCheckBox(CheckBox):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command, mark_color=None, back_color=None):
+    def __init__(self, parent, command):
 
         if not self._box_borders:
             self.__set_borders()
+
+        mark_color = Skin["colors"]["toolbar_checkmark"]
+        back_color = Skin["colors"]["toolbar_checkbox"]
 
         CheckBox.__init__(self, parent, command, mark_color, back_color)
 

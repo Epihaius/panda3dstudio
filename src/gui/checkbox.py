@@ -3,16 +3,11 @@ from .base import *
 
 class CheckBox(Widget):
 
-    _default_mark_color = None
-    _default_back_color = None
     _checkmark = None
     _box_size = (0, 0)
 
     @classmethod
     def init(cls):
-
-        cls._default_mark_color = Skin["colors"]["checkmark"]
-        cls._default_back_color = Skin["colors"]["checkbox"]
 
         x, y, w, h = TextureAtlas["regions"]["checkmark"]
         cls._checkmark = img = PNMImage(w, h, 4)
@@ -21,7 +16,7 @@ class CheckBox(Widget):
         options = Skin["options"]
         cls._box_size = (options["checkbox_width"], options["checkbox_height"])
 
-    def __init__(self, parent, command, mark_color=None, back_color=None):
+    def __init__(self, parent, command, mark_color, back_color):
 
         Widget.__init__(self, "checkbox", parent, gfx_data={})
 
@@ -30,8 +25,8 @@ class CheckBox(Widget):
         self._is_clicked = False
         self._is_checked = False
         self._command = command
-        self._mark_color = mark_color if mark_color else self._default_mark_color
-        self._back_color = back_color if back_color else self._default_back_color
+        self._default_mark_color = self._mark_color = mark_color
+        self._default_back_color = self._back_color = back_color
         self._delay_card_update = False
 
     def destroy(self):

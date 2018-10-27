@@ -586,7 +586,9 @@ class EditableGeomProperties(object):
             if obj_lvl == "top":
                 self._subobj_btns.deactivate()
                 Mgr.do("enable_transform_targets")
+                Mgr.do("enable_selection_dialog")
             else:
+                Mgr.do("disable_selection_dialog")
                 Mgr.do("disable_transform_targets")
                 self._subobj_btns.set_active_button(obj_lvl)
                 self._panel.get_section("{}_props".format(obj_lvl)).show()

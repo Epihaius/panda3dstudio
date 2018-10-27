@@ -31,11 +31,10 @@ class RadioButton(Widget):
 
     def destroy(self):
 
-        Widget.destroy(self)
-
-        self._group.destroy()
-        self._group = None
-        self._command = lambda: None
+        if Widget.destroy(self):
+            self._group.destroy()
+            self._group = None
+            self._command = lambda: None
 
     def __card_update_task(self):
 
@@ -148,25 +147,14 @@ class RadioButton(Widget):
 
 class RadioButtonGroup(object):
 
-    _default_bullet_color = None
-    _default_back_color = None
-
-    @classmethod
-    def init(cls):
-
-        cls._default_bullet_color = Skin["colors"]["bullet"]
-        cls._default_back_color = Skin["colors"]["radiobutton"]
-
-        RadioButton.init()
-
-    def __init__(self, bullet_color=None, back_color=None, rows=0, columns=0, gap_h=0, gap_v=0):
+    def __init__(self, bullet_color, back_color, rows=0, columns=0, gap_h=0, gap_v=0):
 
         self._btns = {}
         self._selected_btn_id = None
         self._is_enabled = True
         self._disablers = {}
-        self._bullet_color = bullet_color if bullet_color else self._default_bullet_color
-        self._back_color = back_color if back_color else self._default_back_color
+        self._default_bullet_color = self._bullet_color = bullet_color
+        self._default_back_color = self._back_color = back_color
         self._text_borders = (5, 0, 0, 0)
         self._sizer = GridSizer(rows, columns, gap_h, gap_v)
         self._delay_card_update = False
@@ -178,7 +166,6 @@ class RadioButtonGroup(object):
 
         self._btns.clear()
         self._disablers.clear()
-        self._sizer.destroy()
 
     def get_sizer(self):
 

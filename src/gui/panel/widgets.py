@@ -61,10 +61,13 @@ class PanelCheckBox(CheckBox):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command, mark_color=None, back_color=None):
+    def __init__(self, parent, command):
 
         if not self._box_borders:
             self.__set_borders()
+
+        mark_color = Skin["colors"]["panel_checkmark"]
+        back_color = Skin["colors"]["panel_checkbox"]
 
         CheckBox.__init__(self, parent, command, mark_color, back_color)
 
@@ -212,7 +215,10 @@ class PanelRadioButton(RadioButton):
 
 class PanelRadioButtonGroup(RadioButtonGroup):
 
-    def __init__(self, parent, bullet_color=None, back_color=None, rows=0, columns=0, gap_h=0, gap_v=0):
+    def __init__(self, parent, rows=0, columns=0, gap_h=0, gap_v=0):
+
+        bullet_color = Skin["colors"]["panel_bullet"]
+        back_color = Skin["colors"]["panel_radiobutton"]
 
         RadioButtonGroup.__init__(self, bullet_color, back_color, rows, columns, gap_h, gap_v)
 

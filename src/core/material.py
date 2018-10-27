@@ -1131,10 +1131,22 @@ class MaterialManager(object):
         Mgr.add_task(self.__update_cursor, "update_matrl_owner_picking_cursor")
         Mgr.update_app("status", ["pick_material_owner"])
 
+        if not is_active:
+
+            def handler(obj_ids):
+
+                if obj_ids:
+                    objs = [Mgr.get("object", obj_id) for obj_id in obj_ids]
+                    self.__pick_owner(picked_objs=objs)
+
+            Mgr.update_remotely("selection_by_name", "", "Pick material owners",
+                                ["model", "group"], True, "Pick", handler)
+
     def __exit_picking_mode(self, next_state_id, is_active):
 
         if not is_active:
             self._picking_op = ""
+            Mgr.update_remotely("selection_by_name", "default")
 
         self._pixel_under_mouse = None  # force an update of the cursor
                                         # next time self.__update_cursor()
@@ -1142,10 +1154,13 @@ class MaterialManager(object):
         Mgr.remove_task("update_matrl_owner_picking_cursor")
         Mgr.set_cursor("main")
 
-    def __pick_owner(self):
+    def __pick_owner(self, picked_objs=None):
 
-        obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
-        objs = self.__get_models([obj]) if obj else None
+        if picked_objs:
+            objs = self.__get_models(picked_objs)
+        else:
+            obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+            objs = self.__get_models([obj]) if obj else None
 
         if objs:
             if self._picking_op == "extract":

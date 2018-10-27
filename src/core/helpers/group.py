@@ -1016,6 +1016,17 @@ class GroupManager(ObjectManager):
 
         Mgr.update_app("status", ["sel_grouping_mode"])
 
+        if not is_active:
+
+            def handler(obj_ids):
+
+                if obj_ids:
+                    group = Mgr.get("object", obj_ids[0])
+                    self.__add_members(new_group=group)
+
+            Mgr.update_remotely("selection_by_name", "", "Pick group",
+                                ["group"], False, "Pick", handler)
+
     def __exit_grouping_mode(self, next_state_id, is_active):
 
         self._pixel_under_mouse = None  # force an update of the cursor
@@ -1023,6 +1034,9 @@ class GroupManager(ObjectManager):
                                         # is called
         Mgr.remove_task("update_grouping_cursor")
         Mgr.set_cursor("main")
+
+        if not is_active:
+            Mgr.update_remotely("selection_by_name", "default")
 
     def __update_cursor(self, task):
 

@@ -1,4 +1,5 @@
 from .widgets import *
+from ..tooltip import ToolTip
 
 
 INSET1_BORDER_GFX_DATA = (
@@ -72,6 +73,7 @@ class Dialog(WidgetCard):
             dialogs[-1].ignore_extra_dialog_events()
         else:
             sort = 200
+            ToolTip.hide()
 
         region_mask = cls._mouse_region_mask
         region_mask.set_sort(sort)

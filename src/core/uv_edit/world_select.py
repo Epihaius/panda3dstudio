@@ -936,4 +936,4 @@ class SelectionManager(BaseObject):
             geom_data_obj.update_selection(obj_lvl, subobjs, [], False)
 
         if hide_sets:
-            Mgr.update_remotely("selection_set", "show_none")
+            Mgr.update_remotely("selection_set", "hide_name")

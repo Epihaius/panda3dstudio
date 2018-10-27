@@ -338,6 +338,17 @@ class ViewManager(BaseObject):
         Mgr.add_task(self.__update_cursor, "update_view_obj_picking_cursor")
         Mgr.update_app("status", ["pick_view_obj"])
 
+        if not is_active:
+
+            def handler(obj_ids):
+
+                if obj_ids:
+                    obj = Mgr.get("object", obj_ids[0])
+                    self.__pick(picked_obj=obj)
+
+            Mgr.update_remotely("selection_by_name", "", "Pick object to align view to",
+                                None, False, "Pick", handler)
+
     def __exit_picking_mode(self, next_state_id, is_active):
 
         self._pixel_under_mouse = None  # force an update of the cursor
@@ -346,9 +357,12 @@ class ViewManager(BaseObject):
         Mgr.remove_task("update_view_obj_picking_cursor")
         Mgr.set_cursor("main")
 
-    def __pick(self):
+        if not is_active:
+            Mgr.update_remotely("selection_by_name", "default")
 
-        obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+    def __pick(self, picked_obj=None):
+
+        obj = picked_obj if picked_obj else Mgr.get("object", pixel_color=self._pixel_under_mouse)
 
         if obj:
             self.__center_view_on_objects(obj_to_align_to=obj)

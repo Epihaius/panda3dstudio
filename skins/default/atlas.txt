@@ -439,6 +439,7 @@ viewtile_scrollthumb_normal_right 269 100 1 1
 viewtile_scrollthumb_normal_top 270 100 1 1
 viewtile_scrollthumb_normal_topleft 271 100 1 1
 viewtile_scrollthumb_normal_topright 272 100 1 1
+widget_group_center 245 101 1 1
 #
 INNER_BORDERS
 #
@@ -454,7 +455,7 @@ panelstack_scrollbar 4 3 4 4
 panel 2 2 5 5
 panel_header 13 13 5 13
 section 10 10 15 10
-section_group 10 10 10 10
+widget_group 10 10 10 10
 # Combobox with icon at the left
 toolbar_combobox 45 29 10 10
 dialog_combobox 45 29 10 10
@@ -482,8 +483,10 @@ large_toolbar_inset 5 5 5 5
 panel_inset 5 5 8 8
 toolbar_checkbox 5 5 8 8
 panel_checkbox 5 5 8 8
+dialog_checkbox 5 5 8 8
 menu_item_checkbox 10 0 0 10
 panel_radiobutton 5 5 5 5
+dialog_radiobutton 5 5 5 5
 menu_item_radiobutton 10 0 0 10
 toolbar_combobox_field 45 29 10 10
 toolbar_combobox2_field 10 29 10 10

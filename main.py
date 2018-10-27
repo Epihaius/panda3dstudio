@@ -7,7 +7,16 @@ class App(object):
 
         def init_config():
 
-            config_data = {"skin": "default", "texfile_paths": [], "custom_colors": [], "recent_dirs": []}
+            sel_dialog_config = {
+                "sort": "name",
+                "sort_case": False,
+                "obj_types": ["model", "helper", "group", "light", "camera"],
+                "search": {"match_case": True, "part": "start"}
+            }
+            config_data = {
+                "skin": "default", "texfile_paths": [], "custom_colors": [], "recent_dirs": [],
+                "sel_dialog": sel_dialog_config
+            }
 
             with open("config", "wb") as config_file:
                 pickle.dump(config_data, config_file, -1)

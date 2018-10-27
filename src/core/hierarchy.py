@@ -30,7 +30,7 @@ class HierarchyManager(BaseObject):
         Mgr.accept("update_obj_link_viz", self.__update_obj_link_viz)
         Mgr.accept("update_xform_target_type", self.__update_xform_target_type)
         Mgr.add_app_updater("object_link_viz", self.__show_object_links)
-        Mgr.add_app_updater("selection_unlinking", self.__unlink_selection)
+        Mgr.add_app_updater("selection_unlinking", self.__unlink_objects)
         Mgr.add_app_updater("transform_target_type", self.__update_pivot_viz)
         Mgr.add_app_updater("geom_reset", self.__reset_geoms)
         Mgr.add_app_updater("pivot_reset", self.__reset_pivots)
@@ -69,7 +69,32 @@ class HierarchyManager(BaseObject):
             GlobalData["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
-        Mgr.update_app("status", [GlobalData["object_linking_mode"]])
+        object_linking_mode = GlobalData["object_linking_mode"]
+        Mgr.update_app("status", [object_linking_mode])
+
+        if not is_active:
+
+            if object_linking_mode == "sel_linking_mode":
+
+                def handler(obj_ids):
+
+                    if obj_ids:
+                        obj = Mgr.get("object", obj_ids[0])
+                        self.__link_selection(picked_obj=obj)
+
+                Mgr.update_remotely("selection_by_name", "", "Pick object to link to",
+                                    None, False, "Pick", handler)
+
+            elif object_linking_mode == "obj_unlinking_mode":
+
+                def handler(obj_ids):
+
+                    if obj_ids:
+                        objs = [Mgr.get("object", obj_id) for obj_id in obj_ids]
+                        self.__unlink_objects(picked_objs=objs)
+
+                Mgr.update_remotely("selection_by_name", "", "Pick objects to unlink",
+                                    None, True, "Pick", handler)
 
     def __exit_linking_mode(self, next_state_id, is_active):
 
@@ -81,6 +106,9 @@ class HierarchyManager(BaseObject):
                                         # is called
         Mgr.remove_task("update_linking_cursor")
         Mgr.set_cursor("main")
+
+        if not is_active:
+            Mgr.update_remotely("selection_by_name", "default")
 
     def __show_object_links(self):
 
@@ -396,9 +424,9 @@ class HierarchyManager(BaseObject):
         if link_type == "child" and not (new_target_is_group and not new_target.get_members()):
             new_target.display_link_effect()
 
-    def __link_selection(self):
+    def __link_selection(self, picked_obj=None):
 
-        new_target = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+        new_target = picked_obj if picked_obj else Mgr.get("object", pixel_color=self._pixel_under_mouse)
 
         if not new_target:
             return
@@ -512,9 +540,9 @@ class HierarchyManager(BaseObject):
         if children and not (new_target_is_group and not new_target.get_members()):
             new_target.display_link_effect()
 
-    def __unlink_object(self):
+    def __unlink_object(self, picked_obj=None):
 
-        obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+        obj = picked_obj if picked_obj else Mgr.get("object", pixel_color=self._pixel_under_mouse)
 
         if not obj:
             return
@@ -557,7 +585,7 @@ class HierarchyManager(BaseObject):
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-    def __unlink_selection(self):
+    def __unlink_objects(self, picked_objs=None):
 
         if GlobalData["active_obj_level"] != "top":
             return
@@ -566,8 +594,9 @@ class HierarchyManager(BaseObject):
         affect_group_members = GlobalData["group_options"]["member_linking"]["allowed"]
         ungrouped_members = []
         unlinked_children = []
+        objs = picked_objs if picked_objs else Mgr.get("selection_top")
 
-        for obj in Mgr.get("selection_top"):
+        for obj in objs:
 
             group = obj.get_group()
 

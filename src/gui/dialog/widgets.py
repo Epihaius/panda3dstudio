@@ -1,10 +1,31 @@
 from ..base import *
+from ..group import WidgetGroup
 from ..text import Text, Label
 from ..button import Button
 from ..combobox import ComboBox
+from ..checkbox import CheckBox
+from ..radiobtn import RadioButton, RadioButtonGroup
 from ..field import InputField
 from ..menu import Menu
 from ..scroll import ScrollPane
+
+
+class DialogWidgetGroup(WidgetGroup):
+
+    def __init__(self, parent, label=""):
+
+        WidgetGroup.__init__(self, parent, "dialog_main", "dialog", label)
+
+    def get_sort(self):
+
+        return self.get_parent().get_sort()
+
+    def add_group(self, label="", add_top_border=True):
+
+        group = PanelWidgetGroup(self, label)
+        WidgetGroup.add_group(self, group, add_top_border)
+
+        return group
 
 
 class DialogInset(Widget):
@@ -202,6 +223,139 @@ class DialogToolButton(Button):
         self.set_widget_type("dialog_toolbutton")
 
         self.get_mouse_region().set_sort(parent.get_sort() + 1)
+
+
+class DialogCheckBox(CheckBox):
+
+    _border_gfx_data = (("dialog_checkbox",),)
+    _box_borders = ()
+    _img_offset = (0, 0)
+    _border_image = None
+
+    @classmethod
+    def __set_borders(cls):
+
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_checkbox"]
+        cls._box_borders = (l, r, b, t)
+        cls._img_offset = (-l, -t)
+
+    @classmethod
+    def __set_border_image(cls, border_image):
+
+        cls._border_image = border_image
+
+    def __init__(self, parent, command):
+
+        if not self._box_borders:
+            self.__set_borders()
+
+        mark_color = Skin["colors"]["dialog_checkmark"]
+        back_color = Skin["colors"]["dialog_checkbox"]
+
+        CheckBox.__init__(self, parent, command, mark_color, back_color)
+
+        self.set_widget_type("dialog_checkbox")
+
+        if not self._border_image:
+            self.__create_border_image()
+
+        self.set_image_offset(self._img_offset)
+        self.set_outer_borders(self._box_borders)
+
+        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+
+    def __create_border_image(self):
+
+        w, h = self.get_size()
+        l, r, b, t = self._box_borders
+        width = w + l + r
+        height = h + b + t
+        gfx_data = {"": self._border_gfx_data}
+        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget.set_size((width, height), is_min=True)
+        tmp_widget.update_images()
+        image = tmp_widget.get_image()
+        tmp_widget.destroy()
+
+        self.__set_border_image(image)
+
+    def get_border_image(self):
+
+        return self._border_image
+
+
+class DialogRadioButton(RadioButton):
+
+    _border_gfx_data = (("dialog_radiobutton",),)
+    _btn_borders = ()
+    _img_offset = (0, 0)
+    _border_image = None
+
+    @classmethod
+    def __set_borders(cls):
+
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_radiobutton"]
+        cls._btn_borders = (l, r, b, t)
+        cls._img_offset = (-l, -t)
+
+    @classmethod
+    def __set_border_image(cls, border_image):
+
+        cls._border_image = border_image
+
+    def __init__(self, parent, btn_id, group):
+
+        if not self._btn_borders:
+            self.__set_borders()
+
+        RadioButton.__init__(self, parent, btn_id, group)
+
+        self.set_widget_type("dialog_radiobutton")
+
+        if not self._border_image:
+            self.__create_border_image()
+
+        self.set_image_offset(self._img_offset)
+        self.set_outer_borders(self._btn_borders)
+
+        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+
+    def __create_border_image(self):
+
+        w, h = self.get_size()
+        l, r, b, t = self._btn_borders
+        width = w + l + r
+        height = h + b + t
+        gfx_data = {"": self._border_gfx_data}
+        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget.set_size((width, height), is_min=True)
+        tmp_widget.update_images()
+        image = tmp_widget.get_image()
+        tmp_widget.destroy()
+
+        self.__set_border_image(image)
+
+    def get_border_image(self):
+
+        return self._border_image
+
+
+class DialogRadioButtonGroup(RadioButtonGroup):
+
+    def __init__(self, parent, rows=0, columns=0, gap_h=0, gap_v=0):
+
+        bullet_color = Skin["colors"]["dialog_bullet"]
+        back_color = Skin["colors"]["dialog_radiobutton"]
+
+        RadioButtonGroup.__init__(self, bullet_color, back_color, rows, columns, gap_h, gap_v)
+
+        self._parent = parent
+        self.delay_card_update()
+
+    def add_button(self, btn_id, text):
+
+        btn = DialogRadioButton(self._parent, btn_id, self)
+        RadioButtonGroup.add_button(self, btn_id, btn, DialogText(self._parent, text))
 
 
 class DialogInputField(InputField):

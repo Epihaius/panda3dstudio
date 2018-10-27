@@ -7,7 +7,7 @@ from ..combobox import ComboBox
 from ..field import InputField
 from ..colorbox import ColorBox
 from ..checkbox import CheckBox
-from ..radiobtn import RadioButtonGroup
+from ..radiobtn import RadioButton
 from ..panel import (PanelStack, PanelButton, PanelInputField, PanelCheckBox, PanelColorBox,
                      PanelRadioButtonGroup, PanelComboBox)
 from ..dialog import *
@@ -169,7 +169,7 @@ class Components(object):
         InputField.init()
         CheckBox.init()
         ColorBox.init()
-        RadioButtonGroup.init()
+        RadioButton.init()
         ToolTip.init()
         Dialog.init()
 

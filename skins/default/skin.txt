@@ -124,10 +124,16 @@ inputfield_background                   .2 .15 .3 1.
 input_selection_background              .5 .5 1. 1.
 menu_item_bullet                        0. 0. 0. 1.
 menu_item_checkmark                     0. 0. 0. 1.
-bullet                                  .5 .7 .9 1.
-checkmark                               .5 .7 .9 1.
-checkbox                                .2 .15 .3 1.
-radiobutton                             .2 .15 .3 1.
+panel_bullet                            .5 .7 .9 1.
+panel_checkmark                         .5 .7 .9 1.
+panel_radiobutton                       .2 .15 .3 1.
+panel_checkbox                          .2 .15 .3 1.
+toolbar_checkmark                       .5 .7 .9 1.
+toolbar_checkbox                        .2 .15 .3 1.
+dialog_bullet                           1. 1. 1. 1.
+dialog_checkmark                        1. 1. 1. 1.
+dialog_radiobutton                      .2 .15 .3 1.
+dialog_checkbox                         .2 .15 .3 1.
 tooltip_background                      .2 .15 .3 1.
 tooltip_border                          .6 .3 .9 1.
 view_label_shadow                       0. 0. 0. 1.
@@ -135,6 +141,8 @@ history_entry_unselected                .765 .765 .87 1.
 history_entry_unselected_alt            .808 .796 .89 1.
 history_entry_selected                  .882 .922 .988 1.
 history_entry_selected_alt              .925 .953 1. 1.
+list_entry_unselected                   .765 .765 .87 1.
+list_entry_selected                     .882 .922 .988 1.
 # the following is used to darken everything below the topmost dialog; set alpha to 0. to disable
 dialog_background_overlay               .2 .2 .2 .5
 #

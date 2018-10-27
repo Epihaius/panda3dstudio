@@ -596,6 +596,10 @@ class TopLevelObject(BaseObject):
 
     def set_selected(self, is_selected=True, add_to_hist=True):
 
+        task = lambda: Mgr.update_remotely("selection_set", "hide_name")
+        task_id = "clear_selection_set_display"
+        PendingTasks.add(task, task_id, "ui")
+
         if is_selected:
             return Mgr.get("selection_top").add([self], add_to_hist)
         else:
@@ -680,7 +684,7 @@ class TopLevelObject(BaseObject):
                 task_id = "update_selection"
                 PendingTasks.add(task, task_id, "object", id_prefix=self._id)
                 task = lambda: Mgr.get("selection").update(hide_sets=True)
-                PendingTasks.add(task, "update_selection", "ui")
+                PendingTasks.add(task, task_id, "ui")
             else:
                 self.set_selected(value, True)
 

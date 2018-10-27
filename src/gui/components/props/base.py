@@ -92,8 +92,7 @@ class PropertyPanel(Panel):
         section = self.add_section("create", "Creation", hidden=True)
 
         group = section.add_group("Position")
-        color = (1., 1., 0., 1.)
-        radio_btns = PanelRadioButtonGroup(group, bullet_color=color, columns=1)
+        radio_btns = PanelRadioButtonGroup(group, columns=1)
         radio_btns.add_button("grid_pos", "Coord. system origin")
         radio_btns.add_button("cam_target_pos", "Camera target")
         radio_btns.set_selected_button("grid_pos")
@@ -186,6 +185,8 @@ class PropertyPanel(Panel):
         Mgr.accept("display_next_obj_color", self.__set_next_object_color)
 
     def setup(self):
+
+        self._radio_btns["creation"].set_bullet_color((1., 1., 0., 1.), update=True)
 
         for props in self._properties.values():
             props.setup()

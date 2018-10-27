@@ -115,6 +115,17 @@ class TransformCenterManager(BaseObject):
         Mgr.add_task(self.__update_cursor, "update_tc_picking_cursor")
         Mgr.update_app("status", ["pick_transf_center"])
 
+        if not is_active:
+
+            def handler(obj_ids):
+
+                if obj_ids:
+                    obj = Mgr.get("object", obj_ids[0])
+                    self.__pick(picked_obj=obj)
+
+            Mgr.update_remotely("selection_by_name", "", "Pick transform center object",
+                                None, False, "Pick", handler)
+
     def __exit_picking_mode(self, next_state_id, is_active):
 
         if not is_active:
@@ -128,15 +139,17 @@ class TransformCenterManager(BaseObject):
 
             self._tc_obj_picked = None
 
+            Mgr.update_remotely("selection_by_name", "default")
+
         self._pixel_under_mouse = None  # force an update of the cursor
                                         # next time self.__update_cursor()
                                         # is called
         Mgr.remove_task("update_tc_picking_cursor")
         Mgr.set_cursor("main")
 
-    def __pick(self):
+    def __pick(self, picked_obj=None):
 
-        obj = Mgr.get("object", pixel_color=self._pixel_under_mouse)
+        obj = picked_obj if picked_obj else Mgr.get("object", pixel_color=self._pixel_under_mouse)
 
         if obj:
 

@@ -35,8 +35,7 @@ class TexProjectorProperties(object):
         sizer.add(field, alignment="center_v")
 
         group = section.add_group("Projection type")
-        color = (1., 1., 0., 1.)
-        radio_btns = PanelRadioButtonGroup(group, bullet_color=color, columns=1)
+        radio_btns = PanelRadioButtonGroup(group, columns=1)
         group.add(radio_btns.get_sizer())
 
         get_command = lambda projection_type: lambda: self.__set_projection_type(projection_type)

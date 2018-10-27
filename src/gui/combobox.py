@@ -65,7 +65,9 @@ class ComboBox(Button):
 
         Button.destroy(self)
 
-        if self._selected_item_id not in self._persistent_items:
+        sel_item_id = self._selected_item_id
+
+        if sel_item_id is not None and sel_item_id not in self._persistent_items:
             self._items[self._selected_item_id].destroy()
 
         self._input_field = None
@@ -183,7 +185,7 @@ class ComboBox(Button):
         return image
 
     def add_item(self, item_id, item_text, item_command=None, index=None,
-                 persistent=False, update=False):
+                 persistent=False, update=False, select_initial=True):
 
         item = self._popup_menu.add(item_id, item_text, item_command, index=index)
         self._items[item_id] = item
@@ -199,7 +201,7 @@ class ComboBox(Button):
         if persistent:
             self._persistent_items.append(item_id)
 
-        if len(self._items) == 1:
+        if select_initial and len(self._items) == 1:
 
             if not persistent:
                 self._popup_menu.remove(item_id)

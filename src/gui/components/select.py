@@ -2,6 +2,7 @@ from ..base import *
 from ..button import *
 from ..toolbar import *
 from ..panel import *
+from ..dialog import *
 
 
 class RegionTypeComboBox(ToolbarComboBox):
@@ -92,7 +93,7 @@ class SetsComboBox(ToolbarComboBox):
     def __remove_set(self, set_id):
 
         if self.get_selected_item() == set_id:
-            self.__hide_sets()
+            self.__hide_name()
 
         self.remove_item(set_id)
 
@@ -103,7 +104,7 @@ class SetsComboBox(ToolbarComboBox):
 
         if item_id is not None:
             item_ids.append(item_id)
-            self.__hide_sets()
+            self.__hide_name()
 
         for item_id in item_ids:
             self.remove_item(item_id)
@@ -116,21 +117,21 @@ class SetsComboBox(ToolbarComboBox):
     def __hide_set(self, set_id):
 
         if self.get_selected_item() == set_id:
-            self.__hide_sets()
+            self.__hide_name()
 
-    def __hide_sets(self):
+    def __hide_name(self):
 
         self.get_input_field().clear()
         self.select_none()
 
     def __replace_sets(self, obj_level):
 
-        self.__hide_sets()
+        self.__hide_name()
         self.set_popup_menu(self._menus[obj_level])
 
     def __reset_sets(self):
 
-        self.__hide_sets()
+        self.__hide_name()
 
         for menu in self._menus.values():
             self.set_popup_menu(menu)
@@ -152,8 +153,8 @@ class SetsComboBox(ToolbarComboBox):
             self.__select_set(*args)
         elif update_type == "hide":
             self.__hide_set(*args)
-        elif update_type == "show_none":
-            self.__hide_sets(*args)
+        elif update_type == "hide_name":
+            self.__hide_name(*args)
         elif update_type == "replace":
             self.__replace_sets(*args)
         elif update_type == "reset":
@@ -398,7 +399,7 @@ class SelectionPanel(Panel):
         self._comboboxes["set2"].set_item_text(set_id, name)
         self._fields["name"].set_value("name", name, handle_value=False)
 
-    def __hide_sets(self):
+    def __hide_name(self):
 
         self._fields["name"].clear()
         self._btns["edit_set_name"].set_active(False)
@@ -408,13 +409,13 @@ class SelectionPanel(Panel):
 
     def __replace_sets(self, obj_level):
 
-        self.__hide_sets()
+        self.__hide_name()
         self._comboboxes["set1"].set_popup_menu(self._menus["set1"][obj_level])
         self._comboboxes["set2"].set_popup_menu(self._menus["set2"][obj_level])
 
     def __reset_sets(self):
 
-        self.__hide_sets()
+        self.__hide_name()
         menus = self._menus
         combobox1 = self._comboboxes["set1"]
         combobox2 = self._comboboxes["set2"]
@@ -564,7 +565,51 @@ class SelectionManager(object):
         hotkey = ("backspace", mod_ctrl)
         menu.set_item_hotkey("clear_sel", hotkey, "Ctrl+Backspace")
 
+        menu.add("sep0", item_type="separator")
+
+        dialog_item = menu.add("name_select", "Select by name", self.__show_selection_dialog)
+        hotkey = ("n", 0)
+        menu.set_item_hotkey("name_select", hotkey, "N")
+
         region_select = {"is_default": False, "type": "rect", "enclose": False}
         region_select["shape_color"] = Skin["colors"]["selection_region_shape_default"]
         region_select["fill_color"] = Skin["colors"]["selection_region_fill_default"]
         GlobalData.set_default("region_select", region_select)
+
+        def disable_selection_dialog(disabler_id=None, disabler=None):
+
+            dialog_item.enable(False)
+
+            if disabler_id is not None:
+                dialog_item.add_disabler(disabler_id, disabler)
+
+        def enable_selection_dialog(disabler_id=None):
+
+            if disabler_id is not None:
+                dialog_item.remove_disabler(disabler_id)
+
+            dialog_item.enable()
+
+        self._selection_dialog_kwargs = {}
+
+        Mgr.accept("disable_selection_dialog", disable_selection_dialog)
+        Mgr.accept("enable_selection_dialog", enable_selection_dialog)
+        Mgr.add_app_updater("selection_by_name", self.__update_selection_by_name)
+
+    def __update_selection_by_name(self, update_type, *args):
+
+        if update_type == "default":
+            self._selection_dialog_kwargs = {}
+        else:
+            title, object_types, multi_select, ok_alias, handler = args
+            self._selection_dialog_kwargs = {
+                "title": title,
+                "object_types": object_types,
+                "multi_select": multi_select,
+                "ok_alias": ok_alias,
+                "handler": handler
+            }
+
+    def __show_selection_dialog(self):
+
+        SelectionDialog(**self._selection_dialog_kwargs)
