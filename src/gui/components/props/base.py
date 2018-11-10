@@ -295,14 +295,14 @@ class PropertyPanel(Panel):
             name = "{:d} Objects selected".format(count)
 
         combobox.update_popup_menu()
-        self._name_field.set_value("name", name, handle_value=False)
+        self._name_field.set_value("name", name)
         self._name_field.show_text()
 
     def __set_next_object_name(self, name):
 
         self._name_field.enable(ignore_parent=True)
         self._name_field.set_text_color(self._colors["custom"])
-        self._name_field.set_value("name", name, handle_value=False)
+        self._name_field.set_value("name", name)
         self._name_field.show_text()
 
     def __handle_color(self, color):

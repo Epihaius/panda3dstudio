@@ -96,7 +96,7 @@ class ObjectPane(DialogScrollPane):
             name_field.add_value("name", "string", handler=get_name_handler(index))
             name_field.set_input_parser("name", get_name_parser(index))
             name_field.show_value("name")
-            name_field.set_value("name", new_name, handle_value=False)
+            name_field.set_value("name", new_name)
             name_field.set_scissor_effect(self.get_scissor_effect())
             fields.append(name_field)
             borders = (0, 0, 0, 2)

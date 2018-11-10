@@ -487,7 +487,7 @@ class ComboBoxInputField(DialogInputField):
 
         DialogInputField.accept_input(self, text_handler=self.get_parent().set_text)
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=True):
+    def set_value(self, value_id, value, text_handler=None, handle_value=False):
 
         DialogInputField.set_value(self, value_id, value, text_handler=self.get_parent().set_text,
                                    handle_value=handle_value)

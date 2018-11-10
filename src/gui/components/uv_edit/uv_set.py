@@ -128,10 +128,10 @@ class UVSetPanel(Panel):
 
     def __set_uv_name(self, uv_set_name):
 
-        self._fields["uv_name"].set_value("uv_name", uv_set_name, handle_value=False)
+        self._fields["uv_name"].set_value("uv_name", uv_set_name)
 
     def __set_target_uv_name(self, uv_set_names):
 
         obj_id = self._comboboxes["uv_name_target"].get_selected_item()
         uv_set_name = uv_set_names[obj_id]
-        self._fields["uv_name"].set_value("uv_name", uv_set_name, handle_value=False)
+        self._fields["uv_name"].set_value("uv_name", uv_set_name)

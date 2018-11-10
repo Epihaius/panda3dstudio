@@ -176,6 +176,6 @@ class ExportPanel(Panel):
     def __set_template_property(self, prop_id, value):
 
         if prop_id in ("size", "edge_alpha", "poly_alpha", "seam_alpha"):
-            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value)
         else:
             self._colorboxes[prop_id].set_color(value[:3])

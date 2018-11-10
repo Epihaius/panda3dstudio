@@ -255,6 +255,10 @@ class Widget(object):
 
         return self._sizer.get_min_size() if self._sizer else self._min_size
 
+    def get_gfx_size(self):
+
+        return self._gfx_size
+
     def set_size(self, size, includes_borders=True, is_min=False):
 
         width, height = size
@@ -717,6 +721,10 @@ class WidgetCard(object):
     def get_min_size(self):
 
         return self._sizer.get_min_size() if self._sizer else self._min_size
+
+    def get_gfx_size(self):
+
+        return (0, 0)
 
     def set_size(self, size, is_min=False):
 

@@ -75,19 +75,6 @@ class ToolbarButton(Button):
         return True
 
 
-class ToolbarSpinnerEdge(Widget):
-
-    width = 0
-    _gfx = {"": (("toolbar_spinner_edge",),)}
-
-    def __init__(self, parent):
-
-        Widget.__init__(self, "toolbar_spinner_edge", parent, self._gfx, has_mouse_region=False)
-
-        if not self.width:
-            ToolbarSpinnerEdge.width = self.get_min_size()[0]
-
-
 class ToolbarSpinButton(Button):
 
     width = 0
@@ -102,7 +89,7 @@ class ToolbarSpinButton(Button):
 
     def __init__(self, parent, toolbar_bundle, direction):
 
-        command = lambda: toolbar_bundle.spin_toolbars(-1 if direction == "up" else 1)
+        command = lambda: toolbar_bundle.spin_toolbar_rows(-1 if direction == "up" else 1)
         Button.__init__(self, parent, self._gfx[direction], command=command)
 
         self.set_widget_type("toolbar_button")
@@ -126,7 +113,7 @@ class ToolbarSpinButton(Button):
         self._toolbar_bundle = None
         self._listener = None
 
-    def __spin_toolbars(self, task):
+    def __spin_toolbar_rows(self, task):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         spin_amount = int(mouse_pointer.get_y() - self._mouse_start_y) // 10
@@ -141,9 +128,8 @@ class ToolbarSpinButton(Button):
 
         if not self._is_spinning:
             Button.on_enter(self)
-            toolbars = self._toolbar_bundle.get_toolbars()
-            toolbar = toolbars[0 if self._direction == "up" else -2]
-            ToolTip.show(toolbar.get_tooltip_label())
+            toolbar_row = self._toolbar_bundle[0 if self._direction == "up" else -2]
+            ToolTip.show(toolbar_row.get_tooltip_label())
 
     def on_leave(self):
 
@@ -152,7 +138,7 @@ class ToolbarSpinButton(Button):
         if self.is_pressed() and not self._is_spinning:
             mouse_pointer = Mgr.get("mouse_pointer", 0)
             self._mouse_start_y = mouse_pointer.get_y()
-            Mgr.add_task(self.__spin_toolbars, "spin_toolbars")
+            Mgr.add_task(self.__spin_toolbar_rows, "spin_toolbar_rows")
             self.set_pressed(False)
             self._listener.accept_once("gui_mouse1-up", self.on_left_up)
             self._is_spinning = True
@@ -164,26 +150,24 @@ class ToolbarSpinButton(Button):
 
         if self._is_spinning:
 
-            Mgr.remove_task("spin_toolbars")
-            self._toolbar_bundle.spin_toolbars(self._spin_amount)
+            Mgr.remove_task("spin_toolbar_rows")
+            self._toolbar_bundle.spin_toolbar_rows(self._spin_amount)
             self._mouse_start_y = 0
             self._spin_amount = 0
             self._is_spinning = False
 
             if self.get_mouse_watcher().get_over_region() == self.get_mouse_region():
                 Button.on_enter(self)
-                toolbars = self._toolbar_bundle.get_toolbars()
-                toolbar = toolbars[0 if self._direction == "up" else -2]
-                ToolTip.show(toolbar.get_tooltip_label())
+                toolbar_row = self._toolbar_bundle[0 if self._direction == "up" else -2]
+                ToolTip.show(toolbar_row.get_tooltip_label())
             else:
                 Button.on_leave(self, force=True)
 
         else:
 
             Button.on_left_up(self)
-            toolbars = self._toolbar_bundle.get_toolbars()
-            toolbar = toolbars[0 if self._direction == "up" else -2]
-            ToolTip.set_label(toolbar.get_tooltip_label())
+            toolbar_row = self._toolbar_bundle[0 if self._direction == "up" else -2]
+            ToolTip.set_label(toolbar_row.get_tooltip_label())
 
     def on_right_up(self):
 
@@ -375,7 +359,7 @@ class ToolbarInputField(InputField):
             image = self.get_image(composed=False, draw_border=True, crop=True)
             self.get_parent().update_composed_image(self, image)
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=True):
+    def set_value(self, value_id, value, text_handler=None, handle_value=False):
 
         if InputField.set_value(self, value_id, value, text_handler, handle_value):
             image = self.get_image(composed=False, draw_border=True, crop=True)
@@ -474,7 +458,7 @@ class ComboBoxInputField(InputField):
             combobox = self.get_parent()
             combobox.get_parent().update_composed_image(combobox)
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=True):
+    def set_value(self, value_id, value, text_handler=None, handle_value=False):
 
         if InputField.set_value(self, value_id, value, text_handler=self.get_parent().set_text,
                 handle_value=handle_value):

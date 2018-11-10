@@ -228,7 +228,6 @@ class UVSelectionBase(BaseObject):
                   interface_id="uv")
         add_state("picking_via_poly", -1, self.__init_subobj_picking_via_poly,
                   interface_id="uv")
-        add_state("aux_viewport_resize", -200, interface_id="uv")
         add_state("region_selection_mode", -1, self.__enter_region_selection_mode,
                   self.__exit_region_selection_mode, interface_id="uv")
         add_state("inactive", -1000, interface_id="uv")

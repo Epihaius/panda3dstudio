@@ -466,11 +466,11 @@ class FilePane(DialogScrollPane):
 
         self._btns = btns = []
         sizer = self.get_sizer()
-        sizer.clear()
+        sizer.clear(destroy_items=True)
 
         FileButton.set_selected_filebutton(None)
 
-        f = lambda x, y: (x.lower() > y.lower()) - (x.lower() < y.lower())
+        f = lambda x, y: (x.casefold() > y.casefold()) - (x.casefold() < y.casefold())
 
         def get_command(dir_path):
 
@@ -723,7 +723,7 @@ class FileDialog(Dialog):
                     return
 
                 dir_combobox.select_item(item_id)
-                fields["dir_path"].set_value("dir_path", path)
+                fields["dir_path"].set_value("dir_path", path, handle_value=True)
                 path_up = Filename(path).get_dirname()
 
                 if path_up == "/":

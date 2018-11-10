@@ -1,5 +1,5 @@
 from ...base import *
-from ...toolbar import Toolbar
+from ...toolbar import *
 from .transform import TransformToolbar
 from .uv_set import UVSetPanel
 from .subobj import SubobjectPanel
@@ -38,61 +38,79 @@ class UVEditGUI(object):
         toolbars = Toolbar.registry
         layout = GlobalData["config"]["gui_layout"]["uv"]
 
-        for side, toolbar_rows in layout.items():
+        for side, toolbar_id_lists in layout.items():
 
             dock = docks[side]
             dock_sizer = dock.get_sizer()
             toolbar_sizers = dock.get_toolbar_sizers()
 
-            for i, toolbar_row in enumerate(toolbar_rows):
+            for i, toolbar_id_list in enumerate(toolbar_id_lists):
 
-                if toolbar_row is None:
+                if toolbar_id_list is None:
                     continue
 
-                dock_subsizer = Sizer("horizontal")
-                dock_sizer.add(dock_subsizer, expand=True, index=i)
-                toolbar_sizers.append(dock_subsizer)
-                last_toolbar_ids = toolbar_row[-1]
+                row_sizer = Sizer("horizontal")
+                dock_sizer.add(row_sizer, expand=True, index=i)
+                toolbar_sizers.append(row_sizer)
 
-                for toolbar_ids in toolbar_row:
+                if len(toolbar_id_list) > 1:
 
-                    proportion = 1. if toolbar_ids == last_toolbar_ids else 0.
+                    bundled_rows = []
 
-                    if len(toolbar_ids) > 1:
+                    for toolbar_ids in toolbar_id_list:
 
-                        bundled_tbs = [toolbars[toolbar_id] for toolbar_id in toolbar_ids]
-                        top_toolbar = bundled_tbs.pop()
-                        top_toolbar.show()
-                        docking_targets.append(top_toolbar)
-                        bottom_toolbar = bundled_tbs[0]
-                        bottom_toolbar.show()
-                        bundle = bottom_toolbar.get_bundle()
+                        toolbar_row = ToolbarRow(dock)
+                        docking_targets.append(toolbar_row.get_handle())
+                        bundled_rows.append(toolbar_row)
 
-                        for toolbar in bundled_tbs:
-                            sizer = toolbar.get_sizer()
-                            min_size = sizer.update_min_size()
-                            sizer.set_size(min_size)
-                            sizer.calculate_positions()
-                            dock_subsizer.add(toolbar)
-                            dock_subsizer.remove_item(toolbar.get_sizer_item())
-                            bundle.add_toolbar(toolbar)
+                        for toolbar_id in toolbar_ids:
+                            toolbar = toolbars[toolbar_id]
                             toolbar.set_parent(dock)
+                            toolbar.set_row(toolbar_row)
+                            toolbar_row.add_toolbar(toolbar)
                             docking_targets.append(toolbar)
 
-                        bundle.add_toolbar(top_toolbar)
-                        dock_subsizer.add(top_toolbar, proportion=proportion)
-                        top_toolbar.set_proportion(proportion)
-                        top_toolbar.set_parent(dock)
-                        bottom_toolbar.hide()
+                    bottom_row = bundled_rows[0]
 
-                    else:
+                    for toolbar in bottom_row:
+                        row_sizer.add(toolbar)
 
-                        toolbar = toolbars[toolbar_ids[0]]
-                        dock_subsizer.add(toolbar, proportion=proportion)
-                        toolbar.set_proportion(proportion)
+                    row_sizer.add(bottom_row.get_handle(), proportion=1.)
+                    w_min = row_sizer.update_min_size()[0]
+                    bottom_row.set_min_width_in_bundle(w_min)
+                    bundle = bottom_row.get_bundle()
+
+                    for row in bundled_rows[1:]:
+
+                        for toolbar in row:
+                            row_sizer.remove_item(row_sizer.add(toolbar))
+
+                        handle = row.get_handle()
+                        row_sizer.remove_item(row_sizer.add(handle, proportion=1.))
+                        bundle.add_toolbar_row(row)
+                        w_min = row_sizer.update_min_size()[0]
+                        row.set_min_width_in_bundle(w_min)
+
+                    width = bundle.get_min_width()
+
+                else:
+
+                    toolbar_row = ToolbarRow(dock)
+                    docking_targets.append(toolbar_row.get_handle())
+
+                    for toolbar_id in toolbar_id_list[0]:
+                        toolbar = toolbars[toolbar_id]
+                        row_sizer.add(toolbar)
                         toolbar.set_parent(dock)
-                        toolbar.show()
+                        toolbar.set_row(toolbar_row)
+                        toolbar_row.add_toolbar(toolbar)
                         docking_targets.append(toolbar)
+
+                    row_sizer.add(toolbar_row.get_handle(), proportion=1.)
+                    width = row_sizer.update_min_size()[0]
+                    toolbar_row.set_min_width_in_bundle(width)
+
+                row_sizer.set_default_size((width, 0))
 
     def __clear_layout(self):
 
@@ -101,34 +119,40 @@ class UVEditGUI(object):
         docking_targets = main_components["docking_targets"]
         toolbars = Toolbar.registry
 
-        for side in ("top", "right", "bottom"):
-
-            dock = docks[side]
-            dock_sizer = dock.get_sizer()
-            toolbar_sizers = dock.get_toolbar_sizers()
-
-            while toolbar_sizers:
-                dock_subsizer = toolbar_sizers.pop()
-                dock_sizer.remove_item(dock_subsizer.get_sizer_item())
-
+        toolbar_rows = set()
         bundles = set()
 
         for toolbar_id in ("uv_transform", "selection", "render_mode", "grid"):
 
             toolbar = toolbars[toolbar_id]
             docking_targets.remove(toolbar)
+            toolbar_row = toolbar.get_row()
+            toolbar_rows.add(toolbar_row)
 
-            if toolbar.in_bundle():
-                bundle = toolbar.get_bundle()
-                bundles.add(bundle)
-                toolbar.pop_item()
-                toolbar.set_bundle(None)
+            if toolbar_row.in_bundle():
+                bundles.add(toolbar_row.get_bundle())
 
             toolbar.set_sizer_item(None)
             toolbar.hide()
 
         for bundle in bundles:
             bundle.destroy()
+
+        for toolbar_row in toolbar_rows:
+            docking_targets.remove(toolbar_row.get_handle())
+            toolbar_row.destroy()
+
+        for side in ("top", "bottom"):
+
+            dock = docks[side]
+            dock_sizer = dock.get_sizer()
+            toolbar_sizers = dock.get_toolbar_sizers()
+
+            while toolbar_sizers:
+                row_sizer = toolbar_sizers.pop()
+                dock_sizer.remove_item(row_sizer.get_sizer_item())
+                row_sizer.clear()
+                row_sizer.destroy()
 
     def __update_layout(self):
 
@@ -156,7 +180,6 @@ class UVEditGUI(object):
                               Mgr.do("enable_gui"), interface_id="uv")
                 Mgr.add_state("region_selection_mode", -11, lambda prev_state_id, is_active:
                               Mgr.do("enable_gui", False), interface_id="uv")
-                Mgr.add_state("aux_viewport_resize", -200, interface_id="uv")
                 base = Mgr.get("base")
 
                 GlobalData["viewport"][1] = "uv"

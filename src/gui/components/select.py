@@ -74,21 +74,21 @@ class SetsComboBox(ToolbarComboBox):
 
             self.select_item(set_id)
             text = self.get_item_text(set_id)
-            self.get_input_field().set_value("name", text, handle_value=False)
+            self.get_input_field().set_value("name", text)
             Mgr.update_remotely("object_selection", "apply_set", set_id)
 
         self.add_item(set_id, name, apply_set, update=True)
 
         if not is_copy:
             self.select_item(set_id)
-            self.get_input_field().set_value("name", name, handle_value=False)
+            self.get_input_field().set_value("name", name)
 
     def __rename_set(self, set_id, name):
 
         self.set_item_text(set_id, name)
 
         if self.get_selected_item() == set_id:
-            self.get_input_field().set_value("name", name, handle_value=False)
+            self.get_input_field().set_value("name", name)
 
     def __remove_set(self, set_id):
 
@@ -112,7 +112,7 @@ class SetsComboBox(ToolbarComboBox):
     def __select_set(self, set_id, name):
 
         self.select_item(set_id)
-        self.get_input_field().set_value("name", name, handle_value=False)
+        self.get_input_field().set_value("name", name)
 
     def __hide_set(self, set_id):
 
@@ -382,7 +382,7 @@ class SelectionPanel(Panel):
 
             self._comboboxes["set1"].select_item(set_id)
             text = self._comboboxes["set1"].get_item_text(set_id)
-            self._fields["name"].set_value("name", text, handle_value=False)
+            self._fields["name"].set_value("name", text)
 
         def select_set2():
 
@@ -391,13 +391,13 @@ class SelectionPanel(Panel):
         self._comboboxes["set1"].add_item(set_id, name, select_set1, update=True)
         self._comboboxes["set2"].add_item(set_id, name, select_set2, update=True)
         self._comboboxes["set1"].select_item(set_id)
-        self._fields["name"].set_value("name", name, handle_value=False)
+        self._fields["name"].set_value("name", name)
 
     def __rename_set(self, set_id, name):
 
         self._comboboxes["set1"].set_item_text(set_id, name)
         self._comboboxes["set2"].set_item_text(set_id, name)
-        self._fields["name"].set_value("name", name, handle_value=False)
+        self._fields["name"].set_value("name", name)
 
     def __hide_name(self):
 
@@ -504,7 +504,7 @@ class SelectionPanel(Panel):
             self._btns["edit_set_name"].set_active(False)
         else:
             text = self._comboboxes["set1"].get_item_text(set_id)
-            self._fields["name"].set_value("name", text, handle_value=False)
+            self._fields["name"].set_value("name", text)
 
     def __clear_sets(self, update_remotely=True):
 

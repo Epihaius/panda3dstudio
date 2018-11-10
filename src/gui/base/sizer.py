@@ -63,6 +63,9 @@ class SizerItem(object):
 
         self._sizer = sizer
 
+        if self._type == "sizer":
+            self._obj.set_owner(sizer)
+
     def get_sizer(self):
 
         return self._sizer
@@ -213,10 +216,11 @@ class Sizer(object):
         self._owner = None
         self._sizer_item = None
 
-    def clear(self):
+    def clear(self, destroy_items=False):
 
-        for item in self._items:
-            item.destroy()
+        if destroy_items:
+            for item in self._items:
+                item.destroy()
 
         self._items = []
         self.set_min_size_stale()
@@ -233,11 +237,8 @@ class Sizer(object):
 
         self._owner = owner
 
-        if owner.get_type() == "widget":
-            w_min, h_min = min_size = owner.get_min_size()
-            w, h = self._size
-            self._min_size = min_size
-            self._size = (max(w, w_min), max(h, h_min))
+        if owner and owner.get_type() == "widget":
+            self.set_default_size(owner.get_gfx_size())
 
     def get_owner(self):
 
@@ -287,6 +288,7 @@ class Sizer(object):
     def remove_item(self, item, destroy=False):
 
         self._items.remove(item)
+        item.set_sizer(None)
 
         if destroy:
             item.destroy()
@@ -297,6 +299,7 @@ class Sizer(object):
 
         item = self._items[-1 if index is None else index]
         self._items.remove(item)
+        item.set_sizer(None)
         self.set_min_size_stale()
 
         return item
@@ -382,6 +385,10 @@ class Sizer(object):
 
         self.set_min_size_stale()
 
+    def get_default_size(self):
+
+        return self._default_size
+
     def set_min_size_stale(self, stale=True):
 
         self._is_min_size_stale = stale
@@ -397,7 +404,11 @@ class Sizer(object):
                 item = self._owner.get_sizer_item()
 
                 if item:
-                    item.get_sizer().set_min_size_stale()
+
+                    item_sizer = item.get_sizer()
+
+                    if item_sizer:
+                        item_sizer.set_min_size_stale()
 
     def set_min_size(self, size):
         """
@@ -806,12 +817,12 @@ class GridSizer(Sizer):
         self._objs = []
         self._data_items = []
 
-    def clear(self):
+    def clear(self, destroy_items=False):
 
-        Sizer.clear(self)
+        Sizer.clear(self, destroy_items)
 
-        self._sizers["horizontal"].clear()
-        self._sizers["vertical"].clear()
+        self._sizers["horizontal"].clear(destroy_items)
+        self._sizers["vertical"].clear(destroy_items)
         self._objs = []
         self._data_items = []
 

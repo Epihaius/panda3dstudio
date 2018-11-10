@@ -118,12 +118,12 @@ class BoxProperties(object):
                 value_id = "segments_" + axis
                 field = self._fields[value_id]
                 field.show_text()
-                field.set_value(value_id, value[axis], handle_value=False)
+                field.set_value(value_id, value[axis])
                 field.set_text_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value, handle_value=False)
+            field.set_value(prop_id, value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -135,10 +135,10 @@ class BoxProperties(object):
             for axis in "xyz":
                 value_id = "segments_" + axis
                 field = self._fields[value_id]
-                field.set_value(value_id, value[axis], handle_value=False)
+                field.set_value(value_id, value[axis])
         else:
             field = self._fields[prop_id]
-            field.set_value(prop_id, value, handle_value=False)
+            field.set_value(prop_id, value)
 
     def check_selection_count(self):
 

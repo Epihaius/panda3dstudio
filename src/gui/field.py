@@ -1172,7 +1172,7 @@ class InputField(Widget):
         if self._on_reject:
             self._on_reject()
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=True):
+    def set_value(self, value_id, value, text_handler=None, handle_value=False):
 
         val_str = self.__parse_value(value_id, value)
 

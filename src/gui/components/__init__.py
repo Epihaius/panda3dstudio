@@ -177,13 +177,16 @@ class Components(object):
         components["docks"] = {}
         components["docking_targets"] = []
         self._docking_data = None
-        self._separating_toolbar = False
-        self._dragging_toolbar = False
-        self._dragged_toolbar = None
+        self._dragging_toolbars = False
+        self._dragged_widget = None
+        self._dragged_item_type = ""
         self._toolbar_insertion_marker = ToolbarInsertionMarker()
         self._listener = DirectObject()
         self._listener.accept("gui_mouse1", self.__on_left_down)
         self._listener.accept("gui_mouse1-up", self.__on_left_up)
+        cancel_dragging = lambda: self.__on_left_up(cancel_drag=True)
+        self._listener.accept("gui_mouse3", cancel_dragging)
+        self._listener.accept("focus_loss", cancel_dragging)
         self._aux_viewport = None
         self._screenshot = None
         d = 100000.
@@ -295,7 +298,6 @@ class Components(object):
         add_state("region_selection_mode", -11, enter_state, exit_state)
         add_state("processing", -200, enter_state, exit_state)
         add_state("processing_no_cancel", -200, enter_state, exit_state)
-        add_state("aux_viewport_resize", -200, enter_state, exit_state)
 
         def enter_suppressed_state(prev_state_id, is_active):
 
@@ -355,12 +357,14 @@ class Components(object):
         self._view_mgr = ViewManager(menubar)
         self._option_mgr = OptionManager(menubar)
 
-        # Create the top toolbars
+        # Create the toolbars
 
         MaterialToolbar(dock)
         TransformToolbar(dock)
         SelectionToolbar(dock)
         HistoryToolbar(dock)
+        RenderModeToolbar(dock)
+        GridToolbar(dock)
 
         # Create the viewport and the right-hand side dock
 
@@ -377,11 +381,6 @@ class Components(object):
         docks["right"] = dock = Dock(window, "right")
         sizer.add(dock, expand=True)
 
-        # Create the right-hand side toolbars
-
-        RenderModeToolbar(dock)
-        GridToolbar(dock)
-
         # Create the control panels
 
         dock_sizer = dock.get_sizer()
@@ -390,7 +389,6 @@ class Components(object):
         dock_sizer.add(dock_subsizer, proportion=1., alignment=alignment)
         panel_stack = PanelStack(dock)
         panel_stack_frame = panel_stack.get_frame()
-        docking_targets.append(panel_stack_frame)
         dock_subsizer.add(panel_stack_frame, expand=True)
         components["panel_stack"] = panel_stack
         components["hierarchy_panel"] = HierarchyPanel(panel_stack)
@@ -439,11 +437,9 @@ class Components(object):
     def __get_default_layout_data(self):
 
         layout = {"main": {}, "uv": {}}
-        layout["main"]["top"] = [None, [["history"], ["selection"], ["render_mode"], ["grid"]]]
-        layout["main"]["right"] = [None]
-        layout["main"]["bottom"] = [[["material", "transform"]], None]
-        layout["uv"]["top"] = [None, [["selection"], ["render_mode"], ["grid"]]]
-        layout["uv"]["right"] = [None]
+        layout["main"]["top"] = [None, [["history", "selection", "render_mode", "grid"]]]
+        layout["main"]["bottom"] = [[["material"], ["transform"]], None]
+        layout["uv"]["top"] = [None, [["selection", "render_mode", "grid"]]]
         layout["uv"]["bottom"] = [[["uv_transform"]], None]
         layout["right_dock"] = "right"
 
@@ -491,61 +487,79 @@ class Components(object):
             sizer.remove_item(sizer_item)
             sizer.add_item(sizer_item, index=0)
 
-        for side, toolbar_rows in layout["main"].items():
+        for side, toolbar_id_lists in layout["main"].items():
 
             dock = docks[side]
             dock_sizer = dock.get_sizer()
             toolbar_sizers = dock.get_toolbar_sizers()
 
-            for i, toolbar_row in enumerate(toolbar_rows):
+            for i, toolbar_id_list in enumerate(toolbar_id_lists):
 
-                if toolbar_row is None:
+                if toolbar_id_list is None:
                     continue
 
-                dock_subsizer = Sizer("horizontal")
-                dock_sizer.add(dock_subsizer, expand=True, index=i)
-                toolbar_sizers.append(dock_subsizer)
-                last_toolbar_ids = toolbar_row[-1]
+                row_sizer = Sizer("horizontal")
+                dock_sizer.add(row_sizer, expand=True, index=i)
+                toolbar_sizers.append(row_sizer)
 
-                for toolbar_ids in toolbar_row:
+                if len(toolbar_id_list) > 1:
 
-                    proportion = 1. if toolbar_ids == last_toolbar_ids else 0.
+                    bundled_rows = []
 
-                    if len(toolbar_ids) > 1:
+                    for toolbar_ids in toolbar_id_list:
 
-                        bundled_tbs = [toolbars[toolbar_id] for toolbar_id in toolbar_ids]
-                        top_toolbar = bundled_tbs.pop()
-                        top_toolbar.show()
-                        docking_targets.append(top_toolbar)
-                        bottom_toolbar = bundled_tbs[0]
-                        bottom_toolbar.show()
-                        bundle = bottom_toolbar.get_bundle()
+                        toolbar_row = ToolbarRow(dock)
+                        docking_targets.append(toolbar_row.get_handle())
+                        bundled_rows.append(toolbar_row)
 
-                        for toolbar in bundled_tbs:
-                            sizer = toolbar.get_sizer()
-                            min_size = sizer.update_min_size()
-                            sizer.set_size(min_size)
-                            sizer.calculate_positions()
-                            dock_subsizer.add(toolbar)
-                            dock_subsizer.remove_item(toolbar.get_sizer_item())
-                            bundle.add_toolbar(toolbar)
+                        for toolbar_id in toolbar_ids:
+                            toolbar = toolbars[toolbar_id]
                             toolbar.set_parent(dock)
+                            toolbar.set_row(toolbar_row)
+                            toolbar_row.add_toolbar(toolbar)
                             docking_targets.append(toolbar)
 
-                        bundle.add_toolbar(top_toolbar)
-                        dock_subsizer.add(top_toolbar, proportion=proportion)
-                        top_toolbar.set_proportion(proportion)
-                        top_toolbar.set_parent(dock)
-                        bottom_toolbar.hide()
+                    bottom_row = bundled_rows[0]
 
-                    else:
+                    for toolbar in bottom_row:
+                        row_sizer.add(toolbar)
 
-                        toolbar = toolbars[toolbar_ids[0]]
-                        dock_subsizer.add(toolbar, proportion=proportion)
-                        toolbar.set_proportion(proportion)
+                    row_sizer.add(bottom_row.get_handle(), proportion=1.)
+                    w_min = row_sizer.update_min_size()[0]
+                    bottom_row.set_min_width_in_bundle(w_min)
+                    bundle = bottom_row.get_bundle()
+
+                    for row in bundled_rows[1:]:
+
+                        for toolbar in row:
+                            row_sizer.remove_item(row_sizer.add(toolbar))
+
+                        handle = row.get_handle()
+                        row_sizer.remove_item(row_sizer.add(handle, proportion=1.))
+                        bundle.add_toolbar_row(row)
+                        w_min = row_sizer.update_min_size()[0]
+                        row.set_min_width_in_bundle(w_min)
+
+                    width = bundle.get_min_width()
+
+                else:
+
+                    toolbar_row = ToolbarRow(dock)
+                    docking_targets.append(toolbar_row.get_handle())
+
+                    for toolbar_id in toolbar_id_list[0]:
+                        toolbar = toolbars[toolbar_id]
+                        row_sizer.add(toolbar)
                         toolbar.set_parent(dock)
-                        toolbar.show()
+                        toolbar.set_row(toolbar_row)
+                        toolbar_row.add_toolbar(toolbar)
                         docking_targets.append(toolbar)
+
+                    row_sizer.add(toolbar_row.get_handle(), proportion=1.)
+                    width = row_sizer.update_min_size()[0]
+                    toolbar_row.set_min_width_in_bundle(width)
+
+                row_sizer.set_default_size((width, 0))
 
     def __clear_layout(self):
 
@@ -554,34 +568,40 @@ class Components(object):
         docking_targets = components["docking_targets"]
         toolbars = Toolbar.registry
 
-        for side in ("top", "right", "bottom"):
-
-            dock = docks[side]
-            dock_sizer = dock.get_sizer()
-            toolbar_sizers = dock.get_toolbar_sizers()
-
-            while toolbar_sizers:
-                dock_subsizer = toolbar_sizers.pop()
-                dock_sizer.remove_item(dock_subsizer.get_sizer_item())
-
+        toolbar_rows = set()
         bundles = set()
 
-        for toolbar_id in ("material", "transform", "history", "render_mode", "grid"):
+        for toolbar_id in ("material", "transform", "history", "render_mode", "grid", "selection"):
 
             toolbar = toolbars[toolbar_id]
             docking_targets.remove(toolbar)
+            toolbar_row = toolbar.get_row()
+            toolbar_rows.add(toolbar_row)
 
-            if toolbar.in_bundle():
-                bundle = toolbar.get_bundle()
-                bundles.add(bundle)
-                toolbar.pop_item()
-                toolbar.set_bundle(None)
+            if toolbar_row.in_bundle():
+                bundles.add(toolbar_row.get_bundle())
 
             toolbar.set_sizer_item(None)
             toolbar.hide()
 
         for bundle in bundles:
             bundle.destroy()
+
+        for toolbar_row in toolbar_rows:
+            docking_targets.remove(toolbar_row.get_handle())
+            toolbar_row.destroy()
+
+        for side in ("top", "bottom"):
+
+            dock = docks[side]
+            dock_sizer = dock.get_sizer()
+            toolbar_sizers = dock.get_toolbar_sizers()
+
+            while toolbar_sizers:
+                row_sizer = toolbar_sizers.pop()
+                dock_sizer.remove_item(row_sizer.get_sizer_item())
+                row_sizer.clear()
+                row_sizer.destroy()
 
     def __update_layout(self):
 
@@ -596,9 +616,9 @@ class Components(object):
         toolbars = Toolbar.registry
         docks = self._registry["docks"]
 
-        for side in ("top", "right", "bottom"):
+        for side in ("top", "bottom"):
 
-            layout[side] = toolbar_rows = []
+            layout[side] = toolbar_id_lists = []
             dock = docks[side]
             dock_sizer = dock.get_sizer()
             toolbar_sizers = dock.get_toolbar_sizers()
@@ -609,24 +629,21 @@ class Components(object):
 
                 if sizer in toolbar_sizers:
 
-                    toolbar_row = []
-                    toolbar_rows.append(toolbar_row)
+                    toolbar_id_list = []
+                    toolbar_id_lists.append(toolbar_id_list)
+                    toolbar_row = sizer.get_item(0).get_object().get_row()
 
-                    for item in sizer.get_items():
-
-                        toolbar_id = item.get_object().get_id()
-                        toolbar = toolbars[toolbar_id]
-
-                        if toolbar.in_bundle():
-                            toolbar_ids = [t.get_id() for t in toolbar.get_bundle().get_toolbars()]
-                        else:
-                            toolbar_ids = [toolbar_id]
-
-                        toolbar_row.append(toolbar_ids)
+                    if toolbar_row.in_bundle():
+                        for row in toolbar_row.get_bundle():
+                            toolbar_ids = [t.get_id() for t in row]
+                            toolbar_id_list.append(toolbar_ids)
+                    else:
+                        toolbar_ids = [t.get_id() for t in toolbar_row]
+                        toolbar_id_list.append(toolbar_ids)
 
                 else:
 
-                    toolbar_rows.append(None)
+                    toolbar_id_lists.append(None)
 
         with open("config", "wb") as config_file:
             pickle.dump(config_data, config_file, -1)
@@ -678,9 +695,9 @@ class Components(object):
             fps_meter_display_region = GlobalData["fps_meter_display_region"]
             fps_meter_display_region.set_active(True)
 
-    def dragging_toolbar(self):
+    def dragging_toolbars(self):
 
-        return self._dragging_toolbar
+        return self._dragging_toolbars
 
     def __update_insertion_marker(self, task):
 
@@ -693,15 +710,32 @@ class Components(object):
 
             docking_data = target.get_docking_data(point)
 
-            if docking_data and docking_data[0].is_hidden():
-                continue
+            if docking_data:
 
-            if self._separating_toolbar:
-                toolbar = None
-            else:
-                toolbar = self._dragged_toolbar
+                target_component, side, pos = docking_data
 
-            if docking_data and docking_data[0] is not toolbar:
+                if target_component.is_hidden():
+                    continue
+
+                if target_component.get_widget_type() == "toolbar_row_handle":
+                    if side == "center":
+                        if target_component is self._dragged_widget:
+                            continue
+                        self._toolbar_insertion_marker.set_type("+")
+                    else:
+                        self._toolbar_insertion_marker.set_type("h")
+                elif side in ("left", "right"):
+                    if (target_component is self._dragged_widget
+                            or self._dragged_item_type == "toolbar_bundle"
+                            or (self._dragged_item_type == "toolbar_row"
+                            and target_component in self._dragged_widget.get_row())):
+                        continue
+                    self._toolbar_insertion_marker.set_type("v")
+                else:
+                    self._toolbar_insertion_marker.set_type("h")
+
+                self._toolbar_insertion_marker.show()
+                self._toolbar_insertion_marker.set_pos(pos)
                 self._docking_data = docking_data
                 break
 
@@ -709,20 +743,6 @@ class Components(object):
 
             self._docking_data = None
             self._toolbar_insertion_marker.hide()
-
-        if self._docking_data:
-
-            target_component, side, pos = self._docking_data
-
-            if GlobalData["shift_down"]:
-                self._toolbar_insertion_marker.set_type("+")
-            elif side in ("left", "right"):
-                self._toolbar_insertion_marker.set_type("v")
-            else:
-                self._toolbar_insertion_marker.set_type("h")
-
-            self._toolbar_insertion_marker.show()
-            self._toolbar_insertion_marker.set_pos(pos)
 
         return task.cont
 
@@ -735,117 +755,330 @@ class Components(object):
 
         name = region.get_name()
 
-        if name.startswith("toolbar_grip_"):
-            widget_id = int(name.replace("toolbar_grip_", ""))
-            self._dragging_toolbar = True
-            self._dragged_toolbar = toolbar = Widget.registry[widget_id]
-            toolbar.create_ghost_image()
-            self._separating_toolbar = GlobalData["shift_down"] and toolbar.in_bundle()
+        def init_toolbar_dragging(name_start):
+
+            widget_id = int(name.replace(name_start, ""))
+            widget = Widget.registry[widget_id]
+            is_toolbar = name_start == "toolbar_grip_"
+
+            if is_toolbar:
+                item_type = "toolbar"
+            elif name_start == "tb_row_grip_":
+                item_type = "toolbar_row"
+            else:
+                item_type = "toolbar_bundle"
+                widget = widget.get_parent()
+
+            if is_toolbar and set([widget]) == set(widget.get_row()):
+                # if the dragged toolbar is the only one in its row, this is equivalent
+                # to dragging the row itself
+                widget = widget.get_row().get_handle()
+                item_type = "toolbar_row"
+                is_toolbar = False
+
+            self._dragged_widget = widget
+            self._dragged_item_type = item_type
+
+            if not is_toolbar:
+                widget = widget.get_row()
+
+            widget.create_ghost_image()
+            ToolTip.hide()
+            self._dragging_toolbars = True
             Mgr.add_task(self.__update_insertion_marker, "update_insertion_marker")
+            self.__enable(False)
+            Mgr.enter_state("inactive")
+            interface_ids = GlobalData["viewport"]
 
-    def __on_left_up(self):
+            if interface_ids[2] is not None:
+                interface_id = interface_ids[2 if interface_ids[1] == "main" else 1]
+                Mgr.enter_state("inactive", interface_id)
 
-        if self._dragging_toolbar:
+        if name.startswith("toolbar_grip_"):
+            init_toolbar_dragging("toolbar_grip_")
+        elif name.startswith("tb_row_grip_"):
+            init_toolbar_dragging("tb_row_grip_")
+        elif name.startswith("tb_bundle_grip_"):
+            init_toolbar_dragging("tb_bundle_grip_")
 
-            Mgr.remove_task("update_insertion_marker")
-            self._toolbar_insertion_marker.set_type("")
-            toolbar = self._dragged_toolbar
+    def __move_toolbar(self, toolbar):
 
-            if self._docking_data:
+        docking_targets = self._registry["docking_targets"]
+        target_component, side, _ = self._docking_data
+        target_dock = target_component.get_ancestor("dock")
+        sizer_item = toolbar.get_sizer_item()
+        row_sizer = sizer_item.get_sizer()
+        toolbar_row = toolbar.get_row()
+        toolbar_row.remove_toolbar(toolbar)
+        target_sizer_item = target_component.get_sizer_item()
+        target_subsizer = target_sizer_item.get_sizer()
+        target_sizer = target_subsizer.get_owner()
+        toolbar.set_parent(target_sizer.get_owner())
+        row_sizer.remove_item(sizer_item)
+        row_sizer.set_default_size((0, 0))
+        width = row_sizer.update_min_size()[0]
+        toolbar_row.set_min_width_in_bundle(width)
 
-                target_component, side, pos = self._docking_data
-                target_dock = target_component.get_ancestor("dock")
-                src_dock = toolbar.get_ancestor("dock")
-                sizer_item = self._dragged_toolbar.get_sizer_item()
-                subsizer = sizer_item.get_sizer()
+        if toolbar_row.in_bundle():
+            width = toolbar_row.get_bundle().get_min_width()
+        else:
+            width = toolbar_row.get_min_width(in_bundle=False)
 
-                if self._separating_toolbar:
+        row_sizer.set_default_size((width, 0))
 
-                    next_toolbar = self._dragged_toolbar.get_bundle().remove_toolbar()
+        if target_component.get_widget_type() == "toolbar_row_handle":
 
-                    if target_component == self._dragged_toolbar:
-                        target_component = next_toolbar
+            dest_row = ToolbarRow(target_dock)
+            toolbar.set_row(dest_row)
+            dest_row.add_toolbar(toolbar)
+            handle = dest_row.get_handle()
+            target_subsizer.remove_item(target_subsizer.add(handle, proportion=1.))
+            target_row = target_component.get_row()
+            bundle = target_row.get_bundle()
+            bundle.add_toolbar_row(dest_row)
+            target_subsizer.set_default_size((0, 0))
+            w_min = target_subsizer.update_min_size()[0]
+            dest_row.set_min_width_in_bundle(w_min)
+            width = bundle.get_min_width()
+            target_subsizer.set_default_size((width, 0))
+            docking_targets.append(handle)
 
-                else:
+        elif side in ("bottom", "top"):
 
-                    subsizer.remove_item(sizer_item)
+            index = target_sizer.get_item_index(target_subsizer.get_sizer_item())
 
-                sizer = subsizer.get_owner()
-                item_count = subsizer.get_item_count()
+            if side == "bottom":
+                index += 1
 
-                if item_count == 0:
-                    sizer.remove_item(subsizer.get_sizer_item(), destroy=True)
-                    src_dock.get_toolbar_sizers().remove(subsizer)
-                else:
-                    last_item = subsizer.get_item(item_count - 1)
-                    last_item.get_object().set_proportion(1.)
+            new_row_sizer = Sizer("horizontal")
+            new_row_sizer.add_item(sizer_item)
+            dest_row = ToolbarRow(target_dock)
+            toolbar.set_row(dest_row)
+            dest_row.add_toolbar(toolbar)
+            handle = dest_row.get_handle()
+            new_row_sizer.add(handle, proportion=1.)
+            w_min = new_row_sizer.update_min_size()[0]
+            dest_row.set_min_width_in_bundle(w_min)
+            w_min = dest_row.get_min_width(in_bundle=False)
+            new_row_sizer.set_default_size((w_min, 0))
+            target_sizer.add(new_row_sizer, expand=True, index=index)
+            target_dock.get_toolbar_sizers().append(new_row_sizer)
+            docking_targets.append(handle)
 
-                target_sizer_item = target_component.get_sizer_item()
-                target_subsizer = target_sizer_item.get_sizer()
-                target_sizer = target_subsizer.get_owner()
+        else:
 
-                if GlobalData["shift_down"]:
+            index = target_subsizer.get_item_index(target_sizer_item)
 
-                    target_component.get_bundle().add_toolbar(self._dragged_toolbar)
-                    index = target_subsizer.get_item_index(target_sizer_item)
-                    item_count = target_subsizer.get_item_count()
+            if side == "right":
+                index += 1
 
-                    if index == item_count - 1:
-                        proportion = 1.
-                    else:
-                        proportion = 0.
+            target_subsizer.add_item(sizer_item, index=index)
+            dest_row = target_component.get_row()
+            toolbar.set_row(dest_row)
+            dest_row.add_toolbar(toolbar, index)
+            w_d = target_subsizer.get_default_size()[0]
+            target_subsizer.set_default_size((0, 0))
+            w_min = target_subsizer.update_min_size()[0]
+            dest_row.set_min_width_in_bundle(w_min)
+            w_min = dest_row.get_min_width(in_bundle=dest_row.in_bundle())
+            width = max(w_d, w_min)
+            target_subsizer.set_default_size((width, 0))
 
-                    target_subsizer.remove_item(target_sizer_item)
-                    target_subsizer.add_item(sizer_item, index=index)
-                    self._dragged_toolbar.set_proportion(proportion)
+    def __move_toolbar_row(self, toolbar_row_handle):
 
-                else:
+        docking_targets = self._registry["docking_targets"]
+        target_component, side, _ = self._docking_data
+        target_dock = target_component.get_ancestor("dock")
+        src_dock = toolbar_row_handle.get_ancestor("dock")
+        sizer_item = toolbar_row_handle.get_sizer_item()
+        row_sizer = sizer_item.get_sizer()
+        row_sizer_item = row_sizer.get_sizer_item()
+        toolbar_row = toolbar_row_handle.get_row()
+        target_sizer_item = target_component.get_sizer_item()
+        target_subsizer = target_sizer_item.get_sizer()
+        target_sizer = target_subsizer.get_owner()
+        parent = target_sizer.get_owner()
+        toolbar_row_handle.set_parent(parent)
+        in_bundle = toolbar_row.in_bundle()
 
-                    if side in ("bottom", "top"):
+        if in_bundle:
 
-                        index = target_sizer.get_item_index(target_subsizer.get_sizer_item())
+            bundle = toolbar_row.get_bundle()
+            rows = list(bundle)
+            rows.remove(toolbar_row)
+            next_row = bundle.remove_toolbar_row()
 
-                        if side == "bottom":
-                            index += 1
+            if next_row.in_bundle():
+                width = bundle.get_min_width()
+            else:
+                width = next_row.get_min_width(in_bundle=False)
 
-                        new_subsizer = Sizer("horizontal")
-                        new_subsizer.add_item(sizer_item)
-                        toolbar.set_proportion(1.)
-                        target_sizer.add(new_subsizer, expand=True, index=index)
-                        target_dock.get_toolbar_sizers().append(new_subsizer)
+            row_sizer.set_default_size((width, 0))
 
-                    else:
+        if target_component.get_widget_type() == "toolbar_row_handle":
 
-                        index = target_subsizer.get_item_index(target_sizer_item)
-                        item_count = target_subsizer.get_item_count()
-                        last_item = target_subsizer.get_item(item_count - 1)
-                        last_item_sizer = last_item.get_object().get_sizer()
+            target_row = target_component.get_row()
+            bundle = target_row.get_bundle()
+            bundle.add_toolbar_row(toolbar_row)
+            target_subsizer.set_default_size((0, 0))
+            w_min = target_subsizer.update_min_size()[0]
+            toolbar_row.set_min_width_in_bundle(w_min)
+            width = bundle.get_min_width()
+            target_subsizer.set_default_size((width, 0))
 
-                        if side == "right":
-                            index += 1
+            if not in_bundle:
+                row_sizer_item.get_sizer().remove_item(row_sizer_item)
+                row_sizer.clear()
+                row_sizer.destroy()
+                src_dock.get_toolbar_sizers().remove(row_sizer)
 
-                        if index == item_count:
-                            proportion = 1.
-                            last_item.get_object().set_proportion(0.)
-                        else:
-                            proportion = 0.
-                            last_item.get_object().set_proportion(1.)
+        elif side in ("bottom", "top"):
 
-                        target_subsizer.add_item(sizer_item, index=index)
-                        toolbar.set_proportion(proportion)
+            if not in_bundle:
 
-                    toolbar.set_parent(target_sizer.get_owner())
+                if target_subsizer is row_sizer:
+                    return
 
-                self._window.update_min_size()
-                self.__update_window()
+                row_sizer_item.get_sizer().remove_item(row_sizer_item)
+                src_dock.get_toolbar_sizers().remove(row_sizer)
 
-            self._docking_data = None
-            self._dragged_toolbar.destroy_ghost_image()
-            self._dragged_toolbar = None
-            self._dragging_toolbar = False
-            self._separating_toolbar = False
-            Mgr.set_cursor("main")
+            index = target_sizer.get_item_index(target_subsizer.get_sizer_item())
+
+            if side == "bottom":
+                index += 1
+
+            if in_bundle:
+
+                row_sizer = Sizer("horizontal")
+
+                for toolbar in toolbar_row:
+                    row_sizer.add_item(toolbar.get_sizer_item())
+
+                row_sizer.add_item(sizer_item)
+                target_sizer.add(row_sizer, expand=True, index=index)
+
+            else:
+
+                target_sizer.add_item(row_sizer_item, index=index)
+
+            target_dock.get_toolbar_sizers().append(row_sizer)
+            row_sizer.set_default_size((toolbar_row.get_min_width(in_bundle=False), 0))
+
+            for toolbar in toolbar_row:
+                toolbar.set_parent(parent)
+
+        else:
+
+            index = target_subsizer.get_item_index(target_sizer_item)
+
+            if side == "right":
+                index += 1
+
+            dest_row = target_component.get_row()
+            dest_row.add_toolbars(toolbar_row, index)
+
+            for toolbar in toolbar_row[::-1]:
+                toolbar.set_parent(parent)
+                toolbar.set_row(dest_row)
+                target_subsizer.add_item(toolbar.get_sizer_item(), index=index)
+
+            w_d = target_subsizer.get_default_size()[0]
+            target_subsizer.set_default_size((0, 0))
+            w_min = target_subsizer.update_min_size()[0]
+            dest_row.set_min_width_in_bundle(w_min)
+            width = max(w_d, w_min)
+            target_subsizer.set_default_size((width, 0))
+            toolbar_row.destroy_ghost_image()
+            toolbar_row.destroy()
+            docking_targets.remove(toolbar_row_handle)
+
+            if not in_bundle:
+                row_sizer_item.get_sizer().remove_item(row_sizer_item)
+                row_sizer.clear()
+                row_sizer.destroy()
+                src_dock.get_toolbar_sizers().remove(row_sizer)
+
+    def __move_toolbar_bundle(self, toolbar_row_handle):
+
+        docking_targets = self._registry["docking_targets"]
+        target_component, side, _ = self._docking_data
+        target_dock = target_component.get_ancestor("dock")
+        src_dock = toolbar_row_handle.get_ancestor("dock")
+        sizer_item = toolbar_row_handle.get_sizer_item()
+        row_sizer = sizer_item.get_sizer()
+        row_sizer_item = row_sizer.get_sizer_item()
+        toolbar_row = toolbar_row_handle.get_row()
+        target_sizer_item = target_component.get_sizer_item()
+        target_subsizer = target_sizer_item.get_sizer()
+        target_sizer = target_subsizer.get_owner()
+
+        if target_component.get_widget_type() == "toolbar_row_handle":
+
+            row_sizer_item.get_sizer().remove_item(row_sizer_item)
+            src_dock.get_toolbar_sizers().remove(row_sizer)
+            target_row = target_component.get_row()
+            bundle = target_row.get_bundle()
+            bundle.add_toolbar_row(toolbar_row)
+            width = max(bundle.get_min_width(), target_subsizer.get_default_size()[0])
+            target_subsizer.set_default_size((width, 0))
+            row_sizer.clear()
+            row_sizer.destroy()
+
+        else:
+
+            if target_subsizer is row_sizer:
+                return
+
+            row_sizer_item.get_sizer().remove_item(row_sizer_item)
+            src_dock.get_toolbar_sizers().remove(row_sizer)
+            index = target_sizer.get_item_index(target_subsizer.get_sizer_item())
+
+            if side == "bottom":
+                index += 1
+
+            target_sizer.add_item(row_sizer_item, index=index)
+            parent = target_sizer.get_owner()
+            toolbar_row.set_parent(parent)
+            target_dock.get_toolbar_sizers().append(row_sizer)
+
+    def __on_left_up(self, cancel_drag=False):
+
+        if not self._dragging_toolbars:
+            return
+
+        Mgr.remove_task("update_insertion_marker")
+        self._toolbar_insertion_marker.set_type("")
+        dragged_widget = self._dragged_widget
+
+        if self._docking_data and not cancel_drag:
+
+            item_type = self._dragged_item_type
+
+            if item_type == "toolbar":
+                self.__move_toolbar(dragged_widget)
+            elif item_type == "toolbar_row":
+                self.__move_toolbar_row(dragged_widget)
+            elif item_type == "toolbar_bundle":
+                self.__move_toolbar_bundle(dragged_widget)
+
+            self._window.update_min_size()
+            self.__update_window()
             self.__update_layout_data()
+
+        self._docking_data = None
+        self._dragged_item_type = ""
+        dragged_widget.destroy_ghost_image()
+        self._dragged_widget = None
+        self._dragging_toolbars = False
+        self.__enable()
+        Mgr.exit_state("inactive")
+        interface_ids = GlobalData["viewport"]
+
+        if interface_ids[2] is not None:
+            interface_id = interface_ids[2 if interface_ids[1] == "main" else 1]
+            Mgr.exit_state("inactive", interface_id)
+
+        Mgr.set_cursor("main")
 
     def __set_viewport_border_color(self, color_id):
 

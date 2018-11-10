@@ -1116,7 +1116,7 @@ class MaterialPanel(Panel):
 
         if mat_id:
             name = combobox.get_item_text(mat_id)
-            self._fields["name"].set_value("name", name, handle_value=False)
+            self._fields["name"].set_value("name", name)
             self._selected_mat_id = mat_id
             self._comboboxes["layer"].clear()
             Mgr.update_remotely("material_selection", mat_id)
@@ -1305,17 +1305,17 @@ class MaterialPanel(Panel):
 
         if prop_id == "name":
             if self._selected_mat_id == mat_id:
-                self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+                self._fields[prop_id].set_value(prop_id, value)
             self._comboboxes["material"].set_item_text(mat_id, value)
         elif prop_id == "show_vert_colors":
             self._checkboxes[prop_id].check(value)
         elif prop_id == "flat_color":
             self._colorboxes[prop_id].set_color(value[:3])
         elif prop_id == "shininess":
-            self._fields[prop_id].set_value(prop_id, value["value"], handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value["value"])
         elif prop_id == "alpha":
             self._checkboxes[prop_id].check(value["on"])
-            self._fields[prop_id].set_value(prop_id, value["value"], handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value["value"])
         elif prop_id in self._base_prop_ids:
             self._checkboxes[prop_id].check(value["on"])
             self._colorboxes[prop_id].set_color(value["value"][:3])
@@ -1328,10 +1328,10 @@ class MaterialPanel(Panel):
             self._checkboxes["tex_map"].check(value)
         elif prop_id == "tex_map_file_main":
             self._tex_map_file_main = value
-            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value)
         elif prop_id == "tex_map_file_alpha":
             self._tex_map_file_alpha = value
-            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value)
         elif prop_id == "tex_map_border_color":
             self._colorboxes[prop_id].set_color(value[:3])
         elif prop_id == "tex_map_wrap_u":
@@ -1345,19 +1345,19 @@ class MaterialPanel(Panel):
         elif prop_id == "tex_map_filter_mag":
             self._comboboxes[prop_id].select_item(value)
         elif prop_id == "tex_map_anisotropic_degree":
-            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value)
         elif prop_id == "tex_map_transform":
             u, v = value["offset"]
             rot = value["rotate"][0]
             su, sv = value["scale"]
-            self._fields["tex_map_offset_u"].set_value("tex_map_offset_u", u, handle_value=False)
-            self._fields["tex_map_offset_v"].set_value("tex_map_offset_v", v, handle_value=False)
-            self._fields["tex_map_rotate"].set_value("tex_map_rotate", rot, handle_value=False)
-            self._fields["tex_map_scale_u"].set_value("tex_map_scale_u", su, handle_value=False)
-            self._fields["tex_map_scale_v"].set_value("tex_map_scale_v", sv, handle_value=False)
+            self._fields["tex_map_offset_u"].set_value("tex_map_offset_u", u)
+            self._fields["tex_map_offset_v"].set_value("tex_map_offset_v", v)
+            self._fields["tex_map_rotate"].set_value("tex_map_rotate", rot)
+            self._fields["tex_map_scale_u"].set_value("tex_map_scale_u", su)
+            self._fields["tex_map_scale_v"].set_value("tex_map_scale_v", sv)
         elif prop_id in ("tex_map_offset_u", "tex_map_offset_v", "tex_map_rotate",
                          "tex_map_scale_u", "tex_map_scale_v"):
-            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value)
         elif prop_id == "layers":
             get_command = lambda layer_id: lambda: self.__select_layer(layer_id)
             combobox = self._comboboxes["layer"]
@@ -1370,7 +1370,7 @@ class MaterialPanel(Panel):
         combobox = self._comboboxes["material"]
         combobox.select_item(mat_id)
         name = combobox.get_item_text(mat_id)
-        self._fields["name"].set_value("name", name, handle_value=False)
+        self._fields["name"].set_value("name", name)
         self._selected_mat_id = mat_id
         self._comboboxes["layer"].clear()
         Mgr.update_remotely("material_selection", mat_id)
@@ -1507,7 +1507,7 @@ class MaterialPanel(Panel):
 
         if layer_id:
             name = combobox.get_item_text(layer_id)
-            self._fields["layer_name"].set_value("layer_name", name, handle_value=False)
+            self._fields["layer_name"].set_value("layer_name", name)
             self._selected_layer_id = layer_id
             Mgr.update_remotely("tex_layer_selection", self._selected_mat_id, layer_id)
 
@@ -1542,11 +1542,11 @@ class MaterialPanel(Panel):
         val_id = "layer_" + prop_id
 
         if prop_id == "name":
-            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._fields[val_id].set_value(val_id, value)
             self._comboboxes["layer"].set_item_text(layer_id, value)
         elif prop_id == "color":
             self._colorboxes["layer_rgb"].set_color(value[:3])
-            self._fields["layer_alpha"].set_value("layer_alpha", value[3], handle_value=False)
+            self._fields["layer_alpha"].set_value("layer_alpha", value[3])
         elif prop_id == "rgb_scale":
             self._radio_btns[val_id].set_selected_button(value)
         elif prop_id == "alpha_scale":
@@ -1555,15 +1555,15 @@ class MaterialPanel(Panel):
             self._checkboxes[val_id].check(value)
         elif prop_id == "file_main":
             self._layer_file_main = value
-            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._fields[val_id].set_value(val_id, value)
         elif prop_id == "file_alpha":
             self._layer_file_alpha = value
-            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._fields[val_id].set_value(val_id, value)
         elif prop_id == "sort":
-            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._fields[val_id].set_value(val_id, value)
             self._comboboxes["layer"].set_item_index(layer_id, value)
         elif prop_id == "priority":
-            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._fields[val_id].set_value(val_id, value)
         elif prop_id == "border_color":
             self._colorboxes[val_id].set_color(value[:3])
         elif prop_id == "wrap_u":
@@ -1577,20 +1577,20 @@ class MaterialPanel(Panel):
         elif prop_id == "filter_mag":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "anisotropic_degree":
-            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._fields[val_id].set_value(val_id, value)
         elif prop_id == "uv_set":
-            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._fields[val_id].set_value(val_id, value)
         elif prop_id == "transform":
             u, v = value["offset"]
             rot = value["rotate"][0]
             su, sv = value["scale"]
-            self._fields["layer_offset_u"].set_value("layer_offset_u", u, handle_value=False)
-            self._fields["layer_offset_v"].set_value("layer_offset_v", v, handle_value=False)
-            self._fields["layer_rotate"].set_value("layer_rotate", rot, handle_value=False)
-            self._fields["layer_scale_u"].set_value("layer_scale_u", su, handle_value=False)
-            self._fields["layer_scale_v"].set_value("layer_scale_v", sv, handle_value=False)
+            self._fields["layer_offset_u"].set_value("layer_offset_u", u)
+            self._fields["layer_offset_v"].set_value("layer_offset_v", v)
+            self._fields["layer_rotate"].set_value("layer_rotate", rot)
+            self._fields["layer_scale_u"].set_value("layer_scale_u", su)
+            self._fields["layer_scale_v"].set_value("layer_scale_v", sv)
         elif prop_id in ("offset_u", "offset_v", "rotate", "scale_u", "scale_v"):
-            self._fields[val_id].set_value(val_id, value, handle_value=False)
+            self._fields[val_id].set_value(val_id, value)
         elif prop_id == "blend_mode":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "combine_mode":
@@ -1615,7 +1615,7 @@ class MaterialPanel(Panel):
         combobox = self._comboboxes["layer"]
         combobox.select_item(layer_id)
         name = combobox.get_item_text(layer_id)
-        self._fields["layer_name"].set_value("layer_name", name, handle_value=False)
+        self._fields["layer_name"].set_value("layer_name", name)
         self._selected_layer_id = layer_id
         Mgr.update_remotely("tex_layer_selection", self._selected_mat_id, layer_id)
 

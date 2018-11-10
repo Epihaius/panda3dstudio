@@ -259,20 +259,36 @@ class ViewportBorder(Widget):
         self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
         Mgr.add_task(self._resize_aux_viewport, "resize_aux_viewport")
         self._listener.accept("gui_mouse1-up", self.__on_left_up)
-        Mgr.enter_state("aux_viewport_resize", interface_id=GlobalData["viewport"][1])
-        Mgr.enter_state("aux_viewport_resize", interface_id=GlobalData["viewport"][2])
+        cancel_resize = lambda: self.__on_left_up(cancel_resize=True)
+        self._listener.accept("gui_mouse3", cancel_resize)
+        self._listener.accept("focus_loss", cancel_resize)
+        Mgr.do("enable_gui", False)
+        Mgr.enter_state("inactive")
+        interface_ids = GlobalData["viewport"]
 
-    def __on_left_up(self):
+        if interface_ids[2] is not None:
+            interface_id = interface_ids[2 if interface_ids[1] == "main" else 1]
+            Mgr.enter_state("inactive", interface_id)
 
-        Mgr.exit_state("aux_viewport_resize", interface_id=GlobalData["viewport"][1])
-        Mgr.exit_state("aux_viewport_resize", interface_id=GlobalData["viewport"][2])
+    def __on_left_up(self, cancel_resize=False):
+
+        Mgr.do("enable_gui")
+        Mgr.exit_state("inactive")
+        interface_ids = GlobalData["viewport"]
+
+        if interface_ids[2] is not None:
+            interface_id = interface_ids[2 if interface_ids[1] == "main" else 1]
+            Mgr.exit_state("inactive", interface_id)
+
         Mgr.remove_task("resize_aux_viewport")
         self._sequence.finish()
         self._listener.ignore_all()
         self._frame_viz.hide()
         delta_x, delta_y = self.__get_offsets()
         self._mouse_start_pos = ()
-        self._viewport.resize(delta_x, delta_y)
+
+        if not cancel_resize:
+            self._viewport.resize(delta_x, delta_y)
 
 
 class AdjacentViewportBorder(ViewportBorder):

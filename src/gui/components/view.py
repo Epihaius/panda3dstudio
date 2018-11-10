@@ -654,7 +654,7 @@ class ViewPane(ScrollPane):
     def clear_tiles(self):
 
         del self._tiles[8:]
-        self._tile_sizers["user"].clear()
+        self._tile_sizers["user"].clear(destroy_items=True)
         self.reset_sub_image_index()
 
 

@@ -460,8 +460,8 @@ class ScrollPane(WidgetCard):
         self._subimg_w = 0
         self._subimg_h = 0
         sizer = ScrollSizer(scroll_dir)
-        sizer.set_default_size((1, 1))
         self.set_sizer(sizer)
+        sizer.set_default_size((1, 1))
 
         self._mouse_region_mask = mask = MouseWatcherRegion("{}_mask".format(pane_id), 0., 0., 0., 0.)
         mask.set_suppress_flags(MouseWatcherRegion.SF_mouse_button)

@@ -1,4 +1,5 @@
 from .base import *
+from .tooltip import ToolTip
 from .menu import Menu
 from .components import Components
 import sys
@@ -113,12 +114,26 @@ class GUI(object):
     def __on_region_enter(self, *args):
 
         name = args[0].get_name()
+        label = None
+
+        def get_grip_tooltip_label(name_start):
+
+            Mgr.set_cursor("move")
+            widget_id = int(name.replace(name_start, ""))
+            return Widget.registry[widget_id].get_grip_tooltip_label()
 
         if name.startswith("widget_"):
             widget_id = int(name.replace("widget_", ""))
             Widget.registry[widget_id].on_enter()
         elif name.startswith("toolbar_grip_"):
-            Mgr.set_cursor("move")
+            label = get_grip_tooltip_label("toolbar_grip_")
+        elif name.startswith("tb_row_grip_"):
+            label = get_grip_tooltip_label("tb_row_grip_")
+        elif name.startswith("tb_bundle_grip_"):
+            label = get_grip_tooltip_label("tb_bundle_grip_")
+
+        if label and not self._components.dragging_toolbars():
+            ToolTip.show(label)
 
     def __on_region_leave(self, *args):
 
@@ -132,12 +147,14 @@ class GUI(object):
             if widget_id in Widget.registry:
                 Widget.registry[widget_id].on_leave()
 
-        elif name.startswith("toolbar_grip_") and not self._components.dragging_toolbar():
+        elif (name.startswith(("toolbar_grip_", "tb_row_grip_", "tb_bundle_grip_"))
+                and not self._components.dragging_toolbars()):
 
             if Mgr.get("active_input_field") and not Menu.is_menu_shown():
                 Mgr.set_cursor("input_commit")
             else:
                 Mgr.set_cursor("main")
+                ToolTip.hide()
 
     def __on_left_down(self):
 

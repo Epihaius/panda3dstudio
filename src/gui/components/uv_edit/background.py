@@ -91,7 +91,7 @@ class BackgroundPanel(Panel):
             with open("config", "wb") as config_file:
                 pickle.dump(config_data, config_file, -1)
 
-            self._fields["tex_filename"].set_value("tex_filename", tex_filename, handle_value=False)
+            self._fields["tex_filename"].set_value("tex_filename", tex_filename)
             self._tex_filename = tex_filename
 
             Mgr.update_interface_remotely("uv", "uv_background", "tex_filename", tex_filename)
@@ -146,7 +146,7 @@ class BackgroundPanel(Panel):
             self._checkboxes[prop_id].check(value)
             return
 
-        self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+        self._fields[prop_id].set_value(prop_id, value)
 
         if prop_id == "tex_filename":
             self._tex_filename = value

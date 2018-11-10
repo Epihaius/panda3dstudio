@@ -256,7 +256,7 @@ class SubobjectPanel(Panel):
             elif option in self._checkboxes:
                 self._checkboxes[option].check(value)
             elif option in self._fields:
-                self._fields[option].set_value(option, value, handle_value=False)
+                self._fields[option].set_value(option, value)
 
     def __set_uv_level(self, uv_level):
 
@@ -334,4 +334,4 @@ class SubobjectPanel(Panel):
             self._colorboxes["{}_poly_rgb".format(sel_state)].set_color(value[:3])
         elif channels == "alpha":
             prop_id = "{}_poly_alpha".format(sel_state)
-            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value)

@@ -267,7 +267,7 @@ class EditableGeomProperties(object):
         field.add_value(prop_id, "int", handler=handler)
         field.show_value(prop_id)
         field.set_input_parser(prop_id, self.__parse_edge_bridge_segments)
-        field.set_value(prop_id, 1, handle_value=False)
+        field.set_value(prop_id, 1)
         self._fields[prop_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -448,7 +448,7 @@ class EditableGeomProperties(object):
             elif option in self._checkboxes:
                 self._checkboxes[option].check(value)
             elif option in self._fields:
-                self._fields[option].set_value(option, value, handle_value=False)
+                self._fields[option].set_value(option, value)
 
     def __handle_picking_via_poly(self, via_poly):
 
@@ -745,7 +745,7 @@ class EditableGeomProperties(object):
 
         field = self._fields[prop_id]
         field.show_text()
-        field.set_value(prop_id, value, handle_value=False)
+        field.set_value(prop_id, value)
         field.set_text_color((1., 1., 0., 1.))
 
     def set_object_property(self, prop_id, value):
@@ -757,7 +757,7 @@ class EditableGeomProperties(object):
         val, sel_count = value
 
         if sel_count == 1:
-            field.set_value(prop_id, val, handle_value=False)
+            field.set_value(prop_id, val)
             field.set_text_color()
             field.show_text()
         else:

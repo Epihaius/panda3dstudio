@@ -20,13 +20,13 @@ class OptionManager(object):
         layout_menu.add("gui_layout_save", "Save", self.__save_gui_layout)
         layout_menu.add("sep0", item_type="separator")
         command = self.__set_right_dock_side
-        item = layout_menu.add("panels_left", "Control panels left", command, item_type="check")
-        self._menu_items = {"ctrl_panels_side": item}
+        item = layout_menu.add("ctrl_pane_left", "Control pane left", command, item_type="check")
+        self._menu_items = {"ctrl_pane_left": item}
 
     def setup(self):
 
         layout = GlobalData["config"]["gui_layout"]
-        self._menu_items["ctrl_panels_side"].check(layout["right_dock"] == "left")
+        self._menu_items["ctrl_pane_left"].check(layout["right_dock"] == "left")
 
     def __set_right_dock_side(self):
 
@@ -47,7 +47,7 @@ class OptionManager(object):
 
             Mgr.do("set_right_dock_side", "right")
             Mgr.do("update_{}_layout".format(interface_id))
-            self._menu_items["ctrl_panels_side"].check(False)
+            self._menu_items["ctrl_pane_left"].check(False)
 
         if interface_id == "main":
             interface_name = "main"
@@ -90,7 +90,7 @@ class OptionManager(object):
                 side = layout["right_dock"]
                 Mgr.do("set_right_dock_side", side)
                 Mgr.do("update_{}_layout".format(interface_id))
-                self._menu_items["ctrl_panels_side"].check(side == "left")
+                self._menu_items["ctrl_pane_left"].check(side == "left")
 
             if interface_id == "main":
                 interface_name = "main"

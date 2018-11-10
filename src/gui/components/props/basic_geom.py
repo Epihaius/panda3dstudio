@@ -105,7 +105,7 @@ class BasicGeomProperties(object):
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value, handle_value=False)
+            field.set_value(prop_id, value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -121,7 +121,7 @@ class BasicGeomProperties(object):
         elif prop_id in self._checkboxes:
             self._checkboxes[prop_id].check(value)
         elif prop_id in self._fields:
-            self._fields[prop_id].set_value(prop_id, value, handle_value=False)
+            self._fields[prop_id].set_value(prop_id, value)
 
     def check_selection_count(self):
 
@@ -167,7 +167,7 @@ class BasicGeomProperties(object):
 
         uv_set_id = int(self._uv_set_btns.get_active_button_id())
         uv_set_name = uv_set_names[uv_set_id]
-        self._fields["uv_set_name"].set_value("uv_set_name", uv_set_name, handle_value=False)
+        self._fields["uv_set_name"].set_value("uv_set_name", uv_set_name)
 
     def __parse_length(self, length):
 

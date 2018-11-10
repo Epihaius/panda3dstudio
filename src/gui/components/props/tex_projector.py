@@ -149,7 +149,7 @@ class TexProjectorProperties(object):
         field.show_value(val_id)
         field.set_input_parser(val_id, self.__parse_uv_set_id_string)
         field.set_value_parser(val_id, self.__parse_uv_set_ids)
-        field.set_value(val_id, (), handle_value=False)
+        field.set_value(val_id, ())
         field.enable(False)
         field.add_disabler("no_targets", lambda: not self._targets)
         self._fields[val_id] = field
@@ -222,7 +222,7 @@ class TexProjectorProperties(object):
         use_poly_sel = not target_data["toplvl"]
         show_poly_sel = target_data["show_poly_sel"]
         field = self._fields["uv_set_ids"]
-        field.set_value("uv_set_ids", uv_set_ids, handle_value=False)
+        field.set_value("uv_set_ids", uv_set_ids)
         self._checkboxes["use_poly_sel"].check(use_poly_sel)
         self._checkboxes["show_poly_sel"].check(show_poly_sel)
 
@@ -305,7 +305,7 @@ class TexProjectorProperties(object):
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value, handle_value=False)
+            field.set_value(prop_id, value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -347,7 +347,7 @@ class TexProjectorProperties(object):
                     uv_set_ids = new_target_data["uv_set_ids"]
                     use_poly_sel = not new_target_data["toplvl"]
                     show_poly_sel = new_target_data["show_poly_sel"]
-                    field.set_value("uv_set_ids", uv_set_ids, handle_value=False)
+                    field.set_value("uv_set_ids", uv_set_ids)
                     checkboxes["use_poly_sel"].check(use_poly_sel)
                     checkboxes["show_poly_sel"].check(show_poly_sel)
 
@@ -374,11 +374,11 @@ class TexProjectorProperties(object):
                     uv_set_ids = target_data["uv_set_ids"]
                     use_poly_sel = not target_data["toplvl"]
                     show_poly_sel = target_data["show_poly_sel"]
-                    field.set_value("uv_set_ids", uv_set_ids, handle_value=False)
+                    field.set_value("uv_set_ids", uv_set_ids)
                     checkboxes["use_poly_sel"].check(use_poly_sel)
                     checkboxes["show_poly_sel"].check(show_poly_sel)
                 else:
-                    field.set_value("uv_set_ids", (), handle_value=False)
+                    field.set_value("uv_set_ids", ())
                     field.enable(False)
                     checkboxes["use_poly_sel"].check(False)
                     checkboxes["use_poly_sel"].enable(False)
@@ -388,7 +388,7 @@ class TexProjectorProperties(object):
         elif prop_id in self._fields:
 
             field = self._fields[prop_id]
-            field.set_value(prop_id, value, handle_value=False)
+            field.set_value(prop_id, value)
 
     def check_selection_count(self):
 

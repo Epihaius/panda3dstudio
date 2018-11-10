@@ -232,7 +232,7 @@ class TagPane(DialogScrollPane):
         self._tag_val_fields = []
         self._fields = []
         self._tags = {}
-        self.get_sizer().clear()
+        self.get_sizer().clear(destroy_items=True)
         self.update_layout()
 
     def __on_popup(self, index):

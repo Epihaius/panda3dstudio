@@ -6,7 +6,7 @@ class Button(Widget, HotkeyManager):
 
     def __init__(self, parent, gfx_data, text="", icon_id="", tooltip_text="", command=None,
                  text_alignment="center", icon_alignment="center", button_type="",
-                 stretch_dir="horizontal"):
+                 stretch_dir="horizontal", hidden=False):
 
         if gfx_data["normal"] and gfx_data["normal"][0][0] not in TextureAtlas["regions"]:
             gfx_data["normal"] = ()
@@ -16,7 +16,7 @@ class Button(Widget, HotkeyManager):
                 del gfx_data["disabled"]
 
         Widget.__init__(self, "button", parent, gfx_data, initial_state="normal",
-                        stretch_dir=stretch_dir)
+                        stretch_dir=stretch_dir, hidden=hidden)
 
         self._hotkey = None
         self._hotkey_text = ""

@@ -87,7 +87,7 @@ class SphereProperties(object):
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value, handle_value=False)
+            field.set_value(prop_id, value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -96,7 +96,7 @@ class SphereProperties(object):
             self._checkboxes["smoothness"].check(value)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
-            field.set_value(prop_id, value, handle_value=False)
+            field.set_value(prop_id, value)
 
     def check_selection_count(self):
 

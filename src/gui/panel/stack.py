@@ -5,27 +5,6 @@ from ..scroll import ScrollPaneFrame, ScrollPane
 from .panel import Panel
 
 
-class PanelStackFrame(ScrollPaneFrame):
-
-    def get_docking_data(self, point):
-
-        if GlobalData["shift_down"]:
-            return
-
-        l, r, b, t = self.get_mouse_region().get_frame()
-        x, y = point
-
-        if l < x < r and b < -y < t:
-
-            dists = {-b - y: "bottom", y + t: "top"}
-            dist = min(dists.keys())
-
-            side = dists[dist]
-            positions = {"bottom": ((l + r) // 2, b), "top": ((l + r) // 2, t)}
-
-            return self, side, positions[side]
-
-
 class PanelStack(ScrollPane):
 
     def __init__(self, frame_parent):
@@ -132,7 +111,7 @@ class PanelStack(ScrollPane):
     def _create_frame(self, parent, scroll_dir, cull_bin, gfx_data, bar_gfx_data,
                       thumb_gfx_data, bar_inner_border_id, has_mouse_region=True):
 
-        return PanelStackFrame(parent, self, gfx_data, bar_gfx_data, thumb_gfx_data,
+        return ScrollPaneFrame(parent, self, gfx_data, bar_gfx_data, thumb_gfx_data,
                                cull_bin, scroll_dir, bar_inner_border_id, has_mouse_region)
 
     def _get_mask_sort(self):

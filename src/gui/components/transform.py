@@ -279,7 +279,7 @@ class TransformToolbar(Toolbar):
                 field.add_value((transf_type, not is_relative_value), handler=handler)
                 value_id = (transf_type, is_relative_value)
                 field.add_value(value_id, handler=handler, font=font)
-                field.set_value(value_id, 1. if transf_type == "scale" else 0., handle_value=False)
+                field.set_value(value_id, 1. if transf_type == "scale" else 0.)
 
         self.add(ToolbarSeparator(self), borders=borders)
 
@@ -383,7 +383,7 @@ class TransformToolbar(Toolbar):
             if use_rel_values:
                 field.show_text()
                 val = 1. if transf_type == "scale" else 0.
-                field.set_value(value_id, val, handle_value=False)
+                field.set_value(value_id, val)
 
             if field is not current_field:
                 field.get_popup_menu().check_item("use_rel_values", use_rel_values)
@@ -397,7 +397,7 @@ class TransformToolbar(Toolbar):
 
         if is_rel_value:
             val = 1. if transf_type == "scale" else 0.
-            self._fields[axis].set_value(value_id, val, handle_value=False)
+            self._fields[axis].set_value(value_id, val)
 
     def __set_field_values(self, transform_data=None):
 
@@ -417,7 +417,7 @@ class TransformToolbar(Toolbar):
             value_id = (transform_type, False)
 
             for axis, value in zip("xyz", values):
-                self._fields[axis].set_value(value_id, value, handle_value=False)
+                self._fields[axis].set_value(value_id, value)
 
         if transf_type:
             self.__show_field_text()
