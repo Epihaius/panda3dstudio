@@ -221,10 +221,10 @@ class Dialog(WidgetCard):
         Mgr.accept("accept_dialog_events", cls.accept_dialog_events)
         Mgr.accept("ignore_dialog_events", cls.ignore_dialog_events)
 
-    def __init__(self, parent=None, title="", choices="ok", ok_alias="OK", on_yes=None, on_no=None,
+    def __init__(self, title="", choices="ok", ok_alias="OK", on_yes=None, on_no=None,
                  on_cancel=None, extra_button_data=(), allow_escape=True):
 
-        WidgetCard.__init__(self, "dialog", parent)
+        WidgetCard.__init__(self, "dialog")
 
         self._mouse_region = region = MouseWatcherRegion("dialog", 0., 0., 0., 0.)
         self.get_mouse_watcher().add_region(region)

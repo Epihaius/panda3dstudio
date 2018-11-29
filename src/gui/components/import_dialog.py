@@ -187,7 +187,7 @@ class ImportDialog(Dialog):
         choices = "okcancel"
         ok_alias = "Import"
 
-        Dialog.__init__(self, None, title, choices, ok_alias, on_yes, None, on_cancel)
+        Dialog.__init__(self, title, choices, ok_alias, on_yes, None, on_cancel)
 
         client_sizer = self.get_client_sizer()
 

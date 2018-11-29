@@ -259,6 +259,45 @@ class ViewManager(BaseObject):
         self._render_modes = {}
         self._render_mode_defaults = {}
 
+        self._backgrounds = backgrounds = {}
+        root = self.world.attach_new_node("view_background_root")
+        root.set_transparency(TransparencyAttrib.M_alpha)
+        root.set_depth_write(False)
+        root.set_depth_test(False)
+        root.hide(Mgr.get("picking_mask"))
+        cm = CardMaker("view_background")
+        cm.set_frame(0., 1., 0., 1.)
+        cm.set_has_normals(False)
+        data = {}
+        view_ids = ("front", "back", "left", "right", "top", "bottom")
+        hprs = ((0., 0., 0.), (180., 0., 0.), (-90., 0., 0.),
+                (90., 0., 0.), (0., -90., 0.), (180., 90., 0.))
+
+        for view_id, hpr in zip(view_ids, hprs):
+            data[view_id] = {
+                "filename": "",
+                "show": True,
+                "in_foreground": False,
+                "alpha": 1.,
+                "x": 0.,
+                "y": 0.,
+                "width": 1.,
+                "height": 1.,
+                "fixed_aspect_ratio": True,
+                "bitmap_aspect_ratio": 1.,
+                "flip_h": False,
+                "flip_v": False
+            }
+            pivot = root.attach_new_node("view_background_pivot")
+            pivot.set_hpr(hpr)
+            card = pivot.attach_new_node(cm.generate())
+            card.set_bin("background", -100)
+            card.hide()
+            backgrounds[view_id] = card
+
+        copier = lambda data: dict((key, value.copy()) for key, value in data.items())
+        GlobalData.set_default("view_backgrounds", data, copier)
+
         Mgr.expose("is_front_view_custom", lambda view_id: self._is_front_custom[view_id])
         Mgr.expose("view_transition_done", lambda: self._transition_done)
         Mgr.expose("view_data", self.__get_view_data)
@@ -405,6 +444,7 @@ class ViewManager(BaseObject):
         render_mode_defaults = self._render_mode_defaults
         data["render_mode_user"] = dict((view_id, render_mode_defaults[view_id]) for view_id in user_view_ids)
         data["view"] = GlobalData["view"]
+        data["view_backgrounds"] = GlobalData["view_backgrounds"]
 
         return data
 
@@ -452,6 +492,11 @@ class ViewManager(BaseObject):
         self.__set_view(data["view"], force=True)
         Mgr.update_remotely("view", "set", data["view"])
 
+        if "view_backgrounds" in data:
+            for view_id, bg_data in data["view_backgrounds"].items():
+                bg_data["view"] = view_id
+                self.__update_background(bg_data)
+
     def __clear_user_views(self):
 
         if GlobalData["view"] in self._user_view_ids:
@@ -493,6 +538,106 @@ class ViewManager(BaseObject):
     def __update_render_mode(self):
 
         self.render_mode = GlobalData["render_mode"]
+
+    def __show_background(self, view_id):
+
+        data = GlobalData["view_backgrounds"][view_id]
+
+        if data["filename"] and data["show"]:
+            self._backgrounds[view_id].show()
+
+    def __update_background(self, data):
+
+        view_id = data["view"]
+
+        if view_id == "all":
+            for v_id in ("front", "back", "left", "right", "bottom", "top"):
+                data["view"] = v_id
+                self.__update_background(data)
+            return
+
+        background = self._backgrounds[view_id]
+        background_data = GlobalData["view_backgrounds"][view_id]
+
+        filename = data["filename"]
+        in_foreground = data["in_foreground"]
+        alpha = data["alpha"]
+        x = data["x"]
+        y = data["y"]
+        width = data["width"]
+        height = data["height"]
+        flip_h = data["flip_h"]
+        flip_v = data["flip_v"]
+
+        if filename != background_data["filename"]:
+
+            if filename:
+
+                path = Filename.from_os_specific(filename)
+
+                if path.exists():
+                    tex = Mgr.load_tex(path)
+                    background.set_texture(tex)
+                else:
+                    data["filename"] = filename = ""
+
+            if not filename:
+                background.hide()
+                background.clear_texture()
+
+        if data["show"]:
+            if filename and GlobalData["view"] == view_id:
+                background.show()
+        else:
+            background.hide()
+
+        if in_foreground != background_data["in_foreground"]:
+            bin_data = ("fixed", 100) if in_foreground else ("background", -100)
+            background.set_bin(*bin_data)
+
+        if alpha != background_data["alpha"]:
+            background.set_alpha_scale(alpha)
+
+        if x != background_data["x"]:
+            background.set_x(x)
+
+        if y != background_data["y"]:
+            background.set_z(y)
+
+        if width != background_data["width"]:
+            background.set_sx(width)
+
+        if height != background_data["height"]:
+            background.set_sz(height)
+
+        sx = -1. if background_data["flip_h"] else 1.
+        sy = -1. if background_data["flip_v"] else 1.
+        update_tex_scale = False
+
+        if flip_h != background_data["flip_h"]:
+            sx = -1. if flip_h else 1.
+            update_tex_scale = True
+
+        if flip_v != background_data["flip_v"]:
+            sy = -1. if flip_v else 1.
+            update_tex_scale = True
+
+        if update_tex_scale:
+            background.set_tex_scale(TextureStage.get_default(), sx, sy)
+
+        background_data.update(data)
+        del background_data["view"]
+
+    def __reset_backgrounds(self):
+
+        for background in self._backgrounds.values():
+            background.hide()
+            background.set_bin("background", -100)
+            background.set_pos(0., 0., 0.)
+            background.set_scale(1.)
+            background.clear_texture()
+            background.clear_tex_transform()
+            background.clear_color_scale()
 
     def __update_view(self, update_type, *args):
 
@@ -549,8 +694,13 @@ class ViewManager(BaseObject):
                 GlobalData["active_obj_level"] = "top"
                 Mgr.update_app("active_obj_level")
             Mgr.enter_state("view_obj_picking_mode")
+        elif update_type == "background":
+            self.__update_background(*args)
+        elif update_type == "reset_backgrounds":
+            self.__reset_backgrounds()
 
-        if update_type in ("copy", "take_snapshot", "toggle_lens_type", "remove", "clear", "rename"):
+        if update_type in ("copy", "take_snapshot", "toggle_lens_type", "remove", "clear",
+                           "rename", "background", "reset_backgrounds"):
             GlobalData["unsaved_scene"] = True
             Mgr.update_app("unsaved_scene")
             Mgr.do("require_scene_save")
@@ -619,6 +769,15 @@ class ViewManager(BaseObject):
 
         if GlobalData["coord_sys_type"] == "screen":
             Mgr.get("selection").update_transform_values()
+
+        backgrounds = self._backgrounds
+        Mgr.update_remotely("view", "enable_obj_align", view_id not in backgrounds)
+
+        if current_view_id in backgrounds:
+            backgrounds[current_view_id].hide()
+
+        if view_id in backgrounds:
+            self.__show_background(view_id)
 
     def __copy_view(self, lens_type, name):
         """ Copy the current view using the given lens type and make it a user view """
@@ -1219,6 +1378,15 @@ class ViewManager(BaseObject):
 
             if GlobalData["coord_sys_type"] == "screen":
                 Mgr.get("selection").update_transform_values()
+
+            backgrounds = self._backgrounds
+            Mgr.update_remotely("view", "enable_obj_align", view_id not in backgrounds)
+
+            if current_view_id in backgrounds:
+                backgrounds[current_view_id].hide()
+
+            if view_id in backgrounds:
+                self.__show_background(view_id)
 
 
 MainObjects.add_class(ViewManager)

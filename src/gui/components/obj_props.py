@@ -251,7 +251,7 @@ class TagDialog(Dialog):
 
             Mgr.update_remotely("obj_tags", obj_id, self._tag_pane.get_tags())
 
-        Dialog.__init__(self, None, title, choices="okcancel", on_yes=on_yes)
+        Dialog.__init__(self, title, choices="okcancel", on_yes=on_yes)
 
         client_sizer = self.get_client_sizer()
         subsizer = Sizer("horizontal")

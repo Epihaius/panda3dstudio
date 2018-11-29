@@ -58,6 +58,7 @@ class SceneManager(BaseObject):
         Mgr.update_locally("material_library", "clear")
         Mgr.update_locally("object_selection", "reset_sets")
         Mgr.update_app("view", "reset_all")
+        Mgr.update_app("view", "reset_backgrounds")
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "adaptive")
         Mgr.update_app("active_transform_type", "")

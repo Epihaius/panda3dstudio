@@ -982,7 +982,7 @@ class ColorDialog(Dialog):
 
     _clock = ClockObject()
 
-    def __init__(self, parent=None, title="", color=(1., 1., 1.), choices="okcancel", ok_alias="OK",
+    def __init__(self, title="", color=(1., 1., 1.), choices="okcancel", ok_alias="OK",
                  on_yes=None, on_no=None, on_cancel=None):
 
         def command():
@@ -990,7 +990,7 @@ class ColorDialog(Dialog):
             if on_yes:
                 on_yes(self._new_color)
 
-        Dialog.__init__(self, parent, title, choices, ok_alias, command, on_no, on_cancel)
+        Dialog.__init__(self, title, choices, ok_alias, command, on_no, on_cancel)
 
         self._controls = ctrls = {}
         self._fields = fields = {}

@@ -83,7 +83,7 @@ class ProgressBar(Widget):
 
 class ProgressDialog(Dialog):
 
-    def __init__(self, parent=None, message="", choices="cancel", ok_alias="OK",
+    def __init__(self, message="", choices="cancel", ok_alias="OK",
                  on_yes=None, on_no=None, on_cancel=None, cancellable=True):
 
         if not cancellable:
@@ -93,7 +93,7 @@ class ProgressDialog(Dialog):
 
         title = "Please wait..."
 
-        Dialog.__init__(self, parent, title, choices, ok_alias, on_yes, on_no, on_cancel,
+        Dialog.__init__(self, title, choices, ok_alias, on_yes, on_no, on_cancel,
                         allow_escape=cancellable)
 
         client_sizer = self.get_client_sizer()

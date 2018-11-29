@@ -58,12 +58,16 @@ class GlobalMeta(type):
         if data_id not in cls._data:
             cls._data[data_id] = copier(default_value) if copier else default_value
 
-    def reset(cls):
+    def reset(cls, data_id=None):
 
         data = cls._data
-        data.clear()
 
-        for data_id, value in cls._defaults.items():
+        if data_id is None:
+            for data_id, value in cls._defaults.items():
+                copier = cls._copiers.get(data_id)
+                data[data_id] = copier(value) if copier else value
+        else:
+            value = cls._defaults[data_id]
             copier = cls._copiers.get(data_id)
             data[data_id] = copier(value) if copier else value
 

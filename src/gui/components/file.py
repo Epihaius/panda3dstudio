@@ -258,7 +258,7 @@ class SaveAsDialog(FileDialog):
         open_file = GlobalData["open_file"]
         default_filename = open_file if open_file else ""
 
-        FileDialog.__init__(self, parent=None, title="Save scene as", choices="okcancel",
-                            ok_alias="Save", on_yes=on_yes, on_no=None, file_op="write",
-                            incr_filename=True, file_types=("Panda3D Studio|p3ds", "All types|*"),
+        FileDialog.__init__(self, title="Save scene as", choices="okcancel", ok_alias="Save",
+                            on_yes=on_yes, on_no=None, file_op="write", incr_filename=True,
+                            file_types=("Panda3D Studio|p3ds", "All types|*"),
                             default_filename=default_filename)

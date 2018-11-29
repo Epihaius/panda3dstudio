@@ -480,7 +480,7 @@ class SelectionDialog(Dialog):
         else:
             on_yes = lambda: handler(self._selection_ids)
 
-        Dialog.__init__(self, None, title, "okcancel", ok_alias, on_yes)
+        Dialog.__init__(self, title, "okcancel", ok_alias, on_yes)
 
         self._selection_ids = []
         self._checkboxes = {}

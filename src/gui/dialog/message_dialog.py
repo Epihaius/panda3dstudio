@@ -4,10 +4,10 @@ from .dialog import *
 
 class MessageDialog(Dialog):
 
-    def __init__(self, parent=None, title="", message="", choices="okcancel", ok_alias="OK",
+    def __init__(self, title="", message="", choices="okcancel", ok_alias="OK",
                  on_yes=None, on_no=None, on_cancel=None, icon_id=""):
 
-        Dialog.__init__(self, parent, title, choices, ok_alias, on_yes, on_no, on_cancel)
+        Dialog.__init__(self, title, choices, ok_alias, on_yes, on_no, on_cancel)
 
         client_sizer = self.get_client_sizer()
 

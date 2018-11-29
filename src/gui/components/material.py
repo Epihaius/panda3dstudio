@@ -1465,7 +1465,7 @@ class MaterialPanel(Panel):
         if self._tex_map_file_main:
             field.set_input_text(self._tex_map_file_main)
         else:
-            field.clear()
+            field.clear(forget=False)
 
     def __init_alpha_filename_input(self):
 
@@ -1474,7 +1474,7 @@ class MaterialPanel(Panel):
         if self._tex_map_file_alpha:
             field.set_input_text(self._tex_map_file_alpha)
         else:
-            field.clear()
+            field.clear(forget=False)
 
     def __set_texture_map_main(self, value_id, filename):
 
@@ -1671,7 +1671,7 @@ class MaterialPanel(Panel):
         if self._layer_file_main:
             field.set_input_text(self._layer_file_main)
         else:
-            field.clear()
+            field.clear(forget=False)
 
     def __init_layer_alpha_filename_input(self):
 
@@ -1680,7 +1680,7 @@ class MaterialPanel(Panel):
         if self._layer_file_alpha:
             field.set_input_text(self._layer_file_alpha)
         else:
-            field.clear()
+            field.clear(forget=False)
 
     def __set_layer_main(self, value_id, filename):
 

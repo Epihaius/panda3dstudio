@@ -667,8 +667,8 @@ class FileDialog(Dialog):
         cls._file_listener.ignore("gui_f2")
         cls._file_listener.ignore("gui_delete")
 
-    def __init__(self, parent=None, title="", choices="okcancel", ok_alias="OK",
-                 on_yes=None, on_no=None, on_cancel=None, file_op="read", incr_filename=False,
+    def __init__(self, title="", choices="okcancel", ok_alias="OK", on_yes=None,
+                 on_no=None, on_cancel=None, file_op="read", incr_filename=False,
                  file_types=("All types|*",), default_filename="", extra_button_data=()):
 
         def command():
@@ -679,7 +679,7 @@ class FileDialog(Dialog):
         if file_op == "write" and incr_filename:
             extra_button_data += (("+", "Save incrementally", self.__save_incrementally, 10, 1.),)
 
-        Dialog.__init__(self, parent, title, choices, ok_alias, command, on_no, on_cancel,
+        Dialog.__init__(self, title, choices, ok_alias, command, on_no, on_cancel,
                         extra_button_data)
 
         self.accept_extra_dialog_events()

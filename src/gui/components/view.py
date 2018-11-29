@@ -6,6 +6,396 @@ from ..dialog import *
 from ..scroll import *
 
 
+class BackgroundInputField(DialogInputField):
+
+    _field_borders = ()
+    _img_offset = (0, 0)
+
+    @classmethod
+    def __set_field_borders(cls):
+
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
+        cls._field_borders = (l, r, b, t)
+        cls._img_offset = (-l, -t)
+
+    def __init__(self, parent, width):
+
+        if not self._field_borders:
+            self.__set_field_borders()
+
+        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width)
+
+        self.set_image_offset(self._img_offset)
+
+    def get_outer_borders(self):
+
+        return self._field_borders
+
+
+class BackgroundDialog(Dialog):
+
+    def __init__(self):
+
+        extra_button_data = (("Apply", "", self.__on_yes, None, 1.),)
+
+        Dialog.__init__(self, "View background", "okcancel", on_yes=self.__on_yes,
+                        extra_button_data=extra_button_data)
+
+        self._fields = fields = {}
+        self._checkboxes = checkboxes = {}
+        self._data = data = {}
+        current_view_id = GlobalData["view"]
+        view_ids = ("front", "back", "left", "right", "bottom", "top")
+        view_id = current_view_id if current_view_id in view_ids else "front"
+        data.update(GlobalData["view_backgrounds"][view_id])
+        data["view"] = view_id
+        client_sizer = self.get_client_sizer()
+
+        subsizer = Sizer("horizontal")
+        borders = (20, 20, 10, 20)
+        client_sizer.add(subsizer, expand=True, borders=borders)
+
+        text = "File..."
+        tooltip_text = "Load background image"
+        btn = DialogButton(self, text, "", tooltip_text, self.__load_image)
+        subsizer.add(btn, alignment="center_v")
+        field = BackgroundInputField(self, 100)
+        val_id = "filename"
+        field.add_value(val_id, "string", handler=self.__handle_value)
+        field.show_value(val_id)
+        filename = data["filename"]
+        field.set_text(val_id, os.path.basename(filename) if filename else "<None>")
+        field.set_input_init(val_id, self.__init_filename_input)
+        field.set_input_parser(val_id, self.__check_filename)
+        field.set_value_parser(val_id, self.__parse_filename)
+        fields[val_id] = field
+        borders = (10, 0, 0, 0)
+        subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
+
+        subsizer = Sizer("horizontal")
+        borders = (20, 20, 10, 0)
+        client_sizer.add(subsizer, borders=borders)
+
+        get_command = lambda val_id: lambda val: self.__handle_value(val_id, val)
+
+        val_id = "show"
+        checkbox = DialogCheckBox(self, get_command(val_id))
+        checkbox.check(data[val_id])
+        checkboxes[val_id] = checkbox
+        subsizer.add(checkbox, alignment="center_v")
+        text = DialogText(self, "Show image")
+        borders = (5, 20, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        val_id = "in_foreground"
+        checkbox = DialogCheckBox(self, get_command(val_id))
+        checkbox.check(data[val_id])
+        checkboxes[val_id] = checkbox
+        subsizer.add(checkbox, alignment="center_v")
+        text = DialogText(self, "in foreground instead of background")
+        borders = (5, 0, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        subsizer = Sizer("horizontal")
+        borders = (20, 20, 10, 0)
+        client_sizer.add(subsizer, expand=True, borders=borders)
+
+        text = DialogText(self, "Opacity:")
+        subsizer.add(text, alignment="center_v")
+        field = BackgroundInputField(self, 100)
+        val_id = "alpha"
+        field.add_value(val_id, "float", handler=self.__handle_value)
+        field.show_value(val_id)
+        field.set_value(val_id, data["alpha"])
+        field.set_input_parser(val_id, self.__parse_alpha)
+        fields[val_id] = field
+        borders = (10, 0, 0, 0)
+        subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
+
+        group = DialogWidgetGroup(self, "Image offset")
+        borders = (20, 20, 0, 0)
+        client_sizer.add(group, expand=True, borders=borders)
+
+        subsizer = Sizer("horizontal")
+        group.add(subsizer, expand=True)
+
+        text = DialogText(group, "Local X:")
+        borders = (0, 10, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+        field = BackgroundInputField(group, 100)
+        val_id = "x"
+        field.add_value(val_id, "float", handler=self.__handle_value)
+        field.show_value(val_id)
+        field.set_value(val_id, data["x"])
+        fields[val_id] = field
+        subsizer.add(field, proportion=1., alignment="center_v")
+
+        text = DialogText(group, "Local Y:")
+        borders = (20, 10, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+        field = BackgroundInputField(group, 100)
+        val_id = "y"
+        field.add_value(val_id, "float", handler=self.__handle_value)
+        field.show_value(val_id)
+        field.set_value(val_id, data["y"])
+        fields[val_id] = field
+        subsizer.add(field, proportion=1., alignment="center_v")
+
+        group = DialogWidgetGroup(self, "Image size")
+        borders = (20, 20, 0, 10)
+        client_sizer.add(group, expand=True, borders=borders)
+
+        subsizer = Sizer("horizontal")
+        group.add(subsizer, expand=True)
+
+        text = DialogText(group, "Width:")
+        borders = (0, 10, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+        field = BackgroundInputField(group, 100)
+        val_id = "width"
+        field.add_value(val_id, "float", handler=self.__handle_value)
+        field.show_value(val_id)
+        field.set_value(val_id, data["width"])
+        field.set_input_parser(val_id, self.__parse_size)
+        fields[val_id] = field
+        subsizer.add(field, proportion=1., alignment="center_v")
+
+        text = DialogText(group, "Height:")
+        borders = (20, 10, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+        field = BackgroundInputField(group, 100)
+        val_id = "height"
+        field.add_value(val_id, "float", handler=self.__handle_value)
+        field.show_value(val_id)
+        field.set_value(val_id, data["height"])
+        field.set_input_parser(val_id, self.__parse_size)
+        fields[val_id] = field
+        subsizer.add(field, proportion=1., alignment="center_v")
+
+        subsizer = Sizer("horizontal")
+        borders = (0, 0, 0, 2)
+        group.add(subsizer, expand=True, borders=borders)
+
+        val_id = "fixed_aspect_ratio"
+        checkbox = DialogCheckBox(group, get_command(val_id))
+        checkbox.check(data[val_id])
+        checkboxes[val_id] = checkbox
+        subsizer.add(checkbox, alignment="center_v")
+        text = DialogText(group, "Maintain bitmap aspect ratio")
+        borders = (5, 0, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        group = DialogWidgetGroup(self, "Flip image")
+        borders = (20, 20, 0, 10)
+        client_sizer.add(group, expand=True, borders=borders)
+
+        subsizer = Sizer("horizontal")
+        group.add(subsizer)
+
+        val_id = "flip_h"
+        checkbox = DialogCheckBox(group, get_command(val_id))
+        checkbox.check(data[val_id])
+        checkboxes[val_id] = checkbox
+        subsizer.add(checkbox, alignment="center_v")
+        text = DialogText(group, "Horizontally")
+        borders = (5, 20, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        val_id = "flip_v"
+        checkbox = DialogCheckBox(group, get_command(val_id))
+        checkbox.check(data[val_id])
+        checkboxes[val_id] = checkbox
+        subsizer.add(checkbox, alignment="center_v")
+        text = DialogText(group, "Vertically")
+        borders = (5, 0, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        text = "Reset"
+        tooltip_text = "Clear background and set default values"
+        btn = DialogButton(self, text, "", tooltip_text, self.__reset)
+        borders = (0, 0, 0, 20)
+        client_sizer.add(btn, alignment="center_h", borders=borders)
+
+        subsizer = Sizer("horizontal")
+        borders = (20, 20, 20, 20)
+        client_sizer.add(subsizer, expand=True, borders=borders)
+
+        text = DialogText(self, "Apply to view:")
+        borders = (0, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        combobox = DialogComboBox(self, 150, tooltip_text="View")
+        self._combobox = combobox
+        subsizer.add(combobox, proportion=1., alignment="center_v")
+
+        def get_command(view_id):
+
+            def set_view():
+
+                self._combobox.select_item(view_id)
+                self.__handle_value("view", view_id)
+
+            return set_view
+
+        for view_id in ("front", "back", "left", "right", "bottom", "top", "all"):
+            combobox.add_item(view_id, view_id, get_command(view_id))
+
+        combobox.update_popup_menu()
+        view_id = data["view"]
+        combobox.select_item(view_id)
+
+        self.finalize()
+
+    def close(self, answer=""):
+
+        self._checkboxes = None
+        self._fields = None
+
+        Dialog.close(self, answer)
+
+    def __reset(self):
+
+        fields = self._fields
+        fields["filename"].set_value("filename", "")
+        fields["filename"].set_text("filename", "<None>")
+        fields["alpha"].set_value("alpha", 1.)
+        fields["x"].set_value("x", 0.)
+        fields["y"].set_value("y", 0.)
+        fields["width"].set_value("width", 1.)
+        fields["height"].set_value("height", 1.)
+        checkboxes = self._checkboxes
+        checkboxes["show"].check()
+        checkboxes["in_foreground"].check(False)
+        checkboxes["fixed_aspect_ratio"].check()
+        checkboxes["flip_h"].check(False)
+        checkboxes["flip_v"].check(False)
+        data = self._data
+        data["filename"] = ""
+        data["show"] = True
+        data["in_foreground"] = False
+        data["alpha"] = 1.
+        data["x"] = 0.
+        data["y"] = 0.
+        data["width"] = 1.
+        data["height"] = 1.
+        data["fixed_aspect_ratio"] = True
+        data["bitmap_aspect_ratio"] = 1.
+        data["flip_h"] = False
+        data["flip_v"] = False
+
+    def __load_image(self):
+
+        def load(filename):
+
+            config_data = GlobalData["config"]
+            texfile_paths = config_data["texfile_paths"]
+            path = os.path.dirname(filename)
+
+            if path not in texfile_paths:
+                texfile_paths.append(path)
+
+            with open("config", "wb") as config_file:
+                pickle.dump(config_data, config_file, -1)
+
+            data = self._data
+            self._fields["filename"].set_value("filename", filename)
+            data["filename"] = filename
+            img = PNMImage()
+            img.read(Filename.from_os_specific(filename))
+            ratio = img.get_y_size() / img.get_x_size()
+            data["bitmap_aspect_ratio"] = ratio
+
+            if data["fixed_aspect_ratio"]:
+                width = data["width"]
+                height = width * ratio
+                self._fields["height"].set_value("height", height)
+                data["height"] = height
+
+        file_types = ("Bitmap files|bmp;jpg;png", "All types|*")
+
+        FileDialog(title="Load background image",
+                   ok_alias="Load",
+                   on_yes=load,
+                   file_op="read",
+                   file_types=file_types)
+
+    def __init_filename_input(self):
+
+        field = self._fields["filename"]
+        filename = self._data["filename"]
+
+        if filename:
+            field.set_input_text(filename)
+        else:
+            field.clear(forget=False)
+
+    def __check_filename(self, filename):
+
+        return filename if (not filename or os.path.exists(filename)) else None
+
+    def __parse_filename(self, filename):
+
+        if filename:
+
+            img = PNMImage()
+            img.read(Filename.from_os_specific(filename))
+            ratio = img.get_y_size() / img.get_x_size()
+            self._data["bitmap_aspect_ratio"] = ratio
+
+            if self._data["fixed_aspect_ratio"]:
+                width = self._data["width"]
+                height = width * ratio
+                self._fields["height"].set_value("height", height)
+                self._data["height"] = height
+
+        return os.path.basename(filename) if filename else "<None>"
+
+    def __parse_alpha(self, alpha):
+
+        try:
+            return min(1., max(0., abs(float(eval(alpha)))))
+        except:
+            return None
+
+    def __parse_size(self, size):
+
+        try:
+            return max(.001, abs(float(eval(size))))
+        except:
+            return None
+
+    def __handle_value(self, value_id, value):
+
+        data = self._data
+
+        if value_id == "fixed_aspect_ratio" and value:
+
+            ratio = data["bitmap_aspect_ratio"]
+            width = data["width"]
+            height = width * ratio
+            self._fields["height"].set_value("height", height)
+            data["height"] = height
+
+        elif data["fixed_aspect_ratio"]:
+
+            ratio = data["bitmap_aspect_ratio"]
+
+            if value_id == "width":
+                height = value * ratio
+                self._fields["height"].set_value("height", height)
+                data["height"] = height
+            elif value_id == "height":
+                width = value / ratio
+                self._fields["width"].set_value("width", width)
+                data["width"] = width
+
+        data[value_id] = value
+
+    def __on_yes(self):
+
+        Mgr.update_remotely("view", "background", self._data)
+
+
 def _request_view_name(command, default_name=None):
 
     name = "New" if default_name is None else default_name
@@ -27,7 +417,7 @@ class ViewManager(object):
 
     def __init__(self, menubar):
 
-        main_menu = menubar.add_menu("view", "View")
+        self._main_menu = main_menu = menubar.add_menu("view", "View")
         item = main_menu.add("std_views", "Standard views", item_type="submenu")
         self._std_view_menu = menu = item.get_submenu()
 
@@ -78,6 +468,21 @@ class ViewManager(object):
 
         def command():
 
+            task = lambda: BackgroundDialog()
+            PendingTasks.add(task, "show_background_dialog")
+
+        main_menu.add("background_image", "Background image...", command)
+
+        def command():
+
+            Mgr.update_remotely("view", "reset_backgrounds")
+            GlobalData.reset("view_backgrounds")
+
+        main_menu.add("clear_bg_images", "Clear all backgr. images", command)
+        main_menu.add("sep1", item_type="separator")
+
+        def command():
+
             task = lambda: Mgr.update_remotely("view", "center")
             PendingTasks.add(task, "center_obj_in_view")
 
@@ -86,7 +491,7 @@ class ViewManager(object):
         main_menu.set_item_hotkey("obj_center", hotkey, "C")
         main_menu.add("obj_align", "Align to object...",
                       lambda: Mgr.update_remotely("view", "obj_align"))
-        main_menu.add("sep1", item_type="separator")
+        main_menu.add("sep2", item_type="separator")
 
         def command():
 
@@ -100,7 +505,7 @@ class ViewManager(object):
                       lambda: Mgr.update_remotely("view", "set_as_home"))
         main_menu.add("reset_home", "Reset Home",
                       lambda: Mgr.update_remotely("view", "reset_home"))
-        main_menu.add("sep2", item_type="separator")
+        main_menu.add("sep3", item_type="separator")
         main_menu.add("set_front", "Set current as Front",
                       lambda: Mgr.update_remotely("view", "set_as_front"))
 
@@ -110,7 +515,7 @@ class ViewManager(object):
             PendingTasks.add(task, "reset_front_view")
 
         main_menu.add("reset_front", "Reset Front", command)
-        main_menu.add("sep3", item_type="separator")
+        main_menu.add("sep4", item_type="separator")
 
         def command():
 
@@ -244,6 +649,8 @@ class ViewManager(object):
             self.__request_new_view_name(*args)
         elif update_type == "rename":
             self.__rename_user_view(*args)
+        elif update_type == "enable_obj_align":
+            self._main_menu.enable_item("obj_align", *args)
 
 
 class ViewTileCard(WidgetCard):

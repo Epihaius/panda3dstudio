@@ -1363,7 +1363,7 @@ class HistoryDialog(Dialog):
                            self._to_merge, self._to_restore, self._set_unsaved)
 
         extra_button_data = (("Archive", "Merge all history", self.__archive_history, None, 4.),)
-        Dialog.__init__(self, None, "History", choices="okcancel", on_yes=update_history,
+        Dialog.__init__(self, "History", choices="okcancel", on_yes=update_history,
                         extra_button_data=extra_button_data)
 
         self._history = history

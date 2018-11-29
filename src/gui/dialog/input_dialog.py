@@ -30,7 +30,7 @@ class InputDialogInputField(DialogInputField):
 
 class InputDialog(Dialog):
 
-    def __init__(self, parent=None, title="", message="", default_input="", choices="okcancel",
+    def __init__(self, title="", message="", default_input="", choices="okcancel",
                  ok_alias="OK", on_yes=None, on_no=None, on_cancel=None):
 
         def command():
@@ -38,7 +38,7 @@ class InputDialog(Dialog):
             if on_yes:
                 on_yes(self._input)
 
-        Dialog.__init__(self, parent, title, choices, ok_alias, command, on_no, on_cancel)
+        Dialog.__init__(self, title, choices, ok_alias, command, on_no, on_cancel)
 
         self._input = ""
         client_sizer = self.get_client_sizer()
