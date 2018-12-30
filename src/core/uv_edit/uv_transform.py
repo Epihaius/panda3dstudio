@@ -175,7 +175,7 @@ class UVTransformationBase(BaseObject):
             self.__end_transform(cancel)
 
         bind = Mgr.bind_state
-        bind("transforming", "cancel transform", "mouse3-up",
+        bind("transforming", "cancel transform", "mouse3",
              lambda: end_transform(cancel=True), "uv")
         bind("transforming", "finalize transform", "mouse1-up",
              end_transform, "uv")

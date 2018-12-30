@@ -492,6 +492,9 @@ class SphereManager(PrimitiveManager):
     def __creation_phase1(self):
         """ Draw out sphere """
 
+        if not self.mouse_watcher.has_mouse():
+            return
+
         screen_pos = self.mouse_watcher.get_mouse()
         near_point = Point3()
         far_point = Point3()

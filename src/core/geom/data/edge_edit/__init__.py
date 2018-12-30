@@ -662,7 +662,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
         bind("edge_picking_via_poly", "pick hilited edge",
              "mouse1-up", self.__pick_hilited_edge)
         bind("edge_picking_via_poly", "cancel edge picking",
-             "mouse3-up", self.__cancel_edge_picking_via_poly)
+             "mouse3", self.__cancel_edge_picking_via_poly)
         bind("edge_picking_via_poly", "abort edge picking",
              "focus_loss", self.__cancel_edge_picking_via_poly)
 

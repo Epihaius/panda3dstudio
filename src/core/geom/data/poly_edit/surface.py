@@ -326,10 +326,10 @@ class SurfaceBase(BaseObject):
 
         size = pos_array.data_size_bytes
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        from_handle = pos_array.get_handle()
-        to_handle = vertex_data.modify_array(0).modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array).cast("B")
+        to_view = memoryview(vertex_data.modify_array(0)).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
         pos_array = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array)

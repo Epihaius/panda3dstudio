@@ -567,18 +567,16 @@ class EdgeBridgeBase(BaseObject):
 
         from_array = vertex_data_tmp.get_array(1)
         size = from_array.data_size_bytes
-        from_handle = from_array.get_handle()
+        from_view = memoryview(from_array).cast("B")
 
         vertex_data_tmp = GeomVertexData(vertex_data_edge1)
-        array = vertex_data_tmp.modify_array(1)
-        stride = array.array_format.get_stride()
-        array.modify_handle().set_subdata(0, old_count * stride, bytes())
-        vertex_data_tmp.set_num_rows(count)
+        stride = vertex_data_tmp.get_array(1).array_format.stride
+        vertex_data_tmp.set_num_rows(old_count + count)
         col_writer1 = GeomVertexWriter(vertex_data_tmp, "color")
-        col_writer1.set_row(old_count)
-        col_writer2.set_row(count + old_count)
+        col_writer1.set_row(old_count * 2)
+        col_writer2.set_row(old_count + count)
         ind_writer_edge = GeomVertexWriter(vertex_data_tmp, "index")
-        ind_writer_edge.set_row(old_count)
+        ind_writer_edge.set_row(old_count * 2)
 
         for row_index in sorted(picking_colors2):
             picking_color = picking_colors2[row_index]
@@ -588,12 +586,12 @@ class EdgeBridgeBase(BaseObject):
 
         vertex_data_edge1.set_num_rows(count * 2)
         to_array = vertex_data_edge1.modify_array(1)
-        to_handle = to_array.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
+        to_view = memoryview(to_array).cast("B")
+        to_view[:size] = from_view
 
         from_array = vertex_data_tmp.get_array(1)
-        from_handle = from_array.get_handle()
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(from_array).cast("B")
+        to_view[size:] = from_view[-size:]
 
         lines_prim = GeomLines(Geom.UH_static)
         lines_prim.reserve_num_vertices(count * 2)
@@ -614,7 +612,7 @@ class EdgeBridgeBase(BaseObject):
         vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
         pos_array = vertex_data_top.get_array(0)
         size = pos_array.data_size_bytes
-        from_handle = pos_array.get_handle()
+        from_view = memoryview(pos_array).cast("B")
         normal_array = vertex_data_top.get_array(2)
         tan_array = vertex_data_top.get_array(3)
         vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
@@ -629,56 +627,60 @@ class EdgeBridgeBase(BaseObject):
         vertex_data_poly.set_array(3, GeomVertexArrayData(tan_array))
         pos_array_edge = GeomVertexArrayData(pos_array.array_format, pos_array.usage_hint)
         pos_array_edge.unclean_set_num_rows(pos_array.get_num_rows() * 2)
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
         vertex_data_edge1.set_array(0, pos_array_edge)
         vertex_data_edge2.set_array(0, pos_array_edge)
 
         tris_prim = geom_node_top.modify_geom(0).modify_primitive(0)
-        from_start = tris_prim.get_num_vertices()
+        from_size = tris_prim.get_num_vertices()
 
         for poly in new_polys:
             for vert_ids in poly:
                 tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
 
         from_array = tris_prim.get_vertices()
-        stride = from_array.array_format.get_stride()
-        from_start *= stride
+        stride = from_array.array_format.stride
+        from_size *= stride
         size = sum([len(poly) for poly in new_polys]) * stride
-        from_handle = from_array.get_handle()
+        from_view = memoryview(from_array).cast("B")
         geom_node = geoms["poly"]["unselected"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
         to_array = prim.modify_vertices()
-        to_start = to_array.data_size_bytes
-        to_handle = to_array.modify_handle()
-        to_handle.copy_subdata_from(to_start, size, from_handle, from_start, size)
+        to_size = to_array.data_size_bytes
+        to_array.set_num_rows(count)
+        to_view = memoryview(to_array).cast("B")
+        to_view[to_size:to_size+from_size]
         geom_node = geoms["poly"]["pickable"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
         to_array = prim.modify_vertices()
-        to_start = to_array.data_size_bytes
-        to_handle = to_array.modify_handle()
-        to_handle.copy_subdata_from(to_start, size, from_handle, from_start, size)
+        to_size = to_array.data_size_bytes
+        to_array.set_num_rows(count)
+        to_view = memoryview(to_array).cast("B")
+        to_view[to_size:to_size+from_size]
 
         tmp_prim = GeomPoints(Geom.UH_static)
         tmp_prim.reserve_num_vertices(vert_count)
         tmp_prim.add_next_vertices(vert_count)
         tmp_prim.offset_vertices(old_count)
         from_array = tmp_prim.get_vertices()
-        size = from_array.data_size_bytes
-        from_handle = from_array.get_handle()
+        from_size = from_array.data_size_bytes
+        from_view = memoryview(from_array).cast("B")
         geom_node = geoms["vert"]["pickable"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
         to_array = prim.modify_vertices()
-        to_start = to_array.data_size_bytes
-        to_handle = to_array.modify_handle()
-        to_handle.copy_subdata_from(to_start, size, from_handle, 0, size)
+        to_size = to_array.data_size_bytes
+        to_array.set_num_rows(count)
+        to_view = memoryview(to_array).cast("B")
+        to_view[to_size:to_size+from_size] = from_view
         geom_node = geoms["vert"]["sel_state"].node()
         prim = geom_node.modify_geom(0).modify_primitive(0)
         to_array = prim.modify_vertices()
-        to_start = to_array.data_size_bytes
-        to_handle = to_array.modify_handle()
-        to_handle.copy_subdata_from(to_start, size, from_handle, 0, size)
+        to_size = to_array.data_size_bytes
+        to_array.set_num_rows(count)
+        to_view = memoryview(to_array).cast("B")
+        to_view[to_size:to_size+from_size] = from_view
         geom_node = geoms["normal"]["pickable"].node()
         geom_node.modify_geom(0).set_primitive(0, GeomPoints(prim))
         geom_node = geoms["normal"]["sel_state"].node()
@@ -731,10 +733,10 @@ class EdgeBridgeManager(BaseObject):
         bind("edge_bridge_mode", "bridge edges -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("edge_bridge_mode", "bridge edges -> select", "escape", exit_mode)
-        bind("edge_bridge_mode", "exit edge bridge mode", "mouse3-up", exit_mode)
+        bind("edge_bridge_mode", "exit edge bridge mode", "mouse3", exit_mode)
         bind("edge_bridge_mode", "bridge edges", "mouse1", self._init_bridge)
         bind("edge_bridge", "quit edge bridge", "escape", cancel_bridge)
-        bind("edge_bridge", "cancel edge bridge", "mouse3-up", cancel_bridge)
+        bind("edge_bridge", "cancel edge bridge", "mouse3", cancel_bridge)
         bind("edge_bridge", "abort edge bridge", "focus_loss", cancel_bridge)
         bind("edge_bridge", "finalize edge bridge", "mouse1-up", self._finalize_bridge)
         bind("edge_bridge", "bridge edges -> pick edge via poly",

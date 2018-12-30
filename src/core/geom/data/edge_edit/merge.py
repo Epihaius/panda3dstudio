@@ -266,10 +266,10 @@ class EdgeMergeManager(BaseObject):
         bind("edge_merge_mode", "merge edges -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("edge_merge_mode", "merge edges -> select", "escape", exit_mode)
-        bind("edge_merge_mode", "exit edge merge mode", "mouse3-up", exit_mode)
+        bind("edge_merge_mode", "exit edge merge mode", "mouse3", exit_mode)
         bind("edge_merge_mode", "merge edges", "mouse1", self._init_merge)
         bind("edge_merge", "quit edge merge", "escape", cancel_merge)
-        bind("edge_merge", "cancel edge merge", "mouse3-up", cancel_merge)
+        bind("edge_merge", "cancel edge merge", "mouse3", cancel_merge)
         bind("edge_merge", "abort edge merge", "focus_loss", cancel_merge)
         bind("edge_merge", "finalize edge merge", "mouse1-up", self._finalize_merge)
         bind("edge_merge", "merge edges -> pick edge via poly",

@@ -1096,7 +1096,7 @@ class MaterialManager(object):
         bind("material_owner_picking_mode", "pick material owner", "mouse1", self.__pick_owner)
         bind("material_owner_picking_mode", "exit material owner picking", "escape",
              exit_owner_picking_mode)
-        bind("material_owner_picking_mode", "cancel material owner picking", "mouse3-up",
+        bind("material_owner_picking_mode", "cancel material owner picking", "mouse3",
              exit_owner_picking_mode)
 
         status_data = GlobalData["status_data"]

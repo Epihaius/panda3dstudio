@@ -631,7 +631,7 @@ class SmoothingManager(BaseObject):
              lambda: Mgr.enter_state("navigation_mode"))
         bind("smoothing_poly_picking_mode", "quit smoothing with poly", "escape",
              lambda: Mgr.exit_state("smoothing_poly_picking_mode"))
-        bind("smoothing_poly_picking_mode", "cancel smoothing with poly", "mouse3-up",
+        bind("smoothing_poly_picking_mode", "cancel smoothing with poly", "mouse3",
              lambda: Mgr.exit_state("smoothing_poly_picking_mode"))
         bind("smoothing_poly_picking_mode", "pick smoothing poly", "mouse1",
              self.__pick_smoothing_poly)
@@ -639,7 +639,7 @@ class SmoothingManager(BaseObject):
              lambda: Mgr.enter_state("navigation_mode"))
         bind("unsmoothing_poly_picking_mode", "quit unsmoothing with poly", "escape",
              lambda: Mgr.exit_state("unsmoothing_poly_picking_mode"))
-        bind("unsmoothing_poly_picking_mode", "cancel unsmoothing with poly", "mouse3-up",
+        bind("unsmoothing_poly_picking_mode", "cancel unsmoothing with poly", "mouse3",
              lambda: Mgr.exit_state("unsmoothing_poly_picking_mode"))
         bind("unsmoothing_poly_picking_mode", "pick unsmoothing poly", "mouse1",
              self.__pick_smoothing_poly)

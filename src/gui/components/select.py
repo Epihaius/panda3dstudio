@@ -46,8 +46,15 @@ class SetsComboBox(ToolbarComboBox):
         field = self.get_input_field()
         val_id = "name"
         field.add_value(val_id, "string", handler=self.__handle_name)
+        field.set_input_init(val_id, self.__init_input)
         field.set_input_parser(val_id, self.__parse_name)
         field.show_value(val_id)
+        field.set_text(val_id, "Create selection set")
+        field.set_text_color(Skin["text"]["input_disabled"]["color"])
+        field.set_on_accept(self.__accept_name)
+        field.set_on_reject(self.__reject_name)
+        self._field_text_color = None
+        self.set_text("")
 
         self._menus = menus = {"top": self.get_popup_menu()}
 
@@ -55,6 +62,24 @@ class SetsComboBox(ToolbarComboBox):
             menus[obj_level] = self.create_popup_menu()
 
         Mgr.add_app_updater("selection_set", self.__update)
+
+    def __init_input(self):
+
+        field = self.get_input_field()
+        self._field_text_color = color = field.get_text_color()
+
+        if color == Skin["text"]["input_disabled"]["color"]:
+            field.set_text_color(None)
+            field.clear(forget=False)
+
+    def __accept_name(self, valid):
+
+        if not valid:
+            self.get_input_field().set_text_color(self._field_text_color)
+
+    def __reject_name(self):
+
+        self.get_input_field().set_text_color(self._field_text_color)
 
     def __parse_name(self, name):
 
@@ -75,6 +100,7 @@ class SetsComboBox(ToolbarComboBox):
             self.select_item(set_id)
             text = self.get_item_text(set_id)
             self.get_input_field().set_value("name", text)
+            self.get_input_field().set_text_color(None)
             Mgr.update_remotely("object_selection", "apply_set", set_id)
 
         self.add_item(set_id, name, apply_set, update=True)
@@ -82,6 +108,7 @@ class SetsComboBox(ToolbarComboBox):
         if not is_copy:
             self.select_item(set_id)
             self.get_input_field().set_value("name", name)
+            self.get_input_field().set_text_color(None)
 
     def __rename_set(self, set_id, name):
 
@@ -89,6 +116,7 @@ class SetsComboBox(ToolbarComboBox):
 
         if self.get_selected_item() == set_id:
             self.get_input_field().set_value("name", name)
+            self.get_input_field().set_text_color(None)
 
     def __remove_set(self, set_id):
 
@@ -113,6 +141,7 @@ class SetsComboBox(ToolbarComboBox):
 
         self.select_item(set_id)
         self.get_input_field().set_value("name", name)
+        self.get_input_field().set_text_color(None)
 
     def __hide_set(self, set_id):
 
@@ -122,6 +151,8 @@ class SetsComboBox(ToolbarComboBox):
     def __hide_name(self):
 
         self.get_input_field().clear()
+        self.get_input_field().set_text("name", "Create selection set")
+        self.get_input_field().set_text_color(Skin["text"]["input_disabled"]["color"])
         self.select_none()
 
     def __replace_sets(self, obj_level):

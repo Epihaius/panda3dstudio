@@ -33,7 +33,7 @@ class TransformCenterManager(BaseObject):
              "pick transf center", "mouse1", self.__pick)
         bind("transf_center_picking_mode", "exit transf center picking", "escape",
              exit_transf_center_picking_mode)
-        bind("transf_center_picking_mode", "cancel transf center picking", "mouse3-up",
+        bind("transf_center_picking_mode", "cancel transf center picking", "mouse3",
              exit_transf_center_picking_mode)
 
         status_data = GlobalData["status_data"]

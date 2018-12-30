@@ -362,7 +362,7 @@ class ViewManager(BaseObject):
         bind("view_obj_picking_mode", "pick view obj", "mouse1", self.__pick)
         bind("view_obj_picking_mode", "exit view obj picking", "escape",
              exit_view_obj_picking_mode)
-        bind("view_obj_picking_mode", "cancel view obj picking", "mouse3-up",
+        bind("view_obj_picking_mode", "cancel view obj picking", "mouse3",
              exit_view_obj_picking_mode)
 
         status_data = GlobalData["status_data"]

@@ -590,10 +590,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         pos_array_edge = GeomVertexArrayData(pos_array_poly.array_format, pos_array_poly.usage_hint)
         pos_array_edge.unclean_set_num_rows(pos_array_poly.get_num_rows() * 2)
 
-        from_handle = pos_array_poly.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array_poly).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
         vertex_data_edge.set_array(0, pos_array_edge)
 
@@ -1131,13 +1131,13 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         self.update_render_mode(self.get_toplevel_object().is_selected())
 
-    def set_pickable(self, is_pickable=True):
+    def set_pickable(self, pickable=True):
 
         geoms = self._geoms
         active_obj_lvl = GlobalData["active_obj_level"]
         picking_mask = Mgr.get("picking_mask")
 
-        if is_pickable:
+        if pickable:
 
             for obj_lvl in ("vert", "edge", "normal", "poly"):
                 if obj_lvl == active_obj_lvl:
@@ -1149,6 +1149,19 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
             for obj_lvl in ("vert", "edge", "normal", "poly"):
                 geoms[obj_lvl]["pickable"].hide(picking_mask)
+
+    def make_polys_pickable(self, pickable=True):
+
+        if GlobalData["active_obj_level"] == "poly":
+            return
+
+        picking_mask = Mgr.get("picking_mask")
+        geoms = self._geoms
+
+        if pickable:
+            geoms["poly"]["pickable"].show_through(picking_mask)
+        else:
+            geoms["poly"]["pickable"].hide(picking_mask)
 
     def init_subobj_picking(self, subobj_lvl):
 

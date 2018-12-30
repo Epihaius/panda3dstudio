@@ -342,10 +342,10 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         pos_array_edge = GeomVertexArrayData(pos_array.array_format, pos_array.usage_hint)
         pos_array_edge.unclean_set_num_rows(pos_array.get_num_rows() * 2)
 
-        from_handle = pos_array.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
         vertex_data_edge.set_array(0, pos_array_edge)
 
@@ -451,17 +451,27 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             tmp_merged_edge.append(edge_id)
 
         row_indices = tmp_merged_edge.get_start_row_indices()
-        array = edge_prim.get_vertices()
-        stride = array.array_format.get_stride()
-        edge_handle = array.get_handle()
-        seam_handle = seam_prim.modify_vertices().modify_handle()
-        seam_handle.unclean_set_num_rows(len(row_indices) * 2)
+        edge_array = edge_prim.get_vertices()
+        stride = edge_array.array_format.stride
+        edge_view = memoryview(edge_array).cast("B")
+        seam_array = seam_prim.modify_vertices()
+        seam_array.unclean_set_num_rows(len(row_indices) * 2)
+        seam_view = memoryview(seam_array).cast("B")
         rows = edge_prim.get_vertex_list()[::2]
-        data_rows = sorted(rows.index(i) * 2 for i in row_indices)
+        row_ranges_to_move = SparseArray()
 
-        for i, start in enumerate(data_rows):
-            seam_handle.copy_subdata_from(i * stride * 2, stride * 2, edge_handle,
-                                          start * stride, stride * 2)
+        for i in row_indices:
+            row_ranges_to_move.set_range(rows.index(i) * 2, 2)
+
+        f = lambda values, stride: (v * stride for v in values)
+        row_count = 0
+
+        for i in range(row_ranges_to_move.get_num_subranges()):
+            start = row_ranges_to_move.get_subrange_begin(i)
+            size = row_ranges_to_move.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            seam_view[offset:offset+size_] = edge_view[start_:start_+size_]
+            row_count += size
 
     def add_seam_edges(self, edge_ids):
 
@@ -476,18 +486,27 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         edge_geom = geoms["edge"]["pickable"]
         edge_prim = edge_geom.node().get_geom(0).get_primitive(0)
-        array = edge_prim.get_vertices()
+        edge_array = edge_prim.get_vertices()
         rows = edge_prim.get_vertex_list()[::2]
-        stride = array.array_format.get_stride()
-        edge_handle = array.get_handle()
-        seam_handle = seam_prim.modify_vertices().modify_handle()
-        row_count = seam_prim.get_num_vertices()
-        seam_handle.set_num_rows(row_count + len(row_indices) * 2)
-        data_rows = sorted(rows.index(i) * 2 for i in row_indices)
+        stride = edge_array.array_format.stride
+        edge_view = memoryview(edge_array).cast("B")
+        seam_array = seam_prim.modify_vertices()
+        row_count = seam_array.get_num_rows()
+        seam_array.set_num_rows(row_count + len(row_indices) * 2)
+        seam_view = memoryview(seam_array).cast("B")
+        row_ranges_to_move = SparseArray()
 
-        for i, start in enumerate(data_rows):
-            seam_handle.copy_subdata_from((row_count + i * 2) * stride, stride * 2, edge_handle,
-                                          start * stride, stride * 2)
+        for i in row_indices:
+            row_ranges_to_move.set_range(rows.index(i) * 2, 2)
+
+        f = lambda values, stride: (v * stride for v in values)
+
+        for i in range(row_ranges_to_move.get_num_subranges()):
+            start = row_ranges_to_move.get_subrange_begin(i)
+            size = row_ranges_to_move.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            seam_view[offset:offset+size_] = edge_view[start_:start_+size_]
+            row_count += size
 
         self._geom_data_obj.add_tex_seam_edges(self._uv_set_id, edge_ids)
 
@@ -529,15 +548,27 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         seam_geom = self._geoms["seam"]
         seam_prim = seam_geom.node().modify_geom(0).modify_primitive(0)
-        seam_handle = seam_prim.modify_vertices().modify_handle()
-        array = seam_prim.get_vertices()
+        array = seam_prim.modify_vertices()
         rows = seam_prim.get_vertex_list()[::2]
-        stride = array.array_format.get_stride()
-        data_rows = sorted((rows.index(i) * 2 for i in row_indices), reverse=True)
+        stride = array.array_format.stride
+        seam_view = memoryview(array).cast("B")
+        row_ranges_to_keep = SparseArray()
+        row_ranges_to_keep.set_range(0, array.get_num_rows())
 
-        for start in data_rows:
-            seam_handle.set_subdata(start * stride, stride * 2, bytes())
+        for i in row_indices:
+            row_ranges_to_keep.clear_range(rows.index(i) * 2, 2)
 
+        f = lambda values, stride: (v * stride for v in values)
+        row_count = 0
+
+        for i in range(row_ranges_to_keep.get_num_subranges()):
+            start = row_ranges_to_keep.get_subrange_begin(i)
+            size = row_ranges_to_keep.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            seam_view[offset:offset+size_] = seam_view[start_:start_+size_]
+            row_count += size
+
+        array.set_num_rows(row_count)
         self._geom_data_obj.remove_tex_seam_edges(self._uv_set_id, edge_ids)
 
     def get_geom_data_object(self):
@@ -621,12 +652,12 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         if subobj_lvl in ("vert", "edge"):
             self.init_subobj_picking(subobj_lvl)
 
-    def set_pickable(self, is_pickable=True):
+    def set_pickable(self, pickable=True):
 
         geoms = self._geoms
         picking_mask = UVMgr.get("picking_mask")
 
-        if is_pickable:
+        if pickable:
 
             active_obj_lvl = GlobalData["active_obj_level"]
             self.show_subobj_level(active_obj_lvl, False)

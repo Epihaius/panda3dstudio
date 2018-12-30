@@ -50,10 +50,10 @@ class UVDataTransformBase(BaseObject):
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         pos_array_edge = vertex_data.modify_array(0)
         size = pos_array.data_size_bytes
-        from_handle = pos_array.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
         pos_array_edge = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array_edge)
@@ -140,10 +140,10 @@ class UVDataTransformBase(BaseObject):
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         pos_array_edge = vertex_data.modify_array(0)
         size = pos_array.data_size_bytes
-        from_handle = pos_array.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
         self._pos_arrays["edge"] = pos_array_edge
         pos_array_edge = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
@@ -173,15 +173,15 @@ class UVDataTransformBase(BaseObject):
 
         pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
         vertex_data.set_array(0, pos_array)
-        from_handle = pos_array.get_handle()
+        from_view = memoryview(pos_array).cast("B")
 
-        to_handle = self._pos_arrays["main"].modify_handle()
-        to_handle.copy_data_from(from_handle)
+        to_view = memoryview(self._pos_arrays["main"]).cast("B")
+        to_view[:] = from_view
 
         size = pos_array.data_size_bytes
-        to_handle = self._pos_arrays["edge"].modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        to_view = memoryview(self._pos_arrays["edge"]).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
     def transform_selection(self, subobj_lvl, transf_type, value):
 
@@ -220,15 +220,15 @@ class UVDataTransformBase(BaseObject):
         tmp_vertex_data.transform_vertices(mat, rows)
         pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
         vertex_data.set_array(0, pos_array)
-        from_handle = pos_array.get_handle()
+        from_view = memoryview(pos_array).cast("B")
 
-        to_handle = self._pos_arrays["main"].modify_handle()
-        to_handle.copy_data_from(from_handle)
+        to_view = memoryview(self._pos_arrays["main"]).cast("B")
+        to_view[:] = from_view
 
         size = pos_array.data_size_bytes
-        to_handle = self._pos_arrays["edge"].modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        to_view = memoryview(self._pos_arrays["edge"]).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
     def finalize_transform(self, cancelled=False):
 
@@ -241,15 +241,15 @@ class UVDataTransformBase(BaseObject):
 
             pos_array_start = start_data["pos_array"]
             vertex_data.set_array(0, pos_array_start)
-            from_handle = pos_array_start.get_handle()
+            from_view = memoryview(pos_array_start).cast("B")
 
-            to_handle = self._pos_arrays["main"].modify_handle()
-            to_handle.copy_data_from(from_handle)
+            to_view = memoryview(self._pos_arrays["main"]).cast("B")
+            to_view[:] = from_view
 
             size = pos_array_start.data_size_bytes
-            to_handle = self._pos_arrays["edge"].modify_handle()
-            to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-            to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+            to_view = memoryview(self._pos_arrays["edge"]).cast("B")
+            to_view[:size] = from_view
+            to_view[size:] = from_view
 
         else:
 

@@ -309,7 +309,7 @@ class ExportManager(BaseObject):
                             point_a = group_pivot.get_relative_point(pivot, pos)
                             point_b = group_pivot.get_relative_point(pivot, pos + height_vec)
                             radius = geom_obj.get_property("radius") * sx
-                            coll_solid = CollisionTube(point_a, point_b, radius)
+                            coll_solid = CollisionCapsule(point_a, point_b, radius)
 
                         elif geom_type == "box":
 

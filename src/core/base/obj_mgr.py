@@ -56,6 +56,7 @@ class GeneralObjectManager(BaseObject):
         def disable_obj_name_checking():
 
             Mgr.remove_task("check_object_name")
+            Mgr.update_remotely("object_name_tag", False)
 
         Mgr.accept("enable_object_name_checking", enable_obj_name_checking)
         Mgr.accept("disable_object_name_checking", disable_obj_name_checking)
@@ -140,7 +141,7 @@ class GeneralObjectManager(BaseObject):
 
     def __check_object_name(self, task):
 
-        if GlobalData["active_obj_level"] != "top":
+        if Mgr.get_state_id() == "suppressed":
             return task.cont
 
         if not self.mouse_watcher.has_mouse():

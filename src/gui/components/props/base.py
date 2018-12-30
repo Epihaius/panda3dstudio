@@ -37,7 +37,7 @@ class PropertyPanel(Panel):
         self._sel_obj_count = 0
 
         self._colors = {
-            "disabled": (.5, .5, .5, 1.),
+            "disabled": Skin["text"]["input_disabled"]["color"],
             "custom": (1., 1., 0., 1.)
         }
         self._checkboxes = {}

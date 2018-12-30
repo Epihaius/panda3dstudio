@@ -168,7 +168,7 @@ class ComboBox(Button):
 
         field = self._input_field
 
-        if not field or field.is_hidden():
+        if not field or field.is_hidden(check_ancestors=False):
             return self.__get_image(state)
 
         width, height = self.get_size()
@@ -353,7 +353,9 @@ class ComboBox(Button):
             return False
 
         self._field_text = text
-        self.set_tooltip_text(self._tooltip_text + (": " + text if text else ""))
+
+        if self._tooltip_text:
+            self.set_tooltip_text(self._tooltip_text + (": " + text if text else ""))
 
         if text:
             skin_text = Skin["text"]["combobox"]

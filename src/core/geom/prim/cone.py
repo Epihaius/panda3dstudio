@@ -739,6 +739,9 @@ class ConeManager(PrimitiveManager):
     def __creation_phase1(self):
         """ Draw out cone base """
 
+        if not self.mouse_watcher.has_mouse():
+            return
+
         screen_pos = self.mouse_watcher.get_mouse()
         point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
 

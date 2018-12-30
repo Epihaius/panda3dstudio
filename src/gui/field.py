@@ -763,6 +763,22 @@ class InputField(Widget):
 
         return image
 
+    def set_on_key_enter(self, on_key_enter=None):
+
+        self._on_key_enter = on_key_enter if on_key_enter else lambda: None
+
+    def set_on_key_escape(self, on_key_escape=None):
+
+        self._on_key_escape = on_key_escape if on_key_escape else lambda: None
+
+    def set_on_accept(self, on_accept=None):
+
+        self._on_accept = on_accept
+
+    def set_on_reject(self, on_reject=None):
+
+        self._on_reject = on_reject
+
     def allow_reject(self, allow_reject=True):
 
         self._allows_reject = allow_reject
@@ -1150,7 +1166,7 @@ class InputField(Widget):
         self.__reset_cursor()
 
         if self._on_accept:
-            self._on_accept()
+            self._on_accept(valid)
 
         return valid
 

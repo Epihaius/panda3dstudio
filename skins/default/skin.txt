@@ -51,6 +51,8 @@ panel_section_label     arimo_regular       0. 0. 0. 1.
 panel_button            arimo_regular       0. 0. 0. 1.
 input                   arimo_regular       .5 .7 .9 1.
 input2                  arimo_italic        .5 .7 .9 1.
+input_disabled          arimo_regular       .5 .5 .5 1.
+input2_disabled         arimo_italic        .5 .5 .5 1.
 input_selection         arimo_regular       1. 1. 1. 1.
 input2_selection        arimo_italic        1. 1. 1. 1.
 status                  arimo_regular       0. 0. 0. 1.

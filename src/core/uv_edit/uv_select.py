@@ -255,10 +255,10 @@ class UVSelectionBase(BaseObject):
         bind("picking_via_poly", "select subobj via poly",
              "mouse1-up", self.__select_subobj_via_poly, "uv")
         bind("picking_via_poly", "cancel subobj select via poly",
-             "mouse3-up", self.__cancel_select_via_poly, "uv")
+             "mouse3", self.__cancel_select_via_poly, "uv")
         bind("region_selection_mode", "quit region-select", "escape",
              self.__cancel_region_select, "uv")
-        bind("region_selection_mode", "cancel region-select", "mouse3-up",
+        bind("region_selection_mode", "cancel region-select", "mouse3",
              self.__cancel_region_select, "uv")
         bind("region_selection_mode", "abort region-select", "focus_loss",
              self.__cancel_region_select, "uv")
@@ -273,7 +273,7 @@ class UVSelectionBase(BaseObject):
         bind("checking_mouse_offset", "cancel mouse check uvs", "mouse1-up",
              cancel_mouse_check, "uv")
 
-    def __get_fence_point_under_mouse(self, cam):
+    def __transform_picking_cam(self, cam):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         cam.set_pos(mouse_pointer.get_x(), 0., -mouse_pointer.get_y())
@@ -297,7 +297,7 @@ class UVSelectionBase(BaseObject):
         picking_cam = UVMgr.get("picking_cam")
         picking_cam().reparent_to(fence_points)
         picking_cam().node().set_lens(self._fence_point_pick_lens)
-        picking_cam.set_pixel_fetcher(self.__get_fence_point_under_mouse)
+        picking_cam.set_transformer(self.__transform_picking_cam)
 
     def __draw_selection_shape(self, task):
 
@@ -757,7 +757,7 @@ class UVSelectionBase(BaseObject):
             picking_cam = UVMgr.get("picking_cam")
             picking_cam().reparent_to(self.cam)
             picking_cam.restore_lens()
-            picking_cam.set_pixel_fetcher(None)
+            picking_cam.set_transformer(None)
             self._fence_points.remove_node()
             self._fence_points = None
             self._fence_point_color_id = 1

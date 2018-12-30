@@ -261,7 +261,7 @@ class ImportManager(BaseObject):
             segments = 16
             inverted = obj_type == "CollisionInvSphere"
             creator = Mgr.do("create_custom_sphere", name, radius, segments, pos, inverted)
-        elif obj_type == "CollisionTube":
+        elif obj_type == "CollisionCapsule":
             name, radius, height, pos, hpr = args
             segments = {"circular": 12, "height": 1, "caps": 1}
             creator = Mgr.do("create_custom_cylinder", name, radius, height, segments, pos)
@@ -273,7 +273,7 @@ class ImportManager(BaseObject):
         model = next(creator)
         model.register(restore=False)
 
-        if obj_type == "CollisionTube":
+        if obj_type == "CollisionCapsule":
             pivot = model.get_pivot()
             pivot.set_hpr(hpr)
             pivot.set_p(pivot, -90.)
@@ -456,7 +456,7 @@ class ImportManager(BaseObject):
 
                         obj_type = solid.get_class_type().get_name()
 
-                        if obj_type not in ("CollisionSphere", "CollisionInvSphere", "CollisionTube",
+                        if obj_type not in ("CollisionSphere", "CollisionInvSphere", "CollisionCapsule",
                                             "CollisionBox", "CollisionPlane", "CollisionPolygon"):
                             continue
 
@@ -482,7 +482,7 @@ class ImportManager(BaseObject):
                                 pos = solid.get_center()
                                 args = (name, radius, pos)
 
-                            elif obj_type == "CollisionTube":
+                            elif obj_type == "CollisionCapsule":
 
                                 radius = solid.get_radius()
                                 a = solid.get_point_a()

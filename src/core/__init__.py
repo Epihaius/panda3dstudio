@@ -43,7 +43,6 @@ class Core(object):
 
         def enter_suppressed_state(*args):
 
-            Mgr.do("disable_object_name_checking")
             Mgr.do("enable_view_gizmo", False)
             self.__suppress_events()
             Mgr.notify("suppressed_state_enter")
@@ -53,12 +52,11 @@ class Core(object):
             def task(t):
 
                 if not Mgr.get_state_id() == "suppressed":
-                    Mgr.do("enable_object_name_checking")
                     Mgr.do("enable_view_gizmo")
                     self.__suppress_events(False)
                     Mgr.notify("suppressed_state_exit")
 
-            Mgr.do_next_frame(task, "unsuppress_mouse_events")
+            Mgr.do_next_frame(task, "exit_suppressed_state")
 
         Mgr.add_state("suppressed", -1000, enter_suppressed_state, exit_suppressed_state)
         Mgr.add_state("inactive", -1000)

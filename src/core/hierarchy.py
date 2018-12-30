@@ -51,10 +51,10 @@ class HierarchyManager(BaseObject):
         bind("object_linking_mode", "link objects -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("object_linking_mode", "link objects -> select", "escape", exit_mode)
-        bind("object_linking_mode", "exit object linking mode", "mouse3-up", exit_mode)
+        bind("object_linking_mode", "exit object linking mode", "mouse3", exit_mode)
         bind("object_linking_mode", "handle linking", "mouse1", self.__handle_linking)
         bind("object_link_creation", "quit link creation", "escape", cancel_link_creation)
-        bind("object_link_creation", "cancel link creation", "mouse3-up", cancel_link_creation)
+        bind("object_link_creation", "cancel link creation", "mouse3", cancel_link_creation)
         bind("object_link_creation", "finalize link creation",
              "mouse1-up", self.__finalize_object_linking)
 

@@ -122,10 +122,10 @@ class GeomTransformBase(BaseObject):
         size = pos_array.data_size_bytes
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         pos_array_edge = vertex_data.modify_array(0)
-        from_handle = pos_array.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
         pos_array_edge = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array_edge)
@@ -174,10 +174,10 @@ class GeomTransformBase(BaseObject):
         size = pos_array.data_size_bytes
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         pos_array_edge = vertex_data.modify_array(0)
-        from_handle = pos_array.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
         pos_array_edge = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array_edge)
@@ -211,10 +211,10 @@ class GeomTransformBase(BaseObject):
         size = pos_array.data_size_bytes
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         pos_array_edge = vertex_data.modify_array(0)
-        from_handle = pos_array.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
         pos_array_edge = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array_edge)
@@ -257,10 +257,10 @@ class GeomTransformBase(BaseObject):
         pos_array_edge = GeomVertexArrayData(pos_array_main.array_format, pos_array_main.usage_hint)
         pos_array_edge.unclean_set_num_rows(pos_array_main.get_num_rows() * 2)
 
-        from_handle = pos_array_main.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array_main).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
         vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array_edge)
@@ -294,14 +294,14 @@ class GeomTransformBase(BaseObject):
         pos_array_top = vertex_data_top.modify_array(0)
         pos_array_tmp = tmp_vertex_data.get_array(0)
         size = pos_array_tmp.data_size_bytes
-        from_handle = pos_array_tmp.get_handle()
-        to_handle = pos_array_top.modify_handle()
-        to_handle.copy_data_from(from_handle)
-        to_handle = self._pos_arrays["main"].modify_handle()
-        to_handle.copy_data_from(from_handle)
-        to_handle = self._pos_arrays["edge"].modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array_tmp).cast("B")
+        to_view = memoryview(pos_array_top).cast("B")
+        to_view[:] = from_view
+        to_view = memoryview(self._pos_arrays["main"]).cast("B")
+        to_view[:] = from_view
+        to_view = memoryview(self._pos_arrays["edge"]).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
     def transform_selection(self, subobj_lvl, transf_type, value):
 
@@ -353,12 +353,12 @@ class GeomTransformBase(BaseObject):
         pos_array_edge = self._pos_arrays["edge"]
         pos_array_edge.unclean_set_num_rows(pos_array_tmp.get_num_rows() * 2)
 
-        from_handle = pos_array_tmp.get_handle()
-        to_handle = pos_array_main.modify_handle()
-        to_handle.copy_data_from(from_handle)
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array_tmp).cast("B")
+        to_view = memoryview(pos_array_main).cast("B")
+        to_view[:] = from_view
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
     def finalize_transform(self, cancelled=False):
 
@@ -381,12 +381,12 @@ class GeomTransformBase(BaseObject):
             pos_array_edge = self._pos_arrays["edge"]
             pos_array_edge.unclean_set_num_rows(pos_array_tmp.get_num_rows() * 2)
 
-            from_handle = pos_array_tmp.get_handle()
-            to_handle = pos_array_main.modify_handle()
-            to_handle.copy_data_from(from_handle)
-            to_handle = pos_array_edge.modify_handle()
-            to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-            to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+            from_view = memoryview(pos_array_tmp).cast("B")
+            to_view = memoryview(pos_array_main).cast("B")
+            to_view[:] = from_view
+            to_view = memoryview(pos_array_edge).cast("B")
+            to_view[:size] = from_view
+            to_view[size:] = from_view
 
         else:
 
@@ -552,10 +552,10 @@ class GeomTransformBase(BaseObject):
         pos_array_edge = vertex_data.modify_array(0)
         pos_array_edge.unclean_set_num_rows(pos_array_top.get_num_rows() * 2)
 
-        from_handle = pos_array_top.get_handle()
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        from_view = memoryview(pos_array_top).cast("B")
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
         pos_array_edge = vertex_data.get_array(0)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()

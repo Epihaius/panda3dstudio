@@ -363,7 +363,7 @@ class FileButtonInputField(DialogInputField):
 
         self.set_image_offset(self._img_offset)
 
-    def __hide_name_field(self):
+    def __hide_name_field(self, *args):
 
         FileButton.selected_btn.show_name_field(False)
 

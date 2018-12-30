@@ -65,52 +65,92 @@ class UVDataSelectionBase(BaseObject):
             data_selected = sel_data["selected"]
             data_unselected = sel_data["unselected"]
             prim = sel_state_geom.node().modify_geom(1).modify_primitive(0)
-            array = prim.modify_vertices()
-            stride = array.array_format.get_stride()
-            handle_sel = array.modify_handle()
+            array_sel = prim.modify_vertices()
+            stride = array_sel.array_format.stride
+            size_sel = array_sel.get_num_rows()
+            row_count = sum([len(poly) for poly in selected_subobjs], size_sel)
+            array_sel.set_num_rows(row_count)
+            view_sel = memoryview(array_sel).cast("B")
             prim = sel_state_geom.node().modify_geom(0).modify_primitive(0)
-            handle_unsel = prim.modify_vertices().modify_handle()
-            row_ranges_sel = []
-            row_ranges_unsel = []
+            array_unsel = prim.modify_vertices()
+            size_unsel = array_unsel.get_num_rows()
+            row_count = sum([len(poly) for poly in deselected_subobjs], size_unsel)
+            array_unsel.set_num_rows(row_count)
+            view_unsel = memoryview(array_unsel).cast("B")
+            polys_sel = []
+            polys_unsel = []
+            row_ranges_sel_to_keep = SparseArray()
+            row_ranges_sel_to_keep.set_range(0, array_sel.get_num_rows())
+            row_ranges_unsel_to_keep = SparseArray()
+            row_ranges_unsel_to_keep.set_range(0, size_unsel)
+            row_ranges_sel_to_move = SparseArray()
+            row_ranges_unsel_to_move = SparseArray()
 
             for poly in selected_subobjs:
                 selected_subobj_ids.append(poly.get_id())
                 start = data_unselected.index(poly[0]) * 3
-                size = len(poly)
-                row_ranges_unsel.append((start, size, poly))
+                polys_sel.append((start, poly))
+                row_ranges_unsel_to_keep.clear_range(start, len(poly))
+                row_ranges_unsel_to_move.set_range(start, len(poly))
 
             for poly in deselected_subobjs:
                 selected_subobj_ids.remove(poly.get_id())
                 start = data_selected.index(poly[0]) * 3
-                size = len(poly)
-                row_ranges_sel.append((start, size, poly))
+                polys_unsel.append((start, poly))
+                row_ranges_sel_to_keep.clear_range(start, len(poly))
+                row_ranges_sel_to_move.set_range(start, len(poly))
 
-            row_ranges_sel.sort(reverse=True)
-            row_ranges_unsel.sort(reverse=True)
+            polys_sel.sort()
+            polys_unsel.sort()
 
-            for start, size, poly in row_ranges_unsel:
-
+            for _, poly in polys_sel:
+                data_selected.extend(poly)
                 for vert_ids in poly:
                     data_unselected.remove(vert_ids)
 
-                data_selected.extend(poly)
-
-                offset = handle_sel.data_size_bytes
-                handle_sel.copy_subdata_from(offset, size * stride, handle_unsel,
-                                             start * stride, size * stride)
-                handle_unsel.set_subdata(start * stride, size * stride, bytes())
-
-            for start, size, poly in row_ranges_sel:
-
+            for _, poly in polys_unsel:
+                data_unselected.extend(poly)
                 for vert_ids in poly:
                     data_selected.remove(vert_ids)
 
-                data_unselected.extend(poly)
+            f = lambda values, stride: (v * stride for v in values)
 
-                offset = handle_unsel.data_size_bytes
-                handle_unsel.copy_subdata_from(offset, size * stride, handle_sel,
-                                               start * stride, size * stride)
-                handle_sel.set_subdata(start * stride, size * stride, bytes())
+            for i in range(row_ranges_unsel_to_move.get_num_subranges()):
+                start = row_ranges_unsel_to_move.get_subrange_begin(i)
+                size = row_ranges_unsel_to_move.get_subrange_end(i) - start
+                offset_, start_, size_ = f((size_sel, start, size), stride)
+                view_sel[offset_:offset_+size_] = view_unsel[start_:start_+size_]
+                size_sel += size
+                size_unsel -= size
+
+            offset = 0
+
+            for i in range(row_ranges_unsel_to_keep.get_num_subranges()):
+                start = row_ranges_unsel_to_keep.get_subrange_begin(i)
+                size = row_ranges_unsel_to_keep.get_subrange_end(i) - start
+                offset_, start_, size_ = f((offset, start, size), stride)
+                view_unsel[offset_:offset_+size_] = view_unsel[start_:start_+size_]
+                offset += size
+
+            for i in range(row_ranges_sel_to_move.get_num_subranges()):
+                start = row_ranges_sel_to_move.get_subrange_begin(i)
+                size = row_ranges_sel_to_move.get_subrange_end(i) - start
+                offset_, start_, size_ = f((size_unsel, start, size), stride)
+                view_unsel[offset_:offset_+size_] = view_sel[start_:start_+size_]
+                size_unsel += size
+                size_sel -= size
+
+            offset = 0
+
+            for i in range(row_ranges_sel_to_keep.get_num_subranges()):
+                start = row_ranges_sel_to_keep.get_subrange_begin(i)
+                size = row_ranges_sel_to_keep.get_subrange_end(i) - start
+                offset_, start_, size_ = f((offset, start, size), stride)
+                view_sel[offset_:offset_+size_] = view_sel[start_:start_+size_]
+                offset += size
+
+            array_sel.set_num_rows(size_sel)
+            array_unsel.set_num_rows(size_unsel)
 
         else:
 
@@ -262,13 +302,13 @@ class UVDataSelectionBase(BaseObject):
             sel_data["selected"] = []
 
             from_array = sel_state_geom.node().modify_geom(1).modify_primitive(0).modify_vertices()
-            from_handle = from_array.modify_handle()
-            to_array = sel_state_geom.node().modify_geom(0).modify_primitive(0).modify_vertices()
-            to_handle = to_array.modify_handle()
             from_size = from_array.data_size_bytes
+            from_view = memoryview(from_array).cast("B")
+            to_array = sel_state_geom.node().modify_geom(0).modify_primitive(0).modify_vertices()
             to_size = to_array.data_size_bytes
             to_array.set_num_rows(to_array.get_num_rows() + from_array.get_num_rows())
-            to_handle.copy_subdata_from(to_size, from_size, from_handle, 0, from_size)
+            to_view = memoryview(to_array).cast("B")
+            to_view[to_size:to_size+from_size] = from_view
             from_array.clear_rows()
         else:
             vertex_data = geoms["sel_state"].node().modify_geom(0).modify_vertex_data()

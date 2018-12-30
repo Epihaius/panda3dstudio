@@ -1137,7 +1137,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         bind("texprojtarget_picking_mode", "pick texproj target", "mouse1", self.__pick)
         bind("texprojtarget_picking_mode", "exit texproj target picking", "escape",
              lambda: Mgr.exit_state("texprojtarget_picking_mode"))
-        bind("texprojtarget_picking_mode", "cancel texproj target picking", "mouse3-up",
+        bind("texprojtarget_picking_mode", "cancel texproj target picking", "mouse3",
              lambda: Mgr.exit_state("texprojtarget_picking_mode"))
 
         status_data = GlobalData["status_data"]
@@ -1275,6 +1275,9 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
     def __creation_phase1(self):
         """ Draw out texture projector """
+
+        if not self.mouse_watcher.has_mouse():
+            return
 
         screen_pos = self.mouse_watcher.get_mouse()
         cam = self.cam()

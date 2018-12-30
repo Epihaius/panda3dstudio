@@ -626,7 +626,7 @@ class GroupManager(ObjectManager):
         bind("grouping_mode", "grouping mode -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("grouping_mode", "grouping mode -> select", "escape", exit_mode)
-        bind("grouping_mode", "exit grouping mode", "mouse3-up", exit_mode)
+        bind("grouping_mode", "exit grouping mode", "mouse3", exit_mode)
         bind("grouping_mode", "add members", "mouse1", self.__add_members)
 
     def __handle_viewport_resize(self):

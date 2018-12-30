@@ -1095,6 +1095,9 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
     def __creation_phase1(self):
         """ Draw out dummy """
 
+        if not self.mouse_watcher.has_mouse():
+            return
+
         screen_pos = self.mouse_watcher.get_mouse()
         cam = self.cam()
         near_point = Point3()

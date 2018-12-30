@@ -236,12 +236,12 @@ class Dialog(WidgetCard):
         skin_text = Skin["text"]["dialog_title"]
         font = skin_text["font"]
         color = skin_text["color"]
-        self._title_label = font.create_image(title, color) if title else None
+        self._title_label = label = font.create_image(title, color) if title else None
         self._choices = choices
         sizer = Sizer("vertical")
         self.set_sizer(sizer)
         self._client_sizer = client_sizer = Sizer("vertical")
-        client_sizer.set_default_size((100, 50))
+        client_sizer.set_default_size((max(100, label.get_x_size()) + 20, 50))
         sizer.add(client_sizer, expand=True)
         self._button_sizer = btn_sizer = Sizer("horizontal")
         h_b = Skin["options"]["dialog_bottom_height"]

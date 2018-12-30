@@ -11,7 +11,7 @@ class PickingCamera(BaseObject):
         self._np = None
         self._mask = BitMask32.bit(15)
         self._pixel_color = VBase4()
-        self._pixel_fetcher = None
+        self._transformer = None
 
         UVMgr.expose("picking_mask", lambda: self._mask)
         UVMgr.expose("pixel_under_mouse", lambda: VBase4(self._pixel_color))
@@ -69,17 +69,17 @@ class PickingCamera(BaseObject):
 
         self._np.node().set_lens(self._lens)
 
-    def set_pixel_fetcher(self, pixel_fetcher):
+    def set_transformer(self, transformer):
         """
-        This method is used to change the default behavior of __get_pixel_under_mouse, so
-        the color of the pixel under the mouse cursor can be obtained in a different way.
-        The callable passed in for pixel_fetcher must take one argument: the Camera used
+        This method is used to change the way this camera is transformed (specifically
+        in __get_pixel_under_mouse).
+        The callable passed in for transformer must take one argument: the Camera used
         by this class.
-        Pass in None for pixel_fetcher to restore the default behavior.
+        Pass in None for transformer to restore the default transformation behavior.
 
         """
 
-        self._pixel_fetcher = pixel_fetcher
+        self._transformer = transformer
 
     def set_active(self, is_active=True):
 
@@ -105,8 +105,8 @@ class PickingCamera(BaseObject):
             self._buffer.set_active(True)
             self._np.node().set_active(True)
 
-        if self._pixel_fetcher:
-            self._pixel_fetcher(self._np)
+        if self._transformer:
+            self._transformer(self._np)
         else:
             screen_pos = self.mouse_watcher.get_mouse()
             far_point = Point3()

@@ -669,9 +669,11 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
             for i in range(2):
                 array = vertex_data.modify_array(i)
-                handle = array.modify_handle()
-                stride = array.array_format.get_stride()
-                handle.set_subdata(row_index * stride, stride, bytes())
+                stride = array.array_format.stride
+                mem_view = memoryview(array).cast("B")
+                offset = row_index * stride
+                mem_view[offset:-stride] = mem_view[offset+stride:]
+                array.set_num_rows(array.get_num_rows()-1)
 
             array = vertex_data.modify_array(2)
             array.unclean_set_num_rows(count)
@@ -763,9 +765,11 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
                 for i in range(2):
                     array = vertex_data.modify_array(i)
-                    handle = array.modify_handle()
-                    stride = array.array_format.get_stride()
-                    handle.set_subdata(row_index * stride, stride, bytes())
+                    stride = array.array_format.stride
+                    mem_view = memoryview(array).cast("B")
+                    offset = row_index * stride
+                    mem_view[offset:-stride] = mem_view[offset+stride:]
+                    array.set_num_rows(array.get_num_rows()-1)
 
                 array = vertex_data.modify_array(2)
                 array.unclean_set_num_rows(count)

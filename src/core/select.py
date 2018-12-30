@@ -478,7 +478,7 @@ class SelectionManager(BaseObject):
              "delete", self.__delete_selection)
         bind("region_selection_mode", "quit region-select", "escape",
              self.__cancel_region_select)
-        bind("region_selection_mode", "cancel region-select", "mouse3-up",
+        bind("region_selection_mode", "cancel region-select", "mouse3",
              self.__cancel_region_select)
         bind("region_selection_mode", "abort region-select", "focus_loss",
              self.__cancel_region_select)
@@ -517,10 +517,9 @@ class SelectionManager(BaseObject):
 
     def setup(self):
 
-        root = Mgr.get("object_root")
         cam = Camera("region_selection_cam")
         cam.set_active(False)
-        cam.set_scene(root)
+        cam.set_scene(Mgr.get("object_root"))
         self._region_sel_cam = self.cam().attach_new_node(cam)
 
         return True
@@ -559,7 +558,7 @@ class SelectionManager(BaseObject):
         self._region_sel_listener = None
         self._mouse_prev = (0., 0.)
 
-    def __get_fence_point_under_mouse(self, cam):
+    def __transform_picking_cam(self, cam):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         cam.set_pos(mouse_pointer.get_x(), 0., -mouse_pointer.get_y())
@@ -584,7 +583,7 @@ class SelectionManager(BaseObject):
         picking_cam().reparent_to(fence_points)
         picking_cam().node().set_lens(self._fence_point_pick_lens)
         picking_cam().set_hpr(0., 0., 0.)
-        picking_cam.set_pixel_fetcher(self.__get_fence_point_under_mouse)
+        picking_cam.set_transformer(self.__transform_picking_cam)
 
     def __create_selection_shape(self, shape_type):
 
@@ -1089,7 +1088,7 @@ class SelectionManager(BaseObject):
             Mgr.do("adjust_picking_cam_to_lens")
             picking_cam = Mgr.get("picking_cam")
             picking_cam().reparent_to(self.cam().get_parent())
-            picking_cam.set_pixel_fetcher(None)
+            picking_cam.set_transformer(None)
             self._fence_points.remove_node()
             self._fence_points = None
             self._fence_point_color_id = 1
@@ -1436,10 +1435,15 @@ class SelectionManager(BaseObject):
         Mgr.update_remotely("selection_set", "hide_name")
         obj_lvl = GlobalData["active_obj_level"]
 
-        if obj_lvl != "top":
+        if obj_lvl == "top":
+
+            Mgr.do("enable_object_name_checking")
+
+        else:
 
             self._selection.clear_prev_obj_ids()
             Mgr.do("update_selection_" + obj_lvl)
+            Mgr.do("disable_object_name_checking")
 
             toplvl_obj = self.__get_selection(obj_lvl).get_toplevel_object()
 

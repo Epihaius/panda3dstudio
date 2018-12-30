@@ -747,7 +747,7 @@ class TransformationManager(BaseObject):
 
         bind = Mgr.bind_state
         bind("transforming", "cancel transform",
-             "mouse3-up", lambda: end_transform(cancel=True))
+             "mouse3", lambda: end_transform(cancel=True))
         bind("transforming", "finalize transform", "mouse1-up", end_transform)
 
     def __reset_transforms_to_restore(self):
@@ -1156,6 +1156,9 @@ class TransformationManager(BaseObject):
         # a projection of the vector in the plane onto the transformation
         # axis).
 
+        if not self.mouse_watcher.has_mouse():
+            return task.cont
+
         grid_origin = Mgr.get(("grid", "origin"))
         screen_pos = self.mouse_watcher.get_mouse()
         cam = self.cam()
@@ -1277,6 +1280,9 @@ class TransformationManager(BaseObject):
         # point, while the current vector points to the current intersection of the
         # mouse ray and the plane of rotation.
 
+        if not self.mouse_watcher.has_mouse():
+            return task.cont
+
         cam = self.cam()
         lens_type = self.cam.lens_type
         screen_pos = self.mouse_watcher.get_mouse()
@@ -1354,6 +1360,9 @@ class TransformationManager(BaseObject):
         # When dragging the mouse outside of the trackball, the distance to its edge
         # is measured in radians and added to the angle.
 
+        if not self.mouse_watcher.has_mouse():
+            return task.cont
+
         grid_origin = Mgr.get(("grid", "origin"))
         screen_pos = self.mouse_watcher.get_mouse()
         angle_vec, radians = Mgr.get("trackball_data", screen_pos)
@@ -1430,6 +1439,9 @@ class TransformationManager(BaseObject):
         # To scale selected items, the new size is computed as the starting size
         # multiplied by a factor, based on the distance of the mouse to the center
         # of transformation.
+
+        if not self.mouse_watcher.has_mouse():
+            return task.cont
 
         cam = self.cam()
         screen_pos = self.mouse_watcher.get_mouse()

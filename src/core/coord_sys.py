@@ -31,7 +31,7 @@ class CoordSysManager(BaseObject):
         bind("coord_sys_picking_mode", "pick coord sys", "mouse1", self.__pick)
         bind("coord_sys_picking_mode", "exit coord sys picking", "escape",
              exit_coord_sys_picking_mode)
-        bind("coord_sys_picking_mode", "cancel coord sys picking", "mouse3-up",
+        bind("coord_sys_picking_mode", "cancel coord sys picking", "mouse3",
              exit_coord_sys_picking_mode)
 
         status_data = GlobalData["status_data"]

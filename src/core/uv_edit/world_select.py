@@ -63,7 +63,7 @@ class SelectionManager(BaseObject):
         bind("uv_picking_via_poly", "select uv via poly",
              "mouse1-up", self.__select_uv_via_poly)
         bind("uv_picking_via_poly", "cancel uv select via poly",
-             "mouse3-up", self.__cancel_select_via_poly)
+             "mouse3", self.__cancel_select_via_poly)
 
         status_data = GlobalData["status_data"]
         mode_text = "Select UVs"

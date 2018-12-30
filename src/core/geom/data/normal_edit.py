@@ -1314,12 +1314,12 @@ class NormalManager(BaseObject):
         bind("normal_dir_copy_mode", "normal dir copy -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("normal_dir_copy_mode", "normal dir copy -> select", "escape", exit_mode)
-        bind("normal_dir_copy_mode", "exit normal dir copy mode", "mouse3-up", exit_mode)
+        bind("normal_dir_copy_mode", "exit normal dir copy mode", "mouse3", exit_mode)
         bind("normal_dir_copy_mode", "copy normal dir", "mouse1", self.__pick)
         bind("normal_picking_via_poly", "pick hilited normal",
              "mouse1-up", self.__pick_hilited_normal)
         bind("normal_picking_via_poly", "cancel normal picking",
-             "mouse3-up", self.__cancel_normal_picking_via_poly)
+             "mouse3", self.__cancel_normal_picking_via_poly)
 
         status_data = GlobalData["status_data"]
         mode_text = "Copy normal direction"

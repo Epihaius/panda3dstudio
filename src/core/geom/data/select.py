@@ -42,52 +42,92 @@ class GeomSelectionBase(BaseObject):
             data_selected = sel_data["selected"]
             data_unselected = sel_data["unselected"]
             prim = geom_selected.node().modify_geom(0).modify_primitive(0)
-            array = prim.modify_vertices()
-            stride = array.array_format.get_stride()
-            handle_sel = array.modify_handle()
+            array_sel = prim.modify_vertices()
+            stride = array_sel.array_format.stride
+            size_sel = array_sel.get_num_rows()
+            row_count = sum([len(poly) for poly in selected_subobjs], size_sel)
+            array_sel.set_num_rows(row_count)
+            view_sel = memoryview(array_sel).cast("B")
             prim = geom_unselected.node().modify_geom(0).modify_primitive(0)
-            handle_unsel = prim.modify_vertices().modify_handle()
-            row_ranges_sel = []
-            row_ranges_unsel = []
+            array_unsel = prim.modify_vertices()
+            size_unsel = array_unsel.get_num_rows()
+            row_count = sum([len(poly) for poly in deselected_subobjs], size_unsel)
+            array_unsel.set_num_rows(row_count)
+            view_unsel = memoryview(array_unsel).cast("B")
+            polys_sel = []
+            polys_unsel = []
+            row_ranges_sel_to_keep = SparseArray()
+            row_ranges_sel_to_keep.set_range(0, array_sel.get_num_rows())
+            row_ranges_unsel_to_keep = SparseArray()
+            row_ranges_unsel_to_keep.set_range(0, size_unsel)
+            row_ranges_sel_to_move = SparseArray()
+            row_ranges_unsel_to_move = SparseArray()
 
             for poly in selected_subobjs:
                 selected_subobj_ids.append(poly.get_id())
                 start = data_unselected.index(poly[0]) * 3
-                size = len(poly)
-                row_ranges_unsel.append((start, size, poly))
+                polys_sel.append((start, poly))
+                row_ranges_unsel_to_keep.clear_range(start, len(poly))
+                row_ranges_unsel_to_move.set_range(start, len(poly))
 
             for poly in deselected_subobjs:
                 selected_subobj_ids.remove(poly.get_id())
                 start = data_selected.index(poly[0]) * 3
-                size = len(poly)
-                row_ranges_sel.append((start, size, poly))
+                polys_unsel.append((start, poly))
+                row_ranges_sel_to_keep.clear_range(start, len(poly))
+                row_ranges_sel_to_move.set_range(start, len(poly))
 
-            row_ranges_sel.sort(reverse=True)
-            row_ranges_unsel.sort(reverse=True)
+            polys_sel.sort()
+            polys_unsel.sort()
 
-            for start, size, poly in row_ranges_unsel:
-
+            for _, poly in polys_sel:
+                data_selected.extend(poly)
                 for vert_ids in poly:
                     data_unselected.remove(vert_ids)
 
-                data_selected.extend(poly)
-
-                offset = handle_sel.data_size_bytes
-                handle_sel.copy_subdata_from(offset, size * stride, handle_unsel,
-                                             start * stride, size * stride)
-                handle_unsel.set_subdata(start * stride, size * stride, bytes())
-
-            for start, size, poly in row_ranges_sel:
-
+            for _, poly in polys_unsel:
+                data_unselected.extend(poly)
                 for vert_ids in poly:
                     data_selected.remove(vert_ids)
 
-                data_unselected.extend(poly)
+            f = lambda values, stride: (v * stride for v in values)
 
-                offset = handle_unsel.data_size_bytes
-                handle_unsel.copy_subdata_from(offset, size * stride, handle_sel,
-                                               start * stride, size * stride)
-                handle_sel.set_subdata(start * stride, size * stride, bytes())
+            for i in range(row_ranges_unsel_to_move.get_num_subranges()):
+                start = row_ranges_unsel_to_move.get_subrange_begin(i)
+                size = row_ranges_unsel_to_move.get_subrange_end(i) - start
+                offset_, start_, size_ = f((size_sel, start, size), stride)
+                view_sel[offset_:offset_+size_] = view_unsel[start_:start_+size_]
+                size_sel += size
+                size_unsel -= size
+
+            offset = 0
+
+            for i in range(row_ranges_unsel_to_keep.get_num_subranges()):
+                start = row_ranges_unsel_to_keep.get_subrange_begin(i)
+                size = row_ranges_unsel_to_keep.get_subrange_end(i) - start
+                offset_, start_, size_ = f((offset, start, size), stride)
+                view_unsel[offset_:offset_+size_] = view_unsel[start_:start_+size_]
+                offset += size
+
+            for i in range(row_ranges_sel_to_move.get_num_subranges()):
+                start = row_ranges_sel_to_move.get_subrange_begin(i)
+                size = row_ranges_sel_to_move.get_subrange_end(i) - start
+                offset_, start_, size_ = f((size_unsel, start, size), stride)
+                view_unsel[offset_:offset_+size_] = view_sel[start_:start_+size_]
+                size_unsel += size
+                size_sel -= size
+
+            offset = 0
+
+            for i in range(row_ranges_sel_to_keep.get_num_subranges()):
+                start = row_ranges_sel_to_keep.get_subrange_begin(i)
+                size = row_ranges_sel_to_keep.get_subrange_end(i) - start
+                offset_, start_, size_ = f((offset, start, size), stride)
+                view_sel[offset_:offset_+size_] = view_sel[start_:start_+size_]
+                offset += size
+
+            array_sel.set_num_rows(size_sel)
+            array_unsel.set_num_rows(size_unsel)
 
         else:
 
@@ -213,13 +253,13 @@ class GeomSelectionBase(BaseObject):
             sel_data["selected"] = []
 
             from_array = geom_selected.node().modify_geom(0).modify_primitive(0).modify_vertices()
-            from_handle = from_array.modify_handle()
-            to_array = geom_unselected.node().modify_geom(0).modify_primitive(0).modify_vertices()
-            to_handle = to_array.modify_handle()
             from_size = from_array.data_size_bytes
+            from_view = memoryview(from_array).cast("B")
+            to_array = geom_unselected.node().modify_geom(0).modify_primitive(0).modify_vertices()
             to_size = to_array.data_size_bytes
             to_array.set_num_rows(to_array.get_num_rows() + from_array.get_num_rows())
-            to_handle.copy_subdata_from(to_size, from_size, from_handle, 0, from_size)
+            to_view = memoryview(to_array).cast("B")
+            to_view[to_size:to_size+from_size] = from_view
             from_array.clear_rows()
 
         elif subobj_lvl == "normal":
@@ -290,10 +330,11 @@ class GeomSelectionBase(BaseObject):
         poly_index = min(ordered_polys.index(poly) for poly in polys_to_delete)
         polys_to_offset = ordered_polys[poly_index:]
 
-        row_ranges_to_delete = []
         merged_verts = self._merged_verts
         merged_edges = self._merged_edges
         shared_normals = self._shared_normals
+        row_ranges_to_keep = SparseArray()
+        row_ranges_to_keep.set_range(0, self._data_row_count)
 
         subobjs_to_unreg = self._subobjs_to_unreg = {"vert": {}, "edge": {}, "poly": {}}
 
@@ -307,7 +348,7 @@ class GeomSelectionBase(BaseObject):
             poly_verts = poly.get_vertices()
             vert = poly_verts[0]
             row = vert.get_row_index()
-            row_ranges_to_delete.append((row, len(poly_verts)))
+            row_ranges_to_keep.clear_range(row, len(poly_verts))
 
             verts_to_delete.extend(poly_verts)
             edges_to_delete.extend(poly.get_edges())
@@ -361,11 +402,6 @@ class GeomSelectionBase(BaseObject):
             sel_data[state] = []
             prim = geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
             prim.modify_vertices().clear_rows()
-            # NOTE: do *NOT* call prim.clearVertices(), as this will explicitly
-            # remove all data from the primitive, and adding new data through
-            # prim.modify_vertices().modify_handle().set_data(data) will not
-            # internally notify Panda3D that the primitive has now been updated
-            # to contain new data. This will result in an assertion error later on.
 
         for edge in edges_to_delete:
 
@@ -408,8 +444,6 @@ class GeomSelectionBase(BaseObject):
             for vert in poly_verts:
                 vert.offset_row_index(row_index_offset)
 
-        row_ranges_to_delete.sort(reverse=True)
-
         vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
         edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
         normal_geom = geoms["normal"]["pickable"].node().modify_geom(0)
@@ -420,44 +454,61 @@ class GeomSelectionBase(BaseObject):
         vertex_data_poly_picking = self._vertex_data["poly_picking"]
 
         vert_array = vertex_data_vert.modify_array(1)
-        vert_handle = vert_array.modify_handle()
-        vert_stride = vert_array.array_format.get_stride()
+        vert_view = memoryview(vert_array).cast("B")
+        vert_stride = vert_array.array_format.stride
         edge_array = vertex_data_edge.modify_array(1)
-        edge_handle = edge_array.modify_handle()
-        edge_stride = edge_array.array_format.get_stride()
+        edge_view = memoryview(edge_array).cast("B")
+        edge_stride = edge_array.array_format.stride
         picking_array = vertex_data_poly_picking.modify_array(1)
-        picking_handle = picking_array.modify_handle()
-        picking_stride = picking_array.array_format.get_stride()
+        picking_view = memoryview(picking_array).cast("B")
+        picking_stride = picking_array.array_format.stride
 
         poly_arrays = []
-        poly_handles = []
+        poly_views = []
         poly_strides = []
 
         for i in range(vertex_data_poly.get_num_arrays()):
             poly_array = vertex_data_poly.modify_array(i)
             poly_arrays.append(poly_array)
-            poly_handles.append(poly_array.modify_handle())
-            poly_strides.append(poly_array.array_format.get_stride())
+            poly_views.append(memoryview(poly_array).cast("B"))
+            poly_strides.append(poly_array.array_format.stride)
 
         pos_array = poly_arrays[0]
+        f = lambda values, stride: (v * stride for v in values)
+        offset = 0
 
-        count = self._data_row_count
+        for i in range(row_ranges_to_keep.get_num_subranges()):
 
-        for start, size in row_ranges_to_delete:
+            start = row_ranges_to_keep.get_subrange_begin(i)
+            size = row_ranges_to_keep.get_subrange_end(i) - start
+            offset_, start_, size_ = f((offset, start, size), vert_stride)
+            vert_view[offset_:offset_+size_] = vert_view[start_:start_+size_]
+            offset_, start_, size_ = f((offset, start, size), edge_stride)
+            edge_view[offset_:offset_+size_] = edge_view[start_:start_+size_]
+            offset_, start_, size_ = f((offset, start, size), picking_stride)
+            picking_view[offset_:offset_+size_] = picking_view[start_:start_+size_]
 
-            vert_handle.set_subdata(start * vert_stride, size * vert_stride, bytes())
-            edge_handle.set_subdata((start + count) * edge_stride, size * edge_stride, bytes())
-            edge_handle.set_subdata(start * edge_stride, size * edge_stride, bytes())
-            picking_handle.set_subdata(start * picking_stride, size * picking_stride, bytes())
+            for poly_view, poly_stride in zip(poly_views, poly_strides):
+                offset_, start_, size_ = f((offset, start, size), poly_stride)
+                poly_view[offset_:offset_+size_] = poly_view[start_:start_+size_]
 
-            for poly_handle, poly_stride in zip(poly_handles, poly_strides):
-                poly_handle.set_subdata(start * poly_stride, size * poly_stride, bytes())
+            offset += size
 
-            count -= size
+        old_count = self._data_row_count
+        count = len(verts)
+        offset = count
 
-        self._data_row_count = count = len(verts)
+        for i in range(row_ranges_to_keep.get_num_subranges()):
+            start = row_ranges_to_keep.get_subrange_begin(i)
+            size = row_ranges_to_keep.get_subrange_end(i) - start
+            offset_, start_, size_ = f((offset, start + old_count, size), edge_stride)
+            edge_view[offset_:offset_+size_] = edge_view[start_:start_+size_]
+            offset += size
+
+        self._data_row_count = count
         sel_colors = Mgr.get("subobj_selection_colors")
 
+        vertex_data_poly.set_num_rows(count)
         vertex_data_vert.set_num_rows(count)
         vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
         vertex_data_normal.set_num_rows(count)
@@ -480,20 +531,20 @@ class GeomSelectionBase(BaseObject):
         vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
 
         size = pos_array.data_size_bytes
-        from_handle = pos_array.get_handle()
+        from_view = memoryview(pos_array).cast("B")
 
         vertex_data_edge.set_num_rows(count * 2)
         pos_array_edge = vertex_data_edge.modify_array(0)
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
 
         vertex_data_edge = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data_edge.set_num_rows(count * 2)
         pos_array_edge = vertex_data_edge.modify_array(0)
-        to_handle = pos_array_edge.modify_handle()
-        to_handle.copy_subdata_from(0, size, from_handle, 0, size)
-        to_handle.copy_subdata_from(size, size, from_handle, 0, size)
+        to_view = memoryview(pos_array_edge).cast("B")
+        to_view[:size] = from_view
+        to_view[size:] = from_view
         new_data = vertex_data_edge.set_color(sel_colors["edge"]["unselected"])
         vertex_data_edge.set_array(1, new_data.get_array(1))
 
@@ -1024,7 +1075,7 @@ class SelectionManager(BaseObject):
         bind("picking_via_poly", "select subobj via poly",
              "mouse1-up", self.__select_subobj_via_poly)
         bind("picking_via_poly", "cancel subobj select via poly",
-             "mouse3-up", self.__cancel_select_via_poly)
+             "mouse3", self.__cancel_select_via_poly)
 
         status_data = GlobalData["status_data"]
         info = "LMB-drag over subobject to pick it; RMB to cancel"

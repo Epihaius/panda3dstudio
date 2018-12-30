@@ -244,33 +244,33 @@ class TriangulationBase(BaseObject):
 
         prim_poly_sel = geom_poly_selected.node().modify_geom(0).modify_primitive(0)
         stride = prim_poly_sel.get_index_stride()
-        handle = prim_poly_sel.modify_vertices().modify_handle()
-        top_prim = geom_node_top.modify_geom(0).modify_primitive(0)
-        top_array = top_prim.modify_vertices()
-        top_handle = top_array.modify_handle()
+        mem_view = memoryview(prim_poly_sel.modify_vertices()).cast("B")
+        prim_top = geom_node_top.modify_geom(0).modify_primitive(0)
+        array_top = prim_top.modify_vertices()
+        view_top = memoryview(array_top).cast("B")
 
         for vert_ids_to_replace, new_tri_vert_ids in zip(tris_to_replace, new_tris_vert_ids):
             tris_prim = GeomTriangles(Geom.UH_static)
             rows = [verts[vert_id].get_row_index() for vert_id in new_tri_vert_ids]
             tris_prim.reserve_num_vertices(3)
             tris_prim.add_vertices(*rows)
-            tmp_handle = tris_prim.get_vertices().get_handle()
+            view_tmp = memoryview(tris_prim.get_vertices()).cast("B")
             index = new_tri_data.index(vert_ids_to_replace)
             start_row = index * 3 + poly_start
             start = start_row * stride
             size = 3 * stride
-            handle.copy_subdata_from(start, size, tmp_handle, 0, size)
+            mem_view[start:start+size] = view_tmp
             new_tri_data[index] = new_tri_vert_ids
             sel_data[start_row // 3] = new_tri_vert_ids
 
         vert_id = new_tri_data[0][0]
         row_index = verts[vert_id].get_row_index()
-        from_start = prim_poly_sel.get_vertex_list().index(row_index) * stride
+        from_size = prim_poly_sel.get_vertex_list().index(row_index) * stride
         vert_id = poly[0][0]
         row_index = verts[vert_id].get_row_index()
-        to_start = top_prim.get_vertex_list().index(row_index) * stride
+        to_size = prim_top.get_vertex_list().index(row_index) * stride
         size = len(poly) * stride
-        top_handle.copy_subdata_from(to_start, size, handle, from_start, size)
+        view_top[to_size:to_size+size] = mem_view[from_size:from_size+size]
 
         poly.set_triangle_data(new_tri_data)
         self._tri_change = set(self._selected_subobj_ids["poly"])
@@ -376,14 +376,14 @@ class TriangulationBase(BaseObject):
         geoms = self._geoms
         geom_poly_selected = geoms["poly"]["selected"].node().modify_geom(0)
         array_selected = geom_poly_selected.modify_primitive(0).modify_vertices()
-        stride = array_selected.array_format.get_stride()
-        handle_selected = array_selected.modify_handle()
+        stride = array_selected.array_format.stride
+        view_selected = memoryview(array_selected).cast("B")
         geom_poly_unselected = geoms["poly"]["unselected"].node().modify_geom(0)
         array_unselected = geom_poly_unselected.modify_primitive(0).modify_vertices()
-        handle_unselected = array_unselected.modify_handle()
+        view_unselected = memoryview(array_unselected).cast("B")
         geom_node_top = self._toplvl_node.modify_geom(0)
         array_top = geom_node_top.modify_primitive(0).modify_vertices()
-        handle_top = array_top.modify_handle()
+        view_top = memoryview(array_top).cast("B")
 
         poly_sel_data = self._poly_selection_data
         data_selected = poly_sel_data["selected"]
@@ -412,24 +412,25 @@ class TriangulationBase(BaseObject):
                 for tri_verts in tri_data:
                     prim.add_vertices(*[verts[vert_id].get_row_index() for vert_id in tri_verts])
 
-                from_handle = prim.get_vertices().get_handle()
-
+                offset = row_offset * stride
                 size = len(poly) * stride
-                handle_top.copy_subdata_from(row_offset * stride, size, from_handle, 0, size)
+                from_view = memoryview(prim.get_vertices()).cast("B")
+                view_top[offset:offset+size] = from_view
 
                 if poly.get_id() in selected_poly_ids:
                     sel_data = data_selected
-                    handle = handle_selected
+                    mem_view = view_selected
                 else:
                     sel_data = data_unselected
-                    handle = handle_unselected
+                    mem_view = view_unselected
 
                 start = sel_data.index(poly[0])
 
                 for i, tri_verts in enumerate(tri_data):
                     sel_data[start + i] = tri_verts
 
-                handle.copy_subdata_from(start * 3 * stride, size, from_handle, 0, size)
+                offset = start * 3 * stride
+                mem_view[offset:offset+size] = from_view
                 poly.set_triangle_data(tri_data)
 
             row_offset += len(poly)
@@ -459,7 +460,7 @@ class TriangulationManager(BaseObject):
              lambda: Mgr.enter_state("navigation_mode"))
         bind("diagonal_turning_mode", "quit diagonal turning", "escape",
              lambda: Mgr.exit_state("diagonal_turning_mode"))
-        bind("diagonal_turning_mode", "cancel diagonal turning", "mouse3-up",
+        bind("diagonal_turning_mode", "cancel diagonal turning", "mouse3",
              lambda: Mgr.exit_state("diagonal_turning_mode"))
         bind("diagonal_turning_mode", "turn diagonal", "mouse1",
              self.__turn_diagonal)

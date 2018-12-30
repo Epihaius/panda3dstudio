@@ -96,21 +96,42 @@ class UVEditBase(BaseObject):
             tmp_merged_edge.append(edge_id)
 
         row_indices = tmp_merged_edge.get_start_row_indices()
-        array = edge_prim.modify_vertices()
-        stride = array.array_format.get_stride()
-        edge_handle = array.modify_handle()
-        seam_handle = seam_prim.modify_vertices().modify_handle()
-        seam_handle.unclean_set_num_rows(len(row_indices) * 2)
+        edge_array = edge_prim.modify_vertices()
+        stride = edge_array.array_format.stride
+        edge_view = memoryview(edge_array).cast("B")
+        seam_array = seam_prim.modify_vertices()
+        seam_array.unclean_set_num_rows(len(row_indices) * 2)
+        seam_view = memoryview(seam_array).cast("B")
         rows = edge_prim.get_vertex_list()[::2]
-        data_rows = sorted((rows.index(i) * 2 for i in row_indices), reverse=True)
+        row_ranges_to_keep = SparseArray()
+        row_ranges_to_keep.set_range(0, edge_array.get_num_rows())
+        row_ranges_to_move = SparseArray()
 
-        for i, start in enumerate(data_rows):
-            seam_handle.copy_subdata_from(i * stride * 2, stride * 2, edge_handle,
-                                          start * stride, stride * 2)
+        for i in row_indices:
+            start = rows.index(i) * 2
+            row_ranges_to_keep.clear_range(start, 2)
+            row_ranges_to_move.set_range(start, 2)
 
-        for start in data_rows:
-            edge_handle.set_subdata(start * stride, stride * 2, bytes())
+        f = lambda values, stride: (v * stride for v in values)
+        row_count = 0
 
+        for i in range(row_ranges_to_move.get_num_subranges()):
+            start = row_ranges_to_move.get_subrange_begin(i)
+            size = row_ranges_to_move.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            seam_view[offset:offset+size_] = edge_view[start_:start_+size_]
+            row_count += size
+
+        row_count = 0
+
+        for i in range(row_ranges_to_keep.get_num_subranges()):
+            start = row_ranges_to_keep.get_subrange_begin(i)
+            size = row_ranges_to_keep.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            edge_view[offset:offset+size_] = edge_view[start_:start_+size_]
+            row_count += size
+
+        edge_array.set_num_rows(row_count)
         edge_geom.node().modify_geom(0).set_primitive(0, edge_prim)
         seam_geom.node().modify_geom(0).set_primitive(0, seam_prim)
         edge_prims[uv_set_id] = edge_prim
@@ -130,21 +151,42 @@ class UVEditBase(BaseObject):
             tmp_merged_edge.append(edge_id)
 
         row_indices = tmp_merged_edge.get_start_row_indices()
-        array = edge_prim.modify_vertices()
-        stride = array.array_format.get_stride()
-        edge_handle = array.modify_handle()
-        seam_handle = seam_prim.modify_vertices().modify_handle()
-        row_count = seam_prim.get_num_vertices()
-        seam_handle.set_num_rows(row_count + len(row_indices) * 2)
+        edge_array = edge_prim.modify_vertices()
+        stride = edge_array.array_format.stride
+        edge_view = memoryview(edge_array).cast("B")
+        seam_array = seam_prim.modify_vertices()
+        row_count = seam_array.get_num_rows()
+        seam_array.set_num_rows(row_count + len(row_indices) * 2)
+        seam_view = memoryview(seam_array).cast("B")
         rows = edge_prim.get_vertex_list()[::2]
-        data_rows = sorted((rows.index(i) * 2 for i in row_indices), reverse=True)
+        row_ranges_to_keep = SparseArray()
+        row_ranges_to_keep.set_range(0, edge_array.get_num_rows())
+        row_ranges_to_move = SparseArray()
 
-        for i, start in enumerate(data_rows):
-            seam_handle.copy_subdata_from((row_count + i * 2) * stride, stride * 2, edge_handle,
-                                          start * stride, stride * 2)
+        for i in row_indices:
+            start = rows.index(i) * 2
+            row_ranges_to_keep.clear_range(start, 2)
+            row_ranges_to_move.set_range(start, 2)
 
-        for start in data_rows:
-            edge_handle.set_subdata(start * stride, stride * 2, bytes())
+        f = lambda values, stride: (v * stride for v in values)
+
+        for i in range(row_ranges_to_move.get_num_subranges()):
+            start = row_ranges_to_move.get_subrange_begin(i)
+            size = row_ranges_to_move.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            seam_view[offset:offset+size_] = edge_view[start_:start_+size_]
+            row_count += size
+
+        row_count = 0
+
+        for i in range(row_ranges_to_keep.get_num_subranges()):
+            start = row_ranges_to_keep.get_subrange_begin(i)
+            size = row_ranges_to_keep.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            edge_view[offset:offset+size_] = edge_view[start_:start_+size_]
+            row_count += size
+
+        edge_array.set_num_rows(row_count)
 
     def remove_tex_seam_edges(self, uv_set_id, edge_ids):
 
@@ -188,21 +230,42 @@ class UVEditBase(BaseObject):
             tmp_merged_edge.append(edge_id)
 
         row_indices = tmp_merged_edge.get_start_row_indices()
-        array = seam_prim.modify_vertices()
-        stride = array.array_format.get_stride()
-        seam_handle = array.modify_handle()
-        edge_handle = edge_prim.modify_vertices().modify_handle()
-        row_count = edge_prim.get_num_vertices()
-        edge_handle.set_num_rows(row_count + len(row_indices) * 2)
+        seam_array = seam_prim.modify_vertices()
+        stride = seam_array.array_format.stride
+        seam_view = memoryview(seam_array).cast("B")
+        edge_array = edge_prim.modify_vertices()
+        row_count = edge_array.get_num_rows()
+        edge_array.set_num_rows(row_count + len(row_indices) * 2)
+        edge_view = memoryview(edge_array).cast("B")
         rows = seam_prim.get_vertex_list()[::2]
-        data_rows = sorted((rows.index(i) * 2 for i in row_indices), reverse=True)
+        row_ranges_to_keep = SparseArray()
+        row_ranges_to_keep.set_range(0, seam_array.get_num_rows())
+        row_ranges_to_move = SparseArray()
 
-        for i, start in enumerate(data_rows):
-            edge_handle.copy_subdata_from((row_count + i * 2) * stride, stride * 2, seam_handle,
-                                          start * stride, stride * 2)
+        for i in row_indices:
+            start = rows.index(i) * 2
+            row_ranges_to_keep.clear_range(start, 2)
+            row_ranges_to_move.set_range(start, 2)
 
-        for start in data_rows:
-            seam_handle.set_subdata(start * stride, stride * 2, bytes())
+        f = lambda values, stride: (v * stride for v in values)
+
+        for i in range(row_ranges_to_move.get_num_subranges()):
+            start = row_ranges_to_move.get_subrange_begin(i)
+            size = row_ranges_to_move.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            edge_view[offset:offset+size_] = seam_view[start_:start_+size_]
+            row_count += size
+
+        row_count = 0
+
+        for i in range(row_ranges_to_keep.get_num_subranges()):
+            start = row_ranges_to_keep.get_subrange_begin(i)
+            size = row_ranges_to_keep.get_subrange_end(i) - start
+            offset, start_, size_ = f((row_count, start, size), stride)
+            seam_view[offset:offset+size_] = seam_view[start_:start_+size_]
+            row_count += size
+
+        seam_array.set_num_rows(row_count)
 
     def set_selected_tex_seam_edge(self, uv_set_id, colors, edge, is_selected=True):
 
