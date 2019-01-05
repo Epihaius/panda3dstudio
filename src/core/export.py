@@ -5,7 +5,7 @@ class ExportManager(BaseObject):
 
     def __init__(self):
 
-        Mgr.add_app_updater("export", self.__export)
+        Mgr.add_app_updater("export", self.__update_export)
 
     def __merge_duplicate_vertices(self, geom_data_obj):
 
@@ -146,12 +146,21 @@ class ExportManager(BaseObject):
         node.node().modify_geom(0).set_vertex_data(new_vertex_data)
         vertex_data = node.node().modify_geom(0).modify_vertex_data()
 
+    def __prepare_export(self):
+
+        if Mgr.get("selection_top"):
+            Mgr.update_remotely("export", "export")
+        elif Mgr.get("objects"):
+            Mgr.update_remotely("export", "confirm_entire_scene")
+        else:
+            Mgr.update_remotely("export", "empty_scene")
+
     def __export_to_bam(self, filename):
 
         objs = set(obj.get_root() for obj in Mgr.get("selection_top"))
 
         if not objs:
-            return
+            objs = set(obj.get_root() for obj in Mgr.get("objects"))
 
         root = NodePath(ModelRoot(os.path.basename(filename)))
         fullpath = Filename.from_os_specific(filename)
@@ -623,6 +632,13 @@ class ExportManager(BaseObject):
             self.__export_to_bam(filename)
         elif ext == ".obj":
             self.__export_to_obj(filename)
+
+    def __update_export(self, update_type, *args):
+
+        if update_type == "prepare":
+            self.__prepare_export()
+        elif update_type == "export":
+            self.__export(*args)
 
 
 MainObjects.add_class(ExportManager)

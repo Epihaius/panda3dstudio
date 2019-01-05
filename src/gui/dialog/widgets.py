@@ -101,8 +101,7 @@ class DialogStandardButton(Button):
 
         self.set_widget_type("dialog_standard_button")
 
-        sort = parent.get_sort() + 4
-        self.get_mouse_region().set_sort(sort)
+        self.get_mouse_region().set_sort(parent.get_sort() + 1)
 
     def on_left_up(self):
 

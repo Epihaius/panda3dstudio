@@ -15,7 +15,7 @@ class FileManager(object):
             "save": self.__save_scene,
             "save_as": self.__save_scene_as,
             "save_incr": self.__save_scene_incrementally,
-            "export": self.__export_scene,
+            "export": self.__prepare_export,
             "import": self.__prepare_import,
         }
         descriptions = {
@@ -67,7 +67,8 @@ class FileManager(object):
         menu.add("exit", "Exit", self.on_exit)
         menu.set_item_hotkey("exit", None, "Alt+F4")
 
-        Mgr.add_app_updater("import", self.__import_scene)
+        Mgr.add_app_updater("export", self.__update_export)
+        Mgr.add_app_updater("import", self.__import)
         Mgr.add_app_updater("scene_label", self.__set_scene_label)
         Mgr.add_app_updater("unsaved_scene", self.__set_scene_as_unsaved)
         Mgr.add_app_updater("scene_load_error", self.__handle_load_error)
@@ -190,17 +191,33 @@ class FileManager(object):
 
         Mgr.do("set_scene_label", scene_label)
 
-    def __export_scene(self):
+    def __prepare_export(self):
 
-        on_yes = lambda filename: Mgr.update_app("export", filename)
-        open_file = GlobalData["open_file"]
-        default_filename = Filename(open_file).get_dirname() + "/" if open_file else ""
-        FileDialog(title="Export scene",
-                   ok_alias="Export",
-                   file_op="write",
-                   on_yes=on_yes,
-                   file_types=("Panda3D model files|bam", "Wavefront files|obj", "All types|*"),
-                   default_filename=default_filename)
+        Mgr.update_remotely("export", "prepare")
+
+    def __update_export(self, update_type, *args):
+
+        if update_type == "confirm_entire_scene":
+            on_yes = lambda: self.__update_export("export")
+            MessageDialog(title="No selection",
+                          message="No objects selected.\n\nExport entire scene?",
+                          choices="yesno", on_yes=on_yes)
+        elif update_type == "empty_scene":
+            MessageDialog(title="Empty scene",
+                          message="There are no objects to export.",
+                          choices="ok",
+                          icon_id="icon_exclamation")
+        elif update_type == "export":
+            # TODO: implement and show ExportDialog
+            on_yes = lambda filename: Mgr.update_remotely("export", "export", filename)
+            open_file = GlobalData["open_file"]
+            default_filename = Filename(open_file).get_dirname() + "/" if open_file else ""
+            FileDialog(title="Export scene",
+                       ok_alias="Export",
+                       file_op="write",
+                       on_yes=on_yes,
+                       file_types=("Panda3D model files|bam", "Wavefront files|obj", "All types|*"),
+                       default_filename=default_filename)
 
     def __prepare_import(self):
 
@@ -216,7 +233,7 @@ class FileManager(object):
                                "Wavefront files|obj", "All types|*"),
                    default_filename=default_filename)
 
-    def __import_scene(self, obj_data, new_obj_names):
+    def __import(self, obj_data, new_obj_names):
 
         ImportDialog(obj_data, new_obj_names)
 
