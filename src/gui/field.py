@@ -1,11 +1,28 @@
 from .base import *
 from .menu import Menu
-from tkinter import Tk
 
+try:
+    from tkinter import Tk
+    using_tk = True
+except ImportError:
+    using_tk = False
+
+load_prc_file_data("", "want-dev 0")
 
 class TextControl(object):
 
     _shown_caret = None
+    _clipboard = ""
+
+    @classmethod
+    def __set_clipboard_text(cls, text):
+
+        cls._clipboard = text
+
+    @classmethod
+    def __get_clipboard_text(cls):
+
+        return cls._clipboard
 
     @classmethod
     def __blink_caret(cls, task):
@@ -364,12 +381,15 @@ class TextControl(object):
 
     def copy_text(self):
 
-        r = Tk()
-        r.withdraw()
-        r.clipboard_clear()
-        r.clipboard_append(self.get_selected_text())
-        r.update()
-        r.destroy()
+        if using_tk:
+            r = Tk()
+            r.withdraw()
+            r.clipboard_clear()
+            r.clipboard_append(self.get_selected_text())
+            r.update()
+            r.destroy()
+        else:
+            self.__set_clipboard_text(self.get_selected_text())
 
     def cut_text(self):
 
@@ -378,17 +398,23 @@ class TextControl(object):
 
     def paste_text(self):
 
-        r = Tk()
-        r.withdraw()
-        r.update()
+        if using_tk:
 
-        try:
-            text = r.selection_get(selection="CLIPBOARD")
-        except:
+            r = Tk()
+            r.withdraw()
+            r.update()
+
+            try:
+                text = r.selection_get(selection="CLIPBOARD")
+            except:
+                r.destroy()
+                return
+
             r.destroy()
-            return
 
-        r.destroy()
+        else:
+
+            text = self.__get_clipboard_text()
 
         if text and type(text) == str:
             self.write(text)
@@ -933,10 +959,12 @@ class InputField(Widget):
 
             if val == 1:
                 txt_ctrl.select_all()
-            if val == 3:
+            elif val == 3:
                 txt_ctrl.copy_text()
-            if val == 24:
+            elif val == 24:
                 txt_ctrl.cut_text()
+            elif val == 22 and not using_tk:
+                txt_ctrl.paste_text()
             elif val in range(32, 255):
                 txt_ctrl.write(char)
 
