@@ -102,19 +102,19 @@ class TemporaryDummy(BaseObject):
 
             for coord, axis in zip(corner, "xyz"):
 
-                pos_writer.add_data3f(corner)
+                pos_writer.add_data3(corner)
                 sign = 1. if coord < 0. else -1.
                 index = "xyz".index(axis)
-                col_writer.add_data4f(0., .15, .15, 1.)
+                col_writer.add_data4(0., .15, .15, 1.)
 
                 vert_index += 1
 
                 coord2 = coord + .5 * sign
                 pos = Point3(*corner)
                 pos[index] = coord2
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
                 # create a gray center vertex
-                col_writer.add_data4f(.5, .5, .5, 1.)
+                col_writer.add_data4(.5, .5, .5, 1.)
                 lines.add_vertices(vert_index - 1, vert_index)
 
                 vert_index += 1
@@ -122,8 +122,8 @@ class TemporaryDummy(BaseObject):
                 coord2 = coord + sign
                 pos = Point3(*corner)
                 pos[index] = coord2
-                pos_writer.add_data3f(pos)
-                col_writer.add_data4f(0., .15, .15, 1.)
+                pos_writer.add_data3(pos)
+                col_writer.add_data4(0., .15, .15, 1.)
                 lines.add_vertices(vert_index - 1, vert_index)
 
                 vert_index += 1
@@ -150,21 +150,21 @@ class TemporaryDummy(BaseObject):
             pos = Point3()
             index = "xyz".index(axis)
             pos[index] = -.5
-            pos_writer.add_data3f(pos)
-            col_writer.add_data4f(.5, .5, .5, 1.)
+            pos_writer.add_data3(pos)
+            col_writer.add_data4(.5, .5, .5, 1.)
 
             vert_index += 1
 
-            pos_writer.add_data3f(0., 0., 0.)
-            col_writer.add_data4f(0., .15, .15, 1.)
+            pos_writer.add_data3(0., 0., 0.)
+            col_writer.add_data4(0., .15, .15, 1.)
             lines.add_vertices(vert_index - 1, vert_index)
 
             vert_index += 1
 
             pos = Point3()
             pos[index] = .5
-            pos_writer.add_data3f(pos)
-            col_writer.add_data4f(.5, .5, .5, 1.)
+            pos_writer.add_data3(pos)
+            col_writer.add_data4(.5, .5, .5, 1.)
             lines.add_vertices(vert_index - 1, vert_index)
 
             vert_index += 1
@@ -352,14 +352,14 @@ class Dummy(TopLevelObject):
 
             for coord, axis in zip(corner, "xyz"):
 
-                pos_writer.add_data3f(corner)
+                pos_writer.add_data3(corner)
                 sign = 1. if coord < 0. else -1.
                 index = "xyz".index(axis)
 
                 if state == "unselected":
-                    col_writer.add_data4f(0., .15, .15, 1.)
+                    col_writer.add_data4(0., .15, .15, 1.)
                 elif state == "selected":
-                    col_writer.add_data4f(.2, 1., 1., 1.)
+                    col_writer.add_data4(.2, 1., 1., 1.)
 
                 vert_index += 1
 
@@ -368,13 +368,13 @@ class Dummy(TopLevelObject):
                     coord2 = coord + .5 * sign
                     pos = Point3(*corner)
                     pos[index] = coord2
-                    pos_writer.add_data3f(pos)
+                    pos_writer.add_data3(pos)
 
                     # create a gray center vertex
                     if state == "unselected":
-                        col_writer.add_data4f(.5, .5, .5, 1.)
+                        col_writer.add_data4(.5, .5, .5, 1.)
                     elif state == "selected":
-                        col_writer.add_data4f(.2, .2, .2, 1.)
+                        col_writer.add_data4(.2, .2, .2, 1.)
 
                     lines.add_vertices(vert_index - 1, vert_index)
                     vert_index += 1
@@ -382,12 +382,12 @@ class Dummy(TopLevelObject):
                 coord2 = coord + sign
                 pos = Point3(*corner)
                 pos[index] = coord2
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
 
                 if state == "unselected":
-                    col_writer.add_data4f(0., .15, .15, 1.)
+                    col_writer.add_data4(0., .15, .15, 1.)
                 elif state == "selected":
-                    col_writer.add_data4f(.2, 1., 1., 1.)
+                    col_writer.add_data4(.2, 1., 1., 1.)
 
                 lines.add_vertices(vert_index - 1, vert_index)
                 vert_index += 1
@@ -418,35 +418,35 @@ class Dummy(TopLevelObject):
             pos = Point3()
             index = "xyz".index(axis)
             pos[index] = -.5
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
 
             if state == "unselected":
-                col_writer.add_data4f(.5, .5, .5, 1.)
+                col_writer.add_data4(.5, .5, .5, 1.)
             elif state == "selected":
-                col_writer.add_data4f(.2, .2, .2, 1.)
+                col_writer.add_data4(.2, .2, .2, 1.)
 
             vert_index += 1
 
             if state != "pickable":
 
-                pos_writer.add_data3f(0., 0., 0.)
+                pos_writer.add_data3(0., 0., 0.)
 
                 if state == "unselected":
-                    col_writer.add_data4f(0., .15, .15, 1.)
+                    col_writer.add_data4(0., .15, .15, 1.)
                 elif state == "selected":
-                    col_writer.add_data4f(.2, 1., 1., 1.)
+                    col_writer.add_data4(.2, 1., 1., 1.)
 
                 lines.add_vertices(vert_index - 1, vert_index)
                 vert_index += 1
 
             pos = Point3()
             pos[index] = .5
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
 
             if state == "unselected":
-                col_writer.add_data4f(.5, .5, .5, 1.)
+                col_writer.add_data4(.5, .5, .5, 1.)
             elif state == "selected":
-                col_writer.add_data4f(.2, .2, .2, 1.)
+                col_writer.add_data4(.2, .2, .2, 1.)
 
             lines.add_vertices(vert_index - 1, vert_index)
             vert_index += 1
@@ -544,8 +544,8 @@ class Dummy(TopLevelObject):
                 edge = Mgr.do("create_dummy_edge", self, axis, i)
                 color_id = edge.get_picking_color_id()
                 picking_color = get_color_vec(color_id, pickable_type_id)
-                col_writer.set_data4f(picking_color)
-                col_writer.set_data4f(picking_color)
+                col_writer.set_data4(picking_color)
+                col_writer.set_data4(picking_color)
                 self._edges[color_id] = edge
 
         pickable_geom = root.find("**/cross_geom_pickable")
@@ -557,8 +557,8 @@ class Dummy(TopLevelObject):
             edge = Mgr.do("create_dummy_edge", self, axis, 4)
             color_id = edge.get_picking_color_id()
             picking_color = get_color_vec(color_id, pickable_type_id)
-            col_writer.set_data4f(picking_color)
-            col_writer.set_data4f(picking_color)
+            col_writer.set_data4(picking_color)
+            col_writer.set_data4(picking_color)
             self._edges[color_id] = edge
 
     def __del__(self):

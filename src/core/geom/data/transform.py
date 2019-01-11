@@ -103,7 +103,7 @@ class GeomTransformBase(BaseObject):
             row = vert.get_row_index()
             pos = vert.get_pos()
             pos_writer.set_row(row)
-            pos_writer.set_data3f(pos)
+            pos_writer.set_data3(pos)
 
         pos_array = vertex_data_top.get_array(0)
 
@@ -156,7 +156,7 @@ class GeomTransformBase(BaseObject):
             old_pos = vert.get_initial_pos()
             new_pos = computation(Point3(*old_pos))
             pos_writer.set_row(row)
-            pos_writer.set_data3f(Point3(*new_pos))
+            pos_writer.set_data3(Point3(*new_pos))
             vert.set_pos(Point3(*new_pos))
 
         pos_array = vertex_data_top.get_array(0)
@@ -224,7 +224,7 @@ class GeomTransformBase(BaseObject):
         for vert in self._subobjs["vert"].values():
             row = vert.get_row_index()
             pos_reader.set_row(row)
-            pos = pos_reader.get_data3f()
+            pos = pos_reader.get_data3()
             # NOTE: the LVecBase3f returned by the GeomVertexReader is a const
             vert.set_pos(Point3(*pos))
 
@@ -285,11 +285,11 @@ class GeomTransformBase(BaseObject):
         for rows in verts.values():
             for row in rows:
                 pos_rewriter.set_row(row)
-                pos = pos_rewriter.get_data3f()
+                pos = pos_rewriter.get_data3()
                 pos = ref_node.get_relative_point(origin, pos)
                 pos[index] = value
                 pos = origin.get_relative_point(ref_node, pos)
-                pos_rewriter.set_data3f(pos)
+                pos_rewriter.set_data3(pos)
 
         pos_array_top = vertex_data_top.modify_array(0)
         pos_array_tmp = tmp_vertex_data.get_array(0)
@@ -399,7 +399,7 @@ class GeomTransformBase(BaseObject):
 
             for merged_vert, indices in self._verts_to_transf[subobj_lvl].items():
                 pos_reader.set_row(indices[0])
-                pos = Point3(pos_reader.get_data3f())
+                pos = Point3(pos_reader.get_data3())
                 merged_vert.set_pos(pos)
                 poly_ids.update(merged_vert.get_polygon_ids())
 
@@ -531,7 +531,7 @@ class GeomTransformBase(BaseObject):
                 vert.set_pos(pos)
                 row = vert.get_row_index()
                 pos_writer.set_row(row)
-                pos_writer.set_data3f(pos)
+                pos_writer.set_data3(pos)
 
         pos_array_top = vertex_data_top.get_array(0)
 

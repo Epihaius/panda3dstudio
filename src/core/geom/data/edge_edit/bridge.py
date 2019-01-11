@@ -487,13 +487,13 @@ class EdgeBridgeBase(BaseObject):
         for row in sorted(verts_by_row):
             vert = verts_by_row[row]
             pos = vert.get_pos()
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             picking_color = poly_picking_colors[vert.get_polygon_id()]
-            col_writer.add_data4f(picking_color)
+            col_writer.add_data4(picking_color)
             poly_index = poly_indices[vert.get_polygon_id()]
             ind_writer_poly.add_data1i(poly_index)
             normal = vert.get_normal()
-            normal_writer.add_data3f(normal * sign)
+            normal_writer.add_data3(normal * sign)
 
         vertex_data_vert1 = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data_vert1.set_num_rows(count)
@@ -520,9 +520,9 @@ class EdgeBridgeBase(BaseObject):
         for row in sorted(verts_by_row):
             vert = verts_by_row[row]
             picking_color = get_color_vec(vert.get_picking_color_id(), vert_type_id)
-            col_writer1.add_data4f(picking_color)
-            col_writer2.add_data4f(color_vert)
-            col_writer3.add_data4f(color_normal)
+            col_writer1.add_data4(picking_color)
+            col_writer2.add_data4(color_vert)
+            col_writer3.add_data4(color_normal)
             ind_writer_vert.add_data1i(row)
             indexed_verts[row] = vert
 
@@ -561,8 +561,8 @@ class EdgeBridgeBase(BaseObject):
 
         for row_index in sorted(picking_colors1):
             picking_color = picking_colors1[row_index]
-            col_writer1.add_data4f(picking_color)
-            col_writer2.add_data4f(color)
+            col_writer1.add_data4(picking_color)
+            col_writer2.add_data4(color)
             ind_writer_edge.add_data1i(indices1[row_index])
 
         from_array = vertex_data_tmp.get_array(1)
@@ -580,8 +580,8 @@ class EdgeBridgeBase(BaseObject):
 
         for row_index in sorted(picking_colors2):
             picking_color = picking_colors2[row_index]
-            col_writer1.add_data4f(picking_color)
-            col_writer2.add_data4f(color)
+            col_writer1.add_data4(picking_color)
+            col_writer2.add_data4(color)
             ind_writer_edge.add_data1i(indices2[row_index])
 
         vertex_data_edge1.set_num_rows(count * 2)

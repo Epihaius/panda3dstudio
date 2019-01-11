@@ -172,7 +172,7 @@ class UVDataSelectionBase(BaseObject):
 
                     for row_index in merged_vert.get_row_indices():
                         col_writer.set_row(row_index)
-                        col_writer.set_data4f(color_sel)
+                        col_writer.set_data4(color_sel)
 
                 for merged_vert in deselected_subobjs:
 
@@ -181,7 +181,7 @@ class UVDataSelectionBase(BaseObject):
 
                     for row_index in merged_vert.get_row_indices():
                         col_writer.set_row(row_index)
-                        col_writer.set_data4f(color_unsel)
+                        col_writer.set_data4(color_unsel)
 
             elif subobj_type == "edge":
 
@@ -200,7 +200,7 @@ class UVDataSelectionBase(BaseObject):
 
                     for row_index in merged_edge.get_row_indices():
                         col_writer.set_row(row_index)
-                        col_writer.set_data4f(color)
+                        col_writer.set_data4(color)
 
                 for merged_edge in deselected_subobjs:
 
@@ -214,7 +214,7 @@ class UVDataSelectionBase(BaseObject):
 
                     for row_index in merged_edge.get_row_indices():
                         col_writer.set_row(row_index)
-                        col_writer.set_data4f(color)
+                        col_writer.set_data4(color)
 
         if update_verts_to_transf:
             self._update_verts_to_transform(subobj_type)
@@ -234,7 +234,7 @@ class UVDataSelectionBase(BaseObject):
 
         for row_index in tmp_merged_edge.get_row_indices():
             col_writer.set_row(row_index)
-            col_writer.set_data4f(color)
+            col_writer.set_data4(color)
 
     def is_selected(self, subobj):
 
@@ -335,7 +335,7 @@ class UVDataSelectionBase(BaseObject):
 
             for row_index in tmp_merged_edge.get_row_indices():
                 col_writer.set_row(row_index)
-                col_writer.set_data4f(color)
+                col_writer.set_data4(color)
 
         if update_verts_to_transf:
             self._verts_to_transf[subobj_lvl] = {}

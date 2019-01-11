@@ -293,7 +293,7 @@ class SurfaceBase(BaseObject):
             row = vert.get_row_index()
             pos = vert.get_pos()
             pos_writer.set_row(row)
-            pos_writer.set_data3f(pos)
+            pos_writer.set_data3(pos)
 
         for vert_id in uv_change:
 
@@ -303,7 +303,7 @@ class SurfaceBase(BaseObject):
             for uv_set_id, uv in vert.get_uvs().items():
                 uv_writer = uv_writers[uv_set_id]
                 uv_writer.set_row(row)
-                uv_writer.set_data2f(*uv)
+                uv_writer.set_data2(*uv)
 
         pos_array = GeomVertexArrayData(vertex_data_top.get_array(0))
 
@@ -367,7 +367,7 @@ class SurfaceBase(BaseObject):
             for vert_id in vert_ids:
                 vert = verts[vert_id]
                 normal_writer.set_row(vert.get_row_index())
-                normal_writer.set_data3f(vert.get_normal() * sign)
+                normal_writer.set_data3(vert.get_normal() * sign)
 
         normal_array = vertex_data_top.get_array(2)
         vertex_data_poly.set_array(2, GeomVertexArrayData(normal_array))

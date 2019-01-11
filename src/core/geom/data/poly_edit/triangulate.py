@@ -126,9 +126,9 @@ class TriangulationBase(BaseObject):
 
             for row in rows:
                 pos_reader.set_row(row)
-                pos = pos_reader.get_data3f()
-                pos_writer.add_data3f(pos)
-                col_writer.add_data4f(picking_color)
+                pos = pos_reader.get_data3()
+                pos_writer.add_data3(pos)
+                col_writer.add_data4(picking_color)
 
             lines_prim.add_next_vertices(2)
 
@@ -238,7 +238,7 @@ class TriangulationBase(BaseObject):
         pos_writer.set_row(start_row)
 
         for vert_id in new_vert_ids:
-            pos_writer.set_data3f(verts[vert_id].get_pos())
+            pos_writer.set_data3(verts[vert_id].get_pos())
 
         # Update the selected polys geom and top-level geom
 

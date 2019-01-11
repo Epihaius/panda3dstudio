@@ -137,8 +137,8 @@ class RotationGizmo(TransformationGizmo):
         for i in range(segments + 1):
             x = math.cos(angle * i)
             y = -math.sin(angle * i)
-            pos_writer.add_data3f(x, y, 0.)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(x, y, 0.)
+            col_writer.add_data4(color)
 
         for i in range(segments):
             circle.add_vertices(i, i + 1)
@@ -170,7 +170,7 @@ class RotationGizmo(TransformationGizmo):
         for i in range(segments + 1):
             x = math.cos(angle * i - offset)
             y = math.sin(angle * i - offset)
-            pos_writer.add_data3f(x, y, 0.)
+            pos_writer.add_data3(x, y, 0.)
 
         for i in range(1, segments):
             disc.add_vertices(0, i, i + 1)
@@ -197,8 +197,8 @@ class RotationGizmo(TransformationGizmo):
         for i in range(segments):
             x = math.cos(angle * i) * radius
             z = math.sin(angle * i) * radius
-            pos_writer.add_data3f(x, 0., z)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(x, 0., z)
+            col_writer.add_data4(color)
 
         for i in range(segments):
             circle.add_vertices(i, (i + 1) % segments)
@@ -225,10 +225,10 @@ class RotationGizmo(TransformationGizmo):
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
-        pos_writer.add_data3f(0., 0., 0.)
-        col_writer.add_data4f(color)
-        pos_writer.add_data3f(pos)
-        col_writer.add_data4f(color)
+        pos_writer.add_data3(0., 0., 0.)
+        col_writer.add_data4(color)
+        pos_writer.add_data3(pos)
+        col_writer.add_data4(color)
 
         lines = GeomLines(Geom.UH_static)
         lines.add_vertices(0, 1)
@@ -247,10 +247,10 @@ class RotationGizmo(TransformationGizmo):
         vertex_data = GeomVertexData("angle_arrow_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
-        pos_writer.add_data3f(0., 1., 0.)
-        pos_writer.add_data3f(length, 1., 0.)
-        pos_writer.add_data3f(length * .9, 1.075, 0.)
-        pos_writer.add_data3f(length * .9, .925, 0.)
+        pos_writer.add_data3(0., 1., 0.)
+        pos_writer.add_data3(length, 1., 0.)
+        pos_writer.add_data3(length * .9, 1.075, 0.)
+        pos_writer.add_data3(length * .9, .925, 0.)
 
         lines = GeomLines(Geom.UH_static)
         lines.add_vertices(0, 1)
@@ -279,8 +279,8 @@ class RotationGizmo(TransformationGizmo):
         for i in range(segments):
             x = math.cos(angle * i)
             z = math.sin(angle * i)
-            pos_writer.add_data3f(x, 0., z)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(x, 0., z)
+            col_writer.add_data4(color)
 
         for i in range(2, segments):
             disc.add_vertices(0, i - 1, i)

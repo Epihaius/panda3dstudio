@@ -223,9 +223,9 @@ class DefaultAxes(object):
         vertex_format = GeomVertexFormat.get_v3()
         vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(0., 0., 0.)
+        pos_writer.add_data3(0., 0., 0.)
         u, v = pos
-        pos_writer.add_data3f(u, 0., v)
+        pos_writer.add_data3(u, 0., v)
         axis_line = GeomLines(Geom.UH_static)
         axis_line.add_vertices(0, 1)
         axis_line_geom = Geom(vertex_data)

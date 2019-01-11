@@ -149,9 +149,9 @@ class Grid(BaseObject):
         horizon_geom = Geom(vertex_data)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(-10., 10., 0.)
-        pos_writer.add_data3f(10., 10., 0.)
-        pos_writer.add_data3f(0., -10., 0.)
+        pos_writer.add_data3(-10., 10., 0.)
+        pos_writer.add_data3(10., 10., 0.)
+        pos_writer.add_data3(0., -10., 0.)
 
         horizon_line = GeomLines(Geom.UH_static)
         horizon_line.add_vertices(0, 1)
@@ -186,11 +186,11 @@ class Grid(BaseObject):
             color = VBase4(0., 0., 0., 1.)
             color[i] = .35
 
-            pos_writer.add_data3f(0., 0., 0.)
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(0., 0., 0.)
+            pos_writer.add_data3(pos)
 
-            col_writer.add_data4f(color)
-            col_writer.add_data4f(color)
+            col_writer.add_data4(color)
+            col_writer.add_data4(color)
 
             axis_indicator_line = GeomLines(Geom.UH_static)
             axis_indicator_line.add_vertices(i * 2, i * 2 + 1)
@@ -217,8 +217,8 @@ class Grid(BaseObject):
         vertex_data = GeomVertexData("gridline_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(pos1)
-        pos_writer.add_data3f(pos2)
+        pos_writer.add_data3(pos1)
+        pos_writer.add_data3(pos2)
 
         line = GeomLines(Geom.UH_static)
         line.add_vertices(0, 1)

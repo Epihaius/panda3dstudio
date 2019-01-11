@@ -308,8 +308,8 @@ class ImportManager(BaseObject):
             plane = Plane(*poly[:3])
             normal = plane.get_normal()
             pos = points.pop(0)
-            pos_writer.add_data3f(*pos)
-            normal_writer.add_data3f(normal)
+            pos_writer.add_data3(*pos)
+            normal_writer.add_data3(normal)
             rows_by_pos[pos] = row1 = row
             row += 1
 
@@ -321,8 +321,8 @@ class ImportManager(BaseObject):
                     if pos in rows_by_pos:
                         tris.add_vertex(rows_by_pos[pos])
                     else:
-                        pos_writer.add_data3f(*pos)
-                        normal_writer.add_data3f(normal)
+                        pos_writer.add_data3(*pos)
+                        normal_writer.add_data3(normal)
                         rows_by_pos[pos] = row
                         tris.add_vertex(row)
                         row += 1

@@ -496,14 +496,14 @@ class EdgeEditBase(BaseObject):
             vert1_id, vert2_id = edge
             vertex = verts[vert1_id]
             pos1 = vertex.get_pos()
-            pos_writer.add_data3f(pos1)
+            pos_writer.add_data3(pos1)
             vertex = verts[vert2_id]
             pos2 = vertex.get_pos()
-            pos_writer.add_data3f(pos2)
+            pos_writer.add_data3(pos2)
             color_id = edge.get_picking_color_id()
             picking_color = get_color_vec(color_id, pickable_id)
-            col_writer.add_data4f(picking_color)
-            col_writer.add_data4f(picking_color)
+            col_writer.add_data4(picking_color)
+            col_writer.add_data4(picking_color)
             rows[color_id] = i * 2
 
             if by_aiming:
@@ -516,13 +516,13 @@ class EdgeEditBase(BaseObject):
                 point1 = rel_pt(pos2)
                 point2 = point1 + normal
                 plane.intersects_line(p2, point1, point2)
-                pos_writer_poly.add_data3f(p1 - normal)
-                pos_writer_poly.add_data3f(p1 + normal)
-                pos_writer_poly.add_data3f(p2 - normal)
-                pos_writer_poly.add_data3f(p2 + normal)
+                pos_writer_poly.add_data3(p1 - normal)
+                pos_writer_poly.add_data3(p1 + normal)
+                pos_writer_poly.add_data3(p2 - normal)
+                pos_writer_poly.add_data3(p2 + normal)
 
                 for _ in range(4):
-                    col_writer_poly.add_data4f(picking_color)
+                    col_writer_poly.add_data4(picking_color)
 
                 j = i * 4
                 tmp_poly_prim.add_vertices(j, j + 1, j + 2)
@@ -575,7 +575,7 @@ class EdgeEditBase(BaseObject):
         for vert_id in vert_ids:
             vertex = verts[vert_id]
             pos = vertex.get_pos()
-            pos_writer_poly.add_data3f(pos)
+            pos_writer_poly.add_data3(pos)
 
         for tri_vert_ids in poly:
             for vert_id in tri_vert_ids:

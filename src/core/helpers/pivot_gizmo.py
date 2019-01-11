@@ -124,28 +124,28 @@ class PivotGizmo(object):
             for j in range(3):
 
                 pos = VBase3()
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
 
                 pos[i] = .2
                 pos[i - 1] = math.cos(angle * j) * shaft_radius
                 pos[i - 2] = math.sin(angle * j) * shaft_radius
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
 
                 index = j * 5
                 lines.add_vertices(index, index + 1)
                 lines.add_vertices(index + 1, index + 2)
 
                 pos[i] = .8
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
 
                 pos[i - 1] = math.cos(angle * j) * head_radius
                 pos[i - 2] = math.sin(angle * j) * head_radius
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
 
                 pos[i] = 1.
                 pos[i - 1] = 0.
                 pos[i - 2] = 0.
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
 
                 lines.add_vertices(index + 3, index + 4)
 
@@ -183,7 +183,7 @@ class PivotGizmo(object):
 
             for point in point_group:
                 x, z = point
-                pos_writer.add_data3f(x, 0., z)
+                pos_writer.add_data3(x, 0., z)
 
             label.add_next_vertices(2)
 

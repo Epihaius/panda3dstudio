@@ -186,10 +186,10 @@ class HierarchyManager(BaseObject):
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
-        pos_writer.add_data3f(0., 0., 0.)
-        col_writer.add_data4f(1., 1., 1., 1.)
-        pos_writer.add_data3f(child.get_pivot().get_pos(parent_pivot))
-        col_writer.add_data4f(.25, .25, .25, 1.)
+        pos_writer.add_data3(0., 0., 0.)
+        col_writer.add_data4(1., 1., 1., 1.)
+        pos_writer.add_data3(child.get_pivot().get_pos(parent_pivot))
+        col_writer.add_data4(.25, .25, .25, 1.)
 
         lines = GeomLines(Geom.UH_static)
         lines.add_next_vertices(2)
@@ -241,7 +241,7 @@ class HierarchyManager(BaseObject):
                     pos_writer = GeomVertexWriter(vertex_data, "vertex")
                     pos_writer.set_row(1)
                     pivot = obj.get_pivot()
-                    pos_writer.set_data3f(pivot.get_pos(parent.get_pivot()))
+                    pos_writer.set_data3(pivot.get_pos(parent.get_pivot()))
 
                     if update_children:
                         for child in obj.get_children():
@@ -249,7 +249,7 @@ class HierarchyManager(BaseObject):
                             vertex_data = child_link_viz.node().modify_geom(0).modify_vertex_data()
                             pos_writer = GeomVertexWriter(vertex_data, "vertex")
                             pos_writer.set_row(1)
-                            pos_writer.set_data3f(child.get_pivot().get_pos(pivot))
+                            pos_writer.set_data3(child.get_pivot().get_pos(pivot))
 
                 elif update_children:
 
@@ -261,7 +261,7 @@ class HierarchyManager(BaseObject):
                         vertex_data = child_link_viz.node().modify_geom(0).modify_vertex_data()
                         pos_writer = GeomVertexWriter(vertex_data, "vertex")
                         pos_writer.set_row(1)
-                        pos_writer.set_data3f(child.get_pivot().get_pos(pivot))
+                        pos_writer.set_data3(child.get_pivot().get_pos(pivot))
 
         task_id = "obj_link_viz_update"
         PendingTasks.add(task, task_id, "object")

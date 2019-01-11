@@ -126,18 +126,18 @@ class ViewGizmo(BaseObject):
 
         picking_col = get_color_vec(color_id, 1)
 
-        pos_writer.add_data3f(0., 0., 0.)
-        col_writer.add_data4f(picking_col)
-        uv_writer.add_data2f(0., 1.)
-        pos_writer.add_data3f(.4, 0., 0.)
-        col_writer.add_data4f(picking_col)
-        uv_writer.add_data2f(1., 1.)
-        pos_writer.add_data3f(.4, 0., -.4)
-        col_writer.add_data4f(picking_col)
-        uv_writer.add_data2f(1., 0.)
-        pos_writer.add_data3f(0., 0., -.4)
-        col_writer.add_data4f(picking_col)
-        uv_writer.add_data2f(0., 0.)
+        pos_writer.add_data3(0., 0., 0.)
+        col_writer.add_data4(picking_col)
+        uv_writer.add_data2(0., 1.)
+        pos_writer.add_data3(.4, 0., 0.)
+        col_writer.add_data4(picking_col)
+        uv_writer.add_data2(1., 1.)
+        pos_writer.add_data3(.4, 0., -.4)
+        col_writer.add_data4(picking_col)
+        uv_writer.add_data2(1., 0.)
+        pos_writer.add_data3(0., 0., -.4)
+        col_writer.add_data4(picking_col)
+        uv_writer.add_data2(0., 0.)
 
         tris = GeomTriangles(Geom.UH_static)
         tris.add_vertices(0, 2, 1)
@@ -248,9 +248,9 @@ class ViewGizmo(BaseObject):
 
                         coords[axis2] = k * (1. - inset)
                         pos = tuple(coords[axis] for axis in "xyz")
-                        pos_writer.add_data3f(pos)
-                        col_writer.add_data4f(picking_col)
-                        normal_writer.add_data3f(normal)
+                        pos_writer.add_data3(pos)
+                        col_writer.add_data4(picking_col)
+                        normal_writer.add_data3(normal)
 
                         a = i / 3.
                         b = (i + 1) / 3.
@@ -259,7 +259,7 @@ class ViewGizmo(BaseObject):
                         c, d = (0., .5) if sign < 0 else (.5, 1.)
                         v = c if j < 0 else d
                         uv = (u, v)
-                        uv_writer.add_data2f(uv)
+                        uv_writer.add_data2(uv)
 
                 tri_indices = (0, 1, 2) if (sign < 0 if axis1 == "y" else sign > 0) else (0, 2, 1)
                 tris.add_vertices(*tri_indices)
@@ -334,16 +334,16 @@ class ViewGizmo(BaseObject):
                             coords[axis2] = j
                             coords[axis3] = k
                             pos = tuple(coords[axis] for axis in "xyz")
-                            pos_writer.add_data3f(pos)
-                            col_writer.add_data4f(picking_col)
-                            normal_writer.add_data3f(normal)
+                            pos_writer.add_data3(pos)
+                            col_writer.add_data4(picking_col)
+                            normal_writer.add_data3(normal)
 
                             coords[axis2] = j * (1. - (0. if a == axis2 else inset))
                             coords[axis3] = k * (1. - (0. if a == axis3 else inset))
                             pos = tuple(coords[axis] for axis in "xyz")
-                            pos_writer.add_data3f(pos)
-                            col_writer.add_data4f(picking_col)
-                            normal_writer.add_data3f(normal)
+                            pos_writer.add_data3(pos)
+                            col_writer.add_data4(picking_col)
+                            normal_writer.add_data3(normal)
 
                     tris.add_vertices(0, 1, 2)
                     tris.add_vertices(1, 3, 2)
@@ -405,24 +405,24 @@ class ViewGizmo(BaseObject):
 
                         a2, a3 = "xyz".replace(a1, "")
 
-                        pos_writer.add_data3f(corner)
-                        col_writer.add_data4f(picking_col)
-                        normal_writer.add_data3f(normal)
+                        pos_writer.add_data3(corner)
+                        col_writer.add_data4(picking_col)
+                        normal_writer.add_data3(normal)
 
                         pos = corner + vecs[a2]
-                        pos_writer.add_data3f(pos)
-                        col_writer.add_data4f(picking_col)
-                        normal_writer.add_data3f(normal)
+                        pos_writer.add_data3(pos)
+                        col_writer.add_data4(picking_col)
+                        normal_writer.add_data3(normal)
 
                         pos += vecs[a3]
-                        pos_writer.add_data3f(pos)
-                        col_writer.add_data4f(picking_col)
-                        normal_writer.add_data3f(normal)
+                        pos_writer.add_data3(pos)
+                        col_writer.add_data4(picking_col)
+                        normal_writer.add_data3(normal)
 
                         pos = corner + vecs[a3]
-                        pos_writer.add_data3f(pos)
-                        col_writer.add_data4f(picking_col)
-                        normal_writer.add_data3f(normal)
+                        pos_writer.add_data3(pos)
+                        col_writer.add_data4(picking_col)
+                        normal_writer.add_data3(normal)
 
                     tris.add_vertices(0, 1, 2)
                     tris.add_vertices(0, 2, 3)
@@ -473,8 +473,8 @@ class ViewGizmo(BaseObject):
                     for k in (-1, 1):
                         coords[axis2] = k * .25
                         pos = tuple(coords[axis] for axis in "xyz")
-                        pos_writer.add_data3f(pos)
-                        col_writer.add_data4f(picking_col)
+                        pos_writer.add_data3(pos)
+                        col_writer.add_data4(picking_col)
 
                 tris.add_vertices(0, 1, 2)
                 tris.add_vertices(1, 3, 2)
@@ -483,8 +483,8 @@ class ViewGizmo(BaseObject):
                 coords[axis2] = 0.
                 coords[axis3] = 0.
                 pos = tuple(coords[axis] for axis in "xyz")
-                pos_writer.add_data3f(pos)
-                col_writer.add_data4f(picking_col)
+                pos_writer.add_data3(pos)
+                col_writer.add_data4(picking_col)
 
                 tris.add_vertices(0, 1, 4)
                 tris.add_vertices(1, 2, 4)
@@ -1064,13 +1064,13 @@ class WorldAxesTripod(BaseObject):
 
         for i in range(3):
             v_pos = VBase3()
-            pos_writer.add_data3f(v_pos)
+            pos_writer.add_data3(v_pos)
             v_pos[i] = .1
-            pos_writer.add_data3f(v_pos)
+            pos_writer.add_data3(v_pos)
             color = VBase4(0., 0., 0., 1.)
             color[i] = 1.
-            col_writer.add_data4f(color)
-            col_writer.add_data4f(color)
+            col_writer.add_data4(color)
+            col_writer.add_data4(color)
             tripod.add_vertices(i * 2, i * 2 + 1)
 
         tripod_geom = Geom(vertex_data)
@@ -1096,7 +1096,7 @@ class WorldAxesTripod(BaseObject):
         for i in range(segments):
             x = math.cos(angle * i) * radius
             z = math.sin(angle * i) * radius
-            pos_writer.add_data3f(x, 0., z)
+            pos_writer.add_data3(x, 0., z)
 
         for i in range(segments):
             circle.add_vertices(i, (i + 1) % segments)
@@ -1122,7 +1122,7 @@ class WorldAxesTripod(BaseObject):
             for point in point_group:
 
                 x, z = point
-                pos_writer.add_data3f(x, 0., z)
+                pos_writer.add_data3(x, 0., z)
 
             label.add_next_vertices(2)
 

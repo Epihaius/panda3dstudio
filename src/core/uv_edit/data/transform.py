@@ -36,7 +36,7 @@ class UVDataTransformBase(BaseObject):
             row = vert.get_row_index()
             pos = vert.get_pos()
             pos_writer.set_row(row)
-            pos_writer.set_data3f(pos)
+            pos_writer.set_data3(pos)
             u, v = pos[0], pos[2]
             geom_verts[vert_id].set_uvs((u, v), uv_set_id)
 
@@ -167,9 +167,9 @@ class UVDataTransformBase(BaseObject):
         for rows in verts.values():
             for row in rows:
                 pos_rewriter.set_row(row)
-                pos = Point3(pos_rewriter.get_data3f())
+                pos = Point3(pos_rewriter.get_data3())
                 pos[index] = value
-                pos_rewriter.set_data3f(pos)
+                pos_rewriter.set_data3(pos)
 
         pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
         vertex_data.set_array(0, pos_array)
@@ -270,7 +270,7 @@ class UVDataTransformBase(BaseObject):
             for merged_vert, indices in self._verts_to_transf[subobj_lvl].items():
 
                 pos_reader.set_row(indices[0])
-                pos = Point3(pos_reader.get_data3f())
+                pos = Point3(pos_reader.get_data3())
                 merged_vert.set_pos(pos)
                 u, v = pos[0], pos[2]
                 vert_ids.extend(merged_vert)

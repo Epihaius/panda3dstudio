@@ -375,7 +375,7 @@ class ExportManager(BaseObject):
 
                                     for index in indices:
                                         pos_reader.set_row(index)
-                                        points.append(pos_reader.get_data3f())
+                                        points.append(pos_reader.get_data3())
 
                                     coll_poly = CollisionPolygon(*points)
                                     collision_node.add_solid(coll_poly)
@@ -575,9 +575,9 @@ class ExportManager(BaseObject):
                     row_count = vertex_data.get_num_rows()
 
                     for i in range(row_count):
-                        x, y, z = pos_reader.get_data3f()
-                        u, v = uv_reader.get_data2f()
-                        xn, yn, zn = normal_reader.get_data3f()
+                        x, y, z = pos_reader.get_data3()
+                        u, v = uv_reader.get_data2()
+                        xn, yn, zn = normal_reader.get_data3()
                         obj_file.write("v {:.6f} {:.6f} {:.6f}\n".format(x, y, z))
                         obj_file.write("vt {:.6f} {:.6f}\n".format(u, v))
                         obj_file.write("vn {:.6f} {:.6f} {:.6f}\n".format(xn, yn, zn))

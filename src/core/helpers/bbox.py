@@ -99,23 +99,23 @@ class BoundingBox(BaseObject):
 
             for coord, axis in zip(corner, "xyz"):
 
-                pos_writer.add_data3f(corner)
+                pos_writer.add_data3(corner)
                 sign = 1. if coord < 0. else -1.
                 index = "xyz".index(axis)
                 coord2 = coord + .26 * sign
                 pos = Point3(*corner)
                 pos[index] = coord2
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
                 lines.add_next_vertices(2)
 
                 coord2 = coord + .78 * sign
                 pos = Point3(*corner)
                 pos[index] = coord2
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
                 coord2 = coord + 1.04 * sign
                 pos = Point3(*corner)
                 pos[index] = coord2
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
                 lines.add_next_vertices(2)
 
         geom = Geom(vertex_data)
@@ -176,7 +176,7 @@ class BoundingBox(BaseObject):
                 picking_color = get_color_vec(color_id, pickable_type_id)
 
                 for j in range(4):
-                    col_writer.set_data4f(picking_color)
+                    col_writer.set_data4(picking_color)
 
                 self._edges[color_id] = edge
 

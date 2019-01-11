@@ -81,13 +81,13 @@ class TranslationComponent(object):
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         u, v = pos1
-        pos_writer.add_data3f(u, 0., v)
+        pos_writer.add_data3(u, 0., v)
         u, v = pos2
-        pos_writer.add_data3f(u, 0., v)
+        pos_writer.add_data3(u, 0., v)
 
         col_writer = GeomVertexWriter(vertex_data, "color")
-        col_writer.add_data4f(color)
-        col_writer.add_data4f(color)
+        col_writer.add_data4(color)
+        col_writer.add_data4(color)
 
         line = GeomLines(Geom.UH_static)
         line.add_vertices(0, 1)
@@ -108,8 +108,8 @@ class TranslationComponent(object):
 
         for pos in (pos1, pos2, pos3):
             u, v = pos
-            pos_writer.add_data3f(u, -.05, v)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(u, -.05, v)
+            col_writer.add_data4(color)
 
         arrow = GeomTriangles(Geom.UH_static)
         arrow.add_vertices(0, 1, 2)
@@ -134,11 +134,11 @@ class TranslationComponent(object):
             col_writer = GeomVertexWriter(vertex_data, "color")
 
             u, v = pos1
-            pos_writer.add_data3f(u, 0., v)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(u, 0., v)
+            col_writer.add_data4(color)
             u, v = pos2
-            pos_writer.add_data3f(u, 0., v)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(u, 0., v)
+            col_writer.add_data4(color)
 
             line = GeomLines(Geom.UH_static)
             line.add_vertices(0, 1)
@@ -161,7 +161,7 @@ class TranslationComponent(object):
 
         for pos in (Point2(), pos1, pos2, pos3):
             u, v = pos
-            pos_writer.add_data3f(u, 0., v)
+            pos_writer.add_data3(u, 0., v)
 
         tri = GeomTriangles(Geom.UH_static)
         tri.add_vertices(0, 1, 2)

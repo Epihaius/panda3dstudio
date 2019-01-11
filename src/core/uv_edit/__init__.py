@@ -554,7 +554,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             vertex_data = line_node.modify_geom(i).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(0)
-            pos_writer.set_data3f(point)
+            pos_writer.set_data3(point)
 
         line.reparent_to(self.uv_space)
         self._draw_start_pos = point
@@ -584,7 +584,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             vertex_data = line_node.modify_geom(i).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(1)
-            pos_writer.set_data3f(point)
+            pos_writer.set_data3(point)
 
         return task.cont
 

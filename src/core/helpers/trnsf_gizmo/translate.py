@@ -81,12 +81,12 @@ class TranslationGizmo(TransformationGizmo):
         vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(pos1)
-        pos_writer.add_data3f(pos2)
+        pos_writer.add_data3(pos1)
+        pos_writer.add_data3(pos2)
 
         col_writer = GeomVertexWriter(vertex_data, "color")
-        col_writer.add_data4f(color)
-        col_writer.add_data4f(color)
+        col_writer.add_data4(color)
+        col_writer.add_data4(color)
 
         lines = GeomLines(Geom.UH_static)
         lines.add_vertices(0, 1)
@@ -107,8 +107,8 @@ class TranslationGizmo(TransformationGizmo):
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         col_writer = GeomVertexWriter(vertex_data, "color")
 
-        pos_writer.add_data3f(pos)
-        col_writer.add_data4f(color)
+        pos_writer.add_data3(pos)
+        col_writer.add_data4(color)
 
         angle = 360. / segments
         quat = Quat()
@@ -119,8 +119,8 @@ class TranslationGizmo(TransformationGizmo):
             points.append(pos + quat.xform(cone_vec))
 
         for point in points:
-            pos_writer.add_data3f(point)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(point)
+            col_writer.add_data4(color)
 
         cone = GeomTriangles(Geom.UH_static)
 
@@ -144,8 +144,8 @@ class TranslationGizmo(TransformationGizmo):
         col_writer = GeomVertexWriter(vertex_data, "color")
 
         for point in points:
-            pos_writer.add_data3f(point)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(point)
+            col_writer.add_data4(color)
 
         cap = GeomTriangles(Geom.UH_static)
 
@@ -172,10 +172,10 @@ class TranslationGizmo(TransformationGizmo):
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             col_writer = GeomVertexWriter(vertex_data, "color")
 
-            pos_writer.add_data3f(pos1)
-            col_writer.add_data4f(color)
-            pos_writer.add_data3f(pos2)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(pos1)
+            col_writer.add_data4(color)
+            pos_writer.add_data3(pos2)
+            col_writer.add_data4(color)
 
             lines = GeomLines(Geom.UH_static)
             lines.add_vertices(0, 1)
@@ -196,7 +196,7 @@ class TranslationGizmo(TransformationGizmo):
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
         for pos in (Point3(), pos1, pos2, pos3):
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
 
         tris = GeomTriangles(Geom.UH_static)
         tris.add_vertices(0, 1, 2)
@@ -224,8 +224,8 @@ class TranslationGizmo(TransformationGizmo):
 
         for x, z in ((-coord, -coord), (-coord, coord), (coord, coord), (coord, -coord)):
             pos = VBase3(x, 0., z)
-            pos_writer.add_data3f(pos)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(pos)
+            col_writer.add_data4(color)
 
         square = GeomLines(Geom.UH_static)
 

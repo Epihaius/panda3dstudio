@@ -980,8 +980,8 @@ class GeomHistoryBase(BaseObject):
             for vert in poly_verts:
                 vert.offset_row_index(row_index_offset)
                 pos = vert.get_initial_pos()
-                pos_writer.add_data3f(pos)
-                col_writer.add_data4f(picking_color)
+                pos_writer.add_data3(pos)
+                col_writer.add_data4(picking_color)
 
             row_index_offset += len(poly_verts)
             poly_count += 1
@@ -1006,7 +1006,7 @@ class GeomHistoryBase(BaseObject):
             for vert in poly_verts:
                 picking_color = get_color_vec(vert.get_picking_color_id(), pickable_type_id)
                 col_writer.set_row(vert.get_row_index())
-                col_writer.set_data4f(picking_color)
+                col_writer.set_data4(picking_color)
 
             poly_count += 1
 
@@ -1057,7 +1057,7 @@ class GeomHistoryBase(BaseObject):
 
         for row_index in sorted(picking_colors1):
             picking_color = picking_colors1[row_index]
-            col_writer.add_data4f(picking_color)
+            col_writer.add_data4(picking_color)
 
         yield
 
@@ -1075,7 +1075,7 @@ class GeomHistoryBase(BaseObject):
 
         for row_index in sorted(picking_colors2):
             picking_color = picking_colors2[row_index]
-            col_writer.add_data4f(picking_color)
+            col_writer.add_data4(picking_color)
 
         yield
 

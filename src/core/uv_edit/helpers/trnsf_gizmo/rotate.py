@@ -52,14 +52,14 @@ class RotationComponent(object):
 
             x = math.cos(offset)
             z = math.sin(offset)
-            pos_writer.add_data3f(x, 0., z)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(x, 0., z)
+            col_writer.add_data4(color)
 
             for i in range(1, segments + 1):
                 x = math.cos(offset + angle * i)
                 z = math.sin(offset + angle * i)
-                pos_writer.add_data3f(x, 0., z)
-                col_writer.add_data4f(color)
+                pos_writer.add_data3(x, 0., z)
+                col_writer.add_data4(color)
                 k = j * (segments + 1) + i
                 circle.add_vertices(k - 1, k)
 

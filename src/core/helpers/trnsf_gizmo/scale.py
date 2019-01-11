@@ -80,12 +80,12 @@ class ScalingGizmo(TransformationGizmo):
         vertex_data = GeomVertexData("axis_line_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(0., 0., 0.)
-        pos_writer.add_data3f(pos)
+        pos_writer.add_data3(0., 0., 0.)
+        pos_writer.add_data3(pos)
 
         col_writer = GeomVertexWriter(vertex_data, "color")
-        col_writer.add_data4f(color)
-        col_writer.add_data4f(color)
+        col_writer.add_data4(color)
+        col_writer.add_data4(color)
 
         lines = GeomLines(Geom.UH_static)
         lines.add_vertices(0, 1)
@@ -96,8 +96,8 @@ class ScalingGizmo(TransformationGizmo):
         lines_np = parent.attach_new_node(lines_node)
 
         vertex_data = GeomVertexData("axis_point_data", vertex_format, Geom.UH_static)
-        GeomVertexWriter(vertex_data, "vertex").add_data3f(pos)
-        GeomVertexWriter(vertex_data, "color").add_data4f(color)
+        GeomVertexWriter(vertex_data, "vertex").add_data3(pos)
+        GeomVertexWriter(vertex_data, "color").add_data4(color)
 
         points = GeomPoints(Geom.UH_static)
         points.add_vertex(0)
@@ -123,10 +123,10 @@ class ScalingGizmo(TransformationGizmo):
 
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
-            pos_writer.add_data3f(pos1)
-            pos_writer.add_data3f(pos2)
-            pos_writer.add_data3f(pos5)
-            pos_writer.add_data3f(pos6)
+            pos_writer.add_data3(pos1)
+            pos_writer.add_data3(pos2)
+            pos_writer.add_data3(pos5)
+            pos_writer.add_data3(pos6)
 
             lines = GeomLines(Geom.UH_static)
             lines.add_vertices(0, 2)
@@ -151,8 +151,8 @@ class ScalingGizmo(TransformationGizmo):
         col_writer = GeomVertexWriter(vertex_data, "color")
 
         for pos in (pos2, pos1, pos3, pos4):
-            pos_writer.add_data3f(pos)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(pos)
+            col_writer.add_data4(color)
 
         tris = GeomTriangles(Geom.UH_static)
         tris.add_vertices(0, 1, 2)
@@ -177,8 +177,8 @@ class ScalingGizmo(TransformationGizmo):
         col_writer = GeomVertexWriter(vertex_data, "color")
 
         for pos in (pos1, pos2, pos3):
-            pos_writer.add_data3f(pos)
-            col_writer.add_data4f(color)
+            pos_writer.add_data3(pos)
+            col_writer.add_data4(color)
 
         tris = GeomTriangles(Geom.UH_static)
         tris.add_vertices(0, 1, 2)
@@ -205,7 +205,7 @@ class ScalingGizmo(TransformationGizmo):
 
         for y, z in ((-coord, -coord), (-coord, coord), (coord, coord), (coord, -coord)):
             pos = VBase3(0., y + .06, z)
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
 
         for i in range(4):
             lines.add_vertices(i, (i + 1) % 4)
@@ -214,13 +214,13 @@ class ScalingGizmo(TransformationGizmo):
 
         for y, z in ((-coord, -coord), (-coord, coord), (coord, coord), (coord, -coord)):
             pos = VBase3(0., y - .08, z)
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
 
         for i in range(4):
             lines.add_vertices(i + 4, (i + 1) % 4 + 4)
 
-        pos_writer.add_data3f(0., 0., -.05)
-        pos_writer.add_data3f(0., 0., .05)
+        pos_writer.add_data3(0., 0., -.05)
+        pos_writer.add_data3(0., 0., .05)
 
         lines.add_vertices(8, 9)
 

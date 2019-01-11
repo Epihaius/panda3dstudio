@@ -304,7 +304,7 @@ class SmoothingBase(BaseObject):
 
                 for vert in verts_to_smooth:
                     normal_writer.set_row(vert.get_row_index())
-                    normal_writer.set_data3f(normal * sign)
+                    normal_writer.set_data3(normal * sign)
                     vert.set_normal(normal)
 
                 # Make sure that all normals in the same merged vertex become
@@ -351,7 +351,7 @@ class SmoothingBase(BaseObject):
                 for vert in poly.get_vertices():
                     if not vert.has_locked_normal():
                         normal_writer.set_row(vert.get_row_index())
-                        normal_writer.set_data3f(normal * sign)
+                        normal_writer.set_data3(normal * sign)
                         vert.set_normal(Vec3(normal))
 
             normal_array = vertex_data_poly.get_array(2)

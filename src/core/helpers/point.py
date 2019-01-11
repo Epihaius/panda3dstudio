@@ -51,9 +51,9 @@ class TemporaryPointHelper(object):
         geom = tmp_geom.node().modify_geom(0)
         vertex_data = geom.modify_vertex_data()
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(0., 0., 0.)
+        pos_writer.add_data3(0., 0., 0.)
         col_writer = GeomVertexWriter(vertex_data, "color")
-        col_writer.add_data4f(color)
+        col_writer.add_data4(color)
         size_writer = GeomVertexWriter(vertex_data, "size")
         size_writer.add_data1f(size)
         prim = geom.modify_primitive(0)
@@ -462,10 +462,10 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             vertex_data.set_num_rows(count + 1)
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(count)
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             col_writer = GeomVertexWriter(vertex_data, "color")
             col_writer.set_row(count)
-            col_writer.add_data4f(colors[geom_type])
+            col_writer.add_data4(colors[geom_type])
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
             size_writer.add_data1f(sizes[geom_type])
@@ -573,7 +573,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             for point_helper in helpers_to_transf:
                 row_index = point_helpers.index(point_helper)
                 pos_writer.set_row(row_index)
-                pos_writer.set_data3f(point_helper.get_origin().get_pos(self.world))
+                pos_writer.set_data3(point_helper.get_origin().get_pos(self.world))
 
             pos_array = geom_node.get_geom(0).get_vertex_data().get_array(0)
             geom_node = geoms["viz"].node()
@@ -614,7 +614,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             vertex_data = geom_node.modify_geom(0).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(row_index)
-            pos_writer.set_data3f(pos)
+            pos_writer.set_data3(pos)
 
     def __add_point_helper(self, point_helper):
 
@@ -637,10 +637,10 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             vertex_data = geom_node.modify_geom(0).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(count)
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             col_writer = GeomVertexWriter(vertex_data, "color")
             col_writer.set_row(count)
-            col_writer.add_data4f(colors[geom_type])
+            col_writer.add_data4(colors[geom_type])
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
             size_writer.add_data1f(sizes[geom_type])
@@ -702,7 +702,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         vertex_data = geom_node.modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(row_index)
-        col_writer.add_data4f(color)
+        col_writer.add_data4(color)
 
     def __set_point_helper_size(self, point_helper, size):
 
@@ -738,7 +738,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         vertex_data = geom_node.modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(row_index)
-        col_writer.add_data4f(color)
+        col_writer.add_data4(color)
 
     def __set_point_helper_on_top(self, point_helper):
 
@@ -796,10 +796,10 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             vertex_data = geom_node.modify_geom(0).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(count)
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             col_writer = GeomVertexWriter(vertex_data, "color")
             col_writer.set_row(count)
-            col_writer.add_data4f(colors[geom_type])
+            col_writer.add_data4(colors[geom_type])
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
             size_writer.add_data1f(sizes[geom_type])

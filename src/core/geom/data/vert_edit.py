@@ -144,10 +144,10 @@ class VertexEditBase(BaseObject):
 
             vertex = verts[vert_id]
             pos = vertex.get_pos()
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             color_id = vertex.get_picking_color_id()
             picking_color = get_color_vec(color_id, pickable_id)
-            col_writer.add_data4f(picking_color)
+            col_writer.add_data4(picking_color)
             rows[color_id] = i
 
             if by_aiming:
@@ -167,15 +167,15 @@ class VertexEditBase(BaseObject):
                 point1 = rel_pt(edge2_center)
                 point2 = point1 + normal if lens_is_ortho else cam_pos
                 plane.intersects_line(p3, point1, point2)
-                pos_writer_poly.add_data3f(p1 - normal)
-                pos_writer_poly.add_data3f(p1 + normal)
-                pos_writer_poly.add_data3f(p2 - normal)
-                pos_writer_poly.add_data3f(p2 + normal)
-                pos_writer_poly.add_data3f(p3 - normal)
-                pos_writer_poly.add_data3f(p3 + normal)
+                pos_writer_poly.add_data3(p1 - normal)
+                pos_writer_poly.add_data3(p1 + normal)
+                pos_writer_poly.add_data3(p2 - normal)
+                pos_writer_poly.add_data3(p2 + normal)
+                pos_writer_poly.add_data3(p3 - normal)
+                pos_writer_poly.add_data3(p3 + normal)
 
                 for _ in range(6):
-                    col_writer_poly.add_data4f(picking_color)
+                    col_writer_poly.add_data4(picking_color)
 
                 j = i * 6
                 tmp_poly_prim.add_vertices(j, j + 1, j + 2)
@@ -230,7 +230,7 @@ class VertexEditBase(BaseObject):
         for vert_id in vert_ids:
             vertex = verts[vert_id]
             pos = vertex.get_pos()
-            pos_writer_poly.add_data3f(pos)
+            pos_writer_poly.add_data3(pos)
 
         for tri_vert_ids in poly:
             for vert_id in tri_vert_ids:

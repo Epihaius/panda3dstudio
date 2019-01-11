@@ -559,8 +559,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                         vert.offset_row_index(row_index_offset)
 
                         if not restore:
-                            pos_writer.add_data3f(vert.get_pos())
-                            normal_writer.add_data3f(vert.get_normal())
+                            pos_writer.add_data3(vert.get_pos())
+                            normal_writer.add_data3(vert.get_normal())
 
                         processed_verts.append(vert)
 
@@ -782,7 +782,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         for vert_id, pos in coords.items():
             row = verts[vert_id].get_row_index()
             pos_writer.set_row(row)
-            pos_writer.set_data3f(pos)
+            pos_writer.set_data3(pos)
 
     def bake_texture(self, texture):
 
@@ -814,7 +814,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         for vert in self._subobjs["vert"].values():
             row = vert.get_row_index()
             col_writer.set_row(row)
-            col_writer.set_data4f(vert.get_color())
+            col_writer.set_data4(vert.get_color())
 
         array = vertex_data_copy.get_array(1)
         self._vertex_data["poly"].set_array(1, GeomVertexArrayData(array))
@@ -850,14 +850,14 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             verts = poly.get_vertices()
 
             for i in range(len(verts)):
-                col_writer_poly.add_data4f(picking_color)
+                col_writer_poly.add_data4(picking_color)
                 ind_writer_poly.add_data1i(poly_index)
 
             for vert in verts:
                 row = vert.get_row_index()
                 picking_color = get_color_vec(vert.get_picking_color_id(), pickable_id_vert)
                 col_writer_vert.set_row(row)
-                col_writer_vert.set_data4f(picking_color)
+                col_writer_vert.set_data4(picking_color)
                 ind_writer_vert.set_row(row)
                 ind_writer_vert.set_data1i(vert_index)
                 indexed_verts[vert_index] = vert
@@ -890,7 +890,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for row_index in sorted(picking_colors):
             picking_color = picking_colors[row_index]
-            col_writer_edge.add_data4f(picking_color)
+            col_writer_edge.add_data4(picking_color)
             index = indices[row_index]
             ind_writer_edge.add_data1i(index)
 
@@ -968,8 +968,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 tan_writer.set_row(row)
                 bitan_writer.set_row(row)
                 tangent, bitangent = vert.get_tangent_space()
-                tan_writer.set_data3f(tangent)
-                bitan_writer.set_data3f(bitangent)
+                tan_writer.set_data3(tangent)
+                bitan_writer.set_data3(bitangent)
 
         array = vertex_data.get_array(3)
         vertex_data_poly = self._vertex_data["poly"]
@@ -1243,10 +1243,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geom.set_vertex_data(vertex_data)
         col_writer = GeomVertexWriter(geom.modify_vertex_data(), "color")
         col_writer.set_row(row)
-        col_writer.set_data4f(colors["selected"])
+        col_writer.set_data4(colors["selected"])
 
         if subobj_lvl == "edge":
-            col_writer.set_data4f(colors["selected"])
+            col_writer.set_data4(colors["selected"])
 
         return True
 
@@ -1432,7 +1432,7 @@ class GeomDataManager(ObjectManager):
         vertex_data.set_num_rows(2)
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(1)
-        col_writer.set_data4f(1., 1., 1., 0.)
+        col_writer.set_data4(1., 1., 1., 0.)
 
         lines = GeomLines(Geom.UH_dynamic)
         lines.add_next_vertices(2)
@@ -1444,8 +1444,8 @@ class GeomDataManager(ObjectManager):
         vertex_data = lines_geom.modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(0)
-        col_writer.set_data4f(0., 0., 0., 1.)
-        col_writer.set_data4f(0., 0., 0., 0.)
+        col_writer.set_data4(0., 0., 0., 1.)
+        col_writer.set_data4(0., 0., 0., 0.)
         node.add_geom(lines_geom, state2)
 
         aux_picking_viz = NodePath(node)
@@ -1522,7 +1522,7 @@ class GeomDataManager(ObjectManager):
             vertex_data = line_node.modify_geom(i).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(0)
-            pos_writer.set_data3f(point)
+            pos_writer.set_data3(point)
 
         line.reparent_to(self.world)
         line_type = "rubber_band" if line is self._rubber_band else "aux_picking_viz"
@@ -1563,7 +1563,7 @@ class GeomDataManager(ObjectManager):
             vertex_data = line_node.modify_geom(i).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(1)
-            pos_writer.set_data3f(point)
+            pos_writer.set_data3(point)
 
         if line is self._rubber_band:
 
@@ -1577,7 +1577,7 @@ class GeomDataManager(ObjectManager):
             vertex_data = line_node.modify_geom(0).modify_vertex_data()
             uv_writer = GeomVertexWriter(vertex_data, "texcoord")
             uv_writer.set_row(1)
-            uv_writer.set_data2f(length, 1.)
+            uv_writer.set_data2(length, 1.)
 
     def __draw_aux_picking_viz(self, task):
 

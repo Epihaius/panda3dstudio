@@ -136,8 +136,8 @@ class Grid(BaseObject):
         vertex_data = GeomVertexData("gridline_data", vertex_format, Geom.UH_static)
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(-100., 0., 0.)
-        pos_writer.add_data3f(100., 0., 0.)
+        pos_writer.add_data3(-100., 0., 0.)
+        pos_writer.add_data3(100., 0., 0.)
 
         line = GeomLines(Geom.UH_static)
         line.add_vertices(0, 1)
@@ -206,14 +206,14 @@ class Grid(BaseObject):
 
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         uv_writer = GeomVertexWriter(vertex_data, "texcoord")
-        pos_writer.add_data3f(-.5, 0., -.5)
-        uv_writer.add_data2f(0., 0.)
-        pos_writer.add_data3f(.5, 0., -.5)
-        uv_writer.add_data2f(1., 0.)
-        pos_writer.add_data3f(.5, 0., .5)
-        uv_writer.add_data2f(1., 1.)
-        pos_writer.add_data3f(-.5, 0., .5)
-        uv_writer.add_data2f(0., 1.)
+        pos_writer.add_data3(-.5, 0., -.5)
+        uv_writer.add_data2(0., 0.)
+        pos_writer.add_data3(.5, 0., -.5)
+        uv_writer.add_data2(1., 0.)
+        pos_writer.add_data3(.5, 0., .5)
+        uv_writer.add_data2(1., 1.)
+        pos_writer.add_data3(-.5, 0., .5)
+        uv_writer.add_data2(0., 1.)
 
         quad = GeomTriangles(Geom.UH_static)
         quad.add_vertices(0, 1, 2)

@@ -34,7 +34,7 @@ class UVEditBase(BaseObject):
                 for uv_set_id, uv in uvs.items():
                     uv_writer = uv_writers[uv_set_id]
                     uv_writer.set_row(row)
-                    uv_writer.set_data2f(uv)
+                    uv_writer.set_data2(uv)
 
         arrays = []
 
@@ -305,7 +305,7 @@ class UVEditBase(BaseObject):
 
         for row_index in tmp_merged_edge.get_row_indices():
             col_writer.set_row(row_index)
-            col_writer.set_data4f(color)
+            col_writer.set_data4(color)
 
     def update_tex_seam_selection(self, edge_ids, color):
 
@@ -320,7 +320,7 @@ class UVEditBase(BaseObject):
 
         for row_index in tmp_merged_edge.get_row_indices():
             col_writer.set_row(row_index)
-            col_writer.set_data4f(color)
+            col_writer.set_data4(color)
 
     def set_tex_seams(self, uv_set_id):
 
@@ -442,7 +442,7 @@ class UVEditBase(BaseObject):
                 for uv_set_id in uv_set_ids:
                     uv_reader = uv_readers[uv_set_id]
                     uv_reader.set_row(row_index)
-                    u, v = uv_reader.get_data2f()
+                    u, v = uv_reader.get_data2()
                     vert.set_uvs((u, v), uv_set_id)
 
         else:
@@ -472,10 +472,10 @@ class UVEditBase(BaseObject):
                         uv_reader = uv_readers[uv_set_id]
                         uv_writer = uv_writers[uv_set_id]
                         uv_reader.set_row(row_index)
-                        u, v = uv_reader.get_data2f()
+                        u, v = uv_reader.get_data2()
                         vert.set_uvs((u, v), uv_set_id)
                         uv_writer.set_row(row_index)
-                        uv_writer.set_data2f(u, v)
+                        uv_writer.set_data2(u, v)
 
             arrays = []
 
@@ -520,7 +520,7 @@ class UVEditBase(BaseObject):
             row_index = vert.get_row_index()
             u, v = vert.get_uvs(uv_set_id)
             uv_writer.set_row(row_index)
-            uv_writer.set_data2f(u, v)
+            uv_writer.set_data2(u, v)
 
         array = vertex_data_top.get_array(4 + uv_set_id)
         vertex_data_poly.set_array(4 + uv_set_id, GeomVertexArrayData(array))
@@ -737,7 +737,7 @@ class UVEditBase(BaseObject):
                 for uv_set_id, uv in uvs.items():
                     uv_writer = uv_writers[uv_set_id]
                     uv_writer.set_row(row)
-                    uv_writer.set_data2f(uv)
+                    uv_writer.set_data2(uv)
                     uv_sets_to_restore.add(uv_set_id)
 
                 vert.set_uvs(uvs)

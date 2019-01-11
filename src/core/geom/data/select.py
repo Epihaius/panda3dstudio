@@ -159,7 +159,7 @@ class GeomSelectionBase(BaseObject):
 
                 for row_index in combined_subobj.get_row_indices():
                     col_writer.set_row(row_index)
-                    col_writer.set_data4f(color_sel)
+                    col_writer.set_data4(color_sel)
 
             for combined_subobj in deselected_subobjs:
 
@@ -168,7 +168,7 @@ class GeomSelectionBase(BaseObject):
 
                 for row_index in combined_subobj.get_row_indices():
                     col_writer.set_row(row_index)
-                    col_writer.set_data4f(color_unsel)
+                    col_writer.set_data4(color_unsel)
 
             if subobj_type == "normal":
 
@@ -275,7 +275,7 @@ class GeomSelectionBase(BaseObject):
                 row = vert.get_row_index()
                 col = color_locked if vert.has_locked_normal() else color
                 col_writer.set_row(row)
-                col_writer.set_data4f(col)
+                col_writer.set_data4(col)
 
         else:
 

@@ -35,9 +35,9 @@ class CreationBase(BaseObject):
 
         vertex_data_tri.set_num_rows(1)
         pos_writer = GeomVertexWriter(vertex_data_tri, "vertex")
-        pos_writer.add_data3f(0., 0., 0.)
+        pos_writer.add_data3(0., 0., 0.)
         normal_writer = GeomVertexWriter(vertex_data_tri, "normal")
-        normal_writer.add_data3f(0., 0., 0.)
+        normal_writer.add_data3(0., 0., 0.)
 
         # Create a temporary geom for new vertices
 
@@ -151,7 +151,7 @@ class CreationBase(BaseObject):
             row = vertex_data.get_num_rows()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(row)
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             point_prim = geom.modify_primitive(0)
             point_prim.add_vertex(row)
             tmp_data["vert_geom_rows"].append(last_index)
@@ -162,12 +162,12 @@ class CreationBase(BaseObject):
         vertex_data = geom.modify_vertex_data()
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         pos_writer.set_row(last_index)
-        pos_writer.set_data3f(pos)
-        pos_writer.add_data3f(pos)
+        pos_writer.set_data3(pos)
+        pos_writer.add_data3(pos)
         normal_writer = GeomVertexWriter(vertex_data, "normal")
         normal_writer.set_row(last_index)
-        normal_writer.set_data3f(0., 0., 0.)
-        normal_writer.add_data3f(0., 0., 0.)
+        normal_writer.set_data3(0., 0., 0.)
+        normal_writer.add_data3(0., 0., 0.)
 
         if last_index == 1:
 
@@ -231,7 +231,7 @@ class CreationBase(BaseObject):
             sign = -1. if self._owner.has_flipped_normals() else 1.
 
             for i in range(last_index):
-                normal_writer.set_data3f(normal * sign)
+                normal_writer.set_data3(normal * sign)
 
         edge_geom = tmp_data["geoms"]["edge"].node().modify_geom(0)
         vertex_data = edge_geom.modify_vertex_data()
@@ -247,20 +247,20 @@ class CreationBase(BaseObject):
             index2 = last_index - 1 if start_index == last_index else last_index
             start_pos = tmp_data["vert_pos"][start_index]
             pos2 = tmp_data["vert_pos"][index2]
-            pos_writer.add_data3f(start_pos)
-            pos_writer.add_data3f(pos)
-            pos_writer.add_data3f(pos2)
-            pos_writer.add_data3f(pos)
-            col_writer.add_data4f(.5, .5, .5, 1.)
-            col_writer.add_data4f(.5, .5, .5, 1.)
-            col_writer.add_data4f(1., 1., 0., 1.)
-            col_writer.add_data4f(1., 1., 0., 1.)
+            pos_writer.add_data3(start_pos)
+            pos_writer.add_data3(pos)
+            pos_writer.add_data3(pos2)
+            pos_writer.add_data3(pos)
+            col_writer.add_data4(.5, .5, .5, 1.)
+            col_writer.add_data4(.5, .5, .5, 1.)
+            col_writer.add_data4(1., 1., 0., 1.)
+            col_writer.add_data4(1., 1., 0., 1.)
             edge_prim.add_vertices(count, count + 1, count + 2, count + 3)
         else:
-            pos_writer.add_data3f(pos)
-            pos_writer.add_data3f(pos)
-            col_writer.add_data4f(1., 1., 0., 1.)
-            col_writer.add_data4f(1., 1., 0., 1.)
+            pos_writer.add_data3(pos)
+            pos_writer.add_data3(pos)
+            col_writer.add_data4(1., 1., 0., 1.)
+            col_writer.add_data4(1., 1., 0., 1.)
             edge_prim.add_vertices(count, count + 1)
 
     def remove_new_poly_vertex(self):
@@ -346,16 +346,16 @@ class CreationBase(BaseObject):
         col_writer = GeomVertexRewriter(vertex_data, "color")
         col_writer.set_row(count - 4)
 
-        if col_writer.get_data4f() == VBase4(1., 1., 0., 1.):
-            col_writer.set_data4f(.5, .5, .5, 1.)
-            col_writer.set_data4f(.5, .5, .5, 1.)
-            col_writer.set_data4f(1., 1., 0., 1.)
-            col_writer.set_data4f(1., 1., 0., 1.)
+        if col_writer.get_data4() == VBase4(1., 1., 0., 1.):
+            col_writer.set_data4(.5, .5, .5, 1.)
+            col_writer.set_data4(.5, .5, .5, 1.)
+            col_writer.set_data4(1., 1., 0., 1.)
+            col_writer.set_data4(1., 1., 0., 1.)
         else:
-            col_writer.set_data4f(1., 1., 0., 1.)
-            col_writer.set_data4f(1., 1., 0., 1.)
-            col_writer.set_data4f(.5, .5, .5, 1.)
-            col_writer.set_data4f(.5, .5, .5, 1.)
+            col_writer.set_data4(1., 1., 0., 1.)
+            col_writer.set_data4(1., 1., 0., 1.)
+            col_writer.set_data4(.5, .5, .5, 1.)
+            col_writer.set_data4(.5, .5, .5, 1.)
 
     def flip_new_poly_normal(self):
 
@@ -389,7 +389,7 @@ class CreationBase(BaseObject):
             vertex_data = geom.modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(last_index + 1)
-            pos_writer.set_data3f(pos)
+            pos_writer.set_data3(pos)
 
             if last_index == 1:
 
@@ -408,18 +408,18 @@ class CreationBase(BaseObject):
 
                 for row_index in indices:
                     normal_writer.set_row(row_index)
-                    normal_writer.set_data3f(normal * sign)
+                    normal_writer.set_data3(normal * sign)
 
         geom = tmp_data["geoms"]["edge"].node().modify_geom(0)
         vertex_data = geom.modify_vertex_data()
         count = vertex_data.get_num_rows()
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         pos_writer.set_row(count - 1)
-        pos_writer.set_data3f(pos)
+        pos_writer.set_data3(pos)
 
         if last_index > 0:
             pos_writer.set_row(count - 3)
-            pos_writer.set_data3f(pos)
+            pos_writer.set_data3(pos)
 
     def finalize_poly_creation(self, cancel=False):
 
@@ -726,10 +726,10 @@ class CreationBase(BaseObject):
         for row in sorted(verts_by_row):
             vert = verts_by_row[row]
             pos = vert.get_pos()
-            pos_writer.add_data3f(pos)
-            col_writer.add_data4f(picking_color)
+            pos_writer.add_data3(pos)
+            col_writer.add_data4(picking_color)
             ind_writer_poly.add_data1i(poly_index)
-            normal_writer.add_data3f(normal * sign)
+            normal_writer.add_data3(normal * sign)
 
         vertex_data_vert1 = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
         vertex_data_vert1.set_num_rows(count)
@@ -756,9 +756,9 @@ class CreationBase(BaseObject):
         for row in sorted(verts_by_row):
             vert = verts_by_row[row]
             picking_color = get_color_vec(vert.get_picking_color_id(), pickable_type_id)
-            col_writer1.add_data4f(picking_color)
-            col_writer2.add_data4f(color_vert)
-            col_writer3.add_data4f(color_normal)
+            col_writer1.add_data4(picking_color)
+            col_writer2.add_data4(color_vert)
+            col_writer3.add_data4(color_normal)
             ind_writer_vert.add_data1i(row)
             indexed_verts[row] = vert
 
@@ -800,8 +800,8 @@ class CreationBase(BaseObject):
 
         for row_index in sorted(picking_colors1):
             picking_color = picking_colors1[row_index]
-            col_writer1.add_data4f(picking_color)
-            col_writer2.add_data4f(color)
+            col_writer1.add_data4(picking_color)
+            col_writer2.add_data4(color)
             ind_writer_edge.add_data1i(indices1[row_index])
 
         from_array = vertex_data_tmp.get_array(1)
@@ -819,8 +819,8 @@ class CreationBase(BaseObject):
 
         for row_index in sorted(picking_colors2):
             picking_color = picking_colors2[row_index]
-            col_writer1.add_data4f(picking_color)
-            col_writer2.add_data4f(color)
+            col_writer1.add_data4(picking_color)
+            col_writer2.add_data4(color)
             ind_writer_edge.add_data1i(indices2[row_index])
 
         vertex_data_edge1.set_num_rows(count * 2)

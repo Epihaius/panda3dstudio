@@ -288,10 +288,10 @@ class UVSelectionBase(BaseObject):
         geom_node = GeomNode("fence_points")
         geom_node.add_geom(geom)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(mouse_x, 0., mouse_y)
+        pos_writer.add_data3(mouse_x, 0., mouse_y)
         col_writer = GeomVertexWriter(vertex_data, "color")
         color_vec = get_color_vec(1, 255)
-        col_writer.add_data4f(color_vec)
+        col_writer.add_data4(color_vec)
         points.add_vertex(0)
         self._fence_points = fence_points = NodePath(geom_node)
         picking_cam = UVMgr.get("picking_cam")
@@ -384,7 +384,7 @@ class UVSelectionBase(BaseObject):
                 row = vertex_data.get_num_rows() - 1
                 pos_writer = GeomVertexWriter(vertex_data, "vertex")
                 pos_writer.set_row(row)
-                pos_writer.set_data3f(x2 - x1, 0., y2 - y1)
+                pos_writer.set_data3(x2 - x1, 0., y2 - y1)
 
         else:
 
@@ -488,8 +488,8 @@ class UVSelectionBase(BaseObject):
             count = vertex_data.get_num_rows()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(count - 1)
-            pos_writer.add_data3f(new_x - start_x, 0., new_y - start_y)
-            pos_writer.add_data3f(new_x - start_x, 0., new_y - start_y)
+            pos_writer.add_data3(new_x - start_x, 0., new_y - start_y)
+            pos_writer.add_data3(new_x - start_x, 0., new_y - start_y)
             prim = shape.node().modify_geom(i).modify_primitive(0)
             array = prim.modify_vertices()
             row_count = array.get_num_rows()
@@ -509,7 +509,7 @@ class UVSelectionBase(BaseObject):
             self._sel_mask_triangle_vertex = 3 - self._sel_mask_triangle_vertex
 
         pos_writer.set_row(self._sel_mask_triangle_vertex)
-        pos_writer.set_data3f(mouse_x, 0., mouse_y)
+        pos_writer.set_data3(mouse_x, 0., mouse_y)
 
         if min(x2 - x1, y2 - y1) == 0:
             triangle.hide()
@@ -528,13 +528,13 @@ class UVSelectionBase(BaseObject):
             row = vertex_data.get_num_rows()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(row)
-            pos_writer.add_data3f(mouse_x, 0., mouse_y)
+            pos_writer.add_data3(mouse_x, 0., mouse_y)
             col_writer = GeomVertexWriter(vertex_data, "color")
             col_writer.set_row(row)
             self._fence_point_color_id += 1
             self._fence_point_coords[self._fence_point_color_id] = (mouse_x, mouse_y)
             color_vec = get_color_vec(self._fence_point_color_id, 255)
-            col_writer.add_data4f(color_vec)
+            col_writer.add_data4(color_vec)
             prim = node.modify_geom(0).modify_primitive(0)
             prim.add_vertex(row)
             self._sel_mask_triangle_coords.append((mouse_x, mouse_y))
@@ -592,7 +592,7 @@ class UVSelectionBase(BaseObject):
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(self._sel_mask_triangle_vertex)
             prev_x, prev_y = self._sel_mask_triangle_coords[-1]
-            pos_writer.set_data3f(prev_x, 0., prev_y)
+            pos_writer.set_data3(prev_x, 0., prev_y)
 
         if min(x_max - x_min, y_max - y_min) == 0:
             triangle.hide()
@@ -713,7 +713,7 @@ class UVSelectionBase(BaseObject):
             vertex_data = tri.node().modify_geom(0).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(0)
-            pos_writer.set_data3f(mouse_x, 0., mouse_y)
+            pos_writer.set_data3(mouse_x, 0., mouse_y)
             vs = sh.VERT_SHADER_MASK
             fs = sh.FRAG_SHADER_MASK
             shader = Shader.make(Shader.SL_GLSL, vs, fs)
@@ -795,7 +795,7 @@ class UVSelectionBase(BaseObject):
             vertex_data = tri.node().modify_geom(0).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(0)
-            pos_writer.set_data3f(0., 0., 0.)
+            pos_writer.set_data3(0., 0., 0.)
             Mgr.exit_state("inactive")
         else:
             shape = selection_shapes[shape_type]

@@ -561,7 +561,7 @@ class NormalEditBase(BaseObject):
 
             for vert in verts_to_update:
                 normal_writer.set_row(vert.get_row_index())
-                normal_writer.set_data3f(normal * sign)
+                normal_writer.set_data3(normal * sign)
                 vert.set_normal(normal)
 
         normal_array = vertex_data_top.get_array(2)
@@ -697,7 +697,7 @@ class NormalEditBase(BaseObject):
 
             vert = verts[vert_id]
             normal_writer.set_row(vert.get_row_index())
-            normal_writer.set_data3f(normal * sign)
+            normal_writer.set_data3(normal * sign)
             vert.set_normal(normal)
 
         normal_array = vertex_data_top.get_array(2)
@@ -834,7 +834,7 @@ class NormalEditBase(BaseObject):
                 vert = verts[vert_id]
                 row = vert.get_row_index()
                 col_writer.set_row(row)
-                col_writer.set_data4f(color_sel if vert_id in sel_ids else color_unsel)
+                col_writer.set_data4(color_sel if vert_id in sel_ids else color_unsel)
 
             color_sel = sel_colors["selected"]
             color_unsel = sel_colors["unselected"]
@@ -843,7 +843,7 @@ class NormalEditBase(BaseObject):
                 vert = verts[vert_id]
                 row = vert.get_row_index()
                 col_writer.set_row(row)
-                col_writer.set_data4f(color_sel if vert_id in sel_ids else color_unsel)
+                col_writer.set_data4(color_sel if vert_id in sel_ids else color_unsel)
 
             return
 
@@ -857,7 +857,7 @@ class NormalEditBase(BaseObject):
             if vert.has_locked_normal():
                 row = vert.get_row_index()
                 col_writer.set_row(row)
-                col_writer.set_data4f(color_sel)
+                col_writer.set_data4(color_sel)
 
         for vert_id in deselected_normal_ids:
 
@@ -866,7 +866,7 @@ class NormalEditBase(BaseObject):
             if vert.has_locked_normal():
                 row = vert.get_row_index()
                 col_writer.set_row(row)
-                col_writer.set_data4f(color_unsel)
+                col_writer.set_data4(color_unsel)
 
     def init_normal_length(self):
 
@@ -965,13 +965,13 @@ class NormalEditBase(BaseObject):
 
             vertex = verts[vert_id]
             pos = vertex.get_pos()
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             color_id = vertex.get_picking_color_id()
             picking_color = get_color_vec(color_id, pickable_id)
-            col_writer.add_data4f(picking_color)
+            col_writer.add_data4(picking_color)
             rows[color_id] = i
             vert_normal = vertex.get_normal()
-            normal_writer.add_data3f(vert_normal * sign)
+            normal_writer.add_data3(vert_normal * sign)
 
             if by_aiming:
 
@@ -990,15 +990,15 @@ class NormalEditBase(BaseObject):
                 point1 = rel_pt(edge2_center)
                 point2 = point1 + normal if lens_is_ortho else cam_pos
                 plane.intersects_line(p3, point1, point2)
-                pos_writer_poly.add_data3f(p1 - normal)
-                pos_writer_poly.add_data3f(p1 + normal)
-                pos_writer_poly.add_data3f(p2 - normal)
-                pos_writer_poly.add_data3f(p2 + normal)
-                pos_writer_poly.add_data3f(p3 - normal)
-                pos_writer_poly.add_data3f(p3 + normal)
+                pos_writer_poly.add_data3(p1 - normal)
+                pos_writer_poly.add_data3(p1 + normal)
+                pos_writer_poly.add_data3(p2 - normal)
+                pos_writer_poly.add_data3(p2 + normal)
+                pos_writer_poly.add_data3(p3 - normal)
+                pos_writer_poly.add_data3(p3 + normal)
 
                 for _ in range(6):
-                    col_writer_poly.add_data4f(picking_color)
+                    col_writer_poly.add_data4(picking_color)
 
                 j = i * 6
                 tmp_poly_prim.add_vertices(j, j + 1, j + 2)
@@ -1063,11 +1063,11 @@ class NormalEditBase(BaseObject):
         for vert_id in vert_ids:
             vertex = verts[vert_id]
             pos = vertex.get_pos()
-            pos_writer_poly.add_data3f(pos)
-            col_writer_poly.add_data4f(white)
+            pos_writer_poly.add_data3(pos)
+            col_writer_poly.add_data4(white)
 
         for _ in range(count):
-            col_writer_poly.add_data4f(white)
+            col_writer_poly.add_data4(white)
 
         for tri_vert_ids in poly:
             for vert_id in tri_vert_ids:
@@ -1119,7 +1119,7 @@ class NormalEditBase(BaseObject):
             vert = verts[sel_id]
             row = vert.get_row_index()
             normal_rewriter.set_row(row)
-            normal = normal_rewriter.get_data3f()
+            normal = normal_rewriter.get_data3()
             normal = V3D(ref_node.get_relative_vector(origin, normal))
             hpr = normal.get_hpr()
             hpr[index] = angle
@@ -1127,7 +1127,7 @@ class NormalEditBase(BaseObject):
             quat.set_hpr(hpr)
             normal = quat.xform(Vec3.forward())
             normal = origin.get_relative_vector(ref_node, normal)
-            normal_rewriter.set_data3f(normal.normalized())
+            normal_rewriter.set_data3(normal.normalized())
 
         normal_array = tmp_vertex_data.get_array(2)
         vertex_data.set_array(2, normal_array)
@@ -1181,10 +1181,10 @@ class NormalEditBase(BaseObject):
             vert = verts[sel_id]
             row = vert.get_row_index()
             pos_reader.set_row(row)
-            pos = pos_reader.get_data3f()
+            pos = pos_reader.get_data3()
             normal = Vec3(pos).normalized()
             normal_writer.set_row(row)
-            normal_writer.set_data3f(normal)
+            normal_writer.set_data3(normal)
 
         normal_array = vertex_data.get_array(2)
         geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
@@ -1224,7 +1224,7 @@ class NormalEditBase(BaseObject):
                 polys_to_update.add(vert.get_polygon_id())
                 row = vert.get_row_index()
                 normal_reader.set_row(row)
-                normal = Vec3(normal_reader.get_data3f()) * sign
+                normal = Vec3(normal_reader.get_data3()) * sign
                 vert.set_normal(normal)
 
             self._normal_change = set(sel_ids)
@@ -1260,7 +1260,7 @@ class NormalEditBase(BaseObject):
             polys_to_update.add(vert.get_polygon_id())
             row = vert.get_row_index()
             normal_writer.set_row(row)
-            normal_writer.set_data3f(normal * sign)
+            normal_writer.set_data3(normal * sign)
             vert.set_normal(Vec3(normal))
 
         normal_array = tmp_vertex_data.get_array(2)

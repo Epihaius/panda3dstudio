@@ -297,12 +297,12 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                         vert.offset_row_index(row_index_offset)
                         pos = vert.get_pos()
                         poly_corners.append(pos)
-                        pos_writer.add_data3f(pos)
-                        col_writer_poly.add_data4f(picking_color_poly)
+                        pos_writer.add_data3(pos)
+                        col_writer_poly.add_data4(picking_color_poly)
                         ind_writer_poly.add_data1i(poly_index)
                         picking_color_vert = get_color_vec(vert.get_picking_color_id(),
                                                            pickable_id_vert)
-                        col_writer_vert.add_data4f(picking_color_vert)
+                        col_writer_vert.add_data4(picking_color_vert)
                         ind_writer_vert.add_data1i(vert_index)
                         indexed_verts[vert_index] = vert
                         vert_index += 1
@@ -316,9 +316,9 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                 picking_color_edge = get_color_vec(edge.get_picking_color_id(),
                                                    pickable_id_edge)
                 col_writer_edge.set_row(row1)
-                col_writer_edge.set_data4f(picking_color_edge)
+                col_writer_edge.set_data4(picking_color_edge)
                 col_writer_edge.set_row(row2 + count)
-                col_writer_edge.set_data4f(picking_color_edge)
+                col_writer_edge.set_data4(picking_color_edge)
                 ind_writer_edge.set_row(row1)
                 ind_writer_edge.set_data1i(edge_index)
                 ind_writer_edge.set_row(row2 + count)
@@ -737,10 +737,10 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         geom.set_vertex_data(vertex_data)
         col_writer = GeomVertexWriter(geom.modify_vertex_data(), "color")
         col_writer.set_row(row)
-        col_writer.set_data4f(colors["selected"])
+        col_writer.set_data4(colors["selected"])
 
         if subobj_lvl == "edge":
-            col_writer.set_data4f(colors["selected"])
+            col_writer.set_data4(colors["selected"])
 
         return True
 

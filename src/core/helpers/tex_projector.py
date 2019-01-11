@@ -46,11 +46,11 @@ class TemporaryTexProjector(object):
 
         for corner in corners:
             for coord, axis in zip(corner, "xyz"):
-                pos_writer.add_data3f(corner)
+                pos_writer.add_data3(corner)
                 coord2 = coord + (1. if coord < 0. else -1.)
                 pos = Point3(*corner)
                 pos["xyz".index(axis)] = coord2
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
                 lines.add_next_vertices(2)
                 edge_ends.append((corner, pos))
 
@@ -92,7 +92,7 @@ class TemporaryTexProjector(object):
             for points in edge_ends:
 
                 for point in points:
-                    pos_writer.add_data3f(xform_point(point, proj_type))
+                    pos_writer.add_data3(xform_point(point, proj_type))
 
                 lines.add_next_vertices(2)
 
@@ -115,10 +115,10 @@ class TemporaryTexProjector(object):
 
         lines = GeomLines(Geom.UH_static)
 
-        pos_writer.add_data3f(0., 0., 0.)
+        pos_writer.add_data3(0., 0., 0.)
 
         for i, pos in enumerate(positions):
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             lines.add_vertices(0, i + 1)
 
         geom = Geom(vertex_data)
@@ -303,11 +303,11 @@ class TexProjector(TopLevelObject):
 
         for corner in cls._corners:
             for coord, axis in zip(corner, "xyz"):
-                pos_writer.add_data3f(corner)
+                pos_writer.add_data3(corner)
                 coord2 = coord + (1. if coord < 0. else -1.)
                 pos = Point3(*corner)
                 pos["xyz".index(axis)] = coord2
-                pos_writer.add_data3f(pos)
+                pos_writer.add_data3(pos)
                 lines.add_next_vertices(2)
                 edge_ends.append((corner, pos))
 
@@ -353,7 +353,7 @@ class TexProjector(TopLevelObject):
             for points in edge_ends:
 
                 for point in points:
-                    pos_writer.add_data3f(xform_point(point, proj_type))
+                    pos_writer.add_data3(xform_point(point, proj_type))
 
                 lines.add_next_vertices(2)
 
@@ -378,10 +378,10 @@ class TexProjector(TopLevelObject):
 
         lines = GeomLines(Geom.UH_static)
 
-        pos_writer.add_data3f(0., 0., 0.)
+        pos_writer.add_data3(0., 0., 0.)
 
         for i, pos in enumerate(positions):
-            pos_writer.add_data3f(pos)
+            pos_writer.add_data3(pos)
             lines.add_vertices(0, i + 1)
 
         geom = Geom(vertex_data)
@@ -501,8 +501,8 @@ class TexProjector(TopLevelObject):
                 edge = Mgr.do("create_tex_proj_edge", self, axis, i)
                 color_id = edge.get_picking_color_id()
                 picking_color = get_color_vec(color_id, pickable_type_id)
-                col_writer.set_data4f(picking_color)
-                col_writer.set_data4f(picking_color)
+                col_writer.set_data4(picking_color)
+                col_writer.set_data4(picking_color)
                 self._edges[color_id] = edge
 
     def __del__(self):

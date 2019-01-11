@@ -89,8 +89,8 @@ class TemporaryPrimitive(BaseObject):
                     if pos in verts_by_pos:
                         vert_id = verts_by_pos[pos]
                     else:
-                        pos_writer.add_data3f(*pos)
-                        normal_writer.add_data3f(vert_data["normal"])
+                        pos_writer.add_data3(*pos)
+                        normal_writer.add_data3(vert_data["normal"])
                         vert_id = vert_count
                         verts_by_pos[pos] = vert_count
                         vert_count += 1

@@ -140,8 +140,8 @@ class BasicGeom(BaseObject):
             uv_writer = GeomVertexWriter(dest_vert_data, dest_uv_set)
 
             for i in range(num_rows):
-                uv = uv_reader.get_data2f()
-                uv_writer.set_data2f(uv)
+                uv = uv_reader.get_data2()
+                uv_writer.set_data2(uv)
 
         self._uv_set_names = src_uv_set_names
 
@@ -268,21 +268,21 @@ class BasicGeom(BaseObject):
                 for handler in vert_handlers:
                     handler.set_row(row)
 
-                pos = pos_reader.get_data3f()
-                normal = normal_reader.get_data3f()
-                uv = uv_reader.get_data2f()
+                pos = pos_reader.get_data3()
+                normal = normal_reader.get_data3()
+                uv = uv_reader.get_data2()
 
                 pos_reader.set_row(row1)
-                pos1 = pos_reader.get_data3f()
+                pos1 = pos_reader.get_data3()
                 pos_reader.set_row(row2)
-                pos2 = pos_reader.get_data3f()
+                pos2 = pos_reader.get_data3()
                 pos_vec1 = pos1 - pos
                 pos_vec2 = pos2 - pos
 
                 uv_reader.set_row(row1)
-                uv1 = uv_reader.get_data2f()
+                uv1 = uv_reader.get_data2()
                 uv_reader.set_row(row2)
-                uv2 = uv_reader.get_data2f()
+                uv2 = uv_reader.get_data2()
                 uv_vec1 = uv1 - uv
                 uv_vec2 = uv2 - uv
 
@@ -347,8 +347,8 @@ class BasicGeom(BaseObject):
                 if flip_bitangent:
                     bitangent *= -1.
 
-                tan_writer.set_data3f(tangent)
-                bitan_writer.set_data3f(bitangent)
+                tan_writer.set_data3(tangent)
+                bitan_writer.set_data3(bitangent)
                 processed_rows.append(row)
 
         self._is_tangent_space_initialized = True
@@ -663,7 +663,7 @@ class BasicGeom(BaseObject):
 
                     vert_data = {}
                     pos_reader.set_row(row)
-                    pos = Point3(pos_reader.get_data3f())
+                    pos = Point3(pos_reader.get_data3())
 
                     for crd in coords:
                         if pos == crd:
@@ -674,15 +674,15 @@ class BasicGeom(BaseObject):
 
                     vert_data["pos"] = pos
                     normal_reader.set_row(row)
-                    vert_data["normal"] = Vec3(normal_reader.get_data3f()) * f
+                    vert_data["normal"] = Vec3(normal_reader.get_data3()) * f
                     col_reader.set_row(row)
-                    vert_data["color"] = tuple(x for x in col_reader.get_data4f())
+                    vert_data["color"] = tuple(x for x in col_reader.get_data4())
 
                     uvs = {}
 
                     for uv_set_id, uv_reader in enumerate(uv_readers):
                         uv_reader.set_row(row)
-                        u, v = uv_reader.get_data2f()
+                        u, v = uv_reader.get_data2()
                         uvs[uv_set_id] = (u, v)
 
                     vert_data["uvs"] = uvs

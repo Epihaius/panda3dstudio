@@ -573,10 +573,10 @@ class SelectionManager(BaseObject):
         geom_node = GeomNode("fence_points")
         geom_node.add_geom(geom)
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3f(mouse_x, 0., mouse_y)
+        pos_writer.add_data3(mouse_x, 0., mouse_y)
         col_writer = GeomVertexWriter(vertex_data, "color")
         color_vec = get_color_vec(1, 255)
-        col_writer.add_data4f(color_vec)
+        col_writer.add_data4(color_vec)
         points.add_vertex(0)
         self._fence_points = fence_points = NodePath(geom_node)
         picking_cam = Mgr.get("picking_cam")
@@ -604,15 +604,15 @@ class SelectionManager(BaseObject):
             if shape_type in ("square", "square_centered", "rect", "rect_centered"):
 
                 if "centered" in shape_type:
-                    pos_writer.add_data3f(-1., 0., -1.)
-                    pos_writer.add_data3f(-1., 0., 1.)
-                    pos_writer.add_data3f(1., 0., 1.)
-                    pos_writer.add_data3f(1., 0., -1.)
+                    pos_writer.add_data3(-1., 0., -1.)
+                    pos_writer.add_data3(-1., 0., 1.)
+                    pos_writer.add_data3(1., 0., 1.)
+                    pos_writer.add_data3(1., 0., -1.)
                 else:
-                    pos_writer.add_data3f(0., 0., 0.)
-                    pos_writer.add_data3f(0., 0., 1.)
-                    pos_writer.add_data3f(1., 0., 1.)
-                    pos_writer.add_data3f(1., 0., 0.)
+                    pos_writer.add_data3(0., 0., 0.)
+                    pos_writer.add_data3(0., 0., 1.)
+                    pos_writer.add_data3(1., 0., 1.)
+                    pos_writer.add_data3(1., 0., 0.)
 
                 lines.add_vertices(0, 1)
                 lines.add_vertices(1, 2)
@@ -628,18 +628,18 @@ class SelectionManager(BaseObject):
                 angle = pi * .02
 
                 if "centered" in shape_type:
-                    pos_writer.add_data3f(1., 0., 0.)
+                    pos_writer.add_data3(1., 0., 0.)
                     for i in range(1, 100):
                         x = cos(angle * i)
                         z = sin(angle * i)
-                        pos_writer.add_data3f(x, 0., z)
+                        pos_writer.add_data3(x, 0., z)
                         lines.add_vertices(i - 1, i)
                 else:
-                    pos_writer.add_data3f(1., 0., .5)
+                    pos_writer.add_data3(1., 0., .5)
                     for i in range(1, 100):
                         x = cos(angle * i) * .5 + .5
                         z = sin(angle * i) * .5 + .5
-                        pos_writer.add_data3f(x, 0., z)
+                        pos_writer.add_data3(x, 0., z)
                         lines.add_vertices(i - 1, i)
 
                 lines.add_vertices(i, 0)
@@ -755,7 +755,7 @@ class SelectionManager(BaseObject):
                 row = vertex_data.get_num_rows() - 1
                 pos_writer = GeomVertexWriter(vertex_data, "vertex")
                 pos_writer.set_row(row)
-                pos_writer.set_data3f(mouse_x - x, 0., mouse_y - y)
+                pos_writer.set_data3(mouse_x - x, 0., mouse_y - y)
 
         else:
 
@@ -844,8 +844,8 @@ class SelectionManager(BaseObject):
             count = vertex_data.get_num_rows()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(count - 1)
-            pos_writer.add_data3f(mouse_x - x, 0., mouse_y - y)
-            pos_writer.add_data3f(mouse_x - x, 0., mouse_y - y)
+            pos_writer.add_data3(mouse_x - x, 0., mouse_y - y)
+            pos_writer.add_data3(mouse_x - x, 0., mouse_y - y)
             prim = shape.node().modify_geom(i).modify_primitive(0)
             array = prim.modify_vertices()
             row_count = array.get_num_rows()
@@ -865,7 +865,7 @@ class SelectionManager(BaseObject):
             self._sel_mask_triangle_vertex = 3 - self._sel_mask_triangle_vertex
 
         pos_writer.set_row(self._sel_mask_triangle_vertex)
-        pos_writer.set_data3f(mouse_x - x, 0., mouse_y - y)
+        pos_writer.set_data3(mouse_x - x, 0., mouse_y - y)
 
         if min(x2 - x1, y2 - y1) == 0:
             self._sel_mask_triangle.hide()
@@ -884,13 +884,13 @@ class SelectionManager(BaseObject):
             row = vertex_data.get_num_rows()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(row)
-            pos_writer.add_data3f(mouse_x, 0., mouse_y)
+            pos_writer.add_data3(mouse_x, 0., mouse_y)
             col_writer = GeomVertexWriter(vertex_data, "color")
             col_writer.set_row(row)
             self._fence_point_color_id += 1
             self._fence_point_coords[self._fence_point_color_id] = (mouse_x, mouse_y)
             color_vec = get_color_vec(self._fence_point_color_id, 255)
-            col_writer.add_data4f(color_vec)
+            col_writer.add_data4(color_vec)
             prim = node.modify_geom(0).modify_primitive(0)
             prim.add_vertex(row)
             self._sel_mask_triangle_coords.append((mouse_x - x, mouse_y - y))
@@ -947,7 +947,7 @@ class SelectionManager(BaseObject):
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(self._sel_mask_triangle_vertex)
             prev_x, prev_y = self._sel_mask_triangle_coords[-1]
-            pos_writer.set_data3f(prev_x, 0., prev_y)
+            pos_writer.set_data3(prev_x, 0., prev_y)
 
         if min(x_max - x_min, y_max - y_min) == 0:
             self._sel_mask_triangle.hide()
