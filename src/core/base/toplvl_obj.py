@@ -628,10 +628,10 @@ class TopLevelObject(BaseObject):
             transform["scale"] = (1., 1., 1.)
         else:
             grid_origin = Mgr.get(("grid", "origin"))
-            pivot = self._pivot
-            x, y, z = pivot.get_pos(grid_origin)
-            h, p, r = pivot.get_hpr(grid_origin)
-            sx, sy, sz = pivot.get_scale(grid_origin)
+            node = self._origin if GlobalData["transform_target_type"] == "geom" else self._pivot
+            x, y, z = node.get_pos(grid_origin)
+            h, p, r = node.get_hpr(grid_origin)
+            sx, sy, sz = node.get_scale(grid_origin)
             transform["translate"] = (x, y, z)
             transform["rotate"] = (p, r, h)
             transform["scale"] = (sx, sy, sz)

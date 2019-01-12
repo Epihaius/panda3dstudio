@@ -46,6 +46,7 @@ class GeneralObjectManager(BaseObject):
         Mgr.add_app_updater("two_sided", self.__toggle_two_sided)
         Mgr.add_app_updater("active_obj_level", self.__update_object_level)
         Mgr.add_app_updater("history_change", self.__start_selection_check)
+        Mgr.add_app_updater("transform_target_type", self.__update_xform_values)
         Mgr.add_notification_handler("long_process_cancelled", "obj_mgr",
                                      self.__restore_registry_backups)
 
@@ -297,6 +298,13 @@ class GeneralObjectManager(BaseObject):
             event_descr = 'Change tags of "{}"'.format(obj.get_name())
             event_data = {"objects": obj_data}
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __update_xform_values(self):
+
+        selection = Mgr.get("selection_top")
+
+        if GlobalData["active_obj_level"] == "top" and len(selection) == 1:
+            Mgr.update_remotely("transform_values", selection[0].get_transform_values())
 
     def __add_to_history(self, changed_objs, prop_id, value):
 
