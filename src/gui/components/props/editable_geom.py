@@ -580,6 +580,7 @@ class EditableGeomProperties(object):
 
         # exit any subobject modes
         Mgr.exit_states(min_persistence=-99)
+        Mgr.do("update_offset_btn")
 
         def task():
 
