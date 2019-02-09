@@ -14,7 +14,7 @@ class TranslationGizmo(TransformationGizmo):
         blue = VBase4(0., 0., .7, 1.)
         grey = VBase4(.5, .5, .5, 1.)
 
-        self._axis_colors = {"x": red, "y": green, "z": blue, "screen": grey}
+        self._axis_colors = {"x": red, "y": green, "z": blue, "view": grey}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
         # Create single-axis handles
@@ -66,13 +66,13 @@ class TranslationGizmo(TransformationGizmo):
             handle[0].set_color(self._axis_colors[plane[0]])
             handle[1].set_color(self._axis_colors[plane[1]])
 
-        # Create screen handle
+        # Create view handle
 
         color_id = self.get_next_picking_color_id()
         color_vec = get_color_vec(color_id, pickable_type_id)
-        self._handle_names[color_id] = "screen"
+        self._handle_names[color_id] = "view"
         handle = self.__create_screen_handle(self._origin, color_vec, .03, "screen_handle")
-        self._handles["planes"]["screen"] = handle
+        self._handles["planes"]["view"] = handle
         handle.set_color(grey)
 
     def __create_axis_handle(self, parent, color, pos1, pos2, node_name):
@@ -251,9 +251,9 @@ class TranslationGizmo(TransformationGizmo):
         hilited_handles = []
         handle_name = self._handle_names[color_id]
 
-        if handle_name == "screen":
+        if handle_name == "view":
 
-            hilited_handles.append("screen")
+            hilited_handles.append("view")
 
         else:
 
@@ -278,7 +278,7 @@ class TranslationGizmo(TransformationGizmo):
 
                     handle = self._handles["planes"][handle_name]
 
-                    if handle_name == "screen":
+                    if handle_name == "view":
                         handle.set_color(cyan)
                     else:
                         handle[0].set_color(cyan)
@@ -305,7 +305,7 @@ class TranslationGizmo(TransformationGizmo):
 
             for handle_name in self._hilited_handles:
 
-                if handle_name == "screen":
+                if handle_name == "view":
 
                     if handle_name == self._selected_axes:
                         color = yellow
@@ -360,7 +360,7 @@ class TranslationGizmo(TransformationGizmo):
 
         for plane in self._handles["planes"]:
 
-            if plane == "screen":
+            if plane == "view":
 
                 handle = self._handles["planes"][plane]
                 handle.set_color(yellow if plane == axes else self._axis_colors[plane])
@@ -386,7 +386,7 @@ class TranslationGizmo(TransformationGizmo):
         cam = self.cam()
         point1 = Mgr.get("transf_gizmo_world_pos")
 
-        if self._selected_axes == "screen":
+        if self._selected_axes == "view":
 
             normal = self.world.get_relative_vector(cam, Vec3.forward())
             plane = Plane(normal, point1)

@@ -41,7 +41,7 @@ class RotationGizmo(TransformationGizmo):
         grey = VBase4(.5, .5, .5, 1.)
         dark_grey = VBase4(.3, .3, .3, 1.)
 
-        self._axis_colors = {"yz": red, "xz": green, "xy": blue, "screen": grey}
+        self._axis_colors = {"yz": red, "xz": green, "xy": blue, "view": grey}
         pickable_type_id = PickableTypes.get_id("transf_gizmo")
 
         for plane in ("xy", "xz", "yz"):
@@ -64,12 +64,12 @@ class RotationGizmo(TransformationGizmo):
 
         color_id = self.get_next_picking_color_id()
         color_vec = get_color_vec(color_id, pickable_type_id)
-        self._handle_names[color_id] = "screen"
+        self._handle_names[color_id] = "view"
         handle = self.__create_screen_aligned_circle(self._origin, color_vec,
                                                      self._screen_handle_radius,
                                                      "screen_axis_handle")
         handle.set_color(grey)
-        self._handles["planes"]["screen"] = handle
+        self._handles["planes"]["view"] = handle
 
         handle = self.__create_screen_aligned_circle(self._origin, dark_grey, 1., "trackball_edge")
         handle.hide(self._picking_mask)
@@ -353,7 +353,7 @@ class RotationGizmo(TransformationGizmo):
             if prev_constraints != "trackball":
                 GlobalData["prev_axis_constraints_rotate"] = prev_constraints
 
-        if axes in ("screen", "trackball"):
+        if axes in ("view", "trackball"):
             constraints = axes
         else:
             axis = "".join(a for a in "xyz" if a not in axes) if len(axes) == 2 else axes
@@ -382,7 +382,7 @@ class RotationGizmo(TransformationGizmo):
         for axis_np in self._center_axes.values():
             axis_np.clear_color_scale()
 
-        if self._selected_axes == "screen":
+        if self._selected_axes == "view":
             self._angle_disc_pivot.set_hpr(0., 0., 0.)
             self._angle_disc_pivot.set_billboard_point_eye(self.cam(), 0.)
             self._angle_disc.set_hpr(0., 0., 0.)
@@ -394,7 +394,7 @@ class RotationGizmo(TransformationGizmo):
 
     def __update_angle_disc(self):
 
-        if self._selected_axes in ("screen", "trackball"):
+        if self._selected_axes in ("view", "trackball"):
             return
 
         axis1, axis2 = self._selected_axes
@@ -483,7 +483,7 @@ class RotationGizmo(TransformationGizmo):
 
             return Point3()
 
-        if self._selected_axes == "screen":
+        if self._selected_axes == "view":
 
             normal = self.world.get_relative_vector(cam, Vec3.forward())
             plane = Plane(normal, point1)
@@ -522,7 +522,7 @@ class RotationGizmo(TransformationGizmo):
         self._angle_clip_root.look_at(p)
         self._angle_disc.look_at(p)
 
-        if self._selected_axes == "screen":
+        if self._selected_axes == "view":
             self._angle_disc.set_scale(self._screen_handle_radius)
 
         self._angle_disc.show()
@@ -534,7 +534,7 @@ class RotationGizmo(TransformationGizmo):
         self._clip_plane_pos_angle.set_h(0.)
         self._angle_disc.hide()
 
-        if self._selected_axes == "screen":
+        if self._selected_axes == "view":
             self._angle_disc.set_scale(1.)
 
         self._angle = 0.

@@ -60,7 +60,7 @@ class CoordSysManager(BaseObject):
             if GlobalData["transf_center_type"] == "cs_origin":
                 Mgr.do("set_transf_gizmo_pos", Point3())
 
-        if GlobalData["coord_sys_type"] == "screen" and cs_type != "screen":
+        if GlobalData["coord_sys_type"] == "view" and cs_type != "view":
             Mgr.do("align_grid_to_screen", False)
 
         GlobalData["coord_sys_type"] = cs_type
@@ -70,7 +70,7 @@ class CoordSysManager(BaseObject):
 
             reset()
 
-        elif cs_type == "screen":
+        elif cs_type == "view":
 
             self._cs_obj = None
             Mgr.do("align_grid_to_screen")
@@ -117,7 +117,7 @@ class CoordSysManager(BaseObject):
         cs_type = GlobalData["coord_sys_type"]
         tc_type = GlobalData["transf_center_type"]
 
-        if cs_type == "screen":
+        if cs_type == "view":
 
             pos = self.cam.pivot.get_pos()
             quat = self.cam.target.get_quat(self.world)

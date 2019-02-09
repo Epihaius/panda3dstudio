@@ -9,6 +9,7 @@ import random
 import time
 import datetime
 import copy
+import struct
 
 GFX_PATH = "res/"
 

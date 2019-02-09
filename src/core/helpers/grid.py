@@ -413,7 +413,7 @@ class Grid(BaseObject):
 
         GlobalData["active_grid_plane"] = plane_id
 
-        if GlobalData["coord_sys_type"] != "screen" and plane_id != self._active_plane_id:
+        if GlobalData["coord_sys_type"] != "view" and plane_id != self._active_plane_id:
             self.__change_plane(plane_id)
 
         self.__update(force=True)

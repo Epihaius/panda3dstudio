@@ -341,12 +341,12 @@ class DialogRadioButton(RadioButton):
 
 class DialogRadioButtonGroup(RadioButtonGroup):
 
-    def __init__(self, parent, rows=0, columns=0, gap_h=0, gap_v=0):
+    def __init__(self, parent, rows=0, columns=0, gap_h=0, gap_v=0, stretch=False):
 
         bullet_color = Skin["colors"]["dialog_bullet"]
         back_color = Skin["colors"]["dialog_radiobutton"]
 
-        RadioButtonGroup.__init__(self, bullet_color, back_color, rows, columns, gap_h, gap_v)
+        RadioButtonGroup.__init__(self, bullet_color, back_color, rows, columns, gap_h, gap_v, stretch)
 
         self._parent = parent
         self.delay_card_update()

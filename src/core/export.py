@@ -127,9 +127,11 @@ class ExportManager(BaseObject):
             new_vertex_data = node.node().modify_geom(0).modify_vertex_data()
 
             for i in range(8):
-                src_handle = vertex_data.get_array(4 + i).get_handle()
-                dest_handle = new_vertex_data.modify_array(1 + i).modify_handle()
-                dest_handle.copy_data_from(src_handle)
+                from_array = vertex_data.get_array(4 + i)
+                from_view = memoryview(from_array).cast("B")
+                to_array = new_vertex_data.modify_array(1 + i)
+                to_view = memoryview(to_array).cast("B")
+                to_view[:] = from_view
 
             vertex_data = new_vertex_data
 
@@ -144,7 +146,6 @@ class ExportManager(BaseObject):
         vertex_format = GeomVertexFormat.register_format(vertex_format)
         new_vertex_data = vertex_data.convert_to(vertex_format)
         node.node().modify_geom(0).set_vertex_data(new_vertex_data)
-        vertex_data = node.node().modify_geom(0).modify_vertex_data()
 
     def __prepare_export(self):
 

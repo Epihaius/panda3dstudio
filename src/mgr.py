@@ -4,18 +4,18 @@ from direct.showbase.ShowBase import ShowBase
 
 load_prc_file_data("",
 """
-sync-video #f
+sync-video false
 model-cache-dir
 geom-cache-size 0
 window-type none
 depth-bits 24
 notify-output p3ds.log
-garbage-collect-states #f
+garbage-collect-states false
 load-file-type p3assimp
+notify-level-linmath error
 
 """
 )
-
 
 # the CursorManager class is used to set the mouse cursor image, but also to reset it to the image
 # that was last used for a particular region (GUI, viewport, etc.) when entering that region again

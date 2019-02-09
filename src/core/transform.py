@@ -87,7 +87,8 @@ class SelectionTransformBase(BaseObject):
             Mgr.do("{}_transf_gizmo".format("show" if count else "hide"))
             GlobalData["selection_count"] = count
 
-    def set_transform_component(self, objs_to_transform, transf_type, axis, value, is_rel_value):
+    def set_transform_component(self, objs_to_transform, transf_type, axis, value, is_rel_value,
+                                rel_to_world=False, transformer=None):
 
         if is_rel_value:
 
@@ -115,8 +116,14 @@ class SelectionTransformBase(BaseObject):
             target_type = GlobalData["transform_target_type"]
             cs_type = GlobalData["coord_sys_type"]
             grid_origin = None if cs_type == "local" else Mgr.get(("grid", "origin"))
-            value_setter = self._value_setters[transf_type][axis]
+            value_setter = transformer if transformer else self._value_setters[transf_type][axis]
             objs = objs_to_transform[:]
+            tc_type = GlobalData["transf_center_type"]
+            use_transf_center = not (transf_type == "translate" or tc_type == "pivot"
+                                or (cs_type == "local" and tc_type == "cs_origin"))
+
+            if use_transf_center:
+                self._pivot.set_pos(Mgr.get("transf_center_pos"))
 
             while objs:
 
@@ -133,9 +140,21 @@ class SelectionTransformBase(BaseObject):
 
                     if not ancestor_found:
                         node = obj.get_origin() if target_type == "geom" else obj.get_pivot()
-                        ref_node = node if grid_origin is None else grid_origin
-                        value_setter(node, ref_node, val)
+                        ref_node = self.world if rel_to_world else (node if grid_origin is None else grid_origin)
+                        if use_transf_center:
+                            quat = node.get_quat(self.world)
+                            scale = node.get_scale(self.world)
+                            self._pivot.set_quat_scale(quat, scale)
+                            parent_node = node.get_parent()
+                            node.wrt_reparent_to(self._pivot)
+                            value_setter(self._pivot, ref_node, val)
+                            node.wrt_reparent_to(parent_node)
+                        else:
+                            value_setter(node, ref_node, val)
                         objs.remove(obj)
+
+            if use_transf_center:
+                self._pivot.clear_transform()
 
             if target_type != "geom":
 
@@ -148,7 +167,8 @@ class SelectionTransformBase(BaseObject):
                 Mgr.do("update_obj_link_viz")
                 Mgr.do("reset_obj_transf_info")
 
-    def finalize_transform_component(self, objs_to_transform, transf_type, is_rel_value):
+    def finalize_transform_component(self, objs_to_transform, transf_type, is_rel_value,
+                                     add_to_hist=True):
 
         if is_rel_value:
 
@@ -175,7 +195,8 @@ class SelectionTransformBase(BaseObject):
                 if target_type in ("geom", "links", "no_children"):
                     Mgr.do("update_group_bboxes", [obj.get_id()])
 
-            self.__add_history(objs_to_transform, transf_type)
+            if add_to_hist:
+                self.__add_history(objs_to_transform, transf_type)
 
     def update_transform_values(self):
 
@@ -916,7 +937,8 @@ class TransformationManager(BaseObject):
         self._tmp_ref_root.remove_node()
         self._tmp_ref_root = None
 
-    def __set_transform_component(self, transf_type, axis, value, is_rel_value):
+    def __set_transform_component(self, transf_type, axis, value, is_rel_value, objects=None,
+                                  add_to_hist=True, rel_to_world=False, transformer=None):
 
         active_obj_lvl = GlobalData["active_obj_level"]
         target_type = GlobalData["transform_target_type"]
@@ -927,10 +949,12 @@ class TransformationManager(BaseObject):
 
         if active_obj_lvl == "top":
 
+            objs = objects if objects else selection
+
             if target_type == "links":
-                objs_to_transform = [obj for obj in selection if obj.get_children()]
+                objs_to_transform = [obj for obj in objs if obj.get_children()]
             else:
-                objs_to_transform = selection[:]
+                objs_to_transform = objs[:]
 
             if not objs_to_transform:
                 return
@@ -949,7 +973,7 @@ class TransformationManager(BaseObject):
                 self.__init_link_transform()
 
             selection.set_transform_component(objs_to_transform, transf_type, axis,
-                                              value, is_rel_value)
+                                              value, is_rel_value, rel_to_world, transformer)
 
         else:
 
@@ -967,7 +991,8 @@ class TransformationManager(BaseObject):
             if target_type == "links":
                 self.__cleanup_link_transform()
 
-            selection.finalize_transform_component(objs_to_transform, transf_type, is_rel_value)
+            selection.finalize_transform_component(objs_to_transform, transf_type, is_rel_value,
+                                                   add_to_hist)
             Mgr.do("init_point_helper_transform")
             Mgr.do("transform_point_helpers")
             Mgr.do("finalize_point_helper_transform")
@@ -1088,7 +1113,7 @@ class TransformationManager(BaseObject):
         cam = self.cam()
         lens_type = self.cam.lens_type
 
-        if axis_constraints == "screen":
+        if axis_constraints == "view":
             normal = V3D(grid_origin.get_relative_vector(cam, Vec3.forward()))
             self._transf_axis = None
         elif len(axis_constraints) == 1:
@@ -1203,7 +1228,7 @@ class TransformationManager(BaseObject):
         cam = self.cam()
         lens_type = self.cam.lens_type
 
-        if axis_constraints == "screen":
+        if axis_constraints == "view":
 
             normal = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
             self._screen_axis_vec = grid_origin.get_relative_vector(cam, Vec3.forward())
@@ -1316,7 +1341,7 @@ class TransformationManager(BaseObject):
             rotation = Quat()
             axis_constraints = GlobalData["axis_constraints"]["rotate"]
 
-            if axis_constraints == "screen":
+            if axis_constraints == "view":
                 rotation.set_from_axis_angle(angle, self._screen_axis_vec)
             else:
                 hpr = VBase3()

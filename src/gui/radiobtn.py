@@ -147,7 +147,7 @@ class RadioButton(Widget):
 
 class RadioButtonGroup(object):
 
-    def __init__(self, bullet_color, back_color, rows=0, columns=0, gap_h=0, gap_v=0):
+    def __init__(self, bullet_color, back_color, rows=0, columns=0, gap_h=0, gap_v=0, stretch=False):
 
         self._btns = {}
         self._selected_btn_id = None
@@ -157,6 +157,7 @@ class RadioButtonGroup(object):
         self._default_back_color = self._back_color = back_color
         self._text_borders = (5, 0, 0, 0)
         self._sizer = GridSizer(rows, columns, gap_h, gap_v)
+        self._stretch = stretch
         self._delay_card_update = False
 
     def destroy(self):
@@ -185,7 +186,8 @@ class RadioButtonGroup(object):
         subsizer = Sizer("horizontal")
         subsizer.add(button, alignment="center_v")
         subsizer.add(text, alignment="center_v", borders=self._text_borders)
-        self._sizer.add(subsizer, alignment_v="center_v")
+        proportion = 1. if self._stretch else 0.
+        self._sizer.add(subsizer, alignment_v="center_v", proportion_h=proportion)
 
     def get_button_count(self):
 
@@ -259,6 +261,8 @@ class RadioButtonGroup(object):
 
         if self._is_enabled == enable:
             return
+
+        self._is_enabled = enable
 
         if enable:
             for disabler in self._disablers.values():

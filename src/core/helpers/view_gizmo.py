@@ -652,7 +652,7 @@ class ViewGizmo(BaseObject):
                 Mgr.get("core").suppress_mouse_events(False)
                 Mgr.get("picking_cam").set_active()
 
-            if GlobalData["coord_sys_type"] == "screen":
+            if GlobalData["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
             return
@@ -809,7 +809,7 @@ class ViewGizmo(BaseObject):
             Mgr.get("core").suppress_mouse_events(False)
             Mgr.get("picking_cam").set_active()
 
-        if GlobalData["coord_sys_type"] == "screen":
+        if GlobalData["coord_sys_type"] == "view":
             Mgr.get("selection").update_transform_values()
 
     def __update_aux_handles(self):

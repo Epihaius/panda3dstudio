@@ -52,7 +52,7 @@ class NavigationManager(BaseObject):
 
         def end_cam_transform():
 
-            if GlobalData["coord_sys_type"] == "screen":
+            if GlobalData["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
             Mgr.enter_state("navigation_mode")

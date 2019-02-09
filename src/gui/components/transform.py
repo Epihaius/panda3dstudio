@@ -58,7 +58,7 @@ class AxisButtons(ButtonGroup):
         if not transf_type:
             return
 
-        if axes in ("screen", "trackball"):
+        if axes in ("view", "trackball"):
             return
 
         self._axes[transf_type] = axes
@@ -123,7 +123,7 @@ class CoordSysComboBox(ToolbarComboBox):
     def __init__(self, toolbar):
 
         icon_id = "icon_coord_sys"
-        tooltip_text = "Coordinate system"
+        tooltip_text = "Reference coordinate system"
 
         ToolbarComboBox.__init__(self, toolbar, 100, icon_id=icon_id, tooltip_text=tooltip_text)
 
@@ -152,7 +152,7 @@ class CoordSysComboBox(ToolbarComboBox):
                 self.add_item(cs_type, text, set_coord_sys)
 
         for cs in (
-            ("world", "World"), ("screen", "Screen"), ("local", "Local"),
+            ("world", "World"), ("view", "View"), ("local", "Local"),
             ("object", "Pick object...")
         ):
             add_coord_sys_entry(*cs)
@@ -204,8 +204,8 @@ class TransfCenterComboBox(ToolbarComboBox):
                 self.add_item(tc_type, text, set_transf_center)
 
         for tc in (
-            ("adaptive", "Adaptive"), ("sel_center", "Selection Center"),
-            ("pivot", "Pivot"), ("cs_origin", "Coord Sys Origin"),
+            ("adaptive", "Adaptive"), ("sel_center", "Selection center"),
+            ("pivot", "Pivot"), ("cs_origin", "Ref. crd. sys. origin"),
             ("object", "Pick object...")
         ):
             add_transf_center_type(*tc)

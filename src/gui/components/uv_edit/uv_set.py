@@ -97,11 +97,15 @@ class UVSetPanel(Panel):
 
     def __set_uv_name_targets(self, names):
 
+        self._uv_set_btns.set_active_button("0")
         combobox = self._comboboxes["uv_name_target"]
-        # TODO: clear combobox popup menu
+        combobox.clear()
         name_field = self._fields["uv_name"]
 
-        if not names:
+        if names:
+            combobox.enable()
+            self._fields["uv_name"].enable()
+        else:
             combobox.enable(False)
             self._fields["uv_name"].enable(False)
             return
@@ -133,5 +137,7 @@ class UVSetPanel(Panel):
     def __set_target_uv_name(self, uv_set_names):
 
         obj_id = self._comboboxes["uv_name_target"].get_selected_item()
-        uv_set_name = uv_set_names[obj_id]
-        self._fields["uv_name"].set_value("uv_name", uv_set_name)
+
+        if obj_id:
+            uv_set_name = uv_set_names[obj_id]
+            self._fields["uv_name"].set_value("uv_name", uv_set_name)

@@ -233,13 +233,25 @@ class GeomTransformBase(BaseObject):
 
         self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
 
-    def init_transform(self):
+    def get_vertex_position_data(self):
 
+        data = {}
         geom_node_top = self._toplvl_node
-        start_data = self._transf_start_data
-        start_data["bounds"] = geom_node_top.get_bounds()
+        data["bounds"] = geom_node_top.get_bounds()
         pos_array_main = geom_node_top.modify_geom(0).modify_vertex_data().modify_array(0)
+        data["pos_array"] = GeomVertexArrayData(pos_array_main)
+
+        return data
+
+    def prepare_transform(self, pos_data):
+
+        start_data = self._transf_start_data
+        start_data["bounds"] = pos_data["bounds"]
+        pos_array_main = pos_data["pos_array"]
         start_data["pos_array"] = GeomVertexArrayData(pos_array_main)
+        geom_node_top = self._toplvl_node
+        vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
+        vertex_data_top.set_array(0, pos_array_main)
 
         for geom_type in ("poly", "poly_picking"):
             vertex_data = self._vertex_data[geom_type]
@@ -267,6 +279,10 @@ class GeomTransformBase(BaseObject):
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array_edge)
         self._pos_arrays["edge"] = pos_array_edge
+
+    def init_transform(self):
+
+        self.prepare_transform(self.get_vertex_position_data())
 
     def set_vert_sel_coordinate(self, axis, value):
 
@@ -312,19 +328,46 @@ class GeomTransformBase(BaseObject):
 
         ref_node = self._get_ref_node()
         transf_center_pos = self._get_transf_center_pos()
+        origin = self._origin
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         tmp_vertex_data = GeomVertexData(vertex_data_top)
         tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
 
-        if transf_type == "translate":
+        if transf_type == "custom":
 
-            vec = self._origin.get_relative_vector(ref_node, value)
+            def get_custom_mat():
+
+                final_mat = Mat4.ident_mat()
+                mats = value["mats"]
+
+                for mat, ref_type in mats:
+                    if ref_type == "ref_node":
+                        node = ref_node
+                    elif ref_type == "pivot":
+                        node = self.get_toplevel_object().get_pivot()
+                    elif ref_type == "grid_origin":
+                        node = Mgr.get(("grid", "origin"))
+                    elif ref_type == "origin":
+                        node = origin
+                    elif ref_type == "world":
+                        node = self.world
+                    elif ref_type == "custom":
+                        node = value["ref_node"]
+                    final_mat = final_mat * origin.get_mat(node) * mat * node.get_mat(origin)
+
+                return final_mat
+
+            mat = get_custom_mat()
+
+        elif transf_type == "translate":
+
+            vec = origin.get_relative_vector(ref_node, value)
             mat = Mat4.translate_mat(vec)
 
         elif transf_type == "rotate":
 
-            tc_pos = self._origin.get_relative_point(self.world, transf_center_pos)
-            quat = self._origin.get_quat(ref_node) * value * ref_node.get_quat(self._origin)
+            tc_pos = origin.get_relative_point(self.world, transf_center_pos)
+            quat = origin.get_quat(ref_node) * value * ref_node.get_quat(origin)
             quat_mat = Mat4()
             quat.extract_to_matrix(quat_mat)
             offset_mat = Mat4.translate_mat(-tc_pos)
@@ -334,9 +377,9 @@ class GeomTransformBase(BaseObject):
 
         elif transf_type == "scale":
 
-            tc_pos = self._origin.get_relative_point(self.world, transf_center_pos)
+            tc_pos = origin.get_relative_point(self.world, transf_center_pos)
             scale_mat = Mat4.scale_mat(value)
-            mat = self._origin.get_mat(ref_node) * scale_mat * ref_node.get_mat(self._origin)
+            mat = origin.get_mat(ref_node) * scale_mat * ref_node.get_mat(origin)
             # remove translation component
             mat.set_row(3, VBase3())
             offset_mat = Mat4.translate_mat(-tc_pos)
@@ -415,11 +458,13 @@ class GeomTransformBase(BaseObject):
             self.update_vertex_normals(merged_verts)
 
             pos_array = geom_node_top.get_geom(0).get_vertex_data().get_array(0)
-            from_handle = pos_array.get_handle()
+            from_view = memoryview(pos_array).cast("B")
             normal_geoms = self._geoms["normal"]
             vertex_data = normal_geoms["pickable"].node().modify_geom(0).modify_vertex_data()
-            to_handle = vertex_data.modify_array(0).modify_handle()
-            to_handle.copy_data_from(from_handle)
+            to_array = vertex_data.modify_array(0)
+            to_array.unclean_set_num_rows(pos_array.get_num_rows())
+            to_view = memoryview(to_array).cast("B")
+            to_view[:] = from_view
             pos_array = vertex_data.get_array(0)
             vertex_data = normal_geoms["sel_state"].node().modify_geom(0).modify_vertex_data()
             vertex_data.set_array(0, pos_array)
@@ -627,6 +672,28 @@ class SelectionTransformBase(BaseObject):
         Mgr.update_remotely("selection_count")
         Mgr.update_remotely("sel_color_count")
 
+    def get_vertex_position_data(self):
+
+        data = {}
+
+        if self._obj_level == "normal":
+            for geom_data_obj in self._groups:
+                data[geom_data_obj] = geom_data_obj.get_normal_array()
+        else:
+            for geom_data_obj in self._groups:
+                data[geom_data_obj] = geom_data_obj.get_vertex_position_data()
+
+        return data
+
+    def prepare_transform(self, pos_data):
+
+        if self._obj_level == "normal":
+            for geom_data_obj, data in pos_data.items():
+                geom_data_obj.prepare_normal_transform(data)
+        else:
+            for geom_data_obj, data in pos_data.items():
+                geom_data_obj.prepare_transform(data)
+
     def set_transform_component(self, transf_type, axis, value, is_rel_value):
 
         obj_lvl = self._obj_level
@@ -696,7 +763,27 @@ class SelectionTransformBase(BaseObject):
             if GlobalData["transf_center_type"] in ("adaptive", "sel_center"):
                 Mgr.do("set_transf_gizmo_pos", self.get_center_pos())
 
-        self.__add_history(transf_type)
+        self.add_history(transf_type)
+
+    def aim_at_point(self, point, ref_node, toward=True, add_to_hist=True, objects=None, lock_normals=True):
+
+        if self._obj_level == "normal":
+
+            geom_data_objs = [o.get_geom_object().get_geom_data_object()
+                for o in objects] if objects else self._groups
+
+            for geom_data_obj in geom_data_objs:
+                geom_data_obj.aim_selected_normals(point, ref_node, toward)
+                geom_data_obj.finalize_normal_transform(lock_normals=lock_normals)
+
+            if len(self._objs) == 1:
+                grid_origin = Mgr.get(("grid", "origin"))
+                h, p, r = self._objs[0].get_hpr(grid_origin)
+                transform_values = {"rotate": (p, r, h)}
+                Mgr.update_remotely("transform_values", transform_values)
+
+            if add_to_hist:
+                self.add_history("custom", "Aim {} at point")
 
     def update_transform_values(self):
 
@@ -718,13 +805,16 @@ class SelectionTransformBase(BaseObject):
 
             Mgr.update_remotely("transform_values", transform_values)
 
-    def init_transform(self):
+    def init_transform(self, objects=None):
+
+        geom_data_objs = [o.get_geom_object().get_geom_data_object()
+            for o in objects] if objects else self._groups
 
         if self._obj_level == "normal":
-            for geom_data_obj in self._groups:
+            for geom_data_obj in geom_data_objs:
                 geom_data_obj.init_normal_transform()
         else:
-            for geom_data_obj in self._groups:
+            for geom_data_obj in geom_data_objs:
                 geom_data_obj.init_transform()
 
     def init_translation(self):
@@ -772,20 +862,45 @@ class SelectionTransformBase(BaseObject):
             for geom_data_obj in self._groups:
                 geom_data_obj.transform_selection(obj_lvl, "scale", scaling)
 
-    def finalize_transform(self, cancelled=False):
+    def custom_transform(self, data, add_to_hist=True, objects=None, lock_normals=True):
+
+        self.init_transform(objects)
+
+        geom_data_objs = [o.get_geom_object().get_geom_data_object()
+            for o in objects] if objects else self._groups
+
+        obj_lvl = self._obj_level
+
+        if obj_lvl == "normal":
+            for geom_data_obj in geom_data_objs:
+                geom_data_obj.transform_normals("custom", data)
+        else:
+            for geom_data_obj in geom_data_objs:
+                geom_data_obj.transform_selection(obj_lvl, "custom", data)
+
+        self.finalize_transform(add_to_hist=add_to_hist, data=data,
+                                objects=objects, lock_normals=lock_normals)
+
+    def finalize_transform(self, cancelled=False, add_to_hist=True, data=None,
+                           objects=None, lock_normals=True):
+
+        geom_data_objs = [o.get_geom_object().get_geom_data_object()
+            for o in objects] if objects else self._groups
 
         if self._obj_level == "normal":
 
-            for geom_data_obj in self._groups:
-                geom_data_obj.finalize_normal_transform(cancelled)
+            for geom_data_obj in geom_data_objs:
+                geom_data_obj.finalize_normal_transform(cancelled, lock_normals)
 
             if not cancelled:
                 self.update_transform_values()
-                self.__add_history(GlobalData["active_transform_type"])
+                if add_to_hist:
+                    xform_type = "custom" if data else GlobalData["active_transform_type"]
+                    self.add_history(xform_type, data["descr"] if data else "")
 
         else:
 
-            for geom_data_obj in self._groups:
+            for geom_data_obj in geom_data_objs:
                 geom_data_obj.finalize_transform(cancelled)
 
             if not cancelled:
@@ -798,9 +913,12 @@ class SelectionTransformBase(BaseObject):
                     Mgr.do("set_transf_gizmo_pos", Mgr.get("transf_center_pos"))
 
                 self.update_transform_values()
-                self.__add_history(GlobalData["active_transform_type"])
 
-    def __add_history(self, transf_type):
+                if add_to_hist:
+                    xform_type = "custom" if data else GlobalData["active_transform_type"]
+                    self.add_history(xform_type, data["descr"] if data else "")
+
+    def add_history(self, transf_type, descr=""):
 
         obj_data = {}
         event_data = {"objects": obj_data}
@@ -815,7 +933,10 @@ class SelectionTransformBase(BaseObject):
         elif self._obj_level == "normal":
             subobj_descr = "normals"
 
-        event_descr = '{} {}'.format(transf_type.title(), subobj_descr)
+        if descr:
+            event_descr = descr.format(subobj_descr)
+        else:
+            event_descr = '{} {}'.format(transf_type.title(), subobj_descr)
 
         if self._obj_level == "normal":
             for geom_data_obj in self._groups:

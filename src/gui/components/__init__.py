@@ -13,6 +13,7 @@ from ..panel import (PanelStack, PanelButton, PanelInputField, PanelCheckBox, Pa
 from ..dialog import *
 from .aux_viewport import AuxiliaryViewport
 from .transform import TransformToolbar
+from .align import SnapAlignToolbar
 from .select import SelectionManager, SelectionToolbar, SelectionPanel
 from .material import MaterialPanel, MaterialToolbar
 from .hierarchy import HierarchyPanel
@@ -202,7 +203,7 @@ class Components(object):
         self._uv_editing_initialized = False
 
         self.__create_components()
-        self.__create_layout()
+        self.__create_main_layout()
 
         self._window_size = win.update_min_size()
         Mgr.expose("window_size", lambda: self._window_size)
@@ -230,8 +231,10 @@ class Components(object):
             ToolTip.show(label, (x, y + 20), delay=0.)
 
         Mgr.accept("set_viewport_border_color", self.__set_viewport_border_color)
-        Mgr.accept("create_main_layout", self.__create_layout)
-        Mgr.accept("clear_main_layout", self.__clear_layout)
+        Mgr.accept("create_layout", self.__create_layout)
+        Mgr.accept("clear_layout", self.__clear_layout)
+        Mgr.accept("create_main_layout", self.__create_main_layout)
+        Mgr.accept("clear_main_layout", self.__clear_main_layout)
         Mgr.accept("update_main_layout", self.__update_layout)
         Mgr.accept("reset_layout_data", self.__reset_layout_data)
         Mgr.accept("set_right_dock_side", self.__set_right_dock_side)
@@ -251,6 +254,7 @@ class Components(object):
         self._view_mgr.setup()
         self._option_mgr.setup()
         Toolbar.registry["transform"].setup()
+        Toolbar.registry["snap_align"].setup()
         components["hierarchy_panel"].setup()
         components["selection_panel"].setup()
         components["prop_panel"].setup()
@@ -365,6 +369,7 @@ class Components(object):
         HistoryToolbar(dock)
         RenderModeToolbar(dock)
         GridToolbar(dock)
+        SnapAlignToolbar(dock)
 
         # Create the viewport and the right-hand side dock
 
@@ -434,60 +439,14 @@ class Components(object):
         with open("config", "wb") as config_file:
             pickle.dump(config_data, config_file, -1)
 
-    def __get_default_layout_data(self):
-
-        layout = {"main": {}, "uv": {}}
-        layout["main"]["top"] = [None, [["history", "selection", "render_mode", "grid"]]]
-        layout["main"]["bottom"] = [[["material"], ["transform"]], None]
-        layout["uv"]["top"] = [None, [["selection", "render_mode", "grid"]]]
-        layout["uv"]["bottom"] = [[["uv_transform"]], None]
-        layout["right_dock"] = "right"
-
-        return layout
-
-    def __reset_layout_data(self, interface_id=None):
-
-        layout = self.__get_default_layout_data()
-        config_data = GlobalData["config"]
-
-        if interface_id is None:
-            config_data["gui_layout"] = layout
-        else:
-            config_data["gui_layout"][interface_id] = layout[interface_id]
-            config_data["gui_layout"]["right_dock"] = "right"
-
-        with open("config", "wb") as config_file:
-            pickle.dump(config_data, config_file, -1)
-
-        return layout
-
-    def __create_layout(self):
+    def __create_layout(self, layout_data):
 
         components = self._registry
         docks = components["docks"]
         docking_targets = components["docking_targets"]
         toolbars = Toolbar.registry
-        config_data = GlobalData["config"]
-        layout = config_data.get("gui_layout")
 
-        if not layout:
-
-            layout = self.__get_default_layout_data()
-            config_data["gui_layout"] = layout
-
-            with open("config", "wb") as config_file:
-                pickle.dump(config_data, config_file, -1)
-
-        side = layout["right_dock"]
-
-        if side == "left":
-            dock = docks["right"]
-            sizer_item = dock.get_sizer_item()
-            sizer = sizer_item.get_sizer()
-            sizer.remove_item(sizer_item)
-            sizer.add_item(sizer_item, index=0)
-
-        for side, toolbar_id_lists in layout["main"].items():
+        for side, toolbar_id_lists in layout_data.items():
 
             dock = docks[side]
             dock_sizer = dock.get_sizer()
@@ -561,7 +520,7 @@ class Components(object):
 
                 row_sizer.set_default_size((width, 0))
 
-    def __clear_layout(self):
+    def __clear_layout(self, layout_data):
 
         components = self._registry
         docks = components["docks"]
@@ -570,8 +529,19 @@ class Components(object):
 
         toolbar_rows = set()
         bundles = set()
+        toolbar_ids = []
 
-        for toolbar_id in ("material", "transform", "history", "render_mode", "grid", "selection"):
+        for toolbar_id_lists in layout_data.values():
+
+            for i, toolbar_id_list in enumerate(toolbar_id_lists):
+
+                if toolbar_id_list is None:
+                    continue
+
+                for id_list in toolbar_id_list:
+                    toolbar_ids.extend(id_list)
+
+        for toolbar_id in toolbar_ids:
 
             toolbar = toolbars[toolbar_id]
             docking_targets.remove(toolbar)
@@ -603,10 +573,67 @@ class Components(object):
                 row_sizer.clear()
                 row_sizer.destroy()
 
+    def __get_default_layout_data(self):
+
+        layout = {"main": {}, "uv": {}}
+        layout["main"]["top"] = [None, [["render_mode", "grid"], ["history", "selection", "snap_align"]]]
+        layout["main"]["bottom"] = [[["material"], ["transform"]], None]
+        layout["uv"]["top"] = [None, [["selection", "render_mode", "grid"]]]
+        layout["uv"]["bottom"] = [[["uv_transform"]], None]
+        layout["right_dock"] = "right"
+
+        return layout
+
+    def __reset_layout_data(self, interface_id=None):
+
+        layout = self.__get_default_layout_data()
+        config_data = GlobalData["config"]
+
+        if interface_id is None:
+            config_data["gui_layout"] = layout
+        else:
+            config_data["gui_layout"][interface_id] = layout[interface_id]
+            config_data["gui_layout"]["right_dock"] = "right"
+
+        with open("config", "wb") as config_file:
+            pickle.dump(config_data, config_file, -1)
+
+        return layout
+
+    def __create_main_layout(self):
+
+        docks = self._registry["docks"]
+        config_data = GlobalData["config"]
+        layout = config_data.get("gui_layout")
+
+        if not layout:
+
+            layout = self.__get_default_layout_data()
+            config_data["gui_layout"] = layout
+
+            with open("config", "wb") as config_file:
+                pickle.dump(config_data, config_file, -1)
+
+        side = layout["right_dock"]
+
+        if side == "left":
+            dock = docks["right"]
+            sizer_item = dock.get_sizer_item()
+            sizer = sizer_item.get_sizer()
+            sizer.remove_item(sizer_item)
+            sizer.add_item(sizer_item, index=0)
+
+        self.__create_layout(layout["main"])
+
+    def __clear_main_layout(self):
+
+        layout_data = GlobalData["config"]["gui_layout"]["main"]
+        self.__clear_layout(layout_data)
+
     def __update_layout(self):
 
-        self.__clear_layout()
-        self.__create_layout()
+        self.__clear_main_layout()
+        self.__create_main_layout()
         self.__update_window()
 
     def __update_layout_data(self):

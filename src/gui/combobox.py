@@ -15,6 +15,7 @@ class ComboBox(Button):
 
         self.set_widget_type("combobox")
         self._field_text = text
+        self._field_text_in_tooltip = True
 
         self._items = {}
         self._item_ids = []
@@ -347,6 +348,10 @@ class ComboBox(Button):
 
         return self._item_ids
 
+    def allow_field_text_in_tooltip(self, allow=True):
+
+        self._field_text_in_tooltip = allow
+
     def set_text(self, text):
 
         if self._field_text == text:
@@ -354,7 +359,7 @@ class ComboBox(Button):
 
         self._field_text = text
 
-        if self._tooltip_text:
+        if self._field_text_in_tooltip and self._tooltip_text:
             self.set_tooltip_text(self._tooltip_text + (": " + text if text else ""))
 
         if text:

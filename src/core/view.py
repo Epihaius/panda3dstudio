@@ -767,7 +767,7 @@ class ViewManager(BaseObject):
         Mgr.do("update_transf_gizmo")
         Mgr.do("update_coord_sys")
 
-        if GlobalData["coord_sys_type"] == "screen":
+        if GlobalData["coord_sys_type"] == "view":
             Mgr.get("selection").update_transform_values()
 
         backgrounds = self._backgrounds
@@ -1029,7 +1029,7 @@ class ViewManager(BaseObject):
             if not view_id or view_id == current_view_id:
                 Mgr.do("update_view_gizmo", False, True)
 
-            if GlobalData["coord_sys_type"] == "screen":
+            if GlobalData["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
         self.is_front_custom = False
@@ -1122,7 +1122,7 @@ class ViewManager(BaseObject):
             Mgr.do("update_zoom_indicator")
             Mgr.do("update_view_gizmo")
 
-            if GlobalData["coord_sys_type"] == "screen":
+            if GlobalData["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
     def __reset_all_views(self, to_default=True, transition=False):
@@ -1338,7 +1338,7 @@ class ViewManager(BaseObject):
             if obj_to_align_to:
                 Mgr.do("update_view_gizmo", False, True)
 
-            if GlobalData["coord_sys_type"] == "screen":
+            if GlobalData["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
         if obj_to_align_to:
@@ -1376,7 +1376,7 @@ class ViewManager(BaseObject):
             Mgr.do("update_transf_gizmo")
             Mgr.do("update_coord_sys")
 
-            if GlobalData["coord_sys_type"] == "screen":
+            if GlobalData["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
             backgrounds = self._backgrounds

@@ -1093,11 +1093,31 @@ class NormalEditBase(BaseObject):
         geoms = self._geoms
         geoms["poly"]["pickable"].show(picking_mask)
 
-    def init_normal_transform(self):
+    def get_normal_array(self):
 
         normals_geom = self._geoms["normal"]["pickable"].node().get_geom(0)
         normal_array = normals_geom.get_vertex_data().get_array(2)
+
+        return GeomVertexArrayData(normal_array)
+
+    def prepare_normal_transform(self, normal_array, update_geoms=True):
+
         self._transf_start_data["pos_array"] = GeomVertexArrayData(normal_array)
+
+        if update_geoms:
+            geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
+            geom.modify_vertex_data().set_array(2, normal_array)
+            geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
+            vertex_data = geom.modify_vertex_data()
+            vertex_data.set_array(2, normal_array)
+            vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
+            vertex_data.set_array(2, normal_array)
+            vertex_data = self._vertex_data["poly"]
+            vertex_data.set_array(2, normal_array)
+
+    def init_normal_transform(self):
+
+        self.prepare_normal_transform(self.get_normal_array(), update_geoms=False)
 
     def set_normal_sel_angle(self, axis, angle):
 
@@ -1139,6 +1159,39 @@ class NormalEditBase(BaseObject):
         vertex_data = self._vertex_data["poly"]
         vertex_data.set_array(2, normal_array)
 
+    def aim_selected_normals(self, point, ref_node, toward=True):
+
+        sel_ids = self._selected_subobj_ids["normal"]
+
+        if not sel_ids:
+            return
+
+        origin = self._origin
+        target_pos = origin.get_relative_point(ref_node, point)
+        geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        normal_writer = GeomVertexWriter(tmp_vertex_data, "normal")
+        verts = self._subobjs["vert"]
+
+        for sel_id in sel_ids:
+            vert = verts[sel_id]
+            pos = vert.get_pos()
+            normal = (target_pos - pos).normalized() * (1. if toward else -1.)
+            row = vert.get_row_index()
+            normal_writer.set_row(row)
+            normal_writer.set_data3(normal)
+
+        normal_array = tmp_vertex_data.get_array(2)
+        vertex_data.set_array(2, normal_array)
+        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._vertex_data["poly"]
+        vertex_data.set_array(2, normal_array)
+
     def transform_normals(self, transf_type, value):
 
         rows = self._rows_to_transf["normal"]
@@ -1151,22 +1204,49 @@ class NormalEditBase(BaseObject):
         vertex_data = geom.modify_vertex_data()
         tmp_vertex_data = GeomVertexData(vertex_data)
         tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
+        origin = self._origin
 
-        if transf_type == "translate":
+        if transf_type == "custom":
 
-            vec = self._origin.get_relative_vector(ref_node, value)
+            def get_custom_mat():
+
+                final_mat = Mat4.ident_mat()
+                mats = value["mats"]
+
+                for mat, ref_type in mats:
+                    if ref_type == "ref_node":
+                        node = ref_node
+                    elif ref_type == "pivot":
+                        node = self.get_toplevel_object().get_pivot()
+                    elif ref_type == "grid_origin":
+                        node = Mgr.get(("grid", "origin"))
+                    elif ref_type == "origin":
+                        node = origin
+                    elif ref_type == "world":
+                        node = self.world
+                    elif ref_type == "custom":
+                        node = value["ref_node"]
+                    final_mat = final_mat * origin.get_mat(node) * mat * node.get_mat(origin)
+
+                return final_mat
+
+            mat = get_custom_mat()
+
+        elif transf_type == "translate":
+
+            vec = origin.get_relative_vector(ref_node, value)
             mat = Mat4.translate_mat(vec)
 
         elif transf_type == "rotate":
 
-            quat = self._origin.get_quat(ref_node) * value * ref_node.get_quat(self._origin)
+            quat = origin.get_quat(ref_node) * value * ref_node.get_quat(origin)
             mat = Mat4()
             quat.extract_to_matrix(mat)
 
         elif transf_type == "scale":
 
             scale_mat = Mat4.scale_mat(value)
-            mat = self._origin.get_mat(ref_node) * scale_mat * ref_node.get_mat(self._origin)
+            mat = origin.get_mat(ref_node) * scale_mat * ref_node.get_mat(origin)
             # remove translation component
             mat.set_row(3, VBase3())
 
@@ -1195,7 +1275,7 @@ class NormalEditBase(BaseObject):
         vertex_data = self._vertex_data["poly"]
         vertex_data.set_array(2, normal_array)
 
-    def finalize_normal_transform(self, cancelled=False):
+    def finalize_normal_transform(self, cancelled=False, lock_normals=True):
 
         start_data = self._transf_start_data
         geom_node_top = self._toplvl_node
@@ -1227,7 +1307,9 @@ class NormalEditBase(BaseObject):
                 normal = Vec3(normal_reader.get_data3()) * sign
                 vert.set_normal(normal)
 
-            self._normal_change = set(sel_ids)
+            if lock_normals:
+                self._normal_change = set(sel_ids)
+
             model = self.get_toplevel_object()
 
             if model.has_tangent_space():
@@ -1236,7 +1318,8 @@ class NormalEditBase(BaseObject):
             else:
                 self._is_tangent_space_initialized = False
 
-            self.lock_normals()
+            if lock_normals:
+                self.lock_normals()
 
         start_data.clear()
 
