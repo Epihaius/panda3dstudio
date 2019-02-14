@@ -107,12 +107,15 @@ class SelectionTransformBase(BaseObject):
             elif transf_type == "scale":
                 self.init_scaling(objs_to_transform)
                 scaling = VBase3(1., 1., 1.)
-                scaling["xyz".index(axis)] = max(10e-008, value)
+                value = max(10e-008, abs(value)) * (-1. if value < 0. else 1.)
+                scaling["xyz".index(axis)] = value
                 self.scale(objs_to_transform, scaling)
 
         else:
 
-            val = max(10e-008, value) if transf_type == "scale" else value
+            if transf_type == "scale":
+                value = max(10e-008, abs(value)) * (-1. if value < 0. else 1.)
+
             target_type = GlobalData["transform_target_type"]
             cs_type = GlobalData["coord_sys_type"]
             grid_origin = None if cs_type == "local" else Mgr.get(("grid", "origin"))
@@ -147,10 +150,10 @@ class SelectionTransformBase(BaseObject):
                             self._pivot.set_quat_scale(quat, scale)
                             parent_node = node.get_parent()
                             node.wrt_reparent_to(self._pivot)
-                            value_setter(self._pivot, ref_node, val)
+                            value_setter(self._pivot, ref_node, value)
                             node.wrt_reparent_to(parent_node)
                         else:
-                            value_setter(node, ref_node, val)
+                            value_setter(node, ref_node, value)
                         objs.remove(obj)
 
             if use_transf_center:
@@ -172,7 +175,7 @@ class SelectionTransformBase(BaseObject):
 
         if is_rel_value:
 
-            self.finalize_transform(objs_to_transform)
+            self.finalize_transform(objs_to_transform, add_to_hist=add_to_hist)
 
         else:
 
@@ -523,7 +526,7 @@ class SelectionTransformBase(BaseObject):
         if GlobalData["object_links_shown"]:
             Mgr.do("update_obj_link_viz")
 
-    def finalize_transform(self, objs_to_transform, cancelled=False):
+    def finalize_transform(self, objs_to_transform, cancelled=False, add_to_hist=True):
 
         target_type = GlobalData["transform_target_type"]
 
@@ -564,7 +567,8 @@ class SelectionTransformBase(BaseObject):
                 if target_type in ("geom", "links", "no_children"):
                     Mgr.do("update_group_bboxes", [obj.get_id()])
 
-            self.__add_history(objs_to_transform, transf_type)
+            if add_to_hist:
+                self.__add_history(objs_to_transform, transf_type)
 
         if target_type != "geom":
             Mgr.do("update_obj_link_viz")
@@ -741,6 +745,7 @@ class TransformationManager(BaseObject):
 
         self._selection = None
         self._transf_start_pos = Point3()
+        self._xform_backup = {}
 
         self._transf_plane = Plane(V3D(0., 1., 0.), Point3())
         self._transf_plane_normal = V3D()
@@ -750,13 +755,18 @@ class TransformationManager(BaseObject):
         self._screen_axis_vec = V3D()
 
         Mgr.expose("obj_transf_info", lambda: self._obj_transf_info)
+        Mgr.expose("xform_backup", lambda: self._xform_backup)
+        Mgr.expose("sorted_hierarchy", self.__get_sorted_hierarchy)
         Mgr.accept("reset_transf_to_restore", self.__reset_transforms_to_restore)
         Mgr.accept("add_transf_to_restore", self.__add_transform_to_restore)
         Mgr.accept("restore_transforms", self.__restore_transforms)
         Mgr.accept("update_obj_transf_info", self.__update_obj_transf_info)
         Mgr.accept("reset_obj_transf_info", self.__reset_obj_transf_info)
         Mgr.accept("init_transform", self.__init_transform)
+        Mgr.accept("create_xform_backup", self.__create_xform_backup)
+        Mgr.accept("restore_xform_backup", self.__restore_xform_backup)
         Mgr.add_app_updater("transf_component", self.__set_transform_component)
+        Mgr.add_app_updater("componentwise_xform", self.__update_componentwise_xform)
 
         add_state = Mgr.add_state
         add_state("transforming", -1)
@@ -977,7 +987,7 @@ class TransformationManager(BaseObject):
 
         else:
 
-            selection.set_transform_component(transf_type, axis, value, is_rel_value)
+            selection.set_transform_component(transf_type, axis, value, is_rel_value, add_to_hist)
 
         if active_obj_lvl == "top":
 
@@ -999,6 +1009,121 @@ class TransformationManager(BaseObject):
             Mgr.do("update_xform_target_type", objs_to_transform, reset=True)
 
         self._objs_to_transform = []
+
+    def __get_sorted_hierarchy(self, objects):
+        """
+        Return a list of objects sorted from ancestors to descendants.
+        Do not include open groups.
+
+        """
+
+        sorted_hierarchy = []
+        objs = objects[:]
+
+        while objs:
+
+            for obj in objs[:]:
+
+                other_objs = objs[:]
+                other_objs.remove(obj)
+
+                for other_obj in other_objs:
+                    if other_obj in obj.get_ancestors():
+                        break
+                else:
+                    objs.remove(obj)
+                    if obj.get_type() != "group" or not obj.is_open():
+                        sorted_hierarchy.append(obj)
+
+        return sorted_hierarchy
+
+    def __create_xform_backup(self):
+
+        backup = self._xform_backup
+
+        if GlobalData["active_obj_level"] == "top":
+            if GlobalData["transform_target_type"] == "geom":
+                for obj in Mgr.get("selection_top"):
+                    backup[obj] = obj.get_origin().get_transform(self.world)
+            else:
+                for obj in Mgr.get("selection_top"):
+                    backup[obj] = obj.get_pivot().get_transform(self.world)
+        else:
+            backup.update(Mgr.get("selection").get_vertex_position_data())
+
+    def __restore_xform_backup(self, clear=True):
+
+        backup = self._xform_backup
+
+        if not backup:
+            return
+
+        if GlobalData["active_obj_level"] == "top":
+
+            tc_type = GlobalData["transf_center_type"]
+
+            if tc_type != "pivot":
+                GlobalData["transf_center_type"] = "pivot"
+
+            for obj in self.__get_sorted_hierarchy(Mgr.get("selection_top")):
+                self.__set_transform_component("", "",
+                    backup[obj], False, [obj], False, True, NodePath.set_transform)
+
+            if tc_type != "pivot":
+                GlobalData["transf_center_type"] = tc_type
+
+        else:
+
+            selection = Mgr.get("selection")
+            selection.prepare_transform(backup)
+            selection.finalize_transform(add_to_hist=False, lock_normals=False)
+
+        if clear:
+            backup.clear()
+
+    def __componentwise_xform(self, values, preview=True, end_preview=False):
+
+        backup = self._xform_backup
+
+        if end_preview:
+            self.__restore_xform_backup()
+            return
+
+        if preview and not backup:
+            self.__create_xform_backup()
+
+        transf_type = GlobalData["active_transform_type"]
+        default_val = 1. if transf_type == "scale" else 0.
+        xforms = {}
+
+        for axis_id, value in values.items():
+            if value != default_val:
+                xforms[axis_id] = value
+
+        self.__restore_xform_backup(clear=False)
+
+        if xforms:
+
+            final_xform = xforms.popitem()
+
+            for axis_id, value in xforms.items():
+                self.__set_transform_component(transf_type, axis_id, value, is_rel_value=True,
+                                               add_to_hist=False)
+
+            axis_id, value = final_xform
+            add_to_hist = not preview
+            self.__set_transform_component(transf_type, axis_id, value, is_rel_value=True,
+                                           add_to_hist=add_to_hist)
+
+        if not preview:
+            backup.clear()
+
+    def __update_componentwise_xform(self, update_type, *args):
+
+        if update_type == "cancel":
+            self.__restore_xform_backup()
+        else:
+            self.__componentwise_xform(*args)
 
     def __init_transform(self, transf_start_pos):
 

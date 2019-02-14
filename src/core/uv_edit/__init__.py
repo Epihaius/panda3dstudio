@@ -168,9 +168,11 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             Mgr.remove_notification_handler("suppressed_state_enter", "uv_editor")
             Mgr.remove_notification_handler("suppressed_state_exit", "uv_editor")
             GlobalData["active_interface"] = "main"
+            Mgr.do("enable_object_name_checking")
 
             return
 
+        Mgr.do("disable_object_name_checking")
         Mgr.add_notification_handler("suppressed_state_enter", "uv_editor", self.__enter_suppressed_state)
         Mgr.add_notification_handler("suppressed_state_exit", "uv_editor", self.__exit_suppressed_state)
         self.__handle_viewport_resize(start=True)

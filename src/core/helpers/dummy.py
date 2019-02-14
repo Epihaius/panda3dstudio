@@ -507,6 +507,23 @@ class Dummy(TopLevelObject):
             geoms["unselected"] = root.find("**/{}_geom_unselected".format(geom_type))
             geoms["selected"] = root.find("**/{}_geom_selected".format(geom_type))
 
+        pickable_type_id = PickableTypes.get_id("dummy_edge")
+
+        for geom_type in ("box", "cross"):
+
+            pickable_geom = root.find("**/{}_geom_pickable".format(geom_type))
+            vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
+            col_rewriter = GeomVertexRewriter(vertex_data, "color")
+            col_rewriter.set_row(0)
+            r, g, b, a = col_rewriter.get_data4()
+
+            if int(round(a * 255.)) != pickable_type_id:
+                a = pickable_type_id / 255.
+                col_rewriter.set_data4(r, g, b, a)
+                while not col_rewriter.is_at_end():
+                    r, g, b, _ = col_rewriter.get_data4()
+                    col_rewriter.set_data4(r, g, b, a)
+
     def __init__(self, dummy_id, name, origin_pos):
 
         TopLevelObject.__init__(self, "dummy", dummy_id, name, origin_pos)

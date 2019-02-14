@@ -1,6 +1,7 @@
 from ..base import *
 from ..button import *
 from ..toolbar import *
+from ..dialog import *
 
 
 class TransformButtons(ToggleButtonGroup):
@@ -336,6 +337,7 @@ class TransformToolbar(Toolbar):
         Mgr.add_app_updater("transform_values", self.__set_field_values)
         Mgr.add_app_updater("selection_count", self.__check_selection_count)
         Mgr.add_app_updater("active_obj_level", self.__show_values)
+        Mgr.add_app_updater("componentwise_xform", TransformDialog)
 
         Mgr.accept("update_offset_btn", self.__update_offset_btn)
 
@@ -487,3 +489,234 @@ class TransformToolbar(Toolbar):
 
         for field in self._fields.values():
             field.show_value(value_id)
+
+
+class ComponentInputField(DialogInputField):
+
+    _field_borders = ()
+    _img_offset = (0, 0)
+
+    @classmethod
+    def __set_field_borders(cls):
+
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
+        cls._field_borders = (l, r, b, t)
+        cls._img_offset = (-l, -t)
+
+    def __init__(self, parent, width):
+
+        if not self._field_borders:
+            self.__set_field_borders()
+
+        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width)
+
+        self.set_image_offset(self._img_offset)
+
+    def get_outer_borders(self):
+
+        return self._field_borders
+
+
+class TransformDialog(Dialog):
+
+    def __init__(self):
+
+        transf_type = GlobalData["active_transform_type"]
+        title = '{} selection'.format(transf_type.title())
+        on_cancel = lambda: Mgr.update_remotely("componentwise_xform", "cancel")
+        extra_button_data = (("Apply", "", self.__on_apply, None, 1.),)
+
+        Dialog.__init__(self, title, "okcancel", transf_type.title(), self.__on_yes,
+                        on_cancel=on_cancel, extra_button_data=extra_button_data)
+
+        value = 1. if transf_type == "scale" else 0.
+        rot_axis = GlobalData["axis_constraints"]["rotate"]
+        self._rot_axis = "z" if rot_axis == "view" else rot_axis
+        self._values = values = {axis_id: value for axis_id in "xyz"}
+        self._link_values = True if transf_type == "scale" else False
+        self._linked_axes = "xyz"
+        self._preview = True
+        self._fields = fields = {}
+
+        client_sizer = self.get_client_sizer()
+
+        if transf_type == "rotate":
+
+            subsizer = Sizer("horizontal")
+            borders = (20, 20, 0, 20)
+            client_sizer.add(subsizer, expand=True, borders=borders)
+
+            self._toggle_btns = btns = ToggleButtonGroup()
+            borders = (0, 5, 0, 0)
+
+            def add_toggle(axis_id):
+
+                def toggle_on():
+
+                    self._toggle_btns.set_active_button(axis_id)
+                    value = values[self._rot_axis]
+                    self._rot_axis = axis_id
+                    values[self._rot_axis] = value
+
+                    for other_axis_id in "xyz".replace(self._rot_axis, ""):
+                        values[other_axis_id] = 0.
+
+                    if self._preview:
+                        Mgr.update_remotely("componentwise_xform", "", values)
+
+                toggle = (toggle_on, lambda: None)
+                axis_text = axis_id.upper()
+                tooltip_text = "Rotate about {}-axis".format(axis_text)
+                btn = DialogButton(self, axis_text, tooltip_text=tooltip_text)
+                btns.add_button(btn, axis_id, toggle)
+                subsizer.add(btn, alignment="center_v", borders=borders)
+
+            for axis_id in "xyz":
+                add_toggle(axis_id)
+
+            btns.set_active_button(self._rot_axis)
+
+            borders = (5, 0, 0, 0)
+            text = DialogText(self, "Offset angle:")
+            subsizer.add(text, alignment="center_v", borders=borders)
+            field = ComponentInputField(self, 100)
+            field.add_value("rot_axis", handler=self.__handle_value)
+            field.set_value("rot_axis", 0.)
+            field.show_value("rot_axis")
+            subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
+
+        else:
+
+            main_sizer = Sizer("horizontal")
+            borders = (20, 20, 0, 0)
+            client_sizer.add(main_sizer, expand=True, borders=borders)
+
+            subsizer = Sizer("vertical")
+            borders = (0, 10, 0, 0)
+            main_sizer.add(subsizer, expand=True, borders=borders)
+
+            subsizer.add((0, 0), proportion=1.)
+
+            self._toggle_btns = btns = ToggleButtonGroup()
+
+            def unlink_values():
+
+                self._toggle_btns.deactivate()
+                self._link_values = False
+
+            btns.set_default_toggle("", (unlink_values, lambda: None))
+            borders = (0, 0, 5, 0)
+
+            def add_toggle(axes):
+
+                def toggle_on():
+
+                    self._toggle_btns.set_active_button(axes)
+                    self._link_values = True
+                    self._linked_axes = axes
+
+                    val_to_copy = values[axes[0]]
+                    change = False
+
+                    for axis_id in axes[1:]:
+                        if values[axis_id] != val_to_copy:
+                            values[axis_id] = val_to_copy
+                            fields[axis_id].set_value(axis_id, val_to_copy)
+                            change = True
+
+                    if change and self._preview:
+                        Mgr.update_remotely("componentwise_xform", "", values)
+
+                toggle = (toggle_on, lambda: None)
+                text = "=".join(axes.upper())
+                axes_descr = "all" if axes == "xyz" else " and ".join(axes.upper())
+                tooltip_text = "Make {} values equal".format(axes_descr)
+                btn = DialogButton(self, text, tooltip_text=tooltip_text)
+                btns.add_button(btn, axes, toggle)
+                subsizer.add(btn, expand=True, borders=borders)
+
+            for axes in ("xyz", "xy", "yz", "xz"):
+                add_toggle(axes)
+
+            if transf_type == "scale":
+                btns.set_active_button("xyz")
+
+            subsizer.add((0, 0), proportion=1.)
+
+            group_title = "Offset {}".format("factors" if transf_type == "scale" else "distances")
+            group = DialogWidgetGroup(self, group_title)
+            borders = (0, 0, 10, 10)
+            main_sizer.add(group, proportion=1., borders=borders)
+            value = 1. if transf_type == "scale" else 0.
+
+            for axis_id in "xyz":
+
+                subsizer = Sizer("horizontal")
+                borders = (0, 0, 5, 0)
+                group.add(subsizer, expand=True, borders=borders)
+
+                text = DialogText(group, "{}:".format(axis_id.upper()))
+                subsizer.add(text, alignment="center_v")
+                field = ComponentInputField(group, 100)
+                field.add_value(axis_id, handler=self.__handle_value)
+                field.set_value(axis_id, value)
+                field.show_value(axis_id)
+                borders = (5, 0, 0, 0)
+                subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
+                fields[axis_id] = field
+
+        def enable_preview(preview):
+
+            self._preview = preview
+            Mgr.update_remotely("componentwise_xform", "", values, preview, not preview)
+
+        subsizer = Sizer("horizontal")
+        borders = (20, 20, 15, 20)
+        client_sizer.add(subsizer, borders=borders)
+        checkbox = DialogCheckBox(self, enable_preview)
+        checkbox.check()
+        subsizer.add(checkbox, alignment="center_v")
+        text = DialogText(self, "Preview")
+        borders = (5, 0, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        self.finalize()
+
+    def close(self, answer=""):
+
+        self._fields = None
+        self._toggle_btns = None
+
+        Dialog.close(self, answer)
+
+    def __handle_value(self, axis_id, value):
+
+        if axis_id == "rot_axis":
+
+            self._values[self._rot_axis] = value
+
+            for other_axis_id in "xyz".replace(self._rot_axis, ""):
+                self._values[other_axis_id] = 0.
+
+        else:
+
+            self._values[axis_id] = value
+
+            if self._link_values and axis_id in self._linked_axes:
+                for other_axis_id in self._linked_axes.replace(axis_id, ""):
+                    self._values[other_axis_id] = value
+                    self._fields[other_axis_id].set_value(other_axis_id, value)
+
+        if self._preview:
+            Mgr.update_remotely("componentwise_xform", "", self._values)
+
+    def __on_yes(self):
+
+        Mgr.update_remotely("componentwise_xform", "", self._values, False)
+
+    def __on_apply(self):
+
+        Mgr.update_remotely("componentwise_xform", "", self._values, False)
+
+        if self._preview:
+            Mgr.update_remotely("componentwise_xform", "", self._values)

@@ -150,11 +150,11 @@ class AlignmentDialog(Dialog):
             },
             "local_minmax": False,
             "per_vertex": False,
-            "planar": False,
-            "preview": False if obj_lvl == "normal" or target_type == "obj_axis_point" else True
+            "planar": False
         }
         self._coord_axis = "x"
         self._sel_obj_axis = "y" if obj_lvl == "normal" or target_type == "obj_axis_point" else "z"
+        self._preview = False if obj_lvl == "normal" or target_type == "obj_axis_point" else True
 
         self._checkboxes = checkboxes = {}
         self._radio_btns = radio_btn_groups = {}
@@ -186,8 +186,8 @@ class AlignmentDialog(Dialog):
 
                     self._options["axes"][self._sel_obj_axis]["align"] = align
 
-                    if self._options["preview"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 checkbox = DialogCheckBox(group, align_to_dir)
                 subsizer.add(checkbox, alignment="center_v")
@@ -218,8 +218,8 @@ class AlignmentDialog(Dialog):
                         tgt_axis = tgt_axis1 if axis_options[sel_axis1]["tgt"] != tgt_axis1 else tgt_axis2
                         axis_options[sel_axis2]["tgt"] = tgt_axis
 
-                    if self._options["preview"] and axis_options[self._sel_obj_axis]["align"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview and axis_options[self._sel_obj_axis]["align"]:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 return command
 
@@ -255,8 +255,8 @@ class AlignmentDialog(Dialog):
                 axis_options = self._options["axes"]
                 axis_options[self._sel_obj_axis]["inv"] = invert
 
-                if self._options["preview"] and axis_options[self._sel_obj_axis]["align"]:
-                    Mgr.update_remotely("object_alignment", "preview", self._options)
+                if self._preview and axis_options[self._sel_obj_axis]["align"]:
+                    Mgr.update_remotely("object_alignment", "", self._options)
 
             checkbox = DialogCheckBox(group, set_dir_inverted)
             subsizer.add(checkbox, alignment="center_v")
@@ -287,8 +287,8 @@ class AlignmentDialog(Dialog):
                     point_options = self._options["points"]
                     point_options[a_id]["tgt"] = point_id
 
-                    if self._options["preview"] and point_options[a_id]["align"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview and point_options[a_id]["align"]:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 return command
 
@@ -377,8 +377,8 @@ class AlignmentDialog(Dialog):
                     color = None if align else (.5, .5, .5, 1.)
                     radio_btn_groups["axis"].set_bullet_color(color, update=True)
 
-                    if self._options["preview"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 def get_checkbox_command(axis_id):
 
@@ -419,8 +419,8 @@ class AlignmentDialog(Dialog):
                                 radio_btns.set_selected_button(options["tgt"])
                                 self._sel_obj_axis = axis_id
 
-                        if self._options["preview"]:
-                            Mgr.update_remotely("object_alignment", "preview", self._options)
+                        if self._preview:
+                            Mgr.update_remotely("object_alignment", "", self._options)
 
                     return align_to_dir
 
@@ -510,8 +510,8 @@ class AlignmentDialog(Dialog):
                         checkboxes["{}_coord".format(axis_id)].check(align)
                         point_options[axis_id]["align"] = align
 
-                    if self._options["preview"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 checkbox = DialogCheckBox(group, align_to_point)
                 borders = (5, 10, 0, 0)
@@ -531,8 +531,8 @@ class AlignmentDialog(Dialog):
                     coords_aligned = [a_id for a_id in axis_ids if point_options[a_id]["align"]]
                     checkboxes["all_coords"].check(len(coords_aligned) == len(axis_ids))
 
-                    if self._options["preview"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 return align_to_point
 
@@ -631,8 +631,8 @@ class AlignmentDialog(Dialog):
 
                         point_options[self._coord_axis]["sel"] = point_id
 
-                        if self._options["preview"] and point_options[self._coord_axis]["align"]:
-                            Mgr.update_remotely("object_alignment", "preview", self._options)
+                        if self._preview and point_options[self._coord_axis]["align"]:
+                            Mgr.update_remotely("object_alignment", "", self._options)
 
                     return command
 
@@ -653,8 +653,8 @@ class AlignmentDialog(Dialog):
 
                     self._options["local_minmax"] = local
 
-                    if self._options["preview"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 subsizer = Sizer("horizontal")
                 group.add(subsizer)
@@ -676,8 +676,8 @@ class AlignmentDialog(Dialog):
                         point_options[axis_id]["sel"] = point_options[self._coord_axis]["sel"]
                         point_options[axis_id]["tgt"] = point_options[self._coord_axis]["tgt"]
 
-                    if self._options["preview"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 text = "For all axes"
                 tooltip_text = "Use these settings for all axes"
@@ -691,8 +691,8 @@ class AlignmentDialog(Dialog):
 
                     self._options["per_vertex"] = per_vertex
 
-                    if self._options["preview"]:
-                        Mgr.update_remotely("object_alignment", "preview", self._options)
+                    if self._preview:
+                        Mgr.update_remotely("object_alignment", "", self._options)
 
                 subsizer = Sizer("horizontal")
                 group.add(subsizer)
@@ -710,8 +710,8 @@ class AlignmentDialog(Dialog):
 
                 self._options["planar"] = planar
 
-                if self._options["preview"]:
-                    Mgr.update_remotely("object_alignment", "preview", self._options)
+                if self._preview:
+                    Mgr.update_remotely("object_alignment", "", self._options)
 
             subsizer = Sizer("horizontal")
             borders = (20, 20, 0, 10)
@@ -723,10 +723,10 @@ class AlignmentDialog(Dialog):
             borders = (5, 0, 0, 0)
             subsizer.add(text, alignment="center_v", borders=borders)
 
-        def enable_preview(enable):
+        def enable_preview(preview):
 
-            self._options["preview"] = enable
-            Mgr.update_remotely("object_alignment", "preview", self._options)
+            self._preview = preview
+            Mgr.update_remotely("object_alignment", "", self._options, preview, not preview)
 
         subsizer = Sizer("horizontal")
         borders = (20, 20, 15, 10)
@@ -752,4 +752,4 @@ class AlignmentDialog(Dialog):
 
     def __on_yes(self):
 
-        Mgr.update_remotely("object_alignment", "align", self._options)
+        Mgr.update_remotely("object_alignment", "", self._options, False)

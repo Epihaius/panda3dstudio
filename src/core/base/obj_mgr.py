@@ -52,6 +52,7 @@ class GeneralObjectManager(BaseObject):
 
         def enable_obj_name_checking():
 
+            Mgr.remove_task("check_object_name")
             Mgr.add_task(self.__check_object_name, "check_object_name", sort=3)
 
         def disable_obj_name_checking():

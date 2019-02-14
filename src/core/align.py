@@ -9,7 +9,6 @@ class AlignmentManager(BaseObject):
         self._picked_point = None
         self._target_type = None
         self._target_start_xforms = None
-        self._xform_backup = {}
         self._restore_picking_via_poly = False
 
         self._target_id = None
@@ -354,85 +353,16 @@ class AlignmentManager(BaseObject):
             model = Mgr.get("model", self._target_id)
             Mgr.update_remotely("object_alignment", "align", "surface", model.get_name())
 
-    def __get_sorted_hierarchy(self, objects):
-        """
-        Return a list of objects sorted from ancestors to descendants.
-        Do not include open groups.
+    def __align(self, options, preview=True, end_preview=False):
 
-        """
+        backup = Mgr.get("xform_backup")
 
-        sorted_hierarchy = []
-        objs = objects[:]
-
-        while objs:
-
-            for obj in objs[:]:
-
-                other_objs = objs[:]
-                other_objs.remove(obj)
-
-                for other_obj in other_objs:
-                    if other_obj in obj.get_ancestors():
-                        break
-                else:
-                    objs.remove(obj)
-                    if obj.get_type() != "group" or not obj.is_open():
-                        sorted_hierarchy.append(obj)
-
-        return sorted_hierarchy
-
-    def __create_xform_backup(self):
-
-        backup = self._xform_backup
-
-        if GlobalData["active_obj_level"] == "top":
-            if GlobalData["transform_target_type"] == "geom":
-                for obj in Mgr.get("selection_top"):
-                    backup[obj] = obj.get_origin().get_transform(self.world)
-            else:
-                for obj in Mgr.get("selection_top"):
-                    backup[obj] = obj.get_pivot().get_transform(self.world)
-        else:
-            backup.update(Mgr.get("selection").get_vertex_position_data())
-
-    def __restore_xform_backup(self, clear=True):
-
-        backup = self._xform_backup
-
-        if GlobalData["active_obj_level"] == "top":
-
-            tc_type = GlobalData["transf_center_type"]
-
-            if tc_type != "pivot":
-                GlobalData["transf_center_type"] = "pivot"
-
-            for obj in self.__get_sorted_hierarchy(Mgr.get("selection_top")):
-                Mgr.update_locally("transf_component", "", "",
-                    backup[obj], False, [obj], False, True, NodePath.set_transform)
-
-            if tc_type != "pivot":
-                GlobalData["transf_center_type"] = tc_type
-
-        elif backup:
-
-            selection = Mgr.get("selection")
-            selection.prepare_transform(backup)
-            selection.finalize_transform(add_to_hist=False, lock_normals=False)
-
-        if clear:
-            backup.clear()
-
-    def __align(self, options, preview=False):
-
-        backup = self._xform_backup
-
-        if preview and not options["preview"]:
-            if backup:
-                self.__restore_xform_backup()
+        if end_preview:
+            Mgr.do("restore_xform_backup")
             return
 
         if preview and not backup:
-            self.__create_xform_backup()
+            Mgr.do("create_xform_backup")
 
         target_type = self._target_type
         obj_axis_point = target_type == "obj_axis_point"
@@ -443,7 +373,7 @@ class AlignmentManager(BaseObject):
         tc_type = GlobalData["transf_center_type"]
 
         if obj_lvl != "top":
-            self.__restore_xform_backup(clear=False)
+            Mgr.do("restore_xform_backup", clear=False)
 
         if obj_lvl == "top" and tc_type != "pivot":
             GlobalData["transf_center_type"] = "pivot"
@@ -458,7 +388,7 @@ class AlignmentManager(BaseObject):
 
         if obj_lvl == "top":
 
-            selection = self.__get_sorted_hierarchy(Mgr.get("selection_top"))
+            selection = Mgr.get("sorted_hierarchy", Mgr.get("selection_top"))
 
             if target_obj in selection:
                 cur_pivot_xform = target_obj.get_pivot().get_transform(self.world)
@@ -954,7 +884,7 @@ class AlignmentManager(BaseObject):
             return
 
         if GlobalData["active_obj_level"] == "top":
-            if not self.__get_sorted_hierarchy(Mgr.get("selection_top")):
+            if not Mgr.get("sorted_hierarchy", Mgr.get("selection_top")):
                 Mgr.update_remotely("object_alignment", "msg", "invalid_sel")
                 return
         elif not Mgr.get("selection"):
@@ -975,12 +905,9 @@ class AlignmentManager(BaseObject):
         elif update_type == "cancel":
             if self._target_type == "surface":
                 self._normal_viz.detach_node()
-            if self._xform_backup:
-                self.__restore_xform_backup()
+            Mgr.do("restore_xform_backup")
             self._target_start_xforms = None
-        elif update_type == "preview":
-            self.__align(*args, preview=True)
-        elif update_type == "align":
+        else:
             self.__align(*args)
 
     def __update_cursor(self, task):

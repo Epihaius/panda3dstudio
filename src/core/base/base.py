@@ -429,15 +429,14 @@ class PickableTypes(object):
     @classmethod
     def add(cls, pickable_type, special=False):
 
+        cls._count += 1
         cls._types[cls._count] = pickable_type
         cls._type_ids[pickable_type] = cls._count
-        old_count = cls._count
-        cls._count += 1
 
         if special:
             cls._special_types.append(pickable_type)
 
-        return old_count
+        return cls._count
 
     @classmethod
     def get(cls, type_id):

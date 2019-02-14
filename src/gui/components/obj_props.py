@@ -314,7 +314,7 @@ class ObjectPropertiesMenu(object):
         menu.add("edit_tags", "Edit tags", self.__edit_object_tags, update=True)
         self._obj_id = None
 
-        Mgr.add_app_updater("obj_props_access", self.__show_menu)
+        Mgr.add_app_updater("obj_props", self.__show_menu)
         Mgr.add_app_updater("obj_tags", self.__update_object_tags)
 
     def __show_menu(self, obj_id):

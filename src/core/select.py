@@ -473,7 +473,7 @@ class SelectionManager(BaseObject):
              lambda: self.__init_select(op="toggle"))
         bind("selection_mode", "select -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
-        bind("selection_mode", "access obj props", "mouse3", self.__access_obj_props)
+        bind("selection_mode", "handle right-click", "mouse3", self.__on_right_click)
         bind("selection_mode", "del selection",
              "delete", self.__delete_selection)
         bind("region_selection_mode", "quit region-select", "escape",
@@ -2015,25 +2015,31 @@ class SelectionManager(BaseObject):
         obj = Mgr.get("object", self._obj_id)
         self._selection.replace([obj])
 
-    def __access_obj_props(self):
+    def __on_right_click(self):
 
-        obj_lvl = GlobalData["active_obj_level"]
-
-        if obj_lvl != "top" or not self.mouse_watcher.has_mouse():
+        if not self.mouse_watcher.has_mouse():
             return
 
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
         color_id = r << 16 | g << 8 | b
         pickable_type = PickableTypes.get(a)
 
-        if not pickable_type or pickable_type == "transf_gizmo":
-            return
+        if not pickable_type:
 
-        picked_obj = Mgr.get(pickable_type, color_id)
-        obj = picked_obj.get_toplevel_object(get_group=True) if picked_obj else None
+            Mgr.update_remotely("main_context")
 
-        if obj:
-            Mgr.update_remotely("obj_props_access", obj.get_id())
+        elif pickable_type == "transf_gizmo":
+
+            Mgr.update_remotely("componentwise_xform")
+
+        else:
+
+            picked_obj = Mgr.get(pickable_type, color_id)
+            obj = picked_obj.get_toplevel_object(get_group=True) if picked_obj else None
+            obj_lvl = GlobalData["active_obj_level"]
+
+            if obj_lvl == "top" and obj:
+                Mgr.update_remotely("obj_props", obj.get_id())
 
 
 MainObjects.add_class(SelectionManager)

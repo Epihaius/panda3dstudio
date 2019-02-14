@@ -694,7 +694,7 @@ class SelectionTransformBase(BaseObject):
             for geom_data_obj, data in pos_data.items():
                 geom_data_obj.prepare_transform(data)
 
-    def set_transform_component(self, transf_type, axis, value, is_rel_value):
+    def set_transform_component(self, transf_type, axis, value, is_rel_value, add_to_hist=True):
 
         obj_lvl = self._obj_level
 
@@ -717,7 +717,8 @@ class SelectionTransformBase(BaseObject):
                 transform.set_hpr(hpr)
             elif transf_type == "scale":
                 transform = Vec3(1., 1., 1.)
-                transform["xyz".index(axis)] = max(10e-008, value)
+                value = max(10e-008, abs(value)) * (-1. if value < 0. else 1.)
+                transform["xyz".index(axis)] = value
 
             if obj_lvl == "normal":
                 for geom_data_obj in self._groups:
@@ -763,7 +764,8 @@ class SelectionTransformBase(BaseObject):
             if GlobalData["transf_center_type"] in ("adaptive", "sel_center"):
                 Mgr.do("set_transf_gizmo_pos", self.get_center_pos())
 
-        self.add_history(transf_type)
+        if add_to_hist:
+            self.add_history(transf_type)
 
     def aim_at_point(self, point, ref_node, toward=True, add_to_hist=True, objects=None, lock_normals=True):
 

@@ -443,6 +443,19 @@ class TexProjector(TopLevelObject):
         for np in self._lens_viz.values():
             np.reparent_to(subobj_root)
 
+        pickable_type_id = PickableTypes.get_id("tex_proj_edge")
+        vertex_data = self._body.node().modify_geom(0).modify_vertex_data()
+        col_rewriter = GeomVertexRewriter(vertex_data, "color")
+        col_rewriter.set_row(0)
+        r, g, b, a = col_rewriter.get_data4()
+
+        if int(round(a * 255.)) != pickable_type_id:
+            a = pickable_type_id / 255.
+            col_rewriter.set_data4(r, g, b, a)
+            while not col_rewriter.is_at_end():
+                r, g, b, _ = col_rewriter.get_data4()
+                col_rewriter.set_data4(r, g, b, a)
+
     def __init__(self, projector_id, name, origin_pos, on, projection_type,
                  film_w, film_h, film_x, film_y):
 
