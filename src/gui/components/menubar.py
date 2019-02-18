@@ -37,6 +37,16 @@ class MenuButton(Button):
         self._menu.destroy()
         self._menu = None
 
+    def set_menu(self, menu):
+
+        self._menu = menu
+        menu.make_submenu(False)
+        menu.set_parent(self)
+        h = self.get_size()[1]
+        menu.set_pos((0, h))
+        menu.update_initial_pos()
+        menu.update_mouse_region_frames()
+
     def get_menu(self):
 
         return self._menu
@@ -152,6 +162,14 @@ class MenuBar(Widget):
     def get_menu(self, menu_id):
 
         return self._menus[menu_id]
+
+    def get_menus(self):
+
+        return self._menus
+
+    def get_buttons(self):
+
+        return self._btns
 
     def hide_menu(self, menu_id):
 

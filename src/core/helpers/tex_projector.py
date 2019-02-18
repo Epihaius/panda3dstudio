@@ -1152,6 +1152,9 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
              lambda: Mgr.exit_state("texprojtarget_picking_mode"))
         bind("texprojtarget_picking_mode", "cancel texproj target picking", "mouse3",
              lambda: Mgr.exit_state("texprojtarget_picking_mode"))
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("texprojtarget_picking_mode", "texproj ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
         mode_text = "Pick projector target"

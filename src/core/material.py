@@ -1098,6 +1098,9 @@ class MaterialManager(object):
              exit_owner_picking_mode)
         bind("material_owner_picking_mode", "cancel material owner picking", "mouse3",
              exit_owner_picking_mode)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("material_owner_picking_mode", "mat owner ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
         mode_text = "Pick material owner"

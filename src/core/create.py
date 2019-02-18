@@ -52,6 +52,9 @@ class CreationManager(BaseObject):
              "mouse1-up", cancel_creation)
         bind("creation_mode", "start object creation", "mouse1",
              self.__start_interactive_creation)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("creation_mode", "create ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
     def __update_creation(self, mode_status):
 

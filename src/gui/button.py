@@ -110,6 +110,10 @@ class Button(Widget, HotkeyManager):
 
         return True
 
+    def get_text(self):
+
+        return self._text
+
     def set_command(self, command):
 
         self._command = command if command else lambda: None

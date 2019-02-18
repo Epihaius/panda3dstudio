@@ -49,6 +49,8 @@ class AlignmentManager(BaseObject):
              self.__cancel_target_picking)
         bind("alignment_target_picking_mode", "abort align target picking", "focus_loss",
              self.__cancel_target_picking)
+        bind("alignment_target_picking_mode", "align ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
         bind("surface_alignment_mode", "quit surface-align", "escape",
              self.__cancel_surface_align)
         bind("surface_alignment_mode", "cancel surface-align", "mouse3",

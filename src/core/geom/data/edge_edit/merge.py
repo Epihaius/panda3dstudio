@@ -268,6 +268,9 @@ class EdgeMergeManager(BaseObject):
         bind("edge_merge_mode", "merge edges -> select", "escape", exit_mode)
         bind("edge_merge_mode", "exit edge merge mode", "mouse3", exit_mode)
         bind("edge_merge_mode", "merge edges", "mouse1", self._init_merge)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("edge_merge_mode", "merge edges ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
         bind("edge_merge", "quit edge merge", "escape", cancel_merge)
         bind("edge_merge", "cancel edge merge", "mouse3", cancel_merge)
         bind("edge_merge", "abort edge merge", "focus_loss", cancel_merge)

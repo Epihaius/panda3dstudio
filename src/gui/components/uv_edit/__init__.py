@@ -75,6 +75,11 @@ class UVEditGUI(object):
                 main_components = self._main_components
                 components = self._components
 
+                context_submenu_items = main_components["main_context_submenu_items"]
+                context_submenu = main_components["main_context_submenu"]
+                context_submenu.remove("edit")
+                context_submenu.remove("create")
+                context_submenu.update(update_initial_pos=False)
                 menubar = main_components["menubar"]
                 menubar.hide_menu("edit")
                 menubar.hide_menu("create")
@@ -148,6 +153,11 @@ class UVEditGUI(object):
                 docking_targets = main_components["docking_targets"]
                 components = self._components
 
+                context_submenu_items = main_components["main_context_submenu_items"]
+                context_submenu = main_components["main_context_submenu"]
+                context_submenu.add_item(context_submenu_items["edit"], index=1)
+                context_submenu.add_item(context_submenu_items["create"], index=2)
+                context_submenu.update(update_initial_pos=False)
                 menubar = main_components["menubar"]
                 menubar.show_menu("edit", index=1)
                 menubar.show_menu("create", index=2)

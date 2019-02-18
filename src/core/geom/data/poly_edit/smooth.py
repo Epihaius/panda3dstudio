@@ -635,6 +635,9 @@ class SmoothingManager(BaseObject):
              lambda: Mgr.exit_state("smoothing_poly_picking_mode"))
         bind("smoothing_poly_picking_mode", "pick smoothing poly", "mouse1",
              self.__pick_smoothing_poly)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("smoothing_poly_picking_mode", "smooth ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
         bind("unsmoothing_poly_picking_mode", "unsmooth with poly -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("unsmoothing_poly_picking_mode", "quit unsmoothing with poly", "escape",
@@ -643,6 +646,8 @@ class SmoothingManager(BaseObject):
              lambda: Mgr.exit_state("unsmoothing_poly_picking_mode"))
         bind("unsmoothing_poly_picking_mode", "pick unsmoothing poly", "mouse1",
              self.__pick_smoothing_poly)
+        bind("unsmoothing_poly_picking_mode", "unsmooth ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
         mode_text = "Pick poly for smoothing"

@@ -11,6 +11,7 @@ from ..radiobtn import RadioButton
 from ..panel import (PanelStack, PanelButton, PanelInputField, PanelCheckBox, PanelColorBox,
                      PanelRadioButtonGroup, PanelComboBox)
 from ..dialog import *
+from ..menu import Menu
 from .aux_viewport import AuxiliaryViewport
 from .transform import TransformToolbar
 from .align import SnapAlignToolbar
@@ -244,6 +245,7 @@ class Components(object):
         Mgr.add_app_updater("active_viewport", self.__set_active_viewport)
         Mgr.add_app_updater("screenshot", self.__update_screenshot)
         Mgr.add_app_updater("progress", self.__update_progress)
+        Mgr.add_app_updater("main_context", self.__show_main_context_menu)
 
     def setup(self):
 
@@ -360,6 +362,47 @@ class Components(object):
         self._sel_mgr = SelectionManager(menubar)
         self._view_mgr = ViewManager(menubar)
         self._option_mgr = OptionManager(menubar)
+
+        # Create the main context menu
+
+        self._extra_submenu_ids = []
+        self._extra_menu_items = {}
+
+        def on_hide():
+            
+            context_submenu = components["main_context_submenu"]
+            btns = menubar.get_buttons()
+
+            for menu_id, item in context_submenu.get_items().items():
+                item.set_submenu(None)
+                btn = btns[menu_id]
+                menu = btn.get_menu()
+                btn.set_menu(menu)
+
+            context_menu = components["main_context_menu"]
+
+            for menu_id in self._extra_submenu_ids:
+                Mgr.do("restore_menu_{}".format(menu_id))
+                item = context_menu.get_item(menu_id)
+                item.set_submenu(None)
+                context_menu.remove(menu_id)
+
+            if self._extra_submenu_ids:
+                context_menu.update()
+
+            self._extra_submenu_ids = []
+
+        components["main_context_menu"] = menu = Menu(on_hide=on_hide)
+        item = menu.add("main", "Main", item_type="submenu")
+        components["main_context_submenu"] = submenu = item.get_submenu()
+        components["main_context_submenu_items"] = context_submenu_items = {}
+
+        for menu_id, btn in menubar.get_buttons().items():
+            item = submenu.add(menu_id, btn.get_text(), item_type="submenu")
+            item.enable()
+            context_submenu_items[menu_id] = item
+
+        menu.update()
 
         # Create the toolbars
 
@@ -721,6 +764,41 @@ class Components(object):
             self._screenshot = None
             fps_meter_display_region = GlobalData["fps_meter_display_region"]
             fps_meter_display_region.set_active(True)
+
+    def __show_main_context_menu(self, *extra_submenu_ids):
+
+        ToolTip.hide()
+        components = self._registry
+        menubar = components["menubar"]
+        context_submenu = components["main_context_submenu"]
+
+        for menu_id, item in context_submenu.get_items().items():
+            menu = menubar.get_menu(menu_id)
+            item.set_submenu(menu)
+
+        context_menu = components["main_context_menu"]
+        self._extra_submenu_ids = extra_submenu_ids
+        extra_menu_items = self._extra_menu_items
+
+        for menu_id in extra_submenu_ids:
+
+            menu_name, menu = Mgr.get("menu_{}".format(menu_id))
+
+            if menu_id in extra_menu_items:
+                item = extra_menu_items[menu_id]
+                context_menu.add_item(item)
+            else:
+                item = context_menu.add(menu_id, menu_name, item_type="submenu")
+                item.get_submenu().destroy()
+                item.enable()
+                extra_menu_items[menu_id] = item
+
+            item.set_submenu(menu)
+
+        if extra_submenu_ids:
+            context_menu.update()
+
+        context_menu.show_at_mouse_pos()
 
     def dragging_toolbars(self):
 

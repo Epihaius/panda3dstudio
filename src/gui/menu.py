@@ -11,9 +11,15 @@ class MenuSeparator(Widget):
         Widget.__init__(self, "menu_separator", parent, self._gfx, stretch_dir="horizontal",
                         has_mouse_region=False)
 
+    def get_submenu(self):
+
+        return None
+
     def enable(self, enable=True): pass
 
     def enable_hotkey(self, enable=True): pass
+
+    def update_sort(self): pass
 
 
 class MenuItem(Button):
@@ -103,6 +109,36 @@ class MenuItem(Button):
     def get_radio_group(self):
 
         return self._radio_group
+
+    def update_sort(self):
+
+        if self.get_parent():
+            self.get_mouse_region().set_sort(self.get_parent().get_sort() + 1)
+
+        if self._submenu:
+            self._submenu.update_sort()
+
+    def set_parent(self, parent):
+
+        Button.set_parent(self, parent)
+
+        if parent:
+
+            self.get_mouse_region().set_sort(parent.get_sort() + 1)
+
+            if self._submenu:
+                self._submenu.update_sort()
+
+    def set_submenu(self, menu):
+
+        self._submenu = menu
+
+        if menu:
+            menu.make_submenu()
+            menu.set_parent(self)
+            w = self.get_size()[0]
+            menu.set_pos((w, 0))
+            menu.update_initial_pos()
 
     def get_submenu(self):
 
@@ -390,7 +426,6 @@ class Menu(WidgetCard):
 
         self._is_submenu = is_submenu
         self._sort = parent.get_parent().get_sort() + 1 if is_submenu else 1001
-        self._menus = {}
         self._items = {}
         self._radio_items = {}
         self._active_item = None
@@ -411,17 +446,12 @@ class Menu(WidgetCard):
         mouse_region.set_sort(self._sort)
         self._mouse_regions = [mouse_region]
         self._initial_pos = (0, 0)
-        self._initial_quad_pos = Point3()
         self._on_hide = on_hide if on_hide else lambda: None
 
     def destroy(self):
 
         WidgetCard.destroy(self)
 
-        for menu in self._menus.values():
-            menu.destroy()
-
-        self._menus = {}
         self._items = {}
         self._radio_items = {}
         self._active_item = None
@@ -430,7 +460,7 @@ class Menu(WidgetCard):
         self._hotkey_label_sizer = None
         self._mouse_regions = []
 
-    def update(self):
+    def update(self, update_initial_pos=True):
 
         sizer = self.get_sizer()
         size = sizer.update_min_size()
@@ -438,8 +468,9 @@ class Menu(WidgetCard):
         sizer.calculate_positions()
         self.update_mouse_region_frames()
         self.update_images()
-        self._initial_pos = self.get_pos()
-        self._initial_quad_pos = self.get_quad().get_pos()
+
+        if update_initial_pos:
+            self._initial_pos = self.get_pos()
 
         self._mouse_regions = mouse_regions = [self._mouse_region]
 
@@ -450,10 +481,44 @@ class Menu(WidgetCard):
             if mouse_region:
                 mouse_regions.append(mouse_region)
 
-        self.hide()
+        self.hide(call_custom_handler=False)
 
-        for menu in self._menus.values():
-            menu.update()
+        for item in self._items.values():
+            submenu = item.get_submenu()
+            if submenu:
+                submenu.update(update_initial_pos)
+
+    def update_initial_pos(self):
+
+        self._initial_pos = self.get_pos()
+
+        for item in self._items.values():
+            submenu = item.get_submenu()
+            if submenu:
+                submenu.update_initial_pos()
+
+    def update_sort(self):
+
+        self._sort = self.get_parent().get_parent().get_sort() + 1 if self._is_submenu else 1001
+        self._mouse_region.set_sort(self._sort)
+
+        quad = self.get_quad()
+
+        if quad:
+            quad.set_bin("menu", self._sort)
+
+        for item in self._items.values():
+            item.update_sort()
+
+    def set_parent(self, parent):
+
+        WidgetCard.set_parent(self, parent)
+
+        self.update_sort()
+
+    def make_submenu(self, is_submenu=True):
+
+        self._is_submenu = is_submenu
 
     def set_active_item(self, item):
 
@@ -552,10 +617,8 @@ class Menu(WidgetCard):
 
         if item_type == "separator":
             item = MenuSeparator(self)
-            menu = None
         else:
             item = MenuItem(self, item_id, item_text, item_command, item_type, radio_group)
-            menu = item.get_submenu()
 
         self._items[item_id] = item
         self._item_sizer.add(item, expand=True, index=index)
@@ -572,9 +635,6 @@ class Menu(WidgetCard):
 
         if parent is not Mgr.get("window"):
             parent.enable()
-
-        if menu:
-            self._menus[item_id] = menu
 
         return item
 
@@ -681,7 +741,7 @@ class Menu(WidgetCard):
 
     def get_submenu(self, menu_id):
 
-        return self._menus[menu_id]
+        return self._items[menu_id].get_submenu()
 
     def confine_to_window(self):
 
@@ -735,7 +795,6 @@ class Menu(WidgetCard):
         if pos:
             x, y = pos
             self.set_pos(pos)
-            quad.set_pos(x, 0, -y)
             self.update_mouse_region_frames()
 
         if parent_is_window:
@@ -752,7 +811,6 @@ class Menu(WidgetCard):
             if confined == "xy" or (confined == "x" and x_alt != x) or (confined == "y" and y_alt != y):
 
                 self.set_pos(alt_pos)
-                quad.set_pos(x_alt, 0, -y_alt)
                 self.update_mouse_region_frames()
 
                 if parent_is_window:
@@ -783,7 +841,7 @@ class Menu(WidgetCard):
 
         return True
 
-    def hide(self):
+    def hide(self, call_custom_handler=True):
 
         quad = self.get_quad()
 
@@ -806,7 +864,6 @@ class Menu(WidgetCard):
 
         if not parent_is_window and self._initial_pos != self.get_pos():
             self.set_pos(self._initial_pos)
-            quad.set_pos(self._initial_quad_pos)
             self._item_sizer.update_mouse_region_frames()
 
         if not self._is_submenu:
@@ -816,7 +873,8 @@ class Menu(WidgetCard):
         for mouse_region in self._mouse_regions:
             mouse_watcher.remove_region(mouse_region)
 
-        self._on_hide()
+        if call_custom_handler:
+            self._on_hide()
 
         return True
 

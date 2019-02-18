@@ -112,6 +112,8 @@ class NavigationManager(BaseObject):
              self.__determine_navigation_end)
         bind("navigation_mode", "navigate -> center view on objects", "c",
              lambda: Mgr.do("center_view_on_objects"))
+        bind("navigation_mode", "navigation ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
         mode_text = "Navigate"

@@ -464,6 +464,9 @@ class TriangulationManager(BaseObject):
              lambda: Mgr.exit_state("diagonal_turning_mode"))
         bind("diagonal_turning_mode", "turn diagonal", "mouse1",
              self.__turn_diagonal)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("diagonal_turning_mode", "turn diagonal ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
         mode_text = "Turn polygon diagonal"

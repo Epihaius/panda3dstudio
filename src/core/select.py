@@ -474,6 +474,8 @@ class SelectionManager(BaseObject):
         bind("selection_mode", "select -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("selection_mode", "handle right-click", "mouse3", self.__on_right_click)
+        bind("selection_mode", "handle ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             self.__on_right_click)
         bind("selection_mode", "del selection",
              "delete", self.__delete_selection)
         bind("region_selection_mode", "quit region-select", "escape",
@@ -2020,6 +2022,7 @@ class SelectionManager(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return
 
+        ctrl_down = self.mouse_watcher.is_button_down(KeyboardButton.control())
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
         color_id = r << 16 | g << 8 | b
         pickable_type = PickableTypes.get(a)
@@ -2030,7 +2033,10 @@ class SelectionManager(BaseObject):
 
         elif pickable_type == "transf_gizmo":
 
-            Mgr.update_remotely("componentwise_xform")
+            if ctrl_down:
+                Mgr.update_remotely("main_context")
+            else:
+                Mgr.update_remotely("componentwise_xform")
 
         else:
 
@@ -2039,7 +2045,13 @@ class SelectionManager(BaseObject):
             obj_lvl = GlobalData["active_obj_level"]
 
             if obj_lvl == "top" and obj:
-                Mgr.update_remotely("obj_props", obj.get_id())
+                Mgr.do("set_object_id", obj.get_id())
+                if ctrl_down:
+                    Mgr.update_remotely("main_context", "obj_props")
+                else:
+                    Mgr.update_remotely("obj_props")
+            else:
+                Mgr.update_remotely("main_context")
 
 
 MainObjects.add_class(SelectionManager)

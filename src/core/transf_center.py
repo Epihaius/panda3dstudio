@@ -35,6 +35,9 @@ class TransformCenterManager(BaseObject):
              exit_transf_center_picking_mode)
         bind("transf_center_picking_mode", "cancel transf center picking", "mouse3",
              exit_transf_center_picking_mode)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("transf_center_picking_mode", "pick transf center ctrl-right-click",
+             "{:d}|mouse3".format(mod_ctrl), lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
         mode = "Pick transform center"

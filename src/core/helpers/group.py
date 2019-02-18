@@ -628,6 +628,9 @@ class GroupManager(ObjectManager):
         bind("grouping_mode", "grouping mode -> select", "escape", exit_mode)
         bind("grouping_mode", "exit grouping mode", "mouse3", exit_mode)
         bind("grouping_mode", "add members", "mouse1", self.__add_members)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("grouping_mode", "grouping ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
     def __handle_viewport_resize(self):
 

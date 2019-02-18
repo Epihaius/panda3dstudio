@@ -252,6 +252,8 @@ class UVSelectionBase(BaseObject):
              lambda: self.__init_select(op="remove"), "uv")
         bind("uv_edit_mode", "select (toggle) uvs alt", "{:d}|mouse1".format(mod_alt | mod_ctrl | mod_shift),
              lambda: self.__init_select(op="toggle"), "uv")
+        bind("uv_edit_mode", "uv edit ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"), "uv")
         bind("picking_via_poly", "select subobj via poly",
              "mouse1-up", self.__select_subobj_via_poly, "uv")
         bind("picking_via_poly", "cancel subobj select via poly",

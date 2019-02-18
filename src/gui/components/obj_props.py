@@ -242,14 +242,14 @@ class TagPane(DialogScrollPane):
 
 class TagDialog(Dialog):
 
-    def __init__(self, tags, obj_id):
+    def __init__(self, tags):
 
         title = "Edit object tags"
         width = Skin["options"]["dialog_standard_button_width"]
 
         def on_yes():
 
-            Mgr.update_remotely("obj_tags", obj_id, self._tag_pane.get_tags())
+            Mgr.update_remotely("obj_tags", self._tag_pane.get_tags())
 
         Dialog.__init__(self, title, choices="okcancel", on_yes=on_yes)
 
@@ -312,21 +312,33 @@ class ObjectPropertiesMenu(object):
 
         self._menu = menu = Menu()
         menu.add("edit_tags", "Edit tags", self.__edit_object_tags, update=True)
-        self._obj_id = None
 
+        Mgr.expose("menu_obj_props", self.__get_menu)
+        Mgr.accept("restore_menu_obj_props", self.__restore_menu)
         Mgr.add_app_updater("obj_props", self.__show_menu)
         Mgr.add_app_updater("obj_tags", self.__update_object_tags)
 
-    def __show_menu(self, obj_id):
+    def __restore_menu(self):
 
-        self._obj_id = obj_id
+        menu = self._menu
+        menu.make_submenu(False)
+        menu.set_parent(None)
+        menu.set_pos((0, 0))
+        menu.update_initial_pos()
+
+    def __get_menu(self):
+
+        return "Object", self._menu
+
+    def __show_menu(self):
+
         ToolTip.hide()
         self._menu.show_at_mouse_pos()
 
     def __edit_object_tags(self):
 
-        Mgr.update_remotely("obj_tags", self._obj_id)
+        Mgr.update_remotely("obj_tags")
 
     def __update_object_tags(self, tags):
 
-        TagDialog(tags, self._obj_id)
+        TagDialog(tags)

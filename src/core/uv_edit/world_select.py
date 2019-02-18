@@ -60,6 +60,8 @@ class SelectionManager(BaseObject):
              lambda: Mgr.enter_state("navigation_mode"))
         bind("uv_edit_mode", "uv edit -> center view on objects", "c",
              lambda: Mgr.do("center_view_on_objects"))
+        bind("uv_edit_mode", "uv edit ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
         bind("uv_picking_via_poly", "select uv via poly",
              "mouse1-up", self.__select_uv_via_poly)
         bind("uv_picking_via_poly", "cancel uv select via poly",

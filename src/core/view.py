@@ -364,6 +364,9 @@ class ViewManager(BaseObject):
              exit_view_obj_picking_mode)
         bind("view_obj_picking_mode", "cancel view obj picking", "mouse3",
              exit_view_obj_picking_mode)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("view_obj_picking_mode", "pick view obj ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
         mode_text = "Pick object to align view to"

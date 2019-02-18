@@ -1399,6 +1399,9 @@ class NormalManager(BaseObject):
         bind("normal_dir_copy_mode", "normal dir copy -> select", "escape", exit_mode)
         bind("normal_dir_copy_mode", "exit normal dir copy mode", "mouse3", exit_mode)
         bind("normal_dir_copy_mode", "copy normal dir", "mouse1", self.__pick)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("normal_dir_copy_mode", "normal dir ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
         bind("normal_picking_via_poly", "pick hilited normal",
              "mouse1-up", self.__pick_hilited_normal)
         bind("normal_picking_via_poly", "cancel normal picking",

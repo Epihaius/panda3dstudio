@@ -33,6 +33,9 @@ class CoordSysManager(BaseObject):
              exit_coord_sys_picking_mode)
         bind("coord_sys_picking_mode", "cancel coord sys picking", "mouse3",
              exit_coord_sys_picking_mode)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("coord_sys_picking_mode", "cs pick ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
         mode_text = "Pick coordinate system"

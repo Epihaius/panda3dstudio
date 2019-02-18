@@ -53,6 +53,9 @@ class HierarchyManager(BaseObject):
         bind("object_linking_mode", "link objects -> select", "escape", exit_mode)
         bind("object_linking_mode", "exit object linking mode", "mouse3", exit_mode)
         bind("object_linking_mode", "handle linking", "mouse1", self.__handle_linking)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("object_linking_mode", "link objects ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
         bind("object_link_creation", "quit link creation", "escape", cancel_link_creation)
         bind("object_link_creation", "cancel link creation", "mouse3", cancel_link_creation)
         bind("object_link_creation", "finalize link creation",

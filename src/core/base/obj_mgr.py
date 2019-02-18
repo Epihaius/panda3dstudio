@@ -8,6 +8,7 @@ class GeneralObjectManager(BaseObject):
 
         self._obj_root = self.world.attach_new_node("object_root")
         self._obj_types = {"top": [], "sub": []}
+        self._obj_id = None
 
         self._showing_object_name = False
         self._checking_object_name = False
@@ -62,6 +63,12 @@ class GeneralObjectManager(BaseObject):
 
         Mgr.accept("enable_object_name_checking", enable_obj_name_checking)
         Mgr.accept("disable_object_name_checking", disable_obj_name_checking)
+
+        def set_obj_id(obj_id):
+
+            self._obj_id = obj_id
+
+        Mgr.accept("set_object_id", set_obj_id)
 
     def setup(self):
 
@@ -286,16 +293,16 @@ class GeneralObjectManager(BaseObject):
         GlobalData["sel_color_count"] = 1
         Mgr.update_app("sel_color_count")
 
-    def __update_object_tags(self, obj_id, tags=None):
+    def __update_object_tags(self, tags=None):
 
-        obj = self.__get_object(obj_id)
+        obj = self.__get_object(self._obj_id)
 
         if tags is None:
             Mgr.update_remotely("obj_tags", obj.get_tags())
         else:
             obj.set_tags(tags)
             Mgr.do("update_history_time")
-            obj_data = {obj_id: obj.get_data_to_store("prop_change", "tags")}
+            obj_data = {self._obj_id: obj.get_data_to_store("prop_change", "tags")}
             event_descr = 'Change tags of "{}"'.format(obj.get_name())
             event_data = {"objects": obj_data}
             Mgr.do("add_history", event_descr, event_data, update_time_id=False)

@@ -734,6 +734,9 @@ class EdgeBridgeManager(BaseObject):
         bind("edge_bridge_mode", "bridge edges -> select", "escape", exit_mode)
         bind("edge_bridge_mode", "exit edge bridge mode", "mouse3", exit_mode)
         bind("edge_bridge_mode", "bridge edges", "mouse1", self._init_bridge)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("edge_bridge_mode", "bridge edges ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
         bind("edge_bridge", "quit edge bridge", "escape", cancel_bridge)
         bind("edge_bridge", "cancel edge bridge", "mouse3", cancel_bridge)
         bind("edge_bridge", "abort edge bridge", "focus_loss", cancel_bridge)

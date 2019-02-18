@@ -657,8 +657,8 @@ class WidgetCard(object):
 
     def set_parent(self, parent):
 
-        self._parent = parent
-        self._node.reparent_to(parent.get_node())
+        self._parent = parent if parent else Mgr.get("window")
+        self._node.reparent_to(self._parent.get_node())
 
     def get_parent(self):
 

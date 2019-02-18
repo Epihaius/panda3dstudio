@@ -1011,6 +1011,9 @@ class CreationManager(BaseObject):
              lambda: Mgr.exit_state("poly_creation_mode"))
         bind("poly_creation_mode", "start poly creation",
              "mouse1", self.__init_poly_creation)
+        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        bind("poly_creation_mode", "create poly ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+             lambda: Mgr.update_remotely("main_context"))
         bind("poly_creation", "add poly vertex",
              "mouse1", self.__add_poly_vertex)
         bind("poly_creation", "remove poly vertex",
