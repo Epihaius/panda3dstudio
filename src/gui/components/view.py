@@ -489,8 +489,10 @@ class ViewManager(object):
         main_menu.add("obj_center", "Center on objects", command)
         hotkey = ("c", 0)
         main_menu.set_item_hotkey("obj_center", hotkey, "C")
-        main_menu.add("obj_align", "Align to object...",
-                      lambda: Mgr.update_remotely("view", "obj_align"))
+        item = main_menu.add("obj_align", "Align to object...",
+                             lambda: Mgr.update_remotely("view", "obj_align"))
+        disabler = lambda: "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2])
+        item.add_disabler("uv_edit", disabler)
         main_menu.add("sep2", item_type="separator")
 
         def command():

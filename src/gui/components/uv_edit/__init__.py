@@ -88,6 +88,7 @@ class UVEditGUI(object):
                 menu = menubar.get_menu("file")
                 menu.enable_item("export", False)
                 menu.enable_item("import", False)
+                menubar.get_menu("view").enable_item("obj_align", False)
                 disabler = lambda: "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2])
                 Mgr.do("disable_selection_dialog", "uv", disabler)
 
@@ -166,6 +167,9 @@ class UVEditGUI(object):
                 menu = menubar.get_menu("file")
                 menu.enable_item("export")
                 menu.enable_item("import")
+                view_ids = ("front", "back", "left", "right", "bottom", "top")
+                enable = GlobalData["view"] not in view_ids
+                menubar.get_menu("view").enable_item("obj_align", enable)
                 Mgr.do("enable_selection_dialog", "uv")
 
                 toolbars = Toolbar.registry
