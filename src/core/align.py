@@ -315,7 +315,11 @@ class AlignmentManager(BaseObject):
         state = state_np.get_state()
         cam_node.set_initial_state(state)
         model = Mgr.get("model", self._target_id)
-        cam_node.set_scene(model.get_geom_object().get_geom_data_object().get_toplevel_geom())
+
+        if model.get_geom_type() == "basic_geom":
+            cam_node.set_scene(model.get_geom_object().get_geom())
+        else:
+            cam_node.set_scene(model.get_geom_object().get_geom_data_object().get_toplevel_geom())
 
         self._listener.accept("+", self.__incr_normal_viz_size)
         self._listener.accept("+-repeat", self.__incr_normal_viz_size)
