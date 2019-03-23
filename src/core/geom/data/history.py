@@ -1069,7 +1069,7 @@ class GeomHistoryBase(BaseObject):
         size = old_count * stride
         from_view = memoryview(col_array).cast("B")
         to_view = memoryview(col_array_tmp2).cast("B")
-        to_view[:size] = from_view[size:]
+        to_view[:size] = from_view[size:size * 2]
         col_writer = GeomVertexWriter(col_array_tmp2, 0)
         col_writer.set_row(old_count)
 
