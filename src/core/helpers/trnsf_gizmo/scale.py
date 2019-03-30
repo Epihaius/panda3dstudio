@@ -236,10 +236,11 @@ class ScalingGizmo(TransformationGizmo):
 
         return lines_np
 
-    def __show_scale_indicator(self, pos, hpr):
+    def __show_scale_indicator(self, pos, heading, pitch):
 
         self._scale_indicator.set_pos(self.world, pos)
-        self._scale_indicator.set_hpr(self.cam(), hpr)
+        h = -90. if heading < 0. else 90.
+        self._scale_indicator.set_hpr(self.cam(), h, pitch, 0.)
         self._scale_indicator.show()
 
     def hilite_handle(self, color_id):

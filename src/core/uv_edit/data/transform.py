@@ -80,7 +80,7 @@ class UVDataTransformBase(BaseObject):
         selected_subobj_ids = self._selected_subobj_ids[subobj_lvl]
         verts = self._subobjs["vert"]
         self._verts_to_transf[subobj_lvl] = verts_to_transf = {}
-        self._rows_to_transf[subobj_lvl] = rows_to_transf = SparseArray.allOff()
+        self._rows_to_transf[subobj_lvl] = rows_to_transf = SparseArray()
 
         merged_verts = self._merged_verts
         merged_verts_to_transf = set()

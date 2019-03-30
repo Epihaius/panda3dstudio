@@ -176,6 +176,7 @@ class Components(object):
         Dialog.init()
 
         self._registry = components = {}
+        Mgr.expose("main_gui_components", lambda: self._registry)
         components["docks"] = {}
         components["docking_targets"] = []
         self._docking_data = None
@@ -396,6 +397,8 @@ class Components(object):
         item = menu.add("main", "Main", item_type="submenu")
         components["main_context_submenu"] = submenu = item.get_submenu()
         components["main_context_submenu_items"] = context_submenu_items = {}
+        item = menu.add("tools", "Tools", item_type="submenu")
+        components["main_context_tools_menu"] = tools_menu = item.get_submenu()
 
         for menu_id, btn in menubar.get_buttons().items():
             item = submenu.add(menu_id, btn.get_text(), item_type="submenu")
@@ -413,6 +416,8 @@ class Components(object):
         RenderModeToolbar(dock)
         GridToolbar(dock)
         SnapAlignToolbar(dock)
+
+        tools_menu.update()
 
         # Create the viewport and the right-hand side dock
 

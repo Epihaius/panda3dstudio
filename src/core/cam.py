@@ -49,7 +49,7 @@ class MainCamera(BaseObject):
         BaseObject.set_cam(self)
 
         base = Mgr.get("base")
-        self._mask = mask = BitMask32.bit(10)
+        self._mask = mask = next(camera_mask)
         self._node = base.camNode
         self._node.set_camera_mask(mask)
 
@@ -104,7 +104,7 @@ class MainCamera(BaseObject):
         dr = base.win.make_display_region()
         GlobalData["viewport"]["display_regions"].append(dr)
         dr.set_sort(1)
-        gizmo_cam_mask = BitMask32.bit(11)
+        gizmo_cam_mask = next(camera_mask)
         gizmo_cam_node = Camera("gizmo_cam")
         gizmo_cam_node.set_camera_mask(gizmo_cam_mask)
         gizmo_cam_node.set_lens(lens_persp)
@@ -307,6 +307,7 @@ class MainCamera(BaseObject):
         self._gizmo_cam.node().set_lens(lens)
         self._projector.node().set_lens(self._projector_lenses[lens_type])
         Mgr.update_app("lens_type", lens_type)
+        Mgr.notify("lens_type_changed", lens_type)
 
     def __update_zoom_indicator(self):
 
@@ -328,11 +329,23 @@ class PickingCamera(BaseObject):
         self._buffer = None
         self._np = None
         self._lenses = {}
-        self._mask = BitMask32.bit(12)
+        self._focal_length = 1.
+        self._film_scale = 1.
+        mask = next(camera_mask)
+        self._masks = [mask]
+        alt_masks = [next(camera_mask) for _ in range(2)]
+        self._masks.extend(alt_masks)
+        comb_mask = mask
+
+        for alt_mask in alt_masks:
+            comb_mask = comb_mask | alt_mask
+
+        self._combined_mask = comb_mask
         self._pixel_color = VBase4()
         self._transformer = None
 
-        Mgr.expose("picking_mask", lambda: self._mask)
+        Mgr.expose("picking_mask", lambda index=0: self._masks[index])
+        Mgr.expose("picking_masks", lambda: self._combined_mask)
         Mgr.expose("pixel_under_mouse", lambda: VBase4(self._pixel_color))
         Mgr.add_app_updater("viewport", self.__update_frustum)
 
@@ -348,22 +361,22 @@ class PickingCamera(BaseObject):
         props.set_rgba_bits(8, 8, 8, 8)
         props.set_depth_bits(16)
         self._buffer = bfr = base.win.make_texture_buffer("picking_buffer",
-                                                          16, 16,
+                                                          15, 15,
                                                           self._tex,
                                                           to_ram=True,
                                                           fbp=props)
-
         bfr.set_clear_color(VBase4())
         bfr.set_clear_color_active(True)
         self._np = base.make_camera(bfr)
         node = self._np.node()
         lens_persp = node.get_lens()
         lens_persp.set_fov(1.5)
+        self._focal_length = lens_persp.get_focal_length()
         lens_ortho = OrthographicLens()
         lens_ortho.set_film_size(11.25)
         lens_ortho.set_near(-100000.)
         self._lenses = {"persp": lens_persp, "ortho": lens_ortho}
-        node.set_camera_mask(self._mask)
+        node.set_camera_mask(self._masks[0])
         Mgr.expose("picking_cam", lambda: self)
 
         state_np = NodePath("state_np")
@@ -385,9 +398,9 @@ class PickingCamera(BaseObject):
         # Create a secondary camera and DisplayRegion to render gizmos on top of the
         # 3D scene.
 
-        dr = self._buffer.make_display_region()
+        dr = bfr.make_display_region()
         dr.set_sort(1)
-        gizmo_cam_mask = BitMask32.bit(13)
+        gizmo_cam_mask = next(camera_mask)
         gizmo_cam_node = Camera("gizmo_cam")
         gizmo_cam_node.set_camera_mask(gizmo_cam_mask)
         gizmo_cam_node.set_lens(lens_persp)
@@ -398,6 +411,7 @@ class PickingCamera(BaseObject):
         dr.set_clear_color_active(False)
         dr.set_clear_depth_active(True)
         self._gizmo_cam = gizmo_cam
+        Mgr.expose("gizmo_picking_cam", lambda: gizmo_cam)
         Mgr.expose("gizmo_picking_mask", lambda: gizmo_cam_mask)
 
         Mgr.accept("adjust_picking_cam_to_lens", self.__adjust_to_lens)
@@ -405,11 +419,22 @@ class PickingCamera(BaseObject):
 
         return "picking_camera_ok"
 
+    def set_mask(self, index):
+
+        self._np.node().set_camera_mask(self._masks[index])
+
+    def set_film_scale(self, scale):
+
+        self._film_scale = scale
+        self.__update_frustum()
+
     def __update_frustum(self):
 
         w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
-        s = 800. / max(w, h)
-        self._lenses["persp"].set_fov(1.5 * s)
+        s = 800. / max(w, h) * self._film_scale
+        lens = self._lenses["persp"]
+        self._lenses["persp"].set_film_size(s)
+        self._lenses["persp"].set_focal_length(self._focal_length)
         self._lenses["ortho"].set_film_size(11.25 * s)
 
     def __adjust_to_lens(self):
@@ -417,8 +442,7 @@ class PickingCamera(BaseObject):
         lens_type = self.cam.lens_type
         lens = self._lenses[lens_type]
         self._np.node().set_lens(lens)
-        gizmo_cam_node = self._gizmo_cam.node()
-        gizmo_cam_node.set_lens(lens)
+        self._gizmo_cam.node().set_lens(lens)
 
         if lens_type == "persp":
             self._np.set_pos(0., 0., 0.)

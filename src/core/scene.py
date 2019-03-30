@@ -59,6 +59,8 @@ class SceneManager(BaseObject):
         Mgr.update_locally("object_selection", "reset_sets")
         Mgr.update_app("view", "reset_all")
         Mgr.update_app("view", "reset_backgrounds")
+        Mgr.do("set_custom_coord_sys_transform")
+        Mgr.do("set_custom_transf_center_transform")
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "adaptive")
         Mgr.update_app("active_transform_type", "")
@@ -66,6 +68,7 @@ class SceneManager(BaseObject):
 
         GlobalData.reset()
         Mgr.update_remotely("two_sided")
+        Mgr.update_remotely("object_snap", "reset")
         Mgr.update_app("group_options")
         Mgr.update_app("subobj_edit_options")
 
@@ -147,6 +150,9 @@ class SceneManager(BaseObject):
 
         Mgr.do("set_selection_sets", selection_sets)
 
+        if "snap_settings" in scene_data:
+            GlobalData["snap"] = scene_data["snap_settings"]
+
         GlobalData["rel_transform_values"] = scene_data["rel_transform_values"]
         transf_type = scene_data["active_transform_type"]
         GlobalData["active_transform_type"] = transf_type
@@ -163,6 +169,8 @@ class SceneManager(BaseObject):
                 x_type = scene_data[x]["type"]
                 obj = Mgr.get("object", scene_data[x]["obj_id"])
                 name = obj.get_name(as_object=True) if obj else None
+                transform = scene_data[x].get("custom_transform", [])
+                Mgr.do("set_custom_{}_transform".format(x), *transform)
                 Mgr.update_locally(x, x_type, obj)
                 Mgr.update_remotely(x, x_type, name)
 
@@ -183,6 +191,7 @@ class SceneManager(BaseObject):
 
         for x in ("coord_sys", "transf_center"):
             scene_data[x] = {}
+            scene_data[x]["custom_transform"] = Mgr.get("custom_{}_transform".format(x))
             scene_data[x]["type"] = GlobalData["{}_type".format(x)]
             obj = Mgr.get("{}_obj".format(x))
             scene_data[x]["obj_id"] = obj.get_id() if obj else None
@@ -190,6 +199,7 @@ class SceneManager(BaseObject):
         scene_data["active_transform_type"] = GlobalData["active_transform_type"]
         scene_data["rel_transform_values"] = GlobalData["rel_transform_values"]
         scene_data["axis_constraints"] = GlobalData["axis_constraints"]
+        scene_data["snap_settings"] = GlobalData["snap"]
 
         for obj_type in Mgr.get("object_types"):
             data_id = "last_{}_obj_id".format(obj_type)

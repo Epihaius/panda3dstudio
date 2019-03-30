@@ -1,8 +1,8 @@
 from ..base import *
 from ..button import *
 from ..toolbar import *
-from ..panel import *
 from ..dialog import *
+from .snap import SnapToolbar
 
 
 class AlignTypeComboBox(ToolbarComboBox):
@@ -40,21 +40,25 @@ class AlignTypeComboBox(ToolbarComboBox):
         self.set_text("Align to...")
 
 
-class SnapAlignToolbar(Toolbar):
+class SnapAlignToolbar(SnapToolbar):
 
     def __init__(self, parent):
 
-        Toolbar.__init__(self, parent, "snap_align", "Snap/Align")
+        SnapToolbar.__init__(self, parent, "snap_align", "Snap/Align")
+
+        borders = (0, 5, 0, 0)
+        self.add(ToolbarSeparator(self), borders=borders)
 
         self._comboboxes = {}
         combobox = AlignTypeComboBox(self)
         self._comboboxes["align_type"] = combobox
-        borders = (0, 5, 0, 0)
         self.add(combobox, borders=borders, alignment="center_v")
 
         Mgr.add_app_updater("object_alignment", self.__show_object_alignment_dialog)
 
     def setup(self):
+
+        SnapToolbar.setup(self)
 
         def enter_picking_mode(prev_state_id, is_active):
 

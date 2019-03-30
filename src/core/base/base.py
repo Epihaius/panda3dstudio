@@ -480,6 +480,20 @@ def get_color_vec(color_id, alpha):
     return VBase4(r, g, b, alpha) / 255.
 
 
+def _get_camera_mask():
+
+    prev_bit = 0
+
+    while True:
+
+        prev_bit += 1
+
+        yield BitMask32.bit(prev_bit)
+
+
+camera_mask = _get_camera_mask()
+
+
 # The following class allows a position (passed in as a tuple or list) to be
 # used as a dictionary key when 2 identical positions should still be treated
 # as different keys (e.g. to differentiate between two vertices that share the

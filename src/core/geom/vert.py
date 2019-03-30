@@ -157,6 +157,10 @@ class Vertex(BaseObject):
 
         return data["row"] + data["row_offset"]
 
+    def get_row_indices(self):
+
+        return [self.get_row_index()]
+
     def set_uvs(self, uvs, uv_set_id=None):
 
         if uv_set_id is None:
@@ -340,11 +344,50 @@ class MergedVertex(object):
 
         return False
 
+    def get_edge_ids(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+        edge_ids = []
+
+        for vert_id in self._ids:
+            edge_ids.extend(verts[vert_id].get_edge_ids())
+
+        return edge_ids
+
     def get_polygon_ids(self):
 
         verts = self._geom_data_obj.get_subobjects("vert")
 
         return [verts[v_id].get_polygon_id() for v_id in self._ids]
+
+    def get_connected_verts(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+
+        return set(verts[v_id] for v_id in self._ids)
+
+    def get_connected_edges(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+        edges = self._geom_data_obj.get_subobjects("edge")
+
+        return set(edges[e_id] for v_id in self._ids for e_id in verts[v_id].get_edge_ids())
+
+    def get_connected_polys(self):
+
+        verts = self._geom_data_obj.get_subobjects("vert")
+        polys = self._geom_data_obj.get_subobjects("poly")
+
+        return set(polys[verts[v_id].get_polygon_id()] for v_id in self._ids)
+
+    def get_connected_subobjs(self, subobj_type):
+
+        if subobj_type == "vert":
+            return self.get_connected_verts()
+        elif subobj_type == "edge":
+            return self.get_connected_edges()
+        elif subobj_type == "poly":
+            return self.get_connected_polys()
 
     def get_special_selection(self):
 

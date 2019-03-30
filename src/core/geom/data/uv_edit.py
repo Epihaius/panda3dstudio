@@ -70,7 +70,7 @@ class UVEditBase(BaseObject):
     def create_tex_seams(self, uv_set_id, seam_edge_ids, color):
 
         self._tex_seam_edge_ids[uv_set_id] = seam_edge_ids
-        edge_geom = self._geoms["edge"]["pickable"]
+        edge_geom = self._geoms["edge"]["sel_state"]
         edge_prims = self._edge_prims
         render_mask = Mgr.get("render_mask")
         picking_mask = Mgr.get("picking_mask")
@@ -84,6 +84,7 @@ class UVEditBase(BaseObject):
             seam_geom.set_color(color)
             seam_geom.show(all_masks)
             self._tex_seam_geom = seam_geom
+            seam_geom.show_through(render_mask)
             edge_prim = GeomLines(edge_geom.node().get_geom(0).get_primitive(0))
             edge_prims["main"] = edge_prim
 
@@ -274,13 +275,15 @@ class UVEditBase(BaseObject):
 
         if edge.get_id() in self._tex_seam_edge_ids[uv_set_id]:
             sel_colors = colors
+            geom = self._tex_seam_geom
         else:
             sel_colors = None
+            geom = None
 
         if is_selected:
-            self.update_selection("edge", [edge], [], False, sel_colors)
+            self.update_selection("edge", [edge], [], False, sel_colors, geom)
         else:
-            self.update_selection("edge", [], [edge], False, sel_colors)
+            self.update_selection("edge", [], [edge], False, sel_colors, geom)
 
     def clear_tex_seam_selection(self, uv_set_id, color):
 
@@ -299,8 +302,7 @@ class UVEditBase(BaseObject):
         for edge_id in edge_ids:
             tmp_merged_edge.append(edge_id)
 
-        sel_state_geom = self._geoms["edge"]["sel_state"]
-        vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
+        vertex_data = self._tex_seam_geom.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
 
         for row_index in tmp_merged_edge.get_row_indices():
@@ -314,8 +316,7 @@ class UVEditBase(BaseObject):
         for edge_id in edge_ids:
             tmp_merged_edge.append(edge_id)
 
-        sel_state_geom = self._geoms["edge"]["sel_state"]
-        vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
+        vertex_data = self._tex_seam_geom.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
 
         for row_index in tmp_merged_edge.get_row_indices():
@@ -330,22 +331,20 @@ class UVEditBase(BaseObject):
             return
 
         seam_geom.node().modify_geom(0).set_primitive(0, self._tex_seam_prims[uv_set_id])
-        edge_geom = self._geoms["edge"]["pickable"]
+        edge_geom = self._geoms["edge"]["sel_state"]
         edge_geom.node().modify_geom(0).set_primitive(0, self._edge_prims[uv_set_id])
 
-    def show_tex_seams(self, obj_level):
+    def show_tex_seams(self, obj_level, color):
 
         seam_geom = self._tex_seam_geom
 
         if not seam_geom:
             return
 
-        render_mask = Mgr.get("render_mask")
-
         if obj_level == "edge":
-            seam_geom.show(render_mask)
+            seam_geom.set_color_off()
         else:
-            seam_geom.show_through(render_mask)
+            seam_geom.set_color(color)
 
     def destroy_tex_seams(self, uv_set_id):
 
@@ -353,7 +352,7 @@ class UVEditBase(BaseObject):
             self._tex_seam_geom.remove_node()
             self._tex_seam_geom = None
             edge_prim = self._edge_prims["main"]
-            edge_geom = self._geoms["edge"]["pickable"]
+            edge_geom = self._geoms["edge"]["sel_state"]
             edge_geom.node().modify_geom(0).set_primitive(0, edge_prim)
             del self._edge_prims["main"]
 

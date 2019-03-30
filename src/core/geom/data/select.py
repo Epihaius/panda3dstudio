@@ -22,7 +22,7 @@ class GeomSelectionBase(BaseObject):
         self._selection_backup = {}
 
     def update_selection(self, subobj_type, subobjs_to_select, subobjs_to_deselect,
-                         update_verts_to_transf=True, selection_colors=None):
+                         update_verts_to_transf=True, selection_colors=None, geom=None):
 
         selected_subobj_ids = self._selected_subobj_ids[subobj_type]
         geoms = self._geoms[subobj_type]
@@ -141,7 +141,7 @@ class GeomSelectionBase(BaseObject):
             selected_subobjs = set(combined_subobjs[subobj.get_id()] for subobj in selected_subobjs)
             deselected_subobjs = set(combined_subobjs[subobj.get_id()] for subobj in deselected_subobjs)
 
-            sel_state_geom = geoms["sel_state"]
+            sel_state_geom = geom if geom else geoms["sel_state"]
             vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
             col_writer = GeomVertexWriter(vertex_data, "color")
 
@@ -757,6 +757,10 @@ class Selection(SelectionTransformBase):
 
         if self._groups:
             return list(self._groups.keys())[0].get_toplevel_object(get_group)
+
+    def get_subobjects(self, geom_data_obj):
+
+        return self._groups.get(geom_data_obj, [])
 
     def update(self, hide_sets=False):
 

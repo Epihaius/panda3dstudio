@@ -352,10 +352,15 @@ class GeneralObjectManager(BaseObject):
         task = get_task(changed_objs)
         PendingTasks.add(task, "add_history", "object", 100)
 
-    def __update_render_mode(self):
+    def __update_render_mode(self, new_mode):
+
+        old_mode = GlobalData["render_mode"]
+        GlobalData["render_mode"] = new_mode
 
         for model in Mgr.get("model_objs"):
             model.update_render_mode()
+
+        Mgr.notify("render_mode_changed", old_mode, new_mode)
 
     def __toggle_two_sided(self):
 

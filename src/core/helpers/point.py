@@ -156,6 +156,7 @@ class PointHelper(TopLevelObject):
 
         if restore:
             Mgr.do("add_point_helper", self)
+            Mgr.notify("pickable_geom_altered", self)
 
     def unregister(self, unregister=True):
 
@@ -301,6 +302,10 @@ class PointHelper(TopLevelObject):
 
         Mgr.add_task(.2, do_flash, "do_flash")
 
+    def make_pickable(self, pickable=True):
+
+        Mgr.do("show_point_helper", self, pickable, pickable_geom_only=True)
+
 
 class PointHelperVizManager(ObjectManager, PickingColorIDManager):
 
@@ -336,6 +341,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
         self._geoms = {}
         self._point_helpers = {"normal": [], "on_top": []}
+        self._shown_point_helpers = {"pickable": SparseArray(), "viz": SparseArray()}
         self._point_helpers_to_transf = {"normal": [], "on_top": []}
         self._transf_start_arrays = {"normal": None, "on_top": None}
 
@@ -343,6 +349,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         Mgr.accept("create_custom_point_helper", self.__create_custom_point_helper)
         Mgr.accept("add_point_helper", self.__add_point_helper)
         Mgr.accept("remove_point_helper", self.__remove_point_helper)
+        Mgr.accept("show_point_helper", self.__show_point_helper)
         Mgr.accept("set_point_helper_sel_state", self.__set_point_helper_sel_state)
         Mgr.accept("set_point_helper_size", self.__set_point_helper_size)
         Mgr.accept("set_point_helper_color", self.__set_point_helper_color)
@@ -421,13 +428,17 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
         return True
 
-    def __make_point_helpers_pickable(self, pickable=True):
+    def __make_point_helpers_pickable(self, pickable=True, mask_index=0, show_through=False):
 
-        picking_mask = Mgr.get("picking_mask")
+        picking_mask = Mgr.get("picking_mask", mask_index)
 
         if pickable:
-            for geom in self._pickable_geoms:
-                geom.show(picking_mask)
+            if show_through:
+                for geom in self._pickable_geoms:
+                    geom.show_through(picking_mask)
+            else:
+                for geom in self._pickable_geoms:
+                    geom.show(picking_mask)
         else:
             for geom in self._pickable_geoms:
                 geom.hide(picking_mask)
@@ -447,6 +458,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         point_helper.set_color("unselected", unselected_color)
         point_helper.set_color("selected", selected_color)
         point_helpers = self._point_helpers[draw_mode]
+        shown_helpers = self._shown_point_helpers
         count = len(point_helpers)
         point_helpers.append(point_helper)
         picking_col_id = point_helper.get_viz().get_picking_color_id()
@@ -457,6 +469,8 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         pos = point_helper.get_origin().get_pos(self.world)
 
         for geom_type in ("pickable", "viz"):
+
+            shown_helpers[geom_type].set_bit(count)
             geom_node = geoms[geom_type].node()
             vertex_data = geom_node.modify_geom(0).modify_vertex_data()
             vertex_data.set_num_rows(count + 1)
@@ -474,8 +488,12 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             index_writer.add_data1i(count)
             prim = geom_node.modify_geom(0).modify_primitive(0)
             prim.clear_vertices()
-            prim.reserve_num_vertices(count + 1)
-            prim.add_next_vertices(count + 1)
+            sparse_array = shown_helpers[geom_type]
+            prim.reserve_num_vertices(sparse_array.get_num_on_bits() + 1)
+
+            for i in range(count + 1):
+                if sparse_array.get_bit(i):
+                    prim.add_vertex(i)
 
         point_helper.register(restore=False)
 
@@ -523,6 +541,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
             geoms = self._geoms[draw_mode]
             count = len(self._point_helpers[draw_mode])
+            shown_helpers = self._shown_point_helpers
 
             for geom_type in ("pickable", "viz"):
 
@@ -531,13 +550,17 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
                 prim.clear_vertices()
 
                 if count:
-                    prim.reserve_num_vertices(count)
-                    prim.add_next_vertices(count)
+
+                    sparse_array = shown_helpers[geom_type]
+                    prim.reserve_num_vertices(sparse_array.get_num_on_bits())
+
+                    for i in range(count):
+                        if sparse_array.get_bit(i):
+                            prim.add_vertex(i)
 
     def __init_point_helper_transform(self):
 
         helpers_to_transf = self._point_helpers_to_transf
-        point_helpers = self._point_helpers
         selection = Mgr.get("selection_top")
         objs = set(selection)
 
@@ -621,6 +644,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         draw_mode = "on_top" if point_helper.is_drawn_on_top() else "normal"
         geoms = self._geoms[draw_mode]
         point_helpers = self._point_helpers[draw_mode]
+        shown_helpers = self._shown_point_helpers
         count = len(point_helpers)
         point_helpers.append(point_helper)
         pos = point_helper.get_origin().get_pos(self.world)
@@ -633,6 +657,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         sizes = {"pickable": size * .5, "viz": size}
 
         for geom_type in ("pickable", "viz"):
+            shown_helpers[geom_type].set_bit(count)
             geom_node = geoms[geom_type].node()
             vertex_data = geom_node.modify_geom(0).modify_vertex_data()
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
@@ -658,12 +683,21 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         draw_mode = "on_top" if point_helper.is_drawn_on_top() else "normal"
         geoms = self._geoms[draw_mode]
         point_helpers = self._point_helpers[draw_mode]
+        shown_helpers = self._shown_point_helpers
         row_index = point_helpers.index(point_helper)
         point_helpers.remove(point_helper)
         count = len(point_helpers)
 
         for geom_type in ("pickable", "viz"):
 
+            sparse_array = shown_helpers[geom_type]
+            s = SparseArray(sparse_array)
+            for i in range(0, row_index + 1):
+                s.clear_bit(i)
+            s >>= 1
+            for i in range(row_index, count + 1):
+                sparse_array.clear_bit(i)
+            shown_helpers[geom_type] |= s
             geom_node = geoms[geom_type].node()
             vertex_data = geom_node.modify_geom(0).modify_vertex_data()
 
@@ -673,7 +707,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
                 mem_view = memoryview(array).cast("B")
                 offset = row_index * stride
                 mem_view[offset:-stride] = mem_view[offset+stride:]
-                array.set_num_rows(array.get_num_rows()-1)
+                array.set_num_rows(array.get_num_rows() - 1)
 
             array = vertex_data.modify_array(2)
             array.unclean_set_num_rows(count)
@@ -681,6 +715,26 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
             for i in range(count):
                 index_writer.set_data1i(i)
+
+        task = self.__rebuild_geoms
+        task_id = "rebuild_point_geoms"
+        sort = PendingTasks.get_sort("update_selection", "object") - 1
+        PendingTasks.add(task, task_id, "object", sort)
+
+    def __show_point_helper(self, point_helper, show=True, pickable_geom_only=False):
+
+        draw_mode = "on_top" if point_helper.is_drawn_on_top() else "normal"
+        point_helpers = self._point_helpers[draw_mode]
+        shown_helpers = self._shown_point_helpers
+        row_index = point_helpers.index(point_helper)
+        geom_types = ("pickable",) if pickable_geom_only else ("pickable", "viz")
+
+        if show:
+            for geom_type in geom_types:
+                shown_helpers[geom_type].set_bit(row_index)
+        else:
+            for geom_type in geom_types:
+                shown_helpers[geom_type].clear_bit(row_index)
 
         task = self.__rebuild_geoms
         task_id = "rebuild_point_geoms"

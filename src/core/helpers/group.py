@@ -85,6 +85,9 @@ class Group(TopLevelObject):
 
         self._bbox.register(restore)
 
+        if restore:
+            Mgr.notify("pickable_geom_altered", self)
+
     def __create_collision_geoms(self):
 
         members = self.get_members()
@@ -357,6 +360,7 @@ class Group(TopLevelObject):
                 Mgr.do("make_group_const_size", self._bbox, False)
                 bbox_orig.reparent_to(group_orig)
                 self._bbox_is_const_size = False
+                Mgr.notify("pickable_geom_altered", self)
 
             point_min = Point3(x_min, y_min, z_min)
             point_max = Point3(x_max, y_max, z_max)
@@ -377,6 +381,7 @@ class Group(TopLevelObject):
             if not self._bbox_is_const_size:
                 Mgr.do("make_group_const_size", self._bbox)
                 self._bbox_is_const_size = True
+                Mgr.notify("pickable_geom_altered", self)
 
     def center_pivot(self):
 
@@ -559,6 +564,20 @@ class Group(TopLevelObject):
 
         self._bbox.flash()
 
+    def make_pickable(self, mask_index=0, pickable=True, show_through=True):
+
+        if self._bbox_is_const_size:
+            Mgr.do("show_const_sized_bboxes", self._bbox, mask_index, pickable, show_through)
+            return
+
+        mask = Mgr.get("picking_mask", mask_index)
+        bbox = self._bbox.get_origin()
+
+        if pickable:
+            bbox.show_through(mask) if show_through else bbox.show(mask)
+        else:
+            bbox.hide(mask)
+
 
 class GroupManager(ObjectManager):
 
@@ -593,6 +612,7 @@ class GroupManager(ObjectManager):
         Mgr.add_app_updater("region_picking", self.__make_region_pickable)
         Mgr.add_app_updater("lens_type", self.__show_root)
         Mgr.expose("const_sized_group_bbox", self.__get_const_sized_bbox_origins)
+        Mgr.accept("show_const_sized_bboxes", self.__show_const_sized_bboxes)
         Mgr.accept("make_group_const_size", self.__make_bbox_const_size)
         Mgr.accept("update_group_bboxes", self.__update_group_bboxes)
         Mgr.accept("add_group_member", self.__add_member)
@@ -668,6 +688,31 @@ class GroupManager(ObjectManager):
         else:
             self._bbox_roots["persp"].hide(masks)
             self._bbox_roots["ortho"].show(masks)
+
+    def __show_const_sized_bboxes(self, bbox, mask_index=0, show=True, show_through=False):
+
+        group = bbox.get_toplevel_object()
+        group_id = group.get_id()
+        bbox_origins = self._bbox_origins
+
+        if group_id not in bbox_origins["persp"]:
+            return
+
+        origin_persp = bbox_origins["persp"][group_id]
+        origin_ortho = bbox_origins["ortho"][group_id]
+
+        mask = Mgr.get("picking_mask", mask_index)
+
+        if show:
+            if self.cam.lens_type == "persp":
+                origin_persp.show_through(mask) if show_through else origin_persp.show(mask)
+                origin_ortho.hide(mask)
+            else:
+                origin_persp.hide(mask)
+                origin_ortho.show_through(mask) if show_through else origin_ortho.show(mask)
+        else:
+            origin_persp.hide(mask)
+            origin_ortho.hide(mask)
 
     def __create_group(self, name, member_types=None, member_types_id="any", transform=None,
                        color_unsel=(1., .5, .25, 1.)):

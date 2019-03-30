@@ -9,7 +9,7 @@ class PickingCamera(BaseObject):
         self._tex_peeker = None
         self._buffer = None
         self._np = None
-        self._mask = BitMask32.bit(15)
+        self._mask = next(camera_mask)
         self._pixel_color = VBase4()
         self._transformer = None
 
@@ -30,7 +30,7 @@ class PickingCamera(BaseObject):
         props.set_rgba_bits(8, 8, 8, 8)
         props.set_depth_bits(8)
         self._buffer = bfr = base.win.make_texture_buffer("uv_picking_buffer",
-                                                          16, 16,
+                                                          15, 15,
                                                           self._tex,
                                                           to_ram=True,
                                                           fbp=props)
@@ -386,7 +386,7 @@ class UVTemplateSaver(BaseObject):
 
     def __init__(self):
 
-        self._template_mask = BitMask32.bit(16)
+        self._template_mask = next(camera_mask)
         self._size = 512
         self._edge_color = VBase4(1., 1., 1., 1.)
         self._poly_color = VBase4(1., 1., 1., 0.)

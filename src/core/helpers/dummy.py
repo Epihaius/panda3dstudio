@@ -501,6 +501,7 @@ class Dummy(TopLevelObject):
         root.reparent_to(self.get_origin())
         self._geom_roots = {}
         self._geoms = {"box": {}, "cross": {}}
+        self._pickable_geoms = pickable_geoms = {}
 
         for geom_type, geoms in self._geoms.items():
             self._geom_roots[geom_type] = root.find("**/{}_root".format(geom_type))
@@ -512,6 +513,7 @@ class Dummy(TopLevelObject):
         for geom_type in ("box", "cross"):
 
             pickable_geom = root.find("**/{}_geom_pickable".format(geom_type))
+            pickable_geoms[geom_type] = pickable_geom
             vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
             col_rewriter = GeomVertexRewriter(vertex_data, "color")
             col_rewriter.set_row(0)
@@ -532,7 +534,7 @@ class Dummy(TopLevelObject):
                                "const_size", "on_top"]
         self._viz = set(["box", "cross"])
         self._size = 0.
-        self._cross_size = 100. # percentage of main/box size
+        self._cross_size = 100.  # percentage of main (box) size
         self._is_const_size = False
         self._const_size = 0.
         self._drawn_on_top = True
@@ -542,6 +544,7 @@ class Dummy(TopLevelObject):
         self._geom_roots = {}
         self._geoms = {"box": {}, "cross": {}}
         self._geoms_ortho = {}
+        self._pickable_geoms = pickable_geoms = {}
 
         for geom_type, geoms in self._geoms.items():
             self._geom_roots[geom_type] = root.find("**/{}_root".format(geom_type))
@@ -552,6 +555,7 @@ class Dummy(TopLevelObject):
         pickable_type_id = PickableTypes.get_id("dummy_edge")
 
         pickable_geom = root.find("**/box_geom_pickable")
+        pickable_geoms["box"] = pickable_geom
         vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(0)
@@ -566,6 +570,7 @@ class Dummy(TopLevelObject):
                 self._edges[color_id] = edge
 
         pickable_geom = root.find("**/cross_geom_pickable")
+        pickable_geoms["cross"] = pickable_geom
         vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(0)
@@ -603,6 +608,9 @@ class Dummy(TopLevelObject):
 
         obj_type = "dummy_edge"
         Mgr.do("register_{}_objs".format(obj_type), iter(self._edges.values()), restore)
+
+        if restore:
+            Mgr.notify("pickable_geom_altered", self)
 
     def unregister(self):
 
@@ -722,6 +730,7 @@ class Dummy(TopLevelObject):
 
         self._is_const_size = is_const_size
         Mgr.do("make_dummy_const_size", self, is_const_size)
+        Mgr.notify("pickable_geom_altered", self)
 
         return True
 
@@ -859,6 +868,26 @@ class Dummy(TopLevelObject):
 
         Mgr.add_task(.2, do_flash, "do_flash")
 
+    def make_pickable(self, mask_index=0, pickable=True, show_through=True):
+
+        if self._is_const_size:
+            Mgr.do("show_pickable_dummy_geoms", self, mask_index, pickable, show_through)
+            return
+
+        picking_mask = Mgr.get("picking_mask", mask_index)
+        pickable_geoms = self._pickable_geoms
+
+        if pickable:
+            if show_through:
+                for geom_type in ("box", "cross"):
+                    pickable_geoms[geom_type].show_through(picking_mask)
+            else:
+                for geom_type in ("box", "cross"):
+                    pickable_geoms[geom_type].show(picking_mask)
+        else:
+            for geom_type in ("box", "cross"):
+                pickable_geoms[geom_type].hide(picking_mask)
+
 
 class DummyEdgeManager(ObjectManager, PickingColorIDManager):
 
@@ -900,6 +929,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         self._dummy_origins = {"persp": {}, "ortho": {}}
         self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
 
+        Mgr.accept("show_pickable_dummy_geoms", self.__show_pickable_dummy_geoms)
         Mgr.accept("make_dummy_const_size", self.__make_dummy_const_size)
         Mgr.accept("set_dummy_const_size", self.__set_dummy_const_size)
         Mgr.accept("create_custom_dummy", self.__create_custom_dummy)
@@ -975,6 +1005,38 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         else:
             self._dummy_roots["persp"].hide(masks)
             self._dummy_roots["ortho"].show(masks)
+
+    def __show_pickable_dummy_geoms(self, dummy, mask_index=0, show=True, show_through=False):
+
+        dummy_id = dummy.get_id()
+        dummy_origins = self._dummy_origins
+
+        if dummy_id not in dummy_origins["persp"]:
+            return
+
+        origin_persp = dummy_origins["persp"][dummy_id]
+        origin_ortho = dummy_origins["ortho"][dummy_id]
+        geoms_persp = [origin_persp.find("**/box_geom_pickable"),
+                       origin_persp.find("**/cross_geom_pickable")]
+        geoms_ortho = [origin_ortho.find("**/box_geom_pickable"),
+                       origin_ortho.find("**/cross_geom_pickable")]
+
+        mask = Mgr.get("picking_mask", mask_index)
+
+        if show:
+            if self.cam.lens_type == "persp":
+                for geom in geoms_persp:
+                    geom.show_through(mask) if show_through else geom.show(mask)
+                for geom in geoms_ortho:
+                    geom.hide(mask)
+            else:
+                for geom in geoms_persp:
+                    geom.hide(mask)
+                for geom in geoms_ortho:
+                    geom.show_through(mask) if show_through else geom.show(mask)
+        else:
+            for geom in geoms_persp + geoms_ortho:
+                geom.hide(mask)
 
     def __make_dummy_const_size(self, dummy, const_size_state=True):
 

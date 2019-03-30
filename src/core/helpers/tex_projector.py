@@ -564,6 +564,9 @@ class TexProjector(TopLevelObject):
         obj_type = "tex_proj_edge"
         Mgr.do("register_{}_objs".format(obj_type), iter(self._edges.values()), restore)
 
+        if restore:
+            Mgr.notify("pickable_geom_altered", self)
+
     def unregister(self, unregister=True):
 
         if unregister:
@@ -1079,6 +1082,16 @@ class TexProjector(TopLevelObject):
             return task.again if data["flash_count"] < 4 else None
 
         Mgr.add_task(.2, do_flash, "do_flash")
+
+    def make_pickable(self, mask_index=0, pickable=True, show_through=True):
+
+        mask = Mgr.get("picking_mask", mask_index)
+        body = self._body
+
+        if pickable:
+            body.show_through(mask) if show_through else body.show(mask)
+        else:
+            body.hide(mask)
 
 
 class TexProjectorEdgeManager(ObjectManager, PickingColorIDManager):

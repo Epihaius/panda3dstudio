@@ -476,8 +476,7 @@ class SelectionManager(BaseObject):
         bind("selection_mode", "handle right-click", "mouse3", self.__on_right_click)
         bind("selection_mode", "handle ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
              self.__on_right_click)
-        bind("selection_mode", "del selection",
-             "delete", self.__delete_selection)
+        bind("selection_mode", "del selection", "delete", self.__delete_selection)
         bind("region_selection_mode", "quit region-select", "escape",
              self.__cancel_region_select)
         bind("region_selection_mode", "cancel region-select", "mouse3",
@@ -499,14 +498,21 @@ class SelectionManager(BaseObject):
         info_start = "<Space> to navigate; (<Alt>-)LMB to (region-)select; <Del> to delete selection; "
         info_text = info_start + "<W>, <E>, <R> to set transform type"
         status_data[""] = {"mode": "Select", "info": info_text}
-        info_idle = info_start + "LMB-drag selection or gizmo handle to transform;" \
+        info_idle = "{}" + info_start + "LMB-drag selection or gizmo handle to {};" \
             " <Q> to disable transforms"
         info_text = "LMB-drag to transform selection; RMB to cancel transformation"
 
         for transf_type in ("translate", "rotate", "scale"):
             mode_text = "Select and {}".format(transf_type)
             status_data[transf_type] = {}
-            status_data[transf_type]["idle"] = {"mode": mode_text, "info": info_idle}
+            status_data[transf_type]["idle"] = {
+                "mode": mode_text,
+                "info": info_idle.format("", transf_type)
+            }
+            status_data[transf_type]["snap_idle"] = {
+                "mode": mode_text,
+                "info": info_idle.format("[SNAP] ", transf_type)
+            }
             status_data[transf_type]["in_progress"] = {"mode": mode_text, "info": info_text}
 
         info_text = "LMB-drag to draw shape; RMB or <Escape> to cancel"
@@ -1417,7 +1423,10 @@ class SelectionManager(BaseObject):
         transf_type = GlobalData["active_transform_type"]
 
         if transf_type:
-            Mgr.update_app("status", ["select", transf_type, "idle"])
+            if GlobalData["snap"]["on"][transf_type]:
+                Mgr.update_app("status", ["select", transf_type, "snap_idle"])
+            else:
+                Mgr.update_app("status", ["select", transf_type, "idle"])
         else:
             Mgr.update_app("status", ["select", ""])
 

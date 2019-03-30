@@ -608,6 +608,9 @@ class EditableGeomProperties(object):
 
     def __set_subobj_level(self, subobj_lvl):
 
+        # exit any object modes
+        Mgr.exit_states(min_persistence=-99)
+
         if GlobalData["transform_target_type"] != "all":
             GlobalData["transform_target_type"] = "all"
             Mgr.update_app("transform_target_type")

@@ -22,6 +22,9 @@ class OptionManager(object):
         command = self.__set_right_dock_side
         item = layout_menu.add("ctrl_pane_left", "Control pane left", command, item_type="check")
         self._menu_items = {"ctrl_pane_left": item}
+        item = main_menu.add("tools", "Tools", item_type="submenu")
+        self._tools_menu = item.get_submenu()
+        Mgr.expose("tool_options_menu", lambda: self._tools_menu)
 
     def setup(self):
 

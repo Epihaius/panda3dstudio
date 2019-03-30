@@ -752,7 +752,11 @@ class TransformationManager(BaseObject):
         self._transf_axis = None
         self._rot_origin = Point3()
         self._rot_start_vec = V3D()
+        self._rot_start_vecs = ()
+        self._snap_start_vecs = V3D()
         self._screen_axis_vec = V3D()
+        self._scale_start_pos = Point3()
+        self._transf_center_pos = Point3()
 
         Mgr.expose("obj_transf_info", lambda: self._obj_transf_info)
         Mgr.expose("xform_backup", lambda: self._xform_backup)
@@ -763,6 +767,8 @@ class TransformationManager(BaseObject):
         Mgr.accept("update_obj_transf_info", self.__update_obj_transf_info)
         Mgr.accept("reset_obj_transf_info", self.__reset_obj_transf_info)
         Mgr.accept("init_transform", self.__init_transform)
+        Mgr.accept("cancel_transform_init", self.__cancel_transform_init)
+        Mgr.accept("start_transform", self.__start_transform)
         Mgr.accept("create_xform_backup", self.__create_xform_backup)
         Mgr.accept("restore_xform_backup", self.__restore_xform_backup)
         Mgr.add_app_updater("transf_component", self.__set_transform_component)
@@ -777,8 +783,8 @@ class TransformationManager(BaseObject):
             self.__end_transform(cancel)
 
         bind = Mgr.bind_state
-        bind("transforming", "cancel transform",
-             "mouse3", lambda: end_transform(cancel=True))
+        bind("transforming", "cancel transform", "mouse3", lambda: end_transform(cancel=True))
+        bind("transforming", "abort transform", "focus_loss", lambda: end_transform(cancel=True))
         bind("transforming", "finalize transform", "mouse1-up", end_transform)
 
     def __reset_transforms_to_restore(self):
@@ -1127,15 +1133,18 @@ class TransformationManager(BaseObject):
 
     def __init_transform(self, transf_start_pos):
 
-        active_transform_type = GlobalData["active_transform_type"]
+        Mgr.get("picking_cam").set_active(False)
+        Mgr.get("gizmo_picking_cam").node().set_active(False)
+        Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
+        transform_type = GlobalData["active_transform_type"]
         active_obj_level = GlobalData["active_obj_level"]
         target_type = GlobalData["transform_target_type"]
         selection = Mgr.get("selection")
 
-        if not active_transform_type:
+        if not transform_type:
             return
 
-        if target_type in ("geom", "pivot") and active_transform_type == "scale":
+        if target_type in ("geom", "pivot") and transform_type == "scale":
             return
 
         if active_obj_level == "top":
@@ -1150,12 +1159,60 @@ class TransformationManager(BaseObject):
 
             self._objs_to_transform = objs_to_transform
 
+        self._selection = selection
+
+        snap_settings = GlobalData["snap"]
+
+        if transform_type == "rotate" and GlobalData["axis_constraints"]["rotate"] == "trackball":
+            snap_on = False
+        else:
+            snap_on = snap_settings["on"][transform_type]
+
+        snap_src_type = snap_settings["src_type"][transform_type]
+        snap_tgt_type = snap_settings["tgt_type"][transform_type]
+
+        if snap_on and snap_tgt_type != "increment" and snap_src_type != "transf_center":
+            Mgr.enter_state("transf_start_snap_mode")
+        else:
+            self.__start_transform(transf_start_pos)
+
+    def __cancel_transform_init(self):
+
+        Mgr.get("picking_cam").set_active()
+        Mgr.get("gizmo_picking_cam").node().set_active(True)
+        Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
+        self._objs_to_transform = []
+        self._selection = None
+
+    def __start_transform(self, transf_start_pos):
+
+        transform_type = GlobalData["active_transform_type"]
+        snap_settings = GlobalData["snap"]
+
+        if transform_type == "rotate" and GlobalData["axis_constraints"]["rotate"] == "trackball":
+            snap_on = False
+        else:
+            snap_on = snap_settings["on"][transform_type]
+
+        snap_src_type = snap_settings["src_type"][transform_type]
+        snap_tgt_type = snap_settings["tgt_type"][transform_type]
+
+        if snap_on and snap_src_type == "transf_center":
+            snap_pos = Mgr.get("transf_center_pos")
+        else:
+            snap_pos = None
+
+        self._transf_start_pos = snap_pos if snap_pos else transf_start_pos
+
         Mgr.enter_state("transforming")
 
-        self._selection = selection
-        self._transf_start_pos = transf_start_pos
+        if snap_on and snap_tgt_type != "increment":
+            Mgr.do("init_snap_target_checking", transform_type)
 
-        if active_obj_level == "top":
+        if GlobalData["active_obj_level"] == "top":
+
+            objs_to_transform = self._objs_to_transform
+            target_type = GlobalData["transform_target_type"]
 
             Mgr.do("update_xform_target_type", objs_to_transform)
             Mgr.do("init_point_helper_transform")
@@ -1170,27 +1227,41 @@ class TransformationManager(BaseObject):
             if target_type == "links":
                 self.__init_link_transform()
 
-        if active_transform_type == "translate":
+        if transform_type == "translate":
             self.__init_translation()
-        elif active_transform_type == "rotate":
+        elif transform_type == "rotate":
             if GlobalData["axis_constraints"]["rotate"] == "trackball":
                 self.__init_free_rotation()
             else:
                 self.__init_rotation()
-        if active_transform_type == "scale":
+        elif transform_type == "scale":
             self.__init_scaling()
 
-        Mgr.update_app("status", ["select", active_transform_type, "in_progress"])
+        Mgr.update_app("status", ["select", transform_type, "in_progress"])
 
     def __end_transform(self, cancel=False):
 
+        Mgr.get("picking_cam").set_active()
+        Mgr.get("gizmo_picking_cam").node().set_active(True)
+        Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
         Mgr.remove_task("transform_selection")
         active_obj_lvl = GlobalData["active_obj_level"]
-        active_transform_type = GlobalData["active_transform_type"]
+        transform_type = GlobalData["active_transform_type"]
+        snap_settings = GlobalData["snap"]
 
-        if active_transform_type == "rotate":
+        if transform_type == "rotate" and GlobalData["axis_constraints"]["rotate"] == "trackball":
+            snap_on = False
+        else:
+            snap_on = snap_settings["on"][transform_type]
+
+        snap_tgt_type = snap_settings["tgt_type"][transform_type]
+
+        if snap_on and snap_tgt_type != "increment":
+            Mgr.do("end_snap_target_checking")
+
+        if transform_type == "rotate":
             Mgr.do("reset_rotation_gizmo_angle")
-        elif active_transform_type == "scale":
+        elif transform_type == "scale":
             Mgr.do("hide_scale_indicator")
 
         if active_obj_lvl == "top":
@@ -1224,8 +1295,7 @@ class TransformationManager(BaseObject):
             Mgr.do("update_xform_target_type", self._objs_to_transform, reset=True)
             self._objs_to_transform = []
 
-        if active_transform_type == "rotate" \
-                and GlobalData["axis_constraints"]["rotate"] == "trackball":
+        if transform_type == "rotate" and GlobalData["axis_constraints"]["rotate"] == "trackball":
             prev_constraints = GlobalData["prev_axis_constraints_rotate"]
             Mgr.update_app("axis_constraints", "rotate", prev_constraints)
 
@@ -1239,7 +1309,7 @@ class TransformationManager(BaseObject):
         lens_type = self.cam.lens_type
 
         if axis_constraints == "view":
-            normal = V3D(grid_origin.get_relative_vector(cam, Vec3.forward()))
+            normal = V3D(grid_origin.get_relative_vector(cam, Vec3.forward()).normalized())
             self._transf_axis = None
         elif len(axis_constraints) == 1:
             normal = None
@@ -1253,7 +1323,7 @@ class TransformationManager(BaseObject):
 
         if normal is None:
 
-            cam_forward_vec = grid_origin.get_relative_vector(cam, Vec3.forward())
+            cam_forward_vec = grid_origin.get_relative_vector(cam, Vec3.forward()).normalized()
             normal = V3D(cam_forward_vec - cam_forward_vec.project(self._transf_axis))
 
             # If the plane normal is the null vector, the axis must be parallel to
@@ -1303,46 +1373,93 @@ class TransformationManager(BaseObject):
         # direction of the camera. This will yield a plane that faces the camera as
         # much as possible, keeping the resulting drag position as close as possible
         # to the mouse pointer (keeping in mind that the actual movement vector is
-        # a projection of the vector in the plane onto the transformation
-        # axis).
+        # a projection of the vector in the plane onto the transformation axis).
 
         if not self.mouse_watcher.has_mouse():
+            Mgr.do("set_projected_snap_marker_pos", None)
             return task.cont
 
         grid_origin = Mgr.get(("grid", "origin"))
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
-        lens_type = self.cam.lens_type
+        translation_vec = None
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["translate"]
+        snap_tgt_type = snap_settings["tgt_type"]["translate"]
+        snap_target_point = None
 
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: grid_origin.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
+        if snap_on and snap_tgt_type != "increment":
 
-        if lens_type == "persp":
-            # the selected items should not move if the cursor points away from the
-            # plane of translation
-            if V3D(far_point - near_point) * self._transf_plane_normal < .0001:
-                return task.cont
+            snap_target_point = Mgr.get("snap_target_point")
 
-        point = Point3()
+            if snap_target_point:
 
-        if self._transf_plane.intersects_line(point, near_point, far_point):
+                if snap_settings["use_axis_constraints"]["translate"]:
+                    if self._transf_axis is None:
+                        snap_target_point = self._transf_plane.project(snap_target_point)
 
-            pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
-            translation_vec = point - pos
+                pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
+                translation_vec = snap_target_point - pos
 
-            if self._transf_axis is not None:
+        if translation_vec is None:
+
+            screen_pos = self.mouse_watcher.get_mouse()
+            cam = self.cam()
+            lens_type = self.cam.lens_type
+
+            near_point = Point3()
+            far_point = Point3()
+            self.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: grid_origin.get_relative_point(cam, point)
+            near_point = rel_pt(near_point)
+            far_point = rel_pt(far_point)
+
+            if lens_type == "persp":
+                # the selected items should not move if the cursor points away from the
+                # plane of translation
+                if V3D(far_point - near_point) * self._transf_plane_normal < .0001:
+                    Mgr.do("set_projected_snap_marker_pos", None)
+                    return task.cont
+
+            point = Point3()
+
+            if self._transf_plane.intersects_line(point, near_point, far_point):
+                pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
+                translation_vec = point - pos
+
+        if self._transf_axis is not None:
+            if not snap_target_point or snap_settings["use_axis_constraints"]["translate"]:
                 translation_vec = translation_vec.project(self._transf_axis)
 
-            if GlobalData["active_obj_level"] == "top":
-                self._selection.translate(self._objs_to_transform, translation_vec)
-            else:
-                self._selection.translate(translation_vec)
+        if snap_on and snap_tgt_type == "increment":
 
-            Mgr.do("transform_point_helpers")
+            axis_constraints = GlobalData["axis_constraints"]["translate"]
+            offset_incr = snap_settings["increment"]["translate"]
+
+            if axis_constraints == "view":
+                translation_vec = cam.get_relative_vector(grid_origin, translation_vec)
+                offset_incr /= cam.get_sx(grid_origin)
+
+            x, y, z = translation_vec
+            x = round(x / offset_incr) * offset_incr
+            y = round(y / offset_incr) * offset_incr
+            z = round(z / offset_incr) * offset_incr
+            translation_vec = Vec3(x, y, z)
+
+            if axis_constraints == "view":
+                translation_vec = grid_origin.get_relative_vector(cam, translation_vec)
+
+        if snap_on and snap_settings["use_axis_constraints"]["translate"]:
+            if snap_target_point:
+                pos = self.world.get_relative_point(grid_origin, pos + translation_vec)
+                Mgr.do("set_projected_snap_marker_pos", pos)
+            else:
+                Mgr.do("set_projected_snap_marker_pos", None)
+
+        if GlobalData["active_obj_level"] == "top":
+            self._selection.translate(self._objs_to_transform, translation_vec)
+        else:
+            self._selection.translate(translation_vec)
+
+        Mgr.do("transform_point_helpers")
 
         return task.cont
 
@@ -1352,6 +1469,7 @@ class TransformationManager(BaseObject):
         axis_constraints = GlobalData["axis_constraints"]["rotate"]
         cam = self.cam()
         lens_type = self.cam.lens_type
+        cam_pos = cam.get_pos(self.world)
 
         if axis_constraints == "view":
 
@@ -1374,41 +1492,55 @@ class TransformationManager(BaseObject):
             axis2_vec = V3D(self.world.get_relative_vector(grid_origin, axis2_vec))
             normal = axis1_vec ** axis2_vec
 
-            if not normal.normalize():
-                return
+        if not normal.normalize():
+            return
 
         self._rot_origin = Mgr.get("transf_center_pos")
         self._transf_plane = Plane(normal, self._rot_origin)
 
-        rot_start_pos = Point3()
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["rotate"]
+        snap_tgt_type = snap_settings["tgt_type"]["rotate"]
 
-        if lens_type == "persp":
-            line_start = cam.get_pos(self.world)
+        if snap_on and snap_tgt_type != "increment":
+
+            rot_start_pos = self._transf_plane.project(self._transf_start_pos)
+
         else:
-            line_start = cam.get_relative_point(self.world, self._transf_start_pos)
-            line_start.y -= 100.
-            line_start = self.world.get_relative_point(cam, line_start)
 
-        if not self._transf_plane.intersects_line(rot_start_pos, line_start, self._transf_start_pos):
-            return
+            rot_start_pos = Point3()
+
+            if lens_type == "persp":
+                line_start = cam_pos
+            else:
+                line_start = cam.get_relative_point(self.world, self._transf_start_pos)
+                line_start.y -= 1000.
+                line_start = self.world.get_relative_point(cam, line_start)
+
+            if not self._transf_plane.intersects_line(rot_start_pos, line_start, self._transf_start_pos):
+                return
 
         Mgr.do("init_rotation_gizmo_angle", rot_start_pos)
 
         rot_start_vec = V3D(rot_start_pos - self._rot_origin)
-        self._rot_start_vec = (rot_start_vec, normal ** rot_start_vec)
+        rot_ref_vec = normal ** rot_start_vec
+        self._rot_start_vecs = (rot_start_vec, rot_ref_vec)
 
-        if not self._rot_start_vec[0].normalize():
+        if not rot_start_vec.normalize():
             return
 
         if lens_type == "persp":
-
-            if normal * V3D(self._transf_plane.project(line_start) - line_start) < .0001:
+            if normal * V3D(self._transf_plane.project(cam_pos) - cam_pos) < .0001:
                 normal *= -1.
 
+        if (not snap_on or snap_tgt_type == "increment") and lens_type == "persp":
             # no rotation can occur if the cursor points away from the plane of
             # rotation
-            if V3D(self._transf_start_pos - line_start) * normal < .0001:
+            if V3D(self._transf_start_pos - cam_pos) * normal < .0001:
                 return
+
+        if snap_on and snap_tgt_type == "increment":
+            self._snap_start_vecs = (V3D(rot_start_vec), V3D(rot_ref_vec))
 
         self._transf_plane_normal = normal
 
@@ -1430,37 +1562,93 @@ class TransformationManager(BaseObject):
         # point, while the current vector points to the current intersection of the
         # mouse ray and the plane of rotation.
 
-        if not self.mouse_watcher.has_mouse():
-            return task.cont
+        rotation_vec = None
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["rotate"]
+        snap_tgt_type = snap_settings["tgt_type"]["rotate"]
+        snap_target_point = None
 
-        cam = self.cam()
-        lens_type = self.cam.lens_type
-        screen_pos = self.mouse_watcher.get_mouse()
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
+        if snap_on and snap_tgt_type != "increment":
 
-        if lens_type == "persp":
-            # the selected items should not rotate if the cursor points away from the
-            # plane of rotation
-            if V3D(far_point - near_point) * self._transf_plane_normal < .0001:
+            snap_target_point = Mgr.get("snap_target_point")
+
+            if snap_target_point:
+
+                grid_origin = Mgr.get(("grid", "origin"))
+                snap_target_point = self.world.get_relative_point(grid_origin, snap_target_point)
+                pos = self._transf_plane.project(snap_target_point)
+                rotation_vec = V3D(pos - self._rot_origin)
+
+                if not rotation_vec.normalize():
+                    Mgr.do("set_projected_snap_marker_pos", None)
+                    return task.cont
+
+            if snap_settings["use_axis_constraints"]["rotate"]:
+                if snap_target_point:
+                    Mgr.do("set_projected_snap_marker_pos", pos)
+                else:
+                    Mgr.do("set_projected_snap_marker_pos", None)
+
+        if rotation_vec is None:
+
+            if not self.mouse_watcher.has_mouse():
+                Mgr.do("set_projected_snap_marker_pos", None)
                 return task.cont
 
-        point = Point3()
+            cam = self.cam()
+            lens_type = self.cam.lens_type
+            screen_pos = self.mouse_watcher.get_mouse()
+            near_point = Point3()
+            far_point = Point3()
+            self.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            near_point = rel_pt(near_point)
+            far_point = rel_pt(far_point)
 
-        if self._transf_plane.intersects_line(point, near_point, far_point):
+            if lens_type == "persp":
+                # the selected items should not rotate if the cursor points away from the
+                # plane of rotation
+                if V3D(far_point - near_point) * self._transf_plane_normal < .0001:
+                    Mgr.do("set_projected_snap_marker_pos", None)
+                    return task.cont
 
-            rotation_vec = V3D(point - self._rot_origin)
+            point = Point3()
 
-            if not rotation_vec.normalize():
-                return task.cont
+            if self._transf_plane.intersects_line(point, near_point, far_point):
 
-            angle = self._rot_start_vec[0].angle_deg(rotation_vec)
+                rotation_vec = V3D(point - self._rot_origin)
 
-            if self._rot_start_vec[1] * rotation_vec < 0.:
+                if not rotation_vec.normalize():
+                    Mgr.do("set_projected_snap_marker_pos", None)
+                    return task.cont
+
+                if snap_on and snap_tgt_type == "increment":
+
+                    angle_incr = snap_settings["increment"]["rotate"]
+                    snap_vec, snap_ref_vec = self._snap_start_vecs
+                    a = rotation_vec.angle_deg(snap_vec)
+
+                    if a > angle_incr * .75:
+
+                        n = (1 + a // angle_incr)
+
+                        if rotation_vec * snap_ref_vec < 0.:
+                            n *= -1.
+
+                        # rotate both snap_vec and snap_ref_vec about the rotation plane
+                        # normal by an angle equal to angle_incr * n
+                        q = Quat()
+                        q.set_from_axis_angle(angle_incr * n, self._transf_plane.get_normal())
+                        snap_vec = V3D(q.xform(snap_vec))
+                        self._snap_start_vecs = (snap_vec, V3D(q.xform(snap_ref_vec)))
+
+                    rotation_vec = snap_vec
+
+        if rotation_vec is not None:
+
+            angle = self._rot_start_vecs[0].angle_deg(rotation_vec)
+
+            if self._rot_start_vecs[1] * rotation_vec < 0.:
                 angle = 360. - angle
 
             rotation = Quat()
@@ -1472,6 +1660,26 @@ class TransformationManager(BaseObject):
                 hpr = VBase3()
                 hpr["zxy".index(axis_constraints)] = angle
                 rotation.set_hpr(hpr)
+
+            if (snap_on and snap_tgt_type != "increment" and snap_target_point
+                    and not snap_settings["use_axis_constraints"]["rotate"]):
+
+                snap_target_vec = (snap_target_point - self._rot_origin).normalized()
+                start_vec = self._transf_start_pos - self._rot_origin
+                start_vec = grid_origin.get_relative_vector(self.world, start_vec)
+                start_vec = rotation.xform(start_vec)
+                start_vec = self.world.get_relative_vector(grid_origin, start_vec)
+                ref_vec = rotation_vec ** self._transf_plane_normal
+                pitch = start_vec.normalized().signed_angle_deg(snap_target_vec, ref_vec)
+                ref_vec = grid_origin.get_relative_vector(self.world, ref_vec)
+
+                if not ref_vec.normalize():
+                    Mgr.do("set_projected_snap_marker_pos", None)
+                    return task.cont
+
+                pitch_quat = Quat()
+                pitch_quat.set_from_axis_angle(pitch, ref_vec)
+                rotation = rotation * pitch_quat
 
             Mgr.do("set_rotation_gizmo_angle", angle)
 
@@ -1539,7 +1747,7 @@ class TransformationManager(BaseObject):
 
         cam = self.cam()
         lens_type = self.cam.lens_type
-        normal = self.world.get_relative_vector(cam, Vec3.forward())
+        normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
         point = self.world.get_relative_point(cam, Point3(0., 2., 0.))
         self._transf_plane = Plane(normal, point)
         tc_pos = Mgr.get("transf_center_pos")
@@ -1551,7 +1759,7 @@ class TransformationManager(BaseObject):
             line_start.y -= 100.
             line_start1 = self.world.get_relative_point(cam, line_start)
             line_start = cam.get_relative_point(self.world, tc_pos)
-            line_start.y -= 100.
+            line_start.y -= 1000.
             line_start2 = self.world.get_relative_point(cam, line_start)
 
         start_pos = Point3()
@@ -1564,7 +1772,7 @@ class TransformationManager(BaseObject):
         if not self._transf_plane.intersects_line(scaling_origin, line_start2, tc_pos):
             return
 
-        self._transf_start_pos = start_pos
+        self._scale_start_pos = start_pos
         self._transf_axis = start_pos - scaling_origin
 
         if not self._transf_axis.normalize():
@@ -1574,13 +1782,24 @@ class TransformationManager(BaseObject):
             self._transf_axis *= .005 / self.cam.zoom
 
         scale_dir_vec = V3D(cam.get_relative_vector(self.world, scaling_origin - start_pos))
-        hpr = scale_dir_vec.get_hpr()
-        Mgr.do("show_scale_indicator", start_pos, hpr)
+        h, p, _ = scale_dir_vec.get_hpr()
+        Mgr.do("show_scale_indicator", start_pos, h, p)
 
         if GlobalData["active_obj_level"] == "top":
             self._selection.init_scaling(self._objs_to_transform)
         else:
             self._selection.init_scaling()
+
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["scale"]
+        snap_tgt_type = snap_settings["tgt_type"]["scale"]
+
+        if snap_on and snap_tgt_type != "increment":
+            grid_origin = Mgr.get(("grid", "origin"))
+            vec = self._transf_start_pos - tc_pos
+            self._scale_start_vec = grid_origin.get_relative_vector(self.world, vec)
+            self._transf_start_pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
+            self._transf_center_pos = grid_origin.get_relative_point(self.world, tc_pos)
 
         Mgr.add_task(self.__scale_selection, "transform_selection", sort=3)
 
@@ -1590,44 +1809,96 @@ class TransformationManager(BaseObject):
         # multiplied by a factor, based on the distance of the mouse to the center
         # of transformation.
 
-        if not self.mouse_watcher.has_mouse():
-            return task.cont
+        scaling = None
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["scale"]
+        snap_tgt_type = snap_settings["tgt_type"]["scale"]
+        axis_constraints = GlobalData["axis_constraints"]["scale"]
 
-        cam = self.cam()
-        screen_pos = self.mouse_watcher.get_mouse()
+        if snap_on and snap_tgt_type != "increment":
 
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            snap_target_point = Mgr.get("snap_target_point")
 
-        point = Point3()
+            if snap_target_point:
 
-        if self._transf_plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point)):
+                x1, y1, z1 = self._scale_start_vec
+                x2, y2, z2 = snap_target_point - self._transf_center_pos
+                x = 1. if x1 == 0. else x2 / x1
+                y = 1. if y1 == 0. else y2 / y1
+                z = 1. if z1 == 0. else z2 / z1
+                x = max(.001, abs(x)) * (-1. if x < 0. else 1.)
+                y = max(.001, abs(y)) * (-1. if y < 0. else 1.)
+                z = max(.001, abs(z)) * (-1. if z < 0. else 1.)
 
-            vec = V3D(point - self._transf_start_pos)
-            dot_prod = vec * self._transf_axis
+                if not snap_settings["use_axis_constraints"]["scale"] or axis_constraints == "xyz":
 
-            if dot_prod < 0.:
-                dot_prod *= -1.0
-                scaling_factor = (1. - dot_prod * .99 / (1. + dot_prod)) ** 2.
-            else:
-                dot_prod *= 10.
-                s = dot_prod * .99 / (1. + dot_prod)
-                scaling_factor = (1. + s / (1. - s)) ** 2.
+                    scaling = VBase3(x, y, z)
 
-            axis_constraints = GlobalData["axis_constraints"]["scale"]
+                else:
 
-            if axis_constraints == "xyz":
+                    scaling = VBase3(1., 1., 1.)
+                    values = (x, y, z)
 
-                scaling = VBase3(scaling_factor, scaling_factor, scaling_factor)
+                    for axis in axis_constraints:
+                        index = "xyz".index(axis)
+                        scaling[index] = values[index]
 
-            else:
+            if snap_settings["use_axis_constraints"]["scale"] and axis_constraints != "xyz":
+                if snap_target_point:
+                    grid_origin = Mgr.get(("grid", "origin"))
+                    p = self._transf_start_pos - self._transf_center_pos
+                    point = Point3(*[a * b for a, b in zip(p, scaling)])
+                    point = point + self._transf_center_pos
+                    pos = self.world.get_relative_point(grid_origin, point)
+                    Mgr.do("set_projected_snap_marker_pos", pos)
+                else:
+                    Mgr.do("set_projected_snap_marker_pos", None)
 
-                scaling = VBase3(1., 1., 1.)
+        if scaling is None:
 
-                for axis in axis_constraints:
-                    scaling["xyz".index(axis)] = scaling_factor
+            if not self.mouse_watcher.has_mouse():
+                Mgr.do("set_projected_snap_marker_pos", None)
+                return task.cont
+
+            cam = self.cam()
+            screen_pos = self.mouse_watcher.get_mouse()
+
+            near_point = Point3()
+            far_point = Point3()
+            self.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+
+            point = Point3()
+
+            if self._transf_plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point)):
+
+                vec = V3D(point - self._scale_start_pos)
+                dot_prod = vec * self._transf_axis
+
+                if dot_prod < 0.:
+                    dot_prod *= -1.0
+                    scaling_factor = (1. - dot_prod * .99 / (1. + dot_prod)) ** 2.
+                else:
+                    dot_prod *= 10.
+                    s = dot_prod * .99 / (1. + dot_prod)
+                    scaling_factor = (1. + s / (1. - s)) ** 2.
+
+                if snap_on and snap_tgt_type == "increment":
+                    perc_incr = snap_settings["increment"]["scale"] / 100.
+                    scaling_factor = (1. + scaling_factor // perc_incr) * perc_incr
+
+                if axis_constraints == "xyz":
+
+                    scaling = VBase3(scaling_factor, scaling_factor, scaling_factor)
+
+                else:
+
+                    scaling = VBase3(1., 1., 1.)
+
+                    for axis in axis_constraints:
+                        scaling["xyz".index(axis)] = scaling_factor
+
+        if scaling is not None:
 
             if GlobalData["active_obj_level"] == "top":
                 self._selection.scale(self._objs_to_transform, scaling)

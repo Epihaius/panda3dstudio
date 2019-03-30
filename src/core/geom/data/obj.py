@@ -49,6 +49,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         self._poly_smoothing = {}
         self._ordered_polys = []
         self._is_tangent_space_initialized = False
+        self._picking_geom_xform_locked = False
 
         self._subobjs = subobjs = {}
         self._indexed_subobjs = indexed_subobjs = {}
@@ -651,6 +652,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         edge_picking_geom = origin.attach_new_node(geom_node)
         edge_picking_geom.set_state(edge_state)
         edge_picking_geom.hide(all_masks)
+        edge_picking_geom.set_color(self.get_toplevel_object().get_color())
         geoms["edge"]["pickable"] = edge_picking_geom
 
         edge_sel_state_geom = edge_picking_geom.copy_to(origin)
@@ -750,12 +752,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             toplvl_geom.hide(render_mask)
 
         if "wire" in render_mode:
-            edge_picking_geom.show(render_mask)
+            edge_sel_state_geom.show(render_mask)
         else:
-            edge_picking_geom.hide(render_mask)
+            edge_sel_state_geom.hide(render_mask)
 
         if render_mode == "wire":
             edge_picking_geom.show(picking_mask)
+
+        if restore:
+            Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
 
         logging.debug('+++++++++++ Geometry created +++++++++++++++')
 
@@ -991,7 +996,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def set_wireframe_color(self, color):
 
-        self._geoms["edge"]["pickable"].set_color(color)
+        self._geoms["edge"]["sel_state"].set_color(color)
 
     def update_selection_state(self, is_selected=True):
 
@@ -1037,13 +1042,17 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
             obj_lvl = "top"
 
-        if "wire" in render_mode:
-            if obj_lvl == "edge":
-                geoms["edge"]["pickable"].hide(render_mask)
-            else:
-                geoms["edge"]["pickable"].show(render_mask)
+        if "wire" in render_mode or obj_lvl == "edge":
+            geoms["edge"]["sel_state"].show(render_mask)
         else:
-            geoms["edge"]["pickable"].hide(render_mask)
+            geoms["edge"]["sel_state"].hide(render_mask)
+
+        if obj_lvl == "edge":
+            geoms["edge"]["sel_state"].set_color_off()
+        elif is_selected:
+            geoms["edge"]["sel_state"].set_color((1., 1., 1., 1.))
+        else:
+            geoms["edge"]["sel_state"].set_color(self.get_toplevel_object().get_color())
 
         if "shaded" in render_mode:
             if obj_lvl == "poly" or (obj_lvl == "top" and self._has_poly_tex_proj):
@@ -1150,6 +1159,13 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             for obj_lvl in ("vert", "edge", "normal", "poly"):
                 geoms[obj_lvl]["pickable"].hide(picking_mask)
 
+    def get_pickable_vertex_data(self, subobj_lvl):
+
+        if subobj_lvl == "poly":
+            return self._vertex_data["poly_picking"]
+
+        return self._geoms[subobj_lvl]["pickable"].node().modify_geom(0).modify_vertex_data()
+
     def make_polys_pickable(self, pickable=True):
 
         if GlobalData["active_obj_level"] == "poly":
@@ -1162,6 +1178,16 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             geoms["poly"]["pickable"].show_through(picking_mask)
         else:
             geoms["poly"]["pickable"].hide(picking_mask)
+
+    def make_subobjs_pickable(self, subobj_lvl, mask_index, pickable=True):
+
+        picking_mask = Mgr.get("picking_mask", mask_index)
+        geoms = self._geoms
+
+        if pickable:
+            geoms[subobj_lvl]["pickable"].show_through(picking_mask)
+        else:
+            geoms[subobj_lvl]["pickable"].hide(picking_mask)
 
     def init_subobj_picking(self, subobj_lvl):
 
@@ -1452,25 +1478,26 @@ class GeomDataManager(ObjectManager):
         self._aux_picking_viz = aux_picking_viz
         Mgr.expose("aux_picking_viz", lambda: self._aux_picking_viz)
 
-        # Create a rubber band line.
+        # Create a dashed rubber band line.
 
         vertex_format = GeomVertexFormat.get_v3t2()
-        vertex_data = GeomVertexData("rubber_band_data", vertex_format, Geom.UH_static)
+        vertex_data = GeomVertexData("dashed_line_data", vertex_format, Geom.UH_static)
         vertex_data.set_num_rows(2)
 
         lines = GeomLines(Geom.UH_dynamic)
         lines.add_next_vertices(2)
         lines_geom = Geom(vertex_data)
         lines_geom.add_primitive(lines)
-        node = GeomNode("rubber_band")
+        node = GeomNode("dashed_line")
         node.add_geom(lines_geom)
-        rubber_band = NodePath(node)
-        rubber_band.set_bin("fixed", 100)
-        rubber_band.set_depth_test(False)
-        rubber_band.set_depth_write(False)
+        dashed_line = NodePath(node)
+        dashed_line.set_bin("fixed", 100)
+        dashed_line.set_depth_test(False)
+        dashed_line.set_depth_write(False)
         tex = Mgr.load_tex(GFX_PATH + "marquee.png")
-        rubber_band.set_texture(tex)
-        self._rubber_band = rubber_band
+        dashed_line.set_texture(tex)
+        self._dashed_line = dashed_line
+        Mgr.expose("dashed_line", lambda: self._dashed_line)
 
         self._draw_start_pos = {"aux_picking_viz": Point3(), "rubber_band": Point3()}
         self._draw_plane = None
@@ -1479,6 +1506,8 @@ class GeomDataManager(ObjectManager):
         Mgr.accept("end_drawing_aux_picking_viz", self.__end_drawing_aux_picking_viz)
         Mgr.accept("start_drawing_rubber_band", self.__start_drawing_rubber_band)
         Mgr.accept("end_drawing_rubber_band", self.__end_drawing_rubber_band)
+        Mgr.accept("set_dashed_line_start_pos", self.__set_dashed_line_start_pos)
+        Mgr.accept("draw_dashed_line", self.__draw_dashed_line)
 
     def setup(self):
 
@@ -1487,7 +1516,7 @@ class GeomDataManager(ObjectManager):
 
         picking_mask = Mgr.get("picking_mask")
         self._aux_picking_viz.hide(picking_mask)
-        self._rubber_band.hide(picking_mask)
+        self._dashed_line.hide(picking_mask)
 
         return True
 
@@ -1525,12 +1554,12 @@ class GeomDataManager(ObjectManager):
             pos_writer.set_data3(point)
 
         line.reparent_to(self.world)
-        line_type = "rubber_band" if line is self._rubber_band else "aux_picking_viz"
+        line_type = "rubber_band" if line is self._dashed_line else "aux_picking_viz"
         self._draw_start_pos[line_type] = point
         self._draw_plane = plane
 
-        task = self.__draw_rubber_band if line is self._rubber_band else self.__draw_aux_picking_viz
-        task_name = "draw_rubber_band" if line is self._rubber_band else "draw_aux_picking_viz"
+        task = self.__draw_rubber_band if line is self._dashed_line else self.__draw_aux_picking_viz
+        task_name = "draw_rubber_band" if line is self._dashed_line else "draw_aux_picking_viz"
         Mgr.add_task(task, task_name, sort=3)
 
     def __start_drawing_aux_picking_viz(self):
@@ -1539,9 +1568,66 @@ class GeomDataManager(ObjectManager):
 
     def __start_drawing_rubber_band(self, start_pos):
 
-        self.__start_drawing_line(self._rubber_band, start_pos)
+        self.__start_drawing_line(self._dashed_line, start_pos)
+
+    def __set_dashed_line_start_pos(self, start_pos):
+
+        cam = self.cam()
+        cam_pos = cam.get_pos(self.world)
+        normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
+        plane = Plane(normal, cam_pos + normal * 10.)
+        point = Point3()
+        p = cam_pos if self.cam.lens_type == "persp" else start_pos - normal * 100.
+        plane.intersects_line(point, p, start_pos)
+        self._draw_start_pos["rubber_band"] = point
+        self._draw_plane = plane
+
+        line_node = self._dashed_line.node()
+
+        for i in range(line_node.get_num_geoms()):
+            vertex_data = line_node.modify_geom(i).modify_vertex_data()
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+            pos_writer.set_row(0)
+            pos_writer.set_data3(point)
+
+    def __draw_dashed_line(self, end_pos, end_pos_on_plane=False):
+
+        start_point = self._draw_start_pos["rubber_band"]
+
+        if end_pos_on_plane:
+            end_point = end_pos
+        else:
+            cam_pos = self.cam().get_pos(self.world)
+            normal = self._draw_plane.get_normal()
+            p = cam_pos if self.cam.lens_type == "persp" else end_pos - normal * 100.
+            end_point = Point3()
+            self._draw_plane.intersects_line(end_point, p, end_pos)
+
+        line_node = self._dashed_line.node()
+
+        for i in range(line_node.get_num_geoms()):
+            vertex_data = line_node.modify_geom(i).modify_vertex_data()
+            pos_writer = GeomVertexWriter(vertex_data, "vertex")
+            pos_writer.set_row(1)
+            pos_writer.set_data3(end_point)
+
+        vp_data = GlobalData["viewport"]
+        w, h = vp_data["size_aux" if vp_data[2] == "main" else "size"]
+        s = max(w, h) / 800.
+        length = (end_point - start_point).length() * s * 5.
+
+        if self.cam.lens_type == "ortho":
+            length /= 40. * self.cam.zoom
+
+        vertex_data = line_node.modify_geom(0).modify_vertex_data()
+        uv_writer = GeomVertexWriter(vertex_data, "texcoord")
+        uv_writer.set_row(1)
+        uv_writer.set_data2(length, 1.)
 
     def __draw_line(self, line):
+
+        if not self.mouse_watcher.has_mouse():
+            return
 
         screen_pos = self.mouse_watcher.get_mouse()
         cam = self.cam()
@@ -1551,38 +1637,24 @@ class GeomDataManager(ObjectManager):
         rel_pt = lambda point: self.world.get_relative_point(cam, point)
         point = Point3()
         self._draw_plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
-        line_type = "rubber_band" if line is self._rubber_band else "aux_picking_viz"
-        start_pos = self._draw_start_pos[line_type]
 
-        if line is self._aux_picking_viz:
+        if line is self._dashed_line:
+
+            self.__draw_dashed_line(point, end_pos_on_plane=True)
+
+        else:
+
+            start_pos = self._draw_start_pos["aux_picking_viz"]
             point = start_pos + (point - start_pos) * 3.
+            line_node = line.node()
 
-        line_node = line.node()
-
-        for i in range(line_node.get_num_geoms()):
-            vertex_data = line_node.modify_geom(i).modify_vertex_data()
-            pos_writer = GeomVertexWriter(vertex_data, "vertex")
-            pos_writer.set_row(1)
-            pos_writer.set_data3(point)
-
-        if line is self._rubber_band:
-
-            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
-            s = max(w, h) / 800.
-            length = (point - start_pos).length() * s * 5.
-
-            if self.cam.lens_type == "ortho":
-                length /= 40. * self.cam.zoom
-
-            vertex_data = line_node.modify_geom(0).modify_vertex_data()
-            uv_writer = GeomVertexWriter(vertex_data, "texcoord")
-            uv_writer.set_row(1)
-            uv_writer.set_data2(length, 1.)
+            for i in range(line_node.get_num_geoms()):
+                vertex_data = line_node.modify_geom(i).modify_vertex_data()
+                pos_writer = GeomVertexWriter(vertex_data, "vertex")
+                pos_writer.set_row(1)
+                pos_writer.set_data3(point)
 
     def __draw_aux_picking_viz(self, task):
-
-        if not self.mouse_watcher.has_mouse():
-            return task.cont
 
         self.__draw_line(self._aux_picking_viz)
 
@@ -1590,10 +1662,7 @@ class GeomDataManager(ObjectManager):
 
     def __draw_rubber_band(self, task):
 
-        if not self.mouse_watcher.has_mouse():
-            return task.cont
-
-        self.__draw_line(self._rubber_band)
+        self.__draw_line(self._dashed_line)
 
         return task.cont
 
@@ -1605,7 +1674,7 @@ class GeomDataManager(ObjectManager):
     def __end_drawing_rubber_band(self):
 
         Mgr.remove_task("draw_rubber_band")
-        self._rubber_band.detach_node()
+        self._dashed_line.detach_node()
 
     def __create_data(self, owner):
 

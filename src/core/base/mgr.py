@@ -80,30 +80,30 @@ class CoreManager(object):
         cls.get("object_root").set_shader_auto()
 
     @classmethod
-    def add_notification_handler(cls, notification, obj_id, handler, once=False):
+    def add_notification_handler(cls, notification, handler_id, handler, once=False):
 
-        cls._notification_handlers.setdefault(notification, {})[obj_id] = (handler, once)
+        cls._notification_handlers.setdefault(notification, {})[handler_id] = (handler, once)
 
     @classmethod
-    def remove_notification_handler(cls, notification, obj_id):
+    def remove_notification_handler(cls, notification, handler_id):
 
         handlers = cls._notification_handlers.get(notification, {})
 
-        if obj_id in handlers:
-            del handlers[obj_id]
+        if handler_id in handlers:
+            del handlers[handler_id]
 
     @classmethod
-    def notify(cls, notification, info=""):
+    def notify(cls, notification, *args, **kwargs):
 
         handlers = cls._notification_handlers.get(notification, {})
 
-        for obj_id, handler_data in list(handlers.items()):
+        for handler_id, handler_data in list(handlers.items()):
 
             handler, once = handler_data
-            handler(info)
+            handler(*args, **kwargs)
 
             if once:
-                del handlers[obj_id]
+                del handlers[handler_id]
 
     @classmethod
     def accept(cls, task_id, task_handler):

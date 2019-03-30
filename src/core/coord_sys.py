@@ -5,6 +5,8 @@ class CoordSysManager(BaseObject):
 
     def __init__(self):
 
+        self._cs_custom_pos = None
+        self._cs_custom_hpr = None
         self._cs_obj = None
         self._cs_obj_picked = None
         self._cs_transformed = False
@@ -12,7 +14,10 @@ class CoordSysManager(BaseObject):
         self._pixel_under_mouse = None
 
         GlobalData.set_default("coord_sys_type", "world")
+
         Mgr.expose("coord_sys_obj", self.__get_coord_sys_object)
+        Mgr.expose("custom_coord_sys_transform", self.__get_custom_coord_sys_transform)
+        Mgr.accept("set_custom_coord_sys_transform", self.__set_custom_coord_sys_transform)
         Mgr.accept("update_coord_sys", self.__update_coord_sys)
         Mgr.accept("notify_coord_sys_transformed", self.__notify_coord_sys_transformed)
         Mgr.add_app_updater("coord_sys", self.__set_coord_sys)
@@ -39,7 +44,7 @@ class CoordSysManager(BaseObject):
 
         status_data = GlobalData["status_data"]
         mode_text = "Pick coordinate system"
-        info_text = "LMB to pick object; RMB to end"
+        info_text = "LMB to pick object; RMB to cancel"
         status_data["pick_coord_sys"] = {"mode": mode_text, "info": info_text}
 
     def __get_coord_sys_object(self, check_valid=False):
@@ -64,7 +69,7 @@ class CoordSysManager(BaseObject):
                 Mgr.do("set_transf_gizmo_pos", Point3())
 
         if GlobalData["coord_sys_type"] == "view" and cs_type != "view":
-            Mgr.do("align_grid_to_screen", False)
+            Mgr.do("align_grid_to_view", False)
 
         GlobalData["coord_sys_type"] = cs_type
         self._cs_obj = obj
@@ -76,7 +81,7 @@ class CoordSysManager(BaseObject):
         elif cs_type == "view":
 
             self._cs_obj = None
-            Mgr.do("align_grid_to_screen")
+            Mgr.do("align_grid_to_view")
 
         elif cs_type == "local":
 
@@ -115,6 +120,22 @@ class CoordSysManager(BaseObject):
 
         self._cs_transformed = transformed
 
+    def __set_custom_coord_sys_transform(self, pos=None, hpr=None):
+
+        self._cs_custom_pos = pos
+        self._cs_custom_hpr = hpr
+
+    def __get_custom_coord_sys_transform(self):
+
+        if GlobalData["coord_sys_type"] != "snap_pt":
+            return []
+
+        grid_origin = Mgr.get(("grid", "origin"))
+        pos = grid_origin.get_pos() if self._cs_custom_pos is None else self._cs_custom_pos
+        hpr = grid_origin.get_hpr() if self._cs_custom_hpr is None else self._cs_custom_hpr
+
+        return [pos, hpr]
+
     def __update_coord_sys(self):
 
         cs_type = GlobalData["coord_sys_type"]
@@ -132,6 +153,21 @@ class CoordSysManager(BaseObject):
 
             if tc_type == "cs_origin":
                 Mgr.do("set_transf_gizmo_pos", pos)
+
+        elif cs_type == "snap_pt":
+
+            grid_origin = Mgr.get(("grid", "origin"))
+
+            if self._cs_custom_pos is not None:
+
+                grid_origin.set_pos(self._cs_custom_pos)
+
+                if tc_type == "cs_origin":
+                    Mgr.do("set_transf_gizmo_pos", self._cs_custom_pos)
+
+            if self._cs_custom_hpr is not None:
+                grid_origin.set_hpr(self._cs_custom_hpr)
+                Mgr.do("set_transf_gizmo_hpr", self._cs_custom_hpr)
 
         elif cs_type in ("local", "object"):
 
@@ -165,6 +201,8 @@ class CoordSysManager(BaseObject):
 
             Mgr.update_remotely("selection_by_name", "", "Pick coordinate system object",
                                 None, False, "Pick", handler)
+            Mgr.get("gizmo_picking_cam").node().set_active(False)
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
@@ -178,7 +216,8 @@ class CoordSysManager(BaseObject):
                 Mgr.update_remotely("coord_sys", cs_type_prev, name)
 
             self._cs_obj_picked = None
-
+            Mgr.get("gizmo_picking_cam").node().set_active(True)
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
             Mgr.update_remotely("selection_by_name", "default")
 
         self._pixel_under_mouse = None  # force an update of the cursor
@@ -203,6 +242,7 @@ class CoordSysManager(BaseObject):
 
             self._cs_obj_picked = obj
             self._user_obj_id = obj.get_id()
+            Mgr.exit_state("coord_sys_picking_mode")
             Mgr.update_locally("coord_sys", "object", obj)
             Mgr.update_remotely("coord_sys", "object", obj.get_name(as_object=True))
             selection = Mgr.get("selection")

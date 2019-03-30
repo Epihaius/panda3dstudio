@@ -192,6 +192,9 @@ class BasicGeom(BaseObject):
 
         Mgr.do("register_basic_geom", self, restore)
 
+        if restore:
+            Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
+
     def unregister(self):
 
         Mgr.do("unregister_basic_geom", self)
@@ -467,19 +470,19 @@ class BasicGeom(BaseObject):
             node.add_geom(points_geom)
             node.set_bounds(OmniBoundingVolume())
             node.set_final(True)
-            normal_geom = self._geom.attach_new_node(node)
+            normals_geom = self._geom.attach_new_node(node)
             sh = shaders.normal
             vs = sh.VERT_SHADER
             fs = sh.FRAG_SHADER
             gs = sh.GEOM_SHADER
             shader = Shader.make(Shader.SL_GLSL, vs, fs, gs)
-            normal_geom.set_shader(shader)
-            normal_geom.set_shader_input("normal_length", self._normal_length)
-            normal_geom.set_color(self._normal_color)
-            normal_geom.hide(Mgr.get("picking_mask"))
+            normals_geom.set_shader(shader)
+            normals_geom.set_shader_input("normal_length", self._normal_length)
+            normals_geom.set_color(self._normal_color)
+            normals_geom.hide(Mgr.get("picking_mask"))
         else:
-            normal_geom = self._geom.find("**/normals_geom")
-            normal_geom.remove_node()
+            normals_geom = self._geom.find("**/normals_geom")
+            normals_geom.remove_node()
 
         self._normals_shown = show
 
@@ -513,8 +516,8 @@ class BasicGeom(BaseObject):
             return False
 
         if self._normals_shown:
-            normal_geom = self._geom.find("**/normals_geom")
-            normal_geom.set_color(color)
+            normals_geom = self._geom.find("**/normals_geom")
+            normals_geom.set_color(color)
 
         self._normal_color = color
 
@@ -526,8 +529,8 @@ class BasicGeom(BaseObject):
             return False
 
         if self._normals_shown:
-            normal_geom = self._geom.find("**/normals_geom")
-            normal_geom.set_shader_input("normal_length", length)
+            normals_geom = self._geom.find("**/normals_geom")
+            normals_geom.set_shader_input("normal_length", length)
 
         self._normal_length = length
 
@@ -766,6 +769,8 @@ class BasicGeom(BaseObject):
             self._geometry_unlock_started = False
             self._geometry_unlock_ended = True
 
+            Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
+
             yield False
 
         task_id = "set_geom_data"
@@ -780,6 +785,16 @@ class BasicGeom(BaseObject):
 
         task_id = "set_geom_data"
         PendingTasks.add(task, task_id, "object", 99, id_prefix=obj_id)
+
+    def make_pickable(self, mask_index=0, pickable=True, show_through=True):
+
+        mask = Mgr.get("picking_mask", mask_index)
+        geom = self._geom
+
+        if pickable:
+            geom.show_through(mask) if show_through else geom.show(mask)
+        else:
+            geom.hide(mask)
 
 
 class BasicGeomManager(ObjectManager, PickingColorIDManager):

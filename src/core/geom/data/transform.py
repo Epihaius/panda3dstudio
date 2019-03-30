@@ -10,11 +10,12 @@ class GeomTransformBase(BaseObject):
         self._transf_start_data = {"bounds": None, "pos_array": None}
         self._pos_arrays = {"main": None, "edge": None}
         self._transformed_verts = set()
+        self._picking_geom_xform_locked = False
 
     def _update_verts_to_transform(self, subobj_lvl):
 
         selected_subobj_ids = self._selected_subobj_ids[subobj_lvl]
-        self._rows_to_transf[subobj_lvl] = rows_to_transf = SparseArray.allOff()
+        self._rows_to_transf[subobj_lvl] = rows_to_transf = SparseArray()
 
         if subobj_lvl != "normal":
             self._verts_to_transf[subobj_lvl] = verts_to_transf = {}
@@ -233,6 +234,10 @@ class GeomTransformBase(BaseObject):
 
         self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
 
+    def set_picking_geom_xform_locked(self, locked=True):
+
+        self._picking_geom_xform_locked = locked
+
     def get_vertex_position_data(self):
 
         data = {}
@@ -252,15 +257,11 @@ class GeomTransformBase(BaseObject):
         geom_node_top = self._toplvl_node
         vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(0, pos_array_main)
-
-        for geom_type in ("poly", "poly_picking"):
-            vertex_data = self._vertex_data[geom_type]
-            vertex_data.set_array(0, pos_array_main)
+        vertex_data = self._vertex_data["poly"]
+        vertex_data.set_array(0, pos_array_main)
 
         geoms = self._geoms
 
-        vertex_data = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array_main)
         vertex_data = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array_main)
         self._pos_arrays["main"] = pos_array_main
@@ -274,11 +275,17 @@ class GeomTransformBase(BaseObject):
         to_view[:size] = from_view
         to_view[size:] = from_view
 
-        vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(0, pos_array_edge)
         vertex_data = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array_edge)
         self._pos_arrays["edge"] = pos_array_edge
+
+        if not self._picking_geom_xform_locked:
+            vertex_data = self._vertex_data["poly_picking"]
+            vertex_data.set_array(0, pos_array_main)
+            vertex_data = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
+            vertex_data.set_array(0, pos_array_main)
+            vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
+            vertex_data.set_array(0, pos_array_edge)
 
     def init_transform(self):
 
@@ -408,6 +415,18 @@ class GeomTransformBase(BaseObject):
         start_data = self._transf_start_data
         geom_node_top = self._toplvl_node
         vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
+
+        if self._picking_geom_xform_locked:
+            pos_array_main = self._pos_arrays["main"]
+            pos_array_edge = self._pos_arrays["edge"]
+            geoms = self._geoms
+            vertex_data = self._vertex_data["poly_picking"]
+            vertex_data.set_array(0, pos_array_main)
+            vertex_data = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
+            vertex_data.set_array(0, pos_array_main)
+            vertex_data = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
+            vertex_data.set_array(0, pos_array_edge)
+            self._picking_geom_xform_locked = False
 
         if cancelled:
 

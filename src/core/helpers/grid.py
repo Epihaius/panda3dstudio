@@ -26,10 +26,12 @@ class Grid(BaseObject):
         self.expose("origin", lambda: self._origin)
         self.expose("hpr", self._origin.get_hpr)
         self.expose("point_at_screen_pos", self.__get_point_at_screen_pos)
+        self.expose("snap_point", self.__get_snap_point)
         Mgr.expose("grid", lambda: self)
         Mgr.accept("update_grid", self.__update)
         Mgr.accept("adjust_grid_to_lens", self.__adjust_to_lens)
-        Mgr.accept("align_grid_to_screen", self.__align_to_screen)
+        Mgr.accept("align_grid_to_view", self.__align_to_view)
+        Mgr.accept("make_grid_pickable", self.__make_pickable)
         Mgr.add_app_updater("active_grid_plane", self.__set_plane)
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
         Mgr.add_app_updater("lens_type", self.__show_horizon)
@@ -167,7 +169,7 @@ class Grid(BaseObject):
         self._horizon_line.set_bin("background", 0)
         self._horizon_line.set_depth_test(False)
         self._horizon_line.set_depth_write(False)
-        self._horizon_line.hide(Mgr.get("picking_mask"))
+        self._horizon_line.hide(Mgr.get("picking_masks"))
 
     def __create_axis_indicator(self):
 
@@ -231,7 +233,8 @@ class Grid(BaseObject):
 
     def __create_plane(self, plane_id):
 
-        node_path = NodePath("grid_plane_{}".format(plane_id.lower()))
+        geom_node = GeomNode("grid_plane_{}".format(plane_id.lower()))
+        node_path = NodePath(geom_node)
 
         axis_id1, axis_id2 = plane_id
 
@@ -284,6 +287,44 @@ class Grid(BaseObject):
         central_line2.set_color(color2)
 
         node_path.flatten_strong()
+        child = node_path.get_child(0)
+        child_node = child.node()
+        geom_node.add_geom(child_node.modify_geom(0))
+        child_node.remove_geom(0)
+        child.detach_node()
+
+        # Create the grid points (used for snapping)
+
+        vertex_format = GeomVertexFormat.get_v3c4()
+        vertex_data = GeomVertexData("gridpoint_data", vertex_format, Geom.UH_static)
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        col_writer = GeomVertexWriter(vertex_data, "color")
+        index1 = "xyz".index(axis_id1)
+        index2 = "xyz".index(axis_id2)
+        start_color = VBase4(100. / 255.)
+        start_color.w = 254. / 255.
+
+        for i1 in range(-1000, 1000, 10):
+
+            for i2 in range(-1000, 1000, 10):
+
+                pos = Point3()
+                pos[index1] = i1
+                pos[index2] = i2
+                pos_writer.add_data3(pos)
+                color = VBase4(start_color)
+                color[index1] = (i1 / 10 + 100) / 255.
+                color[index2] = (i2 / 10 + 100) / 255.
+                col_writer.add_data4(color)
+
+        points = GeomPoints(Geom.UH_static)
+        points.add_next_vertices(40000)
+        point_geom = Geom(vertex_data)
+        point_geom.add_primitive(points)
+        point_node = GeomNode("points")
+        point_node.add_geom(point_geom)
+        grid_points_np = node_path.attach_new_node(point_node)
+        grid_points_np.hide(Mgr.get("render_mask"))
 
         return node_path
 
@@ -400,7 +441,7 @@ class Grid(BaseObject):
         self._horizon_point_pivot.set_hpr(hpr)
         self._projector_pivot.set_hpr(hpr)
 
-    def __align_to_screen(self, align=True):
+    def __align_to_view(self, align=True):
 
         if align:
             self.__change_plane("xy")
@@ -431,6 +472,28 @@ class Grid(BaseObject):
 
         if plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point)):
             return point
+
+    def __get_snap_point(self, color):
+
+        r, g, b, a = color
+
+        if round(a * 255.) == 254.:
+            x = round(r * 255. - 100.) * 10.
+            y = round(g * 255. - 100.) * 10.
+            z = round(b * 255. - 100.) * 10.
+            point = Point3(x, y, z)
+            plane = self._grid_planes[self._active_plane_id]
+            return self._origin.get_relative_point(plane, point)
+
+    def __make_pickable(self, mask_index, pickable=True):
+
+        picking_mask = Mgr.get("picking_mask", mask_index)
+
+        for plane in self._grid_planes.values():
+            if pickable:
+                plane.get_child(0).show_through(picking_mask)
+            else:
+                plane.get_child(0).hide(picking_mask)
 
 
 MainObjects.add_class(Grid)

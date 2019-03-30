@@ -18,7 +18,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         lens.set_near(-10.)
         cam_node = Camera("main_uv_cam", lens)
         cam_node.set_active(False)
-        mask = BitMask32.bit(14)
+        mask = next(camera_mask)
         cam_node.set_camera_mask(mask)
         UVMgr.expose("render_mask", lambda: mask)
         cam = uv_space.attach_new_node(cam_node)
@@ -173,8 +173,10 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             return
 
         Mgr.do("disable_object_name_checking")
-        Mgr.add_notification_handler("suppressed_state_enter", "uv_editor", self.__enter_suppressed_state)
-        Mgr.add_notification_handler("suppressed_state_exit", "uv_editor", self.__exit_suppressed_state)
+        Mgr.add_notification_handler("suppressed_state_enter", "uv_editor",
+                                     self.__enter_suppressed_state)
+        Mgr.add_notification_handler("suppressed_state_exit", "uv_editor",
+                                     self.__exit_suppressed_state)
         self.__handle_viewport_resize(start=True)
         display_region.set_camera(self.cam)
         Mgr.add_interface("uv", "uv_edit_", mouse_watcher_node)
@@ -258,12 +260,12 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self._transf_gizmo.set_relative_scale(512. / min(w, h))
         self._projector_lens.set_film_size(7. / min(w, h))
 
-    def __enter_suppressed_state(self, info=""):
+    def __enter_suppressed_state(self):
 
         self._transf_gizmo.enable(False)
         UVMgr.get("picking_cam").set_active(False)
 
-    def __exit_suppressed_state(self, info=""):
+    def __exit_suppressed_state(self):
 
         UVMgr.get("picking_cam").set_active()
         self._transf_gizmo.enable()

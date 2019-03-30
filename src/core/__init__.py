@@ -1,7 +1,7 @@
 from .base import *
 from .base.base import _PendingTask
 from . import (cam, nav, view, history, scene, import_, export, create, select, transform,
-               transf_center, coord_sys, geom, hierarchy, helpers, texmap, material, align)
+               transf_center, coord_sys, geom, hierarchy, helpers, texmap, material, snap, align)
 
 
 class Core(object):

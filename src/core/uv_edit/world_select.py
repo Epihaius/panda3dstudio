@@ -246,11 +246,12 @@ class SelectionManager(BaseObject):
         else:
 
             obj_root.hide(picking_mask)
+            color = UVMgr.get("uv_selection_colors")["seam"]["unselected"]
 
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
                 geom_data_obj.show_subobj_level(obj_lvl)
-                geom_data_obj.show_tex_seams(obj_lvl)
+                geom_data_obj.show_tex_seams(obj_lvl, color)
 
             Mgr.update_remotely("selection_set", "replace", "uv_" + obj_lvl)
 

@@ -31,7 +31,11 @@ class TransformButtons(ToggleButtonGroup):
                 Mgr.enter_state("selection_mode")
                 GlobalData["active_transform_type"] = transf_type
                 Mgr.update_app("active_transform_type", transf_type)
-                Mgr.update_app("status", ["select", transf_type, "idle"])
+
+                if GlobalData["snap"]["on"][transf_type]:
+                    Mgr.update_app("status", ["select", transf_type, "snap_idle"])
+                else:
+                    Mgr.update_app("status", ["select", transf_type, "idle"])
 
             toggle = (toggle_on, lambda: None)
             icon_id, tooltip_text, hotkey = btn_data[transf_type]
@@ -138,23 +142,36 @@ class CoordSysComboBox(ToolbarComboBox):
                         GlobalData["active_obj_level"] = "top"
                         Mgr.update_app("active_obj_level")
 
-                    self.select_item(cs_type)
                     Mgr.enter_state("coord_sys_picking_mode")
+                    self.select_none()
+                    self.select_item(cs_type)
 
                 self.add_item(cs_type, text, start_coord_sys_picking, persistent=True)
+
+            elif cs_type == "snap_pt":
+
+                def enter_snap_mode():
+
+                    Mgr.enter_state("coord_origin_snap_mode")
+                    self.select_none()
+                    self.select_item(cs_type)
+                    Mgr.update_locally("object_snap", "enable", True, True)
+
+                self.add_item(cs_type, text, enter_snap_mode, persistent=True)
 
             else:
 
                 def set_coord_sys():
 
                     Mgr.exit_state("coord_sys_picking_mode")
+                    Mgr.exit_state("coord_origin_snap_mode")
                     Mgr.update_app("coord_sys", cs_type)
 
                 self.add_item(cs_type, text, set_coord_sys)
 
         for cs in (
             ("world", "World"), ("view", "View"), ("local", "Local"),
-            ("object", "Pick object...")
+            ("object", "Pick object..."), ("snap_pt", "Snap to point...")
         ):
             add_coord_sys_entry(*cs)
 
@@ -169,6 +186,8 @@ class CoordSysComboBox(ToolbarComboBox):
         if coord_sys_type == "object":
             self.set_text(obj_name.get_value())
             obj_name.add_updater("coord_sys", self.set_text)
+        elif coord_sys_type == "snap_pt":
+            self.set_text("Custom")
 
 
 class TransfCenterComboBox(ToolbarComboBox):
@@ -190,24 +209,37 @@ class TransfCenterComboBox(ToolbarComboBox):
                         GlobalData["active_obj_level"] = "top"
                         Mgr.update_app("active_obj_level")
 
-                    self.select_item(tc_type)
                     Mgr.enter_state("transf_center_picking_mode")
+                    self.select_none()
+                    self.select_item(tc_type)
 
                 self.add_item(tc_type, text, start_transf_center_picking, persistent=True)
+
+            elif tc_type == "snap_pt":
+
+                def enter_snap_mode():
+
+                    Mgr.enter_state("transf_center_snap_mode")
+                    self.select_none()
+                    self.select_item(tc_type)
+                    Mgr.update_locally("object_snap", "enable", True, True)
+
+                self.add_item(tc_type, text, enter_snap_mode, persistent=True)
 
             else:
 
                 def set_transf_center():
 
                     Mgr.exit_state("transf_center_picking_mode")
+                    Mgr.exit_state("transf_center_snap_mode")
                     Mgr.update_app("transf_center", tc_type)
 
                 self.add_item(tc_type, text, set_transf_center)
 
         for tc in (
             ("adaptive", "Adaptive"), ("sel_center", "Selection center"),
-            ("pivot", "Pivot"), ("cs_origin", "Ref. crd. sys. origin"),
-            ("object", "Pick object...")
+            ("pivot", "Pivot"), ("cs_origin", "Ref. coord. origin"),
+            ("object", "Pick object..."), ("snap_pt", "Snap to point...")
         ):
             add_transf_center_type(*tc)
 
@@ -222,6 +254,8 @@ class TransfCenterComboBox(ToolbarComboBox):
         if transf_center_type == "object":
             self.set_text(obj_name.get_value())
             obj_name.add_updater("transf_center", self.set_text)
+        elif transf_center_type == "snap_pt":
+            self.set_text("Custom point")
 
 
 class TransformToolbar(Toolbar):
@@ -322,6 +356,8 @@ class TransformToolbar(Toolbar):
                 self._offsets_btn.enable(True)
                 self._offsets_btn.set_active(is_rel_value)
                 self.__check_selection_count(transf_type)
+                GlobalData["snap"]["type"] = transf_type
+                Mgr.update_locally("object_snap", "enable", True, False)
 
             else:
 
@@ -331,6 +367,7 @@ class TransformToolbar(Toolbar):
                 self.__show_field_text(False)
                 self._offsets_btn.set_active(False)
                 self._offsets_btn.enable(False)
+                Mgr.update_locally("object_snap", "enable", False, False)
 
         Mgr.add_app_updater("active_transform_type", set_transform_type)
         Mgr.add_app_updater("axis_constraints", update_axis_constraints)
@@ -366,6 +403,39 @@ class TransformToolbar(Toolbar):
 
         for picking_type in ("coord_sys", "transf_center"):
             add_picking_mode(picking_type)
+
+        def add_snap_mode(snap_type):
+
+            state_id = "{}_snap_mode".format(snap_type)
+
+            def enter_snap_mode(prev_state_id, is_active):
+
+                tint = Skin["colors"]["combobox_field_tint_pick"]
+                combobox_id = "coord_sys" if snap_type == "coord_origin" else snap_type
+                self._comboboxes[combobox_id].set_field_tint(tint)
+                Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
+
+                if not is_active:
+                    GlobalData["snap"]["prev_type"] = GlobalData["snap"]["type"]
+                    GlobalData["snap"]["type"] = snap_type
+
+            def exit_snap_mode(next_state_id, is_active):
+
+                if not is_active:
+
+                    combobox_id = "coord_sys" if snap_type == "coord_origin" else snap_type
+                    self._comboboxes[combobox_id].set_field_tint(None)
+
+                    if not GlobalData["active_transform_type"]:
+                        task = lambda: Mgr.update_locally("object_snap", "enable", False, True)
+                        PendingTasks.add(task, "disable_snap_options")
+
+                    GlobalData["snap"]["type"] = GlobalData["snap"]["prev_type"]
+
+            add_state(state_id, -80, enter_snap_mode, exit_snap_mode)
+
+        for snap_type in ("coord_origin", "transf_center"):
+            add_snap_mode(snap_type)
 
     def __update_offset_btn(self):
 

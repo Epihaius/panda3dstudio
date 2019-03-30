@@ -13,7 +13,7 @@ class CreationManager(BaseObject):
         self._interactive_creation_ended = False
         self._mode_status = ""
         self._creation_type = ""
-        handler = lambda info: setattr(self, "_interactive_creation_ended", True)
+        handler = lambda: setattr(self, "_interactive_creation_ended", True)
         Mgr.add_notification_handler("creation_ended", "creation_mgr", handler)
 
         status_data = GlobalData["status_data"]

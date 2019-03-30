@@ -127,6 +127,10 @@ class Model(TopLevelObject):
         else:
             self.get_origin().clear_two_sided()
 
+    def make_pickable(self, mask_index, pickable=True):
+
+        self._geom_obj.make_pickable(mask_index, pickable)
+
     def set_material(self, material, restore=""):
 
         old_material = self._material
@@ -201,15 +205,16 @@ class Model(TopLevelObject):
 
     def replace_geom_object(self, geom_obj):
 
-        if self._geom_obj.get_type() == "basic_geom":
-            self._geom_obj.destroy()
+        old_geom_obj, self._geom_obj = self._geom_obj, geom_obj
+        geom_obj.set_model(self)
+
+        if old_geom_obj.get_type() == "basic_geom":
+            old_geom_obj.destroy()
         else:
-            self._geom_obj.replace(geom_obj)
+            old_geom_obj.replace(geom_obj)
 
         color = (.7, .7, 1., 1.) if geom_obj.get_type() == "basic_geom" else (1., 1., 1., 1.)
         self._bbox.set_color(color)
-        geom_obj.set_model(self)
-        self._geom_obj = geom_obj
 
         if geom_obj.get_type() == "basic_geom":
 

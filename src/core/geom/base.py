@@ -177,6 +177,12 @@ class GeomDataOwner(BaseObject):
         else:
             origin.clear_two_sided()
 
+    def make_pickable(self, mask_index, pickable=True):
+
+        render_mode = GlobalData["render_mode"]
+        subobj_lvl = "poly" if "shaded" in render_mode else "edge"
+        self._geom_data_obj.make_subobjs_pickable(subobj_lvl, mask_index, pickable)
+
     def show_subobj_level(self, obj_lvl):
 
         self._geom_data_obj.show_subobj_level(obj_lvl)

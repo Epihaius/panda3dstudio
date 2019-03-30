@@ -213,6 +213,40 @@ class MergedEdge(object):
 
         return [edges[e_id].get_polygon_id() for e_id in self._ids]
 
+    def get_connected_verts(self):
+
+        geom_data_obj = self._geom_data_obj
+        merged_verts = geom_data_obj.get_merged_vertices()
+        verts = geom_data_obj.get_subobjects("vert")
+        edges = geom_data_obj.get_subobjects("edge")
+
+        return set(verts[v_id] for mv_id in edges[self._ids[0]] for v_id in merged_verts[mv_id])
+
+    def get_connected_edges(self):
+
+        edges = self._geom_data_obj.get_subobjects("edge")
+        edge_ids = set()
+
+        for vert in self.get_connected_verts():
+            edge_ids.update(vert.get_edge_ids())
+
+        return set(edges[e_id] for e_id in edge_ids)
+
+    def get_connected_polys(self):
+
+        polys = self._geom_data_obj.get_subobjects("poly")
+
+        return set(polys[v.get_polygon_id()] for v in self.get_connected_verts())
+
+    def get_connected_subobjs(self, subobj_type):
+
+        if subobj_type == "vert":
+            return self.get_connected_verts()
+        elif subobj_type == "edge":
+            return self.get_connected_edges()
+        elif subobj_type == "poly":
+            return self.get_connected_polys()
+
     def get_special_selection(self):
 
         edges = [self]

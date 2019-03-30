@@ -5,17 +5,20 @@ class TransformCenterManager(BaseObject):
 
     def __init__(self):
 
+        self._tc_custom_pos = None
         self._tc_obj = None
         self._tc_obj_picked = None
         self._tc_transformed = False
         self._user_obj_id = None
+        self._pixel_under_mouse = None
 
         GlobalData.set_default("transf_center_type", "adaptive")
 
-        self._pixel_under_mouse = None
         Mgr.expose("adaptive_transf_center_type", self.__get_adaptive_transf_center)
         Mgr.expose("transf_center_obj", self.__get_transform_center_object)
         Mgr.expose("transf_center_pos", self.__get_transform_center_pos)
+        Mgr.expose("custom_transf_center_transform", lambda: [self._tc_custom_pos])
+        Mgr.accept("set_custom_transf_center_transform", self.__set_custom_transform_center_pos)
         Mgr.add_app_updater("transf_center", self.__set_transform_center)
 
         add_state = Mgr.add_state
@@ -29,8 +32,7 @@ class TransformCenterManager(BaseObject):
         bind = Mgr.bind_state
         bind("transf_center_picking_mode", "pick transf center -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
-        bind("transf_center_picking_mode",
-             "pick transf center", "mouse1", self.__pick)
+        bind("transf_center_picking_mode", "pick transf center", "mouse1", self.__pick)
         bind("transf_center_picking_mode", "exit transf center picking", "escape",
              exit_transf_center_picking_mode)
         bind("transf_center_picking_mode", "cancel transf center picking", "mouse3",
@@ -40,8 +42,8 @@ class TransformCenterManager(BaseObject):
              "{:d}|mouse3".format(mod_ctrl), lambda: Mgr.update_remotely("main_context"))
 
         status_data = GlobalData["status_data"]
-        mode = "Pick transform center"
-        info = "LMB to pick object; RMB to end"
+        mode = "Pick transf. center object"
+        info = "LMB to pick object; RMB to cancel"
         status_data["pick_transf_center"] = {"mode": mode, "info": info}
 
     def __get_adaptive_transf_center(self):
@@ -106,12 +108,18 @@ class TransformCenterManager(BaseObject):
             pos = Mgr.get("selection").get_center_pos()
         elif self._tc_obj:
             pos = self._tc_obj.get_pivot().get_pos(self.world)
+        elif tc_type == "snap_pt":
+            pos = self._tc_custom_pos
         elif tc_type == "cs_origin":
             pos = Mgr.get(("grid", "origin")).get_pos()
         else:
             pos = Mgr.get("selection").get_center_pos()
 
         return pos
+
+    def __set_custom_transform_center_pos(self, pos=None):
+
+        self._tc_custom_pos = pos
 
     def __enter_picking_mode(self, prev_state_id, is_active):
 
@@ -128,6 +136,8 @@ class TransformCenterManager(BaseObject):
 
             Mgr.update_remotely("selection_by_name", "", "Pick transform center object",
                                 None, False, "Pick", handler)
+            Mgr.get("gizmo_picking_cam").node().set_active(False)
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
@@ -141,7 +151,8 @@ class TransformCenterManager(BaseObject):
                 Mgr.update_remotely("transf_center", tc_type_prev, name)
 
             self._tc_obj_picked = None
-
+            Mgr.get("gizmo_picking_cam").node().set_active(True)
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
             Mgr.update_remotely("selection_by_name", "default")
 
         self._pixel_under_mouse = None  # force an update of the cursor
@@ -165,6 +176,7 @@ class TransformCenterManager(BaseObject):
                 user_obj.get_name(as_object=True).remove_updater("transf_center")
 
             self._tc_obj_picked = obj
+            Mgr.exit_state("transf_center_picking_mode")
             Mgr.update_locally("transf_center", "object", obj)
             Mgr.update_remotely("transf_center", "object", obj.get_name(as_object=True))
 

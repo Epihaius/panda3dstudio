@@ -19,8 +19,7 @@ class RenderModeButtons(ToggleButtonGroup):
 
             def toggle_on():
 
-                GlobalData["render_mode"] = render_mode
-                Mgr.update_app("render_mode")
+                Mgr.update_app("render_mode", render_mode)
 
             toggle = (toggle_on, lambda: None)
 
@@ -37,9 +36,7 @@ class RenderModeButtons(ToggleButtonGroup):
         for render_mode in render_modes:
             add_toggle(render_mode)
 
-        def update_render_mode():
-
-            render_mode = GlobalData["render_mode"]
+        def update_render_mode(render_mode):
 
             if render_mode == "shaded":
                 self.deactivate()

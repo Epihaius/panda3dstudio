@@ -370,7 +370,7 @@ class ViewManager(BaseObject):
 
         status_data = GlobalData["status_data"]
         mode_text = "Pick object to align view to"
-        info_text = "LMB to pick object; RMB to end"
+        info_text = "LMB to pick object; RMB to cancel"
         status_data["pick_view_obj"] = {"mode": mode_text, "info": info_text}
 
         return "views_ok"
@@ -408,6 +408,7 @@ class ViewManager(BaseObject):
 
         if obj:
             self.__center_view_on_objects(obj_to_align_to=obj)
+            Mgr.exit_state("view_obj_picking_mode")
 
     def __update_cursor(self, task):
 
@@ -538,9 +539,9 @@ class ViewManager(BaseObject):
 
         self.grid_plane = grid_plane
 
-    def __update_render_mode(self):
+    def __update_render_mode(self, render_mode):
 
-        self.render_mode = GlobalData["render_mode"]
+        self.render_mode = render_mode
 
     def __show_background(self, view_id):
 
@@ -757,8 +758,7 @@ class ViewManager(BaseObject):
         lens_type = cam.lens_type
 
         Mgr.update_app("active_grid_plane", self.grid_plane)
-        GlobalData["render_mode"] = self.render_mode
-        Mgr.update_app("render_mode")
+        Mgr.update_app("render_mode", self.render_mode)
 
         if current_lens_type != lens_type:
             Mgr.do("adjust_grid_to_lens")
@@ -1071,8 +1071,7 @@ class ViewManager(BaseObject):
             self.__reset_front_view(transition=False, reset_roll=False)
             self.__reset_home_view()
             Mgr.update_app("active_grid_plane", self.default_grid_plane)
-            GlobalData["render_mode"] = self.default_render_mode
-            Mgr.update_app("render_mode")
+            Mgr.update_app("render_mode", self.default_render_mode)
 
             if lerp_view_gizmo:
                 gizmo_root.set_hpr(hpr)
@@ -1366,8 +1365,7 @@ class ViewManager(BaseObject):
             self.cam.update()
             lens_type = self.cam.lens_type
             Mgr.update_app("active_grid_plane", self.grid_plane)
-            GlobalData["render_mode"] = self.render_mode
-            Mgr.update_app("render_mode")
+            Mgr.update_app("render_mode", self.render_mode)
 
             if current_lens_type != lens_type:
                 Mgr.do("adjust_grid_to_lens")
