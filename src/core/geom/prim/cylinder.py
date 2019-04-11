@@ -639,25 +639,51 @@ class CylinderManager(PrimitiveManager):
     def __creation_phase1(self):
         """ Draw out cylinder base """
 
-        if not self.mouse_watcher.has_mouse():
-            return
+        point = None
+        grid_origin = Mgr.get(("grid", "origin"))
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
+        snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
-        screen_pos = self.mouse_watcher.get_mouse()
-        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
+        if snap_on and snap_tgt_type != "increment":
+            point = Mgr.get("snap_target_point")
+
+        if point is None:
+
+            if snap_on and snap_tgt_type != "increment":
+                Mgr.do("set_projected_snap_marker_pos", None)
+
+            if not self.mouse_watcher.has_mouse():
+                return
+
+            screen_pos = self.mouse_watcher.get_mouse()
+            point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos, self.get_origin_pos())
+
+        else:
+
+            point = Mgr.get(("grid", "projected_point"), point, self.get_origin_pos())
+            proj_point = self.world.get_relative_point(grid_origin, point)
+            Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if not point:
             return
 
-        grid_origin = Mgr.get(("grid", "origin"))
+        radius_vec = point - self.get_origin_pos()
+        radius = radius_vec.length()
+
+        if snap_on and snap_tgt_type == "increment":
+            offset_incr = snap_settings["increment"]["creation_phase_1"]
+            radius = round(radius / offset_incr) * offset_incr
+            point = self.get_origin_pos() + radius_vec.normalized() * radius
+
         self._dragged_point = self.world.get_relative_point(grid_origin, point)
-        radius = (self.get_origin_pos() - point).length()
         self.get_temp_primitive().update_size(radius)
 
     def __start_creation_phase2(self):
         """ Start drawing out cylinder height """
 
         cam = self.cam()
-        cam_forward_vec = self.world.get_relative_vector(cam, Vec3.forward())
+        cam_forward_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
         normal = V3D(cam_forward_vec - cam_forward_vec.project(self._height_axis))
 
         # If the plane normal is the null vector, the axis must be parallel to
@@ -685,37 +711,91 @@ class CylinderManager(PrimitiveManager):
 
         self._draw_plane_normal = normal
 
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_2"]
+        snap_tgt_type = snap_settings["tgt_type"]["creation_phase_2"]
+
+        if snap_on and snap_tgt_type == "grid_point":
+
+            # Snapping to any point on the active grid plane would just set the height
+            # to zero, so a different grid plane needs to be set temporarily;
+            # out of the two possible planes, choose the one that faces the camera most.
+
+            grid_origin = Mgr.get(("grid", "origin"))
+            active_plane_id = GlobalData["active_grid_plane"]
+            normal1 = Vec3()
+            normal2 = Vec3()
+            normal1["xyz".index(active_plane_id[0])] = 1.
+            normal2["xyz".index(active_plane_id[1])] = 1.
+            normal1 = self.world.get_relative_vector(grid_origin, normal1)
+            normal2 = self.world.get_relative_vector(grid_origin, normal2)
+            plane_id1 = "xyz".replace(active_plane_id[0], "")
+            plane_id2 = "xyz".replace(active_plane_id[1], "")
+
+            if abs(cam_forward_vec * normal1) > abs(cam_forward_vec * normal2):
+                Mgr.update_app("active_grid_plane", plane_id1)
+            else:
+                Mgr.update_app("active_grid_plane", plane_id2)
+
+            GlobalData["active_grid_plane"] = active_plane_id
+
     def __creation_phase2(self):
         """ Draw out cylinder height """
 
-        if not self.mouse_watcher.has_mouse():
-            return
+        point = None
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_2"]
+        snap_tgt_type = snap_settings["tgt_type"]["creation_phase_2"]
 
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
-        lens_type = self.cam.lens_type
+        if snap_on and snap_tgt_type != "increment":
+            point = Mgr.get("snap_target_point")
 
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
+        if point is None:
 
-        if lens_type == "persp":
-            # the height cannot be calculated if the cursor points away from the plane
-            # in which it is drawn out
-            if V3D(far_point - near_point) * self._draw_plane_normal < .0001:
+            if snap_on and snap_tgt_type != "increment":
+                Mgr.do("set_projected_snap_marker_pos", None)
+
+            if not self.mouse_watcher.has_mouse():
                 return
 
-        point = Point3()
+            screen_pos = self.mouse_watcher.get_mouse()
+            cam = self.cam()
+            lens_type = self.cam.lens_type
 
-        if not self._draw_plane.intersects_line(point, near_point, far_point):
-            return
+            near_point = Point3()
+            far_point = Point3()
+            self.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            near_point = rel_pt(near_point)
+            far_point = rel_pt(far_point)
+
+            if lens_type == "persp":
+                # the height cannot be calculated if the cursor points away from the plane
+                # in which it is drawn out
+                if V3D(far_point - near_point) * self._draw_plane_normal < .0001:
+                    return
+
+            point = Point3()
+
+            if not self._draw_plane.intersects_line(point, near_point, far_point):
+                return
+
+        else:
+
+            grid_origin = Mgr.get(("grid", "origin"))
+            point = self.world.get_relative_point(grid_origin, point)
+            vec = point - self._dragged_point
+            proj_point = self._dragged_point + vec.project(self._height_axis)
+            Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         tmp_prim = self.get_temp_primitive()
         pivot = tmp_prim.get_pivot()
         z = pivot.get_relative_point(self.world, point)[2]
+
+        if snap_on and snap_tgt_type == "increment":
+            offset_incr = snap_settings["increment"]["creation_phase_2"]
+            z = round(z / offset_incr) * offset_incr
+
         tmp_prim.update_size(height=z)
 
     def create_custom_primitive(self, name, radius, height, segments, pos, rel_to_grid=False,

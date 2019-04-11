@@ -328,6 +328,8 @@ class Primitive(GeomDataOwner):
             if self.get_model().has_tangent_space():
                 geom_data_obj.init_tangent_space()
 
+            Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
+
             yield False
 
         task_id = "set_geom_data"

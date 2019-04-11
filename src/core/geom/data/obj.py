@@ -759,8 +759,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         if render_mode == "wire":
             edge_picking_geom.show(picking_mask)
 
-        if restore:
-            Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
+        Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
 
         logging.debug('+++++++++++ Geometry created +++++++++++++++')
 
@@ -1185,9 +1184,11 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geoms = self._geoms
 
         if pickable:
-            geoms[subobj_lvl]["pickable"].show_through(picking_mask)
+            if geoms[subobj_lvl]["pickable"]:
+                geoms[subobj_lvl]["pickable"].show_through(picking_mask)
         else:
-            geoms[subobj_lvl]["pickable"].hide(picking_mask)
+            if geoms[subobj_lvl]["pickable"]:
+                geoms[subobj_lvl]["pickable"].hide(picking_mask)
 
     def init_subobj_picking(self, subobj_lvl):
 
@@ -1596,6 +1597,8 @@ class GeomDataManager(ObjectManager):
 
         if end_pos_on_plane:
             end_point = end_pos
+        elif not self._draw_plane:
+            return
         else:
             cam_pos = self.cam().get_pos(self.world)
             normal = self._draw_plane.get_normal()

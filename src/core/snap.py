@@ -17,12 +17,19 @@ class SnapManager(BaseObject):
 
     def __init__(self):
 
+        states = defaultdict(get_default_state)
+        states["creation_start"] = True
         src_types = defaultdict(get_default_point_type)
         src_types["translate"] = "transf_center"
         tgt_types = defaultdict(get_default_point_type)
+        rubber_band_display = defaultdict(get_default_viz_display)
+        creation_phase_ids = tuple("creation_phase_{:d}".format(i + 1) for i in range(3))
 
-        for snap_type in ("translate", "rotate", "scale"):
+        for snap_type in ("translate", "rotate", "scale") + creation_phase_ids:
             tgt_types[snap_type] = "increment"
+
+        for snap_type in creation_phase_ids:
+            rubber_band_display[snap_type] = False
 
         increments = defaultdict(get_default_increment)
         increments["rotate"] = 5.
@@ -31,13 +38,13 @@ class SnapManager(BaseObject):
         snap_settings = {
             "prev_type": "",
             "type": "",
-            "on": defaultdict(get_default_state),
+            "on": states,
             "src_type": src_types,
             "tgt_type": tgt_types,
             "size": defaultdict(get_default_size),
             "show_marker": defaultdict(get_default_viz_display),
             "marker_size": defaultdict(get_default_size),
-            "show_rubber_band": defaultdict(get_default_viz_display),
+            "show_rubber_band": rubber_band_display,
             "show_proj_line": defaultdict(get_default_viz_display),
             "show_proj_marker": defaultdict(get_default_viz_display),
             "proj_marker_size": defaultdict(get_default_size),
@@ -51,6 +58,7 @@ class SnapManager(BaseObject):
         self._pixel_under_mouse = None
         self._snap_target_point = None
         self._transf_start_pos = Point3()
+        self._start_creation = False
         self._start_transform_mode = False
         self._snapping_transf_center = False
         self._snapping_coord_origin = False
@@ -63,9 +71,11 @@ class SnapManager(BaseObject):
         self._rubber_band = rubber_band
 
         Mgr.expose("snap_target_point", lambda: self._snap_target_point)
+        Mgr.accept("set_creation_start_snap", self.__set_creation_start)
         Mgr.accept("init_snap_target_checking", self.__init_target_checking)
         Mgr.accept("end_snap_target_checking", self.__end_target_checking)
         Mgr.accept("set_projected_snap_marker_pos", self.__set_projected_snap_marker_pos)
+        Mgr.add_app_updater("object_snap", self.__update_snapping)
         Mgr.add_notification_handler("pickable_geom_altered", "snap_mgr",
                                      self.__handle_pickable_geom_change)
         Mgr.add_notification_handler("render_mode_changed", "snap_mgr",
@@ -147,6 +157,21 @@ class SnapManager(BaseObject):
         status_data["snap_transf_center"] = {"mode": mode, "info": info}
         mode = "Pick ref. coord. origin point"
         status_data["snap_coord_origin"] = {"mode": mode, "info": info}
+
+    def __update_snapping(self):
+
+        snap_settings = GlobalData["snap"]
+        state_id = Mgr.get_state_id()
+
+        if snap_settings["type"] == "creation" and state_id == "creation_mode":
+            if snap_settings["on"]["creation_start"]:
+                if snap_settings["on"]["creation"]:
+                    self._start_creation = True
+                    self.__init_target_checking("create")
+                else:
+                    self.__end_target_checking()
+                    self._start_creation = False
+                    Mgr.set_cursor("create")
 
     def __create_snap_viz(self):
 
@@ -277,18 +302,16 @@ class SnapManager(BaseObject):
 
         obj_lvl = GlobalData["active_obj_level"]
         models = set(m for m in Mgr.get("model_objs") if m.get_geom_type() != "basic_geom")
-        sel_models = self.__get_selected_models(include_linked=True)
-        ignore_selection = (self._snapping_transf_center or self._snapping_coord_origin
-                            or self._start_transform_mode)
+        exclude_selection = Mgr.get_state_id() == "transforming"
 
-        if obj_lvl == "top" and not ignore_selection:
-            models.difference_update(sel_models)
+        if obj_lvl == "top" and exclude_selection:
+            models.difference_update(self.__get_selected_models(include_linked=True))
 
         if pickable:
             for model in models:
                 geom_data_obj = model.get_geom_object().get_geom_data_object()
                 geom_data_obj.make_subobjs_pickable(subobj_lvl, 1)
-            if not (ignore_selection or obj_lvl == "top"):
+            if obj_lvl != "top" and exclude_selection:
                 self.__make_subobj_sel_unpickable(subobj_lvl)
         else:
             for model in models:
@@ -297,11 +320,18 @@ class SnapManager(BaseObject):
 
     def __handle_pickable_geom_change(self, obj):
 
-        if not (self._snapping_transf_center or self._snapping_coord_origin):
+        if not (self._snapping_transf_center or self._snapping_coord_origin or self._start_creation):
             return
 
+        if self._start_creation:
+            snap_type = "creation_start"
+        elif self._snapping_transf_center:
+            snap_type = "transf_center"
+        elif self._snapping_coord_origin:
+            snap_type = "coord_origin"
+
         snap_settings = GlobalData["snap"]
-        tgt_type = snap_settings["tgt_type"]["transf_center"]
+        tgt_type = snap_settings["tgt_type"][snap_type]
 
         if "obj" in tgt_type:
             if obj.get_type() == "point_helper":
@@ -315,11 +345,18 @@ class SnapManager(BaseObject):
 
     def __handle_render_mode_change(self, old_mode, new_mode):
 
-        if not (self._snapping_transf_center or self._snapping_coord_origin):
+        if not (self._snapping_transf_center or self._snapping_coord_origin or self._start_creation):
             return
 
+        if self._start_creation:
+            snap_type = "creation_start"
+        elif self._snapping_transf_center:
+            snap_type = "transf_center"
+        elif self._snapping_coord_origin:
+            snap_type = "coord_origin"
+
         snap_settings = GlobalData["snap"]
-        tgt_type = snap_settings["tgt_type"]["transf_center"]
+        tgt_type = snap_settings["tgt_type"][snap_type]
         old_subobj_lvl = "poly" if "shaded" in old_mode else "edge"
         new_subobj_lvl = "poly" if "shaded" in new_mode else "edge"
 
@@ -341,11 +378,18 @@ class SnapManager(BaseObject):
 
     def __handle_lens_type_change(self, lens_type):
 
-        if not (self._snapping_transf_center or self._snapping_coord_origin):
+        if not (self._snapping_transf_center or self._snapping_coord_origin or self._start_creation):
             return
 
+        if self._start_creation:
+            snap_type = "creation_start"
+        elif self._snapping_transf_center:
+            snap_type = "transf_center"
+        elif self._snapping_coord_origin:
+            snap_type = "coord_origin"
+
         snap_settings = GlobalData["snap"]
-        tgt_type = snap_settings["tgt_type"]["transf_center"]
+        tgt_type = snap_settings["tgt_type"][snap_type]
 
         if "obj" in tgt_type:
             for helper in Mgr.get("dummy_objs") + Mgr.get("group_objs"):
@@ -353,11 +397,14 @@ class SnapManager(BaseObject):
 
     def __init_target_checking(self, default_cursor="main"):
 
+        self._snap_target_point = None
         self._default_cursor = default_cursor
         snap_settings = GlobalData["snap"]
         snap_type = snap_settings["type"]
 
-        if self._snapping_transf_center:
+        if self._start_creation:
+            snap_type = "creation_start"
+        elif self._snapping_transf_center:
             snap_type = "transf_center"
         elif self._snapping_coord_origin:
             snap_type = "coord_origin"
@@ -381,6 +428,25 @@ class SnapManager(BaseObject):
         elif self._snapping_coord_origin:
 
             tgt_type = snap_settings[pt_type]["coord_origin"]
+
+        elif self._start_creation:
+
+            tgt_type = snap_settings[pt_type]["creation_start"]
+
+        elif "creation_phase" in snap_type:
+
+            tgt_type = snap_settings[pt_type][snap_type]
+
+            if snap_settings["show_proj_marker"][snap_type]:
+                self._projected_snap_target_marker.reparent_to(self.viewport)
+                self._projected_snap_target_marker.hide()
+                size = snap_settings["proj_marker_size"][snap_type]
+                self._projected_snap_target_marker.set_scale(size)
+
+            if snap_settings["show_proj_line"][snap_type]:
+                dashed_line = Mgr.get("dashed_line")
+                dashed_line.reparent_to(self.world)
+                dashed_line.hide()
 
         else:
 
@@ -418,16 +484,17 @@ class SnapManager(BaseObject):
         if tgt_type == "grid_point":
             Mgr.do("make_grid_pickable", 1)
         elif "obj" in tgt_type:
+            Mgr.do("make_point_helpers_pickable", True, 1, True)
             objects = set(Mgr.get("objects"))
             objs_to_xform = self.__get_objs_to_transform()
-            Mgr.do("make_point_helpers_pickable", True, 1, True)
-            objs = (objects if self._snapping_transf_center or self._snapping_coord_origin
-                    or self._start_transform_mode else objects.difference(objs_to_xform))
+            incl_objs_to_xform = (self._snapping_transf_center or self._snapping_coord_origin
+                                  or self._start_transform_mode or self._start_creation
+                                  or "creation_phase" in snap_type)
+            objs = objects if incl_objs_to_xform else objects.difference(objs_to_xform)
             for obj in objs:
                 if obj.get_type() != "point_helper":
                     obj.make_pickable(1)
-            if not (self._snapping_transf_center or self._snapping_coord_origin
-                    or self._start_transform_mode):
+            if not incl_objs_to_xform:
                 for obj in objs_to_xform:
                     if obj.get_type() == "point_helper":
                         obj.make_pickable(False)
@@ -456,7 +523,9 @@ class SnapManager(BaseObject):
         snap_settings = GlobalData["snap"]
         snap_type = snap_settings["type"]
 
-        if self._snapping_transf_center:
+        if self._start_creation:
+            snap_type = "creation_start"
+        elif self._snapping_transf_center:
             snap_type = "transf_center"
         elif self._snapping_coord_origin:
             snap_type = "coord_origin"
@@ -467,16 +536,17 @@ class SnapManager(BaseObject):
         if tgt_type == "grid_point":
             Mgr.do("make_grid_pickable", 1, False)
         elif "obj" in tgt_type:
+            Mgr.do("make_point_helpers_pickable", False, 1)
             objects = set(Mgr.get("objects"))
             objs_to_xform = self.__get_objs_to_transform()
-            Mgr.do("make_point_helpers_pickable", False, 1)
-            objs = (objects if self._snapping_transf_center or self._snapping_coord_origin
-                    or self._start_transform_mode else objects.difference(objs_to_xform))
+            incl_objs_to_xform = (self._snapping_transf_center or self._snapping_coord_origin
+                                  or self._start_transform_mode or self._start_creation
+                                  or "creation_phase" in snap_type)
+            objs = objects if incl_objs_to_xform else objects.difference(objs_to_xform)
             for obj in objs:
                 if obj.get_type() != "point_helper":
                     obj.make_pickable(1, False)
-            if not (self._snapping_transf_center or self._snapping_coord_origin
-                    or self._start_transform_mode):
+            if not incl_objs_to_xform:
                 for obj in objs_to_xform:
                     if obj.get_type() == "point_helper":
                         obj.make_pickable()
@@ -492,6 +562,10 @@ class SnapManager(BaseObject):
             Mgr.set_cursor(self._default_cursor if pixel_under_mouse == VBase4() else "select")
             snap_settings = GlobalData["snap"]
             snap_type = snap_settings["type"]
+
+            if self._start_creation:
+                snap_type = "creation_start"
+
             pt_type = "src_type" if self._start_transform_mode else "tgt_type"
             tgt_type = snap_settings[pt_type][snap_type]
             grid_origin = Mgr.get(("grid", "origin"))
@@ -537,7 +611,7 @@ class SnapManager(BaseObject):
                     self._snap_target_marker.set_pos(x, 0., y)
 
                 if not (self._snapping_transf_center or self._snapping_coord_origin
-                        or self._start_transform_mode):
+                        or self._start_transform_mode or self._start_creation):
 
                     point = self.world.get_relative_point(grid_origin, self._snap_target_point)
 
@@ -554,8 +628,8 @@ class SnapManager(BaseObject):
                         memview = memoryview(array).cast("B")
                         memview[stride:] = pos_data
 
-                    if (snap_settings["show_proj_line"][snap_type]
-                            and snap_settings["use_axis_constraints"][snap_type]):
+                    if snap_settings["show_proj_line"][snap_type] and ("creation_phase" in snap_type
+                            or snap_settings["use_axis_constraints"][snap_type]):
                         Mgr.do("set_dashed_line_start_pos", point)
 
             else:
@@ -599,6 +673,10 @@ class SnapManager(BaseObject):
 
             if snap_settings["show_proj_line"][snap_type]:
                 Mgr.get("dashed_line").hide()
+
+    def __set_creation_start(self, start_creation=True):
+
+        self._start_creation = start_creation
 
     def __enter_transf_start_snap_mode(self, prev_state_id, is_active):
 

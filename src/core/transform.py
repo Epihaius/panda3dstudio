@@ -779,8 +779,8 @@ class TransformationManager(BaseObject):
 
         def end_transform(cancel=False):
 
-            Mgr.exit_state("transforming")
             self.__end_transform(cancel)
+            Mgr.exit_state("transforming")
 
         bind = Mgr.bind_state
         bind("transforming", "cancel transform", "mouse3", lambda: end_transform(cancel=True))

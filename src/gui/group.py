@@ -36,6 +36,10 @@ class WidgetGroup(Widget):
         borders = (l, r, b, t + h)
         sizer.add(client_sizer, proportion=1., expand=True, borders=borders)
 
+    def get_client_sizer(self):
+
+        return self._client_sizer
+
     def add(self, *args, **kwargs):
 
         self._client_sizer.add(*args, **kwargs)

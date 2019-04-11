@@ -26,6 +26,7 @@ class Grid(BaseObject):
         self.expose("origin", lambda: self._origin)
         self.expose("hpr", self._origin.get_hpr)
         self.expose("point_at_screen_pos", self.__get_point_at_screen_pos)
+        self.expose("projected_point", self.__get_projected_point)
         self.expose("snap_point", self.__get_snap_point)
         Mgr.expose("grid", lambda: self)
         Mgr.accept("update_grid", self.__update)
@@ -459,7 +460,7 @@ class Grid(BaseObject):
 
         self.__update(force=True)
 
-    def __get_point_at_screen_pos(self, screen_pos):
+    def __get_point_at_screen_pos(self, screen_pos, point_in_plane=None):
 
         cam = self.cam()
         near_point = Point3()
@@ -470,8 +471,20 @@ class Grid(BaseObject):
         point = Point3()
         plane = self._planes[self._active_plane_id].node().get_plane()
 
+        if point_in_plane:
+            plane = Plane(plane.get_normal(), point_in_plane)
+
         if plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point)):
             return point
+
+    def __get_projected_point(self, point, point_in_plane=None):
+
+        plane = self._planes[self._active_plane_id].node().get_plane()
+
+        if point_in_plane:
+            plane = Plane(plane.get_normal(), point_in_plane)
+
+        return plane.project(point)
 
     def __get_snap_point(self, color):
 

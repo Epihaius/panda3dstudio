@@ -136,6 +136,11 @@ class GUIManager(object):
         return cls._app_mgr.get_state_persistence(interface_id, "GUI", state_id)
 
     @classmethod
+    def is_state_active(cls, state_id, interface_id="main"):
+
+        return cls._app_mgr.is_state_active(interface_id, "GUI", state_id)
+
+    @classmethod
     def add_app_updater(cls, update_id, updater, kwargs=None, interface_id="main"):
 
         cls._app_mgr.add_updater("GUI", update_id, updater, kwargs, interface_id)

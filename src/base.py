@@ -580,6 +580,10 @@ class StateManager(object):
 
         return self._states[state_id].get_persistence()
 
+    def is_state_active(self, state_id):
+
+        return self._states[state_id].is_active()
+
 
 # The following class associates a particular state with a selection of event
 # bindings.

@@ -206,6 +206,10 @@ class AppManager(object):
 
         return self._state_mgrs[interface_id][component_id].get_state_persistence(state_id)
 
+    def is_state_active(self, interface_id, component_id, state_id):
+
+        return self._state_mgrs[interface_id][component_id].is_state_active(state_id)
+
     def bind_state(self, interface_id, state_id, binding_id, event_props, event_handler):
 
         self._state_mgrs[interface_id]["CORE"].bind(state_id, binding_id, event_props,

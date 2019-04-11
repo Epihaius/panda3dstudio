@@ -28,6 +28,7 @@ class CreationManager(BaseObject):
         def enter_state(prev_state_id, is_active):
 
             Mgr.do("enable_view_gizmo", False)
+            Mgr.set_cursor("create")
 
         add_state("checking_creation_start", -11, enter_state)
 
@@ -122,13 +123,25 @@ class CreationManager(BaseObject):
 
         else:
 
-            GlobalData["active_transform_type"] = ""
-            Mgr.update_app("active_transform_type", "")
+            if not is_active:
+                GlobalData["active_transform_type"] = ""
+                Mgr.update_app("active_transform_type", "")
+
             Mgr.update_app("interactive_creation", "started")
             Mgr.set_cursor("create")
 
         creation_type = GlobalData["active_creation_type"]
-        Mgr.update_app("status", ["create", creation_type, "idle"])
+
+        if GlobalData["snap"]["on"]["creation"]:
+            Mgr.update_app("status", ["create", creation_type, "snap_idle"])
+        else:
+            Mgr.update_app("status", ["create", creation_type, "idle"])
+
+        snap_on_settings = GlobalData["snap"]["on"]
+
+        if snap_on_settings["creation"] and snap_on_settings["creation_start"]:
+            Mgr.do("set_creation_start_snap")
+            Mgr.do("init_snap_target_checking", "create")
 
     def __exit_creation_mode(self, next_state_id, is_active):
 
@@ -148,6 +161,12 @@ class CreationManager(BaseObject):
 
             Mgr.update_app("interactive_creation", mode_status)
 
+        snap_on_settings = GlobalData["snap"]["on"]
+
+        if snap_on_settings["creation"] and snap_on_settings["creation_start"]:
+            Mgr.do("end_snap_target_checking")
+            Mgr.do("set_creation_start_snap", False)
+
     def __check_creation_start(self, task):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
@@ -164,14 +183,26 @@ class CreationManager(BaseObject):
 
     def __start_interactive_creation(self):
 
-        if not self.mouse_watcher.has_mouse():
+        self._origin_pos = None
+        snap_on_settings = GlobalData["snap"]["on"]
+        snap_on = snap_on_settings["creation"] and snap_on_settings["creation_start"]
+
+        if snap_on:
+            self._origin_pos = Mgr.get("snap_target_point")
+
+        if self._origin_pos is None:
+
+            if not self.mouse_watcher.has_mouse():
+                return
+
+            mouse_pos = self.mouse_watcher.get_mouse()
+            self._origin_pos = Mgr.get(("grid", "point_at_screen_pos"), mouse_pos)
+
+        if self._origin_pos is None:
             return
 
-        mouse_pos = self.mouse_watcher.get_mouse()
-        self._origin_pos = Mgr.get(("grid", "point_at_screen_pos"), mouse_pos)
-
-        if not self._origin_pos:
-            return
+        if snap_on:
+            Mgr.do("end_snap_target_checking")
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         mouse_x = mouse_pointer.get_x()

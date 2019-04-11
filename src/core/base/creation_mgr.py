@@ -32,6 +32,8 @@ class CreationPhaseManager(object):
         mode_text = "Create {}".format(status_text["obj_type"])
         info_text = "LMB-drag to start creation"
         creation_status["idle"] = {"mode": mode_text, "info": info_text}
+        info_text = "[SNAP] LMB-drag to start creation"
+        creation_status["snap_idle"] = {"mode": mode_text, "info": info_text}
 
         add_state = Mgr.add_state
         bind = Mgr.bind_state
@@ -88,6 +90,19 @@ class CreationPhaseManager(object):
 
             self._origin_pos = origin_pos
             main_creation_func()
+            self._current_creation_phase = 1
+
+            snap_settings = GlobalData["snap"]
+
+            if snap_settings["on"]["creation"]:
+
+                snap_type = "creation_phase_1"
+                snap_on = snap_settings["on"][snap_type]
+                snap_tgt_type = snap_settings["tgt_type"][snap_type]
+
+                if snap_on and snap_tgt_type != "increment":
+                    snap_settings["type"] = snap_type
+                    Mgr.do("init_snap_target_checking", "create")
 
             Mgr.enter_state("{}_creation_phase_1".format(self._obj_type))
             Mgr.add_task(self._creation_handlers[0], "draw_object", sort=3)
@@ -99,12 +114,37 @@ class CreationPhaseManager(object):
 
         def start_creation_phase(prev_state_id, is_active):
 
+            phase_id = self._current_creation_phase
+            phase_id += 1
+            self._current_creation_phase = phase_id
+
+            snap_settings = GlobalData["snap"]
+
+            if snap_settings["on"]["creation"]:
+
+                snap_type = "creation_phase_{:d}".format(phase_id - 1)
+                snap_on = snap_settings["on"][snap_type]
+                snap_tgt_type = snap_settings["tgt_type"][snap_type]
+
+                if snap_on:
+                    if snap_tgt_type != "increment":
+                        Mgr.do("end_snap_target_checking")
+                        Mgr.set_cursor("create")
+                    if snap_tgt_type == "grid_point":
+                        Mgr.update_app("active_grid_plane", GlobalData["active_grid_plane"])
+
+                snap_type = "creation_phase_{:d}".format(phase_id)
+                snap_on = snap_settings["on"][snap_type]
+                snap_tgt_type = snap_settings["tgt_type"][snap_type]
+
+                if snap_on and snap_tgt_type != "increment":
+                    snap_settings["type"] = snap_type
+                    Mgr.do("init_snap_target_checking", "create")
+
             Mgr.remove_task("draw_object")
             main_start_func()
-            self._current_creation_phase += 1
-            creation_handler = self._creation_handlers[self._current_creation_phase]
+            creation_handler = self._creation_handlers[phase_id - 1]
             Mgr.add_task(creation_handler, "draw_object", sort=3)
-            phase_id = self._current_creation_phase + 1
             Mgr.update_app("status", ["create", self._obj_type, "phase{}".format(phase_id)])
 
         return start_creation_phase
@@ -169,6 +209,23 @@ class CreationPhaseManager(object):
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
     def __end_creation(self, cancel=True):
+
+        snap_settings = GlobalData["snap"]
+
+        if snap_settings["on"]["creation"]:
+
+            snap_type = "creation_phase_{:d}".format(self._current_creation_phase)
+            snap_on = snap_settings["on"][snap_type]
+            snap_tgt_type = snap_settings["tgt_type"][snap_type]
+
+            if snap_on:
+                if snap_tgt_type != "increment":
+                    Mgr.do("end_snap_target_checking")
+                    Mgr.set_cursor("create")
+                if snap_tgt_type == "grid_point":
+                    Mgr.update_app("active_grid_plane", GlobalData["active_grid_plane"])
+
+        snap_settings["type"] = "creation"
 
         Mgr.remove_task("draw_object")
         process = None

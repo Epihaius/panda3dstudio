@@ -233,6 +233,11 @@ class CoreManager(object):
         return cls._app_mgr.get_state_persistence(interface_id, "CORE", state_id)
 
     @classmethod
+    def is_state_active(cls, state_id, interface_id="main"):
+
+        return cls._app_mgr.is_state_active(interface_id, "CORE", state_id)
+
+    @classmethod
     def bind_state(cls, state_id, binding_id, event_props, event_handler, interface_id="main"):
 
         cls._app_mgr.bind_state(interface_id, state_id, binding_id, event_props,

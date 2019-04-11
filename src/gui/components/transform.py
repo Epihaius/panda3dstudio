@@ -367,7 +367,10 @@ class TransformToolbar(Toolbar):
                 self.__show_field_text(False)
                 self._offsets_btn.set_active(False)
                 self._offsets_btn.enable(False)
-                Mgr.update_locally("object_snap", "enable", False, False)
+
+                if Mgr.get_state_id() not in ("transf_center_snap_mode",
+                        "coord_origin_snap_mode"):
+                    Mgr.update_locally("object_snap", "enable", False, False)
 
         Mgr.add_app_updater("active_transform_type", set_transform_type)
         Mgr.add_app_updater("axis_constraints", update_axis_constraints)
@@ -422,14 +425,9 @@ class TransformToolbar(Toolbar):
             def exit_snap_mode(next_state_id, is_active):
 
                 if not is_active:
-
                     combobox_id = "coord_sys" if snap_type == "coord_origin" else snap_type
                     self._comboboxes[combobox_id].set_field_tint(None)
-
-                    if not GlobalData["active_transform_type"]:
-                        task = lambda: Mgr.update_locally("object_snap", "enable", False, True)
-                        PendingTasks.add(task, "disable_snap_options")
-
+                    Mgr.update_locally("object_snap", "enable", False, True)
                     GlobalData["snap"]["type"] = GlobalData["snap"]["prev_type"]
 
             add_state(state_id, -80, enter_snap_mode, exit_snap_mode)

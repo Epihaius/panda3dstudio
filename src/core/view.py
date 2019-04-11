@@ -390,6 +390,8 @@ class ViewManager(BaseObject):
 
             Mgr.update_remotely("selection_by_name", "", "Pick object to align view to",
                                 None, False, "Pick", handler)
+            Mgr.get("gizmo_picking_cam").node().set_active(False)
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
 
     def __exit_picking_mode(self, next_state_id, is_active):
 
@@ -400,6 +402,8 @@ class ViewManager(BaseObject):
         Mgr.set_cursor("main")
 
         if not is_active:
+            Mgr.get("gizmo_picking_cam").node().set_active(True)
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
             Mgr.update_remotely("selection_by_name", "default")
 
     def __pick(self, picked_obj=None):

@@ -25,7 +25,10 @@ class CreationManager(object):
                     Mgr.enter_state("creation_mode")
                     Mgr.update_app("selected_obj_types", (object_type,))
                     Mgr.update_app("interactive_creation", "started")
-                    Mgr.update_app("status", ["create", object_type, "idle"])
+                    if GlobalData["snap"]["on"]["creation"]:
+                        Mgr.update_app("status", ["create", object_type, "snap_idle"])
+                    else:
+                        Mgr.update_app("status", ["create", object_type, "idle"])
 
             return handler
 
@@ -77,7 +80,17 @@ class CreationManager(object):
                 task = lambda: Mgr.do("display_next_obj_color")
                 PendingTasks.add(task, "display_next_obj_color", "ui")
 
+            if not is_active:
+                GlobalData["snap"]["type"] = "creation"
+                Mgr.update_locally("object_snap", "enable", True, False)
+
+        def exit_creation_mode(next_state_id, is_active):
+
+            if not is_active:
+                GlobalData["snap"]["type"] = ""
+                Mgr.update_locally("object_snap", "enable", False, False)
+
         add_state = Mgr.add_state
-        add_state("creation_mode", -10, enter_creation_mode)
+        add_state("creation_mode", -10, enter_creation_mode, exit_creation_mode)
         add_state("checking_creation_start", -11, lambda prev_state_id, is_active:
                   Mgr.do("enable_gui", False))

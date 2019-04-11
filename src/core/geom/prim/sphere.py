@@ -492,21 +492,41 @@ class SphereManager(PrimitiveManager):
     def __creation_phase1(self):
         """ Draw out sphere """
 
-        if not self.mouse_watcher.has_mouse():
-            return
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(self.cam(), point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
-        intersection_point = Point3()
-        self._draw_plane.intersects_line(intersection_point, near_point, far_point)
+        end_point = None
         grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
-        radius = max(.001, (intersection_point - point).length())
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
+        snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
+
+        if snap_on and snap_tgt_type != "increment":
+            end_point = Mgr.get("snap_target_point")
+
+        if end_point is None:
+
+            if not self.mouse_watcher.has_mouse():
+                return
+
+            screen_pos = self.mouse_watcher.get_mouse()
+            near_point = Point3()
+            far_point = Point3()
+            self.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: self.world.get_relative_point(self.cam(), point)
+            near_point = rel_pt(near_point)
+            far_point = rel_pt(far_point)
+            end_point = Point3()
+            self._draw_plane.intersects_line(end_point, near_point, far_point)
+
+        else:
+
+            end_point = self.world.get_relative_point(grid_origin, end_point)
+
+        start_point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        radius = (end_point - start_point).length()
+
+        if snap_on and snap_tgt_type == "increment":
+            offset_incr = snap_settings["increment"]["creation_phase_1"]
+            radius = round(radius / offset_incr) * offset_incr
+
         self.get_temp_primitive().update_radius(radius)
 
     def create_custom_primitive(self, name, radius, segments, pos, inverted=False,

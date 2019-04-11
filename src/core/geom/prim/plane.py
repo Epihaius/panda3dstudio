@@ -360,19 +360,44 @@ class PlaneManager(PrimitiveManager):
     def __creation_phase1(self):
         """ Draw out plane """
 
-        if not self.mouse_watcher.has_mouse():
-            return
+        point = None
+        grid_origin = Mgr.get(("grid", "origin"))
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
+        snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
-        screen_pos = self.mouse_watcher.get_mouse()
-        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
+        if snap_on and snap_tgt_type != "increment":
+            point = Mgr.get("snap_target_point")
+
+        if point is None:
+
+            if snap_on and snap_tgt_type != "increment":
+                Mgr.do("set_projected_snap_marker_pos", None)
+
+            if not self.mouse_watcher.has_mouse():
+                return
+
+            screen_pos = self.mouse_watcher.get_mouse()
+            point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos, self.get_origin_pos())
+
+        else:
+
+            proj_point = Mgr.get(("grid", "projected_point"), point, self.get_origin_pos())
+            proj_point = self.world.get_relative_point(grid_origin, proj_point)
+            Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if not point:
             return
 
-        grid_origin = Mgr.get(("grid", "origin"))
         tmp_prim = self.get_temp_primitive()
         pivot = tmp_prim.get_pivot()
-        x, y, z = pivot.get_relative_point(grid_origin, point)
+        x, y, _ = pivot.get_relative_point(grid_origin, point)
+
+        if snap_on and snap_tgt_type == "increment":
+            offset_incr = snap_settings["increment"]["creation_phase_1"]
+            x = round(x / offset_incr) * offset_incr
+            y = round(y / offset_incr) * offset_incr
+
         tmp_prim.update_size(x, y)
 
     def create_custom_primitive(self, name, x, y, segments, pos, inverted=False,

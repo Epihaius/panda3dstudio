@@ -493,18 +493,44 @@ class TorusManager(PrimitiveManager):
     def __creation_phase1(self):
         """ Draw out torus ring """
 
-        if not self.mouse_watcher.has_mouse():
-            return
+        point = None
+        grid_origin = Mgr.get(("grid", "origin"))
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
+        snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
-        screen_pos = self.mouse_watcher.get_mouse()
-        point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos)
+        if snap_on and snap_tgt_type != "increment":
+            point = Mgr.get("snap_target_point")
+
+        if point is None:
+
+            if snap_on and snap_tgt_type != "increment":
+                Mgr.do("set_projected_snap_marker_pos", None)
+
+            if not self.mouse_watcher.has_mouse():
+                return
+
+            screen_pos = self.mouse_watcher.get_mouse()
+            point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos, self.get_origin_pos())
+
+        else:
+
+            point = Mgr.get(("grid", "projected_point"), point, self.get_origin_pos())
+            proj_point = self.world.get_relative_point(grid_origin, point)
+            Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if not point:
             return
 
-        grid_origin = Mgr.get(("grid", "origin"))
+        radius_vec = point - self.get_origin_pos()
+        ring_radius = radius_vec.length()
+
+        if snap_on and snap_tgt_type == "increment":
+            offset_incr = snap_settings["increment"]["creation_phase_1"]
+            ring_radius = round(ring_radius / offset_incr) * offset_incr
+            point = self.get_origin_pos() + radius_vec.normalized() * ring_radius
+
         self._dragged_point = self.world.get_relative_point(grid_origin, point)
-        ring_radius = (self.get_origin_pos() - point).length()
         self.get_temp_primitive().update_size(ring_radius)
 
     def __start_creation_phase2(self):
@@ -521,25 +547,50 @@ class TorusManager(PrimitiveManager):
     def __creation_phase2(self):
         """ Draw out torus cross section """
 
-        if not self.mouse_watcher.has_mouse():
-            return
-
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
-
-        near_point = Point3()
-        far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        near_point = rel_pt(near_point)
-        far_point = rel_pt(far_point)
-        point = Point3()
-
-        if not self._draw_plane.intersects_line(point, near_point, far_point):
-            return
-
-        section_radius = (point - self._dragged_point).project(self._section_radius_vec).length()
         tmp_prim = self.get_temp_primitive()
+        point = None
+        snap_settings = GlobalData["snap"]
+        snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_2"]
+        snap_tgt_type = snap_settings["tgt_type"]["creation_phase_2"]
+
+        if snap_on and snap_tgt_type != "increment":
+            point = Mgr.get("snap_target_point")
+
+        if point is None:
+
+            if not self.mouse_watcher.has_mouse():
+                return
+
+            screen_pos = self.mouse_watcher.get_mouse()
+            cam = self.cam()
+
+            near_point = Point3()
+            far_point = Point3()
+            self.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            near_point = rel_pt(near_point)
+            far_point = rel_pt(far_point)
+            point = Point3()
+
+            if not self._draw_plane.intersects_line(point, near_point, far_point):
+                return
+
+            radius_vec = (point - self._dragged_point).project(self._section_radius_vec)
+
+        else:
+
+            origin_pos = self.get_origin_pos()
+            proj_point = Mgr.get(("grid", "projected_point"), point, origin_pos)
+            vec = proj_point - origin_pos
+            ring_point = origin_pos + vec.normalized() * tmp_prim.get_size()[0]
+            radius_vec = point - ring_point
+
+        section_radius = radius_vec.length()
+
+        if snap_on and snap_tgt_type == "increment":
+            offset_incr = snap_settings["increment"]["creation_phase_2"]
+            section_radius = round(section_radius / offset_incr) * offset_incr
+
         tmp_prim.update_size(section_radius=section_radius)
 
 
