@@ -397,7 +397,9 @@ class SnapManager(BaseObject):
 
     def __init_target_checking(self, default_cursor="main"):
 
-        self._snap_target_point = None
+        if Mgr.get_state_id() != "transforming":
+            self._snap_target_point = None
+
         self._default_cursor = default_cursor
         snap_settings = GlobalData["snap"]
         snap_type = snap_settings["type"]
