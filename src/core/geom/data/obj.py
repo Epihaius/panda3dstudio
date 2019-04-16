@@ -626,7 +626,10 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         geoms = self._geoms
 
-        points_geom = Geom(vertex_data_vert)
+        vertex_data_vert_picking = GeomVertexData("vert_picking_data",
+            vertex_format_picking, Geom.UH_dynamic)
+        vertex_data_vert_picking.copy_from(vertex_data_vert, True)
+        points_geom = Geom(vertex_data_vert_picking)
         points_geom.add_primitive(points_prim)
         geom_node = GeomNode("vert_picking_geom")
         geom_node.add_geom(points_geom)
@@ -634,18 +637,21 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         vert_picking_geom.hide(all_masks)
         geoms["vert"]["pickable"] = vert_picking_geom
 
-        vert_sel_state_geom = vert_picking_geom.copy_to(origin)
-        vertex_data = vertex_data_vert.convert_to(vertex_format_picking)
-        points_geom.set_vertex_data(vertex_data)
-        vertex_data = vert_sel_state_geom.node().modify_geom(0).modify_vertex_data()
-        new_data = vertex_data.set_color(sel_colors["vert"]["unselected"])
-        vertex_data.set_array(1, new_data.get_array(1))
+        new_data = vertex_data_vert.set_color(sel_colors["vert"]["unselected"])
+        vertex_data_vert.set_array(1, new_data.get_array(1))
+        points_geom = Geom(vertex_data_vert)
+        points_geom.add_primitive(GeomPoints(points_prim))
+        geom_node = GeomNode("vert_sel_state_geom")
+        geom_node.add_geom(points_geom)
+        vert_sel_state_geom = origin.attach_new_node(geom_node)
         vert_sel_state_geom.set_state(vert_state)
         vert_sel_state_geom.hide(all_masks)
-        vert_sel_state_geom.set_name("vert_sel_state_geom")
         geoms["vert"]["sel_state"] = vert_sel_state_geom
 
-        lines_geom = Geom(vertex_data_edge)
+        vertex_data_edge_picking = GeomVertexData("edge_picking_data",
+            vertex_format_picking, Geom.UH_dynamic)
+        vertex_data_edge_picking.copy_from(vertex_data_edge, True)
+        lines_geom = Geom(vertex_data_edge_picking)
         lines_geom.add_primitive(lines_prim)
         geom_node = GeomNode("edge_picking_geom")
         geom_node.add_geom(lines_geom)
@@ -655,14 +661,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         edge_picking_geom.set_color(self.get_toplevel_object().get_color())
         geoms["edge"]["pickable"] = edge_picking_geom
 
-        edge_sel_state_geom = edge_picking_geom.copy_to(origin)
-        vertex_data = vertex_data_edge.convert_to(vertex_format_picking)
-        lines_geom.set_vertex_data(vertex_data)
-        vertex_data = edge_sel_state_geom.node().modify_geom(0).modify_vertex_data()
-        new_data = vertex_data.set_color(sel_colors["edge"]["unselected"])
-        vertex_data.set_array(1, new_data.get_array(1))
+        new_data = vertex_data_edge.set_color(sel_colors["edge"]["unselected"])
+        vertex_data_edge.set_array(1, new_data.get_array(1))
+        lines_geom = Geom(vertex_data_edge)
+        lines_geom.add_primitive(GeomLines(lines_prim))
+        geom_node = GeomNode("edge_sel_state_geom")
+        geom_node.add_geom(lines_geom)
+        edge_sel_state_geom = origin.attach_new_node(geom_node)
+        edge_sel_state_geom.set_state(edge_state)
         edge_sel_state_geom.hide(all_masks)
-        edge_sel_state_geom.set_name("edge_sel_state_geom")
         geoms["edge"]["sel_state"] = edge_sel_state_geom
 
         vertices = tris_prim.get_vertices()
@@ -715,10 +722,14 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         # Create the geoms for the normals
 
-        vertex_format = Mgr.get("vertex_format_normal")
-        vertex_data_normal = vertex_data_top.convert_to(vertex_format)
+        vertex_data_normal = GeomVertexData("normal_data",
+            Mgr.get("vertex_format_normal"), Geom.UH_dynamic)
+        vertex_data_normal.copy_from(vertex_data_top, True)
+        vertex_data_normal_picking = GeomVertexData("normal_picking_data",
+            Mgr.get("vertex_format_normal_picking"), Geom.UH_dynamic)
+        vertex_data_normal_picking.copy_from(vertex_data_normal, True)
         points_geom = vert_picking_geom.node().get_geom(0)
-        geom = Geom(vertex_data_normal)
+        geom = Geom(vertex_data_normal_picking)
         geom.add_primitive(GeomPoints(points_geom.get_primitive(0)))
         geom_node = GeomNode("normal_picking_geom")
         geom_node.add_geom(geom)
@@ -729,13 +740,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         normal_picking_geom.hide(all_masks)
         geoms["normal"]["pickable"] = normal_picking_geom
 
-        normal_sel_state_geom = normal_picking_geom.copy_to(origin)
-        vertex_data = vertex_data_normal.convert_to(Mgr.get("vertex_format_normal_picking"))
-        geom.set_vertex_data(vertex_data)
-        vertex_data = normal_sel_state_geom.node().modify_geom(0).modify_vertex_data()
-        new_data = vertex_data.set_color(sel_colors["normal"]["unselected"])
-        vertex_data.set_array(1, new_data.get_array(1))
-        normal_sel_state_geom.set_name("normal_sel_state_geom")
+        new_data = vertex_data_normal.set_color(sel_colors["normal"]["unselected"])
+        vertex_data_normal.set_array(1, new_data.get_array(1))
+        geom = Geom(vertex_data_normal)
+        geom.add_primitive(GeomPoints(points_geom.get_primitive(0)))
+        geom_node = GeomNode("normal_sel_state_geom")
+        geom_node.add_geom(geom)
+        geom_node.set_bounds(OmniBoundingVolume())
+        geom_node.set_final(True)
+        normal_sel_state_geom = origin.attach_new_node(geom_node)
         normal_sel_state_geom.set_state(normal_state)
         normal_sel_state_geom.set_shader_input("normal_length", 1.)
         normal_sel_state_geom.hide(all_masks)

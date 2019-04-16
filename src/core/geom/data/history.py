@@ -506,7 +506,7 @@ class GeomHistoryBase(BaseObject):
             task_id = "restore_geometry"
             descr = "Creating geometry..."
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
-                             descr=descr, cancellable=cancellable)
+                             process_id=task_id, descr=descr, cancellable=cancellable)
 
             task = self.register
             task_id = "register_subobjs"
@@ -526,7 +526,7 @@ class GeomHistoryBase(BaseObject):
                 task_id = "restore_geometry"
                 descr = "Creating geometry..."
                 PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
-                                 descr=descr)
+                                 process_id=task_id, descr=descr)
 
                 task = self.unregister
                 task_id = "unregister_subobjs"
@@ -834,7 +834,7 @@ class GeomHistoryBase(BaseObject):
             sel_data[state] = []
 
         prim = geoms["poly"]["selected"].node().modify_geom(0).modify_primitive(0)
-        prim.modify_vertices().modify_handle().clear_rows()
+        prim.modify_vertices().clear_rows()
 
         self._verts_to_transf["vert"] = {}
         self._verts_to_transf["edge"] = {}
