@@ -333,6 +333,10 @@ class TransformToolbar(Toolbar):
         self._offsets_btn.set_active(False)
         self._offsets_btn.enable(False)
 
+        tools_menu = Mgr.get("tool_options_menu")
+        item = tools_menu.add("transforms", "Transforms", self.__show_options_dialog)
+        self._tool_options_menu_item = item
+
         def update_axis_constraints(transf_type, axes):
 
             if transf_type:
@@ -434,6 +438,10 @@ class TransformToolbar(Toolbar):
 
         for snap_type in ("coord_origin", "transf_center"):
             add_snap_mode(snap_type)
+
+    def __show_options_dialog(self):
+
+        TransformOptionsDialog()
 
     def __update_offset_btn(self):
 
@@ -559,7 +567,7 @@ class TransformToolbar(Toolbar):
             field.show_value(value_id)
 
 
-class ComponentInputField(DialogInputField):
+class ValueInputField(DialogInputField):
 
     _field_borders = ()
     _img_offset = (0, 0)
@@ -647,7 +655,7 @@ class TransformDialog(Dialog):
             borders = (5, 0, 0, 0)
             text = DialogText(self, "Offset angle:")
             subsizer.add(text, alignment="center_v", borders=borders)
-            field = ComponentInputField(self, 100)
+            field = ValueInputField(self, 100)
             field.add_value("rot_axis", handler=self.__handle_value)
             field.set_value("rot_axis", 0.)
             field.show_value("rot_axis")
@@ -725,7 +733,7 @@ class TransformDialog(Dialog):
 
                 text = DialogText(group, "{}:".format(axis_id.upper()))
                 subsizer.add(text, alignment="center_v")
-                field = ComponentInputField(group, 100)
+                field = ValueInputField(group, 100)
                 field.add_value(axis_id, handler=self.__handle_value)
                 field.set_value(axis_id, value)
                 field.show_value(axis_id)
@@ -788,3 +796,245 @@ class TransformDialog(Dialog):
 
         if self._preview:
             Mgr.update_remotely("componentwise_xform", "", self._values)
+
+
+class TransformOptionsDialog(Dialog):
+
+    def __init__(self):
+
+        old_options = GlobalData["transform_options"]
+        old_rot_options = old_options["rotation"]
+        self._options = new_options = {}
+        new_options["rotation"] = new_rot_options = {}
+
+        for option_id in ("drag_method", "alt_method", "method_switch_threshold",
+                "show_circle", "circle_center", "circle_radius", "scale_circle_to_cursor",
+                "show_line", "line_thru_gizmo_center", "full_roll_dist"):
+            new_rot_options[option_id] = old_rot_options[option_id]
+
+        Dialog.__init__(self, "Transform options", "okcancel", on_yes=self.__on_yes)
+
+        client_sizer = self.get_client_sizer()
+
+        group = DialogWidgetGroup(self, "Rotation")
+        borders = (20, 20, 20, 10)
+        client_sizer.add(group, expand=True, borders=borders)
+
+        subsizer = Sizer("horizontal")
+        borders = (5, 5, 10, 0)
+        group.add(subsizer, expand=True, borders=borders)
+
+        text = DialogText(group, "Interactive dragging method:")
+        borders = (0, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        combobox = DialogComboBox(group, 150, tooltip_text="Drag method")
+        subsizer.add(combobox, alignment="center_v", proportion=1.)
+
+        def get_command(method_id):
+
+            def command():
+
+                combobox.select_item(method_id)
+                new_rot_options["drag_method"] = method_id
+
+            return command
+
+        method_ids = ("circular_in_rot_plane", "circular_in_view_plane", "linear")
+        method_names = ("circular in rotation plane", "circular in view plane", "linear")
+
+        for method_id, method_name in zip(method_ids, method_names):
+            combobox.add_item(method_id, method_name, get_command(method_id))
+
+        combobox.update_popup_menu()
+        combobox.select_item(old_rot_options["drag_method"])
+
+        subsizer = Sizer("horizontal")
+        borders = (5, 5, 5, 0)
+        group.add(subsizer, expand=True, borders=borders)
+
+        text = DialogText(group, "View-aligned circle center:")
+        borders = (0, 10, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        radio_btns = DialogRadioButtonGroup(group, rows=1, gap_h=10, stretch=True)
+
+        def get_command(center_id):
+
+            def command():
+
+                new_rot_options["circle_center"] = center_id
+
+            return command
+
+        center_ids = ("start_click_pos", "gizmo_center")
+        center_names = ("start click pos.", "transf. gizmo center")
+
+        for center_id, center_name in zip(center_ids, center_names):
+            radio_btns.add_button(center_id, center_name)
+            radio_btns.set_button_command(center_id, get_command(center_id))
+
+        radio_btns.set_selected_button(old_rot_options["circle_center"])
+        subsizer.add(radio_btns.get_sizer(), proportion=1.)
+
+        subgroup = DialogWidgetGroup(group, "Display")
+        borders = (5, 5, 0, 10)
+        group.add(subgroup, expand=True, borders=borders)
+
+        subsizer = Sizer("horizontal")
+        borders = (5, 5, 5, 0)
+        subgroup.add(subsizer, expand=True, borders=borders)
+
+        def show_viz(show):
+
+            new_rot_options["show_circle"] = show
+
+        checkbox = DialogCheckBox(subgroup, show_viz)
+        checkbox.check(old_rot_options["show_circle"])
+        subsizer.add(checkbox, alignment="center_v")
+        text = DialogText(subgroup, "View-aligned circle")
+        borders = (5, 0, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        text = DialogText(subgroup, "Radius:")
+        borders = (20, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        field = ValueInputField(subgroup, 50)
+        field.add_value("radius", "int", handler=self.__handle_value)
+        field.set_input_parser("radius", self.__parse_value)
+        field.set_value("radius", old_rot_options["circle_radius"])
+        field.show_value("radius")
+        subsizer.add(field, alignment="center_v")
+
+        def scale_to_cursor(to_cursor):
+
+            new_rot_options["scale_circle_to_cursor"] = to_cursor
+
+        checkbox = DialogCheckBox(subgroup, scale_to_cursor)
+        checkbox.check(old_rot_options["scale_circle_to_cursor"])
+        borders = (20, 0, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = DialogText(subgroup, "Scale to cursor")
+        borders = (5, 0, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        subsizer = Sizer("horizontal")
+        borders = (5, 5, 5, 0)
+        subgroup.add(subsizer, expand=True, borders=borders)
+
+        def show_viz(show):
+
+            new_rot_options["show_line"] = show
+
+        checkbox = DialogCheckBox(subgroup, show_viz)
+        checkbox.check(old_rot_options["show_line"])
+        subsizer.add(checkbox, alignment="center_v")
+        text = DialogText(subgroup, "Line")
+        borders = (5, 0, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        def thru_gizmo_center(thru_gizmo):
+
+            new_rot_options["line_thru_gizmo_center"] = thru_gizmo
+
+        checkbox = DialogCheckBox(subgroup, thru_gizmo_center)
+        checkbox.check(old_rot_options["line_thru_gizmo_center"])
+        borders = (20, 0, 0, 0)
+        subsizer.add(checkbox, alignment="center_v", borders=borders)
+        text = DialogText(subgroup, "Through gizmo center")
+        borders = (5, 0, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        text = DialogText(subgroup, "Full rotation:")
+        borders = (20, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        field = ValueInputField(subgroup, 50)
+        option_id = "full_roll_dist"
+        field.add_value(option_id, "int", handler=self.__handle_value)
+        field.set_input_parser(option_id, self.__parse_value)
+        field.set_value(option_id, old_rot_options[option_id])
+        field.show_value(option_id)
+        subsizer.add(field, alignment="center_v")
+
+        text = DialogText(subgroup, "pixels")
+        borders = (5, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        subgroup = DialogWidgetGroup(group, "Auto-switch method")
+        borders = (5, 5, 5, 10)
+        group.add(subgroup, expand=True, borders=borders)
+
+        subsizer = Sizer("horizontal")
+        borders = (5, 5, 0, 0)
+        subgroup.add(subsizer, expand=True, borders=borders)
+
+        text = DialogText(subgroup, "Alternative method:")
+        borders = (0, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        radio_btns = DialogRadioButtonGroup(subgroup, rows=1, gap_h=10, stretch=True)
+
+        def get_command(method_id):
+
+            def command():
+
+                new_rot_options["alt_method"] = method_id
+
+            return command
+
+        for method_id, method_name in zip(method_ids[1:], method_names[1:]):
+            radio_btns.add_button(method_id, method_name)
+            radio_btns.set_button_command(method_id, get_command(method_id))
+
+        radio_btns.set_selected_button(old_rot_options["alt_method"])
+        subsizer.add(radio_btns.get_sizer(), proportion=1.)
+
+        subsizer = Sizer("horizontal")
+        borders = (5, 5, 5, 10)
+        subgroup.add(subsizer, expand=True, borders=borders)
+
+        text = DialogText(subgroup, "Threshold angle:")
+        borders = (0, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        field = ValueInputField(subgroup, 100)
+        field.add_value("threshold", handler=self.__handle_value)
+        field.set_value("threshold", old_rot_options["method_switch_threshold"])
+        field.show_value("threshold")
+        subsizer.add(field, proportion=1., alignment="center_v")
+
+        text = DialogText(subgroup, "degrees")
+        borders = (5, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+
+        self.finalize()
+
+    def __parse_value(self, value):
+
+        try:
+            return max(1, abs(int(eval(value))))
+        except:
+            return None
+
+    def __handle_value(self, value_id, value):
+
+        if value_id == "radius":
+            self._options["rotation"]["circle_radius"] = value
+        elif value_id == "full_roll_dist":
+            self._options["rotation"]["full_roll_dist"] = value
+        elif value_id == "threshold":
+            self._options["rotation"]["method_switch_threshold"] = value
+
+    def __on_yes(self):
+
+        old_options = GlobalData["transform_options"]
+        old_rot_options = old_options["rotation"]
+        new_options = self._options
+        new_rot_options = new_options["rotation"]
+
+        for option_id in ("drag_method", "alt_method", "method_switch_threshold",
+                "show_circle", "circle_center", "circle_radius", "scale_circle_to_cursor",
+                "show_line", "line_thru_gizmo_center", "full_roll_dist"):
+            old_rot_options[option_id] = new_rot_options[option_id]

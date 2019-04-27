@@ -735,6 +735,20 @@ class TransformationManager(BaseObject):
 
         copier = lambda data: dict((key, value.copy()) for key, value in data.items())
         GlobalData.set_default("rel_transform_values", rel_values, copier)
+        options = {}
+        options["rotation"] = {
+            "drag_method": "circular_in_rot_plane",
+            "alt_method": "circular_in_view_plane",
+            "method_switch_threshold": 20.,
+            "show_circle": True,
+            "circle_center": "start_click_pos",
+            "circle_radius": 100,
+            "scale_circle_to_cursor": True,
+            "show_line": True,
+            "line_thru_gizmo_center": False,
+            "full_roll_dist": 400
+        }
+        GlobalData.set_default("transform_options", options, copier)
 
         self._obj_transf_info = {}
         self._objs_to_transform = []
@@ -753,6 +767,14 @@ class TransformationManager(BaseObject):
         self._rot_origin = Point3()
         self._rot_start_vec = V3D()
         self._rot_start_vecs = ()
+        self._total_angle = None
+        self._rotation_viz = {}
+
+        for shape_type in ("circular", "linear"):
+            self._rotation_viz[shape_type] = self.__create_rotation_viz(shape_type)
+
+        self._drag_in_view_plane = False
+        self._drag_linear = False
         self._snap_start_vecs = V3D()
         self._screen_axis_vec = V3D()
         self._scale_start_pos = Point3()
@@ -786,6 +808,78 @@ class TransformationManager(BaseObject):
         bind("transforming", "cancel transform", "mouse3", lambda: end_transform(cancel=True))
         bind("transforming", "abort transform", "focus_loss", lambda: end_transform(cancel=True))
         bind("transforming", "finalize transform", "mouse1-up", end_transform)
+
+    def __create_rotation_viz(self, shape_type):
+
+        from array import array
+
+        coords = array("f", [])
+        indices = array("I", [])
+
+        if shape_type == "circular":
+
+            from math import pi, sin, cos
+
+            angle = pi * .02
+
+            coords.extend((1., 0., 0., 0., 0.))
+
+            for i in range(1, 101):
+                x = cos(angle * i)
+                z = -sin(angle * i)
+                coords.extend((x, 0., z, i / 100., 0.))
+                indices.extend((i - 1, i))
+
+            indices.extend((i, 0))
+
+        else:
+
+            coords.extend((0., 0., 0., 0., 0.))
+            coords.extend((1000000., 0., 0., 1., 0.))
+            indices.extend((0, 1))
+
+        vertex_format = GeomVertexFormat.get_v3t2()
+        vertex_data = GeomVertexData("selection_shape", vertex_format, Geom.UH_dynamic)
+        vertex_data.unclean_set_num_rows(len(coords) // 5)
+        pos_array = vertex_data.modify_array(0)
+        memview = memoryview(pos_array).cast("B").cast("f")
+        memview[:] = coords
+        lines = GeomLines(Geom.UH_static)
+        lines.set_index_type(Geom.NT_uint32)
+        lines_array = lines.modify_vertices()
+        lines_array.unclean_set_num_rows(len(indices))
+        memview = memoryview(lines_array).cast("B").cast("I")
+        memview[:] = indices
+        state_np = NodePath("state_np")
+        state_np.set_depth_test(False)
+        state_np.set_depth_write(False)
+        state_np.set_bin("fixed", 101)
+        state_np.set_render_mode_thickness(3)
+        state1 = state_np.get_state()
+        state_np.set_bin("fixed", 100)
+        state_np.set_color((0., 0., 0., 1.))
+        state_np.set_render_mode_thickness(5)
+        state2 = state_np.get_state()
+        geom = Geom(vertex_data)
+        geom.add_primitive(lines)
+        geom_node = GeomNode("rotation_viz")
+        geom_node.add_geom(geom, state1)
+        geom = geom.make_copy()
+        geom_node.add_geom(geom, state2)
+        viz = NodePath(geom_node)
+        img = PNMImage(1, 1)
+        img.fill(1., 1., 1.)
+        tex = Texture("tex")
+        tex.load(img)
+        sampler = SamplerState()
+        sampler.set_wrap_u(SamplerState.WM_border_color)
+        sampler.set_magfilter(SamplerState.FT_nearest)
+        sampler.set_minfilter(SamplerState.FT_nearest)
+        tex.set_default_sampler(sampler)
+        tex_stage = TextureStage.get_default()
+        viz.set_texture(tex_stage, tex)
+
+        return viz
 
     def __reset_transforms_to_restore(self):
 
@@ -1261,6 +1355,8 @@ class TransformationManager(BaseObject):
 
         if transform_type == "rotate":
             Mgr.do("reset_rotation_gizmo_angle")
+            self._rotation_viz["circular"].detach_node()
+            self._rotation_viz["linear"].detach_node()
         elif transform_type == "scale":
             Mgr.do("hide_scale_indicator")
 
@@ -1467,13 +1563,15 @@ class TransformationManager(BaseObject):
 
         grid_origin = Mgr.get(("grid", "origin"))
         axis_constraints = GlobalData["axis_constraints"]["rotate"]
+        rotation_options = GlobalData["transform_options"]["rotation"]
         cam = self.cam()
         lens_type = self.cam.lens_type
         cam_pos = cam.get_pos(self.world)
+        cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()).normalized())
 
         if axis_constraints == "view":
 
-            normal = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+            normal = cam_vec
             self._screen_axis_vec = grid_origin.get_relative_vector(cam, Vec3.forward())
 
             if not self._screen_axis_vec.normalize():
@@ -1498,6 +1596,23 @@ class TransformationManager(BaseObject):
         self._rot_origin = Mgr.get("transf_center_pos")
         self._transf_plane = Plane(normal, self._rot_origin)
 
+        drag_in_view_plane = False
+        drag_linear = rotation_options["drag_method"] == "linear"
+
+        if not drag_linear:
+
+            method_switch_threshold = rotation_options["method_switch_threshold"]
+            drag_method = rotation_options["drag_method"]
+            drag_in_view_plane = drag_method != "circular_in_rot_plane"
+            angle = max(cam_vec.angle_deg(normal), cam_vec.angle_deg(-normal)) - 90.
+
+            if axis_constraints != "view" and angle < method_switch_threshold:
+                drag_in_view_plane = True
+                drag_linear = rotation_options["alt_method"] == "linear"
+
+        self._drag_in_view_plane = drag_in_view_plane or drag_linear
+        self._drag_linear = drag_linear
+
         snap_settings = GlobalData["snap"]
         snap_on = snap_settings["on"]["rotate"]
         snap_tgt_type = snap_settings["tgt_type"]["rotate"]
@@ -1517,7 +1632,8 @@ class TransformationManager(BaseObject):
                 line_start.y -= 1000.
                 line_start = self.world.get_relative_point(cam, line_start)
 
-            if not self._transf_plane.intersects_line(rot_start_pos, line_start, self._transf_start_pos):
+            if not (self._transf_plane.intersects_line(rot_start_pos,
+                    line_start, self._transf_start_pos) or self._drag_in_view_plane):
                 return
 
         Mgr.do("init_rotation_gizmo_angle", rot_start_pos)
@@ -1533,7 +1649,8 @@ class TransformationManager(BaseObject):
             if normal * V3D(self._transf_plane.project(cam_pos) - cam_pos) < .0001:
                 normal *= -1.
 
-        if (not snap_on or snap_tgt_type == "increment") and lens_type == "persp":
+        if (not snap_on or snap_tgt_type == "increment") and (lens_type == "persp"
+                and not self._drag_in_view_plane):
             # no rotation can occur if the cursor points away from the plane of
             # rotation
             if V3D(self._transf_start_pos - cam_pos) * normal < .0001:
@@ -1541,6 +1658,9 @@ class TransformationManager(BaseObject):
 
         if snap_on and snap_tgt_type == "increment":
             self._snap_start_vecs = (V3D(rot_start_vec), V3D(rot_ref_vec))
+            self._total_angle = 0.
+        else:
+            self._total_angle = None
 
         self._transf_plane_normal = normal
 
@@ -1548,6 +1668,77 @@ class TransformationManager(BaseObject):
             self._selection.init_rotation(self._objs_to_transform)
         else:
             self._selection.init_rotation()
+
+        if self._drag_in_view_plane:
+
+            w, h = GlobalData["viewport"]["size_aux"
+                if GlobalData["viewport"][2] == "main" else "size"]
+            point = cam.get_relative_point(self.world, self._rot_origin)
+            screen_pos = Point2()
+            self.cam.lens.project(point, screen_pos)
+            x, y = screen_pos
+            x = (x + 1.) * .5 * w
+            y = -(1. - (y + 1.) * .5) * h
+            center = Point3(x, 0., y)
+            point = cam.get_relative_point(self.world, self._transf_start_pos)
+            screen_pos = Point2()
+            self.cam.lens.project(point, screen_pos)
+            x, y = screen_pos
+            x = (x + 1.) * .5 * w
+            y = -(1. - (y + 1.) * .5) * h
+            point = Point3(x, 0., y)
+            vec = point - center
+            angle = Vec3(1., 0., 0.).signed_angle_deg(vec.normalized(), Vec3(0., 1., 0.))
+
+            if drag_linear:
+
+                viz = self._rotation_viz["linear"]
+                viz.set_pos(point)
+
+                if not rotation_options["line_thru_gizmo_center"]:
+                    x, y = GlobalData["viewport"]["pos_aux"
+                        if GlobalData["viewport"][2] == "main" else "pos"]
+                    mouse_pointer = Mgr.get("mouse_pointer", 0)
+                    mouse_x = mouse_pointer.get_x()
+                    mouse_y = mouse_pointer.get_y()
+                    point2 = Point3(mouse_x - x, 0., -mouse_y + y)
+                    vec = point2 - point
+                    angle = Vec3(1., 0., 0.).signed_angle_deg(vec.normalized(), Vec3(0., 1., 0.))
+
+                viz.set_r(angle)
+
+            else:
+
+                viz = self._rotation_viz["circular"]
+                viz.set_r(angle)
+
+                if rotation_options["circle_center"] == "gizmo_center":
+                    viz.set_pos(center)
+                else:
+                    viz.set_pos(point)
+
+                if rotation_options["show_circle"]:
+                    if not rotation_options["scale_circle_to_cursor"]:
+                        viz.set_scale(rotation_options["circle_radius"])
+                    elif rotation_options["circle_center"] == "gizmo_center":
+                        viz.set_scale(vec.length())
+                    else:
+                        viz.set_scale(.1)
+
+            if rotation_options["show_line" if drag_linear else "show_circle"]:
+
+                if axis_constraints == "view":
+                    color = (.5, .5, .5, 1.)
+                else:
+                    color = VBase4()
+                    color["xyz".index(axis_constraints)] = 1.
+
+                tex_stage = TextureStage.get_default()
+                tex = viz.get_texture(tex_stage)
+                sampler = SamplerState(tex.get_default_sampler())
+                sampler.set_border_color(color)
+                tex.set_default_sampler(sampler)
+                viz.reparent_to(self.viewport)
 
         Mgr.add_task(self.__rotate_selection, "transform_selection", sort=3)
 
@@ -1567,6 +1758,16 @@ class TransformationManager(BaseObject):
         snap_on = snap_settings["on"]["rotate"]
         snap_tgt_type = snap_settings["tgt_type"]["rotate"]
         snap_target_point = None
+        axis_constraints = GlobalData["axis_constraints"]["rotate"]
+        rotation_options = GlobalData["transform_options"]["rotation"]
+        drag_in_view_plane = self._drag_in_view_plane
+        drag_linear = self._drag_linear
+        grid_origin = Mgr.get(("grid", "origin"))
+
+        if drag_in_view_plane:
+            viz = self._rotation_viz["linear" if drag_linear else "circular"]
+            show_viz = rotation_options["show_line" if drag_linear else "show_circle"]
+            viz.show() if show_viz else viz.hide()
 
         if snap_on and snap_tgt_type != "increment":
 
@@ -1574,10 +1775,12 @@ class TransformationManager(BaseObject):
 
             if snap_target_point:
 
-                grid_origin = Mgr.get(("grid", "origin"))
                 snap_target_point = self.world.get_relative_point(grid_origin, snap_target_point)
                 pos = self._transf_plane.project(snap_target_point)
                 rotation_vec = V3D(pos - self._rot_origin)
+
+                if drag_in_view_plane:
+                    viz.hide()
 
                 if not rotation_vec.normalize():
                     Mgr.do("set_projected_snap_marker_pos", None)
@@ -1597,13 +1800,80 @@ class TransformationManager(BaseObject):
 
             cam = self.cam()
             lens_type = self.cam.lens_type
-            screen_pos = self.mouse_watcher.get_mouse()
-            near_point = Point3()
-            far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            rel_pt = lambda point: self.world.get_relative_point(cam, point)
-            near_point = rel_pt(near_point)
-            far_point = rel_pt(far_point)
+
+            if drag_in_view_plane:
+
+                x, y = GlobalData["viewport"]["pos_aux"
+                    if GlobalData["viewport"][2] == "main" else "pos"]
+                mouse_pointer = Mgr.get("mouse_pointer", 0)
+                mouse_x = mouse_pointer.get_x()
+                mouse_y = mouse_pointer.get_y()
+                point = Point3(mouse_x - x, 0., -mouse_y + y)
+                vec = V3D(point - viz.get_pos())
+
+                if show_viz and not drag_linear and rotation_options["scale_circle_to_cursor"]:
+                    viz.set_scale(max(1., vec.length()))
+
+                if drag_linear:
+
+                    dir_vec = Vec3(1., 0., 0.) * viz.get_scale()[0]
+                    dir_vec = self.viewport.get_relative_vector(viz, dir_vec)
+                    full_roll_dist = rotation_options["full_roll_dist"]
+                    angle = vec.project(dir_vec).length() * 360. / full_roll_dist
+
+                    if vec * dir_vec < 0.:
+                        angle *= -1.
+                        angle_offset = angle // 360. + 1.
+                        viz.set_scale(-1.)
+                        use_angle_complement = True
+                    else:
+                        angle_offset = angle // 360.
+                        viz.set_scale(1.)
+                        use_angle_complement = False
+
+                else:
+
+                    angle = Vec3.right().signed_angle_deg(vec.normalized(), Vec3.forward())
+                    angle -= viz.get_r()
+
+                    if axis_constraints == "view":
+
+                        use_angle_complement = False
+
+                    else:
+
+                        vec = V3D()
+                        vec["xyz".index(axis_constraints)] = 1.
+
+                        if vec * grid_origin.get_relative_vector(self.cam(), Vec3.forward()) < 0.:
+                            angle *= -1.
+                            use_angle_complement = True
+                        else:
+                            use_angle_complement = False
+
+                quat = Quat()
+
+                if axis_constraints == "view":
+                    quat.set_from_axis_angle(angle, self._screen_axis_vec)
+                else:
+                    hpr = VBase3()
+                    hpr["zxy".index(axis_constraints)] = angle
+                    quat.set_hpr(hpr)
+
+                vec = quat.xform(self._rot_start_vecs[0])
+                point = self._rot_origin + vec
+                near_point = point - self._transf_plane_normal
+                far_point = point + self._transf_plane_normal
+
+            else:
+
+                screen_pos = self.mouse_watcher.get_mouse()
+                near_point = Point3()
+                far_point = Point3()
+                self.cam.lens.extrude(screen_pos, near_point, far_point)
+                rel_pt = lambda point: self.world.get_relative_point(cam, point)
+                near_point = rel_pt(near_point)
+                far_point = rel_pt(far_point)
 
             if lens_type == "persp":
                 # the selected items should not rotate if the cursor points away from the
@@ -1637,8 +1907,10 @@ class TransformationManager(BaseObject):
 
                         # rotate both snap_vec and snap_ref_vec about the rotation plane
                         # normal by an angle equal to angle_incr * n
+                        angle = angle_incr * n
+                        self._total_angle += angle
                         q = Quat()
-                        q.set_from_axis_angle(angle_incr * n, self._transf_plane.get_normal())
+                        q.set_from_axis_angle(angle, self._transf_plane.get_normal())
                         snap_vec = V3D(q.xform(snap_vec))
                         self._snap_start_vecs = (snap_vec, V3D(q.xform(snap_ref_vec)))
 
@@ -1648,11 +1920,10 @@ class TransformationManager(BaseObject):
 
             angle = self._rot_start_vecs[0].angle_deg(rotation_vec)
 
-            if self._rot_start_vecs[1] * rotation_vec < 0.:
+            if self._rot_start_vecs[1] * rotation_vec < 0. and angle > .001:
                 angle = 360. - angle
 
             rotation = Quat()
-            axis_constraints = GlobalData["axis_constraints"]["rotate"]
 
             if axis_constraints == "view":
                 rotation.set_from_axis_angle(angle, self._screen_axis_vec)
@@ -1682,6 +1953,31 @@ class TransformationManager(BaseObject):
                 rotation = rotation * pitch_quat
 
             Mgr.do("set_rotation_gizmo_angle", angle)
+
+            if drag_in_view_plane and not viz.is_hidden():
+
+                if use_angle_complement:
+                    angle = 360. - angle
+
+                if drag_linear:
+                    scale = 360000000. / (max(.001, angle) * full_roll_dist)
+                else:
+                    scale = 360./max(.001, angle)
+
+                tex_stage = TextureStage.get_default()
+                viz.set_tex_scale(tex_stage, scale, 1.)
+
+                if drag_linear:
+
+                    if self._total_angle is not None:
+
+                        angle_offset = self._total_angle // 360.
+
+                        if use_angle_complement:
+                            angle_offset += 1.
+
+                    offset = -(full_roll_dist * angle_offset) / 1000000.
+                    viz.set_tex_offset(tex_stage, offset * scale * viz.get_scale()[0], 0.)
 
             if GlobalData["active_obj_level"] == "top":
                 self._selection.rotate(self._objs_to_transform, rotation)

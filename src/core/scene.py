@@ -153,13 +153,19 @@ class SceneManager(BaseObject):
         if "snap_settings" in scene_data:
             GlobalData["snap"] = scene_data["snap_settings"]
 
+        if "transform_options" in scene_data:
+            GlobalData["transform_options"] = scene_data["transform_options"]
+
         GlobalData["rel_transform_values"] = scene_data["rel_transform_values"]
         transf_type = scene_data["active_transform_type"]
         GlobalData["active_transform_type"] = transf_type
         Mgr.update_app("active_transform_type", transf_type)
 
         if transf_type:
-            Mgr.update_app("status", ["select", transf_type, "idle"])
+            if GlobalData["snap"]["on"][transf_type]:
+                Mgr.update_app("status", ["select", transf_type, "snap_idle"])
+            else:
+                Mgr.update_app("status", ["select", transf_type, "idle"])
         else:
             Mgr.update_app("status", ["select", ""])
 
@@ -199,6 +205,7 @@ class SceneManager(BaseObject):
         scene_data["active_transform_type"] = GlobalData["active_transform_type"]
         scene_data["rel_transform_values"] = GlobalData["rel_transform_values"]
         scene_data["axis_constraints"] = GlobalData["axis_constraints"]
+        scene_data["transform_options"] = GlobalData["transform_options"]
         scene_data["snap_settings"] = GlobalData["snap"]
 
         for obj_type in Mgr.get("object_types"):
