@@ -198,14 +198,15 @@ class PivotGizmo(object):
 
         return node_path
 
-    def __get_original(self):
+
+    @property
+    def original(self):
 
         if not self._original:
             PivotGizmo.__create_original()
 
         return self._original
 
-    original = property(__get_original)
 
     def __init__(self, owner):
 

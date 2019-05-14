@@ -6,11 +6,12 @@ from .scale import ScalingGizmo
 
 class TransformGizmoManager(BaseObject, PickingColorIDManager):
 
-    def __get_root(self):
+
+    @property
+    def root(self):
 
         return self._roots[self.cam.lens_type]
 
-    root = property(__get_root)
 
     def __init__(self):
 
