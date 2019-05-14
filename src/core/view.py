@@ -5,186 +5,213 @@ from direct.interval.IntervalGlobal import (LerpPosInterval, LerpQuatInterval,
 
 class ViewManager(BaseObject):
 
-    def __is_front_custom(self):
+    @property
+    def is_front_custom(self):
 
         return self._is_front_custom[GlobalData["view"]]
 
-    def __set_front_custom(self, is_front_custom):
+    @is_front_custom.setter
+    def is_front_custom(self, is_front_custom):
 
         self._is_front_custom[GlobalData["view"]] = is_front_custom
 
-    is_front_custom = property(__is_front_custom, __set_front_custom)
 
-    def __get_default_front_quat(self):
+    @property
+    def default_front_quat(self):
 
         return self._default_front_quats[GlobalData["view"]]
 
-    def __set_default_front_quat(self, quat):
+    @default_front_quat.setter
+    def default_front_quat(self, quat):
 
         self._default_front_quats[GlobalData["view"]] = quat
 
-    default_front_quat = property(__get_default_front_quat, __set_default_front_quat)
 
-    def __get_default_home_default_pos(self):
+    @property
+    def default_home_default_pos(self):
 
         return self._default_home_default_transforms[GlobalData["view"]]["pos"]
 
-    def __get_default_home_default_quat(self):
+
+    @property
+    def default_home_default_quat(self):
 
         return self._default_home_default_transforms[GlobalData["view"]]["quat"]
 
-    def __get_default_home_default_zoom(self):
+
+    @property
+    def default_home_default_zoom(self):
 
         return self._default_home_default_transforms[GlobalData["view"]]["zoom"]
 
-    default_home_default_pos = property(__get_default_home_default_pos)
-    default_home_default_quat = property(__get_default_home_default_quat)
-    default_home_default_zoom = property(__get_default_home_default_zoom)
 
-    def __get_custom_home_default_pos(self):
+    @property
+    def custom_home_default_pos(self):
 
         return self._custom_home_default_transforms[GlobalData["view"]]["pos"]
 
-    def __set_custom_home_default_pos(self, pos):
+    @custom_home_default_pos.setter
+    def custom_home_default_pos(self, pos):
 
         self._custom_home_default_transforms[GlobalData["view"]]["pos"] = pos
 
-    def __get_custom_home_default_quat(self):
+
+    @property
+    def custom_home_default_quat(self):
 
         return self._custom_home_default_transforms[GlobalData["view"]]["quat"]
 
-    def __set_custom_home_default_quat(self, quat):
+    @custom_home_default_quat.setter
+    def custom_home_default_quat(self, quat):
 
         self._custom_home_default_transforms[GlobalData["view"]]["quat"] = quat
 
-    def __get_custom_home_default_zoom(self):
+
+    @property
+    def custom_home_default_zoom(self):
 
         return self._custom_home_default_transforms[GlobalData["view"]]["zoom"]
 
-    def __set_custom_home_default_zoom(self, zoom):
+    @custom_home_default_zoom.setter
+    def custom_home_default_zoom(self, zoom):
 
         self._custom_home_default_transforms[GlobalData["view"]]["zoom"] = zoom
 
-    custom_home_default_pos = property(__get_custom_home_default_pos, __set_custom_home_default_pos)
-    custom_home_default_quat = property(__get_custom_home_default_quat, __set_custom_home_default_quat)
-    custom_home_default_zoom = property(__get_custom_home_default_zoom, __set_custom_home_default_zoom)
 
-    def __get_custom_home_custom_pos(self):
+    @property
+    def custom_home_custom_pos(self):
 
         return self._custom_home_custom_transforms[GlobalData["view"]]["pos"]
 
-    def __set_custom_home_custom_pos(self, pos):
+    @custom_home_custom_pos.setter
+    def custom_home_custom_pos(self, pos):
 
         self._custom_home_custom_transforms[GlobalData["view"]]["pos"] = pos
 
-    def __get_custom_home_custom_quat(self):
+
+    @property
+    def custom_home_custom_quat(self):
 
         return self._custom_home_custom_transforms[GlobalData["view"]]["quat"]
 
-    def __set_custom_home_custom_quat(self, quat):
+    @custom_home_custom_quat.setter
+    def custom_home_custom_quat(self, quat):
 
         self._custom_home_custom_transforms[GlobalData["view"]]["quat"] = quat
 
-    def __get_custom_home_custom_zoom(self):
+
+    @property
+    def custom_home_custom_zoom(self):
 
         return self._custom_home_custom_transforms[GlobalData["view"]]["zoom"]
 
-    def __set_custom_home_custom_zoom(self, zoom):
+    @custom_home_custom_zoom.setter
+    def custom_home_custom_zoom(self, zoom):
 
         self._custom_home_custom_transforms[GlobalData["view"]]["zoom"] = zoom
 
-    custom_home_custom_pos = property(__get_custom_home_custom_pos, __set_custom_home_custom_pos)
-    custom_home_custom_quat = property(__get_custom_home_custom_quat, __set_custom_home_custom_quat)
-    custom_home_custom_zoom = property(__get_custom_home_custom_zoom, __set_custom_home_custom_zoom)
 
-    def __get_default_home_custom_pos(self):
+    @property
+    def default_home_custom_pos(self):
 
         pos = self._default_home_custom_transforms[GlobalData["view"]]["pos"]
 
         return self.default_home_default_pos if pos is None else pos
 
-    def __set_default_home_custom_pos(self, pos):
+    @default_home_custom_pos.setter
+    def default_home_custom_pos(self, pos):
 
         self._default_home_custom_transforms[GlobalData["view"]]["pos"] = pos
 
-    def __get_default_home_custom_quat(self):
+
+    @property
+    def default_home_custom_quat(self):
 
         quat = self._default_home_custom_transforms[GlobalData["view"]]["quat"]
 
         return self.default_home_default_quat if quat is None else quat
 
-    def __set_default_home_custom_quat(self, quat):
+    @default_home_custom_quat.setter
+    def default_home_custom_quat(self, quat):
 
         self._default_home_custom_transforms[GlobalData["view"]]["quat"] = quat
 
-    def __get_default_home_custom_zoom(self):
+
+    @property
+    def default_home_custom_zoom(self):
 
         zoom = self._default_home_custom_transforms[GlobalData["view"]]["zoom"]
 
         return self.default_home_default_zoom if zoom is None else zoom
-
-    def __set_default_home_custom_zoom(self, zoom):
+      
+    @default_home_custom_zoom.setter
+    def default_home_custom_zoom(self, zoom):
 
         self._default_home_custom_transforms[GlobalData["view"]]["zoom"] = zoom
 
-    default_home_custom_pos = property(__get_default_home_custom_pos, __set_default_home_custom_pos)
-    default_home_custom_quat = property(__get_default_home_custom_quat, __set_default_home_custom_quat)
-    default_home_custom_zoom = property(__get_default_home_custom_zoom, __set_default_home_custom_zoom)
 
-    def __get_home_default_pos(self):
+    @property
+    def home_default_pos(self):
 
         return self.custom_home_default_pos if self.is_front_custom else self.default_home_default_pos
 
-    def __get_home_default_quat(self):
+
+    @property
+    def home_default_quat(self):
 
         return self.custom_home_default_quat if self.is_front_custom else self.default_home_default_quat
 
-    def __get_home_default_zoom(self):
+
+    @property
+    def home_default_zoom(self):
 
         return self.custom_home_default_zoom if self.is_front_custom else self.default_home_default_zoom
 
-    home_default_pos = property(__get_home_default_pos)
-    home_default_quat = property(__get_home_default_quat)
-    home_default_zoom = property(__get_home_default_zoom)
 
-    def __get_home_pos(self):
+    @property
+    def home_pos(self):
 
         return self.custom_home_custom_pos if self.is_front_custom else self.default_home_custom_pos
 
-    def __set_home_pos(self, pos):
+    @home_pos.setter
+    def home_pos(self, pos):
 
         if self.is_front_custom:
             self.custom_home_custom_pos = pos
         else:
             self.default_home_custom_pos = pos
 
-    def __get_home_quat(self):
+
+    @property
+    def home_quat(self):
 
         return self.custom_home_custom_quat if self.is_front_custom else self.default_home_custom_quat
 
-    def __set_home_quat(self, quat):
+    @home_quat.setter
+    def home_quat(self, quat):
 
         if self.is_front_custom:
             self.custom_home_custom_quat = quat
         else:
             self.default_home_custom_quat = quat
 
-    def __get_home_zoom(self):
+    
+    @property
+    def home_zoom(self):
 
         return self.custom_home_custom_zoom if self.is_front_custom else self.default_home_custom_zoom
 
-    def __set_home_zoom(self, zoom):
+    @home_zoom.setter
+    def home_zoom(self, zoom):
 
         if self.is_front_custom:
             self.custom_home_custom_zoom = zoom
         else:
             self.default_home_custom_zoom = zoom
-
-    home_pos = property(__get_home_pos, __set_home_pos)
-    home_quat = property(__get_home_quat, __set_home_quat)
-    home_zoom = property(__get_home_zoom, __set_home_zoom)
-
-    def __get_reset_interval(self):
+            
+    
+    @property
+    def reset_interval(self):
 
         interval1 = LerpPosInterval(self.cam.pivot, .5, self.home_pos,
                                     blendType="easeInOut")
@@ -202,37 +229,40 @@ class ViewManager(BaseObject):
 
         return lerp_interval
 
-    reset_interval = property(__get_reset_interval)
 
-    def __get_default_grid_plane(self):
+    @property
+    def default_grid_plane(self):
 
         return self._grid_plane_defaults[GlobalData["view"]]
 
-    def __get_grid_plane(self):
+
+    @property
+    def grid_plane(self):
 
         return self._grid_planes[GlobalData["view"]]
 
-    def __set_grid_plane(self, grid_plane):
+    @grid_plane.setter
+    def grid_plane(self, grid_plane):
 
         self._grid_planes[GlobalData["view"]] = grid_plane
 
-    default_grid_plane = property(__get_default_grid_plane)
-    grid_plane = property(__get_grid_plane, __set_grid_plane)
 
-    def __get_default_render_mode(self):
+    @property
+    def default_render_mode(self):
 
         return self._render_mode_defaults[GlobalData["view"]]
 
-    def __get_render_mode(self):
+
+    @property
+    def render_mode(self):
 
         return self._render_modes[GlobalData["view"]]
 
-    def __set_render_mode(self, render_mode):
+    @render_mode.setter
+    def render_mode(self, render_mode):
 
         self._render_modes[GlobalData["view"]] = render_mode
 
-    default_render_mode = property(__get_default_render_mode)
-    render_mode = property(__get_render_mode, __set_render_mode)
 
     def __init__(self):
 
