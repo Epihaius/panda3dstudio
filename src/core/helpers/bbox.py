@@ -130,23 +130,23 @@ class BoundingBox(BaseObject):
         origin.set_color_scale_off()
         cls._original = origin
 
-
-    @property
-    def corners(self):
+    def __get_corners(self):
 
         if not self._corners:
             BoundingBox.__define_corners()
 
         return self._corners
 
-    @property
-    def original(self):
+    corners = property(__get_corners)
+
+    def __get_original(self):
 
         if not self._original:
             BoundingBox.__create_original()
 
         return self._original
 
+    original = property(__get_original)
 
     def __getstate__(self):
 

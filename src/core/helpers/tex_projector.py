@@ -131,15 +131,14 @@ class TemporaryTexProjector(object):
         tripod.set_z(-.6)
         tripod.set_color(.5, .8, .5)
 
-
-    @property
-    def original_geom(self):
+    def __get_original_geom(self):
 
         if not self._original_geom:
             TemporaryTexProjector.__create_original_geom()
 
         return self._original_geom
 
+    original_geom = property(__get_original_geom)
 
     def __init__(self, pos, projection_type):
 
@@ -397,24 +396,23 @@ class TexProjector(TopLevelObject):
         tripod.set_z(-.6)
         tripod.set_color(.5, .8, .5)
 
-
-    @property
-    def corners(self):
+    def __get_corners(self):
 
         if not self._corners:
             TexProjector.__define_corners()
 
         return self._corners
 
+    corners = property(__get_corners)
 
-    @property
-    def original(self):
+    def __get_original(self):
 
         if not self._original:
             TexProjector.__create_original()
 
         return self._original
 
+    original = property(__get_original)
 
     def __getstate__(self):
 

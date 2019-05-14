@@ -873,12 +873,11 @@ class ViewGizmo(BaseObject):
 
 class PickingCamera(BaseObject):
 
-
-    @property
-    def pixel_color(self):
+    def __get_pixel_color(self):
 
         return VBase4(self._pixel_color)
 
+    pixel_color = property(__get_pixel_color)
 
     def __init__(self, parent_cam, mouse_watcher):
 
