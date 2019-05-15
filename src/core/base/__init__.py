@@ -5,4 +5,4 @@ from .obj_mgr import ObjectManager
 from .picking_col_mgr import PickingColorIDManager
 from .creation_mgr import CreationPhaseManager
 from .propdef_mgr import ObjPropDefaultsManager
-from . import shaders
+from . import shaders, file_export_types
