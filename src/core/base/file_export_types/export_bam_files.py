@@ -1,12 +1,15 @@
 from ...base import *
 
+
 class ExportBam:
   
     def __init__(self):
+      
         self.vertices_merger = VerticesData()
         self.vertices_format_checker = VerticesFormat()
 
     def export_to_bam(self, filename):
+      
         self.__determine_objs_for_bam_export()
         self.__set_initial_data(filename)
         self.__parse_data()
@@ -14,12 +17,14 @@ class ExportBam:
         self.root.remove_node()
 
     def __determine_objs_for_bam_export(self):
+      
         self.objs = set(obj.get_root() for obj in Mgr.get("selection_top"))
 
         if not self.objs:
             self.objs = set(obj.get_root() for obj in Mgr.get("objects"))
 
     def __set_initial_data(self, filename):
+      
         self.root = NodePath(ModelRoot(os.path.basename(filename)))
         self.fullpath = Filename.from_os_specific(filename)
         self.directory = Filename(self.fullpath.get_dirname())
@@ -47,6 +52,7 @@ class ExportBam:
             self.data.append((self.child.get_children(), self.node, None, None))
     
     def __get_child_type(self):
+      
         self.child_geom_node = None
         self.child_collision_node = None
         self.child_is_group = self.child.get_type() == "group"
@@ -59,7 +65,8 @@ class ExportBam:
         else:
             self.__parse_group_data()
             
-    def __set_model_data(self):        
+    def __set_model_data(self):   
+      
         self.__set_geom_model_data()
         self.__set_node_model_data()
         self.__set_node_material()
@@ -95,6 +102,7 @@ class ExportBam:
             self.node.reparent_to(self.parent_node)
           
     def __create_geom_node(self):
+      
         state = self.node.get_state()
         geom = self.node.node().modify_geom(0)
         mat = self.pivot.get_mat(child.get_parent_pivot())
@@ -104,12 +112,12 @@ class ExportBam:
         self.node = self.parent_node
         
     def __create_collision_node(self):
+      
         scale = self.pivot.get_scale()
         self.sx = scale[0]
         self.pivot.set_scale(self.sx)
         self.group_pivot = self.child.get_group().get_pivot()
-        coll_solid = None
-        coll_solid = self.__check_model_geom_type(coll_solid, scale)
+        coll_solid = self.__create_collision_solid(scale)
         self.__set_node_data(coll_solid, scale)
     
     def __set_node_data(self, coll_solid, scale):
@@ -120,19 +128,21 @@ class ExportBam:
         self.pivot.set_scale(scale)
         self.node = self.parent_node
             
-    def __check_model_geom_type(self, coll_solid, scale):
+    def __create_collision_solid(self, scale):
+      
+        coll_solid = None
         
         if self.geom_type == "sphere":
-            coll_solid = self.__create_sphere_collision_geom()
+            coll_solid = self.__create_sphere_collision_solid(coll_solid)
           
         elif self.geom_type == "cylinder":
-            coll_solid = self.__create_cylinder_collision_geom()
+            coll_solid = self.__create_cylinder_collision_solid(coll_solid)
           
         elif self.geom_type == "box":
-            coll_solid = self.__create_box_collision_geom()
+            coll_solid = self.__create_box_collision_solid(coll_solid)
           
         elif self.geom_type == "plane":
-            coll_solid = self.__create_plane_collision_geom()
+            coll_solid = self.__create_plane_collision_solid(coll_solid)
           
         else:
             self.__check_if_basic_geom(scale)
@@ -140,23 +150,45 @@ class ExportBam:
         return coll_solid
 
     def __check_if_basic_geom(self, scale):
+      
         self.pivot.set_scale(scale)
       
         if self.geom_type == "basic_geom":
-            self.collision_node = self.__process_basic_geom(self.pivot, self.node)
+            self.collision_node = self.__process_basic_geom()
           
         else:
             polys = iter(self.geom_data_obj.get_subobjects("poly").values())
             verts = self.geom_data_obj.get_subobjects("vert")
             epsilon = 1.e-005
-            self.collision_node = self.__polygon_processing(polys, verts, epsilon)
+            self.collision_node = self.__process_polygons(polys, verts, epsilon)
             
-    def __polygon_processing(self, polys, verts, epsilon):
+    def __process_basic_geom(self):
+
+        mat = self.pivot.get_mat(group_pivot)
+        geom = self.node.node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        vertex_data.transform_vertices(mat)
+        pos_reader = GeomVertexReader(vertex_data, "vertex")
+        index_list = geom.get_primitive(0).get_vertex_list()
+        index_count = len(index_list)
+
+        for indices in (index_list[i:i+3] for i in range(0, index_count, 3)):
+
+            points = []
+
+            for index in indices:
+                pos_reader.set_row(index)
+                points.append(pos_reader.get_data3())
+
+            coll_poly = CollisionPolygon(*points)
+            self.collision_node.add_solid(coll_poly)
+            
+    def __process_polygons(self, polys, verts, epsilon):
       
         for poly in polys:
             self.is_quad = False
             self.is_smaller_than_epsilon = False
-            self.__quad_poly_processing(poly, verts, epsilon)
+            self.__process_quads(poly, verts, epsilon)
 
             if not self.is_smaller_than_epsilon:
 
@@ -166,7 +198,7 @@ class ExportBam:
                     coll_poly = CollisionPolygon(*points)
                     self.collision_node.add_solid(coll_poly)
                     
-    def __quad_poly_processing(self, poly, verts, epsilon):
+    def __process_quads(self, poly, verts, epsilon):
       
         if poly.get_vertex_count() == 4:
             self.is_quad = True
@@ -195,11 +227,11 @@ class ExportBam:
                 index = tri_vert_ids.index(preceding_v_id) + 1
                 return (point, index)
     
-    def __check_box_normals(self, dimensions_sizes, center):
-        coll_solid = None
-        size_x = dimensions_sizes[0]
-        size_y = dimensions_sizes[1]
-        size_z = dimensions_sizes[2]
+    def __create_inverted_box_planes(self, dimensions, center):
+      
+        size_x = dimensions[0]
+        size_y = dimensions[1]
+        size_z = dimensions[2]
         
         if self.geom_obj.has_flipped_normals():
             x_vec = self.group_pivot.get_relative_vector(self.origin, Vec3.right() * size_x)
@@ -210,14 +242,14 @@ class ExportBam:
                 normal = vec.normalized()
                 self.collision_node.add_solid(CollisionPlane(Plane(-normal, center + vec)))
                 self.collision_node.add_solid(CollisionPlane(Plane(normal, center - vec)))
+            
+            return True
 
         else:
-            coll_solid = CollisionBox(center, size_x * self.sx, size_y * self.sx, size_z * self.sx)
+            return False
 
-        return coll_solid
-    
-    # works
-    def __create_sphere_collision_geom(self):
+    def __create_sphere_collision_solid(self, coll_solid):
+      
         center = self.origin.get_pos(self.group_pivot)
         radius = self.geom_obj.get_property("radius") * self.sx
 
@@ -228,8 +260,8 @@ class ExportBam:
         
         return coll_solid
     
-    # works
-    def __create_cylinder_collision_geom(self):
+    def __create_cylinder_collision_solid(self, coll_solid):
+      
         pos = self.origin.get_pos()
         height_vec = Vec3.up() * self.geom_obj.get_property("height")
         height_vec = self.pivot.get_relative_vector(self.origin, height_vec)
@@ -239,8 +271,8 @@ class ExportBam:
         coll_solid = CollisionCapsule(point_a, point_b, radius)
         return coll_solid
       
-    # works
-    def __create_box_collision_geom(self):
+    def __create_box_collision_solid(self, coll_solid):
+      
         pos = self.origin.get_pos(self.group_pivot)
         size_x = self.geom_obj.get_property("size_x") * .5
         size_y = self.geom_obj.get_property("size_y") * .5
@@ -248,12 +280,16 @@ class ExportBam:
         size_z = abs(height)
         height_vec = self.group_pivot.get_relative_vector(self.origin, Vec3.up() * height)
         center = pos + height_vec
-        dimensions_sizes = (size_x, size_y, size_z)
-        coll_solid = self.__check_box_normals(dimensions_sizes, center)
+        dimensions = (size_x, size_y, size_z)
+        has_inverted_normals = self.__create_inverted_box_planes(dimensions, center)
+        
+        if has_inverted_normals:
+            coll_solid = CollisionBox(center, size_x * self.sx, size_y * self.sx, size_z * self.sx)
+        
         return coll_solid
     
-    # works
-    def __create_plane_collision_geom(self):
+    def __create_plane_collision_solid(self, coll_solid):
+      
         normal = Vec3.down() if self.geom_obj.has_flipped_normals() else Vec3.up()
         normal = self.group_pivot.get_relative_vector(self.origin, normal)
         point = self.origin.get_pos(self.group_pivot)
@@ -261,6 +297,7 @@ class ExportBam:
         return coll_solid
     
     def __set_geom_model_data(self):
+      
         self.geom_obj = self.child.get_geom_object()
         self.geom_type = self.child.get_geom_type()
         self.geom_data_obj = None
@@ -284,6 +321,7 @@ class ExportBam:
                 self.node.node().modify_geom(0).reverse_in_place()
                 
     def __set_node_model_data(self):
+      
         masks = Mgr.get("render_mask") | Mgr.get("picking_masks")
         self.node.show(masks)
         self.origin = self.child.get_origin()
@@ -300,22 +338,24 @@ class ExportBam:
         for tex_stage in tex_stages:
             texture = self.node.get_texture(tex_stage).make_copy()
             filename = Filename(texture.get_fullpath())
-            filename.make_relative_to(directory)
+            filename.make_relative_to(self.directory)
             texture.set_filename(filename)
             texture.set_fullpath(filename)
             filename = Filename(texture.get_alpha_fullpath())
-            filename.make_relative_to(directory)
+            filename.make_relative_to(self.directory)
             texture.set_alpha_filename(filename)
             texture.set_alpha_fullpath(filename)
             self.node.set_texture(tex_stage, texture)
             
     def __get_parent_type(self):
+      
         self.parent = self.child.get_parent()
 
         if self.parent and self.parent.get_type() != "model":
             self.parent = None
             
     def __set_node_material(self):
+      
         material = self.child.get_material()
         parent_material = self.parent.get_material() if self.parent else None
         parent_origin = self.parent.get_origin() if self.parent else None
@@ -372,10 +412,12 @@ class ExportBam:
         for tex_stage in tex_stages:
             if parent_origin.has_texture(tex_stage) and not self.node.has_texture(tex_stage):
                 self.node.set_texture_off(tex_stage)
-                
+          
+          
 class VerticesData:
     
     def merge_duplicate_vertices(self, geom_data_obj):
+      
         self.__create_vertices(geom_data_obj)
         self.__parse_vdata(geom_data_obj)
         self.__create_geom_primitives()
@@ -383,6 +425,7 @@ class VerticesData:
         return NodePath(geom_node)
       
     def __set_sets_of_vertices_data(self, verts, merged_vert):
+      
         self.verts1 = [verts[v_id] for v_id in merged_vert]
         self.verts2 = self.verts1[:]
 
@@ -416,6 +459,7 @@ class VerticesData:
                 self.dupes[row2] = row1
                 
     def __parse_vdata(self, geom_data_obj):
+      
         self.geom = geom_data_obj.get_toplevel_node().get_geom(0)
         vdata_src = self.geom.get_vertex_data()
         self.vdata_dest = GeomVertexData(vdata_src)
@@ -428,7 +472,8 @@ class VerticesData:
         for row2, row1 in list(self.dupes.items()):
             self.dupes[row2] = self.rows.index(row1)
             
-    def __create_geom_primitives(self):     
+    def __create_geom_primitives(self): 
+      
         prim_src = self.geom.get_primitive(0)
         self.prim_dest = GeomTriangles(Geom.UH_static)
         rows_src = prim_src.get_vertex_list()
@@ -438,6 +483,7 @@ class VerticesData:
             self.prim_dest.add_vertices(*indices)
             
     def __set_geom_node_data(self):
+      
         geom_dest = Geom(self.vdata_dest)
         geom_dest.add_primitive(self.prim_dest)
         geom_node = GeomNode("")
@@ -445,6 +491,7 @@ class VerticesData:
         return geom_node
       
     def __create_vertices(self, geom_data_obj):
+      
         verts = geom_data_obj.get_subobjects("vert")
         merged_verts = set(geom_data_obj.get_merged_vertex(v_id) for v_id in verts)
         self.rows = list(range(len(verts)))
@@ -453,10 +500,12 @@ class VerticesData:
         for merged_vert in merged_verts:
             self.__set_sets_of_vertices_data(verts, merged_vert)
             self.__compare_vertices_data()
-            
+      
+      
 class VerticesFormat:
   
     def update_vertex_format(self, node, uv_set_names, tex_stages):
+      
         self.__set_uv_data(uv_set_names, tex_stages)
         self.__set_array_data()
 
@@ -473,6 +522,7 @@ class VerticesFormat:
         return node
         
     def __set_uv_data(self, uv_set_names, tex_stages):
+      
         self.default_uv_names = ["", "1", "2", "3", "4", "5", "6", "7"]
         self.internal_uv_names = []
         self.stages_by_uv_name = {}
@@ -486,6 +536,7 @@ class VerticesFormat:
                 self.stages_by_uv_name.setdefault(self.uv_name, []).append(tex_stage)
                 
     def __set_array_data(self):
+      
         self.main_array = GeomVertexArrayFormat()
         self.main_array.add_column(InternalName.get_vertex(), 3, Geom.NT_float32, Geom.C_point)
         self.main_array.add_column(InternalName.get_color(), 1, Geom.NT_packed_dabc, Geom.C_color)
@@ -506,6 +557,7 @@ class VerticesFormat:
         self.internal_uv_names.append(self.internal_name)
         
     def __set_uv_arrays(self):
+      
         uv_array = GeomVertexArrayFormat()
         uv_array.add_column(self.internal_name, 2, Geom.NT_float32, Geom.C_texcoord)
         self.uv_arrays.append(uv_array)
@@ -518,6 +570,7 @@ class VerticesFormat:
                 tex_stage.set_texcoord_name(self.uv_name)
                 
     def __set_vertex_data(self, node, uv_set_names):
+      
         vertex_data = node.node().modify_geom(0).modify_vertex_data()
 
         if uv_set_names != self.default_uv_names:
@@ -544,6 +597,7 @@ class VerticesFormat:
         return vertex_data
       
     def __set_vertex_format(self, node, uv_set_names):
+      
         vertex_format = GeomVertexFormat()
         vertex_format.add_array(self.array)
         vertex_data = self.__set_vertex_data(node, uv_set_names)

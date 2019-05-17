@@ -1,0 +1,9 @@
+src/gui/base/widget.py:2:from .mgr import GUIManager as Mgr
+src/gui/base/sizer.py:2:from .mgr import GUIManager as Mgr
+src/gui/base/__init__.py:2:from .mgr import GUIManager as Mgr
+src/core/base/propdef_mgr.py:1:from .mgr import CoreManager as Mgr
+src/core/base/obj_mgr.py:2:from .mgr import CoreManager as Mgr
+src/core/base/picking_col_mgr.py:1:from .mgr import CoreManager as Mgr
+src/core/base/toplvl_obj.py:2:from .mgr import CoreManager as Mgr
+src/core/base/creation_mgr.py:2:from .mgr import CoreManager as Mgr
+src/core/base/__init__.py:2:from .mgr import CoreManager as Mgr
