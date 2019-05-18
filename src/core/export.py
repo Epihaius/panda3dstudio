@@ -596,7 +596,10 @@ class ExportManager(BaseObject):
 
                     row_offset += row_count
 
-                children = obj.get_children()
+                if obj.get_type() == "group":
+                    children = obj.get_members()
+                else:
+                    children = obj.get_children()
 
                 if children:
                     objs.extend(children)
