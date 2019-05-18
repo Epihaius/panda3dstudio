@@ -105,10 +105,10 @@ class ExportBam:
       
         state = self.node.get_state()
         geom = self.node.node().modify_geom(0)
-        mat = self.pivot.get_mat(child.get_parent_pivot())
+        mat = self.pivot.get_mat(self.child.get_parent_pivot())
         vertex_data = geom.modify_vertex_data()
         vertex_data.transform_vertices(mat)
-        geom_node.add_geom(geom, state)
+        self.geom_node.add_geom(geom, state)
         self.node = self.parent_node
         
     def __create_collision_node(self):
@@ -164,7 +164,7 @@ class ExportBam:
             
     def __process_basic_geom(self):
 
-        mat = self.pivot.get_mat(group_pivot)
+        mat = self.pivot.get_mat(self.group_pivot)
         geom = self.node.node().modify_geom(0)
         vertex_data = geom.modify_vertex_data()
         vertex_data.transform_vertices(mat)
@@ -281,9 +281,8 @@ class ExportBam:
         height_vec = self.group_pivot.get_relative_vector(self.origin, Vec3.up() * height)
         center = pos + height_vec
         dimensions = (size_x, size_y, size_z)
-        has_inverted_normals = self.__create_inverted_box_planes(dimensions, center)
         
-        if has_inverted_normals:
+        if not self.__create_inverted_box_planes(dimensions, center):
             coll_solid = CollisionBox(center, size_x * self.sx, size_y * self.sx, size_z * self.sx)
         
         return coll_solid
