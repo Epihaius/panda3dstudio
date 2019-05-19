@@ -154,13 +154,13 @@ class ExportBam:
         self.pivot.set_scale(scale)
       
         if self.geom_type == "basic_geom":
-            self.collision_node = self.__process_basic_geom()
+            self.__process_basic_geom()
           
         else:
             polys = iter(self.geom_data_obj.get_subobjects("poly").values())
             verts = self.geom_data_obj.get_subobjects("vert")
             epsilon = 1.e-005
-            self.collision_node = self.__process_polygons(polys, verts, epsilon)
+            self.__process_polygons(polys, verts, epsilon)
             
     def __process_basic_geom(self):
 
@@ -320,7 +320,7 @@ class ExportBam:
                 self.node.node().modify_geom(0).reverse_in_place()
                 
     def __set_node_model_data(self):
-      
+
         masks = Mgr.get("render_mask") | Mgr.get("picking_masks")
         self.node.show(masks)
         self.origin = self.child.get_origin()
