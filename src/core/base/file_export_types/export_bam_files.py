@@ -391,7 +391,7 @@ class ExportBam:
     def __check_parent_attributes(self, parent_origin, parent_material):
       
         if parent_origin.has_color() and not self.node.has_color():
-            state = node.get_state()
+            state = self.node.get_state()
             attr = ColorAttrib.make_off()
             state = state.add_attrib(attr)
             self.node.set_state(state)
