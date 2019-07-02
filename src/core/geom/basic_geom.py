@@ -891,12 +891,12 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
     def __set_normal_color(self, color_values):
 
-        r, g, b = color_values
+        r, g, b = color_values[:3]
         selection = Mgr.get("selection_top")
         changed_objs = []
 
         for obj in selection:
-            if obj.get_geom_object().set_property("normal_color", color_values):
+            if obj.get_geom_object().set_property("normal_color", color_values[:3]):
                 changed_objs.append(obj)
 
         if not changed_objs:
