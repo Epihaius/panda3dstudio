@@ -24,12 +24,15 @@ class ImportManager(BaseObject):
         path = Filename.from_os_specific(filename)
         model_root = Mgr.load_model(path, noCache=True, okMissing=True)
 
+        if not model_root:
+            return
+
         if not model_root.node().is_of_type(ModelRoot):
             child = model_root
             model_root = NodePath(ModelRoot(""))
             child.reparent_to(model_root)
 
-        if not (model_root and model_root.get_children()):
+        if not model_root.get_children():
             return
 
         self._imported_file_type = path.get_extension()
