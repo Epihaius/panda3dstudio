@@ -441,7 +441,7 @@ class Group(TopLevelObject):
                 coll_geom.set_light_off()
                 coll_geom.set_transparency(TransparencyAttrib.M_alpha)
                 coll_geom.set_color((1., 1., 1., .5))
-                compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+                compass_props = CompassEffect.P_all
                 compass_effect = CompassEffect.make(member.get_pivot(), compass_props)
                 coll_geom.set_effect(compass_effect)
                 self._collision_geoms[member_id] = coll_geom
