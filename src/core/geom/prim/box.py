@@ -18,64 +18,61 @@ def _define_geom_data(segments, temp=False):
     # Vertex objects will be merged
     edge_positions = {}
 
-    def get_side_data(i):
+    def get_side_pair(i):
 
-        d = {}
+        axis1_id = "xyz"[i - 2]
+        axis2_id = "xyz"[i - 1]
+        axis3_id = "xyz"[i]
+        axis_ids = axis1_id + axis2_id + axis3_id
+        side_pair = {}
 
-        for sign in (-1, 1):
-            d[sign] = {
-                "normal": tuple(sign * 1. if x == i else 0. for x in range(3)),
+        for direction in (-1, 1):
+            side_pair[direction] = {
+                "normal": tuple(direction * 1. if x == i else 0. for x in range(3)),
                 "vert_data": {}
             }
 
-        return "xyz"[i - 2] + "xyz"[i - 1], d
+        return axis_ids, side_pair
 
-    sides = {k: v for k, v in (get_side_data(i) for i in range(3))}
+    side_pairs = {k: v for k, v in (get_side_pair(i) for i in range(3))}
 
     offsets = {"x": -.5, "y": -.5, "z": 0.}
 
     # Define vertex data
 
-    for plane in sides:
+    for (axis1_id, axis2_id, axis3_id), side_pair in side_pairs.items():
 
-        axis1, axis2 = plane
-        axis3 = "xyz".replace(axis1, "").replace(axis2, "")
+        turn_uvs = axis1_id + axis2_id == "zx"
         coords = {"x": 0., "y": 0., "z": 0.}
-        segs1 = segments[axis1]
-        segs2 = segments[axis2]
-        segs3 = segments[axis3]
-        i1 = "xyz".index(axis1)
-        i2 = "xyz".index(axis2)
-        range1 = range(segs1 + 1)
-        range2 = range(segs2 + 1)
-        side_pair = sides[plane]
+        segs1 = segments[axis1_id]
+        segs2 = segments[axis2_id]
+        segs3 = segments[axis3_id]
 
-        for direction in side_pair:
+        for direction, side_data in side_pair.items():
 
             vert_id = 0
-            side = side_pair[direction]
-            vert_data = side["vert_data"]
-            normal = side["normal"]
-            coords[axis3] = (0. if direction == -1 else 1.) + offsets[axis3]
-            offset1 = offsets[axis1]
-            offset2 = offsets[axis2]
+            vert_data = side_data["vert_data"]
+            normal = side_data["normal"]
+            coords[axis3_id] = (0. if direction == -1 else 1.) + offsets[axis3_id]
+            offset1 = offsets[axis1_id]
+            offset2 = offsets[axis2_id]
 
-            for i in range2:
+            for i in range(segs2 + 1):
 
-                b = (1. / segs2) * i
-                coords[axis2] = b + offset2
+                b = i / segs2
+                coords[axis2_id] = b + offset2
 
-                for j in range1:
+                for j in range(segs1 + 1):
 
-                    a = (1. / segs1) * j
-                    coords[axis1] = a + offset1
-                    pos = tuple(coords[axis] for axis in "xyz")
+                    a = j / segs1
+                    coords[axis1_id] = a + offset1
+                    pos = tuple(coords[axis_id] for axis_id in "xyz")
 
                     if i in (0, segs2) or j in (0, segs1):
 
                         k = 0 if direction == -1 else segs3
-                        key_components = {axis1: j, axis2: i, axis3: k}
-                        key = tuple(key_components[axis] for axis in "xyz")
+                        key_components = {axis1_id: j, axis2_id: i, axis3_id: k}
+                        key = tuple(key_components[axis_id] for axis_id in "xyz")
 
                         if key in edge_positions:
                             pos_obj = edge_positions[key]
@@ -90,9 +87,9 @@ def _define_geom_data(segments, temp=False):
                     if temp:
                         vert_data[vert_id] = {"pos": pos_obj, "normal": normal}
                     else:
-                        u = (-b if plane == "zx" else a) * direction
-                        u += (1. if (direction > 0 if plane == "zx" else direction < 0) else 0.)
-                        v = a if plane == "zx" else b
+                        u = (-b if turn_uvs else a) * direction
+                        u += (1. if (direction > 0 if turn_uvs else direction < 0) else 0.)
+                        v = a if turn_uvs else b
                         vert_data[vert_id] = {"pos": pos_obj, "normal": normal, "uvs": {0: (u, v)}}
 
                     vert_id += 1
@@ -102,17 +99,14 @@ def _define_geom_data(segments, temp=False):
 
     # Define faces
 
-    for plane in sides:
+    for (axis1_id, axis2_id, _), side_pair in side_pairs.items():
 
-        axis1, axis2 = plane
-        segs1 = segments[axis1]
-        segs2 = segments[axis2]
-        side_pair = sides[plane]
+        segs1 = segments[axis1_id]
+        segs2 = segments[axis2_id]
 
-        for direction in side_pair:
+        for direction, side_data in side_pair.items():
 
-            side = side_pair[direction]
-            vert_data = side["vert_data"]
+            vert_data = side_data["vert_data"]
 
             for i in range(segs2):
 
