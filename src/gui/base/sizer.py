@@ -1031,8 +1031,9 @@ class GridSizer(Sizer):
 
     def update_min_size(self):
 
-        self._sizers["horizontal"].update_min_size()
-        min_size = self._sizers["vertical"].update_min_size()
+        min_w = self._sizers["horizontal"].update_min_size()[0]
+        min_h = self._sizers["vertical"].update_min_size()[1]
+        min_size = (min_w, min_h)
         self.set_min_size(min_size)
 
         return min_size

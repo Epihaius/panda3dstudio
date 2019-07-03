@@ -329,7 +329,7 @@ class SnapDialog(Dialog):
                 h_subsizer.add(subsizer, expand=True, proportion=1., borders=borders)
                 parent_sizer.add((0, 5))
             else:
-                borders = (5, 20, 0, 0)
+                borders = (5, 0, 0, 0)
                 group.add(radio_btns.get_sizer(), expand=True, borders=borders)
                 subsizer = Sizer("horizontal")
                 borders = (5, 0, 0, 10)
