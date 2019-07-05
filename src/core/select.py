@@ -2031,23 +2031,19 @@ class SelectionManager(BaseObject):
         if not self.mouse_watcher.has_mouse():
             return
 
-        ctrl_down = self.mouse_watcher.is_button_down(KeyboardButton.control())
+        ctrl_down = self.mouse_watcher.is_button_down("control")
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
         color_id = r << 16 | g << 8 | b
         pickable_type = PickableTypes.get(a)
 
-        if not pickable_type:
-
-            Mgr.update_remotely("main_context")
-
-        elif pickable_type == "transf_gizmo":
+        if pickable_type == "transf_gizmo":
 
             if ctrl_down:
                 Mgr.update_remotely("main_context")
             else:
                 Mgr.update_remotely("componentwise_xform")
 
-        else:
+        elif pickable_type:
 
             picked_obj = Mgr.get(pickable_type, color_id)
             obj = picked_obj.get_toplevel_object(get_group=True) if picked_obj else None
@@ -2059,8 +2055,12 @@ class SelectionManager(BaseObject):
                     Mgr.update_remotely("main_context", "obj_props")
                 else:
                     Mgr.update_remotely("obj_props")
-            else:
+            elif ctrl_down:
                 Mgr.update_remotely("main_context")
+
+        elif ctrl_down:
+
+            Mgr.update_remotely("main_context")
 
 
 MainObjects.add_class(SelectionManager)

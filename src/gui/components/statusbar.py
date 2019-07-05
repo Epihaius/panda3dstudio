@@ -190,6 +190,10 @@ class StatusBar(Widget):
         font = skin_text["font"]
         color = skin_text["color"]
         self._mode_label = label = font.create_image(text, color)
+
+        if self.is_hidden():
+            return
+
         x = self.get_gfx_inner_borders()[0]
         w = self._separator.get_pos()[0] - x
         h = self.get_min_size()[1]
@@ -209,6 +213,10 @@ class StatusBar(Widget):
         font = skin_text["font"]
         color = skin_text["color"]
         self._info_label = label = font.create_image(text, color)
+
+        if self.is_hidden():
+            return
+
         x_d = self._separator.get_pos()[0]
         w_d, h_d = self._separator.get_min_size()
         x = x_d + w_d

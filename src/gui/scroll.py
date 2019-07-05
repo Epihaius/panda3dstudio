@@ -468,6 +468,7 @@ class ScrollPane(WidgetCard):
         mask.set_sort(self._get_mask_sort())
         Mgr.get("mouse_watcher").add_region(mask)
         self._mouse_watcher = MouseWatcher(pane_id)
+        self._mouse_watcher_np = None
         GlobalData["mouse_watchers"].append(self._mouse_watcher)
 
         self._cull_bin = cull_bin
@@ -530,12 +531,13 @@ class ScrollPane(WidgetCard):
 
         base = Mgr.get("base")
         self._display_region = region = base.win.make_display_region(0., 1., 0., 1.)
+        base.win.remove_display_region(region)
         self.update_display_region()
         self.update_mouse_watcher_frame()
         mouse_watcher_node = self._mouse_watcher
         mouse_watcher_node.set_display_region(region)
         input_ctrl = base.mouseWatcher.get_parent()
-        mw = input_ctrl.attach_new_node(mouse_watcher_node)
+        self._mouse_watcher_np = mw = input_ctrl.attach_new_node(mouse_watcher_node)
         mouse_watcher_node.set_enter_pattern("gui_region_enter")
         mouse_watcher_node.set_leave_pattern("gui_region_leave")
         pane_id = self.get_widget_type()
@@ -553,12 +555,10 @@ class ScrollPane(WidgetCard):
         WidgetCard.destroy(self)
 
         GlobalData["mouse_watchers"].remove(self._mouse_watcher)
-        NodePath(self._mouse_watcher).remove_node()
+        self._mouse_watcher_np.detach_node()
+        self._mouse_watcher_np = None
         self._mouse_watcher = None
-        region = self._display_region
         self._display_region = None
-        base = Mgr.get("base")
-        base.win.remove_display_region(region)
         self._mouse_region_mask = None
         self._scissor_effect = None
 
@@ -566,7 +566,7 @@ class ScrollPane(WidgetCard):
             node.remove_node()
 
         self._scissor_nodes = None
-        self._widget_root_node.remove_node()
+        self._widget_root_node.detach_node()
         self._widget_root_node = None
         self._scrollthumb = None
 
@@ -837,6 +837,10 @@ class ScrollPane(WidgetCard):
     def get_mouse_watcher(self):
 
         return self._mouse_watcher
+
+    def get_mouse_watcher_nodepath(self):
+
+        return self._mouse_watcher_np
 
     def update_quad_pos(self):
 

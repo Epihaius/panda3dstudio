@@ -12,13 +12,39 @@ class OptionManager(object):
         item = menu.add("gui", "GUI", item_type="submenu")
         gui_menu = item.get_submenu()
         item = gui_menu.add("gui_layout", "Layout", item_type="submenu")
-        gui_menu.add("sep0", item_type="separator")
         layout_menu = item.get_submenu()
-        item = gui_menu.add("gui_skin", "Skin", item_type="submenu")
         layout_menu.add("gui_layout_reset", "Reset", self.__reset_gui_layout)
         layout_menu.add("gui_layout_load", "Load", self.__load_gui_layout)
         layout_menu.add("gui_layout_save", "Save", self.__save_gui_layout)
         layout_menu.add("sep0", item_type="separator")
+        item = gui_menu.add("gui_view", "Show", item_type="submenu")
+        gui_view_menu = item.get_submenu()
+        self._component_view_items = items = {}
+        command = lambda: Mgr.do("show_components", ["menubar"],
+            self._component_view_items["menubar"].is_checked())
+        item = gui_view_menu.add("show_menubar", "menu bar", command, item_type="check")
+        items["menubar"] = item
+        command = lambda: Mgr.do("show_components", ["statusbar"],
+            self._component_view_items["statusbar"].is_checked())
+        item = gui_view_menu.add("show_statusbar", "status bar", command, item_type="check")
+        items["statusbar"] = item
+        command = lambda: Mgr.do("show_components", ["toolbars"],
+            self._component_view_items["toolbars"].is_checked())
+        item = gui_view_menu.add("show_toolbars", "toolbars", command, item_type="check")
+        items["toolbars"] = item
+        command = lambda: Mgr.do("show_components", ["control_pane"],
+            self._component_view_items["control_pane"].is_checked())
+        item = gui_view_menu.add("show_ctrl_pane", "control pane", command, item_type="check")
+        items["control_pane"] = item
+        gui_view_menu.add("show_all", "all", self.__show_all_components)
+        mod_key_codes = GlobalData["mod_key_codes"]
+        hotkey = ("x", mod_key_codes["ctrl"] | mod_key_codes["alt"])
+        gui_view_menu.set_item_hotkey("show_all", hotkey, "Ctrl+Alt+X")
+        gui_view_menu.add("show_none", "none", self.__hide_all_components)
+        hotkey = ("x", mod_key_codes["ctrl"] | mod_key_codes["shift"])
+        gui_view_menu.set_item_hotkey("show_none", hotkey, "Ctrl+Shift+X")
+        gui_menu.add("sep0", item_type="separator")
+        item = gui_menu.add("gui_skin", "Skin", item_type="submenu")
         command = self.__set_right_dock_side
         item = layout_menu.add("ctrl_pane_left", "Control pane left", command, item_type="check")
         self._menu_items = {"ctrl_pane_left": item}
@@ -30,6 +56,59 @@ class OptionManager(object):
 
         layout = GlobalData["config"]["gui_layout"]
         self._menu_items["ctrl_pane_left"].check(layout["right_dock"] == "left")
+        component_view = GlobalData["config"]["gui_view"]
+        items = self._component_view_items
+
+        for component_type in ("menubar", "statusbar", "toolbars", "control_pane"):
+            items[component_type].check(component_view[component_type])
+
+    def __show_all_components(self):
+
+        items = self._component_view_items
+        component_types = []
+
+        if not items["menubar"].is_checked():
+            component_types.append("menubar")
+            items["menubar"].check()
+
+        if not items["toolbars"].is_checked():
+            component_types.append("toolbars")
+            items["toolbars"].check()
+
+        if not items["statusbar"].is_checked():
+            component_types.append("statusbar")
+            items["statusbar"].check()
+
+        if not items["control_pane"].is_checked():
+            component_types.append("control_pane")
+            items["control_pane"].check()
+
+        if component_types:
+            Mgr.do("show_components", component_types, True)
+
+    def __hide_all_components(self):
+
+        items = self._component_view_items
+        component_types = []
+
+        if items["menubar"].is_checked():
+            component_types.append("menubar")
+            items["menubar"].check(False)
+
+        if items["toolbars"].is_checked():
+            component_types.append("toolbars")
+            items["toolbars"].check(False)
+
+        if items["statusbar"].is_checked():
+            component_types.append("statusbar")
+            items["statusbar"].check(False)
+
+        if items["control_pane"].is_checked():
+            component_types.append("control_pane")
+            items["control_pane"].check(False)
+
+        if component_types:
+            Mgr.do("show_components", component_types, False)
 
     def __set_right_dock_side(self):
 

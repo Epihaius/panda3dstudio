@@ -32,13 +32,19 @@ class UVEditGUI(object):
 
     def __create_layout(self):
 
-        layout_data = GlobalData["config"]["gui_layout"]["uv"]
-        Mgr.do("create_layout", layout_data)
+        config_data = GlobalData["config"]
+
+        if config_data["gui_view"]["toolbars"]:
+            layout_data = config_data["gui_layout"]["uv"]
+            Mgr.do("create_layout", layout_data)
 
     def __clear_layout(self):
 
-        layout_data = GlobalData["config"]["gui_layout"]["uv"]
-        Mgr.do("clear_layout", layout_data)
+        config_data = GlobalData["config"]
+
+        if config_data["gui_view"]["toolbars"]:
+            layout_data = config_data["gui_layout"]["uv"]
+            Mgr.do("clear_layout", layout_data)
 
     def __update_layout(self):
 

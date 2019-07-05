@@ -273,6 +273,10 @@ class PanelStack(ScrollPane):
         b = -(y + min(height, h_virt_new))
         t = -y
         quad = self.create_quad((l, r, b, t))
+
+        if not GlobalData["config"]["gui_view"]["control_pane"]:
+            quad.detach_node()
+
         quad.set_texture(tex)
         quad.set_y(-1.)
         quad.set_tex_scale(TextureStage.get_default(), *tex_scale)
@@ -376,7 +380,11 @@ class PanelStack(ScrollPane):
         t = -y
         cm = CardMaker("panel_stack_quad")
         cm.set_frame(l, r, b, t)
-        self._quad = quad = Mgr.get("gui_root").attach_new_node(cm.generate())
+        self._quad = quad = NodePath(cm.generate())
+
+        if GlobalData["config"]["gui_view"]["control_pane"]:
+            quad.reparent_to(Mgr.get("gui_root"))
+
         quad.set_texture(tex)
         quad.set_y(-1.)
         quad.set_tex_scale(TextureStage.get_default(), *tex_scale)
@@ -422,3 +430,24 @@ class PanelStack(ScrollPane):
         task = self.__toggle_panels
         task_id = "toggle_panels"
         PendingTasks.add(task, task_id, batch_id="panel_change")
+
+    def hide(self):
+
+        self._quad.detach_node()
+        self._scrollthumb.get_quad().detach_node()
+        self._scrollthumb.hide()
+        self.get_frame().get_scrollbar().hide()
+        mw = self.get_mouse_watcher_nodepath()
+        mw.detach_node()
+        Mgr.get("mouse_watcher").remove_region(self._mouse_region_mask)
+
+    def show(self):
+
+        gui_root = Mgr.get("gui_root")
+        self._quad.reparent_to(gui_root)
+        self._scrollthumb.get_quad().reparent_to(gui_root)
+        self._scrollthumb.show()
+        self.get_frame().get_scrollbar().show()
+        mw = self.get_mouse_watcher_nodepath()
+        mw.reparent_to(Mgr.get("base").mouseWatcher.get_parent())
+        Mgr.get("mouse_watcher").add_region(self._mouse_region_mask)

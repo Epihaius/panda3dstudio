@@ -98,6 +98,11 @@ class Dock(WidgetCard):
     def update_images(self):
 
         sizer = self.get_sizer()
+
+        if not sizer.get_widgets(include_children=False):
+            self.get_quad().detach_node()
+            return
+
         sizer.update_images()
         x, y, w, h = TextureAtlas["regions"]["dock_background"]
         img_tmp = PNMImage(w, h, 4)
@@ -205,7 +210,7 @@ class Components(object):
         self._uv_editing_initialized = False
 
         self.__create_components()
-        self.__create_main_layout()
+        self.__init_main_layout()
 
         self._window_size = win.update_min_size()
         Mgr.expose("window_size", lambda: self._window_size)
@@ -240,6 +245,7 @@ class Components(object):
         Mgr.accept("update_main_layout", self.__update_layout)
         Mgr.accept("reset_layout_data", self.__reset_layout_data)
         Mgr.accept("set_right_dock_side", self.__set_right_dock_side)
+        Mgr.accept("show_components", self.__show_components)
         Mgr.accept("update_window", self.__update_window)
         Mgr.add_app_updater("object_name_tag", update_object_name_tag)
         Mgr.add_app_updater("viewport", self.__update_viewport_display_regions)
@@ -280,6 +286,8 @@ class Components(object):
         GlobalData["viewport"][1] = "main"
         GlobalData["viewport"][2] = None
         GlobalData["viewport"]["active"] = 1
+
+        self.__hide_components_at_startup()
 
         def enter_selection_mode(prev_state_id, is_active):
 
@@ -487,6 +495,156 @@ class Components(object):
         with open("config", "wb") as config_file:
             pickle.dump(config_data, config_file, -1)
 
+    def __hide_components_at_startup(self):
+
+        components = self._registry
+        docks = components["docks"]
+        config_data = GlobalData["config"]
+        component_view = config_data["gui_view"]
+        docking_targets = components["docking_targets"]
+
+        if not component_view["menubar"]:
+            menubar = components["menubar"]
+            dock = docks["top"]
+            sizer = dock.get_sizer()
+            subsizer_item = sizer.get_item(0)
+            subsizer = subsizer_item.get_object()
+            subsizer.remove_item(menubar.get_sizer_item())
+            menubar.hide()
+            docking_targets.remove(menubar)
+            MessageDialog(title="Menu access",
+                          message="The menubar is hidden, but its menus can still\n" \
+                                  "be accessed through the main context menu\n" \
+                                  "(Ctrl + right-click in the viewport).",
+                          choices="ok")
+
+        if not component_view["statusbar"]:
+            statusbar = components["statusbar"]
+            dock = docks["bottom"]
+            sizer = dock.get_sizer()
+            subsizer_item = sizer.get_item(-1)
+            subsizer = subsizer_item.get_object()
+            subsizer.remove_item(statusbar.get_sizer_item())
+            statusbar.hide()
+            docking_targets.remove(statusbar)
+
+        if not component_view["toolbars"]:
+            self.__clear_layout(config_data["gui_layout"]["main"])
+
+        if not component_view["control_pane"]:
+            panel_stack = components["panel_stack"]
+            panel_stack_frame = panel_stack.get_frame()
+            dock = docks["right"]
+            sizer = dock.get_sizer()
+            subsizer_item = sizer.get_item(0)
+            subsizer = subsizer_item.get_object()
+            subsizer.remove_item(panel_stack_frame.get_sizer_item())
+            panel_stack.hide()
+
+        if False in component_view.values():
+            self.__update_window()
+
+    def __show_components(self, component_types, show=True):
+
+        components = self._registry
+        docks = components["docks"]
+        docking_targets = components["docking_targets"]
+        config_data = GlobalData["config"]
+
+        if "menubar" in component_types:
+
+            menubar = components["menubar"]
+            dock = docks["top"]
+            sizer = dock.get_sizer()
+            subsizer_item = sizer.get_item(0)
+            subsizer = subsizer_item.get_object()
+
+            if show:
+                menubar.show()
+                subsizer.add(menubar, proportion=1.)
+                docking_targets.append(menubar)
+            else:
+                subsizer.remove_item(menubar.get_sizer_item())
+                menubar.hide()
+                docking_targets.remove(menubar)
+
+        if "statusbar" in component_types:
+
+            statusbar = components["statusbar"]
+            dock = docks["bottom"]
+            sizer = dock.get_sizer()
+            subsizer_item = sizer.get_item(-1)
+            subsizer = subsizer_item.get_object()
+
+            if show:
+                statusbar.show()
+                subsizer.add(statusbar, proportion=1.)
+                docking_targets.append(statusbar)
+            else:
+                subsizer.remove_item(statusbar.get_sizer_item())
+                statusbar.hide()
+                docking_targets.remove(statusbar)
+
+        if "toolbars" in component_types:
+
+            layout = config_data["gui_layout"]
+            interface_id = "main"
+            viewport_data = GlobalData["viewport"]
+
+            if viewport_data[2]:
+                if viewport_data[2] == "main":
+                    interface_id = viewport_data[1]
+                else:
+                    interface_id = viewport_data[2]
+
+            if show:
+                self.__create_layout(layout[interface_id])
+            else:
+                self.__clear_layout(layout[interface_id])
+
+        if "control_pane" in component_types:
+
+            panel_stack = components["panel_stack"]
+            panel_stack_frame = panel_stack.get_frame()
+            dock = docks["right"]
+            sizer = dock.get_sizer()
+            subsizer_item = sizer.get_item(0)
+            subsizer = subsizer_item.get_object()
+
+            if show:
+                panel_stack.show()
+                subsizer.add(panel_stack_frame, expand=True)
+            else:
+                subsizer.remove_item(panel_stack_frame.get_sizer_item())
+                panel_stack.hide()
+
+        self.__update_window()
+
+        if "menubar" in component_types and not show:
+            MessageDialog(title="Menu access",
+                          message="The menubar is hidden, but its menus can still\n" \
+                                  "be accessed through the main context menu\n" \
+                                  "(Ctrl + right-click in the viewport).",
+                          choices="ok")
+
+        component_view = config_data["gui_view"]
+
+        for component_type in component_types:
+            component_view[component_type] = show
+
+        with open("config", "wb") as config_file:
+            pickle.dump(config_data, config_file, -1)
+
+    def __get_default_component_view(self):
+
+        component_view = {}
+        component_view["menubar"] = True
+        component_view["statusbar"] = True
+        component_view["toolbars"] = True
+        component_view["control_pane"] = True
+
+        return component_view
+
     def __create_layout(self, layout_data):
 
         components = self._registry
@@ -648,24 +806,28 @@ class Components(object):
 
         return layout
 
-    def __create_main_layout(self):
+    def __init_main_layout(self):
 
-        docks = self._registry["docks"]
         config_data = GlobalData["config"]
         layout = config_data.get("gui_layout")
+        component_view = config_data.get("gui_view")
 
         if not layout:
-
             layout = self.__get_default_layout_data()
             config_data["gui_layout"] = layout
 
+        if not component_view:
+            component_view = self.__get_default_component_view()
+            config_data["gui_view"] = component_view
+
+        if not (layout or component_view):
             with open("config", "wb") as config_file:
                 pickle.dump(config_data, config_file, -1)
 
         side = layout["right_dock"]
 
         if side == "left":
-            dock = docks["right"]
+            dock = self._registry["docks"]["right"]
             sizer_item = dock.get_sizer_item()
             sizer = sizer_item.get_sizer()
             sizer.remove_item(sizer_item)
@@ -673,10 +835,21 @@ class Components(object):
 
         self.__create_layout(layout["main"])
 
+    def __create_main_layout(self):
+
+        config_data = GlobalData["config"]
+
+        if config_data["gui_view"]["toolbars"]:
+            layout_data = config_data["gui_layout"]["main"]
+            self.__create_layout(layout_data)
+
     def __clear_main_layout(self):
 
-        layout_data = GlobalData["config"]["gui_layout"]["main"]
-        self.__clear_layout(layout_data)
+        config_data = GlobalData["config"]
+
+        if config_data["gui_view"]["toolbars"]:
+            layout_data = config_data["gui_layout"]["main"]
+            self.__clear_layout(layout_data)
 
     def __update_layout(self):
 
