@@ -23,7 +23,7 @@ Skin = {
 }
 
 
-class Font(object):
+class Font:
 
     def __init__(self, path, pixel_size, height, y, line_spacing):
 
@@ -46,7 +46,7 @@ class Font(object):
 
         return self._text_maker.calc_width(text)
 
-    def create_image(self, text, text_color=(0., 0., 0., 1.), back_color=None):
+    def __create_line_image(self, text, text_color=(0., 0., 0., 1.), back_color=None):
 
         text_maker = self._text_maker
         w = text_maker.calc_width(text)
@@ -61,6 +61,30 @@ class Font(object):
         text_maker.set_fg(text_color)
         text_maker.generate_into(text, image, 0, self._y)
         image.unpremultiply_alpha()
+
+        return image
+
+    def create_image(self, text, text_color=(0., 0., 0., 1.), back_color=None):
+
+        lines = text.split("\n")
+        line_count = len(lines)
+
+        if line_count == 1:
+            return self.__create_line_image(text, text_color, back_color)
+
+        line_imgs = []
+        line_spacing = self._line_spacing
+        width = 0
+
+        for line in lines:
+            line_img = self.__create_line_image(line, text_color, back_color)
+            line_imgs.append(line_img)
+            width = max(width, line_img.get_x_size())
+
+        image = PNMImage(width, line_spacing * (line_count - 1) + self._height, 4)
+
+        for i, line_img in enumerate(line_imgs):
+            image.copy_sub_image(line_img, 0, i * line_spacing, 0, 0)
 
         return image
 
@@ -216,7 +240,7 @@ def get_relative_region_frame(x, y, width, height, ref_width, ref_height):
     return l, r, b, t
 
 
-class _Tasks(object):
+class _Tasks:
 
     def __init__(self):
 
@@ -243,7 +267,7 @@ class _Tasks(object):
         return id(self) <= id(other)
 
 
-class PendingTaskBatch(object):
+class PendingTaskBatch:
 
     def __init__(self, sort=0):
 
@@ -387,7 +411,7 @@ class PendingTaskBatch(object):
         return self._sort
 
 
-class PendingTasks(object):
+class PendingTasks:
 
     _batches = {"": PendingTaskBatch()}
     _batch_sort = {0: ""}
@@ -443,7 +467,7 @@ class PendingTasks(object):
         return cls._batches[batch_id].get_sort(task_id, task_type)
 
 
-class HotkeyManager(object):
+class HotkeyManager:
 
     _hotkey_registry = {}
 

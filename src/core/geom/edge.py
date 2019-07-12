@@ -137,7 +137,7 @@ class Edge(BaseObject):
         return intersection_point
 
 
-class MergedEdge(object):
+class MergedEdge:
 
     def __getstate__(self):
 

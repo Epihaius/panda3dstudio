@@ -4,7 +4,7 @@ from .base import *
 COMPRESSION = 9
 
 
-class TimeIDRef(object):
+class TimeIDRef:
 
     def __init__(self, time_id):
 
@@ -19,7 +19,7 @@ class TimeIDRef(object):
         return self._time_id
 
 
-class HistoryEvent(object):
+class HistoryEvent:
 
     _edited_events = set()
 

@@ -1,7 +1,7 @@
 from ...base import *
 
 
-class RotationComponent(object):
+class RotationComponent:
 
     def __init__(self, gizmo):
 

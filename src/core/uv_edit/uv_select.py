@@ -948,8 +948,8 @@ class UVSelectionBase(BaseObject):
         cam_np.reparent_to(self.cam)
         ge = base.graphics_engine
 
-        ctrl_down = self.mouse_watcher.is_button_down(KeyboardButton.control())
-        shift_down = self.mouse_watcher.is_button_down(KeyboardButton.shift())
+        ctrl_down = self.mouse_watcher.is_button_down("control")
+        shift_down = self.mouse_watcher.is_button_down("shift")
 
         if ctrl_down:
             op = "toggle" if shift_down else "add"
@@ -1242,7 +1242,7 @@ class UVSelectionBase(BaseObject):
 
     def __init_select(self, op="replace"):
 
-        alt_down = self.mouse_watcher.is_button_down(KeyboardButton.alt())
+        alt_down = self.mouse_watcher.is_button_down("alt")
         region_select = not alt_down if GlobalData["region_select"]["is_default"] else alt_down
 
         if region_select:

@@ -3,7 +3,7 @@ from ..dialog import *
 from .import_dialog import ImportDialog
 
 
-class FileManager(object):
+class FileManager:
 
     def __init__(self, menubar):
 
@@ -242,7 +242,7 @@ class FileManager(object):
         if Dialog.get_dialogs():
             return
 
-        Mgr.get("base").messenger.send("focus_loss")
+        Mgr.send("focus_loss")
 
         def on_exit():
 

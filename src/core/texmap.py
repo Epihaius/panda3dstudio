@@ -1,7 +1,7 @@
 from .base import *
 
 
-class TextureMap(object):
+class TextureMap:
 
     _wrap_modes = {
         "repeat": SamplerState.WM_repeat,
@@ -731,7 +731,7 @@ class Layer(TextureMap):
             self.set_combine_source_channels(value)
 
 
-class TexMapManager(object):
+class TexMapManager:
 
     def __init__(self):
 

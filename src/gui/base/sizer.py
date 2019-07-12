@@ -2,7 +2,7 @@ from .base import *
 from .mgr import GUIManager as Mgr
 
 
-class SizerItem(object):
+class SizerItem:
 
     def __init__(self, sizer, obj, obj_type, proportion=0., expand=False,
                  alignment="", borders=None):
@@ -185,7 +185,7 @@ class SizerItem(object):
         return False if self._type == "size" else self._obj.is_hidden(check_ancestors=False)
 
 
-class Sizer(object):
+class Sizer:
 
     def __init__(self, stretch_dir="", hidden=False):
 
@@ -780,7 +780,7 @@ class ScrollSizer(Sizer):
             self._size = (min(w_min, w), min(h_min, h))
 
 
-class GridDataItem(object):
+class GridDataItem:
 
     def __init__(self, obj, proportion_h, proportion_v, stretch_h, stretch_v,
                  alignment_h, alignment_v, borders):

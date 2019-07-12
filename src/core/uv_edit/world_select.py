@@ -447,7 +447,7 @@ class SelectionManager(BaseObject):
 
     def __init_select(self, op="replace"):
 
-        alt_down = self.mouse_watcher.is_button_down(KeyboardButton.alt())
+        alt_down = self.mouse_watcher.is_button_down("alt")
         region_select = not alt_down if GlobalData["region_select"]["is_default"] else alt_down
 
         if region_select:

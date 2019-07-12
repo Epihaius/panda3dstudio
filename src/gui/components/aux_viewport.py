@@ -312,7 +312,7 @@ class AdjacentViewportBorder(ViewportBorder):
         return task.cont
 
 
-class AuxiliaryViewport(object):
+class AuxiliaryViewport:
 
     def __init__(self, window, viewport_sizer, adjacent_viewport_sizer):
 

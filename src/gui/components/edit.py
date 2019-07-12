@@ -1,7 +1,7 @@
 from ..base import *
 
 
-class EditManager(object):
+class EditManager:
 
     def __init__(self, menubar, uv_edit_command):
 

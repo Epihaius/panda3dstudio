@@ -376,7 +376,7 @@ class Button(Widget, HotkeyManager):
         return True
 
 
-class ButtonGroup(object):
+class ButtonGroup:
 
     def __init__(self):
 

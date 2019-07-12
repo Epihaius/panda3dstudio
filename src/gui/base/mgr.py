@@ -1,7 +1,7 @@
 from .base import *
 
 
-class GUIManager(object):
+class GUIManager:
 
     # store handlers of tasks by id
     _task_handlers = {}

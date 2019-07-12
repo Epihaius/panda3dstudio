@@ -1,7 +1,7 @@
 from ....base import *
 
 
-class SmoothingGroup(object):
+class SmoothingGroup:
 
     def __init__(self, poly_ids=None):
 

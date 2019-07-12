@@ -1,7 +1,7 @@
 from ..base import *
 
 
-class TemporaryPointHelper(object):
+class TemporaryPointHelper:
 
     _original_geom = None
 

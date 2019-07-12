@@ -246,7 +246,7 @@ class Vertex(BaseObject):
         return intersection_point
 
 
-class MergedVertex(object):
+class MergedVertex:
 
     def __getstate__(self):
 

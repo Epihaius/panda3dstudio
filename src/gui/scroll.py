@@ -955,14 +955,14 @@ class ScrollPane(WidgetCard):
 
     def __scroll_to_start(self):
 
-        ctrl_down = self.get_mouse_watcher().is_button_down(KeyboardButton.control())
+        ctrl_down = self.get_mouse_watcher().is_button_down("control")
 
         if ctrl_down and self._can_scroll():
             self._scrollthumb.set_offset(0)
 
     def __scroll_to_end(self):
 
-        ctrl_down = self.get_mouse_watcher().is_button_down(KeyboardButton.control())
+        ctrl_down = self.get_mouse_watcher().is_button_down("control")
 
         if ctrl_down and self._can_scroll():
             sizer = self.get_sizer()

@@ -1,7 +1,7 @@
 from ..base import *
 
 
-class BaseObject(object):
+class BaseObject:
 
     uv_space = None
     cam = None
@@ -37,7 +37,7 @@ class BaseObject(object):
         return True
 
 
-class UVManager(object):
+class UVManager:
 
     # structure to store callables through which data can be retrieved by id
     _data_retrievers = {}

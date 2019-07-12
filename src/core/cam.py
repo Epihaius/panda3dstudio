@@ -7,11 +7,11 @@ class MainCamera(BaseObject):
     def origin(self):
 
         return self._origins[GlobalData["view"]]
-      
-      
+
+
     @property
     def lens_type(self):
-        
+
         return self._lens_types[GlobalData["view"]]
 
     @lens_type.setter
@@ -23,25 +23,25 @@ class MainCamera(BaseObject):
 
     @property
     def lens(self):
-      
+
         return self._lenses[self.lens_type]
 
-    
+
     @property
     def target(self):
-      
+
         return self._targets[GlobalData["view"]]
 
 
     @property
     def pivot(self):
-      
+
         return self._pivots[GlobalData["view"]]
 
 
     @property
     def zoom(self):
-        
+
         return self.origin.get_y() if self.lens_type == "persp" else self.target.get_sx()
 
     @zoom.setter

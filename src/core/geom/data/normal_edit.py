@@ -1,7 +1,7 @@
 from ..base import *
 
 
-class SharedNormal(object):
+class SharedNormal:
 
     def __getstate__(self):
 

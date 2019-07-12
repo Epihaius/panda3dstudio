@@ -1,7 +1,7 @@
 from .base import *
 
 
-class BoxProperties(object):
+class BoxProperties:
 
     def __init__(self, panel):
 

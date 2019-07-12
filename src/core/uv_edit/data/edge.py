@@ -99,7 +99,7 @@ class Edge(BaseObject):
         return sum([verts[v_id].get_pos(ref_node) for v_id in self._vert_ids], Point3()) * .5
 
 
-class MergedEdge(object):
+class MergedEdge:
 
     def __init__(self, uv_data_obj, edge_ids=None):
 

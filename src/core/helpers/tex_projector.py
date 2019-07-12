@@ -3,7 +3,7 @@ from panda3d.fx import ProjectionScreen
 from math import pi, sin, cos
 
 
-class TemporaryTexProjector(object):
+class TemporaryTexProjector:
 
     _original_geom = None
 

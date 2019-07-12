@@ -7,9 +7,8 @@ try:
 except ImportError:
     using_tk = False
 
-load_prc_file_data("", "want-dev 0")
 
-class TextControl(object):
+class TextControl:
 
     _shown_caret = None
     _clipboard = ""
@@ -980,7 +979,7 @@ class InputField(Widget):
 
         def is_shift_down():
 
-            return Mgr.get("mouse_watcher").is_button_down(KeyboardButton.shift())
+            return Mgr.get("mouse_watcher").is_button_down("shift")
 
         listener = self._listener
         listener.accept("gui_arrow_left", lambda: txt_ctrl.move_caret(-1, select=is_shift_down()))
@@ -1009,7 +1008,7 @@ class InputField(Widget):
     def on_left_down(self):
 
         if self._active_field is self:
-            shift_down = Mgr.get("mouse_watcher").is_button_down(KeyboardButton.shift())
+            shift_down = Mgr.get("mouse_watcher").is_button_down("shift")
             self.__set_caret_to_mouse_pos(select=shift_down)
             Mgr.add_task(.05, self.__select_text, "select_text")
             self._selecting_text = True

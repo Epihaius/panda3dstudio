@@ -1,7 +1,7 @@
 from ...base import *
 
 
-class ScalingComponent(object):
+class ScalingComponent:
 
     def __init__(self, gizmo):
 

@@ -1,7 +1,7 @@
 from .base import *
 
 
-class PlaneProperties(object):
+class PlaneProperties:
 
     def __init__(self, panel):
 

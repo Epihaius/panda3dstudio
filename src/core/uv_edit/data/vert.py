@@ -122,7 +122,7 @@ class Vertex(BaseObject):
         return data["row"] + data["row_offset"]
 
 
-class MergedVertex(object):
+class MergedVertex:
 
     def __init__(self, uv_data_obj, vert_ids=None):
 

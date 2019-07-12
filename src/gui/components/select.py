@@ -577,7 +577,7 @@ class SelectionPanel(Panel):
         Mgr.update_remotely("object_selection", "combine_sets", item_id1, item_id2, op, in_place)
 
 
-class SelectionManager(object):
+class SelectionManager:
 
     def __init__(self, menubar):
 

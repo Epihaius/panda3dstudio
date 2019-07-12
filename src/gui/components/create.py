@@ -2,7 +2,7 @@ from ..base import *
 from .props.base import ObjectTypes
 
 
-class CreationManager(object):
+class CreationManager:
 
     def __init__(self, menubar):
 

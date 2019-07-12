@@ -306,7 +306,7 @@ class TagDialog(Dialog):
         TagField.set_ref_node_pos((-x, 0, y))
 
 
-class ObjectPropertiesMenu(object):
+class ObjectPropertiesMenu:
 
     def __init__(self):
 

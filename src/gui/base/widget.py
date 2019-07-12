@@ -2,7 +2,7 @@ from .base import *
 from .mgr import GUIManager as Mgr
 
 
-class Widget(object):
+class Widget:
 
     registry = {}
     _count = 0
@@ -569,7 +569,7 @@ class Widget(object):
     def on_right_up(self): pass
 
 
-class WidgetCard(object):
+class WidgetCard:
 
     def __init__(self, widget_type, parent=None, stretch_dir=""):
 

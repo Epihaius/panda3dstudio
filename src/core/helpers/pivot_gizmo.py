@@ -57,7 +57,7 @@ class PivotAxis(BaseObject):
         return intersection_point
 
 
-class PivotGizmo(object):
+class PivotGizmo:
 
     _original = None
 

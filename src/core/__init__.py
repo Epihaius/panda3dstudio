@@ -4,7 +4,7 @@ from . import (cam, nav, view, history, scene, import_, export, create, select, 
                transf_center, coord_sys, geom, hierarchy, helpers, texmap, material, snap, align)
 
 
-class Core(object):
+class Core:
 
     def __init__(self, app_mgr, verbose=False):
 
@@ -176,7 +176,7 @@ class Core(object):
         return self._listeners[interface_id]
 
 
-class KeyEventListener(object):
+class KeyEventListener:
 
     _event_ids = [
         "escape", "print_screen", "scroll_lock", "num_lock", "caps_lock", "backspace", "delete",
@@ -246,13 +246,13 @@ class KeyEventListener(object):
 
             mod_key_down = self._mouse_watcher.is_button_down
 
-            if mod_key_down(KeyboardButton.shift()):
+            if mod_key_down("shift"):
                 GlobalData["shift_down"] = True
 
-            if mod_key_down(KeyboardButton.control()):
+            if mod_key_down("control"):
                 GlobalData["ctrl_down"] = True
 
-            if mod_key_down(KeyboardButton.alt()):
+            if mod_key_down("alt"):
                 GlobalData["alt_down"] = True
 
             if not self.__handle_event(self._prefix + key):

@@ -1,7 +1,7 @@
 from .mgr import CoreManager as Mgr
 
 
-class ObjPropDefaultsManager(object):
+class ObjPropDefaultsManager:
 
     def __init__(self, obj_type):
 

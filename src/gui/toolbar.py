@@ -5,7 +5,7 @@ from .menu import Menu
 from collections import deque
 
 
-class ToolbarInsertionMarker(object):
+class ToolbarInsertionMarker:
 
     def __init__(self):
 
@@ -68,7 +68,7 @@ class ToolbarInsertionMarker(object):
             self._cards[self._type].show()
 
 
-class ToolbarGhostImage(object):
+class ToolbarGhostImage:
 
     def __init__(self, toolbar_image):
 
@@ -331,7 +331,7 @@ class ToolbarRowHandle(Widget):
             self._grip_mouse_region.set_active(enable)
 
 
-class ToolbarRow(object):
+class ToolbarRow:
 
     def __init__(self, parent):
 
@@ -791,7 +791,7 @@ class Toolbar(Widget, HotkeyManager):
                 widget.enable_hotkey(enable)
 
 
-class ToolbarBundle(object):
+class ToolbarBundle:
 
     def __init__(self, toolbar_row):
 
@@ -1086,5 +1086,6 @@ class ToolbarBundle(object):
         self._menu.show_at_mouse_pos()
 
 
-__all__ = ("Toolbar", "ToolbarRow", "ToolbarText", "ToolbarInsertionMarker", "ToolbarSeparator",
-           "ToolbarButton", "ToolbarInputField", "ToolbarComboBox", "ToolbarCheckBox", "ToolbarColorBox")
+__all__ = ("Toolbar", "ToolbarRow", "ToolbarText", "ToolbarInsertionMarker",
+           "ToolbarSeparator", "ToolbarButton", "ToolbarInputField",
+           "ToolbarComboBox", "ToolbarCheckButton", "ToolbarColorBox")

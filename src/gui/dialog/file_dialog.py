@@ -653,7 +653,7 @@ class FileDialog(Dialog):
         def remove_file():
 
             btn = FileButton.selected_btn
-            shift_down = Mgr.get("mouse_watcher").is_button_down(KeyboardButton.shift())
+            shift_down = Mgr.get("mouse_watcher").is_button_down("shift")
 
             if btn and shift_down:
                 btn.remove_file()

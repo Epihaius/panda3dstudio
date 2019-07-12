@@ -2,7 +2,7 @@ from ..base import *
 from ..menu import Menu
 
 
-class SeparatorGhostImage(object):
+class SeparatorGhostImage:
 
     def __init__(self):
 

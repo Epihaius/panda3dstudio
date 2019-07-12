@@ -1,7 +1,7 @@
 from .base import *
 
 
-class ToolTip(object):
+class ToolTip:
 
     _card = None
     _label = None

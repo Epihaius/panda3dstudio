@@ -1,7 +1,7 @@
 from ....base import *
 
 
-class TriangleSide(object):
+class TriangleSide:
 
     def __init__(self, geom_data_obj, poly_id, vert_ids):
 

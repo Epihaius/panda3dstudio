@@ -4,7 +4,7 @@ from functools import reduce
 
 
 # All managers of pickable objects should derive from the following class
-class PickingColorIDManager(object):
+class PickingColorIDManager:
 
     _mgrs = {}
     _id_range_backups_created = False

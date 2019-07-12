@@ -2,7 +2,7 @@ from .base import *
 from .mgr import CoreManager as Mgr
 
 
-class CreationPhaseManager(object):
+class CreationPhaseManager:
 
     _id_generator = id_generator()
 

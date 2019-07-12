@@ -16,7 +16,7 @@ GFX_PATH = "res/"
 
 # All objects that need access to core variables should derive from the
 # following class
-class BaseObject(object):
+class BaseObject:
 
     world = None
     screen = None
@@ -88,7 +88,7 @@ class BaseObject(object):
 
 # All main objects, especially those that need to be set up at the start of the
 # program, should be added to the following class
-class MainObjects(object):
+class MainObjects:
 
     _classes = {}
     _objs = {}
@@ -143,7 +143,7 @@ class MainObjects(object):
         return cls._setup_results.get(interface_id, [])
 
 
-class _PendingTask(object):
+class _PendingTask:
 
     _long_process_handler = None
 
@@ -176,7 +176,7 @@ class _PendingTask(object):
             self._func()
 
 
-class _Tasks(object):
+class _Tasks:
 
     def __init__(self):
 
@@ -203,7 +203,7 @@ class _Tasks(object):
         return id(self) <= id(other)
 
 
-class PendingTasks(object):
+class PendingTasks:
 
     _tasks = {}
     _sorted_tasks = []
@@ -419,7 +419,7 @@ class PendingTasks(object):
 
 # All pickable object types should be registered through the following class;
 # certain non-editable types like gizmo handles should be considered "special"
-class PickableTypes(object):
+class PickableTypes:
 
     _count = 0
     _special_types = []
@@ -498,7 +498,7 @@ camera_mask = _get_camera_mask()
 # used as a dictionary key when 2 identical positions should still be treated
 # as different keys (e.g. to differentiate between two vertices that share the
 # same location in space).
-class PosObj(object):
+class PosObj:
 
     def __init__(self, pos):
 

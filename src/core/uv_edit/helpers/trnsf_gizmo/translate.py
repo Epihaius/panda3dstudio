@@ -1,7 +1,7 @@
 from ...base import *
 
 
-class TranslationComponent(object):
+class TranslationComponent:
 
     def __init__(self, gizmo):
 

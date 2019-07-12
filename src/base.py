@@ -74,14 +74,14 @@ class GlobalMeta(type):
 
 # Global data - accessible from both the Core and the GUI - can be set and
 # retrieved through the following class.
-class GlobalData(object, metaclass=GlobalMeta):
+class GlobalData(metaclass=GlobalMeta):
 
     pass
 
 
 # Using the following class to set the name of an object allows updating the
 # application to pick up any changes made to the name wherever this name is used.
-class ObjectName(object):
+class ObjectName:
 
     def __init__(self, name):
 
@@ -194,7 +194,7 @@ def get_unique_name(requested_name, namelist, default_search_pattern="",
 # handlers.
 # Multiple bindings can be set active at once, with the option to stop listening
 # for all other events.
-class EventBinder(object):
+class EventBinder:
 
     def __init__(self, listener):
 
@@ -297,7 +297,7 @@ class EventBinder(object):
         return list(self._active_bindings.values())
 
 
-class StateObject(object):
+class StateObject:
 
     def __init__(self, state_id, persistence, on_enter=None, on_exit=None):
 
@@ -360,7 +360,7 @@ class StateObject(object):
 
 # The following class manages the different states that the application
 # can be in for a specific interface.
-class StateManager(object):
+class StateManager:
 
     def __init__(self):
 

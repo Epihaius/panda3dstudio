@@ -341,8 +341,8 @@ class HistoryEntry(Widget):
 
         pane = self.get_ancestor("history_pane")
         pane.set_clicked_entry(self)
-        ctrl_down = Mgr.get("mouse_watcher").is_button_down(KeyboardButton.control())
-        shift_down = Mgr.get("mouse_watcher").is_button_down(KeyboardButton.shift())
+        ctrl_down = Mgr.get("mouse_watcher").is_button_down("control")
+        shift_down = Mgr.get("mouse_watcher").is_button_down("shift")
 
         if ctrl_down:
             if shift_down:
@@ -359,7 +359,7 @@ class HistoryEntry(Widget):
         pane.show_menu(self)
 
 
-class StartPanel(object):
+class StartPanel:
 
     def __init__(self):
 

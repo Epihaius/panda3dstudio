@@ -2,7 +2,7 @@ from ..base import *
 from ..dialog import *
 
 
-class OptionManager(object):
+class OptionManager:
 
     def __init__(self, menubar):
 

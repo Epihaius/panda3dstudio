@@ -7,7 +7,7 @@ from .background import BackgroundPanel
 from .export import ExportPanel
 
 
-class UVEditGUI(object):
+class UVEditGUI:
 
     def __init__(self, main_components):
 

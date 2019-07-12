@@ -1,7 +1,7 @@
 from .base import *
 
 
-class CoreManager(object):
+class CoreManager:
 
     # structure to store handlers for received notifications
     _notification_handlers = {}

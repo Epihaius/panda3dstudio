@@ -201,7 +201,7 @@ class UVTransformGizmo(BaseObject):
         self._root.show(picking_mask) if pickable else self._root.hide(picking_mask)
 
 
-class DefaultAxes(object):
+class DefaultAxes:
 
     def __init__(self, gizmo):
 

@@ -2,7 +2,7 @@ from .base import *
 from .base import Material as BaseMaterial
 
 
-class Material(object):
+class Material:
 
     def __getstate__(self):
 
@@ -1003,7 +1003,7 @@ class Material(object):
         Mgr.do("unregister_material", self)
 
 
-class MaterialManager(object):
+class MaterialManager:
 
     def __init__(self):
 

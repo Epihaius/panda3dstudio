@@ -5,7 +5,7 @@ from .components import Components
 import sys
 
 
-class GUI(object):
+class GUI:
 
     def __init__(self, app_mgr, verbose=False):
 
@@ -95,7 +95,6 @@ class GUI(object):
         mw.attach_new_node(btn_thrower_node)
         cursor_watcher = input_ctrl.attach_new_node(cursor_watcher_node)
         gui_cursor_region = MouseWatcherRegion("gui", -1., 1., -1., 1.)
-        gui_cursor_region.set_frame(-1., 1., -1., 1.)
         viewport_cursor_region = MouseWatcherRegion("viewport", 0., 0., 0., 0.)
         Mgr.expose("viewport_cursor_region", lambda: viewport_cursor_region)
         app_mgr.add_cursor_region("", gui_cursor_region)

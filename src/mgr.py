@@ -19,7 +19,7 @@ notify-level-linmath error
 
 # the CursorManager class is used to set the mouse cursor image, but also to reset it to the image
 # that was last used for a particular region (GUI, viewport, etc.) when entering that region again
-class CursorManager(object):
+class CursorManager:
 
     def __init__(self, base, mouse_watcher_node):
 
@@ -78,7 +78,7 @@ class CursorManager(object):
 
 # the AppManager is responsible for unifying the two main components of the
 # application: the Core and the GUI
-class AppManager(object):
+class AppManager:
 
     def __init__(self, verbose=False):
 
