@@ -746,15 +746,11 @@ class TransformDialog(Dialog):
             self._preview = preview
             Mgr.update_remotely("componentwise_xform", "", values, preview, not preview)
 
-        subsizer = Sizer("horizontal")
+        text = "Preview"
+        checkbtn = DialogCheckButton(self, enable_preview, text)
+        checkbtn.check()
         borders = (20, 20, 15, 20)
-        client_sizer.add(subsizer, borders=borders)
-        checkbox = DialogCheckBox(self, enable_preview)
-        checkbox.check()
-        subsizer.add(checkbox, alignment="center_v")
-        text = DialogText(self, "Preview")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        client_sizer.add(checkbtn, borders=borders)
 
         self.finalize()
 
@@ -889,12 +885,10 @@ class TransformOptionsDialog(Dialog):
 
             new_rot_options["show_circle"] = show
 
-        checkbox = DialogCheckBox(subgroup, show_viz)
-        checkbox.check(old_rot_options["show_circle"])
-        subsizer.add(checkbox, alignment="center_v")
-        text = DialogText(subgroup, "View-aligned circle")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        text = "View-aligned circle"
+        checkbtn = DialogCheckButton(subgroup, show_viz, text)
+        checkbtn.check(old_rot_options["show_circle"])
+        subsizer.add(checkbtn, alignment="center_v")
 
         text = DialogText(subgroup, "Radius:")
         borders = (20, 5, 0, 0)
@@ -911,13 +905,11 @@ class TransformOptionsDialog(Dialog):
 
             new_rot_options["scale_circle_to_cursor"] = to_cursor
 
-        checkbox = DialogCheckBox(subgroup, scale_to_cursor)
-        checkbox.check(old_rot_options["scale_circle_to_cursor"])
+        text = "Scale to cursor"
+        checkbtn = DialogCheckButton(subgroup, scale_to_cursor, text)
+        checkbtn.check(old_rot_options["scale_circle_to_cursor"])
         borders = (20, 0, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
-        text = DialogText(subgroup, "Scale to cursor")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        subsizer.add(checkbtn, alignment="center_v", borders=borders)
 
         subsizer = Sizer("horizontal")
         borders = (5, 5, 5, 0)
@@ -927,24 +919,20 @@ class TransformOptionsDialog(Dialog):
 
             new_rot_options["show_line"] = show
 
-        checkbox = DialogCheckBox(subgroup, show_viz)
-        checkbox.check(old_rot_options["show_line"])
-        subsizer.add(checkbox, alignment="center_v")
-        text = DialogText(subgroup, "Line")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        text = "Line"
+        checkbtn = DialogCheckButton(subgroup, show_viz, text)
+        checkbtn.check(old_rot_options["show_line"])
+        subsizer.add(checkbtn, alignment="center_v")
 
         def thru_gizmo_center(thru_gizmo):
 
             new_rot_options["line_thru_gizmo_center"] = thru_gizmo
 
-        checkbox = DialogCheckBox(subgroup, thru_gizmo_center)
-        checkbox.check(old_rot_options["line_thru_gizmo_center"])
+        text = "Through gizmo center"
+        checkbtn = DialogCheckButton(subgroup, thru_gizmo_center, text)
+        checkbtn.check(old_rot_options["line_thru_gizmo_center"])
         borders = (20, 0, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
-        text = DialogText(subgroup, "Through gizmo center")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        subsizer.add(checkbtn, alignment="center_v", borders=borders)
 
         text = DialogText(subgroup, "Full rotation:")
         borders = (20, 5, 0, 0)

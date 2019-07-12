@@ -6,10 +6,9 @@ from ..button import Button
 from ..combobox import ComboBox
 from ..field import InputField
 from ..colorbox import ColorBox
-from ..checkbox import CheckBox
+from ..checkbtn import CheckButton
 from ..radiobtn import RadioButton
-from ..panel import (PanelStack, PanelButton, PanelInputField, PanelCheckBox, PanelColorBox,
-                     PanelRadioButtonGroup, PanelComboBox)
+from ..panel import PanelStack
 from ..dialog import *
 from ..menu import Menu
 from .aux_viewport import AuxiliaryViewport
@@ -33,7 +32,7 @@ from .obj_props import ObjectPropertiesMenu
 from .uv_edit import UVEditGUI
 
 
-class Window(object):
+class Window:
 
     def __init__(self):
 
@@ -152,7 +151,7 @@ class Dock(WidgetCard):
         return 1
 
 
-class Components(object):
+class Components:
 
     def __init__(self):
 
@@ -174,7 +173,7 @@ class Components(object):
         Mgr.expose("window", lambda: self._window)
 
         InputField.init()
-        CheckBox.init()
+        CheckButton.init()
         ColorBox.init()
         RadioButton.init()
         ToolTip.init()
@@ -495,6 +494,14 @@ class Components(object):
         with open("config", "wb") as config_file:
             pickle.dump(config_data, config_file, -1)
 
+    def __show_menubar_message(self, task=None):
+
+        MessageDialog(title="Menu access",
+                      message="The menu bar is hidden, but its menus can still\n" \
+                              "be accessed through the main context menu\n" \
+                              "(Ctrl + right-click in the viewport).",
+                      choices="ok")
+
     def __hide_components_at_startup(self):
 
         components = self._registry
@@ -512,11 +519,7 @@ class Components(object):
             subsizer.remove_item(menubar.get_sizer_item())
             menubar.hide()
             docking_targets.remove(menubar)
-            MessageDialog(title="Menu access",
-                          message="The menubar is hidden, but its menus can still\n" \
-                                  "be accessed through the main context menu\n" \
-                                  "(Ctrl + right-click in the viewport).",
-                          choices="ok")
+            Mgr.do_next_frame(self.__show_menubar_message, "show_menubar_message")
 
         if not component_view["statusbar"]:
             statusbar = components["statusbar"]
@@ -621,11 +624,7 @@ class Components(object):
         self.__update_window()
 
         if "menubar" in component_types and not show:
-            MessageDialog(title="Menu access",
-                          message="The menubar is hidden, but its menus can still\n" \
-                                  "be accessed through the main context menu\n" \
-                                  "(Ctrl + right-click in the viewport).",
-                          choices="ok")
+            self.__show_menubar_message()
 
         component_view = config_data["gui_view"]
 
@@ -1381,7 +1380,7 @@ class Components(object):
         GlobalData["viewport"]["border{:d}".format(3 - index)].set_clear_color(color)
         interface_id = GlobalData["viewport"][index]
         Mgr.do("set_interface_status", interface_id)
-        Mgr.get("base").messenger.send("focus_loss")
+        Mgr.send("focus_loss")
 
     def __update_viewport_display_regions(self):
 
@@ -1460,7 +1459,7 @@ class Components(object):
                 Mgr.add_task(.2, self.__update_window, "update_window")
 
         if not win_props.get_foreground():
-            Mgr.get("base").messenger.send("focus_loss")
+            Mgr.send("focus_loss")
 
     def handle_hotkey(self, hotkey, hotkey_repeat):
 

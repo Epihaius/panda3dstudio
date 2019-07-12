@@ -9,7 +9,7 @@ class BackgroundPanel(Panel):
 
         Panel.__init__(self, stack, "background", "Background")
 
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._fields = {}
 
         self._tex_filename = ""
@@ -55,17 +55,11 @@ class BackgroundPanel(Panel):
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        sizer = Sizer("horizontal")
-        top_container.add(sizer, expand=True, borders=borders)
-
         command = lambda val: self.__handle_value("show_on_models", val)
-        checkbox = PanelCheckBox(top_container, command)
-        checkbox.check(False)
-        self._checkboxes["show_on_models"] = checkbox
-        sizer.add(checkbox, alignment="center_v")
-        sizer.add((5, 0))
         text = "Show on models"
-        sizer.add(PanelText(top_container, text), alignment="center_v")
+        checkbtn = PanelCheckButton(top_container, command, text)
+        self._checkbuttons["show_on_models"] = checkbtn
+        top_container.add(checkbtn, borders=borders)
 
     def setup(self): pass
 
@@ -143,7 +137,7 @@ class BackgroundPanel(Panel):
     def __set_background_property(self, prop_id, value):
 
         if prop_id == "show_on_models":
-            self._checkboxes[prop_id].check(value)
+            self._checkbuttons[prop_id].check(value)
             return
 
         self._fields[prop_id].set_value(prop_id, value)

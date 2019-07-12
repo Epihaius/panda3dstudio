@@ -3,7 +3,7 @@ from ...panel import *
 from ...button import *
 
 
-class ObjectTypes(object):
+class ObjectTypes:
 
     _types = {}
 
@@ -40,7 +40,7 @@ class PropertyPanel(Panel):
             "disabled": Skin["text"]["input_disabled"]["color"],
             "custom": (1., 1., 0., 1.)
         }
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._radio_btns = {}
         self._comboboxes = {}
 
@@ -111,42 +111,31 @@ class PropertyPanel(Panel):
 
         section = self.add_section("surface_props", "Surface properties", hidden=True)
 
-        subsizer = Sizer("horizontal")
-        borders = (0, 0, 0, 4)
-        section.add(subsizer, alignment="center_h", borders=borders)
-
         command = lambda on: Mgr.update_remotely("normal_flip", on)
-        checkbox = PanelCheckBox(section, command)
-        checkbox.check(False)
-        self._checkboxes["normal_flip"] = checkbox
-        borders = (2, 2, 2, 2)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Invert (render inside-out)"
-        subsizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(section, command, text)
+        checkbtn.check(False)
+        self._checkbuttons["normal_flip"] = checkbtn
+        borders = (2, 2, 2, 6)
+        section.add(checkbtn, borders=borders)
 
         section.add((0, 8))
 
         group = section.add_group("Tangent space")
-        subsizer = Sizer("horizontal")
-        group.add(subsizer)
+
         command = lambda on: Mgr.update_remotely("tangent_flip", on)
-        checkbox = PanelCheckBox(group, command)
-        checkbox.check(False)
-        self._checkboxes["tangent_flip"] = checkbox
-        borders = (0, 5, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Flip tangent vectors"
-        subsizer.add(PanelText(group, text), alignment="center_v")
-        subsizer = Sizer("horizontal")
-        group.add(subsizer)
+        checkbtn = PanelCheckButton(group, command, text)
+        checkbtn.check(False)
+        self._checkbuttons["tangent_flip"] = checkbtn
+        group.add(checkbtn)
+
         command = lambda on: Mgr.update_remotely("bitangent_flip", on)
-        checkbox = PanelCheckBox(group, command)
-        checkbox.check(False)
-        self._checkboxes["bitangent_flip"] = checkbox
-        borders = (0, 5, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Flip bitangent vectors"
-        subsizer.add(PanelText(group, text), alignment="center_v")
+        checkbtn = PanelCheckButton(group, command, text)
+        checkbtn.check(False)
+        self._checkbuttons["bitangent_flip"] = checkbtn
+        group.add(checkbtn)
 
         # **********************************************************************
 
@@ -163,8 +152,8 @@ class PropertyPanel(Panel):
             if GlobalData["active_creation_type"] != "":
                 return
 
-            if prop_id in self._checkboxes:
-                self._checkboxes[prop_id].check(value)
+            if prop_id in self._checkbuttons:
+                self._checkbuttons[prop_id].check(value)
             elif obj_type:
                 self._properties[obj_type].set_object_property(prop_id, value)
 
@@ -351,11 +340,11 @@ class PropertyPanel(Panel):
             if not on_enable:
 
                 if multi_sel:
-                    for checkbox in self._checkboxes.values():
-                        checkbox.check(False)
+                    for checkbtn in self._checkbuttons.values():
+                        checkbtn.check(False)
 
-                for checkbox in self._checkboxes.values():
-                    checkbox.set_checkmark_color(color)
+                for checkbtn in self._checkbuttons.values():
+                    checkbtn.set_checkmark_color(color)
 
             self._comboboxes["name"].enable(sel_count > 0)
             self._name_field.enable(sel_count > 0)

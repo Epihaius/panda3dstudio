@@ -160,7 +160,7 @@ class AlignmentDialog(Dialog):
         self._sel_obj_axis = "y" if obj_lvl == "normal" or target_type == "obj_axis_point" else "z"
         self._preview = False if obj_lvl == "normal" or target_type == "obj_axis_point" else True
 
-        self._checkboxes = checkboxes = {}
+        self._checkbuttons = checkbtns = {}
         self._radio_btns = radio_btn_groups = {}
         self._axis_toggle_btns = None
         self._point_toggle_btns = None
@@ -182,10 +182,6 @@ class AlignmentDialog(Dialog):
 
             if add_checkbox:
 
-                subsizer = Sizer("horizontal")
-                borders = (5, 0, 10, 0)
-                group.add(subsizer, expand=True, borders=borders)
-
                 def align_to_dir(align):
 
                     self._options["axes"][self._sel_obj_axis]["align"] = align
@@ -193,12 +189,11 @@ class AlignmentDialog(Dialog):
                     if self._preview:
                         Mgr.update_remotely("object_alignment", "", self._options)
 
-                checkbox = DialogCheckBox(group, align_to_dir)
-                subsizer.add(checkbox, alignment="center_v")
-                checkboxes["axis"] = checkbox
-                text = DialogText(group, "Align local axis:")
-                borders = (5, 0, 0, 0)
-                subsizer.add(text, alignment="center_v", borders=borders)
+                text = "Align local axis:"
+                checkbtn = DialogCheckButton(group, align_to_dir, text)
+                borders = (5, 0, 10, 0)
+                group.add(checkbtn, borders=borders)
+                checkbtns["axis"] = checkbtn
 
             return group
 
@@ -240,7 +235,7 @@ class AlignmentDialog(Dialog):
                     radio_btns.set_button_command(axis_id, get_command(axis_id))
 
             radio_btns.set_selected_button("y" if target_type == "obj_axis_point" else "z")
-            enable = "all_axes" not in checkboxes
+            enable = "all_axes" not in checkbtns
             radio_btns.enable(enable)
             color = None if enable else (.5, .5, .5, 1.)
             radio_btns.set_bullet_color(color, update=True)
@@ -250,10 +245,6 @@ class AlignmentDialog(Dialog):
 
         def add_inverted_dir_option(top_border):
 
-            subsizer = Sizer("horizontal")
-            borders = (5, 0, 0, top_border)
-            group.add(subsizer, expand=True, borders=borders)
-
             def set_dir_inverted(invert):
 
                 axis_options = self._options["axes"]
@@ -262,12 +253,11 @@ class AlignmentDialog(Dialog):
                 if self._preview and axis_options[self._sel_obj_axis]["align"]:
                     Mgr.update_remotely("object_alignment", "", self._options)
 
-            checkbox = DialogCheckBox(group, set_dir_inverted)
-            subsizer.add(checkbox, alignment="center_v")
-            checkboxes["invert"] = checkbox
-            text = DialogText(group, "Invert")
-            borders = (5, 0, 0, 0)
-            subsizer.add(text, alignment="center_v", borders=borders)
+            text = "Invert"
+            checkbtn = DialogCheckButton(group, set_dir_inverted, text)
+            borders = (5, 0, 0, top_border)
+            group.add(checkbtn, borders=borders)
+            checkbtns["invert"] = checkbtn
 
         def create_target_point_group(title, group_sizer, axis_id="", borders=None):
 
@@ -347,7 +337,7 @@ class AlignmentDialog(Dialog):
 
                 def align_all_axes(align):
 
-                    checkboxes["all_axes"].check(align)
+                    checkbtns["all_axes"].check(align)
                     axis_options = self._options["axes"]
 
                     if align:
@@ -361,20 +351,20 @@ class AlignmentDialog(Dialog):
                         else:
                             axis3_id = other_axis_ids
                         self._axis_toggle_btns.get_button(axis3_id).enable(False)
-                        checkbox = checkboxes["{}_axis".format(axis3_id)]
-                        checkbox.enable(False)
-                        checkbox.set_checkmark_color((.5, .5, .5, 1.))
-                        checkbox.check()
+                        checkbtn = checkbtns["{}_axis".format(axis3_id)]
+                        checkbtn.enable(False)
+                        checkbtn.set_checkmark_color((.5, .5, .5, 1.))
+                        checkbtn.check()
                         for axis_id in (self._sel_obj_axis, axis2_id):
-                            checkboxes["{}_axis".format(axis_id)].check()
+                            checkbtns["{}_axis".format(axis_id)].check()
                             axis_options[axis_id]["align"] = True
                     else:
                         for axis_id in "xyz":
                             self._axis_toggle_btns.get_button(axis_id).enable()
-                            checkbox = checkboxes["{}_axis".format(axis_id)]
-                            checkbox.enable()
-                            checkbox.set_checkmark_color()
-                            checkbox.check(False)
+                            checkbtn = checkbtns["{}_axis".format(axis_id)]
+                            checkbtn.enable()
+                            checkbtn.set_checkmark_color()
+                            checkbtn.check(False)
                             axis_options[axis_id]["align"] = False
 
                     radio_btn_groups["axis"].enable(align)
@@ -392,7 +382,7 @@ class AlignmentDialog(Dialog):
                         axes_aligned = [a_id for a_id in "xyz" if axis_options[a_id]["align"]]
                         axis_count = len(axes_aligned)
                         axis_options[axis_id]["align"] = align
-                        checkboxes["all_axes"].check(axis_count == 1 and align)
+                        checkbtns["all_axes"].check(axis_count == 1 and align)
 
                         if self._sel_obj_axis == axis_id:
                             radio_btn_groups["axis"].enable(align)
@@ -401,22 +391,22 @@ class AlignmentDialog(Dialog):
 
                         if axis_count == 2:
                             axis3_id = "xyz".replace(axes_aligned[0], "").replace(axes_aligned[1], "")
-                            checkbox = checkboxes["{}_axis".format(axis3_id)]
-                            checkbox.enable()
-                            checkbox.set_checkmark_color()
-                            checkbox.check(False)
+                            checkbtn = checkbtns["{}_axis".format(axis3_id)]
+                            checkbtn.enable()
+                            checkbtn.set_checkmark_color()
+                            checkbtn.check(False)
                             self._axis_toggle_btns.get_button(axis3_id).enable()
                         elif axis_count == 1 and align:
                             axis3_id = "xyz".replace(axis_id, "").replace(axes_aligned[0], "")
-                            checkbox = checkboxes["{}_axis".format(axis3_id)]
-                            checkbox.enable(False)
-                            checkbox.set_checkmark_color((.5, .5, .5, 1.))
-                            checkbox.check()
+                            checkbtn = checkbtns["{}_axis".format(axis3_id)]
+                            checkbtn.enable(False)
+                            checkbtn.set_checkmark_color((.5, .5, .5, 1.))
+                            checkbtn.check()
                             self._axis_toggle_btns.get_button(axis3_id).enable(False)
                             if self._sel_obj_axis == axis3_id:
                                 self._axis_toggle_btns.set_active_button(axis_id)
                                 options = axis_options[axis_id]
-                                checkboxes["invert"].check(options["inv"])
+                                checkbtns["invert"].check(options["inv"])
                                 radio_btns = radio_btn_groups["axis"]
                                 radio_btns.enable()
                                 radio_btns.set_bullet_color(update=True)
@@ -434,7 +424,7 @@ class AlignmentDialog(Dialog):
 
                         self._axis_toggle_btns.set_active_button(axis_id)
                         options = self._options["axes"][axis_id]
-                        checkboxes["invert"].check(options["inv"])
+                        checkbtns["invert"].check(options["inv"])
                         radio_btn_groups["axis"].enable(options["align"])
                         color = None if options["align"] else (.5, .5, .5, 1.)
                         radio_btn_groups["axis"].set_bullet_color(color, update=True)
@@ -443,20 +433,20 @@ class AlignmentDialog(Dialog):
 
                     return command
 
-                checkbox = DialogCheckBox(group, align_all_axes)
-                borders = (5, 10, 0, 0)
-                subsizer.add(checkbox, alignment="center_v")
-                checkboxes["all_axes"] = checkbox
-                text = DialogText(group, "XYZ")
-                subsizer.add(text, alignment="center_v", borders=borders)
+                text = "XYZ"
+                checkbtn = DialogCheckButton(group, align_all_axes, text)
+                borders = (0, 10, 0, 0)
+                subsizer.add(checkbtn, alignment="center_v", borders=borders)
+                checkbtns["all_axes"] = checkbtn
                 subsizer.add((0, 0), proportion=1.)
 
                 self._axis_toggle_btns = toggle_btns = ToggleButtonGroup()
+                borders = (5, 10, 0, 0)
 
                 for axis_id in "xyz":
-                    checkbox = DialogCheckBox(group, get_checkbox_command(axis_id))
-                    subsizer.add(checkbox, alignment="center_v")
-                    checkboxes["{}_axis".format(axis_id)] = checkbox
+                    checkbtn = DialogCheckButton(group, get_checkbox_command(axis_id))
+                    subsizer.add(checkbtn, alignment="center_v")
+                    checkbtns["{}_axis".format(axis_id)] = checkbtn
                     text = axis_id.upper()
                     tooltip_text = "Selected obj. {}-axis".format(axis_id.upper())
                     btn = DialogButton(group, text, "", tooltip_text)
@@ -511,18 +501,17 @@ class AlignmentDialog(Dialog):
                     axis_ids = "xy" if target_type == "view" else "xyz"
 
                     for axis_id in axis_ids:
-                        checkboxes["{}_coord".format(axis_id)].check(align)
+                        checkbtns["{}_coord".format(axis_id)].check(align)
                         point_options[axis_id]["align"] = align
 
                     if self._preview:
                         Mgr.update_remotely("object_alignment", "", self._options)
 
-                checkbox = DialogCheckBox(group, align_to_point)
-                borders = (5, 10, 0, 0)
-                subsizer.add(checkbox, alignment="center_v")
-                checkboxes["all_coords"] = checkbox
-                text = DialogText(group, "XY" if target_type == "view" else "XYZ")
-                subsizer.add(text, alignment="center_v", borders=borders)
+                text = "XY" if target_type == "view" else "XYZ"
+                checkbtn = DialogCheckButton(group, align_to_point, text)
+                borders = (0, 10, 0, 0)
+                subsizer.add(checkbtn, alignment="center_v", borders=borders)
+                checkbtns["all_coords"] = checkbtn
                 subsizer.add((0, 0), proportion=1.)
 
             def get_checkbox_command(axis_id):
@@ -533,7 +522,7 @@ class AlignmentDialog(Dialog):
                     point_options[axis_id]["align"] = align
                     axis_ids = "xy" if target_type == "view" else "xyz"
                     coords_aligned = [a_id for a_id in axis_ids if point_options[a_id]["align"]]
-                    checkboxes["all_coords"].check(len(coords_aligned) == len(axis_ids))
+                    checkbtns["all_coords"].check(len(coords_aligned) == len(axis_ids))
 
                     if self._preview:
                         Mgr.update_remotely("object_alignment", "", self._options)
@@ -569,9 +558,9 @@ class AlignmentDialog(Dialog):
                 tooltip_str = "View {}-axis" if target_type == "view" else "Ref. coord. {}-axis"
 
                 for axis_id in ("xy" if target_type == "view" else "xyz"):
-                    checkbox = DialogCheckBox(group, get_checkbox_command(axis_id))
-                    subsizer.add(checkbox, alignment="center_v")
-                    checkboxes["{}_coord".format(axis_id)] = checkbox
+                    checkbtn = DialogCheckButton(group, get_checkbox_command(axis_id))
+                    subsizer.add(checkbtn, alignment="center_v")
+                    checkbtns["{}_coord".format(axis_id)] = checkbtn
                     text = axis_id.upper()
                     tooltip_text = tooltip_str.format(axis_id.upper())
                     btn = DialogButton(group, text, "", tooltip_text)
@@ -592,14 +581,13 @@ class AlignmentDialog(Dialog):
                 borders = (5, 0, 0, 0)
                 group.add(subsizer, expand=True, borders=borders)
                 create_all_coords_checkbox()
-                borders = (5, 10, 0, 0)
+                borders = (0, 10, 0, 0)
 
                 for axis_id in ("xy" if target_type == "view" else "xyz"):
-                    checkbox = DialogCheckBox(group, get_checkbox_command(axis_id))
-                    subsizer.add(checkbox, alignment="center_v")
-                    checkboxes["{}_coord".format(axis_id)] = checkbox
-                    text = DialogText(group, axis_id.upper())
-                    subsizer.add(text, alignment="center_v", borders=borders)
+                    text = axis_id.upper()
+                    checkbtn = DialogCheckButton(group, get_checkbox_command(axis_id), text)
+                    subsizer.add(checkbtn, borders=borders)
+                    checkbtns["{}_coord".format(axis_id)] = checkbtn
                     subsizer.add((0, 0), proportion=1.)
 
             subgroup_sizer = Sizer("horizontal")
@@ -660,16 +648,12 @@ class AlignmentDialog(Dialog):
                     if self._preview:
                         Mgr.update_remotely("object_alignment", "", self._options)
 
-                subsizer = Sizer("horizontal")
-                group.add(subsizer)
-                checkbox = DialogCheckBox(group, command)
-                borders = (5, 0, 0, 0)
-                subsizer.add(checkbox, alignment="center_v", borders=borders)
-                checkboxes["local_minmax"] = checkbox
                 s = "view" if target_type == "view" else "ref."
-                text_str = "Local min./max. (ignore {} coord. sys.)".format(s)
-                text = DialogText(group, text_str)
-                subsizer.add(text, alignment="center_v", borders=borders)
+                text = "Local min./max. (ignore {} coord. sys.)".format(s)
+                checkbtn = DialogCheckButton(group, command, text)
+                borders = (5, 0, 0, 0)
+                group.add(checkbtn, borders=borders)
+                checkbtns["local_minmax"] = checkbtn
 
                 def command():
 
@@ -698,15 +682,11 @@ class AlignmentDialog(Dialog):
                     if self._preview:
                         Mgr.update_remotely("object_alignment", "", self._options)
 
-                subsizer = Sizer("horizontal")
-                group.add(subsizer)
-                checkbox = DialogCheckBox(group, set_align_points_per_vertex)
+                text = "Per vertex in selection"
+                checkbtn = DialogCheckButton(group, set_align_points_per_vertex, text)
                 borders = (5, 0, 0, 0)
-                subsizer.add(checkbox, alignment="center_v", borders=borders)
-                checkboxes["per_vertex"] = checkbox
-                text_str = "Per vertex in selection"
-                text = DialogText(group, text_str)
-                subsizer.add(text, alignment="center_v", borders=borders)
+                group.add(checkbtn, borders=borders)
+                checkbtns["per_vertex"] = checkbtn
 
         if obj_lvl not in ("top", "normal") and target_type == "view":
 
@@ -717,37 +697,29 @@ class AlignmentDialog(Dialog):
                 if self._preview:
                     Mgr.update_remotely("object_alignment", "", self._options)
 
-            subsizer = Sizer("horizontal")
+            text = "Make planar"
+            checkbtn = DialogCheckButton(self, make_planar, text)
             borders = (20, 20, 0, 10)
-            client_sizer.add(subsizer, borders=borders)
-            checkbox = DialogCheckBox(self, make_planar)
-            subsizer.add(checkbox, alignment="center_v")
-            checkboxes["planar"] = checkbox
-            text = DialogText(self, "Make planar")
-            borders = (5, 0, 0, 0)
-            subsizer.add(text, alignment="center_v", borders=borders)
+            client_sizer.add(checkbtn, borders=borders)
+            checkbtns["planar"] = checkbtn
 
         def enable_preview(preview):
 
             self._preview = preview
             Mgr.update_remotely("object_alignment", "", self._options, preview, not preview)
 
-        subsizer = Sizer("horizontal")
+        text = "Preview"
+        checkbtn = DialogCheckButton(self, enable_preview, text)
+        checkbtn.check(False if obj_lvl == "normal" or target_type == "obj_axis_point" else True)
         borders = (20, 20, 15, 10)
-        client_sizer.add(subsizer, borders=borders)
-        checkbox = DialogCheckBox(self, enable_preview)
-        checkbox.check(False if obj_lvl == "normal" or target_type == "obj_axis_point" else True)
-        subsizer.add(checkbox, alignment="center_v")
-        checkboxes["preview"] = checkbox
-        text = DialogText(self, "Preview")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        client_sizer.add(checkbtn, borders=borders)
+        checkbtns["preview"] = checkbtn
 
         self.finalize()
 
     def close(self, answer=""):
 
-        self._checkboxes = None
+        self._checkbuttons = None
         self._radio_btns = None
         self._axis_toggle_btns = None
         self._point_toggle_btns = None

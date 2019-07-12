@@ -45,10 +45,13 @@ menu_button             arimo_regular       0. 0. 0. 1.
 menu_item               arimo_regular       0. 0. 0. 1.
 toolbar                 arimo_regular       0. 0. 0. 1.
 toolbar_button          arimo_regular       0. 0. 0. 1.
+toolbar_checkbutton     arimo_regular       0. 0. 0. 1.
 panel                   arimo_regular       0. 0. 0. 1.
 panel_label             arimo_regular       0. 0. 0. 1.
 panel_section_label     arimo_regular       0. 0. 0. 1.
 panel_button            arimo_regular       0. 0. 0. 1.
+panel_radiobutton       arimo_regular       0. 0. 0. 1.
+panel_checkbutton       arimo_regular       0. 0. 0. 1.
 input                   arimo_regular       .5 .7 .9 1.
 input2                  arimo_italic        .5 .7 .9 1.
 input_disabled          arimo_regular       .5 .5 .5 1.
@@ -65,6 +68,8 @@ dialog                  arimo_regular       0. 0. 0. 1.
 dialog_message          arimo_regular_14    0. 0. 0. 1.
 dialog_standard_button  arimo_regular_14    0. 0. 0. 1.
 dialog_button           arimo_regular       0. 0. 0. 1.
+dialog_radiobutton      arimo_regular       0. 0. 0. 1.
+dialog_checkbutton      arimo_regular       0. 0. 0. 1.
 dialog_title            arimo_regular_18    1. 1. 1. 1.
 file_button             arimo_regular       0. 0. 0. 1.
 viewport_button         arimo_regular       0. 0. 0. 1.
@@ -117,8 +122,13 @@ disabled_file_button_text               .1 .1 .1 .75
 disabled_menu_button_text               .1 .1 .1 .75
 disabled_menu_item_text                 .25 .25 .25 .75
 disabled_panel_button_text              .1 .1 .1 .75
+disabled_panel_radiobutton_text         .1 .1 .1 .75
+disabled_panel_checkbutton_text         .1 .1 .1 .75
 disabled_toolbar_button_text            .1 .1 .1 .75
+disabled_toolbar_checkbutton_text       .1 .1 .1 .75
 disabled_dialog_button_text             .1 .1 .1 .75
+disabled_dialog_radiobutton_text        .1 .1 .1 .75
+disabled_dialog_checkbutton_text        .1 .1 .1 .75
 disabled_dialog_standard_button_text    .1 .1 .1 .75
 disabled_inputfield_text                .5 .5 .5 .75
 disabled_view_tile_text                 .5 .5 .5 .75
@@ -128,14 +138,14 @@ menu_item_bullet                        0. 0. 0. 1.
 menu_item_checkmark                     0. 0. 0. 1.
 panel_bullet                            .5 .7 .9 1.
 panel_checkmark                         .5 .7 .9 1.
-panel_radiobutton                       .2 .15 .3 1.
-panel_checkbox                          .2 .15 .3 1.
+panel_radiobox_back                     .2 .15 .3 1.
+panel_checkbox_back                     .2 .15 .3 1.
 toolbar_checkmark                       .5 .7 .9 1.
-toolbar_checkbox                        .2 .15 .3 1.
+toolbar_checkbox_back                   .2 .15 .3 1.
 dialog_bullet                           1. 1. 1. 1.
 dialog_checkmark                        1. 1. 1. 1.
-dialog_radiobutton                      .2 .15 .3 1.
-dialog_checkbox                         .2 .15 .3 1.
+dialog_radiobox_back                    .2 .15 .3 1.
+dialog_checkbox_back                    .2 .15 .3 1.
 tooltip_background                      .2 .15 .3 1.
 tooltip_border                          .6 .3 .9 1.
 view_label_shadow                       0. 0. 0. 1.
@@ -170,8 +180,8 @@ colorbox_width                  int     20
 colorbox_height                 int     20
 checkbox_width                  int     14
 checkbox_height                 int     14
-radiobutton_width               int     10
-radiobutton_height              int     10
+radiobox_width                  int     10
+radiobox_height                 int     10
 dialog_title_height             int     30
 dialog_title_top                int     4
 dialog_bottom_height            int     42

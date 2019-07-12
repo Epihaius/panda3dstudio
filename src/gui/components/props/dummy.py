@@ -1,27 +1,23 @@
 from .base import *
 
 
-class DummyProperties(object):
+class DummyProperties:
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
 
         section = panel.add_section("dummy_props", "Dummy helper properties", hidden=True)
 
         get_handler = lambda geom_type: lambda val: self.__handle_viz(geom_type, val)
-        borders = (0, 5, 0, 0)
 
         for geom_type in ("box", "cross"):
-            sizer = Sizer("horizontal")
-            section.add(sizer)
-            checkbox = PanelCheckBox(section, get_handler(geom_type))
-            self._checkboxes["{}_viz".format(geom_type)] = checkbox
-            sizer.add(checkbox, alignment="center_v", borders=borders)
             text = "Show {}".format(geom_type)
-            sizer.add(PanelText(section, text), alignment="center_v")
+            checkbtn = PanelCheckButton(section, get_handler(geom_type), text)
+            self._checkbuttons["{}_viz".format(geom_type)] = checkbtn
+            section.add(checkbtn)
             section.add((0, 5))
 
         sizer = GridSizer(rows=0, columns=3, gap_h=5, gap_v=2)
@@ -56,11 +52,11 @@ class DummyProperties(object):
         section.add(sizer, expand=True)
         prop_id = "const_size_state"
         get_handler = lambda prop_id: lambda val: self.__handle_value(prop_id, val)
-        checkbox = PanelCheckBox(section, get_handler(prop_id))
-        self._checkboxes[prop_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Const. screen size:"
-        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(section, get_handler(prop_id), text)
+        self._checkbuttons[prop_id] = checkbtn
+        borders = (0, 5, 0, 0)
+        sizer.add(checkbtn, alignment="center_v", borders=borders)
         prop_id = "const_size"
         field = PanelInputField(section, 40)
         field.set_value_parser(prop_id, lambda value: "{:.1f}".format(value))
@@ -72,14 +68,11 @@ class DummyProperties(object):
 
         section.add((0, 5))
 
-        sizer = Sizer("horizontal")
-        section.add(sizer)
         prop_id = "on_top"
-        checkbox = PanelCheckBox(section, get_handler(prop_id))
-        self._checkboxes[prop_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Draw on top"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, get_handler(prop_id), text)
+        self._checkbuttons[prop_id] = checkbtn
+        section.add(checkbtn)
 
     def setup(self): pass
 
@@ -94,10 +87,10 @@ class DummyProperties(object):
     def __handle_viz(self, geom_type, shown):
 
         other_geom_type = "cross" if geom_type == "box" else "box"
-        other_shown = self._checkboxes["{}_viz".format(other_geom_type)].is_checked()
+        other_shown = self._checkbuttons["{}_viz".format(other_geom_type)].is_checked()
 
         if not shown and not other_shown:
-            self._checkboxes["{}_viz".format(other_geom_type)].check()
+            self._checkbuttons["{}_viz".format(other_geom_type)].check()
             other_shown = True
 
         viz = set()
@@ -136,16 +129,16 @@ class DummyProperties(object):
     def set_object_property_default(self, prop_id, value):
 
         color = (1., 1., 0., 1.)
-        checkboxes = self._checkboxes
+        checkbtns = self._checkbuttons
 
         if prop_id == "viz":
             for geom_type in ("box", "cross"):
                 check_id = "{}_viz".format(geom_type)
-                checkboxes[check_id].check(True if geom_type in value else False)
-                checkboxes[check_id].set_checkmark_color(color)
-        elif prop_id in checkboxes:
-            checkboxes[prop_id].check(value)
-            checkboxes[prop_id].set_checkmark_color(color)
+                checkbtns[check_id].check(True if geom_type in value else False)
+                checkbtns[check_id].set_checkmark_color(color)
+        elif prop_id in checkbtns:
+            checkbtns[prop_id].check(value)
+            checkbtns[prop_id].set_checkmark_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
@@ -154,29 +147,29 @@ class DummyProperties(object):
 
     def set_object_property(self, prop_id, value):
 
-        checkboxes = self._checkboxes
+        checkbtns = self._checkbuttons
         fields = self._fields
 
         if prop_id == "viz":
             for geom_type in ("box", "cross"):
                 check_id = "{}_viz".format(geom_type)
-                checkboxes[check_id].check(True if geom_type in value else False)
-        elif prop_id in checkboxes:
-            checkboxes[prop_id].check(value)
+                checkbtns[check_id].check(True if geom_type in value else False)
+        elif prop_id in checkbtns:
+            checkbtns[prop_id].check(value)
         elif prop_id in fields:
             fields[prop_id].set_value(prop_id, value)
 
     def check_selection_count(self):
 
-        checkboxes = self._checkboxes
+        checkbtns = self._checkbuttons
         fields = self._fields
 
         sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 
-        for checkbox in checkboxes.values():
-            checkbox.set_checkmark_color(color)
+        for checkbtn in checkbtns.values():
+            checkbtn.set_checkmark_color(color)
 
         for field in fields.values():
             field.set_text_color(color)

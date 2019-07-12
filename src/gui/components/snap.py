@@ -202,7 +202,7 @@ class SnapDialog(Dialog):
         self._options = new_options = {}
 
         if snap_type == "creation":
-            checkboxes = {}
+            checkbtns = {}
             fields = {}
             toggle_btns = ToggleButtonGroup()
             creation_phase_radio_btns = {}
@@ -394,7 +394,7 @@ class SnapDialog(Dialog):
             field.set_input_parser(val_id, self.__parse_value)
             subsizer.add(field, expand=True, proportion=1., alignment="center_v", borders=borders)
 
-        def add_marker_display_options(group, text_str, for_creation_phase=False):
+        def add_marker_display_options(group, text, for_creation_phase=False):
 
             def command(show):
 
@@ -406,7 +406,7 @@ class SnapDialog(Dialog):
                     self._options["show_marker"] = show
 
             widgets = []
-            checkbox = DialogCheckBox(group, command)
+            checkbtn = DialogCheckButton(group, command, text)
             val_id = "show_marker"
 
             if for_creation_phase:
@@ -416,12 +416,9 @@ class SnapDialog(Dialog):
             else:
                 show = old_options[val_id][snap_type]
 
-            checkbox.check(show)
-            widgets.append(checkbox)
-            text = DialogText(group, text_str)
-            widgets.append(text)
-            text = DialogText(group, "Size:")
-            widgets.append(text)
+            checkbtn.check(show)
+            widgets.append(checkbtn)
+            widgets.append(DialogText(group, "Size:"))
             field = SnapInputField(group, 100)
             val_id = "marker_size"
 
@@ -452,11 +449,10 @@ class SnapDialog(Dialog):
             borders = (5, 0, 0, 0)
             group.add(subsizer, expand=True, borders=borders)
 
-            checkbox, text1, text2, field = add_marker_display_options(group, "Show")
-            subsizer.add(checkbox, alignment="center_v")
-            subsizer.add(text1, alignment="center_v", borders=borders)
+            checkbtn, text, field = add_marker_display_options(group, "Show")
+            subsizer.add(checkbtn, alignment="center_v")
             subsizer.add((10, 0), proportion=.1)
-            subsizer.add(text2, alignment="center_v", borders=borders)
+            subsizer.add(text, alignment="center_v", borders=borders)
             subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
 
         if snap_type == "creation":
@@ -475,12 +471,10 @@ class SnapDialog(Dialog):
 
                 self._options["creation_start"]["on"] = enable
 
-            checkbox = DialogCheckBox(group, enable_snapping)
-            checkbox.check(old_options["on"]["creation_start"])
-            subsizer.add(checkbox, alignment="center_v")
-            text = DialogText(group, "Enable snapping")
-            borders = (5, 0, 0, 0)
-            subsizer.add(text, alignment="center_v", borders=borders)
+            text = "Enable snapping"
+            checkbtn = DialogCheckButton(group, enable_snapping, text)
+            checkbtn.check(old_options["on"]["creation_start"])
+            subsizer.add(checkbtn, alignment="center_v")
             borders = (20, 5, 0, 0)
             add_marker_display_group(group, subsizer, borders, proportion=1.)
 
@@ -512,7 +506,7 @@ class SnapDialog(Dialog):
                     creation_phase_radio_btns["tgt_type"].set_selected_button(options["tgt_type"])
 
                     for option_id in ("show_marker", "show_proj_marker", "show_proj_line"):
-                        checkboxes[option_id].check(options[option_id])
+                        checkbtns[option_id].check(options[option_id])
 
                     for option_id in ("increment", "size", "marker_size", "proj_marker_size"):
                         fields[option_id].set_value(option_id, options[option_id])
@@ -523,9 +517,9 @@ class SnapDialog(Dialog):
 
             for index in range(3):
                 phase_id = "phase_{:d}".format(index + 1)
-                checkbox = DialogCheckBox(group, get_checkbox_command(phase_id))
-                checkbox.check(old_options["on"]["creation_{}".format(phase_id)])
-                subsizer.add(checkbox, alignment="center_v")
+                checkbtn = DialogCheckButton(group, get_checkbox_command(phase_id))
+                checkbtn.check(old_options["on"]["creation_{}".format(phase_id)])
+                subsizer.add(checkbtn, alignment="center_v")
                 text = "Phase {:d}".format(index + 1)
                 tooltip_text = "Creation phase {:d} settings".format(index + 1)
                 btn = DialogButton(group, text, "", tooltip_text)
@@ -543,18 +537,17 @@ class SnapDialog(Dialog):
             borders = (5, 5, 5, 10)
             group.add(subgroup, expand=True, borders=borders)
 
-            subsizer = GridSizer(columns=8, gap_h=5, gap_v=2)
+            subsizer = GridSizer(columns=7, gap_h=5, gap_v=2)
             borders = (5, 0, 0, 0)
             subgroup.add(subsizer, expand=True, borders=borders)
 
-            checkbox, text1, text2, field = add_marker_display_options(subgroup,
+            checkbtn, text, field = add_marker_display_options(subgroup,
                 "Target point marker", for_creation_phase=True)
-            checkboxes["show_marker"] = checkbox
+            checkbtns["show_marker"] = checkbtn
             fields["marker_size"] = field
-            subsizer.add(checkbox, alignment_v="center_v")
-            subsizer.add(text1, alignment_v="center_v")
+            subsizer.add(checkbtn, alignment_v="center_v")
             subsizer.add((10, 0), proportion_h=.5)
-            subsizer.add(text2, alignment_v="center_v")
+            subsizer.add(text, alignment_v="center_v")
             subsizer.add(field, alignment_v="center_v")
             subsizer.add((10, 0), proportion_h=1.)
             subsizer.add((0, 0))
@@ -565,12 +558,11 @@ class SnapDialog(Dialog):
                 self._options[self._creation_phase_id]["show_proj_marker"] = show
 
             val_id = "show_proj_marker"
-            checkbox = DialogCheckBox(subgroup, command)
-            checkbox.check(old_options[val_id][self._creation_phase_id])
-            checkboxes["show_proj_marker"] = checkbox
-            subsizer.add(checkbox, alignment_v="center_v")
-            text = DialogText(subgroup, "Projected point marker")
-            subsizer.add(text, alignment_v="center_v")
+            text = "Projected point marker"
+            checkbtn = DialogCheckButton(subgroup, command, text)
+            checkbtn.check(old_options[val_id][self._creation_phase_id])
+            checkbtns["show_proj_marker"] = checkbtn
+            subsizer.add(checkbtn, alignment_v="center_v")
 
             subsizer.add((10, 0), proportion_h=.5)
 
@@ -592,12 +584,11 @@ class SnapDialog(Dialog):
                 self._options[self._creation_phase_id]["show_proj_line"] = show
 
             val_id = "show_proj_line"
-            checkbox = DialogCheckBox(subgroup, command)
-            checkbox.check(old_options[val_id][self._creation_phase_id])
-            checkboxes["show_proj_line"] = checkbox
-            subsizer.add(checkbox, alignment_v="center_v")
-            text = DialogText(subgroup, "Projection line")
-            subsizer.add(text, alignment_v="center_v")
+            text = "Projection line"
+            checkbtn = DialogCheckButton(subgroup, command, text)
+            checkbtn.check(old_options[val_id][self._creation_phase_id])
+            checkbtns["show_proj_line"] = checkbtn
+            subsizer.add(checkbtn, alignment_v="center_v")
 
         else:
 
@@ -613,16 +604,15 @@ class SnapDialog(Dialog):
                 group = DialogWidgetGroup(self, "Display")
                 client_sizer.add(group, expand=True, borders=borders)
 
-                subsizer = GridSizer(columns=8, gap_h=5, gap_v=2)
+                subsizer = GridSizer(columns=6, gap_h=5, gap_v=2)
                 borders = (5, 0, 0, 0)
                 group.add(subsizer, expand=True, borders=borders)
 
-                checkbox, text1, text2, field = add_marker_display_options(group,
+                checkbtn, text, field = add_marker_display_options(group,
                     "Target point marker")
-                subsizer.add(checkbox, alignment_v="center_v")
-                subsizer.add(text1, alignment_v="center_v")
+                subsizer.add(checkbtn, alignment_v="center_v")
                 subsizer.add((10, 0), proportion_h=.5)
-                subsizer.add(text2, alignment_v="center_v")
+                subsizer.add(text, alignment_v="center_v")
                 subsizer.add(field, alignment_v="center_v")
 
                 subsizer.add((10, 0), proportion_h=1.)
@@ -632,22 +622,20 @@ class SnapDialog(Dialog):
                     self._options["show_rubber_band"] = show
 
                 val_id = "show_rubber_band"
-                checkbox = DialogCheckBox(group, command)
-                checkbox.check(old_options[val_id][snap_type])
-                subsizer.add(checkbox, alignment_v="center_v")
-                text = DialogText(group, "Rubber band")
-                subsizer.add(text, alignment_v="center_v")
+                text = "Rubber band"
+                checkbtn = DialogCheckButton(group, command, text)
+                checkbtn.check(old_options[val_id][snap_type])
+                subsizer.add(checkbtn, alignment_v="center_v")
 
                 def command(show):
 
                     self._options["show_proj_marker"] = show
 
                 val_id = "show_proj_marker"
-                checkbox = DialogCheckBox(group, command)
-                checkbox.check(old_options[val_id][snap_type])
-                subsizer.add(checkbox, alignment_v="center_v")
-                text = DialogText(group, "Projected point marker")
-                subsizer.add(text, alignment_v="center_v")
+                text = "Projected point marker"
+                checkbtn = DialogCheckButton(group, command, text)
+                checkbtn.check(old_options[val_id][snap_type])
+                subsizer.add(checkbtn, alignment_v="center_v")
 
                 subsizer.add((10, 0), proportion_h=.5)
 
@@ -668,28 +656,21 @@ class SnapDialog(Dialog):
                     self._options["show_proj_line"] = show
 
                 val_id = "show_proj_line"
-                checkbox = DialogCheckBox(group, command)
-                checkbox.check(old_options[val_id][snap_type])
-                subsizer.add(checkbox, alignment_v="center_v")
-                text = DialogText(group, "Projection line")
-                subsizer.add(text, alignment_v="center_v")
-
-                subsizer = Sizer("horizontal")
-                borders = (25, 20, 0, 10)
-                client_sizer.add(subsizer, expand=True, borders=borders)
+                text = "Projection line"
+                checkbtn = DialogCheckButton(group, command, text)
+                checkbtn.check(old_options[val_id][snap_type])
+                subsizer.add(checkbtn, alignment_v="center_v")
 
                 def command(use):
 
                     self._options["use_axis_constraints"] = use
 
-                checkbox = DialogCheckBox(self, command)
-                checkbox.check(old_options["use_axis_constraints"][snap_type])
-                subsizer.add(checkbox, alignment="center_v")
-                t = "Use axis constraints (snap to projection of target " \
-                    "point onto transform plane/axis)"
-                text = DialogText(self, t)
-                borders = (5, 0, 0, 0)
-                subsizer.add(text, alignment="center_v", borders=borders)
+                text = "Use axis constraints (snap to projection of target " \
+                       "point onto transform plane/axis)"
+                checkbtn = DialogCheckButton(self, command, text)
+                checkbtn.check(old_options["use_axis_constraints"][snap_type])
+                borders = (25, 20, 0, 10)
+                client_sizer.add(checkbtn, borders=borders)
 
         client_sizer.add((0, 20))
 

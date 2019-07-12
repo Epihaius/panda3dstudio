@@ -3,5 +3,5 @@ from .stack import PanelStack
 from .widgets import *
 
 
-__all__ = ["Panel", "PanelStack", "PanelText", "PanelButton", "PanelCheckBox", "PanelColorBox",
+__all__ = ["Panel", "PanelStack", "PanelText", "PanelButton", "PanelCheckButton", "PanelColorBox",
            "PanelRadioButtonGroup", "PanelInputField", "PanelComboBox"]

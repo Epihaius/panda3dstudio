@@ -1,18 +1,18 @@
 from .base import *
 
 
-class GroupProperties(object):
+class GroupProperties:
 
     def __init__(self, panel):
 
         self._panel = panel
         self._btns = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._comboboxes = {}
 
         section = panel.add_section("group_props", "Group properties", hidden=True)
 
-        sizer = GridSizer(rows=0, columns=3, gap_h=5, gap_v=5)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
         section.add(sizer, expand=True)
 
         text = "Open"
@@ -20,12 +20,10 @@ class GroupProperties(object):
         command = lambda: Mgr.update_remotely("group", "open", True)
         btn = PanelButton(section, text, "", tooltip_text, command)
         sizer.add(btn, proportion_h=1., alignment_v="center_v")
-        checkbox = PanelCheckBox(section, self.__toggle_recursive_open)
-        checkbox.check(False)
-        self._checkboxes["recursive_open"] = checkbox
-        sizer.add(checkbox, alignment_v="center_v")
         text = "recursively"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
+        checkbtn = PanelCheckButton(section, self.__toggle_recursive_open, text)
+        self._checkbuttons["recursive_open"] = checkbtn
+        sizer.add(checkbtn, alignment_v="center_v")
 
         text = "Close"
         tooltip_text = "Make members inaccessible"
@@ -34,19 +32,16 @@ class GroupProperties(object):
         sizer.add(btn, stretch_h=True)
 
         sizer.add((0, 0))
-        sizer.add((0, 0))
 
         text = "Dissolve"
         tooltip_text = "Ungroup members and delete"
         command = lambda: Mgr.update_remotely("group", "dissolve")
         btn = PanelButton(section, text, "", tooltip_text, command)
         sizer.add(btn, proportion_h=1., alignment_v="center_v")
-        checkbox = PanelCheckBox(section, self.__toggle_recursive_dissolve)
-        checkbox.check(False)
-        self._checkboxes["recursive_dissolve"] = checkbox
-        sizer.add(checkbox, alignment_v="center_v")
         text = "recursively"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
+        checkbtn = PanelCheckButton(section, self.__toggle_recursive_dissolve, text)
+        self._checkbuttons["recursive_dissolve"] = checkbtn
+        sizer.add(checkbtn, alignment_v="center_v")
 
         group = section.add_group("Member types")
 
@@ -76,22 +71,17 @@ class GroupProperties(object):
         section.add((0, 5))
 
         group = section.add_group("Member selection")
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
-        group.add(sizer, expand=True)
+        borders = (0, 0, 3, 0)
 
-        checkbox = PanelCheckBox(group, self.__toggle_recursive_member_selection)
-        checkbox.check(False)
-        self._checkboxes["recursive_member_selection"] = checkbox
-        sizer.add(checkbox, alignment_v="center_v")
         text = "Recursively"
-        sizer.add(PanelText(group, text), alignment_v="center_v")
+        checkbtn = PanelCheckButton(group, self.__toggle_recursive_member_selection, text)
+        self._checkbuttons["recursive_member_selection"] = checkbtn
+        group.add(checkbtn, borders=borders)
 
-        checkbox = PanelCheckBox(group, self.__toggle_subgroup_selection)
-        checkbox.check(False)
-        self._checkboxes["subgroup_selection"] = checkbox
-        sizer.add(checkbox, alignment_v="center_v")
         text = "Select subgroups"
-        sizer.add(PanelText(group, text), alignment_v="center_v")
+        checkbtn = PanelCheckButton(group, self.__toggle_subgroup_selection, text)
+        self._checkbuttons["subgroup_selection"] = checkbtn
+        group.add(checkbtn, borders=borders)
 
         text = "Select"
         tooltip_text = "Open group and select members"
@@ -106,7 +96,7 @@ class GroupProperties(object):
     def __update_group_options(self):
 
         for option, value in GlobalData["group_options"]["main"].items():
-            self._checkboxes[option].check(value)
+            self._checkbuttons[option].check(value)
 
     def __toggle_recursive_open(self, recursive):
 

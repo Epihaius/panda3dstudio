@@ -1,14 +1,14 @@
 from .base import *
 
 
-class EditableGeomProperties(object):
+class EditableGeomProperties:
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
         self._btns = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._subobj_btns = ToggleButtonGroup()
         toggle = (self.__set_topobj_level, lambda: None)
         self._subobj_btns.set_default_toggle("top", toggle)
@@ -51,21 +51,15 @@ class EditableGeomProperties(object):
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
 
-        borders = (0, 5, 0, 0)
-
-        checkbox = PanelCheckBox(section, self.__handle_picking_via_poly)
-        checkbox.check(False)
-        self._checkboxes["pick_vert_via_poly"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Pick via polygon"
-        sizer.add(PanelText(section, text), alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(section, self.__handle_picking_by_aiming)
-        checkbox.check(False)
-        self._checkboxes["pick_vert_by_aiming"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
+        self._checkbuttons["pick_vert_via_poly"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
+        sizer.add((5, 0), proportion=1.)
         text = "aim"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
+        self._checkbuttons["pick_vert_by_aiming"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
 
         sizer = Sizer("horizontal")
@@ -77,18 +71,18 @@ class EditableGeomProperties(object):
         self._btns["break_verts"] = btn
         sizer.add(btn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(section, self.__handle_normal_preserve)
-        checkbox.check(False)
-        self._checkboxes["vert_normal_preserve"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Lock normals"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__handle_normal_preserve, text)
+        self._checkbuttons["vert_normal_preserve"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
 
         section.add((0, 5))
 
         btn_sizer = Sizer("horizontal")
         section.add(btn_sizer, expand=True)
+
+        borders = (0, 5, 0, 0)
 
         text = "Smooth"
         tooltip_text = "Smooth selected vertices"
@@ -109,19 +103,15 @@ class EditableGeomProperties(object):
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
 
-        checkbox = PanelCheckBox(section, self.__handle_picking_via_poly)
-        checkbox.check(False)
-        self._checkboxes["pick_normal_via_poly"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Pick via polygon"
-        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(section, self.__handle_picking_by_aiming)
-        checkbox.check(False)
-        self._checkboxes["pick_normal_by_aiming"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
+        self._checkbuttons["pick_normal_via_poly"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
+        sizer.add((5, 0), proportion=1.)
         text = "aim"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
+        self._checkbuttons["pick_normal_by_aiming"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
 
         sizer = Sizer("horizontal")
@@ -190,34 +180,25 @@ class EditableGeomProperties(object):
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
 
-        checkbox = PanelCheckBox(section, self.__handle_picking_via_poly)
-        checkbox.check(False)
-        self._checkboxes["pick_edge_via_poly"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Pick via polygon"
-        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(section, self.__handle_picking_by_aiming)
-        checkbox.check(False)
-        self._checkboxes["pick_edge_by_aiming"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
+        self._checkbuttons["pick_edge_via_poly"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
+        sizer.add((5, 0), proportion=1.)
         text = "aim"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
+        self._checkbuttons["pick_edge_by_aiming"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
 
         def handler(by_border):
 
             GlobalData["subobj_edit_options"]["sel_edges_by_border"] = by_border
 
-        checkbox = PanelCheckBox(section, handler)
-        checkbox.check(False)
-        self._checkboxes["sel_edges_by_border"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Select by border"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, handler, text)
+        self._checkbuttons["sel_edges_by_border"] = checkbtn
+        section.add(checkbtn)
 
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
@@ -228,12 +209,10 @@ class EditableGeomProperties(object):
         self._btns["split_edges"] = btn
         sizer.add(btn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(section, self.__handle_normal_preserve)
-        checkbox.check(False)
-        self._checkboxes["edge_normal_preserve"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Lock normals"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__handle_normal_preserve, text)
+        self._checkbuttons["edge_normal_preserve"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
 
         section.add((0, 5))
@@ -309,12 +288,10 @@ class EditableGeomProperties(object):
         self._btns["detach_poly"] = btn
         sizer.add(btn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(section, self.__handle_normal_preserve)
-        checkbox.check(False)
-        self._checkboxes["poly_normal_preserve"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Lock normals"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__handle_normal_preserve, text)
+        self._checkbuttons["poly_normal_preserve"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
 
         section.add((0, 5))
@@ -327,19 +304,14 @@ class EditableGeomProperties(object):
 
         group = section.add_group("Contiguous surfaces")
 
-        sizer = Sizer("horizontal")
-        group.add(sizer)
-
         def handler(by_surface):
 
             GlobalData["subobj_edit_options"]["sel_polys_by_surface"] = by_surface
 
-        checkbox = PanelCheckBox(group, handler)
-        checkbox.check(False)
-        self._checkboxes["sel_polys_by_surface"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Select by surface"
-        sizer.add(PanelText(group, text), alignment="center_v")
+        checkbtn = PanelCheckButton(group, handler, text)
+        self._checkbuttons["sel_polys_by_surface"] = checkbtn
+        group.add(checkbtn)
 
         group.add((0, 6))
 
@@ -351,19 +323,14 @@ class EditableGeomProperties(object):
 
         group = section.add_group("Polygon smoothing")
 
-        sizer = Sizer("horizontal")
-        group.add(sizer)
-
         def handler(by_smoothing):
 
             GlobalData["subobj_edit_options"]["sel_polys_by_smoothing"] = by_smoothing
 
-        checkbox = PanelCheckBox(group, handler)
-        checkbox.check(False)
-        self._checkboxes["sel_polys_by_smoothing"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Select by smoothing"
-        sizer.add(PanelText(group, text), alignment="center_v")
+        checkbtn = PanelCheckButton(group, handler, text)
+        self._checkbuttons["sel_polys_by_smoothing"] = checkbtn
+        group.add(checkbtn)
 
         group.add((0, 6))
 
@@ -438,15 +405,15 @@ class EditableGeomProperties(object):
         for option, value in GlobalData["subobj_edit_options"].items():
             if option == "pick_via_poly":
                 for subobj_type in ("vert", "edge", "normal"):
-                    self._checkboxes["pick_{}_via_poly".format(subobj_type)].check(value)
+                    self._checkbuttons["pick_{}_via_poly".format(subobj_type)].check(value)
             elif option == "pick_by_aiming":
                 for subobj_type in ("vert", "edge", "normal"):
-                    self._checkboxes["pick_{}_by_aiming".format(subobj_type)].check(value)
+                    self._checkbuttons["pick_{}_by_aiming".format(subobj_type)].check(value)
             elif option == "normal_preserve":
                 for subobj_type in ("vert", "edge", "poly"):
-                    self._checkboxes["{}_normal_preserve".format(subobj_type)].check(value)
-            elif option in self._checkboxes:
-                self._checkboxes[option].check(value)
+                    self._checkbuttons["{}_normal_preserve".format(subobj_type)].check(value)
+            elif option in self._checkbuttons:
+                self._checkbuttons[option].check(value)
             elif option in self._fields:
                 self._fields[option].set_value(option, value)
 
@@ -455,21 +422,21 @@ class EditableGeomProperties(object):
         Mgr.update_remotely("picking_via_poly", via_poly)
 
         for subobj_type in ("vert", "edge", "normal"):
-            self._checkboxes["pick_{}_via_poly".format(subobj_type)].check(via_poly)
+            self._checkbuttons["pick_{}_via_poly".format(subobj_type)].check(via_poly)
 
     def __handle_picking_by_aiming(self, by_aiming):
 
         GlobalData["subobj_edit_options"]["pick_by_aiming"] = by_aiming
 
         for subobj_type in ("vert", "edge", "normal"):
-            self._checkboxes["pick_{}_by_aiming".format(subobj_type)].check(by_aiming)
+            self._checkbuttons["pick_{}_by_aiming".format(subobj_type)].check(by_aiming)
 
     def __handle_normal_preserve(self, preserve):
 
         GlobalData["subobj_edit_options"]["normal_preserve"] = preserve
 
         for subobj_type in ("vert", "edge", "poly"):
-            self._checkboxes["{}_normal_preserve".format(subobj_type)].check(preserve)
+            self._checkbuttons["{}_normal_preserve".format(subobj_type)].check(preserve)
 
     def setup(self):
 

@@ -60,9 +60,9 @@ class MenuItem(Button):
             gfx_data["hilited"] = (("menu_item_hilited_left+checkbox", "menu_item_hilited_center",
                                    "menu_item_hilited_right"),)
         elif item_type == "radio":
-            gfx_data["normal"] = (("menu_item_normal_left+radiobutton", "menu_item_normal_center",
+            gfx_data["normal"] = (("menu_item_normal_left+radiobox", "menu_item_normal_center",
                                   "menu_item_normal_right"),)
-            gfx_data["hilited"] = (("menu_item_hilited_left+radiobutton", "menu_item_hilited_center",
+            gfx_data["hilited"] = (("menu_item_hilited_left+radiobox", "menu_item_hilited_center",
                                    "menu_item_hilited_right"),)
 
         if command:
@@ -224,7 +224,7 @@ class MenuItem(Button):
                 l, r, b, t = TextureAtlas["outer_borders"]["menu_item_checkbox"]
                 image.blend_sub_image(self._checkmark, l, t, 0, 0)
             elif self._item_type == "radio":
-                l, r, b, t = TextureAtlas["outer_borders"]["menu_item_radiobutton"]
+                l, r, b, t = TextureAtlas["outer_borders"]["menu_item_radiobox"]
                 image.blend_sub_image(self._radio_bullet, l, t, 0, 0)
 
         return image

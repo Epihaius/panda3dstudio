@@ -1,13 +1,13 @@
 from .base import *
 
 
-class SphereProperties(object):
+class SphereProperties:
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
 
         section = panel.add_section("sphere_props", "Sphere properties", hidden=True)
 
@@ -31,15 +31,12 @@ class SphereProperties(object):
 
         section.add((0, 5))
 
-        subsizer = Sizer("horizontal")
-        section.add(subsizer)
-        checkbox = PanelCheckBox(section, lambda val: self.__handle_value("smoothness", val))
-        checkbox.check(True)
-        self._checkboxes["smoothness"] = checkbox
-        borders = (0, 5, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Smooth"
-        subsizer.add(PanelText(section, text), alignment="center_v")
+        checkbox = PanelCheckButton(section, lambda val:
+            self.__handle_value("smoothness", val), text)
+        checkbox.check(True)
+        self._checkbuttons["smoothness"] = checkbox
+        section.add(checkbox)
 
     def setup(self): pass
 
@@ -82,8 +79,8 @@ class SphereProperties(object):
         color = (1., 1., 0., 1.)
 
         if prop_id == "smoothness":
-            self._checkboxes["smoothness"].check(value)
-            self._checkboxes["smoothness"].set_checkmark_color(color)
+            self._checkbuttons["smoothness"].check(value)
+            self._checkbuttons["smoothness"].set_checkmark_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
@@ -93,7 +90,7 @@ class SphereProperties(object):
     def set_object_property(self, prop_id, value):
 
         if prop_id == "smoothness":
-            self._checkboxes["smoothness"].check(value)
+            self._checkbuttons["smoothness"].check(value)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.set_value(prop_id, value)
@@ -105,13 +102,13 @@ class SphereProperties(object):
         color = (.5, .5, .5, 1.) if multi_sel else None
 
         if multi_sel:
-            self._checkboxes["smoothness"].check(False)
+            self._checkbuttons["smoothness"].check(False)
 
         for field in self._fields.values():
             field.set_text_color(color)
             field.show_text(not multi_sel)
 
-        self._checkboxes["smoothness"].set_checkmark_color(color)
+        self._checkbuttons["smoothness"].set_checkmark_color(color)
 
 
 ObjectTypes.add_type("sphere", "Sphere")

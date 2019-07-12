@@ -1,13 +1,13 @@
 from .base import *
 
 
-class BasicGeomProperties(object):
+class BasicGeomProperties:
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
 
         section = panel.add_section("basic_geom_props", "Basic properties", hidden=True)
 
@@ -54,12 +54,11 @@ class BasicGeomProperties(object):
         group.add(sizer, expand=True)
 
         command = lambda on: Mgr.update_remotely("normal_viz", on)
-        checkbox = PanelCheckBox(group, command)
-        checkbox.check(False)
-        self._checkboxes["normal_viz"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Show"
-        sizer.add(PanelText(group, text), alignment="center_v")
+        checkbtn = PanelCheckButton(group, command, text)
+        checkbtn.check(False)
+        self._checkbuttons["normal_viz"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
         self._colorbox = colorbox = PanelColorBox(group, self.__handle_color)
         sizer.add(colorbox, alignment="center_v")
@@ -99,9 +98,9 @@ class BasicGeomProperties(object):
 
         color = (1., 1., 0., 1.)
 
-        if prop_id in self._checkboxes:
-            self._checkboxes[prop_id].check(value)
-            self._checkboxes[prop_id].set_checkmark_color(color)
+        if prop_id in self._checkbuttons:
+            self._checkbuttons[prop_id].check(value)
+            self._checkbuttons[prop_id].set_checkmark_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
@@ -118,8 +117,8 @@ class BasicGeomProperties(object):
             gray = (.5, .5, .5)
             color = gray if multi_sel else value[:3]
             self._colorbox.set_color(color)
-        elif prop_id in self._checkboxes:
-            self._checkboxes[prop_id].check(value)
+        elif prop_id in self._checkbuttons:
+            self._checkbuttons[prop_id].check(value)
         elif prop_id in self._fields:
             self._fields[prop_id].set_value(prop_id, value)
 
@@ -131,13 +130,13 @@ class BasicGeomProperties(object):
 
         if multi_sel:
 
-            for checkbox in self._checkboxes.values():
-                checkbox.check(False)
+            for checkbtn in self._checkbuttons.values():
+                checkbtn.check(False)
 
             self._colorbox.set_color(color[:3])
 
-        for checkbox in self._checkboxes.values():
-            checkbox.set_checkmark_color(color)
+        for checkbtn in self._checkbuttons.values():
+            checkbtn.set_checkmark_color(color)
 
         for field in self._fields.values():
             field.set_text_color(color)

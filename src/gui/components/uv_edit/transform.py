@@ -112,7 +112,7 @@ class TransformToolbar(Toolbar):
 
         self._uv_lvl = "poly"
 
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._transform_btns = btns = TransformButtons(self)
 
         def set_active_transform_off():
@@ -127,10 +127,10 @@ class TransformToolbar(Toolbar):
         get_handles_toggler = lambda transf_type: lambda shown: self.__toggle_transform_handles(transf_type, shown)
 
         for transf_type in ("translate", "rotate", "scale"):
-            checkbox = ToolbarCheckBox(self, get_handles_toggler(transf_type))
-            checkbox.check()
-            self._checkboxes[transf_type] = checkbox
-            self.add(checkbox, borders=borders, alignment="center_v")
+            checkbtn = ToolbarCheckButton(self, get_handles_toggler(transf_type))
+            checkbtn.check()
+            self._checkbuttons[transf_type] = checkbtn
+            self.add(checkbtn, borders=borders, alignment="center_v")
             btn = btns.get_button(transf_type)
             self.add(btn, borders=borders, alignment="center_v")
 
@@ -230,7 +230,7 @@ class TransformToolbar(Toolbar):
 
     def __show_transform_handles(self, transf_type, shown):
 
-        self._checkboxes[transf_type].check(shown)
+        self._checkbuttons[transf_type].check(shown)
 
     def __on_popup(self, field):
 

@@ -105,8 +105,8 @@ class EntryText(Widget):
 
     def on_left_down(self):
 
-        ctrl_down = Mgr.get("mouse_watcher").is_button_down(KeyboardButton.control())
-        shift_down = Mgr.get("mouse_watcher").is_button_down(KeyboardButton.shift())
+        ctrl_down = Mgr.get("mouse_watcher").is_button_down("control")
+        shift_down = Mgr.get("mouse_watcher").is_button_down("shift")
 
         if ctrl_down and shift_down:
             return
@@ -121,7 +121,7 @@ class EntryText(Widget):
             self.get_parent().set_selected_entry(entry)
 
 
-class Entry(object):
+class Entry:
 
     colors = None
 
@@ -483,7 +483,7 @@ class SelectionDialog(Dialog):
         Dialog.__init__(self, title, "okcancel", ok_alias, on_yes)
 
         self._selection_ids = []
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._fields = fields = {}
         self._search_in_selection = False
         self._obj_types = ["model", "helper", "group", "light", "camera"]
@@ -504,20 +504,21 @@ class SelectionDialog(Dialog):
         borders = (0, 0, 2, 0)
         group.add(grp_subsizer, borders=borders)
 
-        checkbox_sizer = GridSizer(columns=2, gap_h=5, gap_v=2)
+        checkbtn_sizer = Sizer("vertical")
         borders = (0, 20, 0, 0)
-        grp_subsizer.add(checkbox_sizer, borders=borders)
+        grp_subsizer.add(checkbtn_sizer, borders=borders)
 
-        checkbox = DialogCheckBox(group, lambda on: self.__set_search_option("in_sel", on))
-        checkbox_sizer.add(checkbox, alignment_v="center_v")
-        text = DialogText(group, "In selection")
-        checkbox_sizer.add(text, alignment_v="center_v")
+        text = "In selection"
+        checkbtn = DialogCheckButton(group, lambda on:
+            self.__set_search_option("in_sel", on), text)
+        borders = (0, 0, 2, 0)
+        checkbtn_sizer.add(checkbtn, borders=borders)
 
-        checkbox = DialogCheckBox(group, lambda on: self.__set_search_option("match_case", on))
-        checkbox.check(sel_dialog_config["search"]["match_case"])
-        checkbox_sizer.add(checkbox, alignment_v="center_v")
-        text = DialogText(group, "Match case")
-        checkbox_sizer.add(text, alignment_v="center_v")
+        text = "Match case"
+        checkbtn = DialogCheckButton(group, lambda on:
+            self.__set_search_option("match_case", on), text)
+        checkbtn.check(sel_dialog_config["search"]["match_case"])
+        checkbtn_sizer.add(checkbtn, borders=borders)
 
         radio_btns = DialogRadioButtonGroup(group, columns=2, gap_h=5)
         btn_ids = ("start", "end", "sub", "whole")
@@ -579,36 +580,31 @@ class SelectionDialog(Dialog):
         radio_btns.set_selected_button(sel_dialog_config["sort"])
         grp_subsizer.add(radio_btns.get_sizer())
 
-        checkbox = DialogCheckBox(group, lambda on: self.__set_case_sort(on, object_types))
-        checkbox.check(sel_dialog_config["sort_case"])
+        text = "Case-sensitive"
+        checkbtn = DialogCheckButton(group, lambda on:
+            self.__set_case_sort(on, object_types), text)
+        checkbtn.check(sel_dialog_config["sort_case"])
         borders = (20, 0, 0, 0)
-        grp_subsizer.add(checkbox, borders=borders, alignment="center_v")
-        text = DialogText(group, "Case-sensitive")
-        borders = (5, 0, 0, 0)
-        grp_subsizer.add(text, borders=borders, alignment="center_v")
+        grp_subsizer.add(checkbtn, borders=borders, alignment="center_v")
 
         group = DialogWidgetGroup(self, "Object types")
         borders = (0, 0, 10, 0)
         column2_sizer.add(group, expand=True, proportion=1., borders=borders)
 
-        gridsizer = GridSizer(columns=2, gap_h=5, gap_v=2)
-        group.add(gridsizer)
-        borders = (0, 20, 0, 0)
+        borders = (0, 20, 2, 0)
         type_names = ("Models", "Helpers", "Groups", "Lights", "Cameras")
         obj_types = object_types if object_types else sel_dialog_config["obj_types"]
         checkbox_handler = lambda *args: self.__show_object_types(object_types)
 
         for obj_type, type_name in zip(self._obj_types, type_names):
 
-            checkbox = DialogCheckBox(group, checkbox_handler)
-            checkbox.check(obj_type in obj_types)
-            gridsizer.add(checkbox, alignment_v="center_v")
-            self._checkboxes[obj_type] = checkbox
-            text = DialogText(group, type_name)
-            gridsizer.add(text, borders=borders, alignment_v="center_v")
+            checkbtn = DialogCheckButton(group, checkbox_handler, type_name)
+            checkbtn.check(obj_type in obj_types)
+            group.add(checkbtn, borders=borders)
+            self._checkbuttons[obj_type] = checkbtn
 
             if object_types and obj_type not in obj_types:
-                checkbox.enable(False)
+                checkbtn.enable(False)
 
         group.add((0, 10), proportion=1.)
 
@@ -658,7 +654,7 @@ class SelectionDialog(Dialog):
 
     def close(self, answer=""):
 
-        self._checkboxes = None
+        self._checkbuttons = None
         self._fields = None
 
         if answer == "yes":
@@ -672,8 +668,8 @@ class SelectionDialog(Dialog):
 
     def __show_object_types(self, object_types):
 
-        checkboxes = self._checkboxes
-        obj_types = [o_type for o_type in self._obj_types if checkboxes[o_type].is_checked()]
+        checkbtns = self._checkbuttons
+        obj_types = [o_type for o_type in self._obj_types if checkbtns[o_type].is_checked()]
 
         if not object_types:
 
@@ -687,7 +683,7 @@ class SelectionDialog(Dialog):
 
     def __modify_types(self, mod):
 
-        checkboxes = self._checkboxes
+        checkbtns = self._checkbuttons
 
         if mod == "all":
             obj_types = self._obj_types[:]
@@ -695,10 +691,10 @@ class SelectionDialog(Dialog):
             obj_types = []
         elif mod == "invert":
             obj_types = [o_type for o_type in self._obj_types
-                         if not checkboxes[o_type].is_checked()]
+                         if not checkbtns[o_type].is_checked()]
 
         for obj_type in self._obj_types:
-            checkboxes[obj_type].check(obj_type in obj_types)
+            checkbtns[obj_type].check(obj_type in obj_types)
 
         config_data = GlobalData["config"]
         config_data["sel_dialog"]["obj_types"] = obj_types

@@ -1,13 +1,13 @@
 from .base import *
 
 
-class TorusProperties(object):
+class TorusProperties:
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._segments_default = {"ring": 3, "section": 3}
 
         section = panel.add_section("torus_props", "Torus properties", hidden=True)
@@ -47,15 +47,11 @@ class TorusProperties(object):
 
         section.add((0, 5))
 
-        sizer = Sizer("horizontal")
-        section.add(sizer)
-        checkbox = PanelCheckBox(section, lambda val: self.__handle_value("smoothness", val))
-        checkbox.check(True)
-        self._checkboxes["smoothness"] = checkbox
-        borders = (0, 5, 0, 0)
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Smooth"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, lambda val:
+            self.__handle_value("smoothness", val), text)
+        self._checkbuttons["smoothness"] = checkbtn
+        section.add(checkbtn)
 
     def setup(self): pass
 
@@ -109,8 +105,8 @@ class TorusProperties(object):
         color = (1., 1., 0., 1.)
 
         if prop_id == "smoothness":
-            self._checkboxes["smoothness"].check(value)
-            self._checkboxes["smoothness"].set_checkmark_color(color)
+            self._checkbuttons["smoothness"].check(value)
+            self._checkbuttons["smoothness"].set_checkmark_color(color)
         elif prop_id == "segments":
             self._segments_default.update(value)
             for spec in ("ring", "section"):
@@ -128,7 +124,7 @@ class TorusProperties(object):
     def set_object_property(self, prop_id, value):
 
         if prop_id == "smoothness":
-            self._checkboxes["smoothness"].check(value)
+            self._checkbuttons["smoothness"].check(value)
         elif prop_id == "segments":
             for spec in ("ring", "section"):
                 value_id = "segments_" + spec
@@ -145,13 +141,13 @@ class TorusProperties(object):
         color = (.5, .5, .5, 1.) if multi_sel else None
 
         if multi_sel:
-            self._checkboxes["smoothness"].check(False)
+            self._checkbuttons["smoothness"].check(False)
 
         for field in self._fields.values():
             field.set_text_color(color)
             field.show_text(not multi_sel)
 
-        self._checkboxes["smoothness"].set_checkmark_color(color)
+        self._checkbuttons["smoothness"].set_checkmark_color(color)
 
 
 ObjectTypes.add_type("torus", "Torus")

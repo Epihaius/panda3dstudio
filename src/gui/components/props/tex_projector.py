@@ -1,26 +1,25 @@
 from .base import *
 
 
-class TexProjectorProperties(object):
+class TexProjectorProperties:
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
 
         self._targets = {}
 
         section = panel.add_section("tex_projector_props", "Tex. projector properties", hidden=True)
 
-        sizer = Sizer("horizontal")
-        section.add(sizer)
-        checkbox = PanelCheckBox(section, lambda on: self.__handle_value("on", on))
-        self._checkboxes["on"] = checkbox
-        borders = (0, 5, 0, 0)
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "On"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, lambda on:
+            self.__handle_value("on", on), text)
+        self._checkbuttons["on"] = checkbtn
+        section.add(checkbtn)
+
+        borders = (0, 5, 0, 0)
 
         sizer = Sizer("horizontal")
         section.add(sizer)
@@ -121,23 +120,21 @@ class TexProjectorProperties(object):
 
         borders = (0, 5, 0, 0)
 
-        checkbox = PanelCheckBox(group, lambda val: self.__handle_value("use_poly_sel", val))
-        checkbox.check(False)
-        checkbox.enable(False)
-        checkbox.add_disabler("no_targets", lambda: not self._targets)
-        self._checkboxes["use_poly_sel"] = checkbox
-        sizer.add(checkbox, borders=borders)
         text = "Use"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(group, lambda val: self.__handle_value("show_poly_sel", val))
-        checkbox.check(False)
-        checkbox.enable(False)
-        checkbox.add_disabler("no_targets", lambda: not self._targets)
-        self._checkboxes["show_poly_sel"] = checkbox
-        sizer.add(checkbox, borders=borders)
+        checkbtn = PanelCheckButton(group, lambda val:
+            self.__handle_value("use_poly_sel", val), text)
+        checkbtn.enable(False)
+        checkbtn.add_disabler("no_targets", lambda: not self._targets)
+        self._checkbuttons["use_poly_sel"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
+        sizer.add((5, 0), proportion=1.)
         text = "Show"
-        sizer.add(PanelText(group, text), alignment="center_v")
+        checkbtn = PanelCheckButton(group, lambda val:
+            self.__handle_value("show_poly_sel", val), text)
+        checkbtn.enable(False)
+        checkbtn.add_disabler("no_targets", lambda: not self._targets)
+        self._checkbuttons["show_poly_sel"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
 
         text = "Affected UV sets:"
@@ -223,8 +220,8 @@ class TexProjectorProperties(object):
         show_poly_sel = target_data["show_poly_sel"]
         field = self._fields["uv_set_ids"]
         field.set_value("uv_set_ids", uv_set_ids)
-        self._checkboxes["use_poly_sel"].check(use_poly_sel)
-        self._checkboxes["show_poly_sel"].check(show_poly_sel)
+        self._checkbuttons["use_poly_sel"].check(use_poly_sel)
+        self._checkbuttons["show_poly_sel"].check(show_poly_sel)
 
     def __remove_target(self):
 
@@ -297,8 +294,8 @@ class TexProjectorProperties(object):
         color = (1., 1., 0., 1.)
 
         if prop_id == "on":
-            self._checkboxes["on"].check(value)
-            self._checkboxes["on"].set_checkmark_color(color)
+            self._checkbuttons["on"].check(value)
+            self._checkbuttons["on"].set_checkmark_color(color)
         elif prop_id == "projection_type":
             self._radio_btns.set_selected_button(value)
             self._radio_btns.set_bullet_color(color)
@@ -312,7 +309,7 @@ class TexProjectorProperties(object):
 
         if prop_id == "on":
 
-            self._checkboxes["on"].check(value)
+            self._checkbuttons["on"].check(value)
 
         elif prop_id == "projection_type":
 
@@ -329,14 +326,14 @@ class TexProjectorProperties(object):
             self._targets = new_targets
 
             field = self._fields["uv_set_ids"]
-            checkboxes = self._checkboxes
+            checkbtns = self._checkbuttons
             combobox = self._target_combobox
             cur_target_id = combobox.get_selected_item()
 
             if not old_targets:
                 field.enable()
-                checkboxes["use_poly_sel"].enable()
-                checkboxes["show_poly_sel"].enable()
+                checkbtns["use_poly_sel"].enable()
+                checkbtns["show_poly_sel"].enable()
 
             if cur_target_id in new_targets:
 
@@ -348,8 +345,8 @@ class TexProjectorProperties(object):
                     use_poly_sel = not new_target_data["toplvl"]
                     show_poly_sel = new_target_data["show_poly_sel"]
                     field.set_value("uv_set_ids", uv_set_ids)
-                    checkboxes["use_poly_sel"].check(use_poly_sel)
-                    checkboxes["show_poly_sel"].check(show_poly_sel)
+                    checkbtns["use_poly_sel"].check(use_poly_sel)
+                    checkbtns["show_poly_sel"].check(show_poly_sel)
 
             old_target_ids = set(old_targets.keys())
             new_target_ids = set(new_targets.keys())
@@ -375,15 +372,15 @@ class TexProjectorProperties(object):
                     use_poly_sel = not target_data["toplvl"]
                     show_poly_sel = target_data["show_poly_sel"]
                     field.set_value("uv_set_ids", uv_set_ids)
-                    checkboxes["use_poly_sel"].check(use_poly_sel)
-                    checkboxes["show_poly_sel"].check(show_poly_sel)
+                    checkbtns["use_poly_sel"].check(use_poly_sel)
+                    checkbtns["show_poly_sel"].check(show_poly_sel)
                 else:
                     field.set_value("uv_set_ids", ())
                     field.enable(False)
-                    checkboxes["use_poly_sel"].check(False)
-                    checkboxes["use_poly_sel"].enable(False)
-                    checkboxes["show_poly_sel"].check(False)
-                    checkboxes["show_poly_sel"].enable(False)
+                    checkbtns["use_poly_sel"].check(False)
+                    checkbtns["use_poly_sel"].enable(False)
+                    checkbtns["show_poly_sel"].check(False)
+                    checkbtns["show_poly_sel"].enable(False)
 
         elif prop_id in self._fields:
 
@@ -397,7 +394,7 @@ class TexProjectorProperties(object):
         color = (.5, .5, .5, 1.) if multi_sel else None
 
         if multi_sel:
-            self._checkboxes["on"].check(False)
+            self._checkbuttons["on"].check(False)
             self._radio_btns.set_selected_button()
 
         fields = self._fields
@@ -407,7 +404,7 @@ class TexProjectorProperties(object):
             field.set_text_color(color)
             field.show_text(not multi_sel)
 
-        self._checkboxes["on"].set_checkmark_color(color)
+        self._checkbuttons["on"].set_checkmark_color(color)
         self._radio_btns.set_bullet_color(color, update=True)
 
     def __pick_object(self):

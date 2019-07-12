@@ -3,7 +3,7 @@ from .text import Text
 from .button import Button
 from .tooltip import ToolTip
 from .field import InputField
-from .checkbox import CheckBox
+from .checkbtn import CheckButton
 from .combobox import ComboBox
 from .colorbox import ColorBox
 
@@ -174,18 +174,26 @@ class ToolbarSpinButton(Button):
         self._toolbar_bundle.show_menu()
 
 
-class ToolbarCheckBox(CheckBox):
+class ToolbarCheckButton(CheckButton):
 
     _border_gfx_data = (("toolbar_checkbox",),)
-    _box_borders = ()
+    _btn_borders = ()
     _img_offset = (0, 0)
+    _box_img_offset = (0, 0)
     _border_image = None
 
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["toolbar_checkbox"]
-        cls._box_borders = (l, r, b, t)
+        l, _, b, t = TextureAtlas["outer_borders"]["toolbar_checkbox"]
+        cls._box_img_offset = (-l, -t)
+        font = Skin["text"]["toolbar_checkbutton"]["font"]
+        h_f = font.get_height()
+        h = Skin["options"]["checkbox_height"]
+        dh = max(0, h_f - h) // 2
+        b = max(0, b - dh)
+        t = max(0, t - dh)
+        cls._btn_borders = (l, 0, b, t)
         cls._img_offset = (-l, -t)
 
     @classmethod
@@ -193,33 +201,29 @@ class ToolbarCheckBox(CheckBox):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command):
+    def __init__(self, parent, command, text="", text_offset=5):
 
-        if not self._box_borders:
+        if not self._btn_borders:
             self.__set_borders()
 
         mark_color = Skin["colors"]["toolbar_checkmark"]
-        back_color = Skin["colors"]["toolbar_checkbox"]
+        back_color = Skin["colors"]["toolbar_checkbox_back"]
 
-        CheckBox.__init__(self, parent, command, mark_color, back_color)
-
-        self.set_widget_type("toolbar_checkbox")
+        CheckButton.__init__(self, parent, "toolbar", command, mark_color,
+                             back_color, text, text_offset)
 
         if not self._border_image:
             self.__create_border_image()
 
-        self.set_image_offset(self._img_offset)
-        self.set_outer_borders(self._box_borders)
+        if text:
+            self.create_overlay_image(self._border_image)
 
     def __create_border_image(self):
 
-        w, h = self.get_size()
-        l, r, b, t = self._box_borders
-        width = w + l + r
-        height = h + b + t
+        x, y, w, h = TextureAtlas["regions"]["toolbar_checkbox"]
         gfx_data = {"": self._border_gfx_data}
         tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
-        tmp_widget.set_size((width, height), is_min=True)
+        tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
         tmp_widget.destroy()
@@ -230,23 +234,27 @@ class ToolbarCheckBox(CheckBox):
 
         return self._border_image
 
+    def get_box_image_offset(self):
+
+        return self._box_img_offset
+
     def set_checkmark_color(self, color=None):
 
-        CheckBox.set_checkmark_color(self, color)
+        CheckButton.set_checkmark_color(self, color)
 
         offset_x, offset_y = self.get_image_offset()
         self.get_parent().update_composed_image(self, None, offset_x, offset_y)
 
     def check(self, check=True):
 
-        CheckBox.check(self, check)
+        CheckButton.check(self, check)
 
         offset_x, offset_y = self.get_image_offset()
         self.get_parent().update_composed_image(self, None, offset_x, offset_y)
 
     def enable(self, enable=True):
 
-        if not CheckBox.enable(self, enable):
+        if not CheckButton.enable(self, enable):
             return False
 
         offset_x, offset_y = self.get_image_offset()

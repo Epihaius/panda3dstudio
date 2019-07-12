@@ -42,7 +42,7 @@ class BackgroundDialog(Dialog):
                         extra_button_data=extra_button_data)
 
         self._fields = fields = {}
-        self._checkboxes = checkboxes = {}
+        self._checkbuttons = checkbtns = {}
         self._data = data = {}
         current_view_id = GlobalData["view"]
         view_ids = ("front", "back", "left", "right", "bottom", "top")
@@ -79,22 +79,19 @@ class BackgroundDialog(Dialog):
         get_command = lambda val_id: lambda val: self.__handle_value(val_id, val)
 
         val_id = "show"
-        checkbox = DialogCheckBox(self, get_command(val_id))
-        checkbox.check(data[val_id])
-        checkboxes[val_id] = checkbox
-        subsizer.add(checkbox, alignment="center_v")
-        text = DialogText(self, "Show image")
-        borders = (5, 20, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        text = "Show image"
+        checkbtn = DialogCheckButton(self, get_command(val_id), text)
+        checkbtn.check(data[val_id])
+        checkbtns[val_id] = checkbtn
+        borders = (0, 20, 0, 0)
+        subsizer.add(checkbtn, alignment="center_v", borders=borders)
 
         val_id = "in_foreground"
-        checkbox = DialogCheckBox(self, get_command(val_id))
-        checkbox.check(data[val_id])
-        checkboxes[val_id] = checkbox
-        subsizer.add(checkbox, alignment="center_v")
-        text = DialogText(self, "in foreground instead of background")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        text = "in foreground instead of background"
+        checkbtn = DialogCheckButton(self, get_command(val_id), text)
+        checkbtn.check(data[val_id])
+        checkbtns[val_id] = checkbtn
+        subsizer.add(checkbtn, alignment="center_v")
 
         subsizer = Sizer("horizontal")
         borders = (20, 20, 10, 0)
@@ -172,18 +169,13 @@ class BackgroundDialog(Dialog):
         fields[val_id] = field
         subsizer.add(field, proportion=1., alignment="center_v")
 
-        subsizer = Sizer("horizontal")
-        borders = (0, 0, 0, 2)
-        group.add(subsizer, expand=True, borders=borders)
-
         val_id = "fixed_aspect_ratio"
-        checkbox = DialogCheckBox(group, get_command(val_id))
-        checkbox.check(data[val_id])
-        checkboxes[val_id] = checkbox
-        subsizer.add(checkbox, alignment="center_v")
-        text = DialogText(group, "Maintain bitmap aspect ratio")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        text = "Maintain bitmap aspect ratio"
+        checkbtn = DialogCheckButton(group, get_command(val_id), text)
+        checkbtn.check(data[val_id])
+        checkbtns[val_id] = checkbtn
+        borders = (0, 0, 0, 2)
+        group.add(checkbtn, borders=borders)
 
         group = DialogWidgetGroup(self, "Flip image")
         borders = (20, 20, 0, 10)
@@ -193,22 +185,19 @@ class BackgroundDialog(Dialog):
         group.add(subsizer)
 
         val_id = "flip_h"
-        checkbox = DialogCheckBox(group, get_command(val_id))
-        checkbox.check(data[val_id])
-        checkboxes[val_id] = checkbox
-        subsizer.add(checkbox, alignment="center_v")
-        text = DialogText(group, "Horizontally")
-        borders = (5, 20, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        text = "Horizontally"
+        checkbtn = DialogCheckButton(group, get_command(val_id), text)
+        checkbtn.check(data[val_id])
+        checkbtns[val_id] = checkbtn
+        borders = (0, 20, 0, 0)
+        subsizer.add(checkbtn, alignment="center_v", borders=borders)
 
         val_id = "flip_v"
-        checkbox = DialogCheckBox(group, get_command(val_id))
-        checkbox.check(data[val_id])
-        checkboxes[val_id] = checkbox
-        subsizer.add(checkbox, alignment="center_v")
-        text = DialogText(group, "Vertically")
-        borders = (5, 0, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
+        text = "Vertically"
+        checkbtn = DialogCheckButton(group, get_command(val_id), text)
+        checkbtn.check(data[val_id])
+        checkbtns[val_id] = checkbtn
+        subsizer.add(checkbtn, alignment="center_v")
 
         text = "Reset"
         tooltip_text = "Clear background and set default values"
@@ -248,7 +237,7 @@ class BackgroundDialog(Dialog):
 
     def close(self, answer=""):
 
-        self._checkboxes = None
+        self._checkbuttons = None
         self._fields = None
 
         Dialog.close(self, answer)
@@ -263,12 +252,12 @@ class BackgroundDialog(Dialog):
         fields["y"].set_value("y", 0.)
         fields["width"].set_value("width", 1.)
         fields["height"].set_value("height", 1.)
-        checkboxes = self._checkboxes
-        checkboxes["show"].check()
-        checkboxes["in_foreground"].check(False)
-        checkboxes["fixed_aspect_ratio"].check()
-        checkboxes["flip_h"].check(False)
-        checkboxes["flip_v"].check(False)
+        checkbtns = self._checkbuttons
+        checkbtns["show"].check()
+        checkbtns["in_foreground"].check(False)
+        checkbtns["fixed_aspect_ratio"].check()
+        checkbtns["flip_h"].check(False)
+        checkbtns["flip_v"].check(False)
         data = self._data
         data["filename"] = ""
         data["show"] = True
@@ -413,7 +402,7 @@ def _init_snapshot():
     _request_view_name(command)
 
 
-class ViewManager(object):
+class ViewManager:
 
     def __init__(self, menubar):
 
@@ -1067,7 +1056,7 @@ class ViewPane(ScrollPane):
         self.reset_sub_image_index()
 
 
-class ViewTileManager(object):
+class ViewTileManager:
 
     def __init__(self):
 

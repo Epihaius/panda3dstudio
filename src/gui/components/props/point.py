@@ -1,13 +1,13 @@
 from .base import *
 
 
-class PointProperties(object):
+class PointProperties:
 
     def __init__(self, panel):
 
         self._panel = panel
         self._fields = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._colorboxes = {}
 
         section = panel.add_section("point_props", "Point helper properties", hidden=True)
@@ -28,14 +28,11 @@ class PointProperties(object):
 
         section.add((0, 5))
 
-        sizer = Sizer("horizontal")
-        section.add(sizer)
         prop_id = "on_top"
-        checkbox = PanelCheckBox(section, self.__draw_on_top)
-        self._checkboxes[prop_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Draw on top"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__draw_on_top, text)
+        self._checkbuttons[prop_id] = checkbtn
+        section.add(checkbtn)
 
         section.add((0, 5))
 
@@ -111,7 +108,7 @@ class PointProperties(object):
 
         color = (1., 1., 0., 1.)
         fields = self._fields
-        checkboxes = self._checkboxes
+        checkbtns = self._checkbuttons
         colorboxes = self._colorboxes
 
         if prop_id in fields:
@@ -119,36 +116,36 @@ class PointProperties(object):
             field.show_text()
             field.set_value(prop_id, value)
             field.set_text_color(color)
-        elif prop_id in checkboxes:
-            checkboxes[prop_id].check(value)
-            checkboxes[prop_id].set_checkmark_color(color)
+        elif prop_id in checkbtns:
+            checkbtns[prop_id].check(value)
+            checkbtns[prop_id].set_checkmark_color(color)
         elif prop_id in colorboxes:
             colorboxes[prop_id].set_color(value[:3])
 
     def set_object_property(self, prop_id, value):
 
         fields = self._fields
-        checkboxes = self._checkboxes
+        checkbtns = self._checkbuttons
         colorboxes = self._colorboxes
 
         if prop_id in fields:
             fields[prop_id].set_value(prop_id, value)
-        elif prop_id in checkboxes:
-            checkboxes[prop_id].check(value)
+        elif prop_id in checkbtns:
+            checkbtns[prop_id].check(value)
         elif prop_id in colorboxes:
             colorboxes[prop_id].set_color(value[:3])
 
     def check_selection_count(self):
 
-        checkboxes = self._checkboxes
+        checkbtns = self._checkbuttons
         fields = self._fields
 
         sel_count = GlobalData["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 
-        for checkbox in checkboxes.values():
-            checkbox.set_checkmark_color(color)
+        for checkbtn in checkbtns.values():
+            checkbtn.set_checkmark_color(color)
 
         for field in fields.values():
             field.set_text_color(color)

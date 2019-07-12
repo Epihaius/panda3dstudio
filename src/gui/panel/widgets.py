@@ -3,7 +3,7 @@ from ..text import Text
 from ..button import Button
 from ..combobox import ComboBox
 from ..field import InputField
-from ..checkbox import CheckBox
+from ..checkbtn import CheckButton
 from ..colorbox import ColorBox
 from ..radiobtn import RadioButton, RadioButtonGroup
 
@@ -42,18 +42,26 @@ class PanelButton(Button):
         self.delay_card_update()
 
 
-class PanelCheckBox(CheckBox):
+class PanelCheckButton(CheckButton):
 
     _border_gfx_data = (("panel_checkbox",),)
-    _box_borders = ()
+    _btn_borders = ()
     _img_offset = (0, 0)
+    _box_img_offset = (0, 0)
     _border_image = None
 
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["panel_checkbox"]
-        cls._box_borders = (l, r, b, t)
+        l, _, b, t = TextureAtlas["outer_borders"]["panel_checkbox"]
+        cls._box_img_offset = (-l, -t)
+        font = Skin["text"]["panel_checkbutton"]["font"]
+        h_f = font.get_height()
+        h = Skin["options"]["checkbox_height"]
+        dh = max(0, h_f - h) // 2
+        b = max(0, b - dh)
+        t = max(0, t - dh)
+        cls._btn_borders = (l, 0, b, t)
         cls._img_offset = (-l, -t)
 
     @classmethod
@@ -61,34 +69,32 @@ class PanelCheckBox(CheckBox):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command):
+    def __init__(self, parent, command, text="", text_offset=5):
 
-        if not self._box_borders:
+        if not self._btn_borders:
             self.__set_borders()
 
         mark_color = Skin["colors"]["panel_checkmark"]
-        back_color = Skin["colors"]["panel_checkbox"]
+        back_color = Skin["colors"]["panel_checkbox_back"]
 
-        CheckBox.__init__(self, parent, command, mark_color, back_color)
+        CheckButton.__init__(self, parent, "panel", command, mark_color,
+                             back_color, text, text_offset)
 
-        self.set_widget_type("panel_checkbox")
         self.delay_card_update()
 
         if not self._border_image:
             self.__create_border_image()
 
-        self.set_image_offset(self._img_offset)
-        self.set_outer_borders(self._box_borders)
+        if text:
+            self.create_overlay_image(self._border_image)
 
     def __create_border_image(self):
 
-        w, h = self.get_size()
-        l, r, b, t = self._box_borders
-        width = w + l + r
-        height = h + b + t
+        x, y, w, h = TextureAtlas["regions"]["panel_checkbox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
-        tmp_widget.set_size((width, height), is_min=True)
+        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both",
+                            has_mouse_region=False)
+        tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
         tmp_widget.destroy()
@@ -98,6 +104,10 @@ class PanelCheckBox(CheckBox):
     def get_border_image(self):
 
         return self._border_image
+
+    def get_box_image_offset(self):
+
+        return self._box_img_offset
 
 
 class PanelColorBox(ColorBox):
@@ -146,7 +156,8 @@ class PanelColorBox(ColorBox):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both",
+                            has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -161,16 +172,24 @@ class PanelColorBox(ColorBox):
 
 class PanelRadioButton(RadioButton):
 
-    _border_gfx_data = (("panel_radiobutton",),)
+    _border_gfx_data = (("panel_radiobox",),)
     _btn_borders = ()
     _img_offset = (0, 0)
+    _box_img_offset = (0, 0)
     _border_image = None
 
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["panel_radiobutton"]
-        cls._btn_borders = (l, r, b, t)
+        l, r, b, t = TextureAtlas["outer_borders"]["panel_radiobox"]
+        cls._box_img_offset = (-l, -t)
+        font = Skin["text"]["panel_radiobutton"]["font"]
+        h_f = font.get_height()
+        h = Skin["options"]["radiobox_height"]
+        dh = max(0, h_f - h) // 2
+        b = max(0, b - dh)
+        t = max(0, t - dh)
+        cls._btn_borders = (l, 0, b, t)
         cls._img_offset = (-l, -t)
 
     @classmethod
@@ -178,30 +197,25 @@ class PanelRadioButton(RadioButton):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, btn_id, group):
+    def __init__(self, parent, btn_id, text, group):
 
         if not self._btn_borders:
             self.__set_borders()
 
-        RadioButton.__init__(self, parent, btn_id, group)
-
-        self.set_widget_type("panel_radiobutton")
+        RadioButton.__init__(self, parent, "panel", btn_id, text, group)
 
         if not self._border_image:
             self.__create_border_image()
 
-        self.set_image_offset(self._img_offset)
-        self.set_outer_borders(self._btn_borders)
+        self.create_overlay_image(self._border_image)
 
     def __create_border_image(self):
 
-        w, h = self.get_size()
-        l, r, b, t = self._btn_borders
-        width = w + l + r
-        height = h + b + t
+        x, y, w, h = TextureAtlas["regions"]["panel_radiobox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
-        tmp_widget.set_size((width, height), is_min=True)
+        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both",
+                            has_mouse_region=False)
+        tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
         tmp_widget.destroy()
@@ -212,23 +226,29 @@ class PanelRadioButton(RadioButton):
 
         return self._border_image
 
+    def get_box_image_offset(self):
+
+        return self._box_img_offset
+
 
 class PanelRadioButtonGroup(RadioButtonGroup):
 
-    def __init__(self, parent, rows=0, columns=0, gap_h=0, gap_v=0):
+    def __init__(self, parent, rows=0, columns=0, gap_h=0, gap_v=0, stretch=False,
+                 text_offset=5):
 
         bullet_color = Skin["colors"]["panel_bullet"]
-        back_color = Skin["colors"]["panel_radiobutton"]
+        back_color = Skin["colors"]["panel_radiobox_back"]
 
-        RadioButtonGroup.__init__(self, bullet_color, back_color, rows, columns, gap_h, gap_v)
+        RadioButtonGroup.__init__(self, bullet_color, back_color, rows, columns,
+                                  gap_h, gap_v, stretch, text_offset)
 
         self._parent = parent
         self.delay_card_update()
 
     def add_button(self, btn_id, text):
 
-        btn = PanelRadioButton(self._parent, btn_id, self)
-        RadioButtonGroup.add_button(self, btn_id, btn, PanelText(self._parent, text))
+        btn = PanelRadioButton(self._parent, btn_id, text, self)
+        RadioButtonGroup.add_button(self, btn_id, btn)
 
 
 class PanelInputField(InputField):
@@ -416,5 +436,5 @@ class PanelComboBox(ComboBox):
         self.set_field_back_image(img)
 
 
-__all__ = ("PanelText", "PanelButton", "PanelCheckBox", "PanelColorBox",
+__all__ = ("PanelText", "PanelButton", "PanelCheckButton", "PanelColorBox",
            "PanelRadioButtonGroup", "PanelInputField", "PanelComboBox")

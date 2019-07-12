@@ -39,29 +39,7 @@ class Text(Widget):
 
     def __create_image(self, text):
 
-        font = self._font
-        color = self._color
-        lines = text.split("\n")
-        line_count = len(lines)
-
-        if line_count == 1:
-            return self.post_process_image(font.create_image(text, color))
-
-        line_imgs = []
-        line_spacing = font.get_line_spacing()
-        width = 0
-
-        for line in lines:
-            line_img = font.create_image(line, color)
-            line_imgs.append(line_img)
-            width = max(width, line_img.get_x_size())
-
-        img = PNMImage(width, line_spacing * (line_count - 1) + font.get_height(), 4)
-
-        for i, line_img in enumerate(line_imgs):
-            img.copy_sub_image(line_img, 0, i * line_spacing, 0, 0)
-
-        return self.post_process_image(img)
+        return self.post_process_image(self._font.create_image(text, self._color))
 
     def set_text(self, text, force=False):
 
@@ -170,33 +148,7 @@ class Label(Widget):
 
     def __create_image(self, text):
 
-        font = self._font
-        text_color = self._text_color
-        back_color = self._back_color
-        edge_color = self._edge_color
-        lines = text.split("\n")
-        line_count = len(lines)
-
-        if line_count == 1:
-
-            img = font.create_image(text, text_color)
-
-        else:
-
-            line_imgs = []
-            line_spacing = font.get_line_spacing()
-            width = 0
-
-            for line in lines:
-                line_img = font.create_image(line, text_color)
-                line_imgs.append(line_img)
-                width = max(width, line_img.get_x_size())
-
-            img = PNMImage(width, line_spacing * (line_count - 1) + font.get_height(), 4)
-
-            for i, line_img in enumerate(line_imgs):
-                img.copy_sub_image(line_img, 0, i * line_spacing, 0, 0)
-
+        img = self._font.create_image(text, self._text_color)
         l_e, r_e, b_e, t_e = self._edge_borders
         l_t, r_t, b_t, t_t = self._text_borders
         w, h = self._size
@@ -205,13 +157,13 @@ class Label(Widget):
         w = max(w, w_text + l_e + r_e + l_t + r_t)
         h = max(h, h_text + b_e + t_e + b_t + t_t)
         image = PNMImage(w, h, 4)
-        r, g, b, a = edge_color
+        r, g, b, a = self._edge_color
         image.fill(r, g, b)
         image.alpha_fill(a)
         w -= l_e + r_e
         h -= b_e + t_e
         inner_image = PNMImage(w, h, 4)
-        r, g, b, a = back_color
+        r, g, b, a = self._back_color
         inner_image.fill(r, g, b)
         inner_image.alpha_fill(a)
         x = (w - w_text) // 2

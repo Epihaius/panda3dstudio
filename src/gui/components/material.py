@@ -14,7 +14,7 @@ class MaterialPanel(Panel):
         self._picking_op = ""
 
         self._comboboxes = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._colorboxes = {}
         self._fields = {}
         self._btns = {}
@@ -244,20 +244,20 @@ class MaterialPanel(Panel):
 
         section = self.add_section("basic_props", "Basic properties")
 
-        sizer = GridSizer(rows=0, columns=3, gap_h=5, gap_v=2)
+        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
         section.add(sizer, expand=True)
 
         prop_id = "show_vert_colors"
-        checkbox = PanelCheckBox(section, self.__toggle_vertex_colors)
-        self._checkboxes[prop_id] = checkbox
-        sizer.add(checkbox, alignment_v="center_v")
         text = "Vertex colors"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
+        checkbtn = PanelCheckButton(section, self.__toggle_vertex_colors, text)
+        self._checkbuttons[prop_id] = checkbtn
+        checkbtn_w = checkbtn.get_label_pos()[0]
+        sizer.add(checkbtn)
         sizer.add((0, 0))
 
-        sizer.add((0, 0))
-        text = "Flat color:"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
+        text = PanelText(section, "Flat color:")
+        borders = (checkbtn_w, 0, 0, 0)
+        sizer.add(text, alignment_v="center_v", borders=borders)
         prop_id = "flat_color"
         dialog_title = "Pick flat color"
         colorbox = PanelColorBox(section, self.__handle_flat_color, dialog_title=dialog_title)
@@ -268,20 +268,18 @@ class MaterialPanel(Panel):
         self._base_prop_ids = prop_ids + ("shininess",)
 
         for prop_id in prop_ids:
-            checkbox = PanelCheckBox(section, self.__get_color_toggler(prop_id))
-            self._checkboxes[prop_id] = checkbox
-            sizer.add(checkbox, alignment_v="center_v")
             text = "{} color:".format(prop_id.title())
-            sizer.add(PanelText(section, text), alignment_v="center_v")
+            checkbtn = PanelCheckButton(section, self.__get_color_toggler(prop_id), text)
+            self._checkbuttons[prop_id] = checkbtn
+            sizer.add(checkbtn, alignment_v="center_v")
             dialog_title = "Pick {} color".format(prop_id)
             colorbox = PanelColorBox(section, self.__get_color_handler(prop_id),
                                      dialog_title=dialog_title)
             self._colorboxes[prop_id] = colorbox
             sizer.add(colorbox, alignment_v="center_v")
 
-        sizer.add((0, 0))
-        text = "Shininess:"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
+        text = PanelText(section, "Shininess:")
+        sizer.add(text, alignment_v="center_v", borders=borders)
         field = PanelInputField(section, 60)
         val_id = "shininess"
         field.add_value(val_id, "float", handler=self.__handle_value)
@@ -291,11 +289,10 @@ class MaterialPanel(Panel):
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         val_id = "alpha"
-        checkbox = PanelCheckBox(section, self.__get_color_toggler(val_id))
-        self._checkboxes[val_id] = checkbox
-        sizer.add(checkbox, alignment_v="center_v")
         text = "Alpha:"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
+        checkbtn = PanelCheckButton(section, self.__get_color_toggler(val_id), text)
+        self._checkbuttons[val_id] = checkbtn
+        sizer.add(checkbtn, alignment_v="center_v")
         field = PanelInputField(section, 60)
         field.add_value(val_id, "float", handler=self.__handle_value)
         field.show_value(val_id)
@@ -311,10 +308,10 @@ class MaterialPanel(Panel):
         section.add(sizer, expand=True)
 
         val_id = "tex_map"
-        checkbox = PanelCheckBox(section, self.__toggle_tex_map)
-        self._checkboxes[val_id] = checkbox
+        checkbtn = PanelCheckButton(section, self.__toggle_tex_map)
+        self._checkbuttons[val_id] = checkbtn
         borders = (0, 5, 0, 0)
-        sizer.add(checkbox, alignment="center_v", borders=borders)
+        sizer.add(checkbtn, alignment="center_v", borders=borders)
         combobox = PanelComboBox(section, 135, tooltip_text="Selected texture map")
         self._comboboxes["map_type"] = combobox
         sizer.add(combobox, proportion=1., alignment="center_v")
@@ -408,15 +405,11 @@ class MaterialPanel(Panel):
 
         group.add((0, 5))
 
-        sizer = Sizer("horizontal")
-        group.add(sizer)
-        borders = (0, 5, 0, 0)
         val_id = "tex_map_wrap_lock"
-        checkbox = PanelCheckBox(group, self.__toggle_wrap_lock)
-        self._checkboxes[val_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Lock U and V modes"
-        sizer.add(PanelText(group, text), alignment="center_v")
+        checkbtn = PanelCheckButton(group, self.__toggle_wrap_lock, text)
+        self._checkbuttons[val_id] = checkbtn
+        group.add(checkbtn)
 
         group = section.add_group("Filtering")
 
@@ -545,24 +538,20 @@ class MaterialPanel(Panel):
 
         section = self.add_section("layers", "Layers")
 
-        sizer = Sizer("horizontal")
-        section.add(sizer)
-        borders = (0, 5, 0, 0)
         val_id = "layers"
-        checkbox = PanelCheckBox(section, self.__toggle_layers)
-        self._checkboxes[val_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Use layers\n(overrides single color map)"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__toggle_layers, text)
+        self._checkbuttons[val_id] = checkbtn
+        section.add(checkbtn)
 
         section.add((0, 5))
 
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
         val_id = "layer_on"
-        checkbox = PanelCheckBox(section, self.__toggle_layer)
-        self._checkboxes[val_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(section, self.__toggle_layer)
+        self._checkbuttons[val_id] = checkbtn
+        sizer.add(checkbtn, alignment="center_v", borders=borders)
         combobox = PanelComboBox(section, 100, tooltip_text="Selected layer", editable=True)
         self._comboboxes["layer"] = combobox
         sizer.add(combobox, proportion=1., alignment="center_v")
@@ -757,15 +746,11 @@ class MaterialPanel(Panel):
 
         group.add((0, 5))
 
-        sizer = Sizer("horizontal")
-        group.add(sizer)
-        borders = (0, 5, 0, 0)
         val_id = "layer_wrap_lock"
-        checkbox = PanelCheckBox(group, self.__toggle_layer_wrap_lock)
-        self._checkboxes[val_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Lock U and V modes"
-        sizer.add(PanelText(group, text), alignment="center_v")
+        checkbtn = PanelCheckButton(group, self.__toggle_layer_wrap_lock, text)
+        self._checkbuttons[val_id] = checkbtn
+        group.add(checkbtn)
 
         group = section.add_group("Filtering")
 
@@ -937,9 +922,9 @@ class MaterialPanel(Panel):
         group.add(sizer, expand=True)
 
         val_id = "layer_combine_channels_use"
-        checkbox = PanelCheckBox(group, self.__toggle_layer_combine_channels)
-        self._checkboxes[val_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(group, self.__toggle_layer_combine_channels)
+        self._checkbuttons[val_id] = checkbtn
+        sizer.add(checkbtn, alignment="center_v", borders=borders)
 
         combobox = PanelComboBox(group, 100, tooltip_text="Channels")
         get_command = lambda channels: lambda: Mgr.update_remotely("tex_layer_prop",
@@ -1018,14 +1003,11 @@ class MaterialPanel(Panel):
 
         group.add((0, 5))
 
-        sizer = Sizer("horizontal")
-        group.add(sizer)
         val_id = "layer_is_stored"
-        checkbox = PanelCheckBox(group, self.__store_layer)
-        self._checkboxes[val_id] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Store layer"
-        sizer.add(PanelText(group, text), alignment="center_v")
+        checkbtn = PanelCheckButton(group, self.__store_layer, text)
+        self._checkbuttons[val_id] = checkbtn
+        group.add(checkbtn)
 
         # **************************************************************************
 
@@ -1308,24 +1290,24 @@ class MaterialPanel(Panel):
                 self._fields[prop_id].set_value(prop_id, value)
             self._comboboxes["material"].set_item_text(mat_id, value)
         elif prop_id == "show_vert_colors":
-            self._checkboxes[prop_id].check(value)
+            self._checkbuttons[prop_id].check(value)
         elif prop_id == "flat_color":
             self._colorboxes[prop_id].set_color(value[:3])
         elif prop_id == "shininess":
             self._fields[prop_id].set_value(prop_id, value["value"])
         elif prop_id == "alpha":
-            self._checkboxes[prop_id].check(value["on"])
+            self._checkbuttons[prop_id].check(value["on"])
             self._fields[prop_id].set_value(prop_id, value["value"])
         elif prop_id in self._base_prop_ids:
-            self._checkboxes[prop_id].check(value["on"])
+            self._checkbuttons[prop_id].check(value["on"])
             self._colorboxes[prop_id].set_color(value["value"][:3])
         elif prop_id == "layers_on":
-            self._checkboxes["layers"].check(value)
+            self._checkbuttons["layers"].check(value)
         elif prop_id == "tex_map_select":
             self._map_type = value
             self._comboboxes["map_type"].select_item(value)
         elif prop_id == "tex_map_on":
-            self._checkboxes["tex_map"].check(value)
+            self._checkbuttons["tex_map"].check(value)
         elif prop_id == "tex_map_file_main":
             self._tex_map_file_main = value
             self._fields[prop_id].set_value(prop_id, value)
@@ -1339,7 +1321,7 @@ class MaterialPanel(Panel):
         elif prop_id == "tex_map_wrap_v":
             self._comboboxes[prop_id].select_item(value)
         elif prop_id == "tex_map_wrap_lock":
-            self._checkboxes[prop_id].check(value)
+            self._checkbuttons[prop_id].check(value)
         elif prop_id == "tex_map_filter_min":
             self._comboboxes[prop_id].select_item(value)
         elif prop_id == "tex_map_filter_mag":
@@ -1552,7 +1534,7 @@ class MaterialPanel(Panel):
         elif prop_id == "alpha_scale":
             self._radio_btns[val_id].set_selected_button(value)
         elif prop_id == "on":
-            self._checkboxes[val_id].check(value)
+            self._checkbuttons[val_id].check(value)
         elif prop_id == "file_main":
             self._layer_file_main = value
             self._fields[val_id].set_value(val_id, value)
@@ -1571,7 +1553,7 @@ class MaterialPanel(Panel):
         elif prop_id == "wrap_v":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "wrap_lock":
-            self._checkboxes[val_id].check(value)
+            self._checkbuttons[val_id].check(value)
         elif prop_id == "filter_min":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "filter_mag":
@@ -1598,7 +1580,7 @@ class MaterialPanel(Panel):
         elif prop_id == "combine_channels":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "combine_channels_use":
-            self._checkboxes[val_id].check(value)
+            self._checkbuttons[val_id].check(value)
         elif prop_id == "combine_source_count":
             self.__set_source_types(value)
         elif prop_id == "combine_source_index":
@@ -1608,7 +1590,7 @@ class MaterialPanel(Panel):
         elif prop_id == "combine_source_channels":
             self._radio_btns[val_id].set_selected_button(value)
         elif prop_id == "is_stored":
-            self._checkboxes[val_id].check(value)
+            self._checkbuttons[val_id].check(value)
 
     def __select_layer(self, layer_id):
 
@@ -1704,7 +1686,7 @@ class MaterialToolbar(Toolbar):
         self._btns = {}
         self._fields = {}
         self._comboboxes = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._colorboxes = {}
 
         borders = (0, 5, 0, 0)
@@ -1752,10 +1734,10 @@ class MaterialToolbar(Toolbar):
 
         self.add(ToolbarSeparator(self), borders=borders)
 
-        checkbox = ToolbarCheckBox(self, self.__toggle_color)
-        checkbox.check()
-        self.add(checkbox, borders=borders, alignment="center_v")
-        self._checkboxes["color_type"] = checkbox
+        checkbtn = ToolbarCheckButton(self, self.__toggle_color)
+        checkbtn.check()
+        self.add(checkbtn, borders=borders, alignment="center_v")
+        self._checkbuttons["color_type"] = checkbtn
 
         tooltip_text = "Selected material color"
         combobox = ToolbarComboBox(self, 95, "", "", tooltip_text)
@@ -1951,7 +1933,7 @@ class MaterialToolbar(Toolbar):
             self._color_type = prop_id
             self._comboboxes["color_type"].select_item(prop_id)
             check = value["on"]
-            self._checkboxes["color_type"].check(check)
+            self._checkbuttons["color_type"].check(check)
             val = value["value"]
             color = (val,) * 3 if prop_id == "alpha" else val[:3]
             self._colorboxes["color_type"].set_color(color)

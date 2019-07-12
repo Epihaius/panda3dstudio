@@ -11,7 +11,7 @@ class SubobjectPanel(Panel):
 
         self._btns = {}
         self._comboboxes = {}
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._colorboxes = {}
         self._fields = {}
         self._radio_btns = {}
@@ -52,21 +52,15 @@ class SubobjectPanel(Panel):
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
 
-        borders = (0, 5, 0, 0)
-
-        checkbox = PanelCheckBox(section, self.__handle_picking_via_poly)
-        checkbox.check(False)
-        self._checkboxes["pick_vert_via_poly"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Pick via polygon"
-        sizer.add(PanelText(section, text), alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(section, self.__handle_picking_by_aiming)
-        checkbox.check(False)
-        self._checkboxes["pick_vert_by_aiming"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
+        self._checkbuttons["pick_vert_via_poly"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
+        sizer.add((5, 0), proportion=1.)
         text = "aim"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
+        self._checkbuttons["pick_vert_by_aiming"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
 
         section.add((0, 10))
@@ -84,34 +78,25 @@ class SubobjectPanel(Panel):
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
 
-        checkbox = PanelCheckBox(section, self.__handle_picking_via_poly)
-        checkbox.check(False)
-        self._checkboxes["pick_edge_via_poly"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Pick via polygon"
-        sizer.add(PanelText(section, text), alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-        checkbox = PanelCheckBox(section, self.__handle_picking_by_aiming)
-        checkbox.check(False)
-        self._checkboxes["pick_edge_by_aiming"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
+        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
+        self._checkbuttons["pick_edge_via_poly"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
+        sizer.add((5, 0), proportion=1.)
         text = "aim"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
+        self._checkbuttons["pick_edge_by_aiming"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
 
         def handler(by_seam):
 
             GlobalData["uv_edit_options"]["sel_edges_by_seam"] = by_seam
 
-        checkbox = PanelCheckBox(section, handler)
-        checkbox.check(False)
-        self._checkboxes["sel_edges_by_seam"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Select by seam"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, handler, text)
+        self._checkbuttons["sel_edges_by_seam"] = checkbtn
+        section.add(checkbtn)
 
         section.add((0, 10))
 
@@ -136,19 +121,14 @@ class SubobjectPanel(Panel):
 
         section = self.add_section("uv_poly_props", "Polygons")
 
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
         def handler(by_cluster):
 
             GlobalData["uv_edit_options"]["sel_polys_by_cluster"] = by_cluster
 
-        checkbox = PanelCheckBox(section, handler)
-        checkbox.check(False)
-        self._checkboxes["sel_polys_by_cluster"] = checkbox
-        sizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Select by cluster"
-        sizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, handler, text)
+        self._checkbuttons["sel_polys_by_cluster"] = checkbtn
+        section.add(checkbtn)
 
         section.add((0, 10))
 
@@ -249,12 +229,12 @@ class SubobjectPanel(Panel):
         for option, value in GlobalData["uv_edit_options"].items():
             if option == "pick_via_poly":
                 for subobj_type in ("vert", "edge"):
-                    self._checkboxes["pick_{}_via_poly".format(subobj_type)].check(value)
+                    self._checkbuttons["pick_{}_via_poly".format(subobj_type)].check(value)
             elif option == "pick_by_aiming":
                 for subobj_type in ("vert", "edge"):
-                    self._checkboxes["pick_{}_by_aiming".format(subobj_type)].check(value)
-            elif option in self._checkboxes:
-                self._checkboxes[option].check(value)
+                    self._checkbuttons["pick_{}_by_aiming".format(subobj_type)].check(value)
+            elif option in self._checkbuttons:
+                self._checkbuttons[option].check(value)
             elif option in self._fields:
                 self._fields[option].set_value(option, value)
 
@@ -281,7 +261,7 @@ class SubobjectPanel(Panel):
         Mgr.update_interface_remotely("uv", "picking_via_poly", via_poly)
 
         for subobj_type in ("vert", "edge"):
-            self._checkboxes["pick_{}_via_poly".format(subobj_type)].check(via_poly)
+            self._checkbuttons["pick_{}_via_poly".format(subobj_type)].check(via_poly)
 
     def __handle_picking_by_aiming(self, by_aiming):
 
@@ -289,7 +269,7 @@ class SubobjectPanel(Panel):
         GlobalData["subobj_edit_options"]["pick_by_aiming"] = by_aiming
 
         for subobj_type in ("vert", "edge"):
-            self._checkboxes["pick_{}_by_aiming".format(subobj_type)].check(by_aiming)
+            self._checkbuttons["pick_{}_by_aiming".format(subobj_type)].check(by_aiming)
 
     def __break_vertices(self):
 

@@ -9,7 +9,7 @@ class HierarchyPanel(Panel):
 
         Panel.__init__(self, stack, "hierarchy", "Hierarchy")
 
-        self._checkboxes = {}
+        self._checkbuttons = {}
         self._btns = {}
         self._toggle_btns = ToggleButtonGroup()
         toggle = (self.__set_xform_target_type, lambda: None)
@@ -19,15 +19,11 @@ class HierarchyPanel(Panel):
 
         section = self.add_section("linking", "Object linking")
 
-        subsizer = Sizer("horizontal")
-        section.add(subsizer)
-
-        checkbox = PanelCheckBox(section, self.__toggle_link_visibility)
-        checkbox.check(False)
-        self._checkboxes["show_links"] = checkbox
-        borders = (0, 5, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
-        subsizer.add(PanelText(section, "Show links"), alignment="center_v")
+        text = "Show links"
+        checkbtn = PanelCheckButton(section, self.__toggle_link_visibility, text)
+        checkbtn.check(False)
+        self._checkbuttons["show_links"] = checkbtn
+        section.add(checkbtn)
 
         group = section.add_group("Link")
         subsizer = Sizer("horizontal")
@@ -76,41 +72,25 @@ class HierarchyPanel(Panel):
 
         subsizer.add((0, 0), proportion=1.)
 
-        subsizer = Sizer("horizontal")
-        borders = (0, 0, 0, 10)
-        section.add(subsizer, borders=borders)
-
-        checkbox = PanelCheckBox(section, self.__toggle_group_member_linking)
-        checkbox.check()
-        self._checkboxes["group_member_linking_allowed"] = checkbox
-        borders = (0, 5, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
         text = "Affect group membership:"
-        subsizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__toggle_group_member_linking, text)
+        checkbtn.check()
+        self._checkbuttons["group_member_linking_allowed"] = checkbtn
+        borders = (0, 0, 0, 10)
+        section.add(checkbtn, borders=borders)
 
-        subsizer = Sizer("horizontal")
-        borders = (20, 0, 0, 0)
-        section.add(subsizer, borders=borders)
-
-        checkbox = PanelCheckBox(section, self.__toggle_open_group_member_linking)
-        checkbox.check()
-        self._checkboxes["group_member_linking_open_groups_only"] = checkbox
-        borders = (0, 5, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
         text = "affect open groups only"
-        subsizer.add(PanelText(section, text), alignment="center_v")
-
-        subsizer = Sizer("horizontal")
+        checkbtn = PanelCheckButton(section, self.__toggle_open_group_member_linking, text)
+        checkbtn.check()
+        self._checkbuttons["group_member_linking_open_groups_only"] = checkbtn
         borders = (20, 0, 0, 0)
-        section.add(subsizer, borders=borders)
+        section.add(checkbtn, borders=borders)
 
-        checkbox = PanelCheckBox(section, self.__toggle_group_member_unlink_only)
-        checkbox.check()
-        self._checkboxes["group_member_linking_unlink_only"] = checkbox
-        borders = (0, 5, 0, 0)
-        subsizer.add(checkbox, alignment="center_v", borders=borders)
         text = "unlink only"
-        subsizer.add(PanelText(section, text), alignment="center_v")
+        checkbtn = PanelCheckButton(section, self.__toggle_group_member_unlink_only, text)
+        checkbtn.check()
+        self._checkbuttons["group_member_linking_unlink_only"] = checkbtn
+        section.add(checkbtn, borders=borders)
 
         # ************************ Transforms section **************************
 
@@ -192,7 +172,7 @@ class HierarchyPanel(Panel):
     def __update_group_member_linking(self):
 
         for option, value in GlobalData["group_options"]["member_linking"].items():
-            self._checkboxes["group_member_linking_{}".format(option)].check(value)
+            self._checkbuttons["group_member_linking_{}".format(option)].check(value)
 
     def setup(self):
 
@@ -242,7 +222,7 @@ class HierarchyPanel(Panel):
     def __update_link_visibility(self):
 
         links_shown = GlobalData["object_links_shown"]
-        self._checkboxes["show_links"].check(links_shown)
+        self._checkbuttons["show_links"].check(links_shown)
 
     def __toggle_group_member_linking(self, allowed):
 

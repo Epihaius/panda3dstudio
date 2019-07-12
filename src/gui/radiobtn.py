@@ -1,11 +1,10 @@
 from .base import *
-from .text import Text
 
 
 class RadioButton(Widget):
 
     _bullet = None
-    _btn_size = (0, 0)
+    _box_size = (0, 0)
 
     @classmethod
     def init(cls):
@@ -15,19 +14,48 @@ class RadioButton(Widget):
         img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
 
         options = Skin["options"]
-        cls._btn_size = (options["radiobutton_width"], options["radiobutton_height"])
+        cls._box_size = (options["radiobox_width"], options["radiobox_height"])
 
-    def __init__(self, parent, btn_id, group):
+    def __init__(self, parent, parent_type, btn_id, text, group):
 
-        Widget.__init__(self, "radiobutton", parent, gfx_data={})
-
-        self.set_size(self._btn_size, is_min=True)
+        Widget.__init__(self, parent_type + "_radiobutton", parent, gfx_data={})
 
         self._btn_id = btn_id
         self._group = group
         self._is_clicked = False
         self._is_selected = False
         self._command = lambda: None
+
+        widget_type = parent_type + "_radiobutton"
+        skin_text = Skin["text"][widget_type]
+        font = skin_text["font"]
+        color = skin_text["color"]
+        self._label = label = font.create_image(text, color)
+        color = Skin["colors"]["disabled_{}_text".format(widget_type)]
+        self._label_disabled = font.create_image(text, color)
+
+        x, y, w, h = TextureAtlas["regions"][parent_type + "_radiobox"]
+        l, _, b, t = self._btn_borders
+        w += group.get_text_offset() + label.get_x_size() - l
+        h = max(h - b - t, label.get_y_size())
+        self.set_size((w, h), is_min=True)
+
+        if "\n" in text:
+            l, _, b, t = TextureAtlas["outer_borders"][parent_type + "_radiobox"]
+            font = Skin["text"][parent_type + "_radiobutton"]["font"]
+            h_f = font.get_height() * (text.count("\n") + 1)
+            h = Skin["options"]["radiobox_height"]
+            dh = max(0, h_f - h) // 2
+            b = max(0, b - dh)
+            t = max(0, t - dh)
+            btn_borders = (l, 0, b, t)
+            img_offset = (-l, -t)
+        else:
+            btn_borders = self._btn_borders
+            img_offset = self._img_offset
+
+        self.set_outer_borders(btn_borders)
+        self.set_image_offset(img_offset)
 
     def destroy(self):
 
@@ -42,11 +70,25 @@ class RadioButton(Widget):
             return
 
         image = self.get_image(composed=False)
+        parent = self.get_parent()
 
-        if image:
-            w, h = image.get_x_size(), image.get_y_size()
-            img_offset_x, img_offset_y = self.get_image_offset()
-            self.get_card().copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
+        if not (image and parent):
+            return
+
+        x, y = self.get_pos()
+        w, h = self.get_size()
+        img_offset_x, img_offset_y = self.get_image_offset()
+        w -= img_offset_x
+        h -= img_offset_y
+        y += img_offset_y
+        img = PNMImage(w, h, 4)
+        parent_img = parent.get_image(composed=False)
+
+        if parent_img:
+            img.copy_sub_image(parent_img, 0, 0, x, y, w, h)
+
+        img.blend_sub_image(image, 0, 0, 0, 0)
+        self.get_card().copy_sub_image(self, img, w, h, img_offset_x, img_offset_y)
 
     def __update_card_image(self):
 
@@ -62,7 +104,7 @@ class RadioButton(Widget):
     def update_images(self, recurse=True, size=None):
 
         Widget.update_images(self, recurse, size)
-        w, h = self._btn_size
+        w, h = self._box_size
         image = PNMImage(w, h, 4)
         r, g, b, a = self._group.get_back_color()
         image.fill(r, g, b)
@@ -76,6 +118,22 @@ class RadioButton(Widget):
         self.update_images(recurse=False)
         self.__update_card_image()
 
+    def create_overlay_image(self, border_image):
+
+        w_b, h_b = border_image.get_x_size(), border_image.get_y_size()
+        label = self._label
+        w_l, h_l = label.get_x_size(), label.get_y_size()
+        x_l = w_b + self._group.get_text_offset()
+        w = x_l + w_l
+        h = max(h_b, h_l)
+        y_l = (h - h_l) // 2
+        y_b = (h - h_b) // 2
+        img_offset_x, img_offset_y = self.get_box_image_offset()
+        self._box_pos = (-img_offset_x, y_b - img_offset_y)
+        self._label_pos = (x_l, y_l)
+        self._overlay_img = img = PNMImage(w, h, 4)
+        img.copy_sub_image(border_image, 0, y_b, 0, 0)
+
     def get_image(self, state=None, composed=True):
 
         image = Widget.get_image(self, state, composed)
@@ -84,19 +142,24 @@ class RadioButton(Widget):
             return
 
         if self._is_selected:
-            w, h = self._btn_size
+            w, h = self._box_size
             bullet = PNMImage(self._bullet) * self._group.get_bullet_color()
             w_b, h_b = bullet.get_x_size(), bullet.get_y_size()
             x = (w - w_b) // 2
             y = (h - h_b) // 2
             image.blend_sub_image(bullet, x, y, 0, 0)
 
-        border_img = self.get_border_image()
-        w, h = border_img.get_x_size(), border_img.get_y_size()
+        if not self.is_enabled():
+            label = self._label_disabled
+        else:
+            label = self._label
+
+        overlay_img = self._overlay_img
+        w, h = overlay_img.get_x_size(), overlay_img.get_y_size()
         img = PNMImage(w, h, 4)
-        img_offset_x, img_offset_y = self.get_image_offset()
-        img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)
-        img.blend_sub_image(border_img, 0, 0, 0, 0)
+        img.copy_sub_image(image, *self._box_pos, 0, 0)
+        img.blend_sub_image(overlay_img, 0, 0, 0, 0)
+        img.copy_sub_image(label, *self._label_pos, 0, 0)
 
         return img
 
@@ -145,9 +208,10 @@ class RadioButton(Widget):
             self.__update_card_image()
 
 
-class RadioButtonGroup(object):
+class RadioButtonGroup:
 
-    def __init__(self, bullet_color, back_color, rows=0, columns=0, gap_h=0, gap_v=0, stretch=False):
+    def __init__(self, bullet_color, back_color, rows=0, columns=0, gap_h=0,
+                 gap_v=0, stretch=False, text_offset=5):
 
         self._btns = {}
         self._selected_btn_id = None
@@ -155,7 +219,7 @@ class RadioButtonGroup(object):
         self._disablers = {}
         self._default_bullet_color = self._bullet_color = bullet_color
         self._default_back_color = self._back_color = back_color
-        self._text_borders = (5, 0, 0, 0)
+        self._text_offset = text_offset
         self._sizer = GridSizer(rows, columns, gap_h, gap_v)
         self._stretch = stretch
         self._delay_card_update = False
@@ -180,14 +244,11 @@ class RadioButtonGroup(object):
 
         return self._delay_card_update
 
-    def add_button(self, btn_id, button, text):
+    def add_button(self, btn_id, button):
 
         self._btns[btn_id] = button
-        subsizer = Sizer("horizontal")
-        subsizer.add(button, alignment="center_v")
-        subsizer.add(text, alignment="center_v", borders=self._text_borders)
         proportion = 1. if self._stretch else 0.
-        self._sizer.add(subsizer, alignment_v="center_v", proportion_h=proportion)
+        self._sizer.add(button, alignment_v="center_v", proportion_h=proportion)
 
     def get_button_count(self):
 
@@ -244,6 +305,10 @@ class RadioButtonGroup(object):
     def get_back_color(self):
 
         return self._back_color
+
+    def get_text_offset(self):
+
+        return self._text_offset
 
     def add_disabler(self, disabler_id, disabler):
 
