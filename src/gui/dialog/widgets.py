@@ -265,8 +265,7 @@ class DialogCheckButton(CheckButton):
         if not self._border_image:
             self.__create_border_image()
 
-        if text:
-            self.create_overlay_image(self._border_image)
+        self.create_base_image()
 
         self.get_mouse_region().set_sort(parent.get_sort() + 1)
 
@@ -329,7 +328,7 @@ class DialogRadioButton(RadioButton):
         if not self._border_image:
             self.__create_border_image()
 
-        self.create_overlay_image(self._border_image)
+        self.create_base_image()
 
         self.get_mouse_region().set_sort(parent.get_sort() + 1)
 

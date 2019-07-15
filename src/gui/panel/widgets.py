@@ -85,8 +85,7 @@ class PanelCheckButton(CheckButton):
         if not self._border_image:
             self.__create_border_image()
 
-        if text:
-            self.create_overlay_image(self._border_image)
+        self.create_base_image()
 
     def __create_border_image(self):
 
@@ -207,7 +206,7 @@ class PanelRadioButton(RadioButton):
         if not self._border_image:
             self.__create_border_image()
 
-        self.create_overlay_image(self._border_image)
+        self.create_base_image()
 
     def __create_border_image(self):
 

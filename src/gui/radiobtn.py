@@ -103,23 +103,13 @@ class RadioButton(Widget):
 
     def update_images(self, recurse=True, size=None):
 
-        Widget.update_images(self, recurse, size)
-        w, h = self._box_size
-        image = PNMImage(w, h, 4)
-        r, g, b, a = self._group.get_back_color()
-        image.fill(r, g, b)
-        image.alpha_fill(a)
-        self._images = {"": image}
+        self._images = {"": self._base_img}
 
         return self._images
 
-    def update(self):
+    def create_base_image(self):
 
-        self.update_images(recurse=False)
-        self.__update_card_image()
-
-    def create_overlay_image(self, border_image):
-
+        border_image = self.get_border_image()
         w_b, h_b = border_image.get_x_size(), border_image.get_y_size()
         label = self._label
         w_l, h_l = label.get_x_size(), label.get_y_size()
@@ -128,11 +118,16 @@ class RadioButton(Widget):
         h = max(h_b, h_l)
         y_l = (h - h_l) // 2
         y_b = (h - h_b) // 2
+        self._label_pos = (x_l, y_l)
         img_offset_x, img_offset_y = self.get_box_image_offset()
         self._box_pos = (-img_offset_x, y_b - img_offset_y)
-        self._label_pos = (x_l, y_l)
-        self._overlay_img = img = PNMImage(w, h, 4)
-        img.copy_sub_image(border_image, 0, y_b, 0, 0)
+        self._base_img = img = PNMImage(w, h, 4)
+        box_img = PNMImage(*self._box_size, 4)
+        r, g, b, a = self._group.get_back_color()
+        box_img.fill(r, g, b)
+        box_img.alpha_fill(a)
+        img.copy_sub_image(box_img, *self._box_pos, 0, 0)
+        img.blend_sub_image(border_image, 0, y_b, 0, 0)
 
     def get_image(self, state=None, composed=True):
 
@@ -141,27 +136,30 @@ class RadioButton(Widget):
         if not image:
             return
 
-        if self._is_selected:
-            w, h = self._box_size
-            bullet = PNMImage(self._bullet) * self._group.get_bullet_color()
-            w_b, h_b = bullet.get_x_size(), bullet.get_y_size()
-            x = (w - w_b) // 2
-            y = (h - h_b) // 2
-            image.blend_sub_image(bullet, x, y, 0, 0)
+        img = PNMImage(image)
 
         if not self.is_enabled():
             label = self._label_disabled
         else:
             label = self._label
 
-        overlay_img = self._overlay_img
-        w, h = overlay_img.get_x_size(), overlay_img.get_y_size()
-        img = PNMImage(w, h, 4)
-        img.copy_sub_image(image, *self._box_pos, 0, 0)
-        img.blend_sub_image(overlay_img, 0, 0, 0, 0)
         img.copy_sub_image(label, *self._label_pos, 0, 0)
 
+        if self._is_selected:
+            w, h = self._box_size
+            bullet = PNMImage(self._bullet) * self._group.get_bullet_color()
+            w_b, h_b = bullet.get_x_size(), bullet.get_y_size()
+            x, y = self._box_pos
+            x += (w - w_b) // 2
+            y += (h - h_b) // 2
+            img.blend_sub_image(bullet, x, y, 0, 0)
+
         return img
+
+    def update(self):
+
+        self._images = {"": self._base_img}
+        self.__update_card_image()
 
     def on_leave(self):
 
@@ -300,6 +298,7 @@ class RadioButtonGroup:
 
             if update:
                 for btn in self._btns.values():
+                    btn.create_base_image()
                     btn.update()
 
     def get_back_color(self):

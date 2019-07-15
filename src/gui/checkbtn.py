@@ -129,31 +129,37 @@ class CheckButton(Widget):
 
     def update_images(self, recurse=True, size=None):
 
-        Widget.update_images(self, recurse, size)
-        w, h = self._box_size
-        image = PNMImage(w, h, 4)
-        r, g, b, a = self._back_color
-        image.fill(r, g, b)
-        image.alpha_fill(a)
-        self._images = {"": image}
+        self._images = {"": self._base_img}
 
         return self._images
 
-    def create_overlay_image(self, border_image):
+    def create_base_image(self):
 
+        border_image = self.get_border_image()
         w_b, h_b = border_image.get_x_size(), border_image.get_y_size()
         label = self._label
-        w_l, h_l = label.get_x_size(), label.get_y_size()
-        x_l = w_b + self._text_offset
-        w = x_l + w_l
-        h = max(h_b, h_l)
-        y_l = (h - h_l) // 2
-        y_b = (h - h_b) // 2
+
+        if label:
+            w_l, h_l = label.get_x_size(), label.get_y_size()
+            x_l = w_b + self._text_offset
+            w = x_l + w_l
+            h = max(h_b, h_l)
+            y_l = (h - h_l) // 2
+            y_b = (h - h_b) // 2
+            self._label_pos = (x_l, y_l)
+        else:
+            w, h = w_b, h_b
+            y_b = 0
+
         img_offset_x, img_offset_y = self.get_box_image_offset()
         self._box_pos = (-img_offset_x, y_b - img_offset_y)
-        self._label_pos = (x_l, y_l)
-        self._overlay_img = img = PNMImage(w, h, 4)
-        img.copy_sub_image(border_image, 0, y_b, 0, 0)
+        self._base_img = img = PNMImage(w, h, 4)
+        box_img = PNMImage(*self._box_size, 4)
+        r, g, b, a = self._back_color
+        box_img.fill(r, g, b)
+        box_img.alpha_fill(a)
+        img.copy_sub_image(box_img, *self._box_pos, 0, 0)
+        img.blend_sub_image(border_image, 0, y_b, 0, 0)
 
     def get_image(self, state=None, composed=True):
 
@@ -162,13 +168,7 @@ class CheckButton(Widget):
         if not image:
             return
 
-        if self._is_checked:
-            w, h = self._box_size
-            checkmark = PNMImage(self._checkmark) * self._mark_color
-            w_c, h_c = checkmark.get_x_size(), checkmark.get_y_size()
-            x = (w - w_c) // 2
-            y = (h - h_c) // 2
-            image.blend_sub_image(checkmark, x, y, 0, 0)
+        img = PNMImage(image)
 
         if not self.is_enabled():
             label = self._label_disabled
@@ -176,19 +176,16 @@ class CheckButton(Widget):
             label = self._label
 
         if label:
-            overlay_img = self._overlay_img
-            w, h = overlay_img.get_x_size(), overlay_img.get_y_size()
-            img = PNMImage(w, h, 4)
-            img.copy_sub_image(image, *self._box_pos, 0, 0)
-            img.blend_sub_image(overlay_img, 0, 0, 0, 0)
             img.copy_sub_image(label, *self._label_pos, 0, 0)
-        else:
-            border_img = self.get_border_image()
-            w, h = border_img.get_x_size(), border_img.get_y_size()
-            img = PNMImage(w, h, 4)
-            img_offset_x, img_offset_y = self.get_image_offset()
-            img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)
-            img.blend_sub_image(border_img, 0, 0, 0, 0)
+
+        if self._is_checked:
+            w, h = self._box_size
+            checkmark = PNMImage(self._checkmark) * self._mark_color
+            w_c, h_c = checkmark.get_x_size(), checkmark.get_y_size()
+            x, y = self._box_pos
+            x += (w - w_c) // 2
+            y += (h - h_c) // 2
+            img.blend_sub_image(checkmark, x, y, 0, 0)
 
         return img
 
@@ -219,6 +216,24 @@ class CheckButton(Widget):
         if self._mark_color != checkmark_color:
             self._mark_color = checkmark_color
             self.__update_card_image()
+
+    def get_checkmark_color(self):
+
+        return self._mark_color
+
+    def set_back_color(self, color=None):
+
+        back_color = color if color else self._default_back_color
+
+        if self._back_color != back_color:
+            self._back_color = back_color
+            self.create_base_image()
+            self._images = {"": self._base_img}
+            self.__update_card_image()
+
+    def get_back_color(self):
+
+        return self._back_color
 
     def check(self, check=True):
 
