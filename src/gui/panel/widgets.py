@@ -2,7 +2,7 @@ from ..base import *
 from ..text import Text
 from ..button import Button
 from ..combobox import ComboBox
-from ..field import InputField
+from ..field import InputField, SliderInputField
 from ..checkbtn import CheckButton
 from ..colorbox import ColorBox
 from ..radiobtn import RadioButton, RadioButtonGroup
@@ -250,7 +250,7 @@ class PanelRadioButtonGroup(RadioButtonGroup):
         RadioButtonGroup.add_button(self, btn_id, btn)
 
 
-class PanelInputField(InputField):
+class GfxMixin:
 
     _border_gfx_data = (
         ("panel_inset_border_topleft", "panel_inset_border_top", "panel_inset_border_topright"),
@@ -267,17 +267,28 @@ class PanelInputField(InputField):
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, width, text_color=None, back_color=None):
+    def __init__(self):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        InputField.__init__(self, parent, self._border_gfx_data, width, text_color, back_color)
+    def get_outer_borders(self):
+
+        return self._field_borders
+
+
+class PanelInputField(GfxMixin, InputField):
+
+    def __init__(self, parent, value_id, value_type, handler, width,
+                 font=None, text_color=None, back_color=None):
+
+        GfxMixin.__init__(self)
+        InputField.__init__(self, parent, value_id, value_type, handler, width,
+                            self._border_gfx_data, self._img_offset, font,
+                            text_color, back_color)
 
         self.set_widget_type("panel_input_field")
         self.delay_card_update()
-
-        self.set_image_offset(self._img_offset)
 
         panel_stack = self.get_ancestor("panel_stack")
 
@@ -285,11 +296,25 @@ class PanelInputField(InputField):
             scissor_effect = panel_stack.get_scissor_effect()
             self.set_scissor_effect(scissor_effect)
 
-        self._image_data = {}
 
-    def get_outer_borders(self):
+class PanelSliderField(GfxMixin, SliderInputField):
 
-        return self._field_borders
+    def __init__(self, parent, value_id, value_type, value_range, handler, width,
+                 font=None, text_color=None, back_color=None):
+
+        GfxMixin.__init__(self)
+        SliderInputField.__init__(self, parent, value_id, value_type, value_range,
+                                  handler, width, self._border_gfx_data, self._img_offset,
+                                  font, text_color, back_color)
+
+        self.set_widget_type("panel_input_field")
+        self.delay_card_update()
+
+        panel_stack = self.get_ancestor("panel_stack")
+
+        if panel_stack:
+            scissor_effect = panel_stack.get_scissor_effect()
+            self.set_scissor_effect(scissor_effect)
 
 
 class ComboBoxInputField(InputField):
@@ -308,17 +333,18 @@ class ComboBoxInputField(InputField):
         cls._img_offset = (-l, -t)
         cls._height = Skin["options"]["combobox_field_height"]
 
-    def __init__(self, parent, width, text_color=None, back_color=None):
+    def __init__(self, parent, value_id, value_type, handler, width,
+                 font=None, text_color=None, back_color=None):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        InputField.__init__(self, parent, self._border_gfx_data, width, text_color, back_color)
+        InputField.__init__(self, parent, value_id, value_type, handler, width,
+                            self._border_gfx_data, self._img_offset, font,
+                            text_color, back_color)
 
         self.set_widget_type("panel_combo_field")
         self.delay_card_update()
-
-        self.set_image_offset(self._img_offset)
 
         panel_stack = self.get_ancestor("panel_stack")
 
@@ -338,14 +364,14 @@ class ComboBoxInputField(InputField):
 
         InputField.accept_input(self, text_handler=self.get_parent().set_text)
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=False):
+    def set_value(self, value, text_handler=None, handle_value=False):
 
-        InputField.set_value(self, value_id, value, text_handler=self.get_parent().set_text,
+        InputField.set_value(self, value, text_handler=self.get_parent().set_text,
                              handle_value=handle_value)
 
-    def set_text(self, value_id, text, text_handler=None):
+    def set_text(self, text, text_handler=None):
 
-        InputField.set_text(self, value_id, text, text_handler=self.get_parent().set_text)
+        InputField.set_text(self, text, text_handler=self.get_parent().set_text)
 
 
 class PanelComboBox(ComboBox):
@@ -379,13 +405,14 @@ class PanelComboBox(ComboBox):
         l, r, b, t = TextureAtlas["inner_borders"]["panel_combobox_field"]
         cls._field_label_offset = (l, t)
 
-    def __init__(self, parent, field_width, text="", icon_id="", tooltip_text="", editable=False):
+    def __init__(self, parent, field_width, text="", icon_id="", tooltip_text="",
+                 editable=False, value_id="", value_type="string", handler=None):
 
         if not self._box_borders:
             self.__set_borders()
 
-        ComboBox.__init__(self, parent, field_width, self._gfx, text, icon_id, tooltip_text,
-                          editable)
+        ComboBox.__init__(self, parent, field_width, self._gfx, text, icon_id,
+                          tooltip_text, editable)
 
         self.set_widget_type("panel_combobox")
         self.delay_card_update()
@@ -398,7 +425,8 @@ class PanelComboBox(ComboBox):
         self.set_field_back_image(img)
 
         if editable:
-            input_field = ComboBoxInputField(self, field_width)
+            input_field = ComboBoxInputField(self, value_id, value_type,
+                                             handler, field_width)
             self.set_input_field(input_field)
 
     def get_inner_borders(self):
@@ -435,5 +463,5 @@ class PanelComboBox(ComboBox):
         self.set_field_back_image(img)
 
 
-__all__ = ("PanelText", "PanelButton", "PanelCheckButton", "PanelColorBox",
-           "PanelRadioButtonGroup", "PanelInputField", "PanelComboBox")
+__all__ = ("PanelText", "PanelButton", "PanelCheckButton", "PanelRadioButtonGroup",
+           "PanelColorBox", "PanelInputField", "PanelSliderField", "PanelComboBox")

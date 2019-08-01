@@ -13,17 +13,17 @@ class NameInputField(DialogInputField):
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, width, dialog=None, text_color=None, back_color=None,
+    def __init__(self, parent, value_id, handler, width, dialog=None,
+                 font=None, text_color=None, back_color=None,
                  on_key_enter=None, on_key_escape=None):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width, dialog,
-                                  text_color, back_color, on_key_enter=on_key_enter,
-                                  on_key_escape=on_key_escape)
-
-        self.set_image_offset(self._img_offset)
+        DialogInputField.__init__(self, parent, value_id, "string", handler, width,
+                                  INSET1_BORDER_GFX_DATA, self._img_offset,
+                                  dialog, font, text_color, back_color,
+                                  on_key_enter=on_key_enter, on_key_escape=on_key_escape)
 
     def get_outer_borders(self):
 
@@ -532,10 +532,9 @@ class SelectionDialog(Dialog):
         radio_btns.set_selected_button(sel_dialog_config["search"]["part"])
         grp_subsizer.add(radio_btns.get_sizer(), alignment="center_v")
 
-        field = NameInputField(group, 100)
-        field.add_value("name", "string", handler=self.__search_entries)
-        field.set_input_parser("name", self.__parse_substring)
-        field.show_value("name")
+        handler = lambda *args: self.__search_entries(args[1])
+        field = NameInputField(group, "name", handler, 100)
+        field.set_input_parser(self.__parse_substring)
         fields["name"] = field
         group.add(field, expand=True)
 
@@ -736,13 +735,13 @@ class SelectionDialog(Dialog):
         with open("config", "wb") as config_file:
             pickle.dump(config_data, config_file, -1)
 
-    def __search_entries(self, value_id, value):
+    def __search_entries(self, name):
 
-        self._entry_pane.search_entries(value, self._search_in_selection)
+        self._entry_pane.search_entries(name, self._search_in_selection)
 
-    def __parse_substring(self, input_str):
+    def __parse_substring(self, input_text):
 
-        return input_str if input_str else None
+        return input_text if input_text else None
 
     def __modify_selection(self, mod):
 

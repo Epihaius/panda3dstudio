@@ -25,33 +25,28 @@ class BackgroundPanel(Panel):
         btn = PanelButton(top_container, text, "", tooltip_text, self.__load_tex)
         sizer.add(btn, stretch_h=True, alignment_v="center_v")
 
-        field = PanelInputField(top_container, 120)
         val_id = "tex_filename"
-        field.add_value(val_id, "string", handler=self.__set_tex)
-        field.show_value(val_id)
-        field.set_input_init(val_id, self.__init_tex_filename_input)
-        field.set_input_parser(val_id, self.__check_texture_filename)
-        field.set_value_parser(val_id, self.__parse_texture_filename)
+        handler = lambda *args: self.__set_tex(args[1])
+        field = PanelInputField(top_container, val_id, "string", handler, 120)
+        field.set_input_init(self.__init_tex_filename_input)
+        field.set_input_parser(self.__check_texture_filename)
+        field.set_value_parser(self.__parse_texture_filename)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         text = "Brightness:"
         sizer.add(PanelText(top_container, text), alignment_v="center_v")
-        field = PanelInputField(top_container, 80)
         val_id = "brightness"
-        field.set_input_parser(val_id, self.__parse_brightness)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelSliderField(top_container, val_id, "float", (0., 1.), self.__handle_value, 80)
+        field.set_input_parser(self.__parse_brightness_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         text = "Tiling:"
         sizer.add(PanelText(top_container, text), alignment_v="center_v")
-        field = PanelInputField(top_container, 40)
         val_id = "tiling"
-        field.add_value(val_id, "int", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_tiling)
+        field = PanelInputField(top_container, val_id, "int", self.__handle_value, 40)
+        field.set_input_parser(self.__parse_tiling_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -67,7 +62,7 @@ class BackgroundPanel(Panel):
 
         Mgr.add_app_updater("uv_background", self.__set_background_property, interface_id="uv")
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         Mgr.update_interface_remotely("uv", "uv_background", value_id, value)
 
@@ -85,7 +80,7 @@ class BackgroundPanel(Panel):
             with open("config", "wb") as config_file:
                 pickle.dump(config_data, config_file, -1)
 
-            self._fields["tex_filename"].set_value("tex_filename", tex_filename)
+            self._fields["tex_filename"].set_value(tex_filename)
             self._tex_filename = tex_filename
 
             Mgr.update_interface_remotely("uv", "uv_background", "tex_filename", tex_filename)
@@ -97,7 +92,7 @@ class BackgroundPanel(Panel):
                    file_op="read",
                    file_types=file_types)
 
-    def __set_tex(self, value_id, tex_filename):
+    def __set_tex(self, tex_filename):
 
         self._tex_filename = tex_filename
 
@@ -110,7 +105,7 @@ class BackgroundPanel(Panel):
         if self._tex_filename:
             field.set_input_text(self._tex_filename)
         else:
-            field.clear()
+            field.clear(forget=False)
 
     def __check_texture_filename(self, filename):
 
@@ -120,17 +115,17 @@ class BackgroundPanel(Panel):
 
         return os.path.basename(filename) if filename else "<None>"
 
-    def __parse_brightness(self, brightness):
+    def __parse_brightness_input(self, input_text):
 
         try:
-            return min(1., max(0., float(eval(brightness))))
+            return min(1., max(0., float(eval(input_text))))
         except:
             return None
 
-    def __parse_tiling(self, tiling):
+    def __parse_tiling_input(self, input_text):
 
         try:
-            return max(0, abs(int(eval(tiling))))
+            return max(0, abs(int(eval(input_text))))
         except:
             return None
 
@@ -140,7 +135,7 @@ class BackgroundPanel(Panel):
             self._checkbuttons[prop_id].check(value)
             return
 
-        self._fields[prop_id].set_value(prop_id, value)
+        self._fields[prop_id].set_value(value)
 
         if prop_id == "tex_filename":
             self._tex_filename = value

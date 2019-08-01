@@ -1,10 +1,13 @@
 from panda3d.core import *
-from ...base import logging, re, pickle, GlobalData, get_unique_name, DirectObject
+from ...base import logging, re, pickle, GlobalData, get_unique_name, DirectObject, USING_TK
 import platform
 import math
 import os
 import time
 import collections
+
+if USING_TK:
+    from ...base import Tk
 
 PLATFORM_ID = platform.system()
 

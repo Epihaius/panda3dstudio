@@ -141,7 +141,8 @@ class TransformToolbar(Toolbar):
 
         get_rel_val_toggler = lambda field: lambda: self.__toggle_relative_values(field)
         get_popup_handler = lambda field: lambda: self.__on_popup(field)
-        get_value_handler = lambda axis: lambda value_id, value: self.__handle_value(axis, value_id, value)
+        get_value_handler = lambda axis: lambda value_id, value, state: \
+            self.__handle_value(axis, value_id, value, state)
 
         font = Skin["text"]["input2"]["font"]
         is_relative_value = True
@@ -151,7 +152,7 @@ class TransformToolbar(Toolbar):
             axis_btn = self._axis_btns.create_button(self, axis)
             self.add(axis_btn, borders=borders, alignment="center_v")
 
-            field = ToolbarInputField(self, 80)
+            field = ToolbarMultiValField(self, 80)
             self._fields[axis] = field
             self.add(field, borders=borders, alignment="center_v")
             field.set_popup_handler(get_popup_handler(field))
@@ -161,9 +162,9 @@ class TransformToolbar(Toolbar):
             handler = get_value_handler(axis)
 
             for transf_type in ("translate", "rotate", "scale"):
-                field.add_value((transf_type, not is_relative_value), handler=handler)
+                field.add_value((transf_type, not is_relative_value), "float", handler)
                 value_id = (transf_type, is_relative_value)
-                field.add_value(value_id, handler=handler, font=font)
+                field.add_value(value_id, "float", handler, font)
                 field.set_value(value_id, 1. if transf_type == "scale" else 0.)
 
     def setup(self):
@@ -264,7 +265,7 @@ class TransformToolbar(Toolbar):
 
         self.__check_selection_count(transf_type)
 
-    def __handle_value(self, axis, value_id, value):
+    def __handle_value(self, axis, value_id, value, state):
 
         transf_type, is_rel_value = value_id
         Mgr.update_interface_remotely("uv", "transf_component", transf_type,

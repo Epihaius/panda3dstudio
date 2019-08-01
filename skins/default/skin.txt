@@ -58,6 +58,7 @@ input_disabled          arimo_regular       .5 .5 .5 1.
 input2_disabled         arimo_italic        .5 .5 .5 1.
 input_selection         arimo_regular       1. 1. 1. 1.
 input2_selection        arimo_italic        1. 1. 1. 1.
+slider                  arimo_regular       1. 1. 1. 1.
 status                  arimo_regular       0. 0. 0. 1.
 tooltip                 arimo_regular       .5 .7 .9 1.
 view_label              arimo_bold_16       .75 .75 .75 1.
@@ -92,7 +93,7 @@ move_ew         move_ew.cur
 move_ns         move_ns.cur
 move_nwse       move_nwse.cur
 caret           caret.cur
-i_beam          I-beam.cur
+slider_caret    slider_caret.cur
 input_commit    input_commit.cur
 #
 COLORS
@@ -134,6 +135,7 @@ disabled_inputfield_text                .5 .5 .5 .75
 disabled_view_tile_text                 .5 .5 .5 .75
 inputfield_background                   .2 .15 .3 1.
 input_selection_background              .5 .5 1. 1.
+slider                                  .3 .28 .5 1.
 menu_item_bullet                        0. 0. 0. 1.
 menu_item_checkmark                     0. 0. 0. 1.
 panel_bullet                            .5 .7 .9 1.
@@ -176,6 +178,7 @@ inputfield_height               int     20
 inputfield_caret_width          int     1
 inputfield_caret_height         int     16
 inputfield_caret_blink_delay    float   .5
+slider_mark_thickness           int     3
 colorbox_width                  int     20
 colorbox_height                 int     20
 checkbox_width                  int     14

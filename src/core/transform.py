@@ -88,7 +88,7 @@ class SelectionTransformBase(BaseObject):
             GlobalData["selection_count"] = count
 
     def set_transform_component(self, objs_to_transform, transf_type, axis, value, is_rel_value,
-                                rel_to_world=False, transformer=None):
+                                rel_to_world=False, transformer=None, state="done"):
 
         if is_rel_value:
 
@@ -171,11 +171,11 @@ class SelectionTransformBase(BaseObject):
                 Mgr.do("reset_obj_transf_info")
 
     def finalize_transform_component(self, objs_to_transform, transf_type, is_rel_value,
-                                     add_to_hist=True):
+                                     add_to_hist=True, state="done"):
 
         if is_rel_value:
 
-            self.finalize_transform(objs_to_transform, add_to_hist=add_to_hist)
+            self.finalize_transform(objs_to_transform, add_to_hist=add_to_hist, state=state)
 
         else:
 
@@ -526,11 +526,12 @@ class SelectionTransformBase(BaseObject):
         if GlobalData["object_links_shown"]:
             Mgr.do("update_obj_link_viz")
 
-    def finalize_transform(self, objs_to_transform, cancelled=False, add_to_hist=True):
+    def finalize_transform(self, objs_to_transform, cancelled=False, add_to_hist=True,
+                           state="done"):
 
         target_type = GlobalData["transform_target_type"]
 
-        if target_type != "geom":
+        if target_type != "geom" and state == "done":
             Mgr.do("update_coord_sys")
 
         transf_type = GlobalData["active_transform_type"]
@@ -552,7 +553,7 @@ class SelectionTransformBase(BaseObject):
         self._start_mats = []
         self._offset_vecs = []
 
-        if not cancelled:
+        if not cancelled and state == "done":
 
             self.update_center_pos()
             Mgr.do("set_transf_gizmo_pos", Mgr.get("transf_center_pos"))
@@ -1048,7 +1049,8 @@ class TransformationManager(BaseObject):
         self._tmp_ref_root = None
 
     def __set_transform_component(self, transf_type, axis, value, is_rel_value, objects=None,
-                                  add_to_hist=True, rel_to_world=False, transformer=None):
+                                  add_to_hist=True, rel_to_world=False, transformer=None,
+                                  state="done"):
 
         active_obj_lvl = GlobalData["active_obj_level"]
         target_type = GlobalData["transform_target_type"]
@@ -1083,7 +1085,8 @@ class TransformationManager(BaseObject):
                 self.__init_link_transform()
 
             selection.set_transform_component(objs_to_transform, transf_type, axis,
-                                              value, is_rel_value, rel_to_world, transformer)
+                                              value, is_rel_value, rel_to_world, transformer,
+                                              state)
 
         else:
 
@@ -1102,7 +1105,7 @@ class TransformationManager(BaseObject):
                 self.__cleanup_link_transform()
 
             selection.finalize_transform_component(objs_to_transform, transf_type, is_rel_value,
-                                                   add_to_hist)
+                                                   add_to_hist, state)
             Mgr.do("init_point_helper_transform")
             Mgr.do("transform_point_helpers")
             Mgr.do("finalize_point_helper_transform")
@@ -1181,7 +1184,7 @@ class TransformationManager(BaseObject):
         if clear:
             backup.clear()
 
-    def __componentwise_xform(self, values, preview=True, end_preview=False):
+    def __componentwise_xform(self, values, state="done", preview=True, end_preview=False):
 
         backup = self._xform_backup
 
@@ -1208,12 +1211,12 @@ class TransformationManager(BaseObject):
 
             for axis_id, value in xforms.items():
                 self.__set_transform_component(transf_type, axis_id, value, is_rel_value=True,
-                                               add_to_hist=False)
+                                               add_to_hist=False, state=state)
 
             axis_id, value = final_xform
             add_to_hist = not preview
             self.__set_transform_component(transf_type, axis_id, value, is_rel_value=True,
-                                           add_to_hist=add_to_hist)
+                                           add_to_hist=add_to_hist, state=state)
 
         if not preview:
             backup.clear()

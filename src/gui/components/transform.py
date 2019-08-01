@@ -285,7 +285,8 @@ class TransformToolbar(Toolbar):
         self._axis_btns = AxisButtons()
         self._fields = {}
 
-        get_value_handler = lambda axis: lambda value_id, value: self.__handle_value(axis, value_id, value)
+        get_value_handler = lambda axis: lambda value_id, value, state: \
+            self.__handle_value(axis, value_id, value, state)
 
         font = Skin["text"]["input2"]["font"]
         is_relative_value = True
@@ -298,16 +299,16 @@ class TransformToolbar(Toolbar):
             axis_btn = self._axis_btns.create_button(self, axis)
             self.add(axis_btn, borders=borders, alignment="center_v")
 
-            field = ToolbarInputField(self, 80)
+            field = ToolbarMultiValField(self, 80)
             field.add_disabler("no_transf_or_sel", field_disabler)
             self._fields[axis] = field
             self.add(field, borders=borders, alignment="center_v")
             handler = get_value_handler(axis)
 
             for transf_type in ("translate", "rotate", "scale"):
-                field.add_value((transf_type, not is_relative_value), handler=handler)
+                field.add_value((transf_type, not is_relative_value), "float", handler)
                 value_id = (transf_type, is_relative_value)
-                field.add_value(value_id, handler=handler, font=font)
+                field.add_value(value_id, "float", handler, font)
                 field.set_value(value_id, 1. if transf_type == "scale" else 0.)
 
         icon_id = "icon_offsets"
@@ -479,7 +480,7 @@ class TransformToolbar(Toolbar):
 
         self.__check_selection_count(transf_type)
 
-    def __handle_value(self, axis, value_id, value):
+    def __handle_value(self, axis, value_id, value, state):
 
         transf_type, is_rel_value = value_id
         Mgr.update_remotely("transf_component", transf_type, axis, value, is_rel_value)
@@ -579,18 +580,43 @@ class ValueInputField(DialogInputField):
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, width):
+    def __init__(self, parent, value_id, value_type, handler, width):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width)
-
-        self.set_image_offset(self._img_offset)
+        DialogInputField.__init__(self, parent, value_id, value_type, handler, width,
+                                  INSET1_BORDER_GFX_DATA, self._img_offset)
 
     def get_outer_borders(self):
 
         return self._field_borders
+
+
+class AngleField(DialogSliderField):
+
+    def __init__(self, parent, value_id, handler, width):
+
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
+        self._field_borders = (l, r, b, t)
+        img_offset = (-l, -t)
+
+        DialogSliderField.__init__(self, parent, value_id, "float", (-180., 180.), handler,
+                                   width, INSET1_BORDER_GFX_DATA, img_offset)
+
+        self.set_input_parser(self.__parse_angle_input)
+        self.set_value(0.)
+
+    def get_outer_borders(self):
+
+        return self._field_borders
+
+    def __parse_angle_input(self, input_text):
+
+        try:
+            return (float(eval(input_text)) + 180.) % 360. - 180.
+        except:
+            return None
 
 
 class TransformDialog(Dialog):
@@ -655,10 +681,7 @@ class TransformDialog(Dialog):
             borders = (5, 0, 0, 0)
             text = DialogText(self, "Offset angle:")
             subsizer.add(text, alignment="center_v", borders=borders)
-            field = ValueInputField(self, 100)
-            field.add_value("rot_axis", handler=self.__handle_value)
-            field.set_value("rot_axis", 0.)
-            field.show_value("rot_axis")
+            field = AngleField(self, "rot_axis", self.__handle_value, 100)
             subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
 
         else:
@@ -697,7 +720,7 @@ class TransformDialog(Dialog):
                     for axis_id in axes[1:]:
                         if values[axis_id] != val_to_copy:
                             values[axis_id] = val_to_copy
-                            fields[axis_id].set_value(axis_id, val_to_copy)
+                            fields[axis_id].set_value(val_to_copy)
                             change = True
 
                     if change and self._preview:
@@ -733,10 +756,8 @@ class TransformDialog(Dialog):
 
                 text = DialogText(group, "{}:".format(axis_id.upper()))
                 subsizer.add(text, alignment="center_v")
-                field = ValueInputField(group, 100)
-                field.add_value(axis_id, handler=self.__handle_value)
-                field.set_value(axis_id, value)
-                field.show_value(axis_id)
+                field = ValueInputField(group, axis_id, "float", self.__handle_value, 100)
+                field.set_value(value)
                 borders = (5, 0, 0, 0)
                 subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
                 fields[axis_id] = field
@@ -744,7 +765,7 @@ class TransformDialog(Dialog):
         def enable_preview(preview):
 
             self._preview = preview
-            Mgr.update_remotely("componentwise_xform", "", values, preview, not preview)
+            Mgr.update_remotely("componentwise_xform", "", values, "done", preview, not preview)
 
         text = "Preview"
         checkbtn = DialogCheckButton(self, enable_preview, text)
@@ -761,7 +782,7 @@ class TransformDialog(Dialog):
 
         Dialog.close(self, answer)
 
-    def __handle_value(self, axis_id, value):
+    def __handle_value(self, axis_id, value, state):
 
         if axis_id == "rot_axis":
 
@@ -777,18 +798,18 @@ class TransformDialog(Dialog):
             if self._link_values and axis_id in self._linked_axes:
                 for other_axis_id in self._linked_axes.replace(axis_id, ""):
                     self._values[other_axis_id] = value
-                    self._fields[other_axis_id].set_value(other_axis_id, value)
+                    self._fields[other_axis_id].set_value(value)
 
         if self._preview:
-            Mgr.update_remotely("componentwise_xform", "", self._values)
+            Mgr.update_remotely("componentwise_xform", "", self._values, state)
 
     def __on_yes(self):
 
-        Mgr.update_remotely("componentwise_xform", "", self._values, False)
+        Mgr.update_remotely("componentwise_xform", "", self._values, "done", False)
 
     def __on_apply(self):
 
-        Mgr.update_remotely("componentwise_xform", "", self._values, False)
+        Mgr.update_remotely("componentwise_xform", "", self._values, "done", False)
 
         if self._preview:
             Mgr.update_remotely("componentwise_xform", "", self._values)
@@ -894,11 +915,9 @@ class TransformOptionsDialog(Dialog):
         borders = (20, 5, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
 
-        field = ValueInputField(subgroup, 50)
-        field.add_value("radius", "int", handler=self.__handle_value)
-        field.set_input_parser("radius", self.__parse_value)
-        field.set_value("radius", old_rot_options["circle_radius"])
-        field.show_value("radius")
+        field = ValueInputField(subgroup, "radius", "int", self.__handle_value, 50)
+        field.set_input_parser(self.__parse_input)
+        field.set_value(old_rot_options["circle_radius"])
         subsizer.add(field, alignment="center_v")
 
         def scale_to_cursor(to_cursor):
@@ -938,12 +957,10 @@ class TransformOptionsDialog(Dialog):
         borders = (20, 5, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
 
-        field = ValueInputField(subgroup, 50)
         option_id = "full_roll_dist"
-        field.add_value(option_id, "int", handler=self.__handle_value)
-        field.set_input_parser(option_id, self.__parse_value)
-        field.set_value(option_id, old_rot_options[option_id])
-        field.show_value(option_id)
+        field = ValueInputField(subgroup, option_id, "int", self.__handle_value, 50)
+        field.set_input_parser(self.__parse_input)
+        field.set_value(old_rot_options[option_id])
         subsizer.add(field, alignment="center_v")
 
         text = DialogText(subgroup, "pixels")
@@ -987,10 +1004,8 @@ class TransformOptionsDialog(Dialog):
         borders = (0, 5, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
 
-        field = ValueInputField(subgroup, 100)
-        field.add_value("threshold", handler=self.__handle_value)
-        field.set_value("threshold", old_rot_options["method_switch_threshold"])
-        field.show_value("threshold")
+        field = AngleField(subgroup, "threshold", self.__handle_value, 100)
+        field.set_value(old_rot_options["method_switch_threshold"])
         subsizer.add(field, proportion=1., alignment="center_v")
 
         text = DialogText(subgroup, "degrees")
@@ -999,14 +1014,14 @@ class TransformOptionsDialog(Dialog):
 
         self.finalize()
 
-    def __parse_value(self, value):
+    def __parse_input(self, input_text):
 
         try:
-            return max(1, abs(int(eval(value))))
+            return max(1, abs(int(eval(input_text))))
         except:
             return None
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         if value_id == "radius":
             self._options["rotation"]["circle_radius"] = value

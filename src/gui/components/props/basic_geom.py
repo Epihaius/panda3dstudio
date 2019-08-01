@@ -39,12 +39,10 @@ class BasicGeomProperties:
         borders = (0, 5, 0, 0)
 
         group.add((0, 10))
-        field = PanelInputField(group, 140)
         val_id = "uv_set_name"
-        field.add_value(val_id, "string", handler=self.__handle_uv_name)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "string", self.__handle_uv_name, 140)
         field.clear()
-        field.set_input_parser(val_id, self.__parse_uv_name)
+        field.set_input_parser(self.__parse_uv_name)
         self._fields[val_id] = field
         group.add(field, expand=True)
 
@@ -69,11 +67,10 @@ class BasicGeomProperties:
 
         text = "Length:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 80)
-        field.add_value("normal_length", "float", handler=self.__handle_value)
-        field.show_value("normal_length")
-        field.set_input_parser("normal_length", self.__parse_length)
-        self._fields["normal_length"] = field
+        val_id = "normal_length"
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_length_input)
+        self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
         Mgr.add_app_updater("uv_set_name", self.__set_uv_name)
@@ -104,7 +101,7 @@ class BasicGeomProperties:
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -120,7 +117,7 @@ class BasicGeomProperties:
         elif prop_id in self._checkbuttons:
             self._checkbuttons[prop_id].check(value)
         elif prop_id in self._fields:
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(value)
 
     def check_selection_count(self):
 
@@ -142,7 +139,7 @@ class BasicGeomProperties:
             field.set_text_color(color)
             field.show_text(not multi_sel)
 
-    def __handle_uv_name(self, value_id, value):
+    def __handle_uv_name(self, value_id, value, state):
 
         uv_set_id = int(self._uv_set_btns.get_active_button_id())
         Mgr.update_remotely(value_id, uv_set_id, value)
@@ -152,26 +149,26 @@ class BasicGeomProperties:
         r, g, b = color
         Mgr.update_remotely("normal_color", (r, g, b, 1.))
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         Mgr.update_remotely(value_id, value)
 
-    def __parse_uv_name(self, name):
+    def __parse_uv_name(self, input_text):
 
-        parsed_name = name.strip().replace(".", "")
+        name = input_text.strip().replace(".", "")
 
-        return parsed_name
+        return name
 
     def __set_uv_name(self, uv_set_names):
 
         uv_set_id = int(self._uv_set_btns.get_active_button_id())
         uv_set_name = uv_set_names[uv_set_id]
-        self._fields["uv_set_name"].set_value("uv_set_name", uv_set_name)
+        self._fields["uv_set_name"].set_value(uv_set_name)
 
-    def __parse_length(self, length):
+    def __parse_length_input(self, input_text):
 
         try:
-            return max(.001, abs(float(eval(length))))
+            return max(.001, abs(float(eval(input_text))))
         except:
             return None
 

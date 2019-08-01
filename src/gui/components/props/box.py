@@ -15,7 +15,7 @@ class BoxProperties:
         dimensions = ("width", "depth", "height")
         prop_types = ("size", "segments")
         val_types = ("float", "int")
-        parsers = (self.__parse_dimension, self.__parse_segments)
+        parsers = (self.__parse_dimension_input, self.__parse_segments_input)
 
         for prop_type, val_type, parser in zip(prop_types, val_types, parsers):
 
@@ -27,14 +27,12 @@ class BoxProperties:
                 prop_id = "{}_{}".format(prop_type, axis)
                 text = "{} ({}):".format(axis.upper(), dim)
                 sizer.add(PanelText(group, text), alignment_v="center_v")
-                field = PanelInputField(group, 80)
-                field.add_value(prop_id, val_type, handler=self.__handle_value)
-                field.show_value(prop_id)
-                field.set_input_parser(prop_id, parser)
+                field = PanelInputField(group, prop_id, val_type, self.__handle_value, 80)
+                field.set_input_parser(parser)
                 self._fields[prop_id] = field
                 sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        self._fields["size_z"].set_input_parser("size_z", self.__parse_height)
+        self._fields["size_z"].set_input_parser(self.__parse_height_input)
 
         text = "Convert to planes"
         tooltip_text = "Turn sides into separate plane primitives"
@@ -45,7 +43,7 @@ class BoxProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         in_creation_mode = GlobalData["active_creation_type"]
 
@@ -64,17 +62,17 @@ class BoxProperties:
 
         Mgr.update_remotely("selected_obj_prop", prop_id, val)
 
-    def __parse_dimension(self, dimension):
+    def __parse_dimension_input(self, input_text):
 
         try:
-            return max(.001, abs(float(eval(dimension))))
+            return max(.001, abs(float(eval(input_text))))
         except:
             return None
 
-    def __parse_height(self, height):
+    def __parse_height_input(self, input_text):
 
         try:
-            value = float(eval(height))
+            value = float(eval(input_text))
         except:
             return None
 
@@ -82,10 +80,10 @@ class BoxProperties:
 
         return max(.001, abs(value)) * sign
 
-    def __parse_segments(self, segments):
+    def __parse_segments_input(self, input_text):
 
         try:
-            return max(1, abs(int(eval(segments))))
+            return max(1, abs(int(eval(input_text))))
         except:
             return None
 
@@ -118,12 +116,12 @@ class BoxProperties:
                 value_id = "segments_" + axis
                 field = self._fields[value_id]
                 field.show_text()
-                field.set_value(value_id, value[axis])
+                field.set_value(value[axis])
                 field.set_text_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -135,10 +133,10 @@ class BoxProperties:
             for axis in "xyz":
                 value_id = "segments_" + axis
                 field = self._fields[value_id]
-                field.set_value(value_id, value[axis])
+                field.set_value(value[axis])
         else:
             field = self._fields[prop_id]
-            field.set_value(prop_id, value)
+            field.set_value(value)
 
     def check_selection_count(self):
 

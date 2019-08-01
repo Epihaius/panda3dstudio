@@ -19,10 +19,8 @@ class PointProperties:
         text = "Size:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         prop_id = "size"
-        field = PanelInputField(section, 45)
-        field.add_value(prop_id, "int", handler=self.__handle_value)
-        field.show_value(prop_id)
-        field.set_input_parser("size", self.__parse_size)
+        field = PanelInputField(section, prop_id, "int", self.__handle_value, 45)
+        field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -57,7 +55,7 @@ class PointProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         if GlobalData["active_creation_type"]:
             Mgr.update_app("point_helper_prop_default", value_id, value)
@@ -73,10 +71,10 @@ class PointProperties:
 
         Mgr.update_remotely("selected_obj_prop", "on_top", on_top)
 
-    def __parse_size(self, size):
+    def __parse_size_input(self, input_text):
 
         try:
-            return max(1, abs(int(eval(size))))
+            return max(1, abs(int(eval(input_text))))
         except:
             return None
 
@@ -114,7 +112,7 @@ class PointProperties:
         if prop_id in fields:
             field = fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(value)
             field.set_text_color(color)
         elif prop_id in checkbtns:
             checkbtns[prop_id].check(value)
@@ -129,7 +127,7 @@ class PointProperties:
         colorboxes = self._colorboxes
 
         if prop_id in fields:
-            fields[prop_id].set_value(prop_id, value)
+            fields[prop_id].set_value(value)
         elif prop_id in checkbtns:
             checkbtns[prop_id].check(value)
         elif prop_id in colorboxes:

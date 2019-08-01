@@ -122,7 +122,10 @@ class MaterialPanel(Panel):
 
         section = self.add_section("material", "Material")
 
-        combobox = PanelComboBox(section, 100, tooltip_text="Selected material", editable=True)
+        val_id = "name"
+        combobox = PanelComboBox(section, 100, tooltip_text="Selected material",
+                                 editable=True, value_id=val_id,
+                                 handler=self.__handle_value)
         self._comboboxes["material"] = combobox
         section.add(combobox, expand=True)
 
@@ -130,10 +133,7 @@ class MaterialPanel(Panel):
         self._selected_layer_id = None
 
         field = combobox.get_input_field()
-        val_id = "name"
-        field.add_value(val_id, "string", handler=self.__handle_value)
-        field.set_input_parser(val_id, self.__parse_name)
-        field.show_value(val_id)
+        field.set_input_parser(self.__parse_name)
         self._fields[val_id] = field
         combobox.show_input_field(False)
 
@@ -280,11 +280,9 @@ class MaterialPanel(Panel):
 
         text = PanelText(section, "Shininess:")
         sizer.add(text, alignment_v="center_v", borders=borders)
-        field = PanelInputField(section, 60)
         val_id = "shininess"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_shininess)
+        field = PanelInputField(section, val_id, "float", self.__handle_value, 60)
+        field.set_input_parser(self.__parse_shininess_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -293,10 +291,9 @@ class MaterialPanel(Panel):
         checkbtn = PanelCheckButton(section, self.__get_color_toggler(val_id), text)
         self._checkbuttons[val_id] = checkbtn
         sizer.add(checkbtn, alignment_v="center_v")
-        field = PanelInputField(section, 60)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_alpha)
+        field = PanelSliderField(section, val_id, "float", (0., 1.),
+                                 self.__handle_value, 60)
+        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -341,13 +338,12 @@ class MaterialPanel(Panel):
         tooltip_text = "Load main texture for selected map"
         btn = PanelButton(group, text, "", tooltip_text, self.__load_texture_map_main)
         sizer.add(btn, stretch_h=True, alignment_v="center_v")
-        field = PanelInputField(group, 100)
         val_id = "tex_map_file_main"
-        field.add_value(val_id, "string", handler=self.__set_texture_map_main)
-        field.show_value(val_id)
-        field.set_input_init(val_id, self.__init_main_filename_input)
-        field.set_input_parser(val_id, self.__check_texture_filename)
-        field.set_value_parser(val_id, self.__parse_texture_filename)
+        handler = lambda *args: self.__set_texture_map_main(args[1])
+        field = PanelInputField(group, val_id, "string", handler, 100)
+        field.set_input_init(self.__init_main_filename_input)
+        field.set_input_parser(self.__check_texture_filename)
+        field.set_value_parser(self.__parse_texture_filename)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -355,13 +351,12 @@ class MaterialPanel(Panel):
         tooltip_text = "Load alpha texture for selected map"
         btn = PanelButton(group, text, "", tooltip_text, self.__load_texture_map_alpha)
         sizer.add(btn, stretch_h=True, alignment_v="center_v")
-        field = PanelInputField(group, 100)
         val_id = "tex_map_file_alpha"
-        field.add_value(val_id, "string", handler=self.__set_texture_map_alpha)
-        field.show_value(val_id)
-        field.set_input_init(val_id, self.__init_alpha_filename_input)
-        field.set_input_parser(val_id, self.__check_texture_filename)
-        field.set_value_parser(val_id, self.__parse_texture_filename)
+        handler = lambda *args: self.__set_texture_map_alpha(args[1])
+        field = PanelInputField(group, val_id, "string", handler, 100)
+        field.set_input_init(self.__init_alpha_filename_input)
+        field.set_input_parser(self.__check_texture_filename)
+        field.set_value_parser(self.__parse_texture_filename)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -460,10 +455,8 @@ class MaterialPanel(Panel):
         borders = (0, 5, 0, 0)
         text = "Anisotropic level:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 40)
         val_id = "tex_map_anisotropic_degree"
-        field.add_value(val_id, "int", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelSliderField(group, val_id, "int", (1, 16), self.__handle_value, 60)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -479,10 +472,8 @@ class MaterialPanel(Panel):
 
         text = "U:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 55)
         val_id = "tex_map_offset_u"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 55)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -490,25 +481,23 @@ class MaterialPanel(Panel):
 
         text = "V:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 55)
         val_id = "tex_map_offset_v"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 55)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
-        section.add((0, 5))
+        section.add((0, 10))
 
         sizer = Sizer("horizontal")
-        section.add(sizer)
+        section.add(sizer, expand=True)
         text = "Rotation:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        field = PanelInputField(section, 90)
         val_id = "tex_map_rotate"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelSliderField(section, val_id, "float", (-180., 180.), self.__handle_value, 90)
+        field.set_input_parser(self.__parse_angle_input)
+        field.set_value(0.)
         self._fields[val_id] = field
-        sizer.add(field, alignment="center_v")
+        sizer.add(field, alignment="center_v", proportion=1.)
 
         group = section.add_group("Scale")
         sizer = Sizer("horizontal")
@@ -516,10 +505,8 @@ class MaterialPanel(Panel):
 
         text = "U:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 55)
         val_id = "tex_map_scale_u"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 55)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -527,10 +514,8 @@ class MaterialPanel(Panel):
 
         text = "V:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 55)
         val_id = "tex_map_scale_v"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 55)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -552,14 +537,14 @@ class MaterialPanel(Panel):
         checkbtn = PanelCheckButton(section, self.__toggle_layer)
         self._checkbuttons[val_id] = checkbtn
         sizer.add(checkbtn, alignment="center_v", borders=borders)
-        combobox = PanelComboBox(section, 100, tooltip_text="Selected layer", editable=True)
+        val_id = "layer_name"
+        combobox = PanelComboBox(section, 100, tooltip_text="Selected layer",
+                                 editable=True, value_id=val_id,
+                                 handler=self.__handle_layer_value)
         self._comboboxes["layer"] = combobox
         sizer.add(combobox, proportion=1., alignment="center_v")
         field = combobox.get_input_field()
-        val_id = "layer_name"
-        field.add_value(val_id, "string", handler=self.__handle_layer_value)
-        field.set_input_parser(val_id, self.__parse_name)
-        field.show_value(val_id)
+        field.set_input_parser(self.__parse_name)
         self._fields[val_id] = field
         combobox.show_input_field(False)
 
@@ -601,10 +586,8 @@ class MaterialPanel(Panel):
 
         text = "Sort:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        field = PanelInputField(section, 40)
         val_id = "layer_sort"
-        field.add_value(val_id, "int", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelInputField(section, val_id, "int", self.__handle_layer_value, 40)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -612,10 +595,8 @@ class MaterialPanel(Panel):
 
         text = "Priority:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        field = PanelInputField(section, 40)
         val_id = "layer_priority"
-        field.add_value(val_id, "int", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelInputField(section, val_id, "int", self.__handle_layer_value, 40)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -634,15 +615,14 @@ class MaterialPanel(Panel):
         self._colorboxes["layer_rgb"] = colorbox
         sizer.add(colorbox, alignment="center_v")
 
-        sizer.add((0, 0), proportion=1.)
+        sizer.add((5, 0), proportion=1.)
 
         text = "Alpha:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 45)
         val_id = "layer_alpha"
-        field.set_input_parser(val_id, self.__parse_alpha)
-        field.add_value(val_id, "float", handler=self.__handle_layer_alpha)
-        field.show_value(val_id)
+        handler = lambda *args: self.__handle_layer_alpha(args[1])
+        field = PanelSliderField(group, val_id, "float", (0., 1.), handler, 60)
+        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -681,13 +661,12 @@ class MaterialPanel(Panel):
         tooltip_text = "Load main texture for selected layer"
         btn = PanelButton(group, text, "", tooltip_text, self.__load_layer_main)
         sizer.add(btn, stretch_h=True, alignment_v="center_v")
-        field = PanelInputField(group, 100)
         val_id = "layer_file_main"
-        field.add_value(val_id, "string", handler=self.__set_layer_main)
-        field.show_value(val_id)
-        field.set_input_init(val_id, self.__init_layer_main_filename_input)
-        field.set_input_parser(val_id, self.__check_texture_filename)
-        field.set_value_parser(val_id, self.__parse_texture_filename)
+        handler = lambda *args: self.__set_layer_main(args[1])
+        field = PanelInputField(group, val_id, "string", handler, 100)
+        field.set_input_init(self.__init_layer_main_filename_input)
+        field.set_input_parser(self.__check_texture_filename)
+        field.set_value_parser(self.__parse_texture_filename)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -695,13 +674,12 @@ class MaterialPanel(Panel):
         tooltip_text = "Load alpha texture for selected layer"
         btn = PanelButton(group, text, "", tooltip_text, self.__load_layer_alpha)
         sizer.add(btn, stretch_h=True, alignment_v="center_v")
-        field = PanelInputField(group, 100)
         val_id = "layer_file_alpha"
-        field.add_value(val_id, "string", handler=self.__set_layer_alpha)
-        field.show_value(val_id)
-        field.set_input_init(val_id, self.__init_layer_alpha_filename_input)
-        field.set_input_parser(val_id, self.__check_texture_filename)
-        field.set_value_parser(val_id, self.__parse_texture_filename)
+        handler = lambda *args: self.__set_layer_alpha(args[1])
+        field = PanelInputField(group, val_id, "string", handler, 100)
+        field.set_input_init(self.__init_layer_alpha_filename_input)
+        field.set_input_parser(self.__check_texture_filename)
+        field.set_value_parser(self.__parse_texture_filename)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -802,10 +780,8 @@ class MaterialPanel(Panel):
         borders = (0, 5, 0, 0)
         text = "Anisotropic level:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 40)
         val_id = "layer_anisotropic_degree"
-        field.add_value(val_id, "int", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelSliderField(group, val_id, "int", (1, 16), self.__handle_layer_value, 60)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -815,10 +791,8 @@ class MaterialPanel(Panel):
         section.add(sizer, alignment="center_h")
         text = "UV set:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        field = PanelInputField(section, 40)
         val_id = "layer_uv_set"
-        field.add_value(val_id, "int", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelSliderField(section, val_id, "int", (0, 7), self.__handle_layer_value, 60)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -834,10 +808,8 @@ class MaterialPanel(Panel):
 
         text = "U:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 55)
         val_id = "layer_offset_u"
-        field.add_value(val_id, "float", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "float", self.__handle_layer_value, 55)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -845,25 +817,23 @@ class MaterialPanel(Panel):
 
         text = "V:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 55)
         val_id = "layer_offset_v"
-        field.add_value(val_id, "float", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "float", self.__handle_layer_value, 55)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
-        section.add((0, 5))
+        section.add((0, 10))
 
         sizer = Sizer("horizontal")
-        section.add(sizer)
+        section.add(sizer, expand=True)
         text = "Rotation:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        field = PanelInputField(section, 90)
         val_id = "layer_rotate"
-        field.add_value(val_id, "float", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelSliderField(section, val_id, "float", (-180., 180.), self.__handle_layer_value, 90)
+        field.set_input_parser(self.__parse_angle_input)
+        field.set_value(0.)
         self._fields[val_id] = field
-        sizer.add(field, alignment="center_v")
+        sizer.add(field, alignment="center_v", proportion=1.)
 
         group = section.add_group("Scale")
         sizer = Sizer("horizontal")
@@ -871,10 +841,8 @@ class MaterialPanel(Panel):
 
         text = "U:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 55)
         val_id = "layer_scale_u"
-        field.add_value(val_id, "float", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "float", self.__handle_layer_value, 55)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -882,10 +850,8 @@ class MaterialPanel(Panel):
 
         text = "V:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        field = PanelInputField(group, 55)
         val_id = "layer_scale_v"
-        field.add_value(val_id, "float", handler=self.__handle_layer_value)
-        field.show_value(val_id)
+        field = PanelInputField(group, val_id, "float", self.__handle_layer_value, 55)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -1098,7 +1064,7 @@ class MaterialPanel(Panel):
 
         if mat_id:
             name = combobox.get_item_text(mat_id)
-            self._fields["name"].set_value("name", name)
+            self._fields["name"].set_value(name)
             self._selected_mat_id = mat_id
             self._comboboxes["layer"].clear()
             Mgr.update_remotely("material_selection", mat_id)
@@ -1146,7 +1112,14 @@ class MaterialPanel(Panel):
             self._selected_mat_id = None
             self._comboboxes["material"].clear()
 
-    def __handle_value(self, value_id, value):
+    def __parse_angle_input(self, input_text):
+
+        try:
+            return (float(eval(input_text)) + 180.) % 360. - 180.
+        except:
+            return None
+
+    def __handle_value(self, value_id, value, state):
 
         mat_id = self._selected_mat_id
 
@@ -1156,7 +1129,7 @@ class MaterialPanel(Panel):
         else:
             Mgr.update_remotely("material_prop", mat_id, value_id, value)
 
-    def __handle_layer_value(self, value_id, value):
+    def __handle_layer_value(self, value_id, value, state):
 
         mat_id = self._selected_mat_id
         layer_id = self._selected_layer_id
@@ -1184,16 +1157,16 @@ class MaterialPanel(Panel):
     def __handle_layer_rgb(self, color):
 
         r, g, b = color
-        alpha = float(self._fields["layer_alpha"].get_text("layer_alpha"))
+        alpha = self._fields["layer_alpha"].get_value()
         mat_id = self._selected_mat_id
         layer_id = self._selected_layer_id
 
         Mgr.update_remotely("tex_layer_prop", mat_id,layer_id, "color", (r, g, b, alpha))
 
-    def __handle_layer_alpha(self, value_id, value):
+    def __handle_layer_alpha(self, alpha):
 
         r, g, b = self._colorboxes["layer_rgb"].get_color()
-        color = (r, g, b, value)
+        color = (r, g, b, alpha)
         mat_id = self._selected_mat_id
         layer_id = self._selected_layer_id
 
@@ -1263,23 +1236,23 @@ class MaterialPanel(Panel):
         prop_id = "combine_channels_use"
         Mgr.update_remotely("tex_layer_prop", mat_id, layer_id, prop_id, on)
 
-    def __parse_name(self, name):
+    def __parse_name(self, input_text):
 
-        parsed_name = name.strip(" *")
+        name = input_text.strip(" *")
 
-        return parsed_name if parsed_name else None
+        return name if name else None
 
-    def __parse_shininess(self, shininess):
+    def __parse_shininess_input(self, input_text):
 
         try:
-            return abs(float(eval(shininess)))
+            return abs(float(eval(input_text)))
         except:
             return None
 
-    def __parse_alpha(self, alpha):
+    def __parse_alpha_input(self, input_text):
 
         try:
-            return min(1., max(0., abs(float(eval(alpha)))))
+            return min(1., max(0., abs(float(eval(input_text)))))
         except:
             return None
 
@@ -1287,17 +1260,17 @@ class MaterialPanel(Panel):
 
         if prop_id == "name":
             if self._selected_mat_id == mat_id:
-                self._fields[prop_id].set_value(prop_id, value)
+                self._fields[prop_id].set_value(value)
             self._comboboxes["material"].set_item_text(mat_id, value)
         elif prop_id == "show_vert_colors":
             self._checkbuttons[prop_id].check(value)
         elif prop_id == "flat_color":
             self._colorboxes[prop_id].set_color(value[:3])
         elif prop_id == "shininess":
-            self._fields[prop_id].set_value(prop_id, value["value"])
+            self._fields[prop_id].set_value(value["value"])
         elif prop_id == "alpha":
             self._checkbuttons[prop_id].check(value["on"])
-            self._fields[prop_id].set_value(prop_id, value["value"])
+            self._fields[prop_id].set_value(value["value"])
         elif prop_id in self._base_prop_ids:
             self._checkbuttons[prop_id].check(value["on"])
             self._colorboxes[prop_id].set_color(value["value"][:3])
@@ -1310,10 +1283,10 @@ class MaterialPanel(Panel):
             self._checkbuttons["tex_map"].check(value)
         elif prop_id == "tex_map_file_main":
             self._tex_map_file_main = value
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(value)
         elif prop_id == "tex_map_file_alpha":
             self._tex_map_file_alpha = value
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(value)
         elif prop_id == "tex_map_border_color":
             self._colorboxes[prop_id].set_color(value[:3])
         elif prop_id == "tex_map_wrap_u":
@@ -1327,19 +1300,19 @@ class MaterialPanel(Panel):
         elif prop_id == "tex_map_filter_mag":
             self._comboboxes[prop_id].select_item(value)
         elif prop_id == "tex_map_anisotropic_degree":
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(value)
         elif prop_id == "tex_map_transform":
             u, v = value["offset"]
             rot = value["rotate"][0]
             su, sv = value["scale"]
-            self._fields["tex_map_offset_u"].set_value("tex_map_offset_u", u)
-            self._fields["tex_map_offset_v"].set_value("tex_map_offset_v", v)
-            self._fields["tex_map_rotate"].set_value("tex_map_rotate", rot)
-            self._fields["tex_map_scale_u"].set_value("tex_map_scale_u", su)
-            self._fields["tex_map_scale_v"].set_value("tex_map_scale_v", sv)
+            self._fields["tex_map_offset_u"].set_value(u)
+            self._fields["tex_map_offset_v"].set_value(v)
+            self._fields["tex_map_rotate"].set_value(rot)
+            self._fields["tex_map_scale_u"].set_value(su)
+            self._fields["tex_map_scale_v"].set_value(sv)
         elif prop_id in ("tex_map_offset_u", "tex_map_offset_v", "tex_map_rotate",
                          "tex_map_scale_u", "tex_map_scale_v"):
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(value)
         elif prop_id == "layers":
             get_command = lambda layer_id: lambda: self.__select_layer(layer_id)
             combobox = self._comboboxes["layer"]
@@ -1352,7 +1325,7 @@ class MaterialPanel(Panel):
         combobox = self._comboboxes["material"]
         combobox.select_item(mat_id)
         name = combobox.get_item_text(mat_id)
-        self._fields["name"].set_value("name", name)
+        self._fields["name"].set_value(name)
         self._selected_mat_id = mat_id
         self._comboboxes["layer"].clear()
         Mgr.update_remotely("material_selection", mat_id)
@@ -1422,7 +1395,7 @@ class MaterialPanel(Panel):
 
         def command(rgb_filename):
 
-            self._fields["tex_map_file_main"].set_value("tex_map_file_main", rgb_filename)
+            self._fields["tex_map_file_main"].set_value(rgb_filename)
             self._tex_map_file_main = rgb_filename
             self.__set_texture_map()
 
@@ -1432,7 +1405,7 @@ class MaterialPanel(Panel):
 
         def command(alpha_filename):
 
-            self._fields["tex_map_file_alpha"].set_value("tex_map_file_alpha", alpha_filename)
+            self._fields["tex_map_file_alpha"].set_value(alpha_filename)
             self._tex_map_file_alpha = alpha_filename
 
             if self._tex_map_file_main:
@@ -1458,12 +1431,12 @@ class MaterialPanel(Panel):
         else:
             field.clear(forget=False)
 
-    def __set_texture_map_main(self, value_id, filename):
+    def __set_texture_map_main(self, filename):
 
         self._tex_map_file_main = filename
         self.__set_texture_map()
 
-    def __set_texture_map_alpha(self, value_id, filename):
+    def __set_texture_map_alpha(self, filename):
 
         self._tex_map_file_alpha = filename
 
@@ -1489,7 +1462,7 @@ class MaterialPanel(Panel):
 
         if layer_id:
             name = combobox.get_item_text(layer_id)
-            self._fields["layer_name"].set_value("layer_name", name)
+            self._fields["layer_name"].set_value(name)
             self._selected_layer_id = layer_id
             Mgr.update_remotely("tex_layer_selection", self._selected_mat_id, layer_id)
 
@@ -1524,11 +1497,11 @@ class MaterialPanel(Panel):
         val_id = "layer_" + prop_id
 
         if prop_id == "name":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(value)
             self._comboboxes["layer"].set_item_text(layer_id, value)
         elif prop_id == "color":
             self._colorboxes["layer_rgb"].set_color(value[:3])
-            self._fields["layer_alpha"].set_value("layer_alpha", value[3])
+            self._fields["layer_alpha"].set_value(value[3])
         elif prop_id == "rgb_scale":
             self._radio_btns[val_id].set_selected_button(value)
         elif prop_id == "alpha_scale":
@@ -1537,15 +1510,15 @@ class MaterialPanel(Panel):
             self._checkbuttons[val_id].check(value)
         elif prop_id == "file_main":
             self._layer_file_main = value
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(value)
         elif prop_id == "file_alpha":
             self._layer_file_alpha = value
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(value)
         elif prop_id == "sort":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(value)
             self._comboboxes["layer"].set_item_index(layer_id, value)
         elif prop_id == "priority":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(value)
         elif prop_id == "border_color":
             self._colorboxes[val_id].set_color(value[:3])
         elif prop_id == "wrap_u":
@@ -1559,20 +1532,20 @@ class MaterialPanel(Panel):
         elif prop_id == "filter_mag":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "anisotropic_degree":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(value)
         elif prop_id == "uv_set":
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(value)
         elif prop_id == "transform":
             u, v = value["offset"]
             rot = value["rotate"][0]
             su, sv = value["scale"]
-            self._fields["layer_offset_u"].set_value("layer_offset_u", u)
-            self._fields["layer_offset_v"].set_value("layer_offset_v", v)
-            self._fields["layer_rotate"].set_value("layer_rotate", rot)
-            self._fields["layer_scale_u"].set_value("layer_scale_u", su)
-            self._fields["layer_scale_v"].set_value("layer_scale_v", sv)
+            self._fields["layer_offset_u"].set_value(u)
+            self._fields["layer_offset_v"].set_value(v)
+            self._fields["layer_rotate"].set_value(rot)
+            self._fields["layer_scale_u"].set_value(su)
+            self._fields["layer_scale_v"].set_value(sv)
         elif prop_id in ("offset_u", "offset_v", "rotate", "scale_u", "scale_v"):
-            self._fields[val_id].set_value(val_id, value)
+            self._fields[val_id].set_value(value)
         elif prop_id == "blend_mode":
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "combine_mode":
@@ -1597,7 +1570,7 @@ class MaterialPanel(Panel):
         combobox = self._comboboxes["layer"]
         combobox.select_item(layer_id)
         name = combobox.get_item_text(layer_id)
-        self._fields["layer_name"].set_value("layer_name", name)
+        self._fields["layer_name"].set_value(name)
         self._selected_layer_id = layer_id
         Mgr.update_remotely("tex_layer_selection", self._selected_mat_id, layer_id)
 
@@ -1628,7 +1601,7 @@ class MaterialPanel(Panel):
 
         def command(rgb_filename):
 
-            self._fields["layer_file_main"].set_value("layer_file_main", rgb_filename)
+            self._fields["layer_file_main"].set_value(rgb_filename)
             self._layer_file_main = rgb_filename
             self.__set_layer()
 
@@ -1638,7 +1611,7 @@ class MaterialPanel(Panel):
 
         def command(alpha_filename):
 
-            self._fields["layer_file_alpha"].set_value("layer_file_alpha", alpha_filename)
+            self._fields["layer_file_alpha"].set_value(alpha_filename)
             self._layer_file_alpha = alpha_filename
 
             if self._layer_file_main:
@@ -1664,12 +1637,12 @@ class MaterialPanel(Panel):
         else:
             field.clear(forget=False)
 
-    def __set_layer_main(self, value_id, filename):
+    def __set_layer_main(self, filename):
 
         self._layer_file_main = filename
         self.__set_layer()
 
-    def __set_layer_alpha(self, value_id, filename):
+    def __set_layer_alpha(self, filename):
 
         self._layer_file_alpha = filename
 
@@ -1774,13 +1747,10 @@ class MaterialToolbar(Toolbar):
         self.add(ToolbarSeparator(self), borders=borders)
 
         self.add(ToolbarText(self, "Shininess: "), borders=borders, alignment="center_v")
-        field = ToolbarInputField(self, 70)
-        self.add(field, borders=borders, alignment="center_v")
         val_id = "shininess"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_text(val_id, "{:.5f}".format(1.))
-        field.set_input_parser(val_id, self.__parse_shininess)
+        field = ToolbarInputField(self, val_id, "float", self.__handle_value, 70)
+        self.add(field, borders=borders, alignment="center_v")
+        field.set_input_parser( self.__parse_shininess_input)
         self._fields[val_id] = field
 
         tooltip_text = "Apply shininess"
@@ -1894,7 +1864,7 @@ class MaterialToolbar(Toolbar):
 
         Mgr.update_remotely("selected_obj_tex", tex_data)
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         if value_id == "shininess":
             prop_data = {"value": value}
@@ -1918,17 +1888,17 @@ class MaterialToolbar(Toolbar):
         prop_data = {"on": on}
         Mgr.update_remotely("ready_material_prop", self._color_type, prop_data)
 
-    def __parse_shininess(self, shininess):
+    def __parse_shininess_input(self, input_text):
 
         try:
-            return abs(float(eval(shininess)))
+            return abs(float(eval(input_text)))
         except:
             return None
 
     def __set_material_property(self, prop_id, value):
 
         if prop_id == "shininess":
-            self._fields[prop_id].set_text(prop_id, "{:.5f}".format(value["value"]))
+            self._fields[prop_id].set_value(value["value"])
         else:
             self._color_type = prop_id
             self._comboboxes["color_type"].select_item(prop_id)

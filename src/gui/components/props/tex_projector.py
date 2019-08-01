@@ -26,10 +26,8 @@ class TexProjectorProperties:
         text = "Size:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         val_id = "size"
-        field = PanelInputField(section, 80)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_size)
+        field = PanelInputField(section, val_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_size_input)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -52,40 +50,32 @@ class TexProjectorProperties:
         text = "Width:"
         sizer.add(PanelText(group, text), alignment_v="center_v")
         val_id = "film_w"
-        field = PanelInputField(group, 80)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_size)
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_size_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         text = "Height:"
         sizer.add(PanelText(group, text), alignment_v="center_v")
         val_id = "film_h"
-        field = PanelInputField(group, 80)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_size)
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_size_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         text = "X offset:"
         sizer.add(PanelText(group, text), alignment_v="center_v")
         val_id = "film_x"
-        field = PanelInputField(group, 80)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_size)
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_size_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         text = "Y offset:"
         sizer.add(PanelText(group, text), alignment_v="center_v")
         val_id = "film_y"
-        field = PanelInputField(group, 80)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_size)
+        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_size_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -140,13 +130,11 @@ class TexProjectorProperties:
         text = "Affected UV sets:"
         borders = (5, 5, 5, 10)
         section.add(PanelText(group, text), alignment="center_h", borders=borders)
-        field = PanelInputField(section, 10)
         val_id = "uv_set_ids"
-        field.add_value(val_id, "custom", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_uv_set_id_string)
-        field.set_value_parser(val_id, self.__parse_uv_set_ids)
-        field.set_value(val_id, ())
+        field = PanelInputField(section, val_id, "custom", self.__handle_value, 10)
+        field.set_input_parser(self.__parse_uv_set_id_input)
+        field.set_value_parser(self.__parse_uv_set_ids)
+        field.set_value(())
         field.enable(False)
         field.add_disabler("no_targets", lambda: not self._targets)
         self._fields[val_id] = field
@@ -180,7 +168,7 @@ class TexProjectorProperties:
 
         Mgr.update_remotely("texproj_prop", "projection_type", projection_type)
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         if GlobalData["active_creation_type"]:
             Mgr.update_app("tex_projector_prop_default", value_id, value)
@@ -219,7 +207,7 @@ class TexProjectorProperties:
         use_poly_sel = not target_data["toplvl"]
         show_poly_sel = target_data["show_poly_sel"]
         field = self._fields["uv_set_ids"]
-        field.set_value("uv_set_ids", uv_set_ids)
+        field.set_value(uv_set_ids)
         self._checkbuttons["use_poly_sel"].check(use_poly_sel)
         self._checkbuttons["show_poly_sel"].check(show_poly_sel)
 
@@ -244,24 +232,24 @@ class TexProjectorProperties:
 
         Mgr.update_remotely("texproj_prop", "targets", value, target_prop="clear")
 
-    def __parse_size(self, size_str):
+    def __parse_size_input(self, input_text):
 
         try:
-            size = float(size_str)
+            size = float(input_text)
         except:
             try:
-                size = eval(size_str)
+                size = eval(input_text)
             except:
                 return None
 
         return max(.001, size)
 
-    def __parse_uv_set_id_string(self, uv_set_id_str):
+    def __parse_uv_set_id_input(self, input_text):
         # TODO: use ranges
 
         try:
             uv_set_ids = tuple(set(sorted(min(7, max(0, int(s)))
-                for s in uv_set_id_str.replace(" ", "").split(","))))
+                for s in input_text.replace(" ", "").split(","))))
         except:
             return None
 
@@ -302,7 +290,7 @@ class TexProjectorProperties:
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -344,7 +332,7 @@ class TexProjectorProperties:
                     uv_set_ids = new_target_data["uv_set_ids"]
                     use_poly_sel = not new_target_data["toplvl"]
                     show_poly_sel = new_target_data["show_poly_sel"]
-                    field.set_value("uv_set_ids", uv_set_ids)
+                    field.set_value(uv_set_ids)
                     checkbtns["use_poly_sel"].check(use_poly_sel)
                     checkbtns["show_poly_sel"].check(show_poly_sel)
 
@@ -371,11 +359,11 @@ class TexProjectorProperties:
                     uv_set_ids = target_data["uv_set_ids"]
                     use_poly_sel = not target_data["toplvl"]
                     show_poly_sel = target_data["show_poly_sel"]
-                    field.set_value("uv_set_ids", uv_set_ids)
+                    field.set_value(uv_set_ids)
                     checkbtns["use_poly_sel"].check(use_poly_sel)
                     checkbtns["show_poly_sel"].check(show_poly_sel)
                 else:
-                    field.set_value("uv_set_ids", ())
+                    field.set_value(())
                     field.enable(False)
                     checkbtns["use_poly_sel"].check(False)
                     checkbtns["use_poly_sel"].enable(False)
@@ -385,7 +373,7 @@ class TexProjectorProperties:
         elif prop_id in self._fields:
 
             field = self._fields[prop_id]
-            field.set_value(prop_id, value)
+            field.set_value(value)
 
     def check_selection_count(self):
 

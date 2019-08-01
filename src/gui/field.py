@@ -1,27 +1,21 @@
 from .base import *
 from .menu import Menu
 
-try:
-    from tkinter import Tk
-    using_tk = True
-except ImportError:
-    using_tk = False
-
 
 class TextControl:
 
     _shown_caret = None
-    _clipboard = ""
+    _clipboard_text = ""
 
     @classmethod
     def __set_clipboard_text(cls, text):
 
-        cls._clipboard = text
+        cls._clipboard_text = text
 
     @classmethod
     def __get_clipboard_text(cls):
 
-        return cls._clipboard
+        return cls._clipboard_text
 
     @classmethod
     def __blink_caret(cls, task):
@@ -380,7 +374,7 @@ class TextControl:
 
     def copy_text(self):
 
-        if using_tk:
+        if USING_TK:
             r = Tk()
             r.withdraw()
             r.clipboard_clear()
@@ -397,7 +391,7 @@ class TextControl:
 
     def paste_text(self):
 
-        if using_tk:
+        if USING_TK:
 
             r = Tk()
             r.withdraw()
@@ -416,6 +410,7 @@ class TextControl:
             text = self.__get_clipboard_text()
 
         if text and type(text) == str:
+            text = text.replace("\n", "")
             self.write(text)
 
     def __update_image(self):
@@ -483,6 +478,152 @@ class TextControl:
         TextControl._shown_caret = self._caret
 
 
+class SliderControl:
+
+    _mark = None
+    _font = None
+    _default_text_color = None
+    _color = None
+
+    @classmethod
+    def init(cls):
+
+        x, y, w, h = TextureAtlas["regions"]["slider_mark"]
+        cls._mark = img = PNMImage(w, h, 4)
+        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        cls._font = Skin["text"]["slider"]["font"]
+        cls._default_text_color = Skin["text"]["slider"]["color"]
+        cls._color = Skin["colors"]["slider"]
+
+    def __init__(self, field, value_range=(0., 1.), value_type="float", cull_bin=("gui", 3)):
+
+        self._field = field
+        self._text_color = self._default_text_color
+        self._range = value_range
+        self._value = value_range[0]
+        self._value_type = value_type
+        cm = CardMaker("slider")
+        cm.set_frame(0, 1., -1., 0)
+        w, h = field.get_size()
+        self._root = root = Mgr.get("gui_root").attach_new_node("slider_root")
+        self._quad = quad = root.attach_new_node(cm.generate())
+        quad.set_scale(w, 1., h)
+        bin_name, bin_sort = cull_bin
+        quad.set_bin(bin_name, bin_sort)
+        self._tex = tex = Texture("slider")
+        tex.set_minfilter(SamplerState.FT_nearest)
+        tex.set_magfilter(SamplerState.FT_nearest)
+        quad.set_texture(tex)
+        root.hide()
+        self._image = None
+        self.__update_image()
+
+    def destroy(self):
+
+        self._field = None
+        self._root.remove_node()
+        self._root = None
+        self._quad = None
+
+    def set_size(self, size):
+
+        w, h = size
+        self._quad.set_scale(w, 1., h)
+        self.__update_image()
+
+    def set_scissor_effect(self, effect):
+
+        if effect:
+            self._root.set_effect(effect)
+
+    def set_pos(self, pos):
+
+        x, y = pos
+        self._root.set_pos(x, 0, -y)
+
+    def clear(self):
+
+        self._value = self._range[0]
+        self.__update_image()
+
+    def set_text_color(self, color=None):
+
+        self._text_color = self._default_text_color if color is None else color
+
+    def get_text_color(self):
+
+        return self._text_color
+
+    def update_value(self, slide_amount):
+
+        w, _ = self._field.get_size()
+        offset = slide_amount / w
+        start, end = self._range
+        self._value = max(start, min(end, start + offset * (end - start)))
+
+        if self._value_type == "int":
+            self._value = int(self._value)
+
+        self.__update_image()
+
+    def set_value(self, value):
+
+        if self._value != value:
+            self._value = value
+            self.__update_image()
+
+    def get_value(self):
+
+        return self._value
+
+    def __update_image(self):
+
+        w, h = self._field.get_size()
+        image = PNMImage(w, h, 4)
+        r, g, b, a = Skin["colors"]["inputfield_background"]
+        image.fill(r, g, b)
+        image.alpha_fill(a)
+
+        val = self._value
+        val_str = "{:.5f}" if self._value_type == "float" else "{:d}"
+        label = self._font.create_image(val_str.format(val), self._text_color)
+
+        painter = PNMPainter(image)
+        fill = PNMBrush.make_pixel(self._color)
+        pen = PNMBrush.make_transparent()
+        painter.set_fill(fill)
+        painter.set_pen(pen)
+        w_l, h_l = label.size
+        x = (w - w_l) // 2
+        y = (h - h_l) // 2
+        start, end = self._range
+        w -= Skin["options"]["slider_mark_thickness"]
+        w = int(w * (val - start) / (end - start))
+        painter.draw_rectangle(0, 0, w, h)
+        image.blend_sub_image(self._mark * self._color, w, 0, 0, 0)
+        image.blend_sub_image(label, x, y, 0, 0)
+        self._image = image
+
+        image = PNMImage(image)
+        img_offset_x, img_offset_y = self._field.get_image_offset()
+        image.blend_sub_image(self._field.get_border_image(), img_offset_x, img_offset_y, 0, 0)
+        self._tex.load(image)
+
+    def get_image(self):
+
+        return self._image
+
+    def hide(self):
+
+        self._root.hide()
+
+    def show(self, pos):
+
+        x, y = pos
+        self._root.set_pos(x, 0, -y)
+        self._root.show()
+
+
 class InputField(Widget):
 
     _active_field = None
@@ -511,6 +652,7 @@ class InputField(Widget):
     def init(cls):
 
         TextControl.init()
+        SliderControl.init()
 
         d = 100000
         cls._mouse_region_mask = MouseWatcherRegion("inputfield_mask", -d, d, -d, d)
@@ -708,25 +850,28 @@ class InputField(Widget):
 
         InputField._default_input_parsers[value_type] = parser
 
-    def __init__(self, parent, border_gfx_data, width, text_color=None, back_color=None,
-                 sort=110, cull_bin=("gui", 3), on_accept=None, on_reject=None,
-                 on_key_enter=None, on_key_escape=None, allow_reject=True):
+    def __init__(self, parent, value_id, value_type, handler, width, border_gfx_data, image_offset,
+                 font=None, text_color=None, back_color=None, sort=110, cull_bin=("gui", 3),
+                 on_accept=None, on_reject=None, on_key_enter=None, on_key_escape=None,
+                 allow_reject=True):
 
         Widget.__init__(self, "input_field", parent, gfx_data={}, stretch_dir="horizontal")
 
+        self.set_image_offset(image_offset)
         self.get_mouse_region().set_sort(sort)
 
-        self._text_ctrls = {}
+        self._text_color = text_color if text_color else self._default_text_color
+        self._back_color = back_color if back_color else self._default_back_color
+
         self._width = int(width * Skin["options"]["inputfield_width_scale"])
+        self._text_ctrl = None
         size = (self._width, self._height)
         self.set_size(size, is_min=True)
         self._border_gfx_data = border_gfx_data
         self._border_image = self.__create_border_image()
+        self._text_ctrl = TextControl(self, font, self._text_color, cull_bin)
         self._delay_card_update = False
         self._scissor_effect = None
-
-        self._text_color = text_color if text_color else self._default_text_color
-        self._back_color = back_color if back_color else self._default_back_color
 
         self._cull_bin = cull_bin
         self._on_accept = on_accept
@@ -735,14 +880,20 @@ class InputField(Widget):
         self._on_key_escape = on_key_escape if on_key_escape else lambda: None
         self._allows_reject = allow_reject
         self._is_text_shown = True
+        self._is_clicked = False
         self._selecting_text = False
-        self._texts = {}
-        self._value_id = None
-        self._value_types = {}
-        self._value_handlers = {}
-        self._value_parsers = {}
-        self._input_parsers = {}
-        self._input_init = {}
+        self._text = ""
+        self._value = None
+        self._value_id = value_id
+        self._value_type = value_type
+        self._input_init = lambda: None
+        self._input_parser = None
+        self._value_parser = None
+
+        if handler:
+            self._value_handler = handler
+        else:
+            self._value_handler = lambda value_id, value, state: None
 
         self._popup_menu = None
         self._manage_popup_menu = True
@@ -752,14 +903,14 @@ class InputField(Widget):
 
         Widget.destroy(self)
 
-        for txt_ctrl in self._text_ctrls.values():
-            txt_ctrl.destroy()
+        if self._text_ctrl:
+            self._text_ctrl.destroy()
 
-        self._text_ctrls = {}
-        self._value_handlers = {}
-        self._value_parsers = {}
-        self._input_parsers = {}
-        self._input_init = {}
+        self._text_ctrl = None
+        self._value_handler = None
+        self._value_parser = None
+        self._input_parser = None
+        self._input_init = None
         self._on_accept = lambda: None
         self._on_reject = lambda: None
         self._on_key_enter = lambda: None
@@ -770,6 +921,7 @@ class InputField(Widget):
             self._popup_menu.destroy()
 
         self._popup_menu = None
+        self._listener.ignore_all()
 
     def __create_border_image(self):
 
@@ -812,24 +964,26 @@ class InputField(Widget):
 
         return self._allows_reject
 
-    def get_text_control(self, value_id=None):
+    def get_text_control(self):
 
-        return self._text_ctrls[self._value_id if value_id is None else value_id]
+        return self._text_ctrl
 
     def set_scissor_effect(self, effect):
 
         self._scissor_effect = effect
 
-        for txt_ctrl in self._text_ctrls.values():
-            txt_ctrl.set_scissor_effect(effect)
+        if self._text_ctrl:
+            self._text_ctrl.set_scissor_effect(effect)
 
     def set_size(self, size, includes_borders=True, is_min=False):
 
         w, h = Widget.set_size(self, size, includes_borders, is_min)
         size = (w, self._height)
 
-        for txt_ctrl in self._text_ctrls.values():
-            txt_ctrl.set_size(size)
+        if self._text_ctrl:
+            self._text_ctrl.set_size(size)
+
+        return size
 
     def delay_card_update(self, delay=True):
 
@@ -887,6 +1041,24 @@ class InputField(Widget):
 
         return self._border_image
 
+    def _draw_control_image(self, image):
+
+        if self._text and self._text_ctrl and self._is_text_shown:
+
+            if self is self._active_field:
+                text = self._text
+                label = self._text_ctrl.create_label(text)
+            else:
+                label = self._text_ctrl.get_label()
+
+            if label:
+                w, h = self.get_size()
+                w_l, h_l = label.size
+                x = margin = Skin["options"]["inputfield_margin"]
+                y = (h - h_l) // 2
+                w -= margin * 2
+                image.blend_sub_image(label, x, y, 0, 0, w, h_l)
+
     def get_image(self, state=None, composed=True, draw_border=True, crop=False):
 
         image = Widget.get_image(self, state, composed)
@@ -894,21 +1066,7 @@ class InputField(Widget):
         if not image:
             return
 
-        if self._value_id and self._is_text_shown:
-
-            if self is self._active_field:
-                text = self._texts[self._value_id]
-                label = self._text_ctrls[self._value_id].create_label(text)
-            else:
-                label = self._text_ctrls[self._value_id].get_label()
-
-            if label:
-                w, h = self.get_size()
-                w_l, h_l = label.get_x_size(), label.get_y_size()
-                x = margin = Skin["options"]["inputfield_margin"]
-                y = (h - h_l) // 2
-                w_ = w - margin * 2
-                image.blend_sub_image(label, x, y, 0, 0, w_, h_l)
+        self._draw_control_image(image)
 
         if draw_border:
 
@@ -919,7 +1077,7 @@ class InputField(Widget):
                 image.blend_sub_image(border_img, img_offset_x, img_offset_y, 0, 0)
                 img = image
             else:
-                w, h = border_img.get_x_size(), border_img.get_y_size()
+                w, h = border_img.size
                 img = PNMImage(w, h, 4)
                 img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)
                 img.blend_sub_image(border_img, 0, 0, 0, 0)
@@ -933,14 +1091,14 @@ class InputField(Widget):
     def update_text_pos(self):
 
         pos = self.get_pos(ref_node=self._ref_node)
-        self._text_ctrls[self._value_id].set_pos(pos)
+        self._text_ctrl.set_pos(pos)
 
     def __set_caret_to_mouse_pos(self, select=False):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         mouse_x = mouse_pointer.get_x()
         x, y = self.get_pos(ref_node=self._ref_node)
-        self._text_ctrls[self._value_id].move_caret(mouse_x - x, is_offset=False, select=select)
+        self._text_ctrl.move_caret(mouse_x - x, is_offset=False, select=select)
 
     def __select_text(self, task):
 
@@ -950,7 +1108,7 @@ class InputField(Widget):
 
     def accept_events(self):
 
-        txt_ctrl = self._text_ctrls[self._value_id]
+        txt_ctrl = self._text_ctrl
 
         def write_keystroke(char):
 
@@ -962,7 +1120,7 @@ class InputField(Widget):
                 txt_ctrl.copy_text()
             elif val == 24:
                 txt_ctrl.cut_text()
-            elif val == 22 and not using_tk:
+            elif val == 22 and not USING_TK:
                 txt_ctrl.paste_text()
             elif val in range(32, 255):
                 txt_ctrl.write(char)
@@ -1005,6 +1163,38 @@ class InputField(Widget):
                          "keystroke", "gui_enter", "gui_escape"):
             listener.ignore(event_id)
 
+    def has_slider_control(self):
+
+        return False
+
+    def is_checking_mouse_offset(self):
+
+        return False
+
+    def init_mouse_checking(self):
+        """ Override in derived class """
+
+        pass
+
+    def cancel_mouse_checking(self, event_id):
+        """ Override in derived class """
+
+        pass
+
+    def is_sliding(self):
+
+        return False
+
+    def finalize_sliding(self):
+        """ Override in derived class """
+
+        pass
+
+    def cancel_sliding(self, event_id):
+        """ Override in derived class """
+
+        pass
+
     def on_left_down(self):
 
         if self._active_field is self:
@@ -1015,11 +1205,34 @@ class InputField(Widget):
             return
 
         if self._active_field:
+            self._active_field._on_accept_input()
 
-            self._active_field.accept_input()
-            self.set_active_input_field(self)
+        self._listener.accept("gui_mouse1-up", self._on_left_up)
 
+        if self.has_slider_control():
+            self.init_mouse_checking()
         else:
+            self._is_clicked = True
+
+    def _on_left_up(self):
+
+        if self.is_checking_mouse_offset():
+            self.cancel_mouse_checking("on_left_up")
+
+        if self.is_sliding():
+
+            self.finalize_sliding()
+
+        elif self._selecting_text:
+
+            Mgr.remove_task("select_text")
+
+            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+                Mgr.set_cursor("input_commit")
+
+            self._selecting_text = False
+
+        elif self._is_clicked:
 
             if Mgr.get_state_id() != "suppressed":
                 self.__enter_suppressed_state()
@@ -1031,33 +1244,37 @@ class InputField(Widget):
                 region_mask.set_active(True)
                 watcher.add_region(region_mask)
 
-        txt_ctrl = self._text_ctrls[self._value_id]
-        text = self._texts[self._value_id]
-        txt_ctrl.set_text(text)
-        pos = self.get_pos(ref_node=self._ref_node)
-        txt_ctrl.show(pos)
-        self._input_init[self._value_id]()
+            txt_ctrl = self._text_ctrl
+            txt_ctrl.set_text(self._text)
+            pos = self.get_pos(ref_node=self._ref_node)
+            txt_ctrl.show(pos)
+            self._input_init()
 
-        listener = self._listener
-        listener.accept("gui_mouse1-up", self.__on_left_up)
-        listener.accept("focus_loss", lambda: Mgr.do("reject_field_input"))
-        self.accept_events()
-
-        if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
-            Mgr.set_cursor("input_commit")
-
-    def __on_left_up(self):
-
-        if self._selecting_text:
-
-            Mgr.remove_task("select_text")
+            listener = self._listener
+            listener.accept("focus_loss", lambda: Mgr.do("reject_field_input"))
+            self.accept_events()
 
             if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
                 Mgr.set_cursor("input_commit")
+            elif self.has_slider_control():
+                Mgr.set_cursor("caret")
 
-            self._selecting_text = False
+            return True
+
+        return False
 
     def on_right_down(self):
+
+        if self.is_checking_mouse_offset():
+            self.cancel_mouse_checking("on_right_down")
+            return
+
+        if self.is_sliding():
+            self.cancel_sliding("on_right_down")
+            return
+
+        if self._selecting_text:
+            return
 
         if self._active_field is self:
             self._edit_menu.show_at_mouse_pos()
@@ -1066,10 +1283,19 @@ class InputField(Widget):
         Mgr.do("reject_field_input")
         self._popup_handler()
 
+    def _on_right_up(self):
+
+        self._listener.ignore("gui_mouse3-up")
+
+        if self.is_checking_mouse_offset():
+            self.cancel_mouse_checking("on_right_up")
+        elif self.is_sliding():
+            self.cancel_sliding("on_right_up")
+
     def on_enter(self):
 
-        if PLATFORM_ID == "Windows":
-            cursor_id = "i_beam"
+        if self.has_slider_control() and self._active_field is not self:
+            cursor_id = "slider_caret"
         else:
             cursor_id = "caret"
 
@@ -1077,59 +1303,50 @@ class InputField(Widget):
 
     def on_leave(self):
 
-        if not self._selecting_text:
+        if not (self._selecting_text or self.is_checking_mouse_offset() or self.is_sliding()):
             if self._active_field and not Menu.is_menu_shown():
                 Mgr.set_cursor("input_commit")
             else:
                 Mgr.set_cursor("main")
+                self._is_clicked = False
+            if not self._active_field:
+                self._listener.ignore("gui_mouse1-up")
 
-    def set_input_init(self, value_id, input_init):
+    def set_input_init(self, input_init):
 
-        self._input_init[value_id] = input_init
+        self._input_init = input_init
 
-    def set_input_parser(self, value_id, parser):
+    def set_input_parser(self, parser):
 
-        self._input_parsers[value_id] = parser
+        self._input_parser = parser
 
-    def __parse_input(self, value_id, input_text):
+    def __parse_input(self, input_text):
 
-        val_type = self._value_types[value_id]
-        default_parser = self._default_input_parsers.get(val_type)
-        parser = self._input_parsers.get(value_id, default_parser)
+        default_parser = self._default_input_parsers.get(self._value_type)
+        parser = self._input_parser if self._input_parser else default_parser
 
         return parser(input_text) if parser else None
 
-    def set_value_parser(self, value_id, parser):
+    def set_value_parser(self, parser):
 
-        self._value_parsers[value_id] = parser
+        self._value_parser = parser
 
-    def __parse_value(self, value_id, value):
+    def __parse_value(self, value):
 
-        val_type = self._value_types[value_id]
-        default_parser = self._default_value_parsers.get(val_type)
-        parser = self._value_parsers.get(value_id, default_parser)
+        default_parser = self._default_value_parsers.get(self._value_type)
+        parser = self._value_parser if self._value_parser else default_parser
 
         return parser(value) if parser else None
 
-    def add_value(self, value_id, value_type="float", handler=None, font=None):
+    def get_value_id(self):
 
-        self._value_types[value_id] = value_type
-        txt_ctrl = TextControl(self, font, self._text_color, self._cull_bin)
-        txt_ctrl.set_scissor_effect(self._scissor_effect)
-        self._text_ctrls[value_id] = txt_ctrl
-        self._texts[value_id] = ""
-        self._input_init[value_id] = lambda: None
-
-        if handler:
-            self._value_handlers[value_id] = handler
-        else:
-            self._value_handlers[value_id] = lambda value_id, value: None
+        return self._value_id
 
     def __reset_cursor(self):
 
         over_field = False
 
-        for watcher in self._get_mouse_watchers():
+        for watcher in GlobalData["mouse_watchers"]:
 
             region = watcher.get_over_region()
 
@@ -1148,14 +1365,21 @@ class InputField(Widget):
 
         if not over_field:
             Mgr.set_cursor("main")
+        elif widget.has_slider_control():
+            Mgr.set_cursor("slider_caret")
+
+    def on_input_commit(self):
+        """ Override in derived class """
+
+        pass
 
     def accept_input(self, text_handler=None):
 
-        txt_ctrl = self._text_ctrls[self._value_id]
-        old_text = self._texts[self._value_id]
+        txt_ctrl = self._text_ctrl
+        old_text = self._text
         input_text = txt_ctrl.get_text()
 
-        value = self.__parse_input(self._value_id, input_text)
+        value = self.__parse_input(input_text)
         valid = False
 
         if value is None:
@@ -1164,23 +1388,26 @@ class InputField(Widget):
 
         else:
 
-            val_str = self.__parse_value(self._value_id, value)
+            val_str = self.__parse_value(value)
 
             if val_str is None:
                 val_str = old_text
             else:
                 valid = True
 
-        self._texts[self._value_id] = val_str
+        self._text = val_str
 
         if valid:
 
+            self._value = value
             txt_ctrl.set_text(val_str)
+            self.on_input_commit()
 
             if self._is_text_shown:
                 self.__update_card_image()
 
-            self._value_handlers[self._value_id](self._value_id, value)
+            state = "continuous" if self.is_sliding() else "done"
+            self._value_handler(self._value_id, value, state)
 
             if text_handler:
                 text_handler(val_str)
@@ -1192,6 +1419,8 @@ class InputField(Widget):
         txt_ctrl.hide()
         self.__reset_cursor()
 
+        self._is_clicked = False
+
         if self._on_accept:
             self._on_accept(valid)
 
@@ -1199,8 +1428,8 @@ class InputField(Widget):
 
     def reject_input(self):
 
-        txt_ctrl = self._text_ctrls[self._value_id]
-        old_text = self._texts[self._value_id]
+        txt_ctrl = self._text_ctrl
+        old_text = self._text
         input_text = txt_ctrl.get_text()
 
         if input_text != old_text:
@@ -1212,53 +1441,60 @@ class InputField(Widget):
         txt_ctrl.hide()
         self.__reset_cursor()
 
+        self._is_clicked = False
+
         if self._on_reject:
             self._on_reject()
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=False):
+    def set_value(self, value, text_handler=None, handle_value=False, _force_update=False):
 
-        val_str = self.__parse_value(value_id, value)
+        val_str = self.__parse_value(value)
 
         if val_str is None:
             return False
 
-        self._texts[value_id] = val_str
-        txt_ctrl = self._text_ctrls[value_id]
+        self._text = val_str
+        self._value = value
+        txt_ctrl = self._text_ctrl
+        update_card_image = False
 
-        if txt_ctrl.get_text() != val_str:
-
+        if _force_update:
+            update_card_image = True
+        elif self.is_sliding():
+            update_card_image = True
+        elif txt_ctrl.get_text() != val_str:
             txt_ctrl.set_text(val_str)
+            update_card_image = True
 
-            if self._is_text_shown and self._value_id == value_id:
-                self.__update_card_image()
+        if update_card_image and self._is_text_shown:
+            self.__update_card_image()
 
         if handle_value:
-            self._value_handlers[value_id](value_id, value)
+            state = "continuous" if self.is_sliding() else "done"
+            self._value_handler(self._value_id, value, state)
 
         if text_handler:
             text_handler(val_str)
 
         return True
 
-    def get_value_id(self):
+    def get_value(self):
 
-        return self._value_id
+        return self._value
 
     def set_input_text(self, text):
 
-        txt_ctrl = self._text_ctrls[self._value_id]
-        txt_ctrl.set_text(text)
+        self._text_ctrl.set_text(text)
 
-    def set_text(self, value_id, text, text_handler=None):
+    def set_text(self, text, text_handler=None):
 
-        if self._texts[value_id] == text:
+        if self._text == text:
             return False
 
-        txt_ctrl = self._text_ctrls[value_id]
-        txt_ctrl.set_text(text)
-        self._texts[value_id] = text
+        self._text_ctrl.set_text(text)
+        self._text = text
 
-        if self._is_text_shown and self._value_id == value_id:
+        if self._is_text_shown:
             self.__update_card_image()
 
         if text_handler:
@@ -1266,9 +1502,9 @@ class InputField(Widget):
 
         return True
 
-    def get_text(self, value_id):
+    def get_text(self):
 
-        return self._texts[value_id]
+        return self._text
 
     def show_text(self, show=True):
 
@@ -1282,14 +1518,13 @@ class InputField(Widget):
 
     def set_text_color(self, color=None):
 
-        txt_ctrl = self._text_ctrls[self._value_id]
+        txt_ctrl = self._text_ctrl
 
         if txt_ctrl.get_color() == color:
             return False
 
-        for value_id, txt_ctrl in self._text_ctrls.items():
-            txt_ctrl.set_color(color if color else self._text_color)
-            txt_ctrl.set_text(self._texts[value_id])
+        txt_ctrl.set_color(color if color else self._text_color)
+        txt_ctrl.set_text(self._text)
 
         if self._is_text_shown:
             self.__update_card_image()
@@ -1298,27 +1533,33 @@ class InputField(Widget):
 
     def get_text_color(self):
 
-        return self._text_ctrls[self._value_id].get_color()
+        return self._text_ctrl.get_color()
 
     def clear(self, forget=True):
 
-        txt_ctrl = self._text_ctrls[self._value_id]
+        txt_ctrl = self._text_ctrl
         txt_ctrl.clear()
 
         if forget:
-            self._texts[self._value_id] = ""
+            self._text = ""
 
         if self._is_text_shown:
             self.__update_card_image()
 
-    def show_value(self, value_id):
+    def update(self, text, text_ctrl, input_init, input_parser, value_parser,
+               value_handler, value_type, value):
 
-        if value_id in self._texts:
+        self._text = text
+        self._text_ctrl = text_ctrl
+        self._input_init = input_init
+        self._input_parser = input_parser
+        self._value_parser = value_parser
+        self._value_handler = value_handler
+        self._value_type = value_type
+        self._value = value
 
-            self._value_id = value_id
-
-            if self._is_text_shown:
-                self.__update_card_image()
+        if self._is_text_shown:
+            self.__update_card_image()
 
     def set_popup_menu(self, menu, manage=True):
 
@@ -1354,3 +1595,467 @@ class InputField(Widget):
         self.__update_card_image()
 
         return True
+
+
+class SliderMixin:
+
+    _clock = ClockObject()
+
+    def __init__(self):
+
+        self._slider_ctrl = None
+        self._sliding = False
+        self._checking_mouse_offset = False
+        self._mouse_start_pos = ()
+        self._mouse_prev = None
+        self._start_value = None
+        self._handler_delay = 0.
+
+    def destroy(self):
+
+        if self._slider_ctrl:
+            self._slider_ctrl.destroy()
+            self._slider_ctrl = None
+
+    def _draw_control_image(self, image):
+
+        if self._slider_ctrl and self._is_text_shown:
+            slider_img = self._slider_ctrl.get_image()
+            image.copy_sub_image(slider_img, 0, 0, 0, 0)
+
+    def is_checking_mouse_offset(self):
+
+        return self._checking_mouse_offset
+
+    def __check_mouse_offset(self, task):
+
+        mouse_pointer = Mgr.get("mouse_pointer", 0)
+        mouse_x = mouse_pointer.x
+        mouse_y = mouse_pointer.y
+        mouse_start_x, mouse_start_y = self._mouse_start_pos
+
+        if max(abs(mouse_x - mouse_start_x), abs(mouse_y - mouse_start_y)) > 3:
+            self._sliding = True
+            self._on_slide_start()
+            pos = self.get_pos(ref_node=self._ref_node)
+            self._slider_ctrl.show(pos)
+            self._mouse_prev = None
+            self._start_value = self.get_value()
+            Mgr.add_task(self.__slide, "slide")
+            self._listener.accept("gui_mouse3-up", self._on_right_up)
+            self._listener.accept("gui_+", self.__incr_handler_delay)
+            self._listener.accept("gui_-", self.__decr_handler_delay)
+            self._checking_mouse_offset = False
+            return
+
+        return task.cont
+
+    def init_mouse_checking(self):
+
+        self._checking_mouse_offset = True
+        mouse_pointer = Mgr.get("mouse_pointer", 0)
+        self._mouse_start_pos = (mouse_pointer.x, mouse_pointer.y)
+        Mgr.add_task(self.__check_mouse_offset, "check_mouse_offset")
+        self._listener.accept("gui_mouse3-up", self._on_right_up)
+
+    def cancel_mouse_checking(self, event_id):
+
+        Mgr.remove_task("check_mouse_offset")
+
+        if event_id == "on_left_up":
+            if self.get_mouse_watcher().get_over_region() == self.get_mouse_region():
+                self._is_clicked = True
+        elif event_id == "on_right_up":
+            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+                self._listener.ignore("gui_mouse1-up")
+
+        if event_id in ("on_left_up", "on_right_down"):
+            self._listener.ignore("gui_mouse3-up")
+
+        self._checking_mouse_offset = False
+
+    def _on_slide_start(self):
+        """ Override in derived class """
+
+        pass
+
+    def _on_slide_end(self, cancelled=False):
+        """ Override in derived class """
+
+        pass
+
+    def __incr_handler_delay(self):
+
+        self._handler_delay += .05
+
+    def __decr_handler_delay(self):
+
+        self._handler_delay = max(0., self._handler_delay - .05)
+
+    def __slide(self, task):
+
+        mouse_pointer = Mgr.get("mouse_pointer", 0)
+        mouse_x = mouse_pointer.x
+        prev_value = self._slider_ctrl.get_value()
+        delay = self._handler_delay
+
+        if self._mouse_prev != mouse_x:
+
+            x, _ = self.get_pos(ref_node=self._ref_node)
+            self._slider_ctrl.update_value(mouse_x - x)
+
+            if self._clock.get_real_time() > delay:
+
+                value = self._slider_ctrl.get_value()
+
+                if value != prev_value:
+                    InputField.set_value(self, value, handle_value=True)
+
+                self._clock.reset()
+
+            self._mouse_prev = mouse_x
+
+        elif prev_value != self.get_value() and self._clock.get_real_time() > delay:
+
+            InputField.set_value(self, prev_value, handle_value=True)
+
+        return task.cont
+
+    def has_slider_control(self):
+
+        return True
+
+    def is_sliding(self):
+
+        return self._sliding
+
+    def finalize_sliding(self):
+
+        Mgr.remove_task("slide")
+        self._slider_ctrl.hide()
+
+        if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+            Mgr.set_cursor("main")
+
+        self._listener.ignore("gui_mouse3-up")
+        self._listener.ignore("gui_+")
+        self._listener.ignore("gui_-")
+        self._sliding = False
+
+        self._on_slide_end()
+
+    def cancel_sliding(self, event_id):
+
+        self._listener.ignore("gui_+")
+        self._listener.ignore("gui_-")
+        Mgr.remove_task("slide")
+        self._slider_ctrl.hide()
+        self._sliding = False
+
+        if event_id == "on_right_down":
+
+            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+                Mgr.set_cursor("main")
+
+            self._listener.ignore("gui_mouse3-up")
+
+        elif event_id == "on_right_up":
+
+            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+                Mgr.set_cursor("main")
+                self._listener.ignore("gui_mouse1-up")
+
+        self._on_slide_end(cancelled=True)
+
+    def set_scissor_effect(self, effect):
+
+        if self._slider_ctrl:
+            self._slider_ctrl.set_scissor_effect(effect)
+
+    def set_size(self, size):
+
+        if self._slider_ctrl:
+            self._slider_ctrl.set_size(size)
+
+    def set_slider_value(self, value):
+
+        self._slider_ctrl.set_value(value)
+
+    def get_slider_value(self):
+
+        return self._slider_ctrl.get_value()
+
+    def on_input_commit(self):
+
+        if self._slider_ctrl:
+            self._slider_ctrl.set_value(self.get_value())
+
+
+class SliderInputField(SliderMixin, InputField):
+
+    def __init__(self, parent, value_id, value_type, value_range, handler, width, border_gfx_data,
+                 image_offset, font=None, text_color=None, back_color=None, sort=110,
+                 cull_bin=("gui", 3), on_accept=None, on_reject=None, on_key_enter=None,
+                 on_key_escape=None, allow_reject=True):
+
+        SliderMixin.__init__(self)
+        InputField.__init__(self, parent, value_id, value_type, handler, width, border_gfx_data,
+                            image_offset, font, text_color, back_color, sort, cull_bin, on_accept,
+                            on_reject, on_key_enter, on_key_escape, allow_reject)
+
+        self._slider_ctrl = SliderControl(self, value_range, value_type, cull_bin)
+        self.set_value(self._slider_ctrl.get_value())
+
+    def destroy(self):
+
+        SliderMixin.destroy(self)
+        InputField.destroy(self)
+
+    def _on_slide_end(self, cancelled=False):
+
+        if cancelled:
+            self.set_value(self._start_value, handle_value=True, _force_update=True)
+        else:
+            value = self._slider_ctrl.get_value()
+            InputField.set_value(self, value, handle_value=True)
+
+    def set_scissor_effect(self, effect):
+
+        SliderMixin.set_scissor_effect(self, effect)
+        InputField.set_scissor_effect(self, effect)
+
+    def set_size(self, size, includes_borders=True, is_min=False):
+
+        size = InputField.set_size(self, size, includes_borders, is_min)
+        SliderMixin.set_size(self, size)
+
+    def set_value(self, value, text_handler=None, handle_value=False, _force_update=False):
+
+        self._slider_ctrl.set_value(value)
+
+        return InputField.set_value(self, value, text_handler, handle_value, _force_update)
+
+
+class MultiValInputField(SliderMixin, InputField):
+
+    def __init__(self, parent, width, border_gfx_data, image_offset, font=None, text_color=None,
+                 back_color=None, sort=110, cull_bin=("gui", 3), on_accept=None, on_reject=None,
+                 on_key_enter=None, on_key_escape=None, allow_reject=True):
+
+        self._text_ctrls = {}
+        self._slider_ctrls = {}
+
+        SliderMixin.__init__(self)
+        InputField.__init__(self, parent, "", "", None, width, border_gfx_data, image_offset,
+                            font, text_color, back_color, sort, cull_bin, on_accept, on_reject,
+                            on_key_enter, on_key_escape, allow_reject)
+
+        self._texts = {}
+        self._value_id = None
+        self._values = {}
+        self._value_types = {}
+        self._value_handlers = {}
+        self._value_parsers = {}
+        self._input_parsers = {}
+        self._input_inits = {}
+
+    def destroy(self):
+
+        SliderMixin.destroy(self)
+        InputField.destroy(self)
+
+        for txt_ctrl in self._text_ctrls.values():
+            txt_ctrl.destroy()
+
+        self._text_ctrls = {}
+        self._slider_ctrls = {}
+        self._values = {}
+        self._value_handlers = {}
+        self._value_parsers = {}
+        self._input_parsers = {}
+        self._input_inits = {}
+
+    def get_text_control(self, value_id=None):
+
+        return self._text_ctrls[self._value_id if value_id is None else value_id]
+
+    def has_slider_control(self):
+
+        return self._value_id in self._slider_ctrls
+
+    def _draw_control_image(self, image):
+
+        if self.has_slider_control():
+            SliderMixin._draw_control_image(self, image)
+        else:
+            InputField._draw_control_image(self, image)
+
+    def set_scissor_effect(self, effect):
+
+        SliderMixin.set_scissor_effect(self, effect)
+        InputField.set_scissor_effect(self, effect)
+
+        for txt_ctrl in self._text_ctrls.values():
+            txt_ctrl.set_scissor_effect(effect)
+
+    def set_size(self, size, includes_borders=True, is_min=False):
+
+        size = InputField.set_size(self, size, includes_borders, is_min)
+        SliderMixin.set_size(self, size)
+
+        for txt_ctrl in self._text_ctrls.values():
+            txt_ctrl.set_size(size)
+
+    def set_input_init(self, value_id, input_init):
+
+        self._input_inits[value_id] = input_init
+
+    def set_input_parser(self, value_id, parser):
+
+        self._input_parsers[value_id] = parser
+
+    def __parse_input(self, value_id, input_text):
+
+        val_type = self._value_types[value_id]
+        default_parser = self._default_input_parsers.get(val_type)
+        parser = self._input_parsers.get(value_id, default_parser)
+
+        return parser(input_text) if parser else None
+
+    def set_value_parser(self, value_id, parser):
+
+        self._value_parsers[value_id] = parser
+
+    def __parse_value(self, value_id, value):
+
+        val_type = self._value_types[value_id]
+        default_parser = self._default_value_parsers.get(val_type)
+        parser = self._value_parsers.get(value_id, default_parser)
+
+        return parser(value) if parser else None
+
+    def add_value(self, value_id, value_type, handler, font=None, value_range=None):
+
+        self._value_types[value_id] = value_type
+        txt_ctrl = TextControl(self, font, self._text_color, self._cull_bin)
+        txt_ctrl.set_scissor_effect(self._scissor_effect)
+        self._text_ctrls[value_id] = txt_ctrl
+        self._texts[value_id] = ""
+        self._input_inits[value_id] = lambda: None
+
+        if handler:
+            self._value_handlers[value_id] = handler
+        else:
+            self._value_handlers[value_id] = lambda value_id, value, state: None
+
+        if value_range:
+            slider_ctrl = SliderControl(self, value_range, value_type, self._cull_bin)
+            slider_ctrl.set_scissor_effect(self._scissor_effect)
+            self._slider_ctrls[value_id] = slider_ctrl
+            self._values[value_id] = value_range[0]
+        else:
+            self._values[value_id] = None
+
+    def add_slider_value(self, value_id, value_type, value_range, handler, font=None):
+
+        self.add_value(value_id, value_type, handler, font, value_range)
+
+    def accept_input(self, text_handler=None):
+
+        if InputField.accept_input(self, text_handler):
+            self._texts[self._value_id] = self._text
+            return True
+
+        return False
+
+    def set_value(self, value_id, value, text_handler=None, handle_value=False, _force_update=False):
+
+        if value_id in self._slider_ctrls:
+            self._slider_ctrls[value_id].set_value(value)
+
+        if self._value_id == value_id:
+            if InputField.set_value(self, value, text_handler, handle_value, _force_update):
+                self._texts[value_id] = self._text
+                return True
+            else:
+                return False
+
+        val_str = self.__parse_value(value_id, value)
+
+        if val_str is None:
+            return False
+
+        self._texts[value_id] = val_str
+        txt_ctrl = self._text_ctrls[value_id]
+
+        if txt_ctrl.get_text() != val_str:
+            txt_ctrl.set_text(val_str)
+
+        if handle_value:
+            self._value_handlers[value_id](value_id, value)
+
+        if text_handler:
+            text_handler(val_str)
+
+        return True
+
+    def set_text(self, value_id, text, text_handler=None):
+
+        if self._texts[value_id] == text:
+            return False
+
+        txt_ctrl = self._text_ctrls[value_id]
+        txt_ctrl.set_text(text)
+        self._texts[value_id] = text
+
+        if self._value_id == value_id:
+            InputField.set_text(self, text)
+
+        if text_handler:
+            text_handler(text)
+
+        return True
+
+    def get_text(self, value_id):
+
+        return self._texts[value_id]
+
+    def set_text_color(self, color=None):
+
+        if not InputField.set_text_color(self, color):
+            return False
+
+        for value_id, txt_ctrl in self._text_ctrls.items():
+            txt_ctrl.set_color(color if color else self._text_color)
+            txt_ctrl.set_text(self._texts[value_id])
+
+        return True
+
+    def clear(self, forget=True):
+
+        InputField.clear(self, forget)
+
+        if forget:
+            self._texts[self._value_id] = ""
+
+    def show_value(self, value_id):
+
+        if value_id in self._texts:
+            self._value_id = value_id
+            self._slider_ctrl = self._slider_ctrls.get(value_id)
+            InputField.update(
+                self,
+                self._texts[value_id],
+                self._text_ctrls[value_id],
+                self._input_inits[value_id],
+                self._input_parsers.get(value_id),
+                self._value_parsers.get(value_id),
+                self._value_handlers[value_id],
+                self._value_types[value_id],
+                self._values[value_id]
+            )
+
+    def _on_slide_end(self, cancelled=False):
+
+        value = self._start_value if cancelled else self._slider_ctrl.get_value()
+        self.set_value(self._value_id, value, handle_value=True, _force_update=cancelled)

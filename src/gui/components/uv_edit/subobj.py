@@ -173,11 +173,10 @@ class SubobjectPanel(Panel):
         text = "Alpha:"
         sizer.add(PanelText(group, text), alignment="center_v")
         sizer.add((5, 0))
-        field = PanelInputField(group, 50)
         val_id = "unselected_poly_alpha"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_alpha)
+        field = PanelSliderField(group, val_id, "float", (0., 1.),
+                                 self.__handle_value, 50)
+        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -203,11 +202,10 @@ class SubobjectPanel(Panel):
         text = "Alpha:"
         sizer.add(PanelText(group, text), alignment="center_v")
         sizer.add((5, 0))
-        field = PanelInputField(group, 50)
         val_id = "selected_poly_alpha"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_alpha)
+        field = PanelSliderField(group, val_id, "float", (0., 1.),
+                                 self.__handle_value, 50)
+        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -236,7 +234,7 @@ class SubobjectPanel(Panel):
             elif option in self._checkbuttons:
                 self._checkbuttons[option].check(value)
             elif option in self._fields:
-                self._fields[option].set_value(option, value)
+                self._fields[option].set_value(value)
 
     def __set_uv_level(self, uv_level):
 
@@ -296,14 +294,14 @@ class SubobjectPanel(Panel):
         r, g, b = color
         Mgr.update_interface_remotely("uv", "poly_color", sel_state, "rgb", (r, g, b, 1.))
 
-    def __parse_alpha(self, alpha):
+    def __parse_alpha_input(self, input_text):
 
         try:
-            return min(1., max(0., float(eval(alpha))))
+            return min(1., max(0., float(eval(input_text))))
         except:
             return None
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         sel_state = value_id.replace("_poly_alpha", "")
         Mgr.update_interface_remotely("uv", "poly_color", sel_state, "alpha", value)
@@ -314,4 +312,4 @@ class SubobjectPanel(Panel):
             self._colorboxes["{}_poly_rgb".format(sel_state)].set_color(value[:3])
         elif channels == "alpha":
             prop_id = "{}_poly_alpha".format(sel_state)
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(value)

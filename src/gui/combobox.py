@@ -1,6 +1,5 @@
 from .base import *
 from .button import Button
-from .field import InputField
 from .menu import Menu
 
 

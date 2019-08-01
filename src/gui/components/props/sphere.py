@@ -20,14 +20,12 @@ class SphereProperties:
         for prop_id, val_type in zip(prop_ids, val_types):
             text = "{}:".format(prop_id.title())
             sizer.add(PanelText(section, text), alignment_v="center_v")
-            field = PanelInputField(section, 80)
-            field.add_value(prop_id, val_type, handler=self.__handle_value)
-            field.show_value(prop_id)
+            field = PanelInputField(section, prop_id, val_type, self.__handle_value, 80)
             self._fields[prop_id] = field
             sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        self._fields["radius"].set_input_parser("radius", self.__parse_radius)
-        self._fields["segments"].set_input_parser("segments", self.__parse_segments)
+        self._fields["radius"].set_input_parser(self.__parse_radius_input)
+        self._fields["segments"].set_input_parser(self.__parse_segments_input)
 
         section.add((0, 5))
 
@@ -40,7 +38,7 @@ class SphereProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         if GlobalData["active_creation_type"]:
             Mgr.update_app("sphere_prop_default", value_id, value)
@@ -48,17 +46,17 @@ class SphereProperties:
 
         Mgr.update_remotely("selected_obj_prop", value_id, value)
 
-    def __parse_radius(self, radius):
+    def __parse_radius_input(self, input_text):
 
         try:
-            return max(.001, abs(float(eval(radius))))
+            return max(.001, abs(float(eval(input_text))))
         except:
             return None
 
-    def __parse_segments(self, segments):
+    def __parse_segments_input(self, input_text):
 
         try:
-            return max(4, abs(int(eval(segments))))
+            return max(4, abs(int(eval(input_text))))
         except:
             return None
 
@@ -84,7 +82,7 @@ class SphereProperties:
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -93,7 +91,7 @@ class SphereProperties:
             self._checkbuttons["smoothness"].check(value)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
-            field.set_value(prop_id, value)
+            field.set_value(value)
 
     def check_selection_count(self):
 

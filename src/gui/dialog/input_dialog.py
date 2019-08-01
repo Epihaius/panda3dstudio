@@ -1,7 +1,7 @@
 from .dialog import *
 
 
-class InputDialogInputField(DialogInputField):
+class InputDialogField(DialogInputField):
 
     _field_borders = ()
     _img_offset = (0, 0)
@@ -18,10 +18,9 @@ class InputDialogInputField(DialogInputField):
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width,
+        DialogInputField.__init__(self, parent, "input", "string", None, width,
+                                  INSET1_BORDER_GFX_DATA, self._img_offset,
                                   on_key_enter=on_key_enter, on_key_escape=on_key_escape)
-
-        self.set_image_offset(self._img_offset)
 
     def get_outer_borders(self):
 
@@ -46,20 +45,19 @@ class InputDialog(Dialog):
         text = DialogMessageText(self, message)
         client_sizer.add(text, borders=borders, alignment="center_h")
         on_key_enter = lambda: self.close(answer="yes")
-        field = InputDialogInputField(self, 100, on_key_enter=on_key_enter, on_key_escape=self.close)
-        field.add_value("input", "string")
-        field.set_input_parser("input", self.__parse_input)
-        field.show_value("input")
+        field = InputDialogField(self, 100, on_key_enter=on_key_enter, on_key_escape=self.close)
+        field.set_input_parser(self.__parse_input)
         borders = (50, 50, 30, 0)
         client_sizer.add(field, borders=borders, expand=True)
 
         self.finalize()
 
-        field.set_text("input", default_input)
+        field.set_text(default_input)
         field.on_left_down()
+        field._on_left_up()
 
-    def __parse_input(self, input_str):
+    def __parse_input(self, input_text):
 
-        self._input = input_str.strip()
+        self._input = input_text.strip()
 
         return self._input

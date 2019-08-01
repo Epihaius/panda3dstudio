@@ -3,6 +3,12 @@ import logging
 import re
 import pickle
 
+try:
+    from tkinter import Tk
+    USING_TK = True
+except ImportError:
+    USING_TK = False
+
 logging.basicConfig(filename='p3ds.log', filemode='w',
                     format='%(asctime)s - %(levelname)s: %(message)s',
                     datefmt='%Y/%m/%d %H:%M:%S', level=logging.DEBUG)

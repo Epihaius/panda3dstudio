@@ -163,14 +163,13 @@ class SnapInputField(DialogInputField):
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, width):
+    def __init__(self, parent, value_id, handler, width):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width)
-
-        self.set_image_offset(self._img_offset)
+        DialogInputField.__init__(self, parent, value_id, "float", handler, width,
+                                  INSET1_BORDER_GFX_DATA, self._img_offset)
 
     def get_outer_borders(self):
 
@@ -340,47 +339,46 @@ class SnapDialog(Dialog):
                 if snap_type == "rotate":
                     incr_type = "Angle"
                     incr_unit_descr = " (degr.)"
-                    input_parser = self.__parse_angle_incr
+                    input_parser = self.__parse_angle_incr_input
                 elif snap_type == "scale":
                     incr_type = "Scale"
                     incr_unit_descr = " (%)"
-                    input_parser = self.__parse_value
+                    input_parser = self.__parse_input
                 else:
                     incr_type = "Offset"
                     incr_unit_descr = ""
-                    input_parser = self.__parse_value
+                    input_parser = self.__parse_input
 
                 text = DialogText(group, "{} increment{}:".format(incr_type, incr_unit_descr))
                 borders = (5, 0, 0, 0)
                 subsizer.add(text, alignment="center_v", borders=borders)
                 val_id = "increment"
-                field = SnapInputField(group, 100)
 
                 if for_creation_phase:
                     handler = self.__get_value_handler()
                     incr = old_options[val_id][self._creation_phase_id]
-                    fields[val_id] = field
                 else:
                     handler = self.__handle_value
                     incr = old_options[val_id][snap_type]
 
-                field.add_value(val_id, handler=handler)
-                field.set_value(val_id, incr)
-                field.show_value(val_id)
-                field.set_input_parser(val_id, input_parser)
+                field = SnapInputField(group, val_id, handler, 100)
+
+                if for_creation_phase:
+                    fields[val_id] = field
+
+                field.set_value(incr)
+                field.set_input_parser(input_parser)
                 subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
                 subsizer.add((10, 0), proportion=.2)
 
             text = DialogText(group, "Target point size:")
             borders = (5, 0, 0, 0)
             subsizer.add(text, alignment="center_v", borders=borders)
-            field = SnapInputField(group, 100)
             val_id = "size"
 
             if for_creation_phase:
                 handler = self.__get_value_handler()
                 size = old_options[val_id][self._creation_phase_id]
-                fields[val_id] = field
             elif snap_type == "creation":
                 handler = self.__get_value_handler("creation_start")
                 size = old_options[val_id]["creation_start"]
@@ -388,10 +386,13 @@ class SnapDialog(Dialog):
                 handler = self.__handle_value
                 size = old_options[val_id][snap_type]
 
-            field.add_value(val_id, handler=handler)
-            field.set_value(val_id, size)
-            field.show_value(val_id)
-            field.set_input_parser(val_id, self.__parse_value)
+            field = SnapInputField(group, val_id, handler, 100)
+
+            if for_creation_phase:
+                fields[val_id] = field
+
+            field.set_value(size)
+            field.set_input_parser(self.__parse_input)
             subsizer.add(field, expand=True, proportion=1., alignment="center_v", borders=borders)
 
         def add_marker_display_options(group, text, for_creation_phase=False):
@@ -419,7 +420,6 @@ class SnapDialog(Dialog):
             checkbtn.check(show)
             widgets.append(checkbtn)
             widgets.append(DialogText(group, "Size:"))
-            field = SnapInputField(group, 100)
             val_id = "marker_size"
 
             if for_creation_phase:
@@ -432,10 +432,9 @@ class SnapDialog(Dialog):
                 handler = self.__handle_value
                 size = old_options[val_id][snap_type]
 
-            field.add_value(val_id, handler=handler)
-            field.set_value(val_id, size)
-            field.show_value(val_id)
-            field.set_input_parser(val_id, self.__parse_value)
+            field = SnapInputField(group, val_id, handler, 100)
+            field.set_value(size)
+            field.set_input_parser(self.__parse_input)
             widgets.append(field)
 
             return widgets
@@ -509,7 +508,7 @@ class SnapDialog(Dialog):
                         checkbtns[option_id].check(options[option_id])
 
                     for option_id in ("increment", "size", "marker_size", "proj_marker_size"):
-                        fields[option_id].set_value(option_id, options[option_id])
+                        fields[option_id].set_value(options[option_id])
 
                     self._creation_phase_id = "creation_{}".format(phase_id)
 
@@ -568,13 +567,11 @@ class SnapDialog(Dialog):
 
             text = DialogText(subgroup, "Size:")
             subsizer.add(text, alignment_v="center_v")
-            field = SnapInputField(subgroup, 100)
-            fields["proj_marker_size"] = field
             val_id = "proj_marker_size"
-            field.add_value(val_id, handler=self.__get_value_handler())
-            field.set_value(val_id, old_options[val_id][self._creation_phase_id])
-            field.show_value(val_id)
-            field.set_input_parser(val_id, self.__parse_value)
+            field = SnapInputField(subgroup, val_id, self.__get_value_handler(), 100)
+            fields[val_id] = field
+            field.set_value(old_options[val_id][self._creation_phase_id])
+            field.set_input_parser(self.__parse_input)
             subsizer.add(field, alignment_v="center_v")
 
             subsizer.add((10, 0), proportion_h=1.)
@@ -641,12 +638,10 @@ class SnapDialog(Dialog):
 
                 text = DialogText(group, "Size:")
                 subsizer.add(text, alignment_v="center_v")
-                field = SnapInputField(group, 100)
                 val_id = "proj_marker_size"
-                field.add_value(val_id, handler=self.__handle_value)
-                field.set_value(val_id, old_options[val_id][snap_type])
-                field.show_value(val_id)
-                field.set_input_parser(val_id, self.__parse_value)
+                field = SnapInputField(group, val_id, self.__handle_value, 100)
+                field.set_value(old_options[val_id][snap_type])
+                field.set_input_parser(self.__parse_input)
                 subsizer.add(field, alignment_v="center_v")
 
                 subsizer.add((10, 0), proportion_h=1.)
@@ -678,7 +673,7 @@ class SnapDialog(Dialog):
 
     def __get_value_handler(self, snap_type="creation_phase"):
 
-        def handle_value(value_id, value):
+        def handle_value(value_id, value, state):
 
             if snap_type == "creation_phase":
                 self._options[self._creation_phase_id][value_id] = value
@@ -687,21 +682,21 @@ class SnapDialog(Dialog):
 
         return handle_value
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         self._options[value_id] = value
 
-    def __parse_value(self, value):
+    def __parse_input(self, input_text):
 
         try:
-            return max(.001, abs(float(eval(value))))
+            return max(.001, abs(float(eval(input_text))))
         except:
             return None
 
-    def __parse_angle_incr(self, angle_incr):
+    def __parse_angle_incr_input(self, input_text):
 
         try:
-            return max(.001, min(180., abs(float(eval(angle_incr)))))
+            return max(.001, min(180., abs(float(eval(input_text)))))
         except:
             return None
 

@@ -1,6 +1,13 @@
-from .base import logging, GlobalData, EventBinder, StateManager, StateBinder, DirectObject
+from .base import (logging, GlobalData, EventBinder, StateManager, StateBinder,
+                   DirectObject, USING_TK)
 from panda3d.core import load_prc_file_data, MouseWatcherRegion, WindowProperties, Filename
 from direct.showbase.ShowBase import ShowBase
+
+if USING_TK:
+    from .base import Tk
+    paste_emit_keystrokes = "true"
+else:
+    paste_emit_keystrokes = "false"
 
 load_prc_file_data("",
 """
@@ -13,8 +20,9 @@ notify-output p3ds.log
 garbage-collect-states false
 load-file-type p3assimp
 notify-level-linmath error
+paste-emit-keystrokes {}
 
-"""
+""".format(paste_emit_keystrokes)
 )
 
 # the CursorManager class is used to set the mouse cursor image, but also to reset it to the image

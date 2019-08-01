@@ -20,14 +20,14 @@ class NameField(DialogInputField):
 
         cls._ref_node.set_pos(pos)
 
-    def __init__(self, parent, width, connection_index):
+    def __init__(self, parent, value_id, handler, width, connection_index):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width)
+        DialogInputField.__init__(self, parent, value_id, "string", handler, width,
+                                  INSET1_BORDER_GFX_DATA, self._img_offset)
 
-        self.set_image_offset(self._img_offset)
         self.get_node().reparent_to(parent.get_widget_root_node())
 
         self._connection_index = connection_index
@@ -57,7 +57,7 @@ class ObjectPane(DialogScrollPane):
         root_node = self.get_widget_root_node()
         sizer = self.get_sizer()
         get_name_parser = lambda index: lambda name: self.__parse_name(name, index)
-        get_name_handler = lambda index: lambda val_id, value: self.__handle_name(value, index)
+        get_name_handler = lambda index: lambda *args: self.__handle_name(args[1], index)
         margin = Skin["options"]["inputfield_margin"]
         l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
         l += margin
@@ -92,11 +92,10 @@ class ObjectPane(DialogScrollPane):
             old_name_txts.append(old_name_txt)
             borders = (l, 0, 0, 0)
             name_sizer.add(old_name_txt, borders=borders)
-            name_field = NameField(self, 100, data["parent_index"])
-            name_field.add_value("name", "string", handler=get_name_handler(index))
-            name_field.set_input_parser("name", get_name_parser(index))
-            name_field.show_value("name")
-            name_field.set_value("name", new_name)
+            name_field = NameField(self, "name", get_name_handler(index),
+                                   100, data["parent_index"])
+            name_field.set_input_parser(get_name_parser(index))
+            name_field.set_value(new_name)
             name_field.set_scissor_effect(self.get_scissor_effect())
             fields.append(name_field)
             borders = (0, 0, 0, 2)

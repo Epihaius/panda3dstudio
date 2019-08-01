@@ -119,11 +119,9 @@ class EditableGeomProperties:
 
         text = "Length:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        field = PanelInputField(section, 80)
         prop_id = "normal_length"
-        field.add_value(prop_id, "float", handler=self.__handle_value)
-        field.show_value(prop_id)
-        field.set_input_parser(prop_id, self.__parse_length)
+        field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_length_input)
         self._fields[prop_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -235,18 +233,16 @@ class EditableGeomProperties:
         sizer = Sizer("horizontal")
         section.add(sizer)
 
-        def handler(value_id, segments):
+        def handler(value_id, segments, state):
 
             GlobalData["subobj_edit_options"]["edge_bridge_segments"] = segments
 
         text = "Bridge segments:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         prop_id = "edge_bridge_segments"
-        field = PanelInputField(section, 40)
-        field.add_value(prop_id, "int", handler=handler)
-        field.show_value(prop_id)
-        field.set_input_parser(prop_id, self.__parse_edge_bridge_segments)
-        field.set_value(prop_id, 1)
+        field = PanelInputField(section, prop_id, "int", handler, 40)
+        field.set_input_parser(self.__parse_edge_bridge_segs_input)
+        field.set_value(1)
         self._fields[prop_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -415,7 +411,7 @@ class EditableGeomProperties:
             elif option in self._checkbuttons:
                 self._checkbuttons[option].check(value)
             elif option in self._fields:
-                self._fields[option].set_value(option, value)
+                self._fields[option].set_value(value)
 
     def __handle_picking_via_poly(self, via_poly):
 
@@ -585,21 +581,21 @@ class EditableGeomProperties:
         GlobalData["active_obj_level"] = subobj_lvl
         Mgr.update_app("active_obj_level")
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         Mgr.update_remotely(value_id, value)
 
-    def __parse_length(self, length):
+    def __parse_length_input(self, input_text):
 
         try:
-            return max(.001, abs(float(eval(length))))
+            return max(.001, abs(float(eval(input_text))))
         except:
             return None
 
-    def __parse_edge_bridge_segments(self, segments):
+    def __parse_edge_bridge_segs_input(self, input_text):
 
         try:
-            return max(1, abs(int(eval(segments))))
+            return max(1, abs(int(eval(input_text))))
         except:
             return None
 
@@ -716,7 +712,7 @@ class EditableGeomProperties:
 
         field = self._fields[prop_id]
         field.show_text()
-        field.set_value(prop_id, value)
+        field.set_value(value)
         field.set_text_color((1., 1., 0., 1.))
 
     def set_object_property(self, prop_id, value):
@@ -728,7 +724,7 @@ class EditableGeomProperties:
         val, sel_count = value
 
         if sel_count == 1:
-            field.set_value(prop_id, val)
+            field.set_value(val)
             field.set_text_color()
             field.show_text()
         else:

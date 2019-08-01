@@ -19,9 +19,7 @@ class TorusProperties:
             text = "{} radius:".format(spec.title())
             sizer.add(PanelText(section, text), alignment_v="center_v")
             prop_id = "radius_{}".format(spec)
-            field = PanelInputField(section, 80)
-            field.add_value(prop_id, "float", handler=self.__handle_value)
-            field.show_value(prop_id)
+            field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
             self._fields[prop_id] = field
             sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -33,17 +31,15 @@ class TorusProperties:
             prop_id = "segments_{}".format(spec)
             text = "{}:".format(spec.title())
             sizer.add(PanelText(group, text), alignment_v="center_v")
-            field = PanelInputField(group, 80)
-            field.add_value(prop_id, "int", handler=self.__handle_value)
-            field.show_value(prop_id)
+            field = PanelInputField(group, prop_id, "int", self.__handle_value, 80)
             self._fields[prop_id] = field
             sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         for spec in ("ring", "section"):
             prop_id = "radius_{}".format(spec)
-            self._fields[prop_id].set_input_parser(prop_id, self.__parse_radius)
+            self._fields[prop_id].set_input_parser(self.__parse_radius_input)
             prop_id = "segments_{}".format(spec)
-            self._fields[prop_id].set_input_parser(prop_id, self.__parse_segments)
+            self._fields[prop_id].set_input_parser(self.__parse_segments_input)
 
         section.add((0, 5))
 
@@ -55,7 +51,7 @@ class TorusProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         in_creation_mode = GlobalData["active_creation_type"]
 
@@ -74,17 +70,17 @@ class TorusProperties:
 
         Mgr.update_remotely("selected_obj_prop", prop_id, val)
 
-    def __parse_radius(self, radius):
+    def __parse_radius_input(self, input_text):
 
         try:
-            return max(.001, abs(float(eval(radius))))
+            return max(.001, abs(float(eval(input_text))))
         except:
             return None
 
-    def __parse_segments(self, segments):
+    def __parse_segments_input(self, input_text):
 
         try:
-            return max(3, abs(int(eval(segments))))
+            return max(3, abs(int(eval(input_text))))
         except:
             return None
 
@@ -113,12 +109,12 @@ class TorusProperties:
                 value_id = "segments_" + spec
                 field = self._fields[value_id]
                 field.show_text()
-                field.set_value(value_id, value[spec])
+                field.set_value(value[spec])
                 field.set_text_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -129,10 +125,10 @@ class TorusProperties:
             for spec in ("ring", "section"):
                 value_id = "segments_" + spec
                 field = self._fields[value_id]
-                field.set_value(value_id, value[spec])
+                field.set_value(value[spec])
         elif prop_id in self._fields:
             field = self._fields[prop_id]
-            field.set_value(prop_id, value)
+            field.set_value(value)
 
     def check_selection_count(self):
 

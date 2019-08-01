@@ -24,11 +24,10 @@ class ExportPanel(Panel):
         sizer.add(PanelText(section, text), alignment="center_v")
         sizer.add((5, 0))
 
-        field = PanelInputField(section, 80)
-        field.add_value("size", "int", handler=self.__handle_value)
-        field.show_value("size")
-        field.set_input_parser("size", self.__parse_size)
-        self._fields["size"] = field
+        val_id = "size"
+        field = PanelInputField(section, val_id, "int", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_size_input)
+        self._fields[val_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
         group = section.add_group("Edge color")
@@ -49,11 +48,10 @@ class ExportPanel(Panel):
         text = "Alpha:"
         sizer.add(PanelText(group, text), alignment="center_v")
         sizer.add((5, 0))
-        field = PanelInputField(group, 45)
         val_id = "edge_alpha"
-        field.set_input_parser(val_id, self.__parse_alpha)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelSliderField(group, val_id, "float", (0., 1.),
+                                 self.__handle_value, 45)
+        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
@@ -75,11 +73,10 @@ class ExportPanel(Panel):
         text = "Alpha:"
         sizer.add(PanelText(group, text), alignment="center_v")
         sizer.add((5, 0))
-        field = PanelInputField(group, 45)
         val_id = "poly_alpha"
-        field.set_input_parser(val_id, self.__parse_alpha)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelSliderField(group, val_id, "float", (0., 1.),
+                                 self.__handle_value, 45)
+        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
@@ -101,11 +98,10 @@ class ExportPanel(Panel):
         text = "Alpha:"
         sizer.add(PanelText(group, text), alignment="center_v")
         sizer.add((5, 0))
-        field = PanelInputField(group, 45)
         val_id = "seam_alpha"
-        field.set_input_parser(val_id, self.__parse_alpha)
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
+        field = PanelSliderField(group, val_id, "float", (0., 1.),
+                                 self.__handle_value, 45)
+        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
@@ -126,21 +122,21 @@ class ExportPanel(Panel):
 
         Mgr.add_app_updater("uv_template", self.__set_template_property, interface_id="uv")
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         Mgr.update_interface_remotely("uv", "uv_template", value_id, value)
 
-    def __parse_size(self, size):
+    def __parse_size_input(self, input_text):
 
         try:
-            return max(1, abs(int(eval(size))))
+            return max(1, abs(int(eval(input_text))))
         except:
             return None
 
-    def __parse_alpha(self, alpha):
+    def __parse_alpha_input(self, input_text):
 
         try:
-            return min(1., max(0., float(eval(alpha))))
+            return min(1., max(0., float(eval(input_text))))
         except:
             return None
 
@@ -176,6 +172,6 @@ class ExportPanel(Panel):
     def __set_template_property(self, prop_id, value):
 
         if prop_id in ("size", "edge_alpha", "poly_alpha", "seam_alpha"):
-            self._fields[prop_id].set_value(prop_id, value)
+            self._fields[prop_id].set_value(value)
         else:
             self._colorboxes[prop_id].set_color(value[:3])

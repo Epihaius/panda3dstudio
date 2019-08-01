@@ -26,10 +26,8 @@ class DummyProperties:
         text = "Box size:"
         sizer.add(PanelText(section, text), alignment_v="center_v")
         prop_id = "size"
-        field = PanelInputField(section, 80)
-        field.add_value(prop_id, "float", handler=self.__handle_value)
-        field.show_value(prop_id)
-        field.set_input_parser("size", self.__parse_size)
+        field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
         sizer.add((0, 0))
@@ -37,10 +35,8 @@ class DummyProperties:
         text = "Cross size:"
         sizer.add(PanelText(section, text), alignment_v="center_v")
         prop_id = "cross_size"
-        field = PanelInputField(section, 80)
-        field.add_value(prop_id, "float", handler=self.__handle_value)
-        field.show_value(prop_id)
-        field.set_input_parser("size", self.__parse_size)
+        field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
+        field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
         text = "%"
@@ -58,11 +54,9 @@ class DummyProperties:
         borders = (0, 5, 0, 0)
         sizer.add(checkbtn, alignment="center_v", borders=borders)
         prop_id = "const_size"
-        field = PanelInputField(section, 40)
-        field.set_value_parser(prop_id, lambda value: "{:.1f}".format(value))
-        field.add_value(prop_id, "float", handler=self.__handle_value)
-        field.show_value(prop_id)
-        field.set_input_parser(prop_id, self.__parse_size)
+        field = PanelInputField(section, prop_id, "float", self.__handle_value, 40)
+        field.set_value_parser(lambda value: "{:.1f}".format(value))
+        field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
@@ -76,7 +70,7 @@ class DummyProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         if GlobalData["active_creation_type"]:
             Mgr.update_app("dummy_prop_default", value_id, value)
@@ -107,10 +101,10 @@ class DummyProperties:
 
         Mgr.update_remotely("selected_obj_prop", "viz", viz)
 
-    def __parse_size(self, size):
+    def __parse_size_input(self, input_text):
 
         try:
-            return max(.001, abs(float(eval(size))))
+            return max(.001, abs(float(eval(input_text))))
         except:
             return None
 
@@ -142,7 +136,7 @@ class DummyProperties:
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -157,7 +151,7 @@ class DummyProperties:
         elif prop_id in checkbtns:
             checkbtns[prop_id].check(value)
         elif prop_id in fields:
-            fields[prop_id].set_value(prop_id, value)
+            fields[prop_id].set_value(value)
 
     def check_selection_count(self):
 

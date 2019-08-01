@@ -19,18 +19,14 @@ class ConeProperties:
             text = "{} radius:".format(spec.title())
             sizer.add(PanelText(section, text), alignment_v="center_v")
             prop_id = "radius_{}".format(spec)
-            field = PanelInputField(section, 80)
-            field.add_value(prop_id, "float", handler=self.__handle_value)
-            field.show_value(prop_id)
+            field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
             self._fields[prop_id] = field
             sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         text = "Height:"
         sizer.add(PanelText(section, text), alignment_v="center_v")
         prop_id = "height"
-        field = PanelInputField(section, 80)
-        field.add_value(prop_id, "float", handler=self.__handle_value)
-        field.show_value(prop_id)
+        field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
         self._fields[prop_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -42,25 +38,24 @@ class ConeProperties:
             prop_id = "segments_{}".format(spec)
             text = "{}:".format(spec.title())
             sizer.add(PanelText(group, text), alignment_v="center_v")
-            field = PanelInputField(group, 80)
-            field.add_value(prop_id, "int", handler=self.__handle_value)
-            field.show_value(prop_id)
+            field = PanelInputField(group, prop_id, "int", self.__handle_value, 80)
             self._fields[prop_id] = field
             sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        get_parser = lambda radius_min: lambda radius: self.__parse_radius(radius, radius_min)
+        get_parser = lambda radius_min: lambda input_text: \
+            self.__parse_radius_input(input_text, radius_min)
 
         for spec, val_min in (("bottom", .001), ("top", 0.)):
             prop_id = "radius_{}".format(spec)
-            self._fields[prop_id].set_input_parser(prop_id, get_parser(val_min))
+            self._fields[prop_id].set_input_parser(get_parser(val_min))
 
-        self._fields["height"].set_input_parser("height", self.__parse_height)
-        parser = lambda segs: self.__parse_segments(segs, 3)
-        self._fields["segments_circular"].set_input_parser("segments_circular", parser)
-        parser = lambda segs: self.__parse_segments(segs, 1)
-        self._fields["segments_height"].set_input_parser("segments_height", parser)
-        parser = lambda segs: self.__parse_segments(segs, 0)
-        self._fields["segments_caps"].set_input_parser("segments_caps", parser)
+        self._fields["height"].set_input_parser(self.__parse_height_input)
+        parser = lambda input_text: self.__parse_segments_input(input_text, 3)
+        self._fields["segments_circular"].set_input_parser(parser)
+        parser = lambda input_text: self.__parse_segments_input(input_text, 1)
+        self._fields["segments_height"].set_input_parser(parser)
+        parser = lambda input_text: self.__parse_segments_input(input_text, 0)
+        self._fields["segments_caps"].set_input_parser(parser)
 
         section.add((0, 5))
 
@@ -73,7 +68,7 @@ class ConeProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         in_creation_mode = GlobalData["active_creation_type"]
 
@@ -92,17 +87,17 @@ class ConeProperties:
 
         Mgr.update_remotely("selected_obj_prop", prop_id, val)
 
-    def __parse_radius(self, radius, radius_min):
+    def __parse_radius_input(self, input_text, radius_min):
 
         try:
-            return max(radius_min, abs(float(eval(radius))))
+            return max(radius_min, abs(float(eval(input_text))))
         except:
             return None
 
-    def __parse_height(self, height):
+    def __parse_height_input(self, input_text):
 
         try:
-            value = float(eval(height))
+            value = float(eval(input_text))
         except:
             return None
 
@@ -110,10 +105,10 @@ class ConeProperties:
 
         return max(.001, abs(value)) * sign
 
-    def __parse_segments(self, segments, segs_min):
+    def __parse_segments_input(self, input_text, segs_min):
 
         try:
-            return max(segs_min, abs(int(eval(segments))))
+            return max(segs_min, abs(int(eval(input_text))))
         except:
             return None
 
@@ -142,12 +137,12 @@ class ConeProperties:
                 value_id = "segments_" + spec
                 field = self._fields[value_id]
                 field.show_text()
-                field.set_value(value_id, value[spec])
+                field.set_value(value[spec])
                 field.set_text_color(color)
         elif prop_id in self._fields:
             field = self._fields[prop_id]
             field.show_text()
-            field.set_value(prop_id, value)
+            field.set_value(value)
             field.set_text_color(color)
 
     def set_object_property(self, prop_id, value):
@@ -158,10 +153,10 @@ class ConeProperties:
             for spec in ("circular", "height", "caps"):
                 value_id = "segments_" + spec
                 field = self._fields[value_id]
-                field.set_value(value_id, value[spec])
+                field.set_value(value[spec])
         elif prop_id in self._fields:
             field = self._fields[prop_id]
-            field.set_value(prop_id, value)
+            field.set_value(value)
 
     def check_selection_count(self):
 

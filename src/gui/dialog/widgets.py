@@ -5,7 +5,7 @@ from ..button import Button
 from ..combobox import ComboBox
 from ..checkbtn import CheckButton
 from ..radiobtn import RadioButton, RadioButtonGroup
-from ..field import InputField
+from ..field import InputField, SliderInputField
 from ..menu import Menu
 from ..scroll import ScrollPane
 
@@ -374,7 +374,7 @@ class DialogRadioButtonGroup(RadioButtonGroup):
         RadioButtonGroup.add_button(self, btn_id, btn)
 
 
-class DialogInputField(InputField):
+class MouseWatcherMixin:
 
     _mouse_region_mask = None
     _mouse_watchers = None
@@ -387,11 +387,11 @@ class DialogInputField(InputField):
         # dialog is currently active, except input fields, whenever one of those fields is active;
         # the sort value of this region depends on that of the active dialog, so it needs to be
         # set whenever the region is used
-        DialogInputField._mouse_region_mask = MouseWatcherRegion("inputfield_mask", -d, d, -d, d)
+        MouseWatcherMixin._mouse_region_mask = MouseWatcherRegion("inputfield_mask", -d, d, -d, d)
         # the mouse region mask needs to be added to only the main GUI mouse watcher, since
         # there should be at least one dialog shown, which has already masked the mouse regions
         # controlled by all other mouse watchers
-        DialogInputField._mouse_watchers = (Mgr.get("mouse_watcher"),)
+        MouseWatcherMixin._mouse_watchers = (Mgr.get("mouse_watcher"),)
 
     @classmethod
     def _get_mouse_region_mask(cls, mouse_watcher_name):
@@ -405,24 +405,32 @@ class DialogInputField(InputField):
     @staticmethod
     def get_mouse_region_mask():
 
-        if not DialogInputField._mouse_region_mask:
-            DialogInputField.__create_mouse_region_mask()
+        if not MouseWatcherMixin._mouse_region_mask:
+            MouseWatcherMixin.__create_mouse_region_mask()
 
-        return DialogInputField._mouse_region_mask
+        return MouseWatcherMixin._mouse_region_mask
 
-    def __init__(self, parent, border_gfx_data, width, dialog=None, text_color=None,
-                 back_color=None, on_accept=None, on_reject=None, on_key_enter=None,
-                 on_key_escape=None, allow_reject=True):
+    def __init__(self):
 
         if not self._mouse_region_mask:
             self.__create_mouse_region_mask()
+
+
+class DialogInputField(MouseWatcherMixin, InputField):
+
+    def __init__(self, parent, value_id, value_type, handler, width, border_gfx_data,
+                 image_offset, dialog=None, font=None, text_color=None, back_color=None,
+                 on_accept=None, on_reject=None, on_key_enter=None, on_key_escape=None,
+                 allow_reject=True):
 
         self._dialog = dialog if dialog else parent
         sort = self._dialog.get_sort() + 8
         cull_bin = ("dialog", sort)
 
-        InputField.__init__(self, parent, border_gfx_data, width, text_color, back_color, sort,
-                            cull_bin, on_accept, on_reject, on_key_enter, on_key_escape, allow_reject)
+        MouseWatcherMixin.__init__(self)
+        InputField.__init__(self, parent, value_id, value_type, handler, width, border_gfx_data,
+                            image_offset, font, text_color, back_color, sort, cull_bin, on_accept,
+                            on_reject, on_key_enter, on_key_escape, allow_reject)
 
         self.set_widget_type("dialog_input_field")
 
@@ -436,11 +444,10 @@ class DialogInputField(InputField):
 
         return self._dialog
 
-    def on_left_down(self):
+    def _on_left_up(self):
 
-        InputField.on_left_down(self)
-
-        Mgr.do("ignore_dialog_events")
+        if InputField._on_left_up(self):
+            Mgr.do("ignore_dialog_events")
 
     def accept_input(self, text_handler=None):
 
@@ -451,6 +458,63 @@ class DialogInputField(InputField):
     def reject_input(self):
 
         InputField.reject_input(self)
+
+        Mgr.do("accept_dialog_events")
+
+
+class DialogSliderField(MouseWatcherMixin, SliderInputField):
+
+    def __init__(self, parent, value_id, value_type, value_range, handler, width,
+                 border_gfx_data, image_offset, dialog=None, font=None, text_color=None,
+                 back_color=None, on_accept=None, on_reject=None, on_key_enter=None,
+                 on_key_escape=None, allow_reject=True):
+
+        self._dialog = dialog if dialog else parent
+        sort = self._dialog.get_sort() + 8
+        cull_bin = ("dialog", sort)
+
+        MouseWatcherMixin.__init__(self)
+        SliderInputField.__init__(self, parent, value_id, value_type, value_range, handler,
+                                  width, border_gfx_data, image_offset, font, text_color,
+                                  back_color, sort, cull_bin, on_accept, on_reject, on_key_enter,
+                                  on_key_escape, allow_reject)
+
+        self.set_widget_type("dialog_input_field")
+
+    def destroy(self):
+
+        SliderInputField.destroy(self)
+
+        self._dialog = None
+
+    def get_dialog(self):
+
+        return self._dialog
+
+    def _on_slide_start(self):
+
+        Mgr.do("ignore_dialog_events")
+
+    def _on_slide_end(self, cancelled=False):
+
+        SliderInputField._on_slide_end(self, cancelled)
+
+        Mgr.do("accept_dialog_events")
+
+    def _on_left_up(self):
+
+        if SliderInputField._on_left_up(self):
+            Mgr.do("ignore_dialog_events")
+
+    def accept_input(self, text_handler=None):
+
+        SliderInputField.accept_input(self, text_handler)
+
+        Mgr.do("accept_dialog_events")
+
+    def reject_input(self):
+
+        SliderInputField.reject_input(self)
 
         Mgr.do("accept_dialog_events")
 
@@ -478,18 +542,18 @@ class ComboBoxInputField(DialogInputField):
         cls._img_offset2 = (-l, -t)
         cls._height = Skin["options"]["combobox_field_height"]
 
-    def __init__(self, parent, dialog, width, text_color=None, back_color=None):
+    def __init__(self, parent, dialog, value_id, value_type, handler, width,
+                 font=None, text_color=None, back_color=None):
 
         if not self._field_borders:
             self.__set_field_borders()
 
         gfx_data = self._border_gfx_data if parent.has_icon() else self._border_gfx_data2
-        DialogInputField.__init__(self, parent, gfx_data, width, dialog, text_color, back_color)
+        img_offset = self._img_offset if parent.has_icon() else self._img_offset2
+        DialogInputField.__init__(self, parent, value_id, value_type, handler, width,
+                                  gfx_data, img_offset, dialog, font, text_color, back_color)
 
         self.set_widget_type("dialog_combo_field")
-
-        img_offset = self._img_offset if parent.has_icon() else self._img_offset2
-        self.set_image_offset(img_offset)
 
     def get_outer_borders(self):
 
@@ -503,14 +567,14 @@ class ComboBoxInputField(DialogInputField):
 
         DialogInputField.accept_input(self, text_handler=self.get_parent().set_text)
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=False):
+    def set_value(self, value, text_handler=None, handle_value=False):
 
-        DialogInputField.set_value(self, value_id, value, text_handler=self.get_parent().set_text,
+        DialogInputField.set_value(self, value, text_handler=self.get_parent().set_text,
                                    handle_value=handle_value)
 
-    def set_text(self, value_id, text, text_handler=None):
+    def set_text(self, text, text_handler=None):
 
-        DialogInputField.set_text(self, value_id, text, text_handler=self.get_parent().set_text)
+        DialogInputField.set_text(self, text, text_handler=self.get_parent().set_text)
 
 
 class DialogComboBox(ComboBox):
@@ -568,7 +632,8 @@ class DialogComboBox(ComboBox):
         l, r, b, t = TextureAtlas["inner_borders"]["dialog_combobox_icon_area"]
         cls._icon_offset = (l, t)
 
-    def __init__(self, parent, field_width, text="", icon_id="", tooltip_text="", editable=False):
+    def __init__(self, parent, field_width, text="", icon_id="", tooltip_text="",
+                 editable=False, value_id="", value_type="string", handler=None):
 
         if not self._box_borders:
             self.__set_borders()
@@ -578,7 +643,8 @@ class DialogComboBox(ComboBox):
         else:
             gfx_data = self._gfx2
 
-        ComboBox.__init__(self, parent, field_width, gfx_data, text, icon_id, tooltip_text, editable)
+        ComboBox.__init__(self, parent, field_width, gfx_data, text, icon_id,
+                          tooltip_text, editable)
 
         self.set_widget_type("dialog_combobox")
 
@@ -592,7 +658,8 @@ class DialogComboBox(ComboBox):
         self.set_field_back_image(img)
 
         if editable:
-            input_field = ComboBoxInputField(self, parent, field_width)
+            input_field = ComboBoxInputField(self, parent, value_id, value_type,
+                                             handler, field_width)
             self.set_input_field(input_field)
 
     def set_size(self, size, includes_borders=True, is_min=False):

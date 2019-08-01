@@ -215,8 +215,9 @@ class FileButton(Button):
             sizer.calculate_positions()
             sizer.update_images()
             sizer.update_mouse_region_frames()
-            field.set_text("filename", self._filename)
+            field.set_text(self._filename)
             field.on_left_down()
+            field._on_left_up()
 
         else:
 
@@ -313,17 +314,16 @@ class FileDialogInputField(DialogInputField):
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, width, dialog=None, text_color=None, back_color=None,
-                 on_key_enter=None, on_key_escape=None):
+    def __init__(self, parent, width, dialog=None, font=None, text_color=None,
+                 back_color=None, on_key_enter=None, on_key_escape=None):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width, dialog,
+        DialogInputField.__init__(self, parent, "filename", "string", None, width,
+                                  INSET1_BORDER_GFX_DATA, self._img_offset, dialog, font,
                                   text_color, back_color, on_key_enter=on_key_enter,
                                   on_key_escape=on_key_escape)
-
-        self.set_image_offset(self._img_offset)
 
     def get_outer_borders(self):
 
@@ -353,15 +353,15 @@ class FileButtonInputField(DialogInputField):
 
         cls._ref_node.set_pos(pos)
 
-    def __init__(self, parent, width, dialog=None, text_color=None, back_color=None):
+    def __init__(self, handler, width, dialog=None,
+                 font=None, text_color=None, back_color=None):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, self._gfx, width, dialog, text_color,
+        DialogInputField.__init__(self, None, "filename", "string", handler, width,
+                                  self._gfx, self._img_offset, dialog, font, text_color,
                                   back_color, self.__hide_name_field, self.__hide_name_field)
-
-        self.set_image_offset(self._img_offset)
 
     def __hide_name_field(self, *args):
 
@@ -395,16 +395,15 @@ class FilePane(DialogScrollPane):
 
         self._btns = []
 
-        def handler(value_id, value):
+        def handler(value_id, value, state):
 
             if not self._filename_field.get_parent().is_directory():
                 file_selection_handler(value)
 
-        self._filename_field = field = FileButtonInputField(None, 1, dialog)
-        field.add_value("filename", "string", handler=handler)
-        field.set_input_parser("filename", self.__rename_file)
-        field.show_value("filename")
+        field = FileButtonInputField(handler, 1, dialog)
+        field.set_input_parser(self.__rename_file)
         field.set_scissor_effect(self.get_scissor_effect())
+        self._filename_field = field
 
         self.__update_directory_list(update_layout=False)
 
@@ -694,13 +693,14 @@ class FileDialog(Dialog):
         dir_sizer = Sizer("horizontal")
         borders = (50, 50, 0, 20)
         client_sizer.add(dir_sizer, borders=borders, expand=True)
-        dir_combobox = DialogComboBox(self, 100, editable=True, tooltip_text="Current folder")
+        handler = lambda *args: self.__handle_dir_path(args[1])
+        dir_combobox = DialogComboBox(self, 100, tooltip_text="Current folder",
+                                      editable=True, value_id="dir_path",
+                                      handler=handler)
         self._dir_combobox = dir_combobox
         field = dir_combobox.get_input_field()
-        field.add_value("dir_path", "string", handler=self.__handle_dir_path)
-        field.set_input_parser("dir_path", self.__parse_dir_input)
-        field.set_value_parser("dir_path", self.__parse_dir_path)
-        field.show_value("dir_path")
+        field.set_input_parser(self.__parse_dir_input)
+        field.set_value_parser(self.__parse_dir_path)
         fields["dir_path"] = field
         file_sys = VirtualFileSystem.get_global_ptr()
         up_btn = DialogToolButton(self, icon_id="icon_folder_up", command=self.__directory_up)
@@ -723,7 +723,7 @@ class FileDialog(Dialog):
                     return
 
                 dir_combobox.select_item(item_id)
-                fields["dir_path"].set_value("dir_path", path, handle_value=True)
+                fields["dir_path"].set_value(path, handle_value=True)
                 path_up = Filename(path).get_dirname()
 
                 if path_up == "/":
@@ -767,10 +767,8 @@ class FileDialog(Dialog):
         file_sizer.add(text, borders=borders, alignment="center_v")
         on_key_enter = lambda: self.close(answer="yes")
         field = FileDialogInputField(self, 100, on_key_enter=on_key_enter, on_key_escape=self.close)
-        field.add_value("filename", "string")
-        field.set_input_parser("filename", self.__parse_filename_input)
-        field.set_value_parser("filename", self.__parse_filename)
-        field.show_value("filename")
+        field.set_input_parser(self.__parse_filename_input)
+        field.set_value_parser(self.__parse_filename)
         fields["filename"] = field
         file_sizer.add(field, proportion=1., alignment="center_v")
         type_combobox = DialogComboBox(self, 100, tooltip_text="File types")
@@ -797,16 +795,17 @@ class FileDialog(Dialog):
 
         def task():
 
-            self._fields["dir_path"].set_text("dir_path", "")
+            self._fields["dir_path"].set_text("")
             path = Filename(self._current_path).to_os_specific()
-            self._fields["dir_path"].set_text("dir_path", path)
+            self._fields["dir_path"].set_text(path)
 
             if default_filename:
                 self._filename = filename = Filename(default_filename).get_basename()
-                self._fields["filename"].set_text("filename", filename)
+                self._fields["filename"].set_text(filename)
 
             if file_op == "write":
                 self._fields["filename"].on_left_down()
+                self._fields["filename"]._on_left_up()
 
         PendingTasks.add(task, "update_dir_path")
 
@@ -896,7 +895,7 @@ class FileDialog(Dialog):
     def __set_current_path(self, path):
 
         self._current_path = path
-        self._fields["dir_path"].set_text("dir_path", Filename(path).to_os_specific())
+        self._fields["dir_path"].set_text(Filename(path).to_os_specific())
         path_up = Filename(path).get_dirname()
         up_btn = self._dir_up_btn
 
@@ -909,7 +908,7 @@ class FileDialog(Dialog):
 
     def set_filename(self, filename):
 
-        self._fields["filename"].set_text("filename", filename)
+        self._fields["filename"].set_text(filename)
         self._filename = filename
 
     def __directory_up(self):
@@ -919,9 +918,9 @@ class FileDialog(Dialog):
         if path != "/":
             self._file_pane.set_directory(path)
 
-    def __parse_dir_input(self, input_str):
+    def __parse_dir_input(self, input_text):
 
-        path_obj = Filename.from_os_specific(input_str.strip())
+        path_obj = Filename.from_os_specific(input_text.strip())
         path_obj.make_true_case()
         path = path_obj.get_fullpath()
 
@@ -933,11 +932,11 @@ class FileDialog(Dialog):
 
         return Filename(path).to_os_specific()
 
-    def __parse_filename_input(self, input_str):
+    def __parse_filename_input(self, input_text):
 
-        path_obj = Filename(join(self._current_path, input_str.strip()))
+        path_obj = Filename(join(self._current_path, input_text.strip()))
 
-        if input_str and self._extensions != "*" and not path_obj.get_extension():
+        if input_text and self._extensions != "*" and not path_obj.get_extension():
             extension = self._extensions.split(";")[0]
             path_obj.set_extension(extension)
 
@@ -949,7 +948,7 @@ class FileDialog(Dialog):
 
         return filename
 
-    def __handle_dir_path(self, value_id, dir_path):
+    def __handle_dir_path(self, dir_path):
 
         self._file_pane.set_directory(dir_path)
 

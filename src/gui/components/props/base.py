@@ -64,20 +64,21 @@ class PropertyPanel(Panel):
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
 
-        combobox = PanelComboBox(section, 120, tooltip_text="Selected object(s)", editable=True)
+        val_id = "name"
+        handler = lambda *args: self.__handle_name(args[1])
+        combobox = PanelComboBox(section, 120, tooltip_text="Selected object(s)",
+                                 editable=True, value_id=val_id,
+                                 handler=handler)
         combobox.add_disabler("creating", lambda: GlobalData["active_creation_type"])
         combobox.enable(False)
-        val_id = "name"
         self._comboboxes[val_id] = combobox
         borders = (5, 10, 0, 0)
         sizer.add(combobox, proportion=1., alignment="center_v", borders=borders)
         field = combobox.get_input_field()
-        field.add_value(val_id, "string", handler=self.__handle_value)
-        field.set_input_init(val_id, self.__init_input)
-        field.show_value(val_id)
+        field.set_input_init(self.__init_input)
         field.show_text(False)
         field.enable(False)
-        field.set_input_parser(val_id, self.__parse_object_name)
+        field.set_input_parser(self.__parse_object_name)
         self._name_field = field
 
         title = "Pick object color"
@@ -227,22 +228,22 @@ class PropertyPanel(Panel):
         if self._name_field.get_text_color() == self._colors["disabled"]:
             self._name_field.clear(forget=False)
 
-    def __handle_value(self, value_id, value):
+    def __handle_name(self, name):
 
         if GlobalData["active_creation_type"]:
             obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
-            Mgr.update_remotely("custom_obj_name", obj_type, value)
+            Mgr.update_remotely("custom_obj_name", obj_type, name)
         else:
-            Mgr.update_remotely("selected_obj_name", value)
+            Mgr.update_remotely("selected_obj_name", name)
 
-    def __parse_object_name(self, name):
+    def __parse_object_name(self, input_text):
 
-        parsed_name = name.strip()
+        name = input_text.strip()
 
         if GlobalData["active_creation_type"]:
-            return parsed_name
+            return name
 
-        return parsed_name if parsed_name else None
+        return name if name else None
 
     def __update_selection(self, obj_id):
 
@@ -284,14 +285,14 @@ class PropertyPanel(Panel):
             name = "{:d} Objects selected".format(count)
 
         combobox.update_popup_menu()
-        self._name_field.set_value("name", name)
+        self._name_field.set_value(name)
         self._name_field.show_text()
 
     def __set_next_object_name(self, name):
 
         self._name_field.enable(ignore_parent=True)
         self._name_field.set_text_color(self._colors["custom"])
-        self._name_field.set_value("name", name)
+        self._name_field.set_value(name)
         self._name_field.show_text()
 
     def __handle_color(self, color):

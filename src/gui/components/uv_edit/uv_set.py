@@ -71,11 +71,9 @@ class UVSetPanel(Panel):
         self._comboboxes["uv_name_target"] = combobox
         sizer.add(combobox, proportion=1., alignment="center_v")
 
-        field = PanelInputField(section, 50)
         val_id = "uv_name"
-        field.add_value(val_id, "string", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_input_parser(val_id, self.__parse_uv_name)
+        field = PanelInputField(section, val_id, "string", self.__handle_value, 50)
+        field.set_input_parser(self.__parse_uv_name)
         self._fields[val_id] = field
         borders = (0, 0, 0, 10)
         section.add(field, expand=True, borders=borders)
@@ -104,10 +102,10 @@ class UVSetPanel(Panel):
 
         if names:
             combobox.enable()
-            self._fields["uv_name"].enable()
+            name_field.enable()
         else:
             combobox.enable(False)
-            self._fields["uv_name"].enable(False)
+            name_field.enable(False)
             return
 
         get_command = lambda obj_id: lambda: self.__select_uv_name_target(obj_id)
@@ -119,20 +117,18 @@ class UVSetPanel(Panel):
         obj_id = list(names.keys())[0]
         self.__select_uv_name_target(obj_id)
 
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state):
 
         obj_id = self._comboboxes["uv_name_target"].get_selected_item()
         Mgr.update_interface_remotely("uv", value_id, obj_id, value)
 
-    def __parse_uv_name(self, name):
+    def __parse_uv_name(self, input_text):
 
-        parsed_name = name.strip().replace(".", "")
-
-        return parsed_name
+        return input_text.strip().replace(".", "")
 
     def __set_uv_name(self, uv_set_name):
 
-        self._fields["uv_name"].set_value("uv_name", uv_set_name)
+        self._fields["uv_name"].set_value(uv_set_name)
 
     def __set_target_uv_name(self, uv_set_names):
 
@@ -140,4 +136,4 @@ class UVSetPanel(Panel):
 
         if obj_id:
             uv_set_name = uv_set_names[obj_id]
-            self._fields["uv_name"].set_value("uv_name", uv_set_name)
+            self._fields["uv_name"].set_value(uv_set_name)

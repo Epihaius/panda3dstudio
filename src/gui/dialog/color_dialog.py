@@ -73,7 +73,7 @@ class ColorSwatchGroup(Widget):
         y = max(0, min(mouse_y - y, h - 1))
         r, g, b = self._swatches.get_xel(x, y)
         color = (r, g, b)
-        self._command(color, continuous=False, update_gradients=True)
+        self._command(color, continuous=False, update_fields=True, update_gradients=True)
 
 
 class BasicColorGroup(ColorSwatchGroup):
@@ -388,7 +388,7 @@ class HueSatControl(WidgetCard):
         self._command = command
         r, g, b = self._gradient.get_xel(0, 0)
         color = (r, g, b)
-        command(color, continuous=False)
+        command(color, continuous=False, update_fields=True)
 
     def destroy(self):
 
@@ -470,7 +470,7 @@ class HueSatControl(WidgetCard):
             r, g, b = self._gradient.get_xel(x, y)
             self.__set_marker_pos(x, y)
             color = (r, g, b)
-            self._command(color, continuous=True)
+            self._command(color, continuous=True, update_fields=True)
             self._prev_mouse_pos = mouse_pos
 
         return task.cont
@@ -489,7 +489,7 @@ class HueSatControl(WidgetCard):
             self._picking_color = False
             r, g, b = self._gradient.get_xel(x, y)
             color = (r, g, b)
-            self._command(color, continuous=False)
+            self._command(color, continuous=False, update_fields=True)
 
             if self.get_mouse_watcher().get_over_region() != self._mouse_region:
                 Mgr.set_cursor("main")
@@ -699,18 +699,18 @@ class LuminanceControl(WidgetCard):
         self.get_quad().set_tex_offset(self._ts3, self._marker_x, y)
         self._luminance = luminance
 
-    def __apply_luminance(self, continuous=True):
+    def __apply_luminance(self, continuous, update_fields):
 
         r, g, b = self._main_color
         h, l, s = colorsys.rgb_to_hls(r, g, b)
         r, g, b = colorsys.hls_to_rgb(h, self._luminance, s)
-        self._command((r, g, b), continuous)
+        self._command((r, g, b), continuous, update_fields)
 
-    def set_main_color(self, color, continuous):
+    def set_main_color(self, color, continuous=False, update_fields=False):
 
         r, g, b = self._main_color = color
         self._ts1.set_color((r, g, b, 1.))
-        self.__apply_luminance(continuous)
+        self.__apply_luminance(continuous, update_fields)
 
     def __pick_color(self, task):
 
@@ -726,7 +726,7 @@ class LuminanceControl(WidgetCard):
             y = max(0, min(mouse_y - y, h_))
             lum = 1. - y / h_
             self.set_luminance(lum)
-            self.__apply_luminance()
+            self.__apply_luminance(continuous=True, update_fields=True)
             self._prev_mouse_pos = mouse_pos
 
         return task.cont
@@ -737,7 +737,7 @@ class LuminanceControl(WidgetCard):
 
             self._listener.ignore("gui_mouse1-up")
             Mgr.remove_task("pick_color")
-            self.__apply_luminance(continuous=False)
+            self.__apply_luminance(continuous=False, update_fields=True)
 
             if self.get_mouse_watcher().get_over_region() != self._mouse_region:
                 Mgr.set_cursor("main")
@@ -787,7 +787,7 @@ class NewColorSwatch(WidgetCard):
 
     def __init__(self, parent):
 
-        WidgetCard.__init__(self, "new_swatch", parent)
+        WidgetCard.__init__(self, "new_swatch", parent, stretch_dir="vertical")
 
         w = Skin["options"]["large_colorswatch_width"]
         h = Skin["options"]["large_colorswatch_height"]
@@ -795,37 +795,9 @@ class NewColorSwatch(WidgetCard):
 
         if not self._swatch_borders:
             self.__set_borders()
-            self.__create_border_image()
 
         self.set_outer_borders(self._swatch_borders)
-
-        # Create the texture stages
-
-        self._ts1 = ts1 = TextureStage("flat_color")
-        ts1.set_color((1., 0., 0., 1.))
-        ts1.set_sort(0)
-        # the first texture stage should show a constant color
-        ts1.set_combine_rgb(TextureStage.CM_modulate,
-                            TextureStage.CS_constant, TextureStage.CO_src_color,
-                            TextureStage.CS_previous, TextureStage.CO_src_color)
-        ts2 = TextureStage("luminance")
-        ts2.set_sort(1)
-        # the second texture stage should allow the constant color to show through
-        # a semi-transparent border texture
-        ts2.set_mode(TextureStage.M_decal)
-
-        tex = Texture("border")
-        tex.load(self._border_image)
-
-        sort = parent.get_sort() + 1
-        border_image = self._border_image
-        w_b = border_image.get_x_size()
-        h_b = border_image.get_y_size()
-        offset_x, offset_y = self._img_offset
-        quad = self.create_quad((offset_x, w_b + offset_x, -h_b - offset_y, -offset_y))
-        quad.set_texture(ts1, self._tex)
-        quad.set_texture(ts2, tex)
-        quad.set_bin("dialog", sort)
+        self._ts1 = TextureStage("flat_color")
 
     def __create_border_image(self):
 
@@ -842,7 +814,39 @@ class NewColorSwatch(WidgetCard):
 
         self.__set_border_image(image)
 
-    def update_images(self): pass
+    def __finalize_image(self):
+
+        # Create the texture stages
+
+        ts1 = self._ts1
+        ts1.set_color((1., 0., 0., 1.))
+        ts1.set_sort(0)
+        # the first texture stage should show a constant color
+        ts1.set_combine_rgb(TextureStage.CM_modulate,
+                            TextureStage.CS_constant, TextureStage.CO_src_color,
+                            TextureStage.CS_previous, TextureStage.CO_src_color)
+        ts2 = TextureStage("luminance")
+        ts2.set_sort(1)
+        # the second texture stage should allow the constant color to show through
+        # a semi-transparent border texture
+        ts2.set_mode(TextureStage.M_decal)
+
+        tex = Texture("border")
+        tex.load(self._border_image)
+        sort = self.get_parent().get_sort() + 1
+        w_b, h_b = self._border_image.size
+        offset_x, offset_y = self._img_offset
+        quad = self.create_quad((offset_x, w_b + offset_x, -h_b - offset_y, -offset_y))
+        quad.set_texture(ts1, self._tex)
+        quad.set_texture(ts2, tex)
+        quad.set_bin("dialog", sort)
+
+    def update_images(self):
+
+        if not self._border_image:
+            self.__create_border_image()
+
+        self.__finalize_image()
 
     def update_mouse_region_frames(self, exclude="", recurse=True): pass
 
@@ -878,7 +882,7 @@ class CurrentColorSwatch(Widget):
 
     def __init__(self, parent, color, command):
 
-        Widget.__init__(self, "current_swatch", parent, gfx_data={})
+        Widget.__init__(self, "current_swatch", parent, gfx_data={}, stretch_dir="vertical")
 
         self.get_mouse_region().set_sort(parent.get_sort() + 1)
         w = Skin["options"]["large_colorswatch_width"]
@@ -887,7 +891,6 @@ class CurrentColorSwatch(Widget):
 
         if not self._swatch_borders:
             self.__set_borders()
-            self.__create_border_image()
 
         self.set_image_offset(self._img_offset)
         self.set_outer_borders(self._swatch_borders)
@@ -909,7 +912,10 @@ class CurrentColorSwatch(Widget):
 
         self.__set_border_image(image)
 
-    def update_images(self, recurse=True, size=None): pass
+    def update_images(self, recurse=True, size=None):
+
+        if not self._border_image:
+            self.__create_border_image()
 
     def get_image(self, state=None, composed=True):
 
@@ -938,7 +944,7 @@ class CurrentColorSwatch(Widget):
         self._command(self._color, update_gradients=True)
 
 
-class ComponentInputField(DialogInputField):
+class ComponentField(DialogSliderField):
 
     _field_borders = ()
     _img_offset = (0, 0)
@@ -950,25 +956,21 @@ class ComponentInputField(DialogInputField):
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, width, dialog=None, text_color=None, back_color=None):
+    def __init__(self, parent, value_id, handler, width, dialog=None, font=None,
+                 text_color=None, back_color=None):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width, dialog,
-                                  text_color, back_color)
+        DialogSliderField.__init__(self, parent, value_id, "int", (0, 255), handler,
+                                   width, INSET1_BORDER_GFX_DATA, self._img_offset,
+                                   dialog, font, text_color, back_color)
 
-        self.set_image_offset(self._img_offset)
+        self.set_input_parser(self.__parse_color_component_input)
 
     def get_outer_borders(self):
 
         return self._field_borders
-
-    def add_value(self, value_id, value_type="float", handler=None, font=None):
-
-        DialogInputField.add_value(self, value_id, value_type, handler, font)
-
-        self.set_input_parser(value_id, self.__parse_color_component_input)
 
     def __parse_color_component_input(self, input_text):
 
@@ -1018,9 +1020,6 @@ class ColorDialog(Dialog):
         subsizer.add(control_sizer, expand=True)
         client_sizer.add(subsizer, expand=True)
 
-        main_swatch_sizer = Sizer("vertical")
-        control_subsizer.add(main_swatch_sizer, expand=True)
-
         self._new_color = color
         self._new_color_swatch = new_swatch = NewColorSwatch(self)
         self._current_color_swatch = cur_swatch = CurrentColorSwatch(self, color, self.__set_color)
@@ -1029,81 +1028,57 @@ class ColorDialog(Dialog):
         gradient_sizer.add(hue_sat_control)
         borders = (20, 0, 0, 0)
         gradient_sizer.add(lum_control, borders=borders)
+        main_swatch_sizer = Sizer("vertical")
+        gradient_sizer.add(main_swatch_sizer, expand=True, borders=borders)
         main_swatch_sizer.add(DialogText(self, "New"), alignment="center_h")
-        main_swatch_sizer.add(new_swatch)
+        main_swatch_sizer.add(new_swatch, proportion=1.)
         main_swatch_sizer.add((0, 5))
         main_swatch_sizer.add(DialogText(self, "Current"), alignment="center_h")
-        main_swatch_sizer.add(cur_swatch)
-        control_subsizer.add((0, 0), proportion=1.)
+        main_swatch_sizer.add(cur_swatch, proportion=1.)
         rgb_field_sizer = Sizer("vertical")
         hsl_field_sizer = Sizer("vertical")
-        control_subsizer.add(rgb_field_sizer, alignment="center_v")
-        control_subsizer.add((0, 0), proportion=1.)
-        control_subsizer.add(hsl_field_sizer, alignment="center_v")
-        control_subsizer.add((0, 0), proportion=.5)
+        control_subsizer.add(rgb_field_sizer, proportion=1., alignment="center_v")
+        control_subsizer.add((20, 0))
+        control_subsizer.add(hsl_field_sizer, proportion=1., alignment="center_v")
         r_sizer = Sizer("horizontal")
         r_sizer.add(DialogText(self, "R:"), alignment="center_v")
-        r_sizer.add((0, 0), proportion=1.)
         rgb_field_sizer.add(r_sizer, expand=True)
         g_sizer = Sizer("horizontal")
         g_sizer.add(DialogText(self, "G:"), alignment="center_v")
-        g_sizer.add((0, 0), proportion=1.)
         rgb_field_sizer.add(g_sizer, expand=True)
         b_sizer = Sizer("horizontal")
         b_sizer.add(DialogText(self, "B:"), alignment="center_v")
-        b_sizer.add((0, 0), proportion=1.)
         rgb_field_sizer.add(b_sizer, expand=True)
         h_sizer = Sizer("horizontal")
         h_sizer.add(DialogText(self, "H:"), alignment="center_v")
-        h_sizer.add((0, 0), proportion=1.)
         hsl_field_sizer.add(h_sizer, expand=True)
         s_sizer = Sizer("horizontal")
         s_sizer.add(DialogText(self, "S:"), alignment="center_v")
-        s_sizer.add((0, 0), proportion=1.)
         hsl_field_sizer.add(s_sizer, expand=True)
         l_sizer = Sizer("horizontal")
         l_sizer.add(DialogText(self, "L:"), alignment="center_v")
-        l_sizer.add((0, 0), proportion=1.)
         hsl_field_sizer.add(l_sizer, expand=True)
 
-        borders = (10, 0, 0, 0)
+        borders = (5, 0, 0, 0)
 
-        field = ComponentInputField(self, 40)
-        field.add_value("red", "int", handler=self.__parse_color_component)
-        field.show_value("red")
-        field.set_text("red", "255")
-        r_sizer.add(field, borders=borders)
+        field = ComponentField(self, "red", self.__handle_color_component, 100)
+        r_sizer.add(field, proportion=1., borders=borders)
         fields["red"] = field
-        field = ComponentInputField(self, 40)
-        field.add_value("green", "int", handler=self.__parse_color_component)
-        field.show_value("green")
-        field.set_text("green", "0")
-        g_sizer.add(field, borders=borders)
+        field = ComponentField(self, "green", self.__handle_color_component, 100)
+        g_sizer.add(field, proportion=1., borders=borders)
         fields["green"] = field
-        field = ComponentInputField(self, 40)
-        field.add_value("blue", "int", handler=self.__parse_color_component)
-        field.show_value("blue")
-        field.set_text("blue", "0")
-        b_sizer.add(field, borders=borders)
+        field = ComponentField(self, "blue", self.__handle_color_component, 100)
+        b_sizer.add(field, proportion=1., borders=borders)
         fields["blue"] = field
 
-        field = ComponentInputField(self, 40)
-        field.add_value("hue", "int", handler=self.__parse_color_component)
-        field.show_value("hue")
-        field.set_text("hue", "0")
-        h_sizer.add(field, borders=borders)
+        field = ComponentField(self, "hue", self.__handle_color_component, 100)
+        h_sizer.add(field, proportion=1., borders=borders)
         fields["hue"] = field
-        field = ComponentInputField(self, 40)
-        field.add_value("sat", "int", handler=self.__parse_color_component)
-        field.show_value("sat")
-        field.set_text("sat", "255")
-        s_sizer.add(field, borders=borders)
+        field = ComponentField(self, "sat", self.__handle_color_component, 100)
+        s_sizer.add(field, proportion=1., borders=borders)
         fields["sat"] = field
-        field = ComponentInputField(self, 40)
-        field.add_value("lum", "int", handler=self.__parse_color_component)
-        field.show_value("lum")
-        field.set_text("lum", "127")
-        l_sizer.add(field, borders=borders)
+        field = ComponentField(self, "lum", self.__handle_color_component, 100)
+        l_sizer.add(field, proportion=1., borders=borders)
         fields["lum"] = field
 
         self.finalize()
@@ -1119,11 +1094,11 @@ class ColorDialog(Dialog):
 
         Dialog.close(self, answer)
 
-    def __set_main_luminance_color(self, color, continuous=False):
+    def __set_main_luminance_color(self, color, continuous=False, update_fields=False):
 
-        self._controls["luminance"].set_main_color(color, continuous)
+        self._controls["luminance"].set_main_color(color, continuous, update_fields)
 
-    def __set_color(self, color, continuous=False, update_gradients=False):
+    def __set_color(self, color, continuous=False, update_fields=True, update_gradients=False):
 
         self._new_color = color
         self._new_color_swatch.set_color(color)
@@ -1131,32 +1106,31 @@ class ColorDialog(Dialog):
 
         if fields:
 
-            update_fields = False
-
             if continuous:
                 if self._clock.get_real_time() > .1:
-                    update_fields = True
                     self._clock.reset()
-            else:
-                update_fields = True
+                else:
+                    update_fields = False
 
             if update_fields:
 
-                fields["red"].set_text("red", str(int(color[0] * 255.)))
-                fields["green"].set_text("green", str(int(color[1] * 255.)))
-                fields["blue"].set_text("blue", str(int(color[2] * 255.)))
+                r, g, b = [int(c * 255.) for c in color]
+                fields["red"].set_value(r)
+                fields["green"].set_value(g)
+                fields["blue"].set_value(b)
                 h, l, s = colorsys.rgb_to_hls(*color)
-                fields["hue"].set_text("hue", str(int(h * 255.)))
-                fields["sat"].set_text("sat", str(int(s * 255.)))
-                fields["lum"].set_text("lum", str(int(l * 255.)))
+                fields["hue"].set_value(int(h * 255.))
+                fields["sat"].set_value(int(s * 255.))
+                fields["lum"].set_value(int(l * 255.))
 
                 if update_gradients:
-                    self._controls["luminance"].set_luminance(l)
+                    lum_ctrl = self._controls["luminance"]
+                    lum_ctrl.set_luminance(l)
                     r, g, b = colorsys.hls_to_rgb(h, .5, s)
-                    self._controls["luminance"].set_main_color((r, g, b), continuous=False)
+                    lum_ctrl.set_main_color((r, g, b), continuous=False, update_fields=False)
                     self._controls["hue_sat"].set_hue_sat(h, s)
 
-    def __parse_color_component(self, component_id, value):
+    def __handle_color_component(self, component_id, value, state):
 
         fields = self._fields
         rgb_components = ["red", "green", "blue"]
@@ -1164,11 +1138,11 @@ class ColorDialog(Dialog):
 
         if component_id in rgb_components:
 
-            r, g, b = [float(fields[c].get_text(c)) / 255. for c in rgb_components]
+            r, g, b = [fields[c].get_value() / 255. for c in rgb_components]
             h, l, s = colorsys.rgb_to_hls(r, g, b)
-            fields["hue"].set_text("hue", str(int(h * 255.)))
-            fields["sat"].set_text("sat", str(int(s * 255.)))
-            fields["lum"].set_text("lum", str(int(l * 255.)))
+            fields["hue"].set_value(int(h * 255.))
+            fields["sat"].set_value(int(s * 255.))
+            fields["lum"].set_value(int(l * 255.))
             self._controls["luminance"].set_luminance(l)
             r_, g_, b_ = colorsys.hls_to_rgb(h, .5, s)
             self._controls["luminance"].set_main_color((r_, g_, b_), continuous=False)
@@ -1176,11 +1150,11 @@ class ColorDialog(Dialog):
 
         else:
 
-            h, s, l = [float(fields[c].get_text(c)) / 255. for c in hsl_components]
+            h, s, l = [fields[c].get_value() / 255. for c in hsl_components]
             r, g, b = colorsys.hls_to_rgb(h, l, s)
-            fields["red"].set_text("red", str(int(r * 255.)))
-            fields["green"].set_text("green", str(int(g * 255.)))
-            fields["blue"].set_text("blue", str(int(b * 255.)))
+            fields["red"].set_value(int(r * 255.))
+            fields["green"].set_value(int(g * 255.))
+            fields["blue"].set_value(int(b * 255.))
 
             if component_id == "lum":
                 self._controls["luminance"].set_luminance(l)

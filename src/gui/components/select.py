@@ -40,16 +40,17 @@ class SetsComboBox(ToolbarComboBox):
     def __init__(self, toolbar):
 
         tooltip_text = "Selection set"
+        val_id = "name"
+        handler = lambda *args: self.__handle_name(args[1])
 
-        ToolbarComboBox.__init__(self, toolbar, 150, tooltip_text=tooltip_text, editable=True)
+        ToolbarComboBox.__init__(self, toolbar, 150, tooltip_text=tooltip_text,
+                                 editable=True, value_id=val_id,
+                                 handler=handler)
 
         field = self.get_input_field()
-        val_id = "name"
-        field.add_value(val_id, "string", handler=self.__handle_name)
-        field.set_input_init(val_id, self.__init_input)
-        field.set_input_parser(val_id, self.__parse_name)
-        field.show_value(val_id)
-        field.set_text(val_id, "Create selection set")
+        field.set_input_init(self.__init_input)
+        field.set_input_parser(self.__parse_name)
+        field.set_text("Create selection set")
         field.set_text_color(Skin["text"]["input_disabled"]["color"])
         field.set_on_accept(self.__accept_name)
         field.set_on_reject(self.__reject_name)
@@ -81,15 +82,15 @@ class SetsComboBox(ToolbarComboBox):
 
         self.get_input_field().set_text_color(self._field_text_color)
 
-    def __parse_name(self, name):
+    def __parse_name(self, input_text):
 
-        parsed_name = name.strip()
-        old_name = self.get_input_field().get_text("name")
+        name = input_text.strip()
+        old_name = self.get_input_field().get_value()
 
-        if parsed_name != old_name:
-            return parsed_name if parsed_name else None
+        if name != old_name:
+            return name if name else None
 
-    def __handle_name(self, value_id, name):
+    def __handle_name(self, name):
 
         Mgr.update_remotely("object_selection", "add_set", name)
 
@@ -99,7 +100,7 @@ class SetsComboBox(ToolbarComboBox):
 
             self.select_item(set_id)
             text = self.get_item_text(set_id)
-            self.get_input_field().set_value("name", text)
+            self.get_input_field().set_value(text)
             self.get_input_field().set_text_color(None)
             Mgr.update_remotely("object_selection", "apply_set", set_id)
 
@@ -107,7 +108,7 @@ class SetsComboBox(ToolbarComboBox):
 
         if not is_copy:
             self.select_item(set_id)
-            self.get_input_field().set_value("name", name)
+            self.get_input_field().set_value(name)
             self.get_input_field().set_text_color(None)
 
     def __rename_set(self, set_id, name):
@@ -115,7 +116,7 @@ class SetsComboBox(ToolbarComboBox):
         self.set_item_text(set_id, name)
 
         if self.get_selected_item() == set_id:
-            self.get_input_field().set_value("name", name)
+            self.get_input_field().set_value(name)
             self.get_input_field().set_text_color(None)
 
     def __remove_set(self, set_id):
@@ -140,7 +141,7 @@ class SetsComboBox(ToolbarComboBox):
     def __select_set(self, set_id, name):
 
         self.select_item(set_id)
-        self.get_input_field().set_value("name", name)
+        self.get_input_field().set_value(name)
         self.get_input_field().set_text_color(None)
 
     def __hide_set(self, set_id):
@@ -151,7 +152,7 @@ class SetsComboBox(ToolbarComboBox):
     def __hide_name(self):
 
         self.get_input_field().clear()
-        self.get_input_field().set_text("name", "Create selection set")
+        self.get_input_field().set_text("Create selection set")
         self.get_input_field().set_text_color(Skin["text"]["input_disabled"]["color"])
         self.select_none()
 
@@ -260,15 +261,16 @@ class SelectionPanel(Panel):
 
         section = self.add_section("sets", "Sets")
 
-        combobox1 = PanelComboBox(section, 100, tooltip_text="Primary set", editable=True)
+        val_id = "name"
+        handler = lambda *args: self.__handle_name(args[1])
+        combobox1 = PanelComboBox(section, 100, tooltip_text="Primary set",
+                                  editable=True, value_id=val_id,
+                                  handler=handler)
         self._comboboxes["set1"] = combobox1
         section.add(combobox1, expand=True)
 
         field = combobox1.get_input_field()
-        val_id = "name"
-        field.add_value(val_id, "string", handler=self.__handle_name)
-        field.set_input_parser(val_id, self.__parse_name)
-        field.show_value(val_id)
+        field.set_input_parser(self.__parse_name)
         self._fields[val_id] = field
         combobox1.show_input_field(False)
 
@@ -394,15 +396,15 @@ class SelectionPanel(Panel):
 
         self.expand(False)
 
-    def __parse_name(self, name):
+    def __parse_name(self, input_text):
 
-        parsed_name = name.strip()
-        old_name = self._fields["name"].get_text("name")
+        name = input_text.strip()
+        old_name = self._fields["name"].get_value()
 
-        if parsed_name != old_name:
-            return parsed_name if parsed_name else None
+        if name != old_name:
+            return name if name else None
 
-    def __handle_name(self, value_id, name):
+    def __handle_name(self, name):
 
         set_id = self._comboboxes["set1"].get_selected_item()
         Mgr.update_remotely("object_selection", "rename_set", set_id, name)
@@ -413,7 +415,7 @@ class SelectionPanel(Panel):
 
             self._comboboxes["set1"].select_item(set_id)
             text = self._comboboxes["set1"].get_item_text(set_id)
-            self._fields["name"].set_value("name", text)
+            self._fields["name"].set_value(text)
 
         def select_set2():
 
@@ -422,13 +424,13 @@ class SelectionPanel(Panel):
         self._comboboxes["set1"].add_item(set_id, name, select_set1, update=True)
         self._comboboxes["set2"].add_item(set_id, name, select_set2, update=True)
         self._comboboxes["set1"].select_item(set_id)
-        self._fields["name"].set_value("name", name)
+        self._fields["name"].set_value(name)
 
     def __rename_set(self, set_id, name):
 
         self._comboboxes["set1"].set_item_text(set_id, name)
         self._comboboxes["set2"].set_item_text(set_id, name)
-        self._fields["name"].set_value("name", name)
+        self._fields["name"].set_value(name)
 
     def __hide_name(self):
 
@@ -473,7 +475,7 @@ class SelectionPanel(Panel):
 
         if set_id is not None:
             Mgr.update_remotely("object_selection", "apply_set", set_id)
-            name = self._fields["name"].get_text("name")
+            name = self._fields["name"].get_value()
             Mgr.update_locally("selection_set", "select", set_id, name)
 
     def __toggle_set_name_editable(self):
@@ -535,7 +537,7 @@ class SelectionPanel(Panel):
             self._btns["edit_set_name"].set_active(False)
         else:
             text = self._comboboxes["set1"].get_item_text(set_id)
-            self._fields["name"].set_value("name", text)
+            self._fields["name"].set_value(text)
 
     def __clear_sets(self, update_remotely=True):
 

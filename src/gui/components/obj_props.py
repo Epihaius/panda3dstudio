@@ -22,17 +22,17 @@ class TagField(DialogInputField):
 
         cls._ref_node.set_pos(pos)
 
-    def __init__(self, parent, width, dialog=None, text_color=None, back_color=None,
-                 on_key_enter=None, on_key_escape=None, allow_reject=True):
+    def __init__(self, parent, value_id, handler, width, dialog=None, font=None, text_color=None,
+                 back_color=None, on_key_enter=None, on_key_escape=None, allow_reject=True):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width, dialog,
-                                  text_color, back_color, on_key_enter=on_key_enter,
+        DialogInputField.__init__(self, parent, value_id, "string", handler, width,
+                                  INSET1_BORDER_GFX_DATA, self._img_offset, dialog,
+                                  font, text_color, back_color, on_key_enter=on_key_enter,
                                   on_key_escape=on_key_escape, allow_reject=allow_reject)
 
-        self.set_image_offset(self._img_offset)
         self.get_node().reparent_to(parent.get_widget_root_node())
 
     def get_outer_borders(self):
@@ -87,6 +87,7 @@ class TagPane(DialogScrollPane):
         def on_cancel():
 
             self._tag_key_fields[index].on_left_down()
+            self._tag_key_fields[index]._on_left_up()
 
         def show_warning(warning_id, command=None):
 
@@ -114,7 +115,7 @@ class TagPane(DialogScrollPane):
                 return
 
             field = self._tag_key_fields[index]
-            old_key = field.get_text("tag_key")
+            old_key = field.get_value()
 
             if key in self._tags:
 
@@ -134,18 +135,18 @@ class TagPane(DialogScrollPane):
 
     def __get_tag_key_handler(self, index):
 
-        def set_tag_key(field_value_id, key):
+        def set_tag_key(unused1, key, unused2):
 
-            value = self._tag_val_fields[index].get_text("tag_val")
+            value = self._tag_val_fields[index].get_value()
             self._tags[key] = value
 
         return set_tag_key
 
     def __get_tag_value_handler(self, index):
 
-        def set_tag_value(field_value_id, value):
+        def set_tag_value(unused1, value, unused2):
 
-            key = self._tag_key_fields[index].get_text("tag_key")
+            key = self._tag_key_fields[index].get_value()
             self._tags[key] = value
 
         return set_tag_value
@@ -158,28 +159,26 @@ class TagPane(DialogScrollPane):
         allow_reject = key is not None
         dialog = self.get_dialog()
         get_popup_handler = lambda index: lambda: self.__on_popup(index)
-        field = key_field = TagField(self, 100, dialog, allow_reject=allow_reject)
-        field.add_value("tag_key", "string", handler=self.__get_tag_key_handler(index))
-        field.set_input_parser("tag_key", self.__get_tag_key_parser(index))
+        field = key_field = TagField(self, "tag_key", self.__get_tag_key_handler(index),
+                                     100, dialog, allow_reject=allow_reject)
+        field.set_input_parser(self.__get_tag_key_parser(index))
         field.set_popup_menu(self._menu, manage=False)
         field.set_popup_handler(get_popup_handler(index))
 
         if key is not None:
-            field.set_text("tag_key", key)
+            field.set_value(key)
 
-        field.show_value("tag_key")
         field.set_scissor_effect(self._scissor_effect)
         self._tag_key_fields.append(field)
         self._fields.append(field)
         borders = (10, 5, 0, 5)
         tag_sizer.add(field, proportion=1., borders=borders)
-        field = TagField(self, 100, dialog)
-        field.add_value("tag_val", "string", handler=self.__get_tag_value_handler(index))
+        field = TagField(self, "tag_val", self.__get_tag_value_handler(index),
+                         100, dialog)
 
         if value is not None:
-            field.set_text("tag_val", value)
+            field.set_value(value)
 
-        field.show_value("tag_val")
         field.set_scissor_effect(self._scissor_effect)
         self._tag_val_fields.append(field)
         self._fields.append(field)
@@ -193,6 +192,7 @@ class TagPane(DialogScrollPane):
 
         if key is None:
             key_field.on_left_down()
+            key_field._on_left_up()
 
     def __remove_tag(self, index):
 
@@ -208,7 +208,7 @@ class TagPane(DialogScrollPane):
             self._tag_key_fields[index] = None
             self._tag_val_fields[index] = None
 
-        key = key_field.get_text("tag_key")
+        key = key_field.get_value()
 
         if key in self._tags:
             del self._tags[key]

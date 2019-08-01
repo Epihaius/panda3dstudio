@@ -18,18 +18,42 @@ class BackgroundInputField(DialogInputField):
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, width):
+    def __init__(self, parent, value_id, value_type, handler, width):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogInputField.__init__(self, parent, INSET1_BORDER_GFX_DATA, width)
-
-        self.set_image_offset(self._img_offset)
+        DialogInputField.__init__(self, parent, value_id, value_type, handler, width,
+                                  INSET1_BORDER_GFX_DATA, self._img_offset)
 
     def get_outer_borders(self):
 
         return self._field_borders
+
+
+class AlphaField(DialogSliderField):
+
+    def __init__(self, parent, handler, width):
+
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
+        self._field_borders = (l, r, b, t)
+        img_offset = (-l, -t)
+
+        DialogSliderField.__init__(self, parent, "alpha", "float", (0., 1.), handler,
+                                   width, INSET1_BORDER_GFX_DATA, img_offset)
+
+        self.set_input_parser(self.__parse_alpha_input)
+
+    def get_outer_borders(self):
+
+        return self._field_borders
+
+    def __parse_alpha_input(self, input_text):
+
+        try:
+            return min(1., max(0., float(eval(input_text))))
+        except:
+            return None
 
 
 class BackgroundDialog(Dialog):
@@ -59,15 +83,13 @@ class BackgroundDialog(Dialog):
         tooltip_text = "Load background image"
         btn = DialogButton(self, text, "", tooltip_text, self.__load_image)
         subsizer.add(btn, alignment="center_v")
-        field = BackgroundInputField(self, 100)
         val_id = "filename"
-        field.add_value(val_id, "string", handler=self.__handle_value)
-        field.show_value(val_id)
-        filename = data["filename"]
-        field.set_text(val_id, os.path.basename(filename) if filename else "<None>")
-        field.set_input_init(val_id, self.__init_filename_input)
-        field.set_input_parser(val_id, self.__check_filename)
-        field.set_value_parser(val_id, self.__parse_filename)
+        field = BackgroundInputField(self, val_id, "string", self.__handle_value, 100)
+        filename = data[val_id]
+        field.set_text(os.path.basename(filename) if filename else "<None>")
+        field.set_input_init(self.__init_filename_input)
+        field.set_input_parser(self.__check_filename)
+        field.set_value_parser(self.__parse_filename)
         fields[val_id] = field
         borders = (10, 0, 0, 0)
         subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
@@ -99,12 +121,9 @@ class BackgroundDialog(Dialog):
 
         text = DialogText(self, "Opacity:")
         subsizer.add(text, alignment="center_v")
-        field = BackgroundInputField(self, 100)
         val_id = "alpha"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_value(val_id, data["alpha"])
-        field.set_input_parser(val_id, self.__parse_alpha)
+        field = AlphaField(self, self.__handle_value, 100)
+        field.set_value(data[val_id])
         fields[val_id] = field
         borders = (10, 0, 0, 0)
         subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
@@ -119,22 +138,18 @@ class BackgroundDialog(Dialog):
         text = DialogText(group, "Local X:")
         borders = (0, 10, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
-        field = BackgroundInputField(group, 100)
         val_id = "x"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_value(val_id, data["x"])
+        field = BackgroundInputField(group, val_id, "float", self.__handle_value, 100)
+        field.set_value(data[val_id])
         fields[val_id] = field
         subsizer.add(field, proportion=1., alignment="center_v")
 
         text = DialogText(group, "Local Y:")
         borders = (20, 10, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
-        field = BackgroundInputField(group, 100)
         val_id = "y"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_value(val_id, data["y"])
+        field = BackgroundInputField(group, val_id, "float", self.__handle_value, 100)
+        field.set_value(data[val_id])
         fields[val_id] = field
         subsizer.add(field, proportion=1., alignment="center_v")
 
@@ -148,24 +163,20 @@ class BackgroundDialog(Dialog):
         text = DialogText(group, "Width:")
         borders = (0, 10, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
-        field = BackgroundInputField(group, 100)
         val_id = "width"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_value(val_id, data["width"])
-        field.set_input_parser(val_id, self.__parse_size)
+        field = BackgroundInputField(group, val_id, "float", self.__handle_value, 100)
+        field.set_value(data[val_id])
+        field.set_input_parser(self.__parse_size_input)
         fields[val_id] = field
         subsizer.add(field, proportion=1., alignment="center_v")
 
         text = DialogText(group, "Height:")
         borders = (20, 10, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
-        field = BackgroundInputField(group, 100)
         val_id = "height"
-        field.add_value(val_id, "float", handler=self.__handle_value)
-        field.show_value(val_id)
-        field.set_value(val_id, data["height"])
-        field.set_input_parser(val_id, self.__parse_size)
+        field = BackgroundInputField(group, val_id, "float", self.__handle_value, 100)
+        field.set_value(data[val_id])
+        field.set_input_parser(self.__parse_size_input)
         fields[val_id] = field
         subsizer.add(field, proportion=1., alignment="center_v")
 
@@ -245,13 +256,13 @@ class BackgroundDialog(Dialog):
     def __reset(self):
 
         fields = self._fields
-        fields["filename"].set_value("filename", "")
-        fields["filename"].set_text("filename", "<None>")
-        fields["alpha"].set_value("alpha", 1.)
-        fields["x"].set_value("x", 0.)
-        fields["y"].set_value("y", 0.)
-        fields["width"].set_value("width", 1.)
-        fields["height"].set_value("height", 1.)
+        fields["filename"].set_value("")
+        fields["filename"].set_text("<None>")
+        fields["alpha"].set_value(1.)
+        fields["x"].set_value(0.)
+        fields["y"].set_value(0.)
+        fields["width"].set_value(1.)
+        fields["height"].set_value(1.)
         checkbtns = self._checkbuttons
         checkbtns["show"].check()
         checkbtns["in_foreground"].check(False)
@@ -287,7 +298,7 @@ class BackgroundDialog(Dialog):
                 pickle.dump(config_data, config_file, -1)
 
             data = self._data
-            self._fields["filename"].set_value("filename", filename)
+            self._fields["filename"].set_value(filename)
             data["filename"] = filename
             img = PNMImage()
             img.read(Filename.from_os_specific(filename))
@@ -297,7 +308,7 @@ class BackgroundDialog(Dialog):
             if data["fixed_aspect_ratio"]:
                 width = data["width"]
                 height = width * ratio
-                self._fields["height"].set_value("height", height)
+                self._fields["height"].set_value(height)
                 data["height"] = height
 
         file_types = ("Bitmap files|bmp;jpg;png", "All types|*")
@@ -334,26 +345,19 @@ class BackgroundDialog(Dialog):
             if self._data["fixed_aspect_ratio"]:
                 width = self._data["width"]
                 height = width * ratio
-                self._fields["height"].set_value("height", height)
+                self._fields["height"].set_value(height)
                 self._data["height"] = height
 
         return os.path.basename(filename) if filename else "<None>"
 
-    def __parse_alpha(self, alpha):
+    def __parse_size_input(self, input_text):
 
         try:
-            return min(1., max(0., abs(float(eval(alpha)))))
+            return max(.001, abs(float(eval(input_text))))
         except:
             return None
 
-    def __parse_size(self, size):
-
-        try:
-            return max(.001, abs(float(eval(size))))
-        except:
-            return None
-
-    def __handle_value(self, value_id, value):
+    def __handle_value(self, value_id, value, state="done"):
 
         data = self._data
 
@@ -362,7 +366,7 @@ class BackgroundDialog(Dialog):
             ratio = data["bitmap_aspect_ratio"]
             width = data["width"]
             height = width * ratio
-            self._fields["height"].set_value("height", height)
+            self._fields["height"].set_value(height)
             data["height"] = height
 
         elif data["fixed_aspect_ratio"]:
@@ -371,11 +375,11 @@ class BackgroundDialog(Dialog):
 
             if value_id == "width":
                 height = value * ratio
-                self._fields["height"].set_value("height", height)
+                self._fields["height"].set_value(height)
                 data["height"] = height
             elif value_id == "height":
                 width = value / ratio
-                self._fields["width"].set_value("width", width)
+                self._fields["width"].set_value(width)
                 data["width"] = width
 
         data[value_id] = value
