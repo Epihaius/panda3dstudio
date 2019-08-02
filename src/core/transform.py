@@ -531,7 +531,7 @@ class SelectionTransformBase(BaseObject):
 
         target_type = GlobalData["transform_target_type"]
 
-        if target_type != "geom" and state == "done":
+        if target_type != "geom" and state != "continuous":
             Mgr.do("update_coord_sys")
 
         transf_type = GlobalData["active_transform_type"]
@@ -553,7 +553,7 @@ class SelectionTransformBase(BaseObject):
         self._start_mats = []
         self._offset_vecs = []
 
-        if not cancelled and state == "done":
+        if not cancelled and state != "continuous":
 
             self.update_center_pos()
             Mgr.do("set_transf_gizmo_pos", Mgr.get("transf_center_pos"))

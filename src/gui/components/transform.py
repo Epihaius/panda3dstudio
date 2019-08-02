@@ -595,15 +595,16 @@ class ValueInputField(DialogInputField):
 
 class AngleField(DialogSliderField):
 
-    def __init__(self, parent, value_id, handler, width):
+    def __init__(self, parent, value_id, value_range, handler, parser, width):
 
         l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
         self._field_borders = (l, r, b, t)
         img_offset = (-l, -t)
 
-        DialogSliderField.__init__(self, parent, value_id, "float", (-180., 180.), handler,
+        DialogSliderField.__init__(self, parent, value_id, "float", value_range, handler,
                                    width, INSET1_BORDER_GFX_DATA, img_offset)
 
+        self._parser = parser
         self.set_input_parser(self.__parse_angle_input)
         self.set_value(0.)
 
@@ -614,7 +615,7 @@ class AngleField(DialogSliderField):
     def __parse_angle_input(self, input_text):
 
         try:
-            return (float(eval(input_text)) + 180.) % 360. - 180.
+            return self._parser(input_text)
         except:
             return None
 
@@ -681,7 +682,8 @@ class TransformDialog(Dialog):
             borders = (5, 0, 0, 0)
             text = DialogText(self, "Offset angle:")
             subsizer.add(text, alignment="center_v", borders=borders)
-            field = AngleField(self, "rot_axis", self.__handle_value, 100)
+            parser = lambda input_text: (float(eval(input_text)) + 180.) % 360. - 180.
+            field = AngleField(self, "rot_axis", (-180., 180.), self.__handle_value, parser, 100)
             subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
 
         else:
@@ -1004,7 +1006,8 @@ class TransformOptionsDialog(Dialog):
         borders = (0, 5, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
 
-        field = AngleField(subgroup, "threshold", self.__handle_value, 100)
+        parser = lambda input_text: max(0., min(91., float(eval(input_text))))
+        field = AngleField(subgroup, "threshold", (0., 91.), self.__handle_value, parser, 100)
         field.set_value(old_rot_options["method_switch_threshold"])
         subsizer.add(field, proportion=1., alignment="center_v")
 

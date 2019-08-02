@@ -576,6 +576,10 @@ class SliderControl:
 
         return self._value
 
+    def get_value_range(self):
+
+        return self._range
+
     def __update_image(self):
 
         w, h = self._field.get_size()
@@ -1406,8 +1410,7 @@ class InputField(Widget):
             if self._is_text_shown:
                 self.__update_card_image()
 
-            state = "continuous" if self.is_sliding() else "done"
-            self._value_handler(self._value_id, value, state)
+            self._value_handler(self._value_id, value, "done")
 
             if text_handler:
                 text_handler(val_str)
@@ -1446,7 +1449,7 @@ class InputField(Widget):
         if self._on_reject:
             self._on_reject()
 
-    def set_value(self, value, text_handler=None, handle_value=False, _force_update=False):
+    def set_value(self, value, text_handler=None, handle_value=False, state="done"):
 
         val_str = self.__parse_value(value)
 
@@ -1458,9 +1461,7 @@ class InputField(Widget):
         txt_ctrl = self._text_ctrl
         update_card_image = False
 
-        if _force_update:
-            update_card_image = True
-        elif self.is_sliding():
+        if state != "done":
             update_card_image = True
         elif txt_ctrl.get_text() != val_str:
             txt_ctrl.set_text(val_str)
@@ -1470,7 +1471,6 @@ class InputField(Widget):
             self.__update_card_image()
 
         if handle_value:
-            state = "continuous" if self.is_sliding() else "done"
             self._value_handler(self._value_id, value, state)
 
         if text_handler:
@@ -1709,7 +1709,7 @@ class SliderMixin:
                 value = self._slider_ctrl.get_value()
 
                 if value != prev_value:
-                    InputField.set_value(self, value, handle_value=True)
+                    InputField.set_value(self, value, handle_value=True, state="continuous")
 
                 self._clock.reset()
 
@@ -1717,7 +1717,7 @@ class SliderMixin:
 
         elif prev_value != self.get_value() and self._clock.get_real_time() > delay:
 
-            InputField.set_value(self, prev_value, handle_value=True)
+            InputField.set_value(self, prev_value, handle_value=True, state="continuous")
 
         return task.cont
 
@@ -1785,6 +1785,10 @@ class SliderMixin:
 
         return self._slider_ctrl.get_value()
 
+    def get_value_range(self):
+
+        return self._slider_ctrl.get_value_range()
+
     def on_input_commit(self):
 
         if self._slider_ctrl:
@@ -1814,7 +1818,7 @@ class SliderInputField(SliderMixin, InputField):
     def _on_slide_end(self, cancelled=False):
 
         if cancelled:
-            self.set_value(self._start_value, handle_value=True, _force_update=True)
+            self.set_value(self._start_value, handle_value=True, state="cancelled")
         else:
             value = self._slider_ctrl.get_value()
             InputField.set_value(self, value, handle_value=True)
@@ -1829,11 +1833,11 @@ class SliderInputField(SliderMixin, InputField):
         size = InputField.set_size(self, size, includes_borders, is_min)
         SliderMixin.set_size(self, size)
 
-    def set_value(self, value, text_handler=None, handle_value=False, _force_update=False):
+    def set_value(self, value, text_handler=None, handle_value=False, state="done"):
 
         self._slider_ctrl.set_value(value)
 
-        return InputField.set_value(self, value, text_handler, handle_value, _force_update)
+        return InputField.set_value(self, value, text_handler, handle_value, state)
 
 
 class MultiValInputField(SliderMixin, InputField):
@@ -1968,13 +1972,13 @@ class MultiValInputField(SliderMixin, InputField):
 
         return False
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=False, _force_update=False):
+    def set_value(self, value_id, value, text_handler=None, handle_value=False, state="done"):
 
         if value_id in self._slider_ctrls:
             self._slider_ctrls[value_id].set_value(value)
 
         if self._value_id == value_id:
-            if InputField.set_value(self, value, text_handler, handle_value, _force_update):
+            if InputField.set_value(self, value, text_handler, handle_value, state):
                 self._texts[value_id] = self._text
                 return True
             else:
@@ -1992,7 +1996,7 @@ class MultiValInputField(SliderMixin, InputField):
             txt_ctrl.set_text(val_str)
 
         if handle_value:
-            self._value_handlers[value_id](value_id, value)
+            self._value_handlers[value_id](value_id, value, state)
 
         if text_handler:
             text_handler(val_str)
@@ -2058,4 +2062,5 @@ class MultiValInputField(SliderMixin, InputField):
     def _on_slide_end(self, cancelled=False):
 
         value = self._start_value if cancelled else self._slider_ctrl.get_value()
-        self.set_value(self._value_id, value, handle_value=True, _force_update=cancelled)
+        state = "cancelled" if cancelled else "done"
+        self.set_value(self._value_id, value, handle_value=True, state=state)
