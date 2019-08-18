@@ -36,9 +36,8 @@ class EntryText(Widget):
 
         Widget.__init__(self, "entry_text", parent, gfx_data={}, stretch_dir="both")
 
-        sort = parent.get_sort() + 1
-        self.get_mouse_region().set_sort(sort)
-        self.get_node().reparent_to(parent.get_widget_root_node())
+        self.mouse_region.sort = parent.sort + 1
+        self.node.reparent_to(parent.get_widget_root_node())
 
         sizer = Sizer("horizontal")
         self.set_sizer(sizer)
@@ -114,11 +113,11 @@ class EntryText(Widget):
         entry = self._entry
 
         if ctrl_down:
-            self.get_parent().toggle_selected_entry(entry)
+            self.parent.toggle_selected_entry(entry)
         elif shift_down:
-            self.get_parent().set_selected_entry_range(entry)
+            self.parent.set_selected_entry_range(entry)
         else:
-            self.get_parent().set_selected_entry(entry)
+            self.parent.set_selected_entry(entry)
 
 
 class Entry:
@@ -209,7 +208,7 @@ class EntryPane(DialogScrollPane):
                 "selected": colors["list_entry_selected"][:3]
             }
 
-        sel_dialog_config = GlobalData["config"]["sel_dialog"]
+        sel_dialog_config = GD["config"]["sel_dialog"]
         obj_types = object_types if object_types else sel_dialog_config["obj_types"]
         self._entries_by_name = entries_by_name = {}
         self._entries_by_type = entries_by_type = {}
@@ -237,7 +236,7 @@ class EntryPane(DialogScrollPane):
             by_name.append(entry.get_object_name())
             shown_by_type.setdefault(entry.get_object_type(), []).append(entry.get_object_name())
 
-        sort_case = GlobalData["config"]["sel_dialog"]["sort_case"]
+        sort_case = GD["config"]["sel_dialog"]["sort_case"]
 
         by_name.sort() if sort_case else by_name.sort(key=str.casefold)
         by_name[:] = [entries_by_name[name] for name in by_name]
@@ -312,7 +311,7 @@ class EntryPane(DialogScrollPane):
             by_name.append(entry.get_object_name())
             shown_by_type.setdefault(entry.get_object_type(), []).append(entry.get_object_name())
 
-        sort_case = GlobalData["config"]["sel_dialog"]["sort_case"]
+        sort_case = GD["config"]["sel_dialog"]["sort_case"]
 
         by_name.sort() if sort_case else by_name.sort(key=str.casefold)
         by_name[:] = [entries_by_name[name] for name in by_name]
@@ -360,7 +359,7 @@ class EntryPane(DialogScrollPane):
 
     def search_entries(self, substring, in_selection):
 
-        search_config = GlobalData["config"]["sel_dialog"]["search"]
+        search_config = GD["config"]["sel_dialog"]["search"]
         match_case = search_config["match_case"]
         part = search_config["part"]
 
@@ -494,7 +493,7 @@ class SelectionDialog(Dialog):
         borders = (20, 20, 0, 20)
         subsizer.add(column1_sizer, proportion=1., expand=True, borders=borders)
 
-        sel_dialog_config = GlobalData["config"]["sel_dialog"]
+        sel_dialog_config = GD["config"]["sel_dialog"]
 
         group = DialogWidgetGroup(self, "Find")
         borders = (0, 0, 10, 0)
@@ -532,8 +531,8 @@ class SelectionDialog(Dialog):
         radio_btns.set_selected_button(sel_dialog_config["search"]["part"])
         grp_subsizer.add(radio_btns.get_sizer(), alignment="center_v")
 
-        handler = lambda *args: self.__search_entries(args[1])
-        field = NameInputField(group, "name", handler, 100)
+        name_handler = lambda *args: self.__search_entries(args[1])
+        field = NameInputField(group, "name", name_handler, 100)
         field.set_input_parser(self.__parse_substring)
         fields["name"] = field
         group.add(field, expand=True)
@@ -542,7 +541,7 @@ class SelectionDialog(Dialog):
         sel_set_data = {}
         Mgr.update_remotely("object_selection", "get_data", obj_data, sel_set_data)
         self._entry_pane = pane = EntryPane(self, object_types, obj_data)
-        frame = pane.get_frame()
+        frame = pane.frame
         borders = (0, 0, 5, 0)
         column1_sizer.add(frame, proportion=1., expand=True, borders=borders)
 
@@ -672,7 +671,7 @@ class SelectionDialog(Dialog):
 
         if not object_types:
 
-            config_data = GlobalData["config"]
+            config_data = GD["config"]
             config_data["sel_dialog"]["obj_types"] = obj_types
 
             with open("config", "wb") as config_file:
@@ -695,7 +694,7 @@ class SelectionDialog(Dialog):
         for obj_type in self._obj_types:
             checkbtns[obj_type].check(obj_type in obj_types)
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         config_data["sel_dialog"]["obj_types"] = obj_types
 
         with open("config", "wb") as config_file:
@@ -705,7 +704,7 @@ class SelectionDialog(Dialog):
 
     def __set_case_sort(self, on, object_types):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         config_data["sel_dialog"]["sort_case"] = on
 
         with open("config", "wb") as config_file:
@@ -715,7 +714,7 @@ class SelectionDialog(Dialog):
 
     def __sort_entries(self, sort_by):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         config_data["sel_dialog"]["sort"] = sort_by
 
         with open("config", "wb") as config_file:
@@ -729,7 +728,7 @@ class SelectionDialog(Dialog):
             self._search_in_selection = value
             return
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         config_data["sel_dialog"]["search"][option] = value
 
         with open("config", "wb") as config_file:

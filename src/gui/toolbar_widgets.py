@@ -15,7 +15,7 @@ class ToolbarText(Text):
         skin_text = Skin["text"]["toolbar"]
         Text.__init__(self, parent, skin_text["font"], skin_text["color"], text)
 
-        self.set_widget_type("toolbar_text")
+        self.widget_type = "toolbar_text"
 
 
 class ToolbarSeparator(Widget):
@@ -47,20 +47,20 @@ class ToolbarButton(Button):
         Button.__init__(self, parent, self._gfx, text, icon_id, tooltip_text, command,
                         button_type="toolbar_button")
 
-        self.set_widget_type("toolbar_button")
+        self.widget_type = "toolbar_button"
 
-    def set_active(self, is_active=True):
+    def set_active(self, active):
 
-        if not Button.set_active(self, is_active):
+        if not Button.set_active(self, active):
             return False
 
-        if not is_active:
+        if not active:
             state = self.get_state()
             self.set_state("normal")
 
-        self.get_parent().update_composed_image(self)
+        self.parent.update_composed_image(self)
 
-        if not is_active:
+        if not active:
             self.set_state(state)
 
         return True
@@ -70,7 +70,7 @@ class ToolbarButton(Button):
         if not Button.enable(self, enable, check_group_disablers):
             return False
 
-        self.get_parent().update_composed_image(self)
+        self.parent.update_composed_image(self)
 
         return True
 
@@ -92,7 +92,7 @@ class ToolbarSpinButton(Button):
         command = lambda: toolbar_bundle.spin_toolbar_rows(-1 if direction == "up" else 1)
         Button.__init__(self, parent, self._gfx[direction], command=command)
 
-        self.set_widget_type("toolbar_button")
+        self.widget_type = "toolbar_button"
 
         self._toolbar_bundle = toolbar_bundle
         self._direction = direction
@@ -116,7 +116,7 @@ class ToolbarSpinButton(Button):
     def __spin_toolbar_rows(self, task):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        spin_amount = int(mouse_pointer.get_y() - self._mouse_start_y) // 10
+        spin_amount = int(mouse_pointer.y - self._mouse_start_y) // 10
 
         if self._spin_amount != spin_amount:
             self._toolbar_bundle.spin_images(spin_amount)
@@ -137,7 +137,7 @@ class ToolbarSpinButton(Button):
 
         if self.is_pressed() and not self._is_spinning:
             mouse_pointer = Mgr.get("mouse_pointer", 0)
-            self._mouse_start_y = mouse_pointer.get_y()
+            self._mouse_start_y = mouse_pointer.y
             Mgr.add_task(self.__spin_toolbar_rows, "spin_toolbar_rows")
             self.set_pressed(False)
             self._listener.accept_once("gui_mouse1-up", self.on_left_up)
@@ -156,7 +156,7 @@ class ToolbarSpinButton(Button):
             self._spin_amount = 0
             self._is_spinning = False
 
-            if self.get_mouse_watcher().get_over_region() == self.get_mouse_region():
+            if self.mouse_watcher.get_over_region() == self.mouse_region:
                 Button.on_enter(self)
                 toolbar_row = self._toolbar_bundle[0 if self._direction == "up" else -2]
                 ToolTip.show(toolbar_row.get_tooltip_label())
@@ -221,7 +221,7 @@ class ToolbarCheckButton(CheckButton):
 
         x, y, w, h = TextureAtlas["regions"]["toolbar_checkbox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -242,14 +242,14 @@ class ToolbarCheckButton(CheckButton):
         CheckButton.set_checkmark_color(self, color)
 
         offset_x, offset_y = self.get_image_offset()
-        self.get_parent().update_composed_image(self, None, offset_x, offset_y)
+        self.parent.update_composed_image(self, None, offset_x, offset_y)
 
     def check(self, check=True):
 
         CheckButton.check(self, check)
 
         offset_x, offset_y = self.get_image_offset()
-        self.get_parent().update_composed_image(self, None, offset_x, offset_y)
+        self.parent.update_composed_image(self, None, offset_x, offset_y)
 
     def enable(self, enable=True):
 
@@ -257,7 +257,7 @@ class ToolbarCheckButton(CheckButton):
             return False
 
         offset_x, offset_y = self.get_image_offset()
-        self.get_parent().update_composed_image(self, None, offset_x, offset_y)
+        self.parent.update_composed_image(self, None, offset_x, offset_y)
 
         return True
 
@@ -289,7 +289,7 @@ class ToolbarColorBox(ColorBox):
 
         ColorBox.__init__(self, parent, command, color, dialog_title)
 
-        self.set_widget_type("toolbar_colorbox")
+        self.widget_type = "toolbar_colorbox"
 
         if not self._border_image:
             self.__create_border_image()
@@ -304,7 +304,7 @@ class ToolbarColorBox(ColorBox):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -321,14 +321,14 @@ class ToolbarColorBox(ColorBox):
         ColorBox.set_color_type(self, color_type)
 
         offset_x, offset_y = self.get_image_offset()
-        self.get_parent().update_composed_image(self, None, offset_x, offset_y)
+        self.parent.update_composed_image(self, None, offset_x, offset_y)
 
     def set_color(self, color):
 
         ColorBox.set_color(self, color)
 
         offset_x, offset_y = self.get_image_offset()
-        self.get_parent().update_composed_image(self, None, offset_x, offset_y)
+        self.parent.update_composed_image(self, None, offset_x, offset_y)
 
 
 class GfxMixin:
@@ -365,44 +365,44 @@ class ToolbarInputField(GfxMixin, InputField):
                             self._border_gfx_data, self._img_offset, font,
                             text_color, back_color)
 
-        self.set_widget_type("toolbar_input_field")
+        self.widget_type = "toolbar_input_field"
 
     def accept_input(self, text_handler=None):
 
         if InputField.accept_input(self, text_handler):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_value(self, value, text_handler=None, handle_value=False):
 
         if InputField.set_value(self, value, text_handler, handle_value):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_text(self, text, text_handler=None):
 
         if InputField.set_text(self, text, text_handler):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def show_text(self, show=True):
 
         if InputField.show_text(self, show):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_text_color(self, color=None):
 
         if InputField.set_text_color(self, color):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def clear(self, forget=True):
 
         InputField.clear(self, forget)
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.get_parent().update_composed_image(self, image)
+        self.parent.update_composed_image(self, image)
 
     def enable(self, enable=True):
 
@@ -410,7 +410,7 @@ class ToolbarInputField(GfxMixin, InputField):
             return False
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.get_parent().update_composed_image(self, image)
+        self.parent.update_composed_image(self, image)
 
         return True
 
@@ -425,44 +425,44 @@ class ToolbarSliderField(GfxMixin, SliderInputField):
                                   handler, width, self._border_gfx_data,
                                   self._img_offset, font, text_color, back_color)
 
-        self.set_widget_type("toolbar_input_field")
+        self.widget_type = "toolbar_input_field"
 
     def accept_input(self, text_handler=None):
 
         if SliderInputField.accept_input(self, text_handler):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_value(self, value, text_handler=None, handle_value=False):
 
         if SliderInputField.set_value(self, value, text_handler, handle_value):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_text(self, text, text_handler=None):
 
         if SliderInputField.set_text(self, text, text_handler):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def show_text(self, show=True):
 
         if SliderInputField.show_text(self, show):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_text_color(self, color=None):
 
         if SliderInputField.set_text_color(self, color):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def clear(self, forget=True):
 
         SliderInputField.clear(self, forget)
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.get_parent().update_composed_image(self, image)
+        self.parent.update_composed_image(self, image)
 
     def enable(self, enable=True):
 
@@ -470,7 +470,7 @@ class ToolbarSliderField(GfxMixin, SliderInputField):
             return False
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.get_parent().update_composed_image(self, image)
+        self.parent.update_composed_image(self, image)
 
         return True
 
@@ -483,51 +483,51 @@ class ToolbarMultiValField(GfxMixin, MultiValInputField):
         MultiValInputField.__init__(self, parent, width, self._border_gfx_data,
                                     self._img_offset, text_color, back_color)
 
-        self.set_widget_type("toolbar_input_field")
+        self.widget_type = "toolbar_input_field"
 
     def accept_input(self, text_handler=None):
 
         if MultiValInputField.accept_input(self, text_handler):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_value(self, value_id, value, text_handler=None, handle_value=False):
 
         if MultiValInputField.set_value(self, value_id, value, text_handler, handle_value):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_text(self, value_id, text, text_handler=None):
 
         if MultiValInputField.set_text(self, value_id, text, text_handler):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def show_text(self, show=True):
 
         if MultiValInputField.show_text(self, show):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def set_text_color(self, color=None):
 
         if MultiValInputField.set_text_color(self, color):
             image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.get_parent().update_composed_image(self, image)
+            self.parent.update_composed_image(self, image)
 
     def clear(self, forget=True):
 
         MultiValInputField.clear(self, forget)
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.get_parent().update_composed_image(self, image)
+        self.parent.update_composed_image(self, image)
 
     def show_value(self, value_id):
 
         MultiValInputField.show_value(self, value_id)
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.get_parent().update_composed_image(self, image)
+        self.parent.update_composed_image(self, image)
 
     def enable(self, enable=True):
 
@@ -535,7 +535,7 @@ class ToolbarMultiValField(GfxMixin, MultiValInputField):
             return False
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.get_parent().update_composed_image(self, image)
+        self.parent.update_composed_image(self, image)
 
         return True
 
@@ -574,11 +574,11 @@ class ComboBoxInputField(InputField):
         InputField.__init__(self, parent, value_id, value_type, handler, width, gfx_data,
                             img_offset, font, text_color, back_color)
 
-        self.set_widget_type("toolbar_combo_field")
+        self.widget_type = "toolbar_combo_field"
 
     def get_outer_borders(self):
 
-        return self._field_borders if self.get_parent().has_icon() else self._field_borders2
+        return self._field_borders if self.parent.has_icon() else self._field_borders2
 
     def get_image(self, state=None, composed=True, draw_border=False, crop=True):
 
@@ -586,49 +586,49 @@ class ComboBoxInputField(InputField):
 
     def accept_input(self, text_handler=None):
 
-        if InputField.accept_input(self, text_handler=self.get_parent().set_text):
-            combobox = self.get_parent()
-            combobox.get_parent().update_composed_image(combobox)
+        if InputField.accept_input(self, text_handler=self.parent.set_text):
+            combobox = self.parent
+            combobox.parent.update_composed_image(combobox)
 
     def set_value(self, value, text_handler=None, handle_value=False):
 
-        if InputField.set_value(self, value, text_handler=self.get_parent().set_text,
+        if InputField.set_value(self, value, text_handler=self.parent.set_text,
                 handle_value=handle_value):
-            combobox = self.get_parent()
-            combobox.get_parent().update_composed_image(combobox)
+            combobox = self.parent
+            combobox.parent.update_composed_image(combobox)
 
     def set_text(self, text, text_handler=None):
 
-        if InputField.set_text(self, text, text_handler=self.get_parent().set_text):
-            combobox = self.get_parent()
-            combobox.get_parent().update_composed_image(combobox)
+        if InputField.set_text(self, text, text_handler=self.parent.set_text):
+            combobox = self.parent
+            combobox.parent.update_composed_image(combobox)
 
     def show_text(self, show=True):
 
         if InputField.show_text(self, show):
-            combobox = self.get_parent()
-            combobox.get_parent().update_composed_image(combobox)
+            combobox = self.parent
+            combobox.parent.update_composed_image(combobox)
 
     def set_text_color(self, color=None):
 
         if InputField.set_text_color(self, color):
-            combobox = self.get_parent()
-            combobox.get_parent().update_composed_image(combobox)
+            combobox = self.parent
+            combobox.parent.update_composed_image(combobox)
 
     def clear(self, forget=True):
 
         InputField.clear(self, forget)
 
-        combobox = self.get_parent()
-        combobox.get_parent().update_composed_image(combobox)
+        combobox = self.parent
+        combobox.parent.update_composed_image(combobox)
 
     def enable(self, enable=True):
 
         if not InputField.enable(self, enable):
             return False
 
-        combobox = self.get_parent()
-        combobox.get_parent().update_composed_image(combobox)
+        combobox = self.parent
+        combobox.parent.update_composed_image(combobox)
 
         return True
 
@@ -702,7 +702,7 @@ class ToolbarComboBox(ComboBox):
         ComboBox.__init__(self, parent, field_width, gfx_data, text, icon_id,
                           tooltip_text, editable)
 
-        self.set_widget_type("toolbar_combobox")
+        self.widget_type = "toolbar_combobox"
 
         x, y, w, h = TextureAtlas["regions"]["toolbar_combobox_field_back"]
         tmp_img = PNMImage(w, h, 4)
@@ -750,7 +750,7 @@ class ToolbarComboBox(ComboBox):
         if not ComboBox.set_field_tint(self, tint):
             return False
 
-        self.get_parent().update_composed_image(self)
+        self.parent.update_composed_image(self)
 
         return True
 
@@ -759,7 +759,7 @@ class ToolbarComboBox(ComboBox):
         if not ComboBox.set_text(self, text):
             return False
 
-        task = lambda: self.get_parent().update_composed_image(self)
+        task = lambda: self.parent.update_composed_image(self)
         PendingTasks.add(task, "update_composed_toolbar_image", sort=1, id_prefix=id(self))
 
         return True
@@ -769,7 +769,7 @@ class ToolbarComboBox(ComboBox):
         if not ComboBox.show_input_field(self, show):
             return False
 
-        self.get_parent().update_composed_image(self)
+        self.parent.update_composed_image(self)
 
         return True
 

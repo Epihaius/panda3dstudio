@@ -33,7 +33,7 @@ class TagField(DialogInputField):
                                   font, text_color, back_color, on_key_enter=on_key_enter,
                                   on_key_escape=on_key_escape, allow_reject=allow_reject)
 
-        self.get_node().reparent_to(parent.get_widget_root_node())
+        self.node.reparent_to(parent.get_widget_root_node())
 
     def get_outer_borders(self):
 
@@ -97,8 +97,8 @@ class TagPane(DialogScrollPane):
 
             if warning_id == "empty_key":
                 MessageDialog(title="Empty key",
-                              message="Empty keys are not allowed." \
-                              + "\n\nDo you want to remove the tag?",
+                              message="Empty keys are not allowed."
+                                      "\n\nDo you want to remove the tag?",
                               choices="okcancel", on_yes=command, on_cancel=on_cancel,
                               icon_id="icon_exclamation")
             elif warning_id == "dupe_key":
@@ -270,7 +270,7 @@ class TagDialog(Dialog):
         inset_sizer.add(text, alignment="center_h", borders=borders)
 
         self._tag_pane = pane = TagPane(self, tags)
-        frame = pane.get_frame()
+        frame = pane.frame
         borders = (50, 50, 20, 0)
         client_sizer.add(frame, proportion=1., expand=True, borders=borders)
         btn_sizer = Sizer("horizontal")

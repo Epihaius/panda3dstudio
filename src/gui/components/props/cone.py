@@ -16,9 +16,9 @@ class ConeProperties:
         section.add(sizer, expand=True)
 
         for spec in ("bottom", "top"):
-            text = "{} radius:".format(spec.title())
+            text = f"{spec.title()} radius:"
             sizer.add(PanelText(section, text), alignment_v="center_v")
-            prop_id = "radius_{}".format(spec)
+            prop_id = f"radius_{spec}"
             field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
             self._fields[prop_id] = field
             sizer.add(field, proportion_h=1., alignment_v="center_v")
@@ -35,8 +35,8 @@ class ConeProperties:
         group.add(sizer, expand=True)
 
         for spec in ("circular", "height", "caps"):
-            prop_id = "segments_{}".format(spec)
-            text = "{}:".format(spec.title())
+            prop_id = f"segments_{spec}"
+            text = f"{spec.title()}:"
             sizer.add(PanelText(group, text), alignment_v="center_v")
             field = PanelInputField(group, prop_id, "int", self.__handle_value, 80)
             self._fields[prop_id] = field
@@ -46,7 +46,7 @@ class ConeProperties:
             self.__parse_radius_input(input_text, radius_min)
 
         for spec, val_min in (("bottom", .001), ("top", 0.)):
-            prop_id = "radius_{}".format(spec)
+            prop_id = f"radius_{spec}"
             self._fields[prop_id].set_input_parser(get_parser(val_min))
 
         self._fields["height"].set_input_parser(self.__parse_height_input)
@@ -68,9 +68,9 @@ class ConeProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
-        in_creation_mode = GlobalData["active_creation_type"]
+        in_creation_mode = GD["active_creation_type"]
 
         if "segments" in value_id:
             prop_id, spec = value_id.split("_")
@@ -160,7 +160,7 @@ class ConeProperties:
 
     def check_selection_count(self):
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 

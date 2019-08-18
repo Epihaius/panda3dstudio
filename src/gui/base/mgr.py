@@ -19,11 +19,10 @@ class GUIManager:
 
         cls._app_mgr = app_mgr
         cls._verbose = verbose
-        base = app_mgr.get_base()
-        cls._task_mgr = base.task_mgr
-        cls._msgr = base.messenger
-        cls.expose("base", lambda: cls._app_mgr.get_base())
-        cls.expose("mouse_pointer", lambda i: cls._app_mgr.get_base().win.get_pointer(i))
+        showbase = GD.showbase
+        cls._task_mgr = showbase.task_mgr
+        cls._msgr = showbase.messenger
+        cls.expose("mouse_pointer", lambda i: GD.window.get_pointer(i))
 
     @classmethod
     def accept(cls, task_id, task_handler):
@@ -44,10 +43,10 @@ class GUIManager:
 
         if task_id not in cls._task_handlers:
 
-            logging.warning('GUI: task "{}" is not defined.'.format(task_id))
+            logging.warning(f'GUI: task "{task_id}" is not defined.')
 
             if cls._verbose:
-                print('GUI warning: task "{}" is not defined.'.format(task_id))
+                print(f'GUI warning: task "{task_id}" is not defined.')
 
         task_handler = cls._task_handlers.get(task_id, cls._default_task_handler)
 
@@ -60,7 +59,7 @@ class GUIManager:
         cls._data_retrievers[data_id] = retriever
 
     @classmethod
-    def __get(cls, data_id, *args, **kwargs):
+    def get(cls, data_id, *args, **kwargs):
         """
         Obtain data by id.
         The arguments provided will be passed to the callable that returns the data.
@@ -69,30 +68,14 @@ class GUIManager:
 
         if data_id not in cls._data_retrievers:
 
-            logging.warning('GUI: data "{}" is not defined.'.format(data_id))
+            logging.warning(f'GUI: data "{data_id}" is not defined.')
 
             if cls._verbose:
-                print('GUI warning: data "{}" is not defined.'.format(data_id))
+                print(f'GUI warning: data "{data_id}" is not defined.')
 
         retriever = cls._data_retrievers.get(data_id, cls._default_data_retriever)
 
         return retriever(*args, **kwargs)
-
-    @classmethod
-    def get(cls, data_id, *args, **kwargs):
-        """
-        Obtain data by id. This id can either be the id of the data, or it can be a
-        sequence consisting of the id of the "owner" object and the id of the data
-        itself.
-
-        """
-
-        if isinstance(data_id, (list, tuple)):
-            obj_id, obj_data_id = data_id
-            obj = cls.__get(obj_id)
-            return obj.get(obj_data_id, *args, **kwargs)
-        else:
-            return cls.__get(data_id, *args, **kwargs)
 
     @classmethod
     def add_interface(cls, interface_id, key_handlers):

@@ -36,21 +36,14 @@ class Window:
 
     def __init__(self):
 
-        self._node = NodePath("window")
         self._sizer = Sizer("vertical")
+        self.node = NodePath("window")
+        self.mouse_watcher = Mgr.get("mouse_watcher")
 
     def get_ancestor(self, widget_type):
 
         if widget_type == "window":
             return self
-
-    def get_node(self):
-
-        return self._node
-
-    def get_mouse_watcher(self):
-
-        return Mgr.get("mouse_watcher")
 
     def add(self, *args, **kwargs):
 
@@ -86,6 +79,11 @@ class Dock(WidgetCard):
         self.set_sizer(Sizer("vertical"))
         self._toolbar_sizers = []
 
+    @property
+    def sort(self):
+
+        return 1
+
     def get_side(self):
 
         return self._side
@@ -113,8 +111,8 @@ class Dock(WidgetCard):
             painter = PNMPainter(img)
             fill = PNMBrush.make_image(img_tmp, 0, 0)
             pen = PNMBrush.make_transparent()
-            painter.set_fill(fill)
-            painter.set_pen(pen)
+            painter.fill = fill
+            painter.pen = pen
             painter.draw_rectangle(0, 0, width, height)
         else:
             img.unfiltered_stretch_from(img_tmp)
@@ -146,10 +144,6 @@ class Dock(WidgetCard):
 
         self.get_sizer().update_mouse_region_frames(exclude)
 
-    def get_sort(self):
-
-        return 1
-
 
 class Components:
 
@@ -159,9 +153,9 @@ class Components:
         Mgr.expose("gui_enabled", lambda: self._is_enabled)
         Mgr.accept("enable_gui", self.__enable)
 
-        GlobalData["viewport"] = {}
-        GlobalData["viewport"]["display_regions2"] = []
-        GlobalData["viewport"]["mouse_watchers2"] = []
+        GD["viewport"] = {}
+        GD["viewport"]["display_regions2"] = []
+        GD["viewport"]["mouse_watchers2"] = []
         PendingTasks.add_batch("panel_redraw", 1)
         PendingTasks.add_batch("panel_change", 2)
         PendingTasks.add_batch("widget_card_update", 3)
@@ -198,7 +192,7 @@ class Components:
         self._screenshot = None
         d = 100000.
         self._gui_region_mask = mask = MouseWatcherRegion("viewport_mask", -d, d, -d, d)
-        mask.set_sort(100000)
+        mask.sort = 100000
         cm = CardMaker("black_card")
         cm.set_frame(0., 1., -1., 0.)
         cm.set_color((0., 0., 0., 1.))
@@ -221,7 +215,7 @@ class Components:
         self._viewport_sizer.set_default_size((400, 300))
         win.update_min_size()
 
-        Mgr.get("base").accept("window-event", self.__handle_window_event)
+        GD.showbase.accept("window-event", self.__handle_window_event)
 
         def update_object_name_tag(is_shown, name="", is_selected=False):
 
@@ -232,9 +226,7 @@ class Components:
             color = (1., 1., 0., 1.) if is_selected else (1., 1., 1., 1.)
             label = ToolTip.create_label(name, color)
             mouse_pointer = Mgr.get("mouse_pointer", 0)
-            x = mouse_pointer.get_x()
-            y = mouse_pointer.get_y()
-            ToolTip.show(label, (x, y + 20), delay=0.)
+            ToolTip.show(label, (mouse_pointer.x, mouse_pointer.y + 20), delay=0.)
 
         Mgr.accept("set_viewport_border_color", self.__set_viewport_border_color)
         Mgr.accept("create_layout", self.__create_layout)
@@ -274,26 +266,26 @@ class Components:
 
         x, y = self._viewport_sizer.get_pos()
         w_v, h_v = self._viewport_sizer.get_size()
-        GlobalData["viewport"]["pos"] = (x, y)
-        GlobalData["viewport"]["size"] = (w_v, h_v)
-        GlobalData["viewport"]["frame"] = get_relative_region_frame(x, y, w_v, h_v, w, h)
-        GlobalData["viewport"]["border1"] = Mgr.get("base").win
-        GlobalData["viewport"]["border2"] = None
+        GD["viewport"]["pos"] = (x, y)
+        GD["viewport"]["size"] = (w_v, h_v)
+        GD["viewport"]["frame"] = get_relative_region_frame(x, y, w_v, h_v, w, h)
+        GD["viewport"]["border1"] = GD.window
+        GD["viewport"]["border2"] = None
         color = Skin["colors"]["viewport_frame_default"]
-        GlobalData["viewport"]["border_color1"] = color
-        GlobalData["viewport"]["border_color2"] = color
-        GlobalData["viewport"][1] = "main"
-        GlobalData["viewport"][2] = None
-        GlobalData["viewport"]["active"] = 1
+        GD["viewport"]["border_color1"] = color
+        GD["viewport"]["border_color2"] = color
+        GD["viewport"][1] = "main"
+        GD["viewport"][2] = None
+        GD["viewport"]["active"] = 1
 
         self.__hide_components_at_startup()
 
-        def enter_selection_mode(prev_state_id, is_active):
+        def enter_selection_mode(prev_state_id, active):
 
             self.__set_viewport_border_color("viewport_frame_default")
             self.__enable()
 
-        def enter_navigation_mode(prev_state_id, is_active):
+        def enter_navigation_mode(prev_state_id, active):
 
             self.__set_viewport_border_color("viewport_frame_navigate_scene")
 
@@ -303,8 +295,8 @@ class Components:
         add_state = Mgr.add_state
         add_state("selection_mode", 0, enter_selection_mode)
         add_state("navigation_mode", -100, enter_navigation_mode)
-        enter_state = lambda prev_state_id, is_active: self.__enable(False)
-        exit_state = lambda next_state_id, is_active: self.__enable()
+        enter_state = lambda prev_state_id, active: self.__enable(False)
+        exit_state = lambda next_state_id, active: self.__enable()
 
         for state in nav_states:
             add_state(state, -110, enter_state, exit_state)
@@ -313,16 +305,16 @@ class Components:
         add_state("processing", -200, enter_state, exit_state)
         add_state("processing_no_cancel", -200, enter_state, exit_state)
 
-        def enter_suppressed_state(prev_state_id, is_active):
+        def enter_suppressed_state(prev_state_id, active):
 
-            Mgr.get("viewport_cursor_region").set_active(False)
-            Mgr.get("viewport2_cursor_region").set_active(False)
+            Mgr.get("viewport_cursor_region").active = False
+            Mgr.get("viewport2_cursor_region").active = False
             Mgr.set_cursor_regions_active("aux_viewport", False)
 
-        def exit_suppressed_state(next_state_id, is_active):
+        def exit_suppressed_state(next_state_id, active):
 
-            Mgr.get("viewport_cursor_region").set_active(True)
-            Mgr.get("viewport2_cursor_region").set_active(True)
+            Mgr.get("viewport_cursor_region").active = True
+            Mgr.get("viewport2_cursor_region").active = True
             Mgr.set_cursor_regions_active("aux_viewport")
 
         add_state("suppressed", -1000, enter_suppressed_state, exit_suppressed_state)
@@ -357,8 +349,8 @@ class Components:
                 Mgr.update_app("uv_edit_init")
                 self._uv_editing_initialized = True
 
-            if GlobalData["active_obj_level"] != "top":
-                GlobalData["active_obj_level"] = "top"
+            if GD["active_obj_level"] != "top":
+                GD["active_obj_level"] = "top"
                 Mgr.update_app("active_obj_level")
 
             Mgr.enter_state("uv_edit_mode")
@@ -390,7 +382,7 @@ class Components:
             context_menu = components["main_context_menu"]
 
             for menu_id in self._extra_submenu_ids:
-                Mgr.do("restore_menu_{}".format(menu_id))
+                Mgr.do(f"restore_menu_{menu_id}")
                 item = context_menu.get_item(menu_id)
                 item.set_submenu(None)
                 context_menu.remove(menu_id)
@@ -448,7 +440,7 @@ class Components:
         alignment = "left" if Skin["options"]["panel_scrollbar_left"] else "right"
         dock_sizer.add(dock_subsizer, proportion=1., alignment=alignment)
         panel_stack = PanelStack(dock)
-        panel_stack_frame = panel_stack.get_frame()
+        panel_stack_frame = panel_stack.frame
         dock_subsizer.add(panel_stack_frame, expand=True)
         components["panel_stack"] = panel_stack
         components["hierarchy_panel"] = HierarchyPanel(panel_stack)
@@ -487,7 +479,7 @@ class Components:
         sizer.add_item(sizer_item, index=index)
         self.__update_window()
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         layout = config_data["gui_layout"]
         layout["right_dock"] = side
 
@@ -506,7 +498,7 @@ class Components:
 
         components = self._registry
         docks = components["docks"]
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         component_view = config_data["gui_view"]
         docking_targets = components["docking_targets"]
 
@@ -536,7 +528,7 @@ class Components:
 
         if not component_view["control_pane"]:
             panel_stack = components["panel_stack"]
-            panel_stack_frame = panel_stack.get_frame()
+            panel_stack_frame = panel_stack.frame
             dock = docks["right"]
             sizer = dock.get_sizer()
             subsizer_item = sizer.get_item(0)
@@ -552,7 +544,7 @@ class Components:
         components = self._registry
         docks = components["docks"]
         docking_targets = components["docking_targets"]
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
 
         if "menubar" in component_types:
 
@@ -592,7 +584,7 @@ class Components:
 
             layout = config_data["gui_layout"]
             interface_id = "main"
-            viewport_data = GlobalData["viewport"]
+            viewport_data = GD["viewport"]
 
             if viewport_data[2]:
                 if viewport_data[2] == "main":
@@ -608,7 +600,7 @@ class Components:
         if "control_pane" in component_types:
 
             panel_stack = components["panel_stack"]
-            panel_stack_frame = panel_stack.get_frame()
+            panel_stack_frame = panel_stack.frame
             dock = docks["right"]
             sizer = dock.get_sizer()
             subsizer_item = sizer.get_item(0)
@@ -792,7 +784,7 @@ class Components:
     def __reset_layout_data(self, interface_id=None):
 
         layout = self.__get_default_layout_data()
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
 
         if interface_id is None:
             config_data["gui_layout"] = layout
@@ -807,7 +799,7 @@ class Components:
 
     def __init_main_layout(self):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         layout = config_data.get("gui_layout")
         component_view = config_data.get("gui_view")
 
@@ -836,7 +828,7 @@ class Components:
 
     def __create_main_layout(self):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
 
         if config_data["gui_view"]["toolbars"]:
             layout_data = config_data["gui_layout"]["main"]
@@ -844,7 +836,7 @@ class Components:
 
     def __clear_main_layout(self):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
 
         if config_data["gui_view"]["toolbars"]:
             layout_data = config_data["gui_layout"]["main"]
@@ -858,8 +850,8 @@ class Components:
 
     def __update_layout_data(self):
 
-        config_data = GlobalData["config"]
-        config_data["gui_layout"][GlobalData["active_interface"]] = layout = {}
+        config_data = GD["config"]
+        config_data["gui_layout"][GD["active_interface"]] = layout = {}
         toolbars = Toolbar.registry
         docks = self._registry["docks"]
 
@@ -882,10 +874,10 @@ class Components:
 
                     if toolbar_row.in_bundle():
                         for row in toolbar_row.get_bundle():
-                            toolbar_ids = [t.get_id() for t in row]
+                            toolbar_ids = [t.id for t in row]
                             toolbar_id_list.append(toolbar_ids)
                     else:
-                        toolbar_ids = [t.get_id() for t in toolbar_row]
+                        toolbar_ids = [t.id for t in toolbar_row]
                         toolbar_id_list.append(toolbar_ids)
 
                 else:
@@ -918,11 +910,10 @@ class Components:
 
             ToolTip.hide()
             Dialog.hide_dialogs()
-            fps_meter_display_region = GlobalData["fps_meter_display_region"]
-            fps_meter_display_region.set_active(False)
-            base = Mgr.get("base")
-            base.graphicsEngine.render_frame()
-            tex = base.win.get_screenshot()
+            fps_meter_display_region = GD["fps_meter_display_region"]
+            fps_meter_display_region.active = False
+            GD.showbase.graphicsEngine.render_frame()
+            tex = GD.window.get_screenshot()
             Dialog.show_dialogs()
             cm = CardMaker("screenshot")
             w, h = self._window_size
@@ -939,8 +930,8 @@ class Components:
 
             self._screenshot.remove_node()
             self._screenshot = None
-            fps_meter_display_region = GlobalData["fps_meter_display_region"]
-            fps_meter_display_region.set_active(True)
+            fps_meter_display_region = GD["fps_meter_display_region"]
+            fps_meter_display_region.active = True
 
     def __show_main_context_menu(self, *extra_submenu_ids):
 
@@ -959,7 +950,7 @@ class Components:
 
         for menu_id in extra_submenu_ids:
 
-            menu_name, menu = Mgr.get("menu_{}".format(menu_id))
+            menu_name, menu = Mgr.get(f"menu_{menu_id}")
 
             if menu_id in extra_menu_items:
                 item = extra_menu_items[menu_id]
@@ -984,9 +975,7 @@ class Components:
     def __update_insertion_marker(self, task):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = mouse_pointer.get_y()
-        point = (mouse_x, mouse_y)
+        point = (mouse_pointer.x, mouse_pointer.y)
 
         for target in self._registry["docking_targets"]:
 
@@ -999,7 +988,7 @@ class Components:
                 if target_component.is_hidden():
                     continue
 
-                if target_component.get_widget_type() == "toolbar_row_handle":
+                if target_component.widget_type == "toolbar_row_handle":
                     if side == "center":
                         if target_component is self._dragged_widget:
                             continue
@@ -1035,7 +1024,7 @@ class Components:
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         def init_toolbar_dragging(name_start):
 
@@ -1049,7 +1038,7 @@ class Components:
                 item_type = "toolbar_row"
             else:
                 item_type = "toolbar_bundle"
-                widget = widget.get_parent()
+                widget = widget.parent
 
             if is_toolbar and set([widget]) == set(widget.get_row()):
                 # if the dragged toolbar is the only one in its row, this is equivalent
@@ -1070,7 +1059,7 @@ class Components:
             Mgr.add_task(self.__update_insertion_marker, "update_insertion_marker")
             self.__enable(False)
             Mgr.enter_state("inactive")
-            interface_ids = GlobalData["viewport"]
+            interface_ids = GD["viewport"]
 
             if interface_ids[2] is not None:
                 interface_id = interface_ids[2 if interface_ids[1] == "main" else 1]
@@ -1094,8 +1083,8 @@ class Components:
         toolbar_row.remove_toolbar(toolbar)
         target_sizer_item = target_component.get_sizer_item()
         target_subsizer = target_sizer_item.get_sizer()
-        target_sizer = target_subsizer.get_owner()
-        toolbar.set_parent(target_sizer.get_owner())
+        target_sizer = target_subsizer.owner
+        toolbar.set_parent(target_sizer.owner)
         row_sizer.remove_item(sizer_item)
         row_sizer.set_default_size((0, 0))
         width = row_sizer.update_min_size()[0]
@@ -1108,7 +1097,7 @@ class Components:
 
         row_sizer.set_default_size((width, 0))
 
-        if target_component.get_widget_type() == "toolbar_row_handle":
+        if target_component.widget_type == "toolbar_row_handle":
 
             dest_row = ToolbarRow(target_dock)
             toolbar.set_row(dest_row)
@@ -1178,8 +1167,8 @@ class Components:
         toolbar_row = toolbar_row_handle.get_row()
         target_sizer_item = target_component.get_sizer_item()
         target_subsizer = target_sizer_item.get_sizer()
-        target_sizer = target_subsizer.get_owner()
-        parent = target_sizer.get_owner()
+        target_sizer = target_subsizer.owner
+        parent = target_sizer.owner
         toolbar_row_handle.set_parent(parent)
         in_bundle = toolbar_row.in_bundle()
 
@@ -1197,7 +1186,7 @@ class Components:
 
             row_sizer.set_default_size((width, 0))
 
-        if target_component.get_widget_type() == "toolbar_row_handle":
+        if target_component.widget_type == "toolbar_row_handle":
 
             target_row = target_component.get_row()
             bundle = target_row.get_bundle()
@@ -1292,9 +1281,9 @@ class Components:
         toolbar_row = toolbar_row_handle.get_row()
         target_sizer_item = target_component.get_sizer_item()
         target_subsizer = target_sizer_item.get_sizer()
-        target_sizer = target_subsizer.get_owner()
+        target_sizer = target_subsizer.owner
 
-        if target_component.get_widget_type() == "toolbar_row_handle":
+        if target_component.widget_type == "toolbar_row_handle":
 
             row_sizer_item.get_sizer().remove_item(row_sizer_item)
             src_dock.get_toolbar_sizers().remove(row_sizer)
@@ -1319,7 +1308,7 @@ class Components:
                 index += 1
 
             target_sizer.add_item(row_sizer_item, index=index)
-            parent = target_sizer.get_owner()
+            parent = target_sizer.owner
             toolbar_row.set_parent(parent)
             target_dock.get_toolbar_sizers().append(row_sizer)
 
@@ -1354,7 +1343,7 @@ class Components:
         self._dragging_toolbars = False
         self.__enable()
         Mgr.exit_state("inactive")
-        interface_ids = GlobalData["viewport"]
+        interface_ids = GD["viewport"]
 
         if interface_ids[2] is not None:
             interface_id = interface_ids[2 if interface_ids[1] == "main" else 1]
@@ -1365,44 +1354,46 @@ class Components:
     def __set_viewport_border_color(self, color_id):
 
         color = Skin["colors"][color_id]
-        index = 2 if GlobalData["viewport"][2] == "main" else 1
-        GlobalData["viewport"]["border_color{:d}".format(index)] = color
+        index = 2 if GD["viewport"][2] == "main" else 1
+        GD["viewport"][f"border_color{index}"] = color
 
-        if GlobalData["viewport"]["active"] == index:
-            GlobalData["viewport"]["border{:d}".format(index)].set_clear_color(color)
+        if GD["viewport"]["active"] == index:
+            GD["viewport"][f"border{index}"].clear_color = color
 
     def __set_active_viewport(self, index):
 
-        GlobalData["viewport"]["active"] = index
-        color = GlobalData["viewport"]["border_color{:d}".format(index)]
-        GlobalData["viewport"]["border{:d}".format(index)].set_clear_color(color)
+        GD["viewport"]["active"] = index
+        color = GD["viewport"][f"border_color{index}"]
+        GD["viewport"][f"border{index}"].clear_color = color
         color = Skin["colors"]["viewport_frame_inactive"]
-        GlobalData["viewport"]["border{:d}".format(3 - index)].set_clear_color(color)
-        interface_id = GlobalData["viewport"][index]
+        GD["viewport"][f"border{3 - index}"].clear_color = color
+        interface_id = GD["viewport"][index]
         Mgr.do("set_interface_status", interface_id)
         Mgr.send("focus_loss")
 
     def __update_viewport_display_regions(self):
 
-        viewport2_id = GlobalData["viewport"][2]
+        viewport2_id = GD["viewport"][2]
 
-        l, r, b, t = GlobalData["viewport"]["frame_aux" if viewport2_id == "main" else "frame"]
-        Mgr.get("viewport_cursor_region").set_frame(2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
+        l, r, b, t = GD["viewport"]["frame_aux" if viewport2_id == "main" else "frame"]
+        frame = (2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
+        Mgr.get("viewport_cursor_region").frame = frame
 
-        for dr in GlobalData["viewport"]["display_regions"]:
-            dr.set_dimensions(l, r, b, t)
+        for dr in GD["viewport"]["display_regions"]:
+            dr.dimensions = (l, r, b, t)
 
         if viewport2_id is not None:
 
-            l, r, b, t = GlobalData["viewport"]["frame" if viewport2_id == "main" else "frame_aux"]
-            Mgr.get("viewport2_cursor_region").set_frame(2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
+            l, r, b, t = GD["viewport"]["frame" if viewport2_id == "main" else "frame_aux"]
+            frame = (2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
+            Mgr.get("viewport2_cursor_region").frame = frame
 
-            for dr in GlobalData["viewport"]["display_regions2"]:
-                dr.set_dimensions(l, r, b, t)
+            for dr in GD["viewport"]["display_regions2"]:
+                dr.dimensions = (l, r, b, t)
 
         w, h = self._window_size
-        l, r, b, t = GlobalData["viewport"]["frame" if viewport2_id is None else "frame_aux"]
-        GlobalData["fps_meter_display_region"].set_dimensions(r - 800./w, r, b, b + 600./h)
+        l, r, b, t = GD["viewport"]["frame" if viewport2_id is None else "frame_aux"]
+        GD["fps_meter_display_region"].dimensions = (r - 800./w, r, b, b + 600./h)
 
     def __update_window(self, task=None):
 
@@ -1419,11 +1410,11 @@ class Components:
         self._window.update((w, h))
         x, y = self._viewport_sizer.get_pos()
         w_v, h_v = self._viewport_sizer.get_size()
-        GlobalData["viewport"]["pos"] = (x, y)
-        GlobalData["viewport"]["size"] = (w_v, h_v)
-        GlobalData["viewport"]["frame"] = get_relative_region_frame(x, y, w_v, h_v, w_, h_)
+        GD["viewport"]["pos"] = (x, y)
+        GD["viewport"]["size"] = (w_v, h_v)
+        GD["viewport"]["frame"] = get_relative_region_frame(x, y, w_v, h_v, w_, h_)
 
-        if GlobalData["viewport"][2] is not None:
+        if GD["viewport"][2] is not None:
             self._aux_viewport.update()
 
         Mgr.update_app("viewport")
@@ -1439,14 +1430,15 @@ class Components:
 
     def __handle_window_event(self, window):
 
-        win_props = window.get_properties()
-        w, h = max(1, win_props.get_x_size()), max(1, win_props.get_y_size())
+        win_props = window.properties
+        w, h = win_props.size
+        w, h = max(1, w), max(1, h)
 
         if self._window_size != (w, h):
 
             self._window_size = (w, h)
             win_props = WindowProperties()
-            win_props.set_size(w, h)
+            win_props.size = (w, h)
             window.request_properties(win_props)
             Mgr.get("gui_root").set_scale(2./w, 1., 2./h)
 
@@ -1458,7 +1450,7 @@ class Components:
                 Mgr.remove_task("update_window")
                 Mgr.add_task(.2, self.__update_window, "update_window")
 
-        if not win_props.get_foreground():
+        if not win_props.foreground:
             Mgr.send("focus_loss")
 
     def handle_hotkey(self, hotkey, hotkey_repeat):
@@ -1473,7 +1465,7 @@ class Components:
         mask = self._gui_region_mask
         components = self._registry
 
-        for mouse_watcher in GlobalData["mouse_watchers"]:
+        for mouse_watcher in GD["mouse_watchers"]:
             mouse_watcher.remove_region(mask) if enable else mouse_watcher.add_region(mask)
 
         components["uv"].enable(enable)

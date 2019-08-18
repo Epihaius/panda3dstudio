@@ -31,13 +31,14 @@ class RadioButton(Widget):
         font = skin_text["font"]
         color = skin_text["color"]
         self._label = label = font.create_image(text, color)
-        color = Skin["colors"]["disabled_{}_text".format(widget_type)]
+        color = Skin["colors"][f"disabled_{widget_type}_text"]
         self._label_disabled = font.create_image(text, color)
 
         x, y, w, h = TextureAtlas["regions"][parent_type + "_radiobox"]
         l, _, b, t = self._btn_borders
-        w += group.get_text_offset() + label.get_x_size() - l
-        h = max(h - b - t, label.get_y_size())
+        w_l, h_l = label.size
+        w += group.get_text_offset() + w_l - l
+        h = max(h - b - t, h_l)
         self.set_size((w, h), is_min=True)
 
         if "\n" in text:
@@ -70,7 +71,7 @@ class RadioButton(Widget):
             return
 
         image = self.get_image(composed=False)
-        parent = self.get_parent()
+        parent = self.parent
 
         if not (image and parent):
             return
@@ -110,9 +111,9 @@ class RadioButton(Widget):
     def create_base_image(self):
 
         border_image = self.get_border_image()
-        w_b, h_b = border_image.get_x_size(), border_image.get_y_size()
+        w_b, h_b = border_image.size
         label = self._label
-        w_l, h_l = label.get_x_size(), label.get_y_size()
+        w_l, h_l = label.size
         x_l = w_b + self._group.get_text_offset()
         w = x_l + w_l
         h = max(h_b, h_l)
@@ -148,7 +149,7 @@ class RadioButton(Widget):
         if self._is_selected:
             w, h = self._box_size
             bullet = PNMImage(self._bullet) * self._group.get_bullet_color()
-            w_b, h_b = bullet.get_x_size(), bullet.get_y_size()
+            w_b, h_b = bullet.size
             x, y = self._box_pos
             x += (w - w_b) // 2
             y += (h - h_b) // 2
@@ -281,7 +282,7 @@ class RadioButtonGroup:
 
             self._bullet_color = bullet_color
 
-            if update:
+            if update and self._selected_btn_id:
                 self._btns[self._selected_btn_id].update()
 
     def get_bullet_color(self):

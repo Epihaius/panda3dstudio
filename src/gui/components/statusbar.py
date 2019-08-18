@@ -10,8 +10,8 @@ class SeparatorGhostImage:
         img = PNMImage(w, h, 4)
         img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
         tex = Texture("ghost_tex")
-        tex.set_minfilter(SamplerState.FT_nearest)
-        tex.set_magfilter(SamplerState.FT_nearest)
+        tex.minfilter = SamplerState.FT_nearest
+        tex.magfilter = SamplerState.FT_nearest
         tex.load(img)
         cm = CardMaker("ghost_image")
         cm.set_frame(0, w, -h, 0)
@@ -68,8 +68,7 @@ class StatusBarSeparator(Widget):
 
     def __drag(self, task):
 
-        mouse_pointer = Mgr.get("mouse_pointer", 0)
-        offset = int(mouse_pointer.get_x() - self._mouse_start_x)
+        offset = int(Mgr.get("mouse_pointer", 0).x - self._mouse_start_x)
 
         if self._offset != offset:
             self._offset = offset
@@ -92,8 +91,7 @@ class StatusBarSeparator(Widget):
     def on_left_down(self):
 
         self._is_dragged = True
-        mouse_pointer = Mgr.get("mouse_pointer", 0)
-        self._mouse_start_x = mouse_pointer.get_x()
+        self._mouse_start_x = Mgr.get("mouse_pointer", 0).x
         self._ghost_image.show()
         Mgr.add_task(self.__drag, "drag_separator")
         self._listener.accept_once("gui_mouse1-up", self.on_left_up)
@@ -102,7 +100,7 @@ class StatusBarSeparator(Widget):
 
         if self._is_dragged:
             Mgr.remove_task("drag_separator")
-            self.get_parent().offset_separator(self._offset)
+            self.parent.offset_separator(self._offset)
             self._mouse_start_x = 0
             self._ghost_image.hide()
             Mgr.set_cursor("main")
@@ -142,10 +140,10 @@ class StatusBar(Widget):
 
     def get_docking_data(self, point):
 
-        if GlobalData["shift_down"]:
+        if GD["shift_down"]:
             return
 
-        l, r, b, t = self.get_mouse_region().get_frame()
+        l, r, b, t = self.mouse_region.frame
         x, y = point
 
         if l < x < r and b < -y < t:
@@ -165,7 +163,7 @@ class StatusBar(Widget):
 
     def __update_status(self, status_specs, interface_id="main"):
 
-        data = GlobalData["status_data"][status_specs[0]]
+        data = GD["status"][status_specs[0]]
 
         for spec in status_specs[1:]:
             data = data[spec]
@@ -174,7 +172,7 @@ class StatusBar(Widget):
         info_text = data["info"]
         self._interface_status[interface_id] = {"mode": mode_text, "info": info_text}
 
-        if GlobalData["viewport"][GlobalData["viewport"]["active"]] != interface_id:
+        if GD["viewport"][GD["viewport"]["active"]] != interface_id:
             return
 
         if mode_text and mode_text != self._mode_text:
@@ -199,10 +197,10 @@ class StatusBar(Widget):
         h = self.get_min_size()[1]
         img = PNMImage(w, h, 4)
         img.copy_sub_image(self.get_image(composed=False), 0, 0, x, 0, w, h)
-        y = 1 + int(h - label.get_y_size()) // 2
+        y = 1 + int(h - label.size[1]) // 2
         img.blend_sub_image(label, 0, y, 0, 0)
         fader = self._text_fader
-        w_f = fader.get_x_size()
+        w_f = fader.size[0]
         img.blend_sub_image(fader, w - w_f, 0, 0, 0, w_f, h)
         self.get_card().copy_sub_image(self, img, w, h, x)
 
@@ -224,10 +222,10 @@ class StatusBar(Widget):
         h = self.get_min_size()[1]
         img = PNMImage(w, h, 4)
         img.copy_sub_image(self.get_image(composed=False), 0, 0, x, 0, w, h)
-        y = 1 + int(h - label.get_y_size()) // 2
+        y = 1 + int(h - label.size[1]) // 2
         img.blend_sub_image(label, 0, y, 0, 0)
         fader = self._text_fader
-        w_f = fader.get_x_size()
+        w_f = fader.size[0]
         img.blend_sub_image(fader, w - w_f, 0, 0, 0)
         self.get_card().copy_sub_image(self, img, w, h, x)
 
@@ -244,13 +242,13 @@ class StatusBar(Widget):
         x = l
         x_d = self._separator.get_pos()[0]
         w = x_d - x
-        h = label.get_y_size()
+        h = label.size[1]
         truncated_img = PNMImage(w, h, 4)
         truncated_img.blend_sub_image(label, 0, 0, 0, 0)
         y = 1 + int(height - h) // 2
         image.blend_sub_image(truncated_img, x, y, 0, 0)
         fader = self._text_fader
-        w_f = fader.get_x_size()
+        w_f = fader.size[0]
         image.blend_sub_image(fader, x + w - w_f, 0, 0, 0)
 
         label = self._info_label
@@ -278,7 +276,7 @@ class StatusBar(Widget):
 
         l, r, b, t = self.get_gfx_inner_borders()
         x += offset
-        x_min = self._text_fader.get_x_size() + l + 1
+        x_min = self._text_fader.size[0] + l + 1
         x_max = w - w_sep - d
         x = min(x_max, max(x_min, x))
 

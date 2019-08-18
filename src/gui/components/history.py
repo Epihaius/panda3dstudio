@@ -44,8 +44,8 @@ class HistoryToolbar(Toolbar):
 
     def __check_undo_redo(self):
 
-        to_undo = GlobalData["history_to_undo"]
-        to_redo = GlobalData["history_to_redo"]
+        to_undo = GD["history_to_undo"]
+        to_redo = GD["history_to_redo"]
         undo_btn = self._btns["undo"]
         redo_btn = self._btns["redo"]
         edit_btn = self._btns["edit"]

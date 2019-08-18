@@ -1,7 +1,8 @@
 from .base import *
 
 
-class SelectionTransformBase(BaseObject):
+class TransformMixin:
+    """ UVSelection class mix-in """
 
     def __init__(self):
 
@@ -12,7 +13,7 @@ class SelectionTransformBase(BaseObject):
         if not self._objs:
             return
 
-        pos = sum([obj.get_center_pos(self.uv_space)
+        pos = sum([obj.get_center_pos(GD.uv_space)
                    for obj in self._objs], Point3()) / len(self._objs)
         pos[1] = 0.
         self._center_pos = pos
@@ -36,9 +37,9 @@ class SelectionTransformBase(BaseObject):
             Mgr.update_interface_remotely("uv", "transform_values", transform_values)
 
         if count:
-            UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
+            UVMgr.get("transf_gizmo").set_pos(self.get_center_pos())
 
-        obj_ids = set(obj.get_id() for obj in self._objs)
+        obj_ids = set(obj.id for obj in self._objs)
         prev_obj_ids = UVMgr.get("sel_obj_ids")
         prev_obj_lvl = UVMgr.get("active_obj_level")
 
@@ -50,22 +51,18 @@ class SelectionTransformBase(BaseObject):
 
         UVMgr.do("update_sel_obj_ids", obj_ids)
 
-        prev_count = GlobalData["uv_selection_count"]
+        prev_count = GD["uv_selection_count"]
 
         if count != prev_count:
-
-            if count:
-                UVMgr.do("show_transf_gizmo")
-            else:
-                UVMgr.do("hide_transf_gizmo")
-
-            GlobalData["uv_selection_count"] = count
+            transf_gizmo = UVMgr.get("transf_gizmo")
+            transf_gizmo.show() if count else transf_gizmo.hide()
+            GD["uv_selection_count"] = count
             Mgr.update_interface("uv", "selection_count")
 
     def set_transform_component(self, transf_type, axis, value, is_rel_value):
 
         obj_lvl = self._obj_level
-        uv_data_objs = self.get_uv_data_objects()
+        uv_data_objs = self.uv_data_objects
 
         for uv_data_obj in uv_data_objs:
             uv_data_obj.init_transform()
@@ -104,29 +101,29 @@ class SelectionTransformBase(BaseObject):
                 Mgr.update_interface_remotely("uv", "transform_values", transform_values)
 
         self.update_center_pos()
-        UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
+        UVMgr.get("transf_gizmo").set_pos(self.get_center_pos())
 
     def init_transform(self):
 
-        for uv_data_obj in self.get_uv_data_objects():
+        for uv_data_obj in self.uv_data_objects:
             uv_data_obj.init_transform()
 
     def transform(self, transf_type, value):
 
         obj_lvl = self._obj_level
 
-        for uv_data_obj in self.get_uv_data_objects():
+        for uv_data_obj in self.uv_data_objects:
             uv_data_obj.transform_selection(obj_lvl, transf_type, value)
 
     def finalize_transform(self, cancelled=False):
 
-        for uv_data_obj in self.get_uv_data_objects():
+        for uv_data_obj in self.uv_data_objects:
             uv_data_obj.finalize_transform(cancelled)
 
         if not cancelled:
 
             self.update_center_pos()
-            UVMgr.do("set_transf_gizmo_pos", self.get_center_pos())
+            UVMgr.get("transf_gizmo").set_pos(self.get_center_pos())
 
             if self._obj_level == "vert":
 
@@ -139,21 +136,22 @@ class SelectionTransformBase(BaseObject):
                 Mgr.update_interface_remotely("uv", "transform_values", transform_values)
 
 
-class UVTransformationBase(BaseObject):
+class UVTransformationMixin:
+    """ UVEditor class mix-in """
 
     def __init__(self):
 
-        GlobalData.set_default("active_uv_transform_type", "")
+        GD.set_default("active_uv_transform_type", "")
         rel_values = {}
 
         for transf_type, axes in (("translate", "uv"), ("scale", "uv")):
-            GlobalData.set_default("uv_axis_constraints_{}".format(transf_type), axes)
+            GD.set_default(f"uv_axis_constraints_{transf_type}", axes)
 
         for obj_lvl in ("vert", "edge", "poly"):
             rel_values[obj_lvl] = {"translate": True, "rotate": True, "scale": True}
 
-        copier = lambda data: dict((key, value.copy()) for key, value in data.items())
-        GlobalData.set_default("rel_uv_transform_values", rel_values, copier)
+        copier = lambda data: {key: value.copy() for key, value in data.items()}
+        GD.set_default("rel_uv_transform_values", rel_values, copier)
 
         self._selection = None
         self._transf_start_pos = Point3()
@@ -189,7 +187,7 @@ class UVTransformationBase(BaseObject):
 
     def __init_transform(self, transf_start_pos):
 
-        active_transform_type = GlobalData["active_uv_transform_type"]
+        active_transform_type = GD["active_uv_transform_type"]
 
         if not active_transform_type:
             return
@@ -219,7 +217,7 @@ class UVTransformationBase(BaseObject):
 
     def __init_translation(self):
 
-        axis_constraints = GlobalData["uv_axis_constraints_translate"]
+        axis_constraints = GD["uv_axis_constraints_translate"]
 
         if len(axis_constraints) == 1:
             axis = Vec3()
@@ -295,7 +293,7 @@ class UVTransformationBase(BaseObject):
     def __scale_selection(self, task):
 
         vec = V3D(UVMgr.get("picked_point") - self._transf_start_pos)
-        vec *= 1. / self.cam.get_sx()
+        vec *= 1. / GD.uv_cam.get_sx()
         dot_prod = vec * self._transf_axis
 
         if dot_prod < 0.:
@@ -306,7 +304,7 @@ class UVTransformationBase(BaseObject):
             s = dot_prod * .99 / (1. + dot_prod)
             scaling_factor = (1. + s / (1. - s)) ** 2.
 
-        axis_constraints = GlobalData["uv_axis_constraints_scale"]
+        axis_constraints = GD["uv_axis_constraints_scale"]
 
         if axis_constraints == "uv":
             scaling = VBase3(scaling_factor, 1., scaling_factor)

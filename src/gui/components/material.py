@@ -268,11 +268,11 @@ class MaterialPanel(Panel):
         self._base_prop_ids = prop_ids + ("shininess",)
 
         for prop_id in prop_ids:
-            text = "{} color:".format(prop_id.title())
+            text = f"{prop_id.title()} color:"
             checkbtn = PanelCheckButton(section, self.__get_color_toggler(prop_id), text)
             self._checkbuttons[prop_id] = checkbtn
             sizer.add(checkbtn, alignment_v="center_v")
-            dialog_title = "Pick {} color".format(prop_id)
+            dialog_title = f"Pick {prop_id} color"
             colorbox = PanelColorBox(section, self.__get_color_handler(prop_id),
                                      dialog_title=dialog_title)
             self._colorboxes[prop_id] = colorbox
@@ -378,7 +378,7 @@ class MaterialPanel(Panel):
         mode_names = ("Repeat", "Clamp", "Border color", "Mirror", "Mirror once")
         get_command = lambda axis, mode_id: lambda: Mgr.update_remotely("material_prop",
                                                                         self._selected_mat_id,
-                                                                        "tex_map_wrap_{}".format(axis),
+                                                                        f"tex_map_wrap_{axis}",
                                                                         mode_id)
 
         sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
@@ -386,16 +386,16 @@ class MaterialPanel(Panel):
 
         for axis in ("u", "v"):
 
-            text = "{}:".format(axis.title())
+            text = f"{axis.title()}:"
             sizer.add(PanelText(group, text), alignment_v="center_v")
-            tooltip_text = "{} wrap mode".format(axis.title())
+            tooltip_text = f"{axis.title()} wrap mode"
             combobox = PanelComboBox(group, 130, tooltip_text=tooltip_text)
 
             for mode_id, mode_name in zip(mode_ids, mode_names):
                 combobox.add_item(mode_id, mode_name, get_command(axis, mode_id))
 
             combobox.update_popup_menu()
-            self._comboboxes["tex_map_wrap_{}".format(axis)] = combobox
+            self._comboboxes[f"tex_map_wrap_{axis}"] = combobox
             sizer.add(combobox, proportion_h=1., alignment_v="center_v")
 
         group.add((0, 5))
@@ -410,7 +410,7 @@ class MaterialPanel(Panel):
 
         get_command = lambda minmag, type_id: lambda: Mgr.update_remotely("material_prop",
                                                                           self._selected_mat_id,
-                                                                          "tex_map_filter_{}".format(minmag),
+                                                                          f"tex_map_filter_{minmag}",
                                                                           type_id)
 
         sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
@@ -632,21 +632,21 @@ class MaterialPanel(Panel):
 
         for channels, text in (("rgb", "RGB"), ("alpha", "Alpha")):
 
-            sizer.add(PanelText(group, "{}:".format(text)), alignment_v="center_v")
+            sizer.add(PanelText(group, f"{text}:"), alignment_v="center_v")
 
             radio_btns = PanelRadioButtonGroup(group, rows=1, gap_h=10)
             btn_ids = (1, 2, 4)
             get_command = lambda channels, scale: lambda: Mgr.update_remotely("tex_layer_prop",
                                                                               self._selected_mat_id,
                                                                               self._selected_layer_id,
-                                                                              "{}_scale".format(channels),
+                                                                              f"{channels}_scale",
                                                                               scale)
 
             for btn_id in btn_ids:
                 radio_btns.add_button(btn_id, str(btn_id))
                 radio_btns.set_button_command(btn_id, get_command(channels, btn_id))
 
-            self._radio_btns["layer_{}_scale".format(channels)] = radio_btns
+            self._radio_btns[f"layer_{channels}_scale"] = radio_btns
             sizer.add(radio_btns.get_sizer(), alignment_v="center_v")
 
         # *************************** Layer texture section *******************
@@ -702,24 +702,23 @@ class MaterialPanel(Panel):
         get_command = lambda axis, mode_id: lambda: Mgr.update_remotely("tex_layer_prop",
                                                                         self._selected_mat_id,
                                                                         self._selected_layer_id,
-                                                                        "wrap_{}".format(axis),
-                                                                        mode_id)
+                                                                        f"wrap_{axis}", mode_id)
 
         sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
         group.add(sizer, expand=True)
 
         for axis in ("u", "v"):
 
-            text = "{}:".format(axis.title())
+            text = f"{axis.title()}:"
             sizer.add(PanelText(group, text), alignment_v="center_v")
-            tooltip_text = "{} wrap mode".format(axis.title())
+            tooltip_text = f"{axis.title()} wrap mode"
             combobox = PanelComboBox(group, 130, tooltip_text=tooltip_text)
 
             for mode_id, mode_name in zip(mode_ids, mode_names):
                 combobox.add_item(mode_id, mode_name, get_command(axis, mode_id))
 
             combobox.update_popup_menu()
-            self._comboboxes["layer_wrap_{}".format(axis)] = combobox
+            self._comboboxes[f"layer_wrap_{axis}"] = combobox
             sizer.add(combobox, proportion_h=1., alignment_v="center_v")
 
         group.add((0, 5))
@@ -735,7 +734,7 @@ class MaterialPanel(Panel):
         get_command = lambda minmag, type_id: lambda: Mgr.update_remotely("tex_layer_prop",
                                                                           self._selected_mat_id,
                                                                           self._selected_layer_id,
-                                                                          "filter_{}".format(minmag),
+                                                                          f"filter_{minmag}",
                                                                           type_id)
 
         sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
@@ -969,7 +968,7 @@ class MaterialPanel(Panel):
 
         group.add((0, 5))
 
-        val_id = "layer_is_stored"
+        val_id = "layer_stored"
         text = "Store layer"
         checkbtn = PanelCheckButton(group, self.__store_layer, text)
         self._checkbuttons[val_id] = checkbtn
@@ -1003,15 +1002,15 @@ class MaterialPanel(Panel):
         self.get_section("layer_blending").expand(False)
         self.expand(False)
 
-    def __enter_owner_picking_mode(self, prev_state_id, is_active):
+    def __enter_owner_picking_mode(self, prev_state_id, active):
 
         Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
-        self._btns["owner_picking_{}".format(self._picking_op)].set_active()
+        self._btns[f"owner_picking_{self._picking_op}"].active = True
 
-    def __exit_owner_picking_mode(self, next_state_id, is_active):
+    def __exit_owner_picking_mode(self, next_state_id, active):
 
-        if not is_active:
-            self._btns["owner_picking_{}".format(self._picking_op)].set_active(False)
+        if not active:
+            self._btns[f"owner_picking_{self._picking_op}"].active = False
             self._picking_op = ""
 
     def __toggle_material_name_editable(self):
@@ -1019,14 +1018,14 @@ class MaterialPanel(Panel):
         combobox = self._comboboxes["material"]
         show = combobox.is_input_field_hidden()
         combobox.show_input_field(show)
-        self._edit_mat_name_btn.set_active(show)
+        self._edit_mat_name_btn.active = show
 
     def __toggle_layer_name_editable(self):
 
         combobox = self._comboboxes["layer"]
         show = combobox.is_input_field_hidden()
         combobox.show_input_field(show)
-        self._edit_layer_name_btn.set_active(show)
+        self._edit_layer_name_btn.active = show
 
     def __extract_material(self):
 
@@ -1089,7 +1088,7 @@ class MaterialPanel(Panel):
         alias = "Merge" if merge else "Load"
         on_yes = lambda filename: Mgr.update_remotely("material_library", alias.lower(), filename)
         file_types = ("Material libraries|mtlib", "All types|*")
-        FileDialog(title="{} material library".format(alias),
+        FileDialog(title=f"{alias} material library",
                    ok_alias=alias,
                    file_op="read",
                    on_yes=on_yes,
@@ -1119,7 +1118,7 @@ class MaterialPanel(Panel):
         except:
             return None
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         mat_id = self._selected_mat_id
 
@@ -1129,7 +1128,7 @@ class MaterialPanel(Panel):
         else:
             Mgr.update_remotely("material_prop", mat_id, value_id, value)
 
-    def __handle_layer_value(self, value_id, value, state):
+    def __handle_layer_value(self, value_id, value, state="done"):
 
         mat_id = self._selected_mat_id
         layer_id = self._selected_layer_id
@@ -1355,7 +1354,7 @@ class MaterialPanel(Panel):
 
         def load(tex_filename):
 
-            config_data = GlobalData["config"]
+            config_data = GD["config"]
             texfile_paths = config_data["texfile_paths"]
             path = os.path.dirname(tex_filename)
 
@@ -1368,10 +1367,10 @@ class MaterialPanel(Panel):
             command(tex_filename)
 
         channel_descr = "main" if channel_type == "rgb" else "alpha channel of"
-        caption = "Load " + channel_descr + " {} texture map"
+        caption = "Load " + channel_descr + f" {map_type} texture map"
         file_types = ("Bitmap files|bmp;jpg;png", "All types|*")
 
-        FileDialog(title=caption.format(map_type),
+        FileDialog(title=caption,
                    ok_alias="Load",
                    on_yes=load,
                    file_op="read",
@@ -1486,7 +1485,7 @@ class MaterialPanel(Panel):
 
         mat_id = self._selected_mat_id
         layer_id = self._selected_layer_id
-        prop_id = "is_stored"
+        prop_id = "stored"
         Mgr.update_remotely("tex_layer_prop", mat_id, layer_id, prop_id, on)
 
     def __set_layer_property(self, layer_id, prop_id, value):
@@ -1562,7 +1561,7 @@ class MaterialPanel(Panel):
             self._comboboxes[val_id].select_item(value)
         elif prop_id == "combine_source_channels":
             self._radio_btns[val_id].set_selected_button(value)
-        elif prop_id == "is_stored":
+        elif prop_id == "stored":
             self._checkbuttons[val_id].check(value)
 
     def __select_layer(self, layer_id):
@@ -1788,7 +1787,7 @@ class MaterialToolbar(Toolbar):
 
     def __add_path_to_config(self, path):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         texfile_paths = config_data["texfile_paths"]
 
         if path not in texfile_paths:
@@ -1824,7 +1823,7 @@ class MaterialToolbar(Toolbar):
                     Mgr.update_remotely("selected_obj_tex", tex_data)
 
                 default_filename = Filename.from_os_specific(rgb_filename)
-                FileDialog(title="Load alpha channel of {} texture map".format(map_type),
+                FileDialog(title=f"Load alpha channel of {map_type} texture map",
                            ok_alias="Load",
                            on_yes=load_alpha_channel,
                            file_op="read",
@@ -1837,7 +1836,7 @@ class MaterialToolbar(Toolbar):
                           on_yes=show_alpha_dialog,
                           on_no=update_obj_tex)
 
-        FileDialog(title="Load main {} texture map".format(map_type),
+        FileDialog(title=f"Load main {map_type} texture map",
                    ok_alias="Load",
                    on_yes=load,
                    file_op="read",
@@ -1864,7 +1863,7 @@ class MaterialToolbar(Toolbar):
 
         Mgr.update_remotely("selected_obj_tex", tex_data)
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         if value_id == "shininess":
             prop_data = {"value": value}

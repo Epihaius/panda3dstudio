@@ -1,14 +1,12 @@
 from ..base import *
 
 
-class Grid(BaseObject):
+class Grid:
 
     def __init__(self):
 
-        BaseObject.__init__(self)
-
-        self._origin = self.world.attach_new_node("grid")
-        self._grid_lines = self._origin.attach_new_node("grid_lines")
+        self.origin = GD.world.attach_new_node("grid")
+        self._grid_lines = self.origin.attach_new_node("grid_lines")
         self._axes = self._grid_lines.attach_new_node("grid_axis_lines")
         self._axis_lines = {}
         self._grid_planes = {}
@@ -22,17 +20,7 @@ class Grid(BaseObject):
         self._projector = None
         self._projector_lens = None
 
-        self.expose("plane", lambda: self._active_plane_id)
-        self.expose("origin", lambda: self._origin)
-        self.expose("hpr", self._origin.get_hpr)
-        self.expose("point_at_screen_pos", self.__get_point_at_screen_pos)
-        self.expose("projected_point", self.__get_projected_point)
-        self.expose("snap_point", self.__get_snap_point)
         Mgr.expose("grid", lambda: self)
-        Mgr.accept("update_grid", self.__update)
-        Mgr.accept("adjust_grid_to_lens", self.__adjust_to_lens)
-        Mgr.accept("align_grid_to_view", self.__align_to_view)
-        Mgr.accept("make_grid_pickable", self.__make_pickable)
         Mgr.add_app_updater("active_grid_plane", self.__set_plane)
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
         Mgr.add_app_updater("lens_type", self.__show_horizon)
@@ -41,7 +29,7 @@ class Grid(BaseObject):
         self._scale = 1.
         self._spacing = 10.
 
-        GlobalData.set_default("active_grid_plane", "xy")
+        GD.set_default("active_grid_plane", "xy")
 
         self._active_plane_id = "yz"
 
@@ -50,7 +38,7 @@ class Grid(BaseObject):
         if "views_ok" not in MainObjects.get_setup_results():
             return False
 
-        angle = self.cam.lens.get_fov()[1] * .5
+        angle = GD.cam.lens.fov[1] * .5
         self._ref_dist = .25 * 300. / math.tan(math.radians(angle))
 
         picking_mask = Mgr.get("picking_mask")
@@ -58,7 +46,7 @@ class Grid(BaseObject):
         if picking_mask is None:
             return False
 
-        self._origin.hide(picking_mask)
+        self.origin.hide(picking_mask)
 
         for plane_id in ("xy", "xz", "yz"):
             plane = self.__create_plane(plane_id)
@@ -101,36 +89,41 @@ class Grid(BaseObject):
             plane.set_bin("fixed", 1)
             plane.set_depth_write(False)
 
-        self._origin.set_transparency(TransparencyAttrib.M_alpha)
-        tex_stage = TextureStage.get_default()
+        self.origin.set_transparency(TransparencyAttrib.M_alpha)
+        tex_stage = TextureStage.default
         lens = PerspectiveLens()
-        lens.set_fov(145., 145.)
+        lens.fov = 145.
         lens_node = LensNode("grid_proj_lens", lens)
-        self._projector_pivot = self._origin.attach_new_node("grid_proj_origin")
+        self._projector_pivot = self.origin.attach_new_node("grid_proj_origin")
         self._projector = self._projector_pivot.attach_new_node("grid_projector")
         self._projector_lens = self._projector.attach_new_node(lens_node)
         self._projector_lens.set_p(-90.)
         self._grid_lines.set_tex_gen(tex_stage, TexGenAttrib.M_world_position)
-        self._grid_lines.set_tex_projector(tex_stage, self.world, self._projector_lens)
+        self._grid_lines.set_tex_projector(tex_stage, GD.world, self._projector_lens)
         tex = Mgr.load_tex(GFX_PATH + "gridfade.png")
-        tex.set_wrap_u(Texture.WM_clamp)
-        tex.set_wrap_v(Texture.WM_clamp)
+        tex.wrap_u = Texture.WM_clamp
+        tex.wrap_v = Texture.WM_clamp
         self._grid_lines.set_texture(tex_stage, tex)
 
         for i, axis_id in enumerate("xyz"):
             plane_id = "xyz".replace(axis_id, "")
             normal = Vec3(0., 0., 0.)
             normal[i] = 1.
-            plane_node = PlaneNode("grid_plane_{}".format(plane_id.lower()), Plane(normal, Point3()))
-            self._planes[plane_id] = self._origin.attach_new_node(plane_node)
+            plane_node = PlaneNode(f"grid_plane_{plane_id.lower()}", Plane(normal, Point3()))
+            self._planes[plane_id] = self.origin.attach_new_node(plane_node)
 
         self.__set_plane("xy")
 
         return "grid_ok"
 
+    @property
+    def plane_id(self):
+
+        return self._active_plane_id
+
     def __handle_viewport_resize(self):
 
-        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
         scale = 800. / max(w, h)
         self._axis_indicator.set_scale(scale)
 
@@ -163,8 +156,8 @@ class Grid(BaseObject):
         horizon_geom.add_primitive(horizon_line)
         horizon_node = GeomNode("horizon")
         horizon_node.add_geom(horizon_geom)
-        pivot = self.cam().attach_new_node("horizon_pivot")
-        pivot.set_compass(self._origin)
+        pivot = GD.cam().attach_new_node("horizon_pivot")
+        pivot.set_compass(self.origin)
         self._horizon_line = pivot.attach_new_node(horizon_node)
         self._horizon_line.set_color(.35, .35, .35)
         self._horizon_line.set_bin("background", 0)
@@ -201,11 +194,11 @@ class Grid(BaseObject):
 
         axis_indicator_node = GeomNode("axis_indicator")
         axis_indicator_node.add_geom(axis_indicator_geom)
-        self._axis_indicator = self._origin.attach_new_node(axis_indicator_node)
+        self._axis_indicator = self.origin.attach_new_node(axis_indicator_node)
         self._axis_indicator.set_bin("background", 0)
         self._axis_indicator.set_depth_test(False)
         self._axis_indicator.set_depth_write(False)
-        self._horizon_point_pivot = self._origin.attach_new_node("horizon_point_pivot")
+        self._horizon_point_pivot = self.origin.attach_new_node("horizon_point_pivot")
         self._horizon_point = self._horizon_point_pivot.attach_new_node("horizon_point")
 
     def __create_line(self, axis_id):
@@ -227,14 +220,14 @@ class Grid(BaseObject):
         line.add_vertices(0, 1)
         line_geom = Geom(vertex_data)
         line_geom.add_primitive(line)
-        line_node = GeomNode("grid_line_{}".format(axis_id.lower()))
+        line_node = GeomNode(f"grid_line_{axis_id.lower()}")
         line_node.add_geom(line_geom)
 
         return NodePath(line_node)
 
     def __create_plane(self, plane_id):
 
-        geom_node = GeomNode("grid_plane_{}".format(plane_id.lower()))
+        geom_node = GeomNode(f"grid_plane_{plane_id.lower()}")
         node_path = NodePath(geom_node)
 
         axis_id1, axis_id2 = plane_id
@@ -329,11 +322,11 @@ class Grid(BaseObject):
 
         return node_path
 
-    def __update(self, force=False):
+    def update(self, force=False):
 
-        cam = self.cam()
-        lens_type = self.cam.lens_type
-        cam_pos = cam.get_pos(self._origin)
+        cam = GD.cam()
+        lens_type = GD.cam.lens_type
+        cam_pos = cam.get_pos(self.origin)
 
         if lens_type == "persp":
 
@@ -343,7 +336,7 @@ class Grid(BaseObject):
 
             point = Point3()
             plane = self._planes[self._active_plane_id].node().get_plane()
-            cam_vec = self._origin.get_relative_vector(cam, Vec3(0., 10000., 0.))
+            cam_vec = self.origin.get_relative_vector(cam, Vec3(0., 10000., 0.))
 
             if not plane.intersects_line(point, cam_pos, cam_pos + cam_vec):
                 point = Point3()
@@ -361,7 +354,7 @@ class Grid(BaseObject):
             c_offset = min(1000000., abs(c))
             d = c_offset / self._ref_dist
         else:
-            d = self.cam.target.get_sx()
+            d = GD.cam.target.get_sx()
 
         if d > .0005:
             ceil1 = 10. ** math.ceil(math.log(d, 10.))
@@ -398,7 +391,7 @@ class Grid(BaseObject):
             self._horizon_point_pivot.set_pos(cam_pos)
             self._horizon_point.set_h(cam.get_h(self._horizon_point_pivot))
             proj = -5. * c / (5. + abs(c))
-            pos = self._origin.get_relative_point(self._horizon_point, Point3(0., 100., proj))
+            pos = self.origin.get_relative_point(self._horizon_point, Point3(0., 100., proj))
             self._axis_indicator.set_pos(pos)
         else:
             cam_vec = self._projector_pivot.get_relative_vector(cam, Vec3.forward())
@@ -406,22 +399,22 @@ class Grid(BaseObject):
             alpha = min(1., max(0., abs(V3D(0., 0., 1.) * V3D(cam_vec)) - .5) * 4.)
             self._grid_lines.set_alpha_scale(alpha)
 
-    def __adjust_to_lens(self):
+    def adjust_to_lens(self):
 
-        tex_stage = TextureStage.get_default()
+        tex_stage = TextureStage.default
 
-        if self.cam.lens_type == "persp":
+        if GD.cam.lens_type == "persp":
             self._grid_lines.clear_color_scale()
-            self._grid_lines.set_tex_projector(tex_stage, self.world, self._projector_lens)
+            self._grid_lines.set_tex_projector(tex_stage, GD.world, self._projector_lens)
             tex = Mgr.load_tex(GFX_PATH + "gridfade.png")
-            tex.set_wrap_u(Texture.WM_clamp)
-            tex.set_wrap_v(Texture.WM_clamp)
+            tex.wrap_u = Texture.WM_clamp
+            tex.wrap_v = Texture.WM_clamp
             self._grid_lines.set_texture(tex_stage, tex)
         else:
             self._grid_lines.clear_tex_projector()
             self._grid_lines.clear_texture()
 
-        self.__update(force=True)
+        self.update(force=True)
 
     def __change_plane(self, plane_id):
 
@@ -442,31 +435,31 @@ class Grid(BaseObject):
         self._horizon_point_pivot.set_hpr(hpr)
         self._projector_pivot.set_hpr(hpr)
 
-    def __align_to_view(self, align=True):
+    def align_to_view(self, align=True):
 
         if align:
             self.__change_plane("xy")
         else:
-            self.__change_plane(GlobalData["active_grid_plane"])
+            self.__change_plane(GD["active_grid_plane"])
 
-        self.__update(force=True)
+        self.update(force=True)
 
     def __set_plane(self, plane_id):
 
-        GlobalData["active_grid_plane"] = plane_id
+        GD["active_grid_plane"] = plane_id
 
-        if GlobalData["coord_sys_type"] != "view" and plane_id != self._active_plane_id:
+        if GD["coord_sys_type"] != "view" and plane_id != self._active_plane_id:
             self.__change_plane(plane_id)
 
-        self.__update(force=True)
+        self.update(force=True)
 
-    def __get_point_at_screen_pos(self, screen_pos, point_in_plane=None):
+    def get_point_at_screen_pos(self, screen_pos, point_in_plane=None):
 
-        cam = self.cam()
+        cam = GD.cam()
         near_point = Point3()
         far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self._origin.get_relative_point(cam, point)
+        GD.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: self.origin.get_relative_point(cam, point)
 
         point = Point3()
         plane = self._planes[self._active_plane_id].node().get_plane()
@@ -477,7 +470,7 @@ class Grid(BaseObject):
         if plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point)):
             return point
 
-    def __get_projected_point(self, point, point_in_plane=None):
+    def get_projected_point(self, point, point_in_plane=None):
 
         plane = self._planes[self._active_plane_id].node().get_plane()
 
@@ -486,7 +479,7 @@ class Grid(BaseObject):
 
         return plane.project(point)
 
-    def __get_snap_point(self, color):
+    def get_snap_point(self, color):
 
         r, g, b, a = color
 
@@ -496,9 +489,9 @@ class Grid(BaseObject):
             z = round(b * 255. - 100.) * 10.
             point = Point3(x, y, z)
             plane = self._grid_planes[self._active_plane_id]
-            return self._origin.get_relative_point(plane, point)
+            return self.origin.get_relative_point(plane, point)
 
-    def __make_pickable(self, mask_index, pickable=True):
+    def make_pickable(self, mask_index, pickable=True):
 
         picking_mask = Mgr.get("picking_mask", mask_index)
 

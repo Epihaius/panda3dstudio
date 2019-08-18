@@ -1,7 +1,7 @@
 from ...base import *
 
 
-class TransformationGizmo(BaseObject):
+class TransformationGizmo:
 
     _picking_col_id_generator = lambda: None
 
@@ -11,8 +11,6 @@ class TransformationGizmo(BaseObject):
         cls._picking_col_id_generator = col_id_generator
 
     def __init__(self):
-
-        BaseObject.__init__(self)
 
         self._origin = None
         self._render_mask = Mgr.get("gizmo_render_mask")
@@ -54,8 +52,7 @@ class DisabledGizmo(TransformationGizmo):
 
     def _create_handles(self):
 
-        root = Mgr.get("transf_gizmo_root")
-        self._origin = root.attach_new_node("disabled_gizmo")
+        self._origin = Mgr.get("transf_gizmo").root.attach_new_node("disabled_gizmo")
         self._origin.hide(self._picking_mask)
 
         for i, axis in enumerate("xyz"):

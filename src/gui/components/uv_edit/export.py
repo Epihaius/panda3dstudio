@@ -122,7 +122,7 @@ class ExportPanel(Panel):
 
         Mgr.add_app_updater("uv_template", self.__set_template_property, interface_id="uv")
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         Mgr.update_interface_remotely("uv", "uv_template", value_id, value)
 
@@ -143,13 +143,13 @@ class ExportPanel(Panel):
     def __handle_subobj_rgb(self, subobj_type, color):
 
         r, g, b = color
-        Mgr.update_interface_remotely("uv", "uv_template", "{}_rgb".format(subobj_type), (r, g, b, 1.))
+        Mgr.update_interface_remotely("uv", "uv_template", f"{subobj_type}_rgb", (r, g, b, 1.))
 
     def __export(self):
 
         def save(filename):
 
-            config_data = GlobalData["config"]
+            config_data = GD["config"]
             texfile_paths = config_data["texfile_paths"]
             path = os.path.dirname(filename)
 

@@ -37,7 +37,7 @@ class OptionManager:
         item = gui_view_menu.add("show_ctrl_pane", "control pane", command, item_type="check")
         items["control_pane"] = item
         gui_view_menu.add("show_all", "all", self.__show_all_components)
-        mod_key_codes = GlobalData["mod_key_codes"]
+        mod_key_codes = GD["mod_key_codes"]
         hotkey = ("x", mod_key_codes["ctrl"] | mod_key_codes["alt"])
         gui_view_menu.set_item_hotkey("show_all", hotkey, "Ctrl+Alt+X")
         gui_view_menu.add("show_none", "none", self.__hide_all_components)
@@ -54,9 +54,9 @@ class OptionManager:
 
     def setup(self):
 
-        layout = GlobalData["config"]["gui_layout"]
+        layout = GD["config"]["gui_layout"]
         self._menu_items["ctrl_pane_left"].check(layout["right_dock"] == "left")
-        component_view = GlobalData["config"]["gui_view"]
+        component_view = GD["config"]["gui_view"]
         items = self._component_view_items
 
         for component_type in ("menubar", "statusbar", "toolbars", "control_pane"):
@@ -112,13 +112,13 @@ class OptionManager:
 
     def __set_right_dock_side(self):
 
-        layout = GlobalData["config"]["gui_layout"]
+        layout = GD["config"]["gui_layout"]
         side = "right" if layout["right_dock"] == "left" else "left"
         Mgr.do("set_right_dock_side", side)
 
     def __reset_gui_layout(self):
 
-        interface_id = GlobalData["active_interface"]
+        interface_id = GD["active_interface"]
 
         def update_layout(of_all_interfaces=True):
 
@@ -128,7 +128,7 @@ class OptionManager:
                 Mgr.do("reset_layout_data", interface_id)
 
             Mgr.do("set_right_dock_side", "right")
-            Mgr.do("update_{}_layout".format(interface_id))
+            Mgr.do(f"update_{interface_id}_layout")
             self._menu_items["ctrl_pane_left"].check(False)
 
         if interface_id == "main":
@@ -137,7 +137,7 @@ class OptionManager:
             interface_name = "UV"
 
         MessageDialog(title="Update GUI layout",
-                      message="Reset layout of {} interface only?".format(interface_name),
+                      message=f"Reset layout of {interface_name} interface only?",
                       choices="yesnocancel",
                       on_yes=lambda: update_layout(of_all_interfaces=False),
                       on_no=update_layout)
@@ -146,8 +146,8 @@ class OptionManager:
 
         def on_yes(filename):
 
-            config_data = GlobalData["config"]
-            interface_id = GlobalData["active_interface"]
+            config_data = GD["config"]
+            interface_id = GD["active_interface"]
 
             with open(filename, "rb") as layout_file:
                 try:
@@ -171,7 +171,7 @@ class OptionManager:
 
                 side = layout["right_dock"]
                 Mgr.do("set_right_dock_side", side)
-                Mgr.do("update_{}_layout".format(interface_id))
+                Mgr.do(f"update_{interface_id}_layout")
                 self._menu_items["ctrl_pane_left"].check(side == "left")
 
             if interface_id == "main":
@@ -180,7 +180,7 @@ class OptionManager:
                 interface_name = "UV"
 
             MessageDialog(title="Update GUI layout",
-                          message="Update layout of {} interface only?".format(interface_name),
+                          message=f"Update layout of {interface_name} interface only?",
                           choices="yesnocancel",
                           on_yes=lambda: update_layout(of_all_interfaces=False),
                           on_no=update_layout)
@@ -213,7 +213,7 @@ class OptionManager:
 
                 with open(filename, "wb") as layout_file:
                     pickle.dump("Panda3D Studio GUI Layout", layout_file, -1)
-                    pickle.dump(GlobalData["config"]["gui_layout"], layout_file, -1)
+                    pickle.dump(GD["config"]["gui_layout"], layout_file, -1)
 
         FileDialog(title="Save GUI layout",
                    ok_alias="Save", on_yes=on_yes, file_op="write",

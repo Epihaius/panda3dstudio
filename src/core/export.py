@@ -1,7 +1,7 @@
 from .base import *
 
 
-class ExportManager(BaseObject):
+class ExportManager:
 
     def __init__(self):
 

@@ -2,15 +2,15 @@ from ..base import *
 from .vert import Vertex, MergedVertex
 from .edge import Edge, MergedEdge
 from .poly import Polygon
-from .vert_edit import VertexEditBase
-from .edge_edit import EdgeEditBase
-from .poly_edit import PolygonEditBase
-from .select import UVDataSelectionBase
-from .transform import UVDataTransformBase
+from .vert_edit import VertexEditMixin
+from .edge_edit import EdgeEditMixin
+from .poly_edit import PolygonEditMixin
+from .select import SelectionMixin
+from .transform import TransformMixin
 
 
-class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
-                   EdgeEditBase, PolygonEditBase):
+class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
+                   EdgeEditMixin, PolygonEditMixin):
 
     def __init__(self, uv_set_id, uv_registry, geom_data_obj, data_copy=None):
 
@@ -29,13 +29,13 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
             for subobj_type in ("vert", "edge", "poly"):
                 for subobj in subobjs[subobj_type].values():
-                    subobj.set_uv_data_object(self)
+                    subobj.uv_data_obj = self
 
             for merged_vert in merged_verts.values():
-                merged_vert.set_uv_data_object(self)
+                merged_vert.uv_data_obj = self
 
             for merged_edge in merged_edges.values():
-                merged_edge.set_uv_data_object(self)
+                merged_edge.uv_data_obj = self
 
         else:
 
@@ -46,10 +46,10 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             seam_edge_ids = []
             data_row_count = 0
             vertex_data_poly = None
-            model = geom_data_obj.get_toplevel_object()
-            name = "{}_uv_origin".format(model.get_id())
-            origin = self.geom_root.attach_new_node(name)
-            origin.node().set_final(True)
+            model = geom_data_obj.toplevel_obj
+            name = f"{model.id}_uv_origin"
+            origin = GD.uv_geom_root.attach_new_node(name)
+            origin.node().final = True
             geoms = {}
 
             for subobj_type in ("vert", "edge", "poly"):
@@ -60,24 +60,24 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             del geoms["poly"]["pickable"]
 
         self._uv_set_id = uv_set_id
-        self._geom_data_obj = geom_data_obj
+        self.geom_data_obj = geom_data_obj
         self._subobjs = subobjs
         self._indexed_subobjs = indexed_subobjs
-        self._merged_verts = merged_verts
-        self._merged_edges = merged_edges
+        self.merged_verts = merged_verts
+        self.merged_edges = merged_edges
         self._seam_edge_ids = seam_edge_ids
         self._data_row_count = data_row_count
         self._vertex_data_poly = vertex_data_poly
-        self._origin = origin
+        self.origin = origin
         self._geoms = geoms
 
         self._tmp_geom_pickable = None
         self._tmp_geom_sel_state = None
         self._tmp_row_indices = {}
 
-        UVDataSelectionBase.__init__(self, data_copy)
+        SelectionMixin.__init__(self, data_copy)
         is_copy = True if data_copy else False
-        UVDataTransformBase.__init__(self, is_copy)
+        TransformMixin.__init__(self, is_copy)
 
         if not data_copy:
             self.__process_geom_data(uv_registry)
@@ -92,21 +92,21 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         subobjs = {}
         indexed_subobjs = {}
         vertex_data_poly = GeomVertexData(self._vertex_data_poly)
-        origin = self._origin
-        origin_copy = origin.copy_to(self.geom_root)
+        origin = self.origin
+        origin_copy = origin.copy_to(GD.uv_geom_root)
         origin_copy.detach_node()
         geoms = {}
         geoms["seam"] = origin_copy.find("**/seam_geom")
 
         for subobj_type in ("vert", "edge", "poly"):
-            subobjs[subobj_type] = d = dict((k, v.copy()) for k, v in self._subobjs[subobj_type].items())
-            indexed_subobjs[subobj_type] = dict((k, d[v.get_id()])
-                for k, v in self._indexed_subobjs[subobj_type].items())
+            subobjs[subobj_type] = d = {k: v.copy() for k, v in self._subobjs[subobj_type].items()}
+            indexed_subobjs[subobj_type] = {k: d[v.id] for k, v in
+                                            self._indexed_subobjs[subobj_type].items()}
             geoms[subobj_type] = {}
 
         for subobj_type in ("vert", "edge"):
             for geom_type in ("pickable", "sel_state"):
-                path = "**/{}_{}_geom".format(subobj_type, geom_type)
+                path = f"**/{subobj_type}_{geom_type}_geom"
                 src_geom = origin.find(path)
                 vertex_data = GeomVertexData(src_geom.node().get_geom(0).get_vertex_data())
                 geom = origin_copy.find(path)
@@ -121,34 +121,32 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         geoms["poly"]["sel_state"] = geom
 
         data_copy = {}
-        data_copy["geom_data_obj"] = self._geom_data_obj
+        data_copy["geom_data_obj"] = self.geom_data_obj
         data_copy["subobjs"] = subobjs
         data_copy["indexed_subobjs"] = indexed_subobjs
-        merged_verts = self._merged_verts
-        merged_vert_copies = dict((mv, mv.copy()) for mv in set(merged_verts.values()))
-        data_copy["merged_verts"] = dict((k, merged_vert_copies[v])
-                                         for k, v in merged_verts.items())
-        merged_edges = self._merged_edges
-        merged_edge_copies = dict((me, me.copy()) for me in set(merged_edges.values()))
-        data_copy["merged_edges"] = dict((k, merged_edge_copies[v])
-                                         for k, v in merged_edges.items())
+        merged_verts = self.merged_verts
+        merged_vert_copies = {mv: mv.copy() for mv in set(merged_verts.values())}
+        data_copy["merged_verts"] = {k: merged_vert_copies[v] for k, v in merged_verts.items()}
+        merged_edges = self.merged_edges
+        merged_edge_copies = {me: me.copy() for me in set(merged_edges.values())}
+        data_copy["merged_edges"] = {k: merged_edge_copies[v] for k, v in merged_edges.items()}
         data_copy["seam_edge_ids"] = self._seam_edge_ids[:]
         data_copy["data_row_count"] = self._data_row_count
         data_copy["vertex_data_poly"] = vertex_data_poly
         data_copy["origin"] = origin_copy
         data_copy["geoms"] = geoms
-        data_copy.update(UVDataSelectionBase.copy(self))
+        data_copy.update(SelectionMixin.copy(self))
 
         return UVDataObject(uv_set_id, None, None, data_copy)
 
     def destroy(self):
 
-        self._origin.remove_node()
-        self._geom_data_obj.destroy_tex_seams(self._uv_set_id)
+        self.origin.remove_node()
+        self.geom_data_obj.destroy_tex_seams(self._uv_set_id)
 
     def __process_geom_data(self, uv_registry):
 
-        geom_data_obj = self._geom_data_obj
+        geom_data_obj = self.geom_data_obj
 
         verts = geom_data_obj.get_subobjects("vert")
         edges = geom_data_obj.get_subobjects("edge")
@@ -173,29 +171,29 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                         vert = verts[vert_id]
                         u, v = vert.get_uvs(uv_set_id)
                         pos = Point3(u, 0., v)
-                        edge_ids = vert.get_edge_ids()
-                        picking_col_id = vert.get_picking_color_id()
+                        edge_ids = vert.edge_ids
+                        picking_col_id = vert.picking_color_id
                         uv_vert = Vertex(vert_id, picking_col_id, pos, self, poly_id, edge_ids)
-                        uv_vert.set_row_index(row_index)
+                        uv_vert.row_index = row_index
                         row_index += 1
                         uv_registry["vert"][picking_col_id] = uv_vert
                         uv_verts[vert_id] = uv_vert
 
-            for edge_id in poly.get_edge_ids():
+            for edge_id in poly.edge_ids:
                 edge = edges[edge_id]
-                picking_col_id = edge.get_picking_color_id()
+                picking_col_id = edge.picking_color_id
                 uv_edge = Edge(edge_id, picking_col_id, self, poly_id, edge[:])
                 uv_registry["edge"][picking_col_id] = uv_edge
                 uv_edges[edge_id] = uv_edge
 
-            picking_col_id = poly.get_picking_color_id()
-            uv_poly = Polygon(poly_id, picking_col_id, self, poly[:], poly.get_vertex_ids()[:],
-                              poly.get_edge_ids()[:])
+            picking_col_id = poly.picking_color_id
+            uv_poly = Polygon(poly_id, picking_col_id, self, poly[:], poly.vertex_ids[:],
+                              poly.edge_ids[:])
             uv_registry["poly"][picking_col_id] = uv_poly
             uv_polys[poly_id] = uv_poly
 
-        merged_uv_verts = self._merged_verts
-        merged_uv_edges = self._merged_edges
+        merged_uv_verts = self.merged_verts
+        merged_uv_edges = self.merged_edges
 
         for vert_id, uv_vert in uv_verts.items():
 
@@ -227,7 +225,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         seam_edges = [m_e for m_e in merged_uv_edges.values() if len(m_e) == 1]
         self.fix_seams(seam_edges)
-        self._seam_edge_ids.extend(s_e.get_id() for s_e in seam_edges)
+        self._seam_edge_ids.extend(s_e.id for s_e in seam_edges)
 
     def __create_geometry(self):
 
@@ -284,8 +282,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
             poly_corners = []
             processed_verts = []
-            picking_color_poly = get_color_vec(poly.get_picking_color_id(),
-                                               pickable_id_poly)
+            picking_color_poly = get_color_vec(poly.picking_color_id, pickable_id_poly)
 
             for vert_ids in poly:
 
@@ -300,7 +297,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                         pos_writer.add_data3(pos)
                         col_writer_poly.add_data4(picking_color_poly)
                         ind_writer_poly.add_data1i(poly_index)
-                        picking_color_vert = get_color_vec(vert.get_picking_color_id(),
+                        picking_color_vert = get_color_vec(vert.picking_color_id,
                                                            pickable_id_vert)
                         col_writer_vert.add_data4(picking_color_vert)
                         ind_writer_vert.add_data1i(vert_index)
@@ -308,13 +305,12 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                         vert_index += 1
                         processed_verts.append(vert)
 
-                    tris_prim.add_vertex(vert.get_row_index())
+                    tris_prim.add_vertex(vert.row_index)
 
-            for edge in poly.get_edges():
-                row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
+            for edge in poly.edges:
+                row1, row2 = [verts[v_id].row_index for v_id in edge]
                 lines_prim.add_vertices(row1, row2 + count)
-                picking_color_edge = get_color_vec(edge.get_picking_color_id(),
-                                                   pickable_id_edge)
+                picking_color_edge = get_color_vec(edge.picking_color_id, pickable_id_edge)
                 col_writer_edge.set_row(row1)
                 col_writer_edge.set_data4(picking_color_edge)
                 col_writer_edge.set_row(row2 + count)
@@ -326,7 +322,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                 indexed_edges[edge_index] = edge
                 edge_index += 1
 
-            row_index_offset += poly.get_vertex_count()
+            row_index_offset += poly.vertex_count
 
             sel_data.extend(poly)
 
@@ -350,7 +346,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         vertex_data_edge.set_array(0, pos_array_edge)
 
         geoms = self._geoms
-        origin = self._origin
+        origin = self.origin
 
         render_mask = UVMgr.get("render_mask")
         picking_mask = UVMgr.get("picking_mask")
@@ -373,7 +369,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         new_data = vertex_data.set_color(sel_colors["vert"]["unselected"])
         vertex_data.set_array(1, new_data.get_array(1))
         vert_sel_state_geom.set_state(UVMgr.get("vert_render_state"))
-        vert_sel_state_geom.set_name("vert_sel_state_geom")
+        vert_sel_state_geom.name = "vert_sel_state_geom"
         geoms["vert"]["sel_state"] = vert_sel_state_geom
 
         lines_geom = Geom(vertex_data_edge)
@@ -389,17 +385,17 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         vertex_data = edge_sel_state_geom.node().modify_geom(0).modify_vertex_data()
         new_data = vertex_data.set_color(sel_colors["edge"]["unselected"])
         vertex_data.set_array(1, new_data.get_array(1))
-        edge_sel_state_geom.set_name("edge_sel_state_geom")
+        edge_sel_state_geom.name = "edge_sel_state_geom"
         geoms["edge"]["sel_state"] = edge_sel_state_geom
         self.clear_selection("edge")
 
         edge_pickable_geom.show_through(uv_template_mask)
         edge_pickable_geom.set_tag("uv_template", "edge")
-        color = self._geom_data_obj.get_toplevel_object().get_color()
+        color = self.geom_data_obj.toplevel_obj.get_color()
         edge_pickable_geom.set_color(color)
 
         seam_geom = edge_pickable_geom.copy_to(edge_pickable_geom)
-        seam_geom.set_name("seam_geom")
+        seam_geom.name = "seam_geom"
         seam_geom.set_color(sel_colors["seam"]["unselected"])
         seam_geom.show(masks)
         seam_geom.set_bin("background", 12)
@@ -426,9 +422,8 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         bounds = origin.get_bounds()
 
-        if bounds.get_radius() == 0.:
-            center = bounds.get_center()
-            bounds = BoundingSphere(center, .1)
+        if bounds.radius == 0.:
+            bounds = BoundingSphere(bounds.center, .1)
             origin.node().set_bounds(bounds)
 
         self.update_seams()
@@ -450,7 +445,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
         for edge_id in seam_edge_ids:
             tmp_merged_edge.append(edge_id)
 
-        row_indices = tmp_merged_edge.get_start_row_indices()
+        row_indices = tmp_merged_edge.start_row_indices
         edge_array = edge_prim.get_vertices()
         stride = edge_array.array_format.stride
         edge_view = memoryview(edge_array).cast("B")
@@ -477,7 +472,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         self._seam_edge_ids.extend(edge_ids)
         edges = self._subobjs["edge"]
-        row_indices = [edges[edge_id].get_start_row_index() for edge_id in edge_ids]
+        row_indices = [edges[edge_id].start_row_index for edge_id in edge_ids]
 
         geoms = self._geoms
 
@@ -508,13 +503,13 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             seam_view[offset:offset+size_] = edge_view[start_:start_+size_]
             row_count += size
 
-        self._geom_data_obj.add_tex_seam_edges(self._uv_set_id, edge_ids)
+        self.geom_data_obj.add_tex_seam_edges(self._uv_set_id, edge_ids)
 
     def remove_seam_edges(self, edge_ids):
 
         seam_edge_ids = self._seam_edge_ids
         selected_edge_ids = self._selected_subobj_ids["edge"]
-        merged_edges = self._merged_edges
+        merged_edges = self.merged_edges
         tmp_merged_edge1 = MergedEdge(self)
         tmp_merged_edge2 = MergedEdge(self)
 
@@ -530,21 +525,21 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
                 tmp_merged_edge2.append(edge_id)
 
         if tmp_merged_edge1[:]:
-            edge_id = tmp_merged_edge1.get_id()
+            edge_id = tmp_merged_edge1.id
             orig_merged_edge = merged_edges[edge_id]
             merged_edges[edge_id] = tmp_merged_edge1
             self.update_selection("edge", [tmp_merged_edge1], [], False)
             merged_edges[edge_id] = orig_merged_edge
 
         if tmp_merged_edge2[:]:
-            edge_id = tmp_merged_edge2.get_id()
+            edge_id = tmp_merged_edge2.id
             orig_merged_edge = merged_edges[edge_id]
             merged_edges[edge_id] = tmp_merged_edge2
             self.update_selection("edge", [], [tmp_merged_edge2], False)
             merged_edges[edge_id] = orig_merged_edge
 
         edges = self._subobjs["edge"]
-        row_indices = [edges[edge_id].get_start_row_index() for edge_id in edge_ids]
+        row_indices = [edges[edge_id].start_row_index for edge_id in edge_ids]
 
         seam_geom = self._geoms["seam"]
         seam_prim = seam_geom.node().modify_geom(0).modify_primitive(0)
@@ -569,31 +564,15 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             row_count += size
 
         array.set_num_rows(row_count)
-        self._geom_data_obj.remove_tex_seam_edges(self._uv_set_id, edge_ids)
-
-    def get_geom_data_object(self):
-
-        return self._geom_data_obj
-
-    def get_origin(self):
-
-        return self._origin
-
-    def get_merged_vertices(self):
-
-        return self._merged_verts
-
-    def get_merged_edges(self):
-
-        return self._merged_edges
+        self.geom_data_obj.remove_tex_seam_edges(self._uv_set_id, edge_ids)
 
     def get_merged_vertex(self, vert_id):
 
-        return self._merged_verts[vert_id]
+        return self.merged_verts[vert_id]
 
     def get_merged_edge(self, edge_id):
 
-        return self._merged_edges[edge_id]
+        return self.merged_edges[edge_id]
 
     def get_subobjects(self, subobj_type):
 
@@ -643,7 +622,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             poly_geom.hide(picking_mask)
 
         if affect_sel_backup:
-            if GlobalData["uv_edit_options"]["pick_via_poly"]:
+            if GD["uv_edit_options"]["pick_via_poly"]:
                 if subobj_lvl in ("vert", "edge"):
                     self.create_selection_backup("poly")
                 else:
@@ -659,7 +638,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         if pickable:
 
-            active_obj_lvl = GlobalData["active_obj_level"]
+            active_obj_lvl = GD["active_obj_level"]
             self.show_subobj_level(active_obj_lvl, False)
 
         else:
@@ -673,7 +652,7 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
         geoms = self._geoms
 
-        if GlobalData["uv_edit_options"]["pick_via_poly"]:
+        if GD["uv_edit_options"]["pick_via_poly"]:
             self.create_selection_backup("poly")
             self.prepare_subobj_picking_via_poly(subobj_lvl)
         else:
@@ -698,12 +677,12 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
             self._tmp_geom_sel_state = None
             self._tmp_row_indices = {}
 
-            if GlobalData["uv_edit_options"]["pick_by_aiming"]:
+            if GD["uv_edit_options"]["pick_by_aiming"]:
                 aux_picking_root = Mgr.get("aux_picking_root")
                 tmp_geom_pickable = aux_picking_root.find("**/tmp_geom_pickable")
                 tmp_geom_pickable.remove_node()
                 aux_picking_cam = UVMgr.get("aux_picking_cam")
-                aux_picking_cam.set_active(False)
+                aux_picking_cam.active = False
                 UVMgr.do("end_drawing_aux_picking_viz")
 
         # Allow picking polys instead of the subobjects of the given type;
@@ -753,8 +732,8 @@ class UVDataObject(UVDataSelectionBase, UVDataTransformBase, VertexEditBase,
 
     def show(self):
 
-        self._origin.reparent_to(self.geom_root)
+        self.origin.reparent_to(GD.uv_geom_root)
 
     def hide(self):
 
-        self._origin.detach_node()
+        self.origin.detach_node()

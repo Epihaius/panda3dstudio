@@ -1,7 +1,8 @@
 from .base import *
 
 
-class SelectionTransformBase(BaseObject):
+class TransformMixin:
+    """ Selection class mix-in """
 
     def __init__(self):
 
@@ -26,7 +27,7 @@ class SelectionTransformBase(BaseObject):
         if not self._objs:
             return
 
-        self._center_pos = sum([obj.get_center_pos(self.world)
+        self._center_pos = sum([obj.get_center_pos(GD.world)
                                for obj in self._objs], Point3()) / len(self._objs)
 
     def get_center_pos(self):
@@ -35,8 +36,8 @@ class SelectionTransformBase(BaseObject):
 
     def update_ui(self):
 
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
 
         if tc_type == "adaptive":
             adaptive_tc_type = Mgr.get("adaptive_transf_center_type")
@@ -74,18 +75,19 @@ class SelectionTransformBase(BaseObject):
 
         if count:
             if "sel_center" in (tc_type, adaptive_tc_type):
-                Mgr.do("set_transf_gizmo_pos", self.get_center_pos())
+                Mgr.get("transf_gizmo").pos = self.get_center_pos()
             elif "pivot" in (tc_type, adaptive_tc_type):
-                Mgr.do("set_transf_gizmo_pos", Mgr.get("transf_center_pos"))
+                Mgr.get("transf_gizmo").pos = Mgr.get("transf_center_pos")
 
-        transform_values = obj.get_transform_values() if count == 1 else None
+        transform_values = obj.transform_values if count == 1 else None
         Mgr.update_remotely("transform_values", transform_values)
 
-        prev_count = GlobalData["selection_count"]
+        prev_count = GD["selection_count"]
 
         if count != prev_count:
-            Mgr.do("{}_transf_gizmo".format("show" if count else "hide"))
-            GlobalData["selection_count"] = count
+            transf_gizmo = Mgr.get("transf_gizmo")
+            transf_gizmo.show() if count else transf_gizmo.hide()
+            GD["selection_count"] = count
 
     def set_transform_component(self, objs_to_transform, transf_type, axis, value, is_rel_value,
                                 rel_to_world=False, transformer=None, state="done"):
@@ -116,12 +118,12 @@ class SelectionTransformBase(BaseObject):
             if transf_type == "scale":
                 value = max(10e-008, abs(value)) * (-1. if value < 0. else 1.)
 
-            target_type = GlobalData["transform_target_type"]
-            cs_type = GlobalData["coord_sys_type"]
-            grid_origin = None if cs_type == "local" else Mgr.get(("grid", "origin"))
+            target_type = GD["transform_target_type"]
+            cs_type = GD["coord_sys_type"]
+            grid_origin = None if cs_type == "local" else Mgr.get("grid").origin
             value_setter = transformer if transformer else self._value_setters[transf_type][axis]
             objs = objs_to_transform[:]
-            tc_type = GlobalData["transf_center_type"]
+            tc_type = GD["transf_center_type"]
             use_transf_center = not (transf_type == "translate" or tc_type == "pivot"
                                 or (cs_type == "local" and tc_type == "cs_origin"))
 
@@ -137,18 +139,19 @@ class SelectionTransformBase(BaseObject):
                     ancestor_found = False
 
                     for other_obj in other_objs:
-                        if other_obj in obj.get_ancestors():
+                        if other_obj in obj.ancestors:
                             ancestor_found = True
                             break
 
                     if not ancestor_found:
-                        node = obj.get_origin() if target_type == "geom" else obj.get_pivot()
-                        ref_node = self.world if rel_to_world else (node if grid_origin is None else grid_origin)
+                        node = obj.origin if target_type == "geom" else obj.pivot
+                        ref_node = GD.world if rel_to_world else (node
+                            if grid_origin is None else grid_origin)
                         if use_transf_center:
-                            quat = node.get_quat(self.world)
-                            scale = node.get_scale(self.world)
+                            quat = node.get_quat(GD.world)
+                            scale = node.get_scale(GD.world)
                             self._pivot.set_quat_scale(quat, scale)
-                            parent_node = node.get_parent()
+                            parent_node = node.parent
                             node.wrt_reparent_to(self._pivot)
                             value_setter(self._pivot, ref_node, value)
                             node.wrt_reparent_to(parent_node)
@@ -165,7 +168,7 @@ class SelectionTransformBase(BaseObject):
                     Mgr.do("notify_coord_sys_transformed")
 
                 for obj in objs_to_transform:
-                    Mgr.do("update_obj_transf_info", obj.get_id(), [transf_type])
+                    Mgr.do("update_obj_transf_info", obj.id, [transf_type])
 
                 Mgr.do("update_obj_link_viz")
                 Mgr.do("reset_obj_transf_info")
@@ -180,8 +183,8 @@ class SelectionTransformBase(BaseObject):
         else:
 
             self.update_center_pos()
-            Mgr.do("set_transf_gizmo_pos", Mgr.get("transf_center_pos"))
-            target_type = GlobalData["transform_target_type"]
+            Mgr.get("transf_gizmo").pos = Mgr.get("transf_center_pos")
+            target_type = GD["transform_target_type"]
 
             if target_type != "geom":
 
@@ -189,14 +192,14 @@ class SelectionTransformBase(BaseObject):
                     Mgr.do("update_coord_sys")
 
             if len(self._objs) == 1:
-                Mgr.update_remotely("transform_values", objs_to_transform[0].get_transform_values())
+                Mgr.update_remotely("transform_values", objs_to_transform[0].transform_values)
 
             for obj in objs_to_transform:
 
                 obj.update_group_bbox()
 
                 if target_type in ("geom", "links", "no_children"):
-                    Mgr.do("update_group_bboxes", [obj.get_id()])
+                    Mgr.do("update_group_bboxes", [obj.id])
 
             if add_to_hist:
                 self.__add_history(objs_to_transform, transf_type)
@@ -204,24 +207,24 @@ class SelectionTransformBase(BaseObject):
     def update_transform_values(self):
 
         if len(self._objs) == 1:
-            Mgr.update_remotely("transform_values", self._objs[0].get_transform_values())
+            Mgr.update_remotely("transform_values", self._objs[0].transform_values)
 
     def init_translation(self, objs_to_transform):
 
-        target_type = GlobalData["transform_target_type"]
-        grid_origin = Mgr.get(("grid", "origin"))
+        target_type = GD["transform_target_type"]
+        grid_origin = Mgr.get("grid").origin
         cs_obj = Mgr.get("coord_sys_obj")
 
         if cs_obj in objs_to_transform and target_type != "geom":
             Mgr.do("notify_coord_sys_transformed")
 
-        if GlobalData["coord_sys_type"] == "local":
+        if GD["coord_sys_type"] == "local":
 
             if target_type == "geom":
-                self._start_mats = [Mat4(obj.get_origin().get_mat())
+                self._start_mats = [Mat4(obj.origin.get_mat())
                                     for obj in objs_to_transform]
             else:
-                self._start_mats = [obj.get_pivot().get_mat(grid_origin)
+                self._start_mats = [obj.pivot.get_mat(grid_origin)
                                     for obj in objs_to_transform]
 
         else:
@@ -231,20 +234,20 @@ class SelectionTransformBase(BaseObject):
 
             if target_type == "geom":
                 for obj in objs_to_transform:
-                    obj.get_origin().wrt_reparent_to(self._pivot)
+                    obj.origin.wrt_reparent_to(self._pivot)
             else:
                 for obj in objs_to_transform:
-                    obj.get_pivot().wrt_reparent_to(self._pivot)
+                    obj.pivot.wrt_reparent_to(self._pivot)
 
         for obj in objs_to_transform:
-            Mgr.do("update_obj_transf_info", obj.get_id(), ["translate"])
+            Mgr.do("update_obj_transf_info", obj.id, ["translate"])
 
     def translate(self, objs_to_transform, translation_vec):
 
-        grid_origin = Mgr.get(("grid", "origin"))
-        target_type = GlobalData["transform_target_type"]
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
+        grid_origin = Mgr.get("grid").origin
+        target_type = GD["transform_target_type"]
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
 
         if tc_type == "adaptive":
             adaptive_tc_type = Mgr.get("adaptive_transf_center_type")
@@ -254,32 +257,32 @@ class SelectionTransformBase(BaseObject):
         if cs_type == "local":
 
             cs_obj = Mgr.get("coord_sys_obj")
-            vec_local = cs_obj.get_pivot().get_relative_vector(grid_origin, translation_vec)
+            vec_local = cs_obj.pivot.get_relative_vector(grid_origin, translation_vec)
 
             if target_type == "geom":
                 for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                    orig = obj.get_origin()
-                    pivot = obj.get_pivot()
+                    orig = obj.origin
+                    pivot = obj.pivot
                     pivot_mat = pivot.get_mat(grid_origin)
                     mat = start_mat * Mat4.translate_mat(translation_vec) * pivot_mat
                     orig.set_mat(grid_origin, mat)
             else:
                 for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                    obj.get_pivot().set_pos(grid_origin, start_mat.xform_point(vec_local))
+                    obj.pivot.set_pos(grid_origin, start_mat.xform_point(vec_local))
 
         else:
 
             self._pivot.set_pos(grid_origin, Point3(translation_vec))
 
-        if GlobalData["object_links_shown"] and target_type != "geom":
+        if GD["object_links_shown"] and target_type != "geom":
             Mgr.do("update_obj_link_viz")
 
     def init_rotation(self, objs_to_transform):
 
-        target_type = GlobalData["transform_target_type"]
-        grid_origin = Mgr.get(("grid", "origin"))
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
+        target_type = GD["transform_target_type"]
+        grid_origin = Mgr.get("grid").origin
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
         tc_pos = Mgr.get("transf_center_pos")
         cs_obj = Mgr.get("coord_sys_obj")
 
@@ -295,37 +298,35 @@ class SelectionTransformBase(BaseObject):
 
             if target_type == "geom":
                 if cs_type == "local":
-                    self._start_mats = [Mat4(obj.get_origin().get_mat())
+                    self._start_mats = [Mat4(obj.origin.get_mat())
                                         for obj in objs_to_transform]
                 else:
-                    self._start_mats = [Mat4(obj.get_origin().get_mat())
+                    self._start_mats = [Mat4(obj.origin.get_mat())
                                         for obj in objs_to_transform]
             else:
                 if cs_type == "local":
-                    self._start_mats = [obj.get_pivot().get_mat(grid_origin)
+                    self._start_mats = [obj.pivot.get_mat(grid_origin)
                                         for obj in objs_to_transform]
                 else:
-                    self._start_quats = [obj.get_pivot().get_quat(grid_origin)
+                    self._start_quats = [obj.pivot.get_quat(grid_origin)
                                          for obj in objs_to_transform]
 
         elif cs_type == "local":
 
             if target_type == "geom":
 
-                self._start_mats = [Mat4(obj.get_origin().get_mat())
-                                    for obj in objs_to_transform]
+                self._start_mats = [Mat4(obj.origin.get_mat()) for obj in objs_to_transform]
 
                 if tc_type != "cs_origin":
-                    self._offset_vecs = [Point3() - obj.get_pivot().get_relative_point(self.world, tc_pos)
+                    self._offset_vecs = [Point3() - obj.pivot.get_relative_point(GD.world, tc_pos)
                                          for obj in objs_to_transform]
 
             else:
 
-                self._start_mats = [obj.get_pivot().get_mat(grid_origin)
-                                    for obj in objs_to_transform]
+                self._start_mats = [obj.pivot.get_mat(grid_origin) for obj in objs_to_transform]
 
                 if tc_type != "cs_origin":
-                    self._offset_vecs = [Point3() - obj.get_pivot().get_relative_point(self.world, tc_pos)
+                    self._offset_vecs = [Point3() - obj.pivot.get_relative_point(GD.world, tc_pos)
                                          for obj in objs_to_transform]
 
         else:
@@ -336,20 +337,20 @@ class SelectionTransformBase(BaseObject):
 
             if target_type == "geom":
                 for obj in objs_to_transform:
-                    obj.get_origin().wrt_reparent_to(self._pivot)
+                    obj.origin.wrt_reparent_to(self._pivot)
             else:
                 for obj in objs_to_transform:
-                    obj.get_pivot().wrt_reparent_to(self._pivot)
+                    obj.pivot.wrt_reparent_to(self._pivot)
 
         for obj in objs_to_transform:
-            Mgr.do("update_obj_transf_info", obj.get_id(), ["rotate"])
+            Mgr.do("update_obj_transf_info", obj.id, ["rotate"])
 
     def rotate(self, objs_to_transform, rotation):
 
-        grid_origin = Mgr.get(("grid", "origin"))
-        target_type = GlobalData["transform_target_type"]
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
+        grid_origin = Mgr.get("grid").origin
+        target_type = GD["transform_target_type"]
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
 
         if tc_type == "adaptive":
             adaptive_tc_type = Mgr.get("adaptive_transf_center_type")
@@ -361,8 +362,8 @@ class SelectionTransformBase(BaseObject):
             if target_type == "geom":
                 if cs_type == "local":
                     for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                        orig = obj.get_origin()
-                        pivot = obj.get_pivot()
+                        orig = obj.origin
+                        pivot = obj.pivot
                         pivot_mat = pivot.get_mat(grid_origin)
                         mat = start_mat * (rotation * pivot_mat)
                         orig.set_mat(grid_origin, mat)
@@ -370,8 +371,8 @@ class SelectionTransformBase(BaseObject):
                     for obj, start_mat in zip(objs_to_transform, self._start_mats):
                         mat = Mat4()
                         rotation.extract_to_matrix(mat)
-                        orig = obj.get_origin()
-                        pivot = obj.get_pivot()
+                        orig = obj.origin
+                        pivot = obj.pivot
                         pivot_mat = pivot.get_mat(grid_origin)
                         pivot_mat.set_row(3, VBase3())
                         mat = start_mat * pivot_mat * mat * Mat4.translate_mat(pivot.get_pos(grid_origin))
@@ -380,11 +381,11 @@ class SelectionTransformBase(BaseObject):
                 if cs_type == "local":
                     for obj, start_mat in zip(objs_to_transform, self._start_mats):
                         mat = rotation * start_mat
-                        obj.get_pivot().set_mat(grid_origin, mat)
+                        obj.pivot.set_mat(grid_origin, mat)
                 else:
                     for obj, start_quat in zip(objs_to_transform, self._start_quats):
                         quat = start_quat * rotation
-                        obj.get_pivot().set_quat(grid_origin, quat)
+                        obj.pivot.set_quat(grid_origin, quat)
 
         elif cs_type == "local":
 
@@ -393,50 +394,50 @@ class SelectionTransformBase(BaseObject):
             if target_type == "geom":
                 if tc_type == "cs_origin":
                     for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                        orig = obj.get_origin()
-                        pivot = obj.get_pivot()
+                        orig = obj.origin
+                        pivot = obj.pivot
                         pivot_mat = pivot.get_mat(grid_origin)
                         mat = start_mat * (rotation * pivot_mat)
                         orig.set_mat(grid_origin, mat)
                 else:
                     for obj, start_mat, start_vec in zip(objs_to_transform, self._start_mats,
                                                          self._offset_vecs):
-                        orig = obj.get_origin()
-                        pivot = obj.get_pivot()
+                        orig = obj.origin
+                        pivot = obj.pivot
                         pivot_mat = pivot.get_mat(grid_origin)
                         mat = rotation * pivot_mat
                         vec = pivot_mat.xform_vec(rotation.xform(start_vec))
-                        mat.set_row(3, grid_origin.get_relative_point(self.world, tc_pos) + vec)
+                        mat.set_row(3, grid_origin.get_relative_point(GD.world, tc_pos) + vec)
                         mat = start_mat * mat
                         orig.set_mat(grid_origin, mat)
             else:
                 if tc_type == "cs_origin":
                     for obj, start_mat in zip(objs_to_transform, self._start_mats):
                         mat = rotation * start_mat
-                        obj.get_pivot().set_mat(grid_origin, mat)
+                        obj.pivot.set_mat(grid_origin, mat)
                 else:
                     for obj, start_mat, start_vec in zip(objs_to_transform, self._start_mats,
                                                          self._offset_vecs):
-                        pivot = obj.get_pivot()
+                        pivot = obj.pivot
                         mat = rotation * start_mat
                         pivot.set_mat(grid_origin, mat)
-                        vec = self.world.get_relative_vector(grid_origin,
+                        vec = GD.world.get_relative_vector(grid_origin,
                             start_mat.xform_vec(rotation.xform(start_vec)))
-                        pivot.set_pos(self.world, tc_pos + vec)
+                        pivot.set_pos(GD.world, tc_pos + vec)
 
         else:
 
             self._pivot.set_quat(grid_origin, rotation)
 
-        if GlobalData["object_links_shown"] and target_type != "geom":
+        if GD["object_links_shown"] and target_type != "geom":
             Mgr.do("update_obj_link_viz")
 
     def init_scaling(self, objs_to_transform):
 
-        grid_origin = Mgr.get(("grid", "origin"))
-        tc_type = GlobalData["transf_center_type"]
+        grid_origin = Mgr.get("grid").origin
+        tc_type = GD["transf_center_type"]
         tc_pos = Mgr.get("transf_center_pos")
-        cs_type = GlobalData["coord_sys_type"]
+        cs_type = GD["coord_sys_type"]
         cs_obj = Mgr.get("coord_sys_obj")
 
         if tc_type == "adaptive":
@@ -449,20 +450,17 @@ class SelectionTransformBase(BaseObject):
 
         if tc_type == "pivot" or adaptive_tc_type == "pivot":
 
-            self._start_mats = [obj.get_pivot().get_mat(grid_origin)
-                                for obj in objs_to_transform]
+            self._start_mats = [obj.pivot.get_mat(grid_origin) for obj in objs_to_transform]
 
             if cs_type != "local":
-                self._start_positions = [obj.get_pivot().get_pos()
-                                         for obj in objs_to_transform]
+                self._start_positions = [obj.pivot.get_pos() for obj in objs_to_transform]
 
         elif cs_type == "local":
 
-            self._start_mats = [obj.get_pivot().get_mat(grid_origin)
-                                for obj in objs_to_transform]
+            self._start_mats = [obj.pivot.get_mat(grid_origin) for obj in objs_to_transform]
 
             if tc_type != "cs_origin":
-                self._offset_vecs = [Point3() - obj.get_pivot().get_relative_point(self.world, tc_pos)
+                self._offset_vecs = [Point3() - obj.pivot.get_relative_point(GD.world, tc_pos)
                                      for obj in objs_to_transform]
 
         else:
@@ -472,17 +470,17 @@ class SelectionTransformBase(BaseObject):
             self._pivot.set_pos(tc_pos)
 
             for obj in objs_to_transform:
-                obj.get_pivot().wrt_reparent_to(self._pivot)
+                obj.pivot.wrt_reparent_to(self._pivot)
 
         for obj in objs_to_transform:
-            Mgr.do("update_obj_transf_info", obj.get_id(), ["scale"])
+            Mgr.do("update_obj_transf_info", obj.id, ["scale"])
 
     def scale(self, objs_to_transform, scaling):
 
         scal_mat = Mat4.scale_mat(scaling)
-        grid_origin = Mgr.get(("grid", "origin"))
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
+        grid_origin = Mgr.get("grid").origin
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
 
         if tc_type == "adaptive":
             adaptive_tc_type = Mgr.get("adaptive_transf_center_type")
@@ -493,11 +491,11 @@ class SelectionTransformBase(BaseObject):
 
             for obj, start_mat in zip(objs_to_transform, self._start_mats):
                 mat = (scal_mat * start_mat) if cs_type == "local" else (start_mat * scal_mat)
-                obj.get_pivot().set_mat(grid_origin, mat)
+                obj.pivot.set_mat(grid_origin, mat)
 
             if cs_type != "local":
                 for obj, start_pos in zip(objs_to_transform, self._start_positions):
-                    obj.get_pivot().set_pos(start_pos)
+                    obj.pivot.set_pos(start_pos)
 
         elif cs_type == "local":
 
@@ -505,7 +503,7 @@ class SelectionTransformBase(BaseObject):
 
                 for obj, start_mat in zip(objs_to_transform, self._start_mats):
                     mat = scal_mat * start_mat
-                    obj.get_pivot().set_mat(grid_origin, mat)
+                    obj.pivot.set_mat(grid_origin, mat)
 
             else:
 
@@ -513,37 +511,37 @@ class SelectionTransformBase(BaseObject):
 
                 for obj, start_mat, start_vec in zip(objs_to_transform, self._start_mats,
                                                      self._offset_vecs):
-                    pivot = obj.get_pivot()
+                    pivot = obj.pivot
                     mat = scal_mat * start_mat
                     pivot.set_mat(grid_origin, mat)
-                    vec = self.world.get_relative_vector(pivot, start_vec)
-                    pivot.set_pos(self.world, tc_pos + vec)
+                    vec = GD.world.get_relative_vector(pivot, start_vec)
+                    pivot.set_pos(GD.world, tc_pos + vec)
 
         else:
 
             self._pivot.set_scale(scaling)
 
-        if GlobalData["object_links_shown"]:
+        if GD["object_links_shown"]:
             Mgr.do("update_obj_link_viz")
 
     def finalize_transform(self, objs_to_transform, cancelled=False, add_to_hist=True,
                            state="done"):
 
-        target_type = GlobalData["transform_target_type"]
+        target_type = GD["transform_target_type"]
 
         if target_type != "geom" and state != "continuous":
             Mgr.do("update_coord_sys")
 
-        transf_type = GlobalData["active_transform_type"]
+        transf_type = GD["active_transform_type"]
 
         if self._pivot_used:
 
             if target_type == "geom":
                 for obj in objs_to_transform:
-                    obj.get_origin().wrt_reparent_to(obj.get_pivot())
+                    obj.origin.wrt_reparent_to(obj.pivot)
             else:
                 for obj in objs_to_transform:
-                    obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
+                    obj.pivot.wrt_reparent_to(obj.parent_pivot)
 
             self._pivot.clear_transform()
             self._pivot_used = False
@@ -556,17 +554,17 @@ class SelectionTransformBase(BaseObject):
         if not cancelled and state != "continuous":
 
             self.update_center_pos()
-            Mgr.do("set_transf_gizmo_pos", Mgr.get("transf_center_pos"))
+            Mgr.get("transf_gizmo").pos = Mgr.get("transf_center_pos")
 
             if len(objs_to_transform) == 1:
-                Mgr.update_remotely("transform_values", objs_to_transform[0].get_transform_values())
+                Mgr.update_remotely("transform_values", objs_to_transform[0].transform_values)
 
             for obj in objs_to_transform:
 
                 obj.update_group_bbox()
 
                 if target_type in ("geom", "links", "no_children"):
-                    Mgr.do("update_group_bboxes", [obj.get_id()])
+                    Mgr.do("update_group_bboxes", [obj.id])
 
             if add_to_hist:
                 self.__add_history(objs_to_transform, transf_type)
@@ -583,70 +581,70 @@ class SelectionTransformBase(BaseObject):
         Mgr.do("update_history_time")
 
         obj_count = len(objs_to_transform)
-        target_type = GlobalData["transform_target_type"]
+        target_type = GD["transform_target_type"]
 
         if obj_count > 1:
 
             if target_type == "all":
-                event_descr = '{} {:d} objects:\n'.format(transf_type.title(), obj_count)
+                event_descr = f'{transf_type.title()} {obj_count} objects:\n'
             elif target_type == "geom":
-                event_descr = "{} {:d} objects' geometry:\n".format(transf_type.title(), obj_count)
+                event_descr = f"{transf_type.title()} {obj_count} objects' geometry:\n"
             elif target_type == "pivot":
-                event_descr = "{} {:d} objects' pivots:\n".format(transf_type.title(), obj_count)
+                event_descr = f"{transf_type.title()} {obj_count} objects' pivots:\n"
             elif target_type == "links":
-                event_descr = "{} {:d} objects' hierarchy links:\n".format(transf_type.title(), obj_count)
+                event_descr = f"{transf_type.title()} {obj_count} objects' hierarchy links:\n"
             elif target_type == "no_children":
-                event_descr = '{} {:d} objects without children:\n'.format(transf_type.title(), obj_count)
+                event_descr = f'{transf_type.title()} {obj_count} objects without children:\n'
 
             for obj in objs_to_transform:
-                event_descr += '\n    "{}"'.format(obj.get_name())
+                event_descr += f'\n    "{obj.name}"'
 
         else:
 
             if target_type == "all":
-                event_descr = '{} "{}"'.format(transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = f'{transf_type.title()} "{objs_to_transform[0].name}"'
             elif target_type == "geom":
-                event_descr = '{} "{}" geometry'.format(transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = f'{transf_type.title()} "{objs_to_transform[0].name}" geometry'
             elif target_type == "pivot":
-                event_descr = '{} "{}" pivot'.format(transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = f'{transf_type.title()} "{objs_to_transform[0].name}" pivot'
             elif target_type == "links":
-                event_descr = '{} "{}" hierarchy links'.format(transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = f'{transf_type.title()} "{objs_to_transform[0].name}" hierarchy links'
             elif target_type == "no_children":
-                event_descr = '{} "{}" without children'.format(transf_type.title(), objs_to_transform[0].get_name())
+                event_descr = f'{transf_type.title()} "{objs_to_transform[0].name}" without children'
 
         if target_type == "all":
 
             for obj in objs_to_transform:
-                obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "transform")
+                obj_data[obj.id] = obj.get_data_to_store("prop_change", "transform")
 
         elif target_type == "geom":
 
             for obj in objs_to_transform:
-                obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "origin_transform")
+                obj_data[obj.id] = obj.get_data_to_store("prop_change", "origin_transform")
 
         else:
 
             objs = set(objs_to_transform)
 
             for obj in objs_to_transform:
-                objs.update(obj.get_descendants() if target_type == "links"
-                            else obj.get_children())
+                objs.update(obj.descendants if target_type == "links"
+                            else obj.children)
 
             for obj in objs:
-                obj_data[obj.get_id()] = data = {}
+                obj_data[obj.id] = data = {}
                 data.update(obj.get_data_to_store("prop_change", "transform"))
 
             if target_type != "links":
                 for obj in objs_to_transform:
-                    data = obj_data[obj.get_id()]
+                    data = obj_data[obj.id]
                     data.update(obj.get_data_to_store("prop_change", "origin_transform"))
 
         if target_type == "pivot":
             for obj in objs_to_transform:
-                if obj.get_type() == "group":
+                if obj.type == "group":
                     for member in obj.get_members():
                         data = member.get_data_to_store("prop_change", "transform")
-                        obj_data.setdefault(member.get_id(), {}).update(data)
+                        obj_data.setdefault(member.id, {}).update(data)
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
@@ -654,11 +652,11 @@ class SelectionTransformBase(BaseObject):
 
         Mgr.do("notify_coord_sys_transformed", False)
 
-        grid_origin = Mgr.get(("grid", "origin"))
-        active_transform_type = GlobalData["active_transform_type"]
-        target_type = GlobalData["transform_target_type"]
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
+        grid_origin = Mgr.get("grid").origin
+        active_transform_type = GD["active_transform_type"]
+        target_type = GD["transform_target_type"]
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
 
         if tc_type == "adaptive":
             adaptive_tc_type = Mgr.get("adaptive_transf_center_type")
@@ -680,10 +678,10 @@ class SelectionTransformBase(BaseObject):
 
                 if target_type == "geom":
                     for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                        obj.get_origin().set_mat(start_mat)
+                        obj.origin.set_mat(start_mat)
                 else:
                     for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                        obj.get_pivot().set_mat(grid_origin, start_mat)
+                        obj.pivot.set_mat(grid_origin, start_mat)
 
             elif active_transform_type == "rotate":
 
@@ -691,41 +689,41 @@ class SelectionTransformBase(BaseObject):
 
                     if target_type == "geom":
                         for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                            obj.get_origin().set_mat(start_mat)
+                            obj.origin.set_mat(start_mat)
                     else:
                         if cs_type == "local":
                             for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                                obj.get_pivot().set_mat(grid_origin, start_mat)
+                                obj.pivot.set_mat(grid_origin, start_mat)
                         else:
                             for obj, start_quat in zip(objs_to_transform, self._start_quats):
-                                obj.get_pivot().set_quat(grid_origin, start_quat)
+                                obj.pivot.set_quat(grid_origin, start_quat)
 
                 elif cs_type == "local":
 
                     if target_type == "geom":
                         for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                            obj.get_origin().set_mat(start_mat)
+                            obj.origin.set_mat(start_mat)
                     else:
                         for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                            obj.get_pivot().set_mat(grid_origin, start_mat)
+                            obj.pivot.set_mat(grid_origin, start_mat)
 
             elif active_transform_type == "scale":
 
                 if (tc_type == "pivot" or adaptive_tc_type == "pivot") or cs_type == "local":
                     for obj, start_mat in zip(objs_to_transform, self._start_mats):
-                        obj.get_pivot().set_mat(grid_origin, start_mat)
+                        obj.pivot.set_mat(grid_origin, start_mat)
 
         self.finalize_transform(objs_to_transform, cancelled=True)
 
 
-class TransformationManager(BaseObject):
+class TransformationManager:
 
     def __init__(self):
 
-        GlobalData.set_default("active_transform_type", "")
+        GD.set_default("active_transform_type", "")
         axis_constraints = {"translate": "xy", "rotate": "z", "scale": "xyz"}
         copier = dict.copy
-        GlobalData.set_default("axis_constraints", axis_constraints, copier)
+        GD.set_default("axis_constraints", axis_constraints, copier)
         rel_values = {}
 
         for obj_lvl in ("top",):
@@ -734,8 +732,8 @@ class TransformationManager(BaseObject):
         for obj_lvl in ("vert", "edge", "poly", "normal"):
             rel_values[obj_lvl] = {"translate": True, "rotate": True, "scale": True}
 
-        copier = lambda data: dict((key, value.copy()) for key, value in data.items())
-        GlobalData.set_default("rel_transform_values", rel_values, copier)
+        copier = lambda data: {key: value.copy() for key, value in data.items()}
+        GD.set_default("rel_transform_values", rel_values, copier)
         options = {}
         options["rotation"] = {
             "drag_method": "circular_in_rot_plane",
@@ -749,7 +747,7 @@ class TransformationManager(BaseObject):
             "line_thru_gizmo_center": False,
             "full_roll_dist": 400
         }
-        GlobalData.set_default("transform_options", options, copier)
+        GD.set_default("transform_options", options, copier)
 
         self._obj_transf_info = {}
         self._objs_to_transform = []
@@ -873,11 +871,11 @@ class TransformationManager(BaseObject):
         tex = Texture("tex")
         tex.load(img)
         sampler = SamplerState()
-        sampler.set_wrap_u(SamplerState.WM_border_color)
-        sampler.set_magfilter(SamplerState.FT_nearest)
-        sampler.set_minfilter(SamplerState.FT_nearest)
-        tex.set_default_sampler(sampler)
-        tex_stage = TextureStage.get_default()
+        sampler.wrap_u = SamplerState.WM_border_color
+        sampler.magfilter = SamplerState.FT_nearest
+        sampler.minfilter = SamplerState.FT_nearest
+        tex.default_sampler = sampler
+        tex_stage = TextureStage.default
         viz.set_texture(tex_stage, tex)
 
         return viz
@@ -906,7 +904,7 @@ class TransformationManager(BaseObject):
                     ancestor_found = False
 
                     for other_obj in other_objs:
-                        if other_obj in obj.get_ancestors():
+                        if other_obj in obj.ancestors:
                             ancestor_found = True
                             break
 
@@ -932,7 +930,7 @@ class TransformationManager(BaseObject):
                     ancestor_found = False
 
                     for other_obj in other_objs:
-                        if other_obj in obj.get_ancestors():
+                        if other_obj in obj.ancestors:
                             ancestor_found = True
                             break
 
@@ -970,7 +968,7 @@ class TransformationManager(BaseObject):
         obj_root = Mgr.get("object_root")
         self._tmp_ref_root = ref_root = obj_root.attach_new_node("tmp_ref_nodes")
         ref_root.node().set_bounds(OmniBoundingVolume())
-        ref_root.node().set_final(True)
+        ref_root.node().final = True
         objs = set(self._objs_to_transform)
         compass_props = CompassEffect.P_rot | CompassEffect.P_scale
 
@@ -979,18 +977,18 @@ class TransformationManager(BaseObject):
 
         for obj in objs:
 
-            pivot = obj.get_pivot()
+            pivot = obj.pivot
             ref_node = ref_root.attach_new_node("ref_node")
             ref_node.set_mat(pivot.get_mat(obj_root))
             self._tmp_pivot_mats[obj] = Mat4(pivot.get_mat(obj_root))
 
-            if obj.get_type() == "group":
+            if obj.type == "group":
                 for member in obj.get_members():
-                    member.get_pivot().wrt_reparent_to(obj.get_origin())
+                    member.pivot.wrt_reparent_to(obj.origin)
 
-            if obj.get_type() != "point_helper":
+            if obj.type != "point_helper":
                 compass_effect = CompassEffect.make(ref_node, compass_props)
-                origin = obj.get_origin()
+                origin = obj.origin
                 origin.set_effect(compass_effect)
 
     def __finalize_link_transform(self, cancel=False):
@@ -1001,15 +999,15 @@ class TransformationManager(BaseObject):
 
         for obj in tmp_pivot_mats:
 
-            if obj.get_type() != "point_helper":
-                origin = obj.get_origin()
-                origin.clear_effect(CompassEffect.get_class_type())
+            if obj.type != "point_helper":
+                origin = obj.origin
+                origin.clear_effect(CompassEffect)
 
-            if obj.get_type() == "group":
+            if obj.type == "group":
                 for member in obj.get_members():
-                    member.get_pivot().wrt_reparent_to(obj.get_pivot())
+                    member.pivot.wrt_reparent_to(obj.pivot)
 
-            pivot = obj.get_pivot()
+            pivot = obj.pivot
             positions[obj] = pivot.get_pos(obj_root)
 
         if not cancel:
@@ -1025,12 +1023,12 @@ class TransformationManager(BaseObject):
                     ancestor_found = False
 
                     for other_obj in other_objs:
-                        if other_obj in obj.get_ancestors():
+                        if other_obj in obj.ancestors:
                             ancestor_found = True
                             break
 
                     if not ancestor_found:
-                        pivot = obj.get_pivot()
+                        pivot = obj.pivot
                         pivot.set_mat(obj_root, tmp_pivot_mats[obj])
                         pivot.set_pos(obj_root, positions[obj])
                         objs_to_process.remove(obj)
@@ -1042,7 +1040,7 @@ class TransformationManager(BaseObject):
         tmp_pivot_mats = self._tmp_pivot_mats
 
         if not cancel:
-            Mgr.do("update_obj_link_viz", [obj.get_id() for obj in tmp_pivot_mats])
+            Mgr.do("update_obj_link_viz", [obj.id for obj in tmp_pivot_mats])
 
         tmp_pivot_mats.clear()
         self._tmp_ref_root.remove_node()
@@ -1052,8 +1050,8 @@ class TransformationManager(BaseObject):
                                   add_to_hist=True, rel_to_world=False, transformer=None,
                                   state="done"):
 
-        active_obj_lvl = GlobalData["active_obj_level"]
-        target_type = GlobalData["transform_target_type"]
+        active_obj_lvl = GD["active_obj_level"]
+        target_type = GD["transform_target_type"]
         selection = Mgr.get("selection")
 
         if target_type in ("geom", "pivot") and transf_type == "scale":
@@ -1064,7 +1062,7 @@ class TransformationManager(BaseObject):
             objs = objects if objects else selection
 
             if target_type == "links":
-                objs_to_transform = [obj for obj in objs if obj.get_children()]
+                objs_to_transform = [obj for obj in objs if obj.children]
             else:
                 objs_to_transform = objs[:]
 
@@ -1079,7 +1077,7 @@ class TransformationManager(BaseObject):
                 obj_root = Mgr.get("object_root")
 
                 for obj in objs_to_transform:
-                    obj.get_pivot().wrt_reparent_to(obj_root)
+                    obj.pivot.wrt_reparent_to(obj_root)
 
             if target_type == "links":
                 self.__init_link_transform()
@@ -1099,7 +1097,7 @@ class TransformationManager(BaseObject):
 
             if target_type in ("all", "links"):
                 for obj in objs_to_transform:
-                    obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
+                    obj.pivot.wrt_reparent_to(obj.parent_pivot)
 
             if target_type == "links":
                 self.__cleanup_link_transform()
@@ -1131,11 +1129,11 @@ class TransformationManager(BaseObject):
                 other_objs.remove(obj)
 
                 for other_obj in other_objs:
-                    if other_obj in obj.get_ancestors():
+                    if other_obj in obj.ancestors:
                         break
                 else:
                     objs.remove(obj)
-                    if obj.get_type() != "group" or not obj.is_open():
+                    if obj.type != "group" or not obj.is_open():
                         sorted_hierarchy.append(obj)
 
         return sorted_hierarchy
@@ -1144,13 +1142,13 @@ class TransformationManager(BaseObject):
 
         backup = self._xform_backup
 
-        if GlobalData["active_obj_level"] == "top":
-            if GlobalData["transform_target_type"] == "geom":
+        if GD["active_obj_level"] == "top":
+            if GD["transform_target_type"] == "geom":
                 for obj in Mgr.get("selection_top"):
-                    backup[obj] = obj.get_origin().get_transform(self.world)
+                    backup[obj] = obj.origin.get_transform(GD.world)
             else:
                 for obj in Mgr.get("selection_top"):
-                    backup[obj] = obj.get_pivot().get_transform(self.world)
+                    backup[obj] = obj.pivot.get_transform(GD.world)
         else:
             backup.update(Mgr.get("selection").get_vertex_position_data())
 
@@ -1161,19 +1159,19 @@ class TransformationManager(BaseObject):
         if not backup:
             return
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
 
-            tc_type = GlobalData["transf_center_type"]
+            tc_type = GD["transf_center_type"]
 
             if tc_type != "pivot":
-                GlobalData["transf_center_type"] = "pivot"
+                GD["transf_center_type"] = "pivot"
 
             for obj in self.__get_sorted_hierarchy(Mgr.get("selection_top")):
                 self.__set_transform_component("", "",
                     backup[obj], False, [obj], False, True, NodePath.set_transform)
 
             if tc_type != "pivot":
-                GlobalData["transf_center_type"] = tc_type
+                GD["transf_center_type"] = tc_type
 
         else:
 
@@ -1195,7 +1193,7 @@ class TransformationManager(BaseObject):
         if preview and not backup:
             self.__create_xform_backup()
 
-        transf_type = GlobalData["active_transform_type"]
+        transf_type = GD["active_transform_type"]
         default_val = 1. if transf_type == "scale" else 0.
         xforms = {}
 
@@ -1230,12 +1228,12 @@ class TransformationManager(BaseObject):
 
     def __init_transform(self, transf_start_pos):
 
-        Mgr.get("picking_cam").set_active(False)
-        Mgr.get("gizmo_picking_cam").node().set_active(False)
-        Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
-        transform_type = GlobalData["active_transform_type"]
-        active_obj_level = GlobalData["active_obj_level"]
-        target_type = GlobalData["transform_target_type"]
+        Mgr.get("picking_cam").active = False
+        Mgr.get("gizmo_picking_cam").node().active = False
+        Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = False
+        transform_type = GD["active_transform_type"]
+        active_obj_level = GD["active_obj_level"]
+        target_type = GD["transform_target_type"]
         selection = Mgr.get("selection")
 
         if not transform_type:
@@ -1247,7 +1245,7 @@ class TransformationManager(BaseObject):
         if active_obj_level == "top":
 
             if target_type == "links":
-                objs_to_transform = [obj for obj in selection if obj.get_children()]
+                objs_to_transform = [obj for obj in selection if obj.children]
             else:
                 objs_to_transform = selection[:]
 
@@ -1258,9 +1256,9 @@ class TransformationManager(BaseObject):
 
         self._selection = selection
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
 
-        if transform_type == "rotate" and GlobalData["axis_constraints"]["rotate"] == "trackball":
+        if transform_type == "rotate" and GD["axis_constraints"]["rotate"] == "trackball":
             snap_on = False
         else:
             snap_on = snap_settings["on"][transform_type]
@@ -1275,18 +1273,18 @@ class TransformationManager(BaseObject):
 
     def __cancel_transform_init(self):
 
-        Mgr.get("picking_cam").set_active()
-        Mgr.get("gizmo_picking_cam").node().set_active(True)
-        Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
+        Mgr.get("picking_cam").active = True
+        Mgr.get("gizmo_picking_cam").node().active = True
+        Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = True
         self._objs_to_transform = []
         self._selection = None
 
     def __start_transform(self, transf_start_pos):
 
-        transform_type = GlobalData["active_transform_type"]
-        snap_settings = GlobalData["snap"]
+        transform_type = GD["active_transform_type"]
+        snap_settings = GD["snap"]
 
-        if transform_type == "rotate" and GlobalData["axis_constraints"]["rotate"] == "trackball":
+        if transform_type == "rotate" and GD["axis_constraints"]["rotate"] == "trackball":
             snap_on = False
         else:
             snap_on = snap_settings["on"][transform_type]
@@ -1306,10 +1304,10 @@ class TransformationManager(BaseObject):
         if snap_on and snap_tgt_type != "increment":
             Mgr.do("init_snap_target_checking", transform_type)
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
 
             objs_to_transform = self._objs_to_transform
-            target_type = GlobalData["transform_target_type"]
+            target_type = GD["transform_target_type"]
 
             Mgr.do("update_xform_target_type", objs_to_transform)
             Mgr.do("init_point_helper_transform")
@@ -1319,7 +1317,7 @@ class TransformationManager(BaseObject):
                 obj_root = Mgr.get("object_root")
 
                 for obj in objs_to_transform:
-                    obj.get_pivot().wrt_reparent_to(obj_root)
+                    obj.pivot.wrt_reparent_to(obj_root)
 
             if target_type == "links":
                 self.__init_link_transform()
@@ -1327,7 +1325,7 @@ class TransformationManager(BaseObject):
         if transform_type == "translate":
             self.__init_translation()
         elif transform_type == "rotate":
-            if GlobalData["axis_constraints"]["rotate"] == "trackball":
+            if GD["axis_constraints"]["rotate"] == "trackball":
                 self.__init_free_rotation()
             else:
                 self.__init_rotation()
@@ -1338,15 +1336,15 @@ class TransformationManager(BaseObject):
 
     def __end_transform(self, cancel=False):
 
-        Mgr.get("picking_cam").set_active()
-        Mgr.get("gizmo_picking_cam").node().set_active(True)
-        Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
+        Mgr.get("picking_cam").active = True
+        Mgr.get("gizmo_picking_cam").node().active = True
+        Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = True
         Mgr.remove_task("transform_selection")
-        active_obj_lvl = GlobalData["active_obj_level"]
-        transform_type = GlobalData["active_transform_type"]
-        snap_settings = GlobalData["snap"]
+        active_obj_lvl = GD["active_obj_level"]
+        transform_type = GD["active_transform_type"]
+        snap_settings = GD["snap"]
 
-        if transform_type == "rotate" and GlobalData["axis_constraints"]["rotate"] == "trackball":
+        if transform_type == "rotate" and GD["axis_constraints"]["rotate"] == "trackball":
             snap_on = False
         else:
             snap_on = snap_settings["on"][transform_type]
@@ -1365,7 +1363,7 @@ class TransformationManager(BaseObject):
 
         if active_obj_lvl == "top":
 
-            target_type = GlobalData["transform_target_type"]
+            target_type = GD["transform_target_type"]
 
             if target_type == "links":
                 self.__finalize_link_transform(cancel)
@@ -1385,7 +1383,7 @@ class TransformationManager(BaseObject):
 
             if target_type in ("all", "links"):
                 for obj in self._objs_to_transform:
-                    obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
+                    obj.pivot.wrt_reparent_to(obj.parent_pivot)
 
             if target_type == "links":
                 self.__cleanup_link_transform(cancel)
@@ -1394,18 +1392,18 @@ class TransformationManager(BaseObject):
             Mgr.do("update_xform_target_type", self._objs_to_transform, reset=True)
             self._objs_to_transform = []
 
-        if transform_type == "rotate" and GlobalData["axis_constraints"]["rotate"] == "trackball":
-            prev_constraints = GlobalData["prev_axis_constraints_rotate"]
+        if transform_type == "rotate" and GD["axis_constraints"]["rotate"] == "trackball":
+            prev_constraints = GD["prev_axis_constraints_rotate"]
             Mgr.update_app("axis_constraints", "rotate", prev_constraints)
 
         self._selection = None
 
     def __init_translation(self):
 
-        axis_constraints = GlobalData["axis_constraints"]["translate"]
-        grid_origin = Mgr.get(("grid", "origin"))
-        cam = self.cam()
-        lens_type = self.cam.lens_type
+        axis_constraints = GD["axis_constraints"]["translate"]
+        grid_origin = Mgr.get("grid").origin
+        cam = GD.cam()
+        lens_type = GD.cam.lens_type
 
         if axis_constraints == "view":
             normal = V3D(grid_origin.get_relative_vector(cam, Vec3.forward()).normalized())
@@ -1439,7 +1437,7 @@ class TransformationManager(BaseObject):
                 # as perpendicular to the axis
                 normal = V3D(1., 0., 0.) if max(abs(x), abs(y)) < .0001 else V3D(y, -x, 0.)
 
-        pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
+        pos = grid_origin.get_relative_point(GD.world, self._transf_start_pos)
         self._transf_plane = Plane(normal, pos)
 
         if lens_type == "persp":
@@ -1451,7 +1449,7 @@ class TransformationManager(BaseObject):
 
         self._transf_plane_normal = normal
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
             self._selection.init_translation(self._objs_to_transform)
         else:
             self._selection.init_translation()
@@ -1474,13 +1472,13 @@ class TransformationManager(BaseObject):
         # to the mouse pointer (keeping in mind that the actual movement vector is
         # a projection of the vector in the plane onto the transformation axis).
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.mouse_watcher.has_mouse():
             Mgr.do("set_projected_snap_marker_pos", None)
             return task.cont
 
-        grid_origin = Mgr.get(("grid", "origin"))
+        grid_origin = Mgr.get("grid").origin
         translation_vec = None
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["translate"]
         snap_tgt_type = snap_settings["tgt_type"]["translate"]
         snap_target_point = None
@@ -1495,18 +1493,18 @@ class TransformationManager(BaseObject):
                     if self._transf_axis is None:
                         snap_target_point = self._transf_plane.project(snap_target_point)
 
-                pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
+                pos = grid_origin.get_relative_point(GD.world, self._transf_start_pos)
                 translation_vec = snap_target_point - pos
 
         if translation_vec is None:
 
-            screen_pos = self.mouse_watcher.get_mouse()
-            cam = self.cam()
-            lens_type = self.cam.lens_type
+            screen_pos = GD.mouse_watcher.get_mouse()
+            cam = GD.cam()
+            lens_type = GD.cam.lens_type
 
             near_point = Point3()
             far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
             rel_pt = lambda point: grid_origin.get_relative_point(cam, point)
             near_point = rel_pt(near_point)
             far_point = rel_pt(far_point)
@@ -1521,7 +1519,7 @@ class TransformationManager(BaseObject):
             point = Point3()
 
             if self._transf_plane.intersects_line(point, near_point, far_point):
-                pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
+                pos = grid_origin.get_relative_point(GD.world, self._transf_start_pos)
                 translation_vec = point - pos
 
         if self._transf_axis is not None:
@@ -1530,7 +1528,7 @@ class TransformationManager(BaseObject):
 
         if snap_on and snap_tgt_type == "increment":
 
-            axis_constraints = GlobalData["axis_constraints"]["translate"]
+            axis_constraints = GD["axis_constraints"]["translate"]
             offset_incr = snap_settings["increment"]["translate"]
 
             if axis_constraints == "view":
@@ -1548,12 +1546,12 @@ class TransformationManager(BaseObject):
 
         if snap_on and snap_settings["use_axis_constraints"]["translate"]:
             if snap_target_point:
-                pos = self.world.get_relative_point(grid_origin, pos + translation_vec)
+                pos = GD.world.get_relative_point(grid_origin, pos + translation_vec)
                 Mgr.do("set_projected_snap_marker_pos", pos)
             else:
                 Mgr.do("set_projected_snap_marker_pos", None)
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
             self._selection.translate(self._objs_to_transform, translation_vec)
         else:
             self._selection.translate(translation_vec)
@@ -1564,13 +1562,13 @@ class TransformationManager(BaseObject):
 
     def __init_rotation(self):
 
-        grid_origin = Mgr.get(("grid", "origin"))
-        axis_constraints = GlobalData["axis_constraints"]["rotate"]
-        rotation_options = GlobalData["transform_options"]["rotation"]
-        cam = self.cam()
-        lens_type = self.cam.lens_type
-        cam_pos = cam.get_pos(self.world)
-        cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()).normalized())
+        grid_origin = Mgr.get("grid").origin
+        axis_constraints = GD["axis_constraints"]["rotate"]
+        rotation_options = GD["transform_options"]["rotation"]
+        cam = GD.cam()
+        lens_type = GD.cam.lens_type
+        cam_pos = cam.get_pos(GD.world)
+        cam_vec = V3D(GD.world.get_relative_vector(cam, Vec3.forward()).normalized())
 
         if axis_constraints == "view":
 
@@ -1589,8 +1587,8 @@ class TransformationManager(BaseObject):
             axis1_vec[axis1_index] = 1.
             axis2_vec = V3D()
             axis2_vec[axis2_index] = 1.
-            axis1_vec = V3D(self.world.get_relative_vector(grid_origin, axis1_vec))
-            axis2_vec = V3D(self.world.get_relative_vector(grid_origin, axis2_vec))
+            axis1_vec = V3D(GD.world.get_relative_vector(grid_origin, axis1_vec))
+            axis2_vec = V3D(GD.world.get_relative_vector(grid_origin, axis2_vec))
             normal = axis1_vec ** axis2_vec
 
         if not normal.normalize():
@@ -1616,7 +1614,7 @@ class TransformationManager(BaseObject):
         self._drag_in_view_plane = drag_in_view_plane or drag_linear
         self._drag_linear = drag_linear
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["rotate"]
         snap_tgt_type = snap_settings["tgt_type"]["rotate"]
 
@@ -1631,9 +1629,9 @@ class TransformationManager(BaseObject):
             if lens_type == "persp":
                 line_start = cam_pos
             else:
-                line_start = cam.get_relative_point(self.world, self._transf_start_pos)
+                line_start = cam.get_relative_point(GD.world, self._transf_start_pos)
                 line_start.y -= 1000.
-                line_start = self.world.get_relative_point(cam, line_start)
+                line_start = GD.world.get_relative_point(cam, line_start)
 
             if not (self._transf_plane.intersects_line(rot_start_pos,
                     line_start, self._transf_start_pos) or self._drag_in_view_plane):
@@ -1667,25 +1665,25 @@ class TransformationManager(BaseObject):
 
         self._transf_plane_normal = normal
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
             self._selection.init_rotation(self._objs_to_transform)
         else:
             self._selection.init_rotation()
 
         if self._drag_in_view_plane:
 
-            w, h = GlobalData["viewport"]["size_aux"
-                if GlobalData["viewport"][2] == "main" else "size"]
-            point = cam.get_relative_point(self.world, self._rot_origin)
+            w, h = GD["viewport"]["size_aux"
+                if GD["viewport"][2] == "main" else "size"]
+            point = cam.get_relative_point(GD.world, self._rot_origin)
             screen_pos = Point2()
-            self.cam.lens.project(point, screen_pos)
+            GD.cam.lens.project(point, screen_pos)
             x, y = screen_pos
             x = (x + 1.) * .5 * w
             y = -(1. - (y + 1.) * .5) * h
             center = Point3(x, 0., y)
-            point = cam.get_relative_point(self.world, self._transf_start_pos)
+            point = cam.get_relative_point(GD.world, self._transf_start_pos)
             screen_pos = Point2()
-            self.cam.lens.project(point, screen_pos)
+            GD.cam.lens.project(point, screen_pos)
             x, y = screen_pos
             x = (x + 1.) * .5 * w
             y = -(1. - (y + 1.) * .5) * h
@@ -1699,11 +1697,10 @@ class TransformationManager(BaseObject):
                 viz.set_pos(point)
 
                 if not rotation_options["line_thru_gizmo_center"]:
-                    x, y = GlobalData["viewport"]["pos_aux"
-                        if GlobalData["viewport"][2] == "main" else "pos"]
+                    x, y = GD["viewport"]["pos_aux"
+                        if GD["viewport"][2] == "main" else "pos"]
                     mouse_pointer = Mgr.get("mouse_pointer", 0)
-                    mouse_x = mouse_pointer.get_x()
-                    mouse_y = mouse_pointer.get_y()
+                    mouse_x, mouse_y = mouse_pointer.x, mouse_pointer.y
                     point2 = Point3(mouse_x - x, 0., -mouse_y + y)
                     vec = point2 - point
                     angle = Vec3(1., 0., 0.).signed_angle_deg(vec.normalized(), Vec3(0., 1., 0.))
@@ -1736,12 +1733,12 @@ class TransformationManager(BaseObject):
                     color = VBase4()
                     color["xyz".index(axis_constraints)] = 1.
 
-                tex_stage = TextureStage.get_default()
+                tex_stage = TextureStage.default
                 tex = viz.get_texture(tex_stage)
-                sampler = SamplerState(tex.get_default_sampler())
-                sampler.set_border_color(color)
-                tex.set_default_sampler(sampler)
-                viz.reparent_to(self.viewport)
+                sampler = SamplerState(tex.default_sampler)
+                sampler.border_color = color
+                tex.default_sampler = sampler
+                viz.reparent_to(GD.viewport_origin)
 
         Mgr.add_task(self.__rotate_selection, "transform_selection", sort=3)
 
@@ -1757,15 +1754,15 @@ class TransformationManager(BaseObject):
         # mouse ray and the plane of rotation.
 
         rotation_vec = None
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["rotate"]
         snap_tgt_type = snap_settings["tgt_type"]["rotate"]
         snap_target_point = None
-        axis_constraints = GlobalData["axis_constraints"]["rotate"]
-        rotation_options = GlobalData["transform_options"]["rotation"]
+        axis_constraints = GD["axis_constraints"]["rotate"]
+        rotation_options = GD["transform_options"]["rotation"]
         drag_in_view_plane = self._drag_in_view_plane
         drag_linear = self._drag_linear
-        grid_origin = Mgr.get(("grid", "origin"))
+        grid_origin = Mgr.get("grid").origin
 
         if drag_in_view_plane:
             viz = self._rotation_viz["linear" if drag_linear else "circular"]
@@ -1778,7 +1775,7 @@ class TransformationManager(BaseObject):
 
             if snap_target_point:
 
-                snap_target_point = self.world.get_relative_point(grid_origin, snap_target_point)
+                snap_target_point = GD.world.get_relative_point(grid_origin, snap_target_point)
                 pos = self._transf_plane.project(snap_target_point)
                 rotation_vec = V3D(pos - self._rot_origin)
 
@@ -1797,20 +1794,19 @@ class TransformationManager(BaseObject):
 
         if rotation_vec is None:
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 Mgr.do("set_projected_snap_marker_pos", None)
                 return task.cont
 
-            cam = self.cam()
-            lens_type = self.cam.lens_type
+            cam = GD.cam()
+            lens_type = GD.cam.lens_type
 
             if drag_in_view_plane:
 
-                x, y = GlobalData["viewport"]["pos_aux"
-                    if GlobalData["viewport"][2] == "main" else "pos"]
+                x, y = GD["viewport"]["pos_aux"
+                    if GD["viewport"][2] == "main" else "pos"]
                 mouse_pointer = Mgr.get("mouse_pointer", 0)
-                mouse_x = mouse_pointer.get_x()
-                mouse_y = mouse_pointer.get_y()
+                mouse_x, mouse_y = mouse_pointer.x, mouse_pointer.y
                 point = Point3(mouse_x - x, 0., -mouse_y + y)
                 vec = V3D(point - viz.get_pos())
 
@@ -1820,7 +1816,7 @@ class TransformationManager(BaseObject):
                 if drag_linear:
 
                     dir_vec = Vec3(1., 0., 0.) * viz.get_scale()[0]
-                    dir_vec = self.viewport.get_relative_vector(viz, dir_vec)
+                    dir_vec = GD.viewport_origin.get_relative_vector(viz, dir_vec)
                     full_roll_dist = rotation_options["full_roll_dist"]
                     angle = vec.project(dir_vec).length() * 360. / full_roll_dist
 
@@ -1848,7 +1844,7 @@ class TransformationManager(BaseObject):
                         vec = V3D()
                         vec["xyz".index(axis_constraints)] = 1.
 
-                        if vec * grid_origin.get_relative_vector(self.cam(), Vec3.forward()) < 0.:
+                        if vec * grid_origin.get_relative_vector(GD.cam(), Vec3.forward()) < 0.:
                             angle *= -1.
                             use_angle_complement = True
                         else:
@@ -1870,11 +1866,11 @@ class TransformationManager(BaseObject):
 
             else:
 
-                screen_pos = self.mouse_watcher.get_mouse()
+                screen_pos = GD.mouse_watcher.get_mouse()
                 near_point = Point3()
                 far_point = Point3()
-                self.cam.lens.extrude(screen_pos, near_point, far_point)
-                rel_pt = lambda point: self.world.get_relative_point(cam, point)
+                GD.cam.lens.extrude(screen_pos, near_point, far_point)
+                rel_pt = lambda point: GD.world.get_relative_point(cam, point)
                 near_point = rel_pt(near_point)
                 far_point = rel_pt(far_point)
 
@@ -1940,12 +1936,12 @@ class TransformationManager(BaseObject):
 
                 snap_target_vec = (snap_target_point - self._rot_origin).normalized()
                 start_vec = self._transf_start_pos - self._rot_origin
-                start_vec = grid_origin.get_relative_vector(self.world, start_vec)
+                start_vec = grid_origin.get_relative_vector(GD.world, start_vec)
                 start_vec = rotation.xform(start_vec)
-                start_vec = self.world.get_relative_vector(grid_origin, start_vec)
+                start_vec = GD.world.get_relative_vector(grid_origin, start_vec)
                 ref_vec = rotation_vec ** self._transf_plane_normal
                 pitch = start_vec.normalized().signed_angle_deg(snap_target_vec, ref_vec)
-                ref_vec = grid_origin.get_relative_vector(self.world, ref_vec)
+                ref_vec = grid_origin.get_relative_vector(GD.world, ref_vec)
 
                 if not ref_vec.normalize():
                     Mgr.do("set_projected_snap_marker_pos", None)
@@ -1967,7 +1963,7 @@ class TransformationManager(BaseObject):
                 else:
                     scale = 360./max(.001, angle)
 
-                tex_stage = TextureStage.get_default()
+                tex_stage = TextureStage.default
                 viz.set_tex_scale(tex_stage, scale, 1.)
 
                 if drag_linear:
@@ -1982,7 +1978,7 @@ class TransformationManager(BaseObject):
                     offset = -(full_roll_dist * angle_offset) / 1000000.
                     viz.set_tex_offset(tex_stage, offset * scale * viz.get_scale()[0], 0.)
 
-            if GlobalData["active_obj_level"] == "top":
+            if GD["active_obj_level"] == "top":
                 self._selection.rotate(self._objs_to_transform, rotation)
             else:
                 self._selection.rotate(rotation)
@@ -1993,12 +1989,12 @@ class TransformationManager(BaseObject):
 
     def __init_free_rotation(self):
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
             self._selection.init_rotation(self._objs_to_transform)
         else:
             self._selection.init_rotation()
 
-        screen_pos = self.mouse_watcher.get_mouse()
+        screen_pos = GD.mouse_watcher.get_mouse()
         self._rot_start_vec = Mgr.get("trackball_data", screen_pos)[0]
 
         Mgr.add_task(self.__freely_rotate_selection,"transform_selection", sort=3)
@@ -2017,14 +2013,14 @@ class TransformationManager(BaseObject):
         # When dragging the mouse outside of the trackball, the distance to its edge
         # is measured in radians and added to the angle.
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.mouse_watcher.has_mouse():
             return task.cont
 
-        grid_origin = Mgr.get(("grid", "origin"))
-        screen_pos = self.mouse_watcher.get_mouse()
+        grid_origin = Mgr.get("grid").origin
+        screen_pos = GD.mouse_watcher.get_mouse()
         angle_vec, radians = Mgr.get("trackball_data", screen_pos)
         axis_vec = self._rot_start_vec ** angle_vec
-        axis_vec = grid_origin.get_relative_vector(self.cam(), axis_vec)
+        axis_vec = grid_origin.get_relative_vector(GD.cam(), axis_vec)
 
         if not axis_vec.normalize():
             return task.cont
@@ -2033,7 +2029,7 @@ class TransformationManager(BaseObject):
         rotation = Quat()
         rotation.set_from_axis_angle_rad(angle, axis_vec)
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
             self._selection.rotate(self._objs_to_transform, rotation)
         else:
             self._selection.rotate(rotation)
@@ -2044,22 +2040,22 @@ class TransformationManager(BaseObject):
 
     def __init_scaling(self):
 
-        cam = self.cam()
-        lens_type = self.cam.lens_type
-        normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
-        point = self.world.get_relative_point(cam, Point3(0., 2., 0.))
+        cam = GD.cam()
+        lens_type = GD.cam.lens_type
+        normal = GD.world.get_relative_vector(cam, Vec3.forward()).normalized()
+        point = GD.world.get_relative_point(cam, Point3(0., 2., 0.))
         self._transf_plane = Plane(normal, point)
         tc_pos = Mgr.get("transf_center_pos")
 
         if lens_type == "persp":
-            line_start1 = line_start2 = cam.get_pos(self.world)
+            line_start1 = line_start2 = cam.get_pos(GD.world)
         else:
-            line_start = cam.get_relative_point(self.world, self._transf_start_pos)
+            line_start = cam.get_relative_point(GD.world, self._transf_start_pos)
             line_start.y -= 100.
-            line_start1 = self.world.get_relative_point(cam, line_start)
-            line_start = cam.get_relative_point(self.world, tc_pos)
+            line_start1 = GD.world.get_relative_point(cam, line_start)
+            line_start = cam.get_relative_point(GD.world, tc_pos)
             line_start.y -= 1000.
-            line_start2 = self.world.get_relative_point(cam, line_start)
+            line_start2 = GD.world.get_relative_point(cam, line_start)
 
         start_pos = Point3()
 
@@ -2078,27 +2074,27 @@ class TransformationManager(BaseObject):
             return
 
         if lens_type == "ortho":
-            self._transf_axis *= .005 / self.cam.zoom
+            self._transf_axis *= .005 / GD.cam.zoom
 
-        scale_dir_vec = V3D(cam.get_relative_vector(self.world, scaling_origin - start_pos))
+        scale_dir_vec = V3D(cam.get_relative_vector(GD.world, scaling_origin - start_pos))
         h, p, _ = scale_dir_vec.get_hpr()
         Mgr.do("show_scale_indicator", start_pos, h, p)
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
             self._selection.init_scaling(self._objs_to_transform)
         else:
             self._selection.init_scaling()
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["scale"]
         snap_tgt_type = snap_settings["tgt_type"]["scale"]
 
         if snap_on and snap_tgt_type != "increment":
-            grid_origin = Mgr.get(("grid", "origin"))
+            grid_origin = Mgr.get("grid").origin
             vec = self._transf_start_pos - tc_pos
-            self._scale_start_vec = grid_origin.get_relative_vector(self.world, vec)
-            self._transf_start_pos = grid_origin.get_relative_point(self.world, self._transf_start_pos)
-            self._transf_center_pos = grid_origin.get_relative_point(self.world, tc_pos)
+            self._scale_start_vec = grid_origin.get_relative_vector(GD.world, vec)
+            self._transf_start_pos = grid_origin.get_relative_point(GD.world, self._transf_start_pos)
+            self._transf_center_pos = grid_origin.get_relative_point(GD.world, tc_pos)
 
         Mgr.add_task(self.__scale_selection, "transform_selection", sort=3)
 
@@ -2109,10 +2105,10 @@ class TransformationManager(BaseObject):
         # of transformation.
 
         scaling = None
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["scale"]
         snap_tgt_type = snap_settings["tgt_type"]["scale"]
-        axis_constraints = GlobalData["axis_constraints"]["scale"]
+        axis_constraints = GD["axis_constraints"]["scale"]
 
         if snap_on and snap_tgt_type != "increment":
 
@@ -2144,28 +2140,27 @@ class TransformationManager(BaseObject):
 
             if snap_settings["use_axis_constraints"]["scale"] and axis_constraints != "xyz":
                 if snap_target_point:
-                    grid_origin = Mgr.get(("grid", "origin"))
                     p = self._transf_start_pos - self._transf_center_pos
                     point = Point3(*[a * b for a, b in zip(p, scaling)])
                     point = point + self._transf_center_pos
-                    pos = self.world.get_relative_point(grid_origin, point)
+                    pos = GD.world.get_relative_point(Mgr.get("grid").origin, point)
                     Mgr.do("set_projected_snap_marker_pos", pos)
                 else:
                     Mgr.do("set_projected_snap_marker_pos", None)
 
         if scaling is None:
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 Mgr.do("set_projected_snap_marker_pos", None)
                 return task.cont
 
-            cam = self.cam()
-            screen_pos = self.mouse_watcher.get_mouse()
+            cam = GD.cam()
+            screen_pos = GD.mouse_watcher.get_mouse()
 
             near_point = Point3()
             far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: GD.world.get_relative_point(cam, point)
 
             point = Point3()
 
@@ -2199,7 +2194,7 @@ class TransformationManager(BaseObject):
 
         if scaling is not None:
 
-            if GlobalData["active_obj_level"] == "top":
+            if GD["active_obj_level"] == "top":
                 self._selection.scale(self._objs_to_transform, scaling)
             else:
                 self._selection.scale(scaling)

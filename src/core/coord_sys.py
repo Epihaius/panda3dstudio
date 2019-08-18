@@ -1,7 +1,7 @@
 from .base import *
 
 
-class CoordSysManager(BaseObject):
+class CoordSysManager:
 
     def __init__(self):
 
@@ -13,7 +13,7 @@ class CoordSysManager(BaseObject):
         self._user_obj_id = None
         self._pixel_under_mouse = None
 
-        GlobalData.set_default("coord_sys_type", "world")
+        GD.set_default("coord_sys_type", "world")
 
         Mgr.expose("coord_sys_obj", self.__get_coord_sys_object)
         Mgr.expose("custom_coord_sys_transform", self.__get_custom_coord_sys_transform)
@@ -38,11 +38,11 @@ class CoordSysManager(BaseObject):
              exit_coord_sys_picking_mode)
         bind("coord_sys_picking_mode", "cancel coord sys picking", "mouse3",
              exit_coord_sys_picking_mode)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("coord_sys_picking_mode", "cs pick ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("coord_sys_picking_mode", "cs pick ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Pick coordinate system"
         info_text = "LMB to pick object; RMB to cancel"
         status_data["pick_coord_sys"] = {"mode": mode_text, "info": info_text}
@@ -50,7 +50,7 @@ class CoordSysManager(BaseObject):
     def __get_coord_sys_object(self, check_valid=False):
 
         if self._cs_obj and check_valid:
-            if (GlobalData["coord_sys_type"] == "local"
+            if (GD["coord_sys_type"] == "local"
                     and self._cs_obj not in Mgr.get("selection_top")):
                 self._cs_obj = None
 
@@ -62,16 +62,16 @@ class CoordSysManager(BaseObject):
 
             self._cs_obj = None
 
-            Mgr.get(("grid", "origin")).clear_transform()
-            Mgr.do("set_transf_gizmo_hpr", VBase3())
+            Mgr.get("grid").origin.clear_transform()
+            Mgr.get("transf_gizmo").hpr = VBase3()
 
-            if GlobalData["transf_center_type"] == "cs_origin":
-                Mgr.do("set_transf_gizmo_pos", Point3())
+            if GD["transf_center_type"] == "cs_origin":
+                Mgr.get("transf_gizmo").pos = Point3()
 
-        if GlobalData["coord_sys_type"] == "view" and cs_type != "view":
-            Mgr.do("align_grid_to_view", False)
+        if GD["coord_sys_type"] == "view" and cs_type != "view":
+            Mgr.get("grid").align_to_view(False)
 
-        GlobalData["coord_sys_type"] = cs_type
+        GD["coord_sys_type"] = cs_type
         self._cs_obj = obj
 
         if cs_type == "world":
@@ -81,13 +81,13 @@ class CoordSysManager(BaseObject):
         elif cs_type == "view":
 
             self._cs_obj = None
-            Mgr.do("align_grid_to_view")
+            Mgr.get("grid").align_to_view()
 
         elif cs_type == "local":
 
             if not self._cs_obj:
 
-                tc_type = GlobalData["transf_center_type"]
+                tc_type = GD["transf_center_type"]
 
                 if tc_type == "adaptive" and Mgr.get("adaptive_transf_center_type") == "pivot":
                     tc_type = "pivot"
@@ -108,7 +108,7 @@ class CoordSysManager(BaseObject):
             self._user_obj_id = None
 
             if user_obj:
-                user_obj.get_name(as_object=True).remove_updater("coord_sys")
+                user_obj.name_obj.remove_updater("coord_sys")
 
         if self._cs_obj:
             self._cs_transformed = True
@@ -127,10 +127,10 @@ class CoordSysManager(BaseObject):
 
     def __get_custom_coord_sys_transform(self):
 
-        if GlobalData["coord_sys_type"] != "snap_pt":
+        if GD["coord_sys_type"] != "snap_pt":
             return []
 
-        grid_origin = Mgr.get(("grid", "origin"))
+        grid_origin = Mgr.get("grid").origin
         pos = grid_origin.get_pos() if self._cs_custom_pos is None else self._cs_custom_pos
         hpr = grid_origin.get_hpr() if self._cs_custom_hpr is None else self._cs_custom_hpr
 
@@ -138,60 +138,60 @@ class CoordSysManager(BaseObject):
 
     def __update_coord_sys(self):
 
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
 
         if cs_type == "view":
 
-            pos = self.cam.pivot.get_pos()
-            quat = self.cam.target.get_quat(self.world)
+            pos = GD.cam.pivot.get_pos()
+            quat = GD.cam.target.get_quat(GD.world)
             rotation = Quat()
             rotation.set_hpr(VBase3(0., 90., 0.))
             hpr = (rotation * quat).get_hpr()
-            Mgr.get(("grid", "origin")).set_pos_hpr(pos, hpr)
-            Mgr.do("set_transf_gizmo_hpr", hpr)
+            Mgr.get("grid").origin.set_pos_hpr(pos, hpr)
+            Mgr.get("transf_gizmo").hpr = hpr
 
             if tc_type == "cs_origin":
-                Mgr.do("set_transf_gizmo_pos", pos)
+                Mgr.get("transf_gizmo").pos = pos
 
         elif cs_type == "snap_pt":
 
-            grid_origin = Mgr.get(("grid", "origin"))
+            grid_origin = Mgr.get("grid").origin
 
             if self._cs_custom_pos is not None:
 
                 grid_origin.set_pos(self._cs_custom_pos)
 
                 if tc_type == "cs_origin":
-                    Mgr.do("set_transf_gizmo_pos", self._cs_custom_pos)
+                    Mgr.get("transf_gizmo").pos = self._cs_custom_pos
 
             if self._cs_custom_hpr is not None:
                 grid_origin.set_hpr(self._cs_custom_hpr)
-                Mgr.do("set_transf_gizmo_hpr", self._cs_custom_hpr)
+                Mgr.get("transf_gizmo").hpr = self._cs_custom_hpr
 
         elif cs_type in ("local", "object"):
 
             if self._cs_transformed and self._cs_obj:
 
                 self._cs_transformed = False
-                pivot = self._cs_obj.get_pivot()
-                pos = pivot.get_pos(self.world)
-                hpr = pivot.get_hpr(self.world)
+                pivot = self._cs_obj.pivot
+                pos = pivot.get_pos(GD.world)
+                hpr = pivot.get_hpr(GD.world)
                 scale = VBase3(1., 1., 1.)
-                Mgr.get(("grid", "origin")).set_pos_hpr_scale(pos, hpr, scale)
-                Mgr.do("set_transf_gizmo_hpr", hpr)
+                Mgr.get("grid").origin.set_pos_hpr_scale(pos, hpr, scale)
+                Mgr.get("transf_gizmo").hpr = hpr
 
                 if tc_type == "cs_origin":
-                    Mgr.do("set_transf_gizmo_pos", pos)
+                    Mgr.get("transf_gizmo").pos = pos
 
-        Mgr.do("update_grid")
+        Mgr.get("grid").update()
 
-    def __enter_picking_mode(self, prev_state_id, is_active):
+    def __enter_picking_mode(self, prev_state_id, active):
 
         Mgr.add_task(self.__update_cursor, "update_cs_picking_cursor")
         Mgr.update_app("status", ["pick_coord_sys"])
 
-        if not is_active:
+        if not active:
 
             def handler(obj_ids):
 
@@ -201,23 +201,23 @@ class CoordSysManager(BaseObject):
 
             Mgr.update_remotely("selection_by_name", "", "Pick coordinate system object",
                                 None, False, "Pick", handler)
-            Mgr.get("gizmo_picking_cam").node().set_active(False)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
+            Mgr.get("gizmo_picking_cam").node().active = False
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = False
 
-    def __exit_picking_mode(self, next_state_id, is_active):
+    def __exit_picking_mode(self, next_state_id, active):
 
-        if not is_active:
+        if not active:
 
             if not self._cs_obj_picked:
-                cs_type_prev = GlobalData["coord_sys_type"]
+                cs_type_prev = GD["coord_sys_type"]
                 obj = self._cs_obj
-                name = obj.get_name(as_object=True) if obj else None
+                name_obj = obj.name_obj if obj else None
                 Mgr.update_locally("coord_sys", cs_type_prev, obj)
-                Mgr.update_remotely("coord_sys", cs_type_prev, name)
+                Mgr.update_remotely("coord_sys", cs_type_prev, name_obj)
 
             self._cs_obj_picked = None
-            Mgr.get("gizmo_picking_cam").node().set_active(True)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
+            Mgr.get("gizmo_picking_cam").node().active = True
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = True
             Mgr.update_remotely("selection_by_name", "default")
 
         self._pixel_under_mouse = None  # force an update of the cursor
@@ -234,21 +234,21 @@ class CoordSysManager(BaseObject):
 
             obj_id = self._user_obj_id
 
-            if obj_id == obj.get_id():
+            if obj_id == obj.id:
                 return
             elif obj_id:
                 user_obj = Mgr.get("object", obj_id)
-                user_obj.get_name(as_object=True).remove_updater("coord_sys")
+                user_obj.name_obj.remove_updater("coord_sys")
 
             self._cs_obj_picked = obj
-            self._user_obj_id = obj.get_id()
+            self._user_obj_id = obj.id
             Mgr.exit_state("coord_sys_picking_mode")
             Mgr.update_locally("coord_sys", "object", obj)
-            Mgr.update_remotely("coord_sys", "object", obj.get_name(as_object=True))
+            Mgr.update_remotely("coord_sys", "object", obj.name_obj)
             selection = Mgr.get("selection")
 
             if len(selection) == 1:
-                Mgr.update_remotely("transform_values", selection[0].get_transform_values())
+                Mgr.update_remotely("transform_values", selection[0].transform_values)
 
     def __update_cursor(self, task):
 

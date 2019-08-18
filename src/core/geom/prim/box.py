@@ -144,11 +144,11 @@ class TemporaryBox(TemporaryPrimitive):
         self._size = {"x": 0., "y": 0., "z": 0.}
         geom_data = _define_geom_data(segments, True)
         self.create_geometry(geom_data)
-        self.get_origin().set_sz(.001)
+        self.origin.set_sz(.001)
 
     def update_size(self, x=None, y=None, z=None):
 
-        origin = self.get_origin()
+        origin = self.origin
         size = self._size
 
         if x is not None:
@@ -187,12 +187,12 @@ class TemporaryBox(TemporaryPrimitive):
 
     def finalize(self):
 
-        pos = self._pivot.get_pos()
-        pivot = self.get_pivot()
-        origin = self.get_origin()
+        pos = self.pivot.get_pos()
+        pivot = self.pivot
+        origin = self.origin
         x, y, z = origin.get_pos()
-        pos = self.world.get_relative_point(pivot, Point3(x, y, 0.))
-        pivot.set_pos(self.world, pos)
+        pos = GD.world.get_relative_point(pivot, Point3(x, y, 0.))
+        pivot.set_pos(GD.world, pos)
         origin.set_x(0.)
         origin.set_y(0.)
 
@@ -203,7 +203,7 @@ class Box(Primitive):
 
     def __init__(self, model):
 
-        prop_ids = ["size_{}".format(axis) for axis in "xyz"]
+        prop_ids = [f"size_{axis}" for axis in "xyz"]
         prop_ids.append("segments")
 
         Primitive.__init__(self, "box", model, prop_ids)
@@ -241,15 +241,15 @@ class Box(Primitive):
         sx = size["x"]
         sy = size["y"]
         sz = size["z"]
-        origin = self.get_origin()
+        origin = self.origin
         origin.set_scale(sx, sy, abs(sz))
         origin.set_z(sz if sz < 0. else 0.)
         self.reset_initial_coords()
-        self.get_geom_data_object().bake_transform()
+        self.geom_data_obj.bake_transform()
 
     def init_size(self, x, y, z):
 
-        origin = self.get_origin()
+        origin = self.origin
         size = self._size
         size["x"] = max(abs(x), .001)
         size["y"] = max(abs(y), .001)
@@ -296,10 +296,10 @@ class Box(Primitive):
 
             if prop_id == "segments":
                 data.update(self.get_geom_data_backup().get_data_to_store("deletion"))
-                data.update(self.get_geom_data_object().get_data_to_store("creation"))
+                data.update(self.geom_data_obj.get_data_to_store("creation"))
                 self.remove_geom_data_backup()
             elif "size" in prop_id:
-                data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
+                data.update(self.geom_data_obj.get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
 
             return data
@@ -321,7 +321,7 @@ class Box(Primitive):
             Mgr.update_remotely("selected_obj_prop", "box", prop_id,
                                 self.get_property(prop_id, True))
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
 
         if prop_id == "segments":
 
@@ -352,7 +352,7 @@ class Box(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
-                self.get_model().update_group_bbox()
+                self.model.update_group_bbox()
                 update_app()
 
             return change
@@ -376,14 +376,14 @@ class Box(Primitive):
 
     def __center_origin(self, adjust_pivot=True):
 
-        model = self.get_model()
-        origin = self.get_origin()
+        model = self.model
+        origin = self.origin
         x, y, z = origin.get_pos()
-        pivot = model.get_pivot()
+        pivot = model.pivot
 
         if adjust_pivot:
-            pos = self.world.get_relative_point(pivot, Point3(x, y, 0.))
-            pivot.set_pos(self.world, pos)
+            pos = GD.world.get_relative_point(pivot, Point3(x, y, 0.))
+            pivot.set_pos(GD.world, pos)
 
         origin.set_x(0.)
         origin.set_y(0.)
@@ -410,7 +410,7 @@ class BoxManager(PrimitiveManager):
         self._created_planes = []
 
         for axis in "xyz":
-            self.set_property_default("size_{}".format(axis), 1.)
+            self.set_property_default(f"size_{axis}", 1.)
 
         self.set_property_default("temp_segments", {"x": 1, "y": 1, "z": 1})
         self.set_property_default("segments", {"x": 1, "y": 1, "z": 1})
@@ -436,7 +436,7 @@ class BoxManager(PrimitiveManager):
 
         segs = self.get_property_defaults()["segments"]
         tmp_segs = self.get_property_defaults()["temp_segments"]
-        segments = dict((axis, min(segs[axis], tmp_segs[axis])) for axis in "xyz")
+        segments = {axis: min(segs[axis], tmp_segs[axis]) for axis in "xyz"}
         tmp_prim = TemporaryBox(segments, color, pos)
 
         return tmp_prim
@@ -459,7 +459,7 @@ class BoxManager(PrimitiveManager):
 
         if size is None:
             prop_defaults = self.get_property_defaults()
-            x, y, z = [prop_defaults["size_{}".format(axis)] for axis in "xyz"]
+            x, y, z = [prop_defaults[f"size_{axis}"] for axis in "xyz"]
         else:
             x, y, z = [size[axis] for axis in "xyz"]
 
@@ -469,15 +469,15 @@ class BoxManager(PrimitiveManager):
         """ Start drawing out box base """
 
         tmp_prim = self.get_temp_primitive()
-        origin = tmp_prim.get_origin()
-        self._height_axis = self.world.get_relative_vector(origin, Vec3(0., 0., 1.))
+        origin = tmp_prim.origin
+        self._height_axis = GD.world.get_relative_vector(origin, Vec3(0., 0., 1.))
 
     def __creation_phase1(self):
         """ Draw out box base """
 
         point = None
-        grid_origin = Mgr.get(("grid", "origin"))
-        snap_settings = GlobalData["snap"]
+        grid_origin = Mgr.get("grid").origin
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
@@ -489,40 +489,40 @@ class BoxManager(PrimitiveManager):
             if snap_on and snap_tgt_type != "increment":
                 Mgr.do("set_projected_snap_marker_pos", None)
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
-            point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos, self.get_origin_pos())
+            screen_pos = GD.mouse_watcher.get_mouse()
+            point = Mgr.get("grid").get_point_at_screen_pos(screen_pos, self.get_origin_pos())
 
         else:
 
-            proj_point = Mgr.get(("grid", "projected_point"), point, self.get_origin_pos())
-            proj_point = self.world.get_relative_point(grid_origin, proj_point)
+            proj_point = Mgr.get("grid").get_projected_point(point, self.get_origin_pos())
+            proj_point = GD.world.get_relative_point(grid_origin, proj_point)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if not point:
             return
 
         tmp_prim = self.get_temp_primitive()
-        pivot = tmp_prim.get_pivot()
+        pivot = tmp_prim.pivot
         x, y, _ = pivot.get_relative_point(grid_origin, point)
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_1"]
             x = round(x / offset_incr) * offset_incr
             y = round(y / offset_incr) * offset_incr
-            self._dragged_point = self.world.get_relative_point(pivot, Point3(x, y, _))
+            self._dragged_point = GD.world.get_relative_point(pivot, Point3(x, y, _))
         else:
-            self._dragged_point = self.world.get_relative_point(grid_origin, point)
+            self._dragged_point = GD.world.get_relative_point(grid_origin, point)
 
         tmp_prim.update_size(x, y)
 
     def __start_creation_phase2(self):
         """ Start drawing out box height """
 
-        cam = self.cam()
-        cam_forward_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+        cam = GD.cam()
+        cam_forward_vec = V3D(GD.world.get_relative_vector(cam, Vec3.forward()))
         normal = V3D(cam_forward_vec - cam_forward_vec.project(self._height_axis))
 
         # If the plane normal is the null vector, the axis must be parallel to
@@ -541,16 +541,16 @@ class BoxManager(PrimitiveManager):
 
         self._draw_plane = Plane(normal, self._dragged_point)
 
-        if self.cam.lens_type == "persp":
+        if GD.cam.lens_type == "persp":
 
-            cam_pos = cam.get_pos(self.world)
+            cam_pos = cam.get_pos(GD.world)
 
             if normal * V3D(self._draw_plane.project(cam_pos) - cam_pos) < .0001:
                 normal *= -1.
 
         self._draw_plane_normal = normal
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_2"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_2"]
 
@@ -560,14 +560,14 @@ class BoxManager(PrimitiveManager):
             # to zero, so a different grid plane needs to be set temporarily;
             # out of the two possible planes, choose the one that faces the camera most.
 
-            grid_origin = Mgr.get(("grid", "origin"))
-            active_plane_id = GlobalData["active_grid_plane"]
+            grid_origin = Mgr.get("grid").origin
+            active_plane_id = GD["active_grid_plane"]
             normal1 = Vec3()
             normal2 = Vec3()
             normal1["xyz".index(active_plane_id[0])] = 1.
             normal2["xyz".index(active_plane_id[1])] = 1.
-            normal1 = self.world.get_relative_vector(grid_origin, normal1)
-            normal2 = self.world.get_relative_vector(grid_origin, normal2)
+            normal1 = GD.world.get_relative_vector(grid_origin, normal1)
+            normal2 = GD.world.get_relative_vector(grid_origin, normal2)
             plane_id1 = "xyz".replace(active_plane_id[0], "")
             plane_id2 = "xyz".replace(active_plane_id[1], "")
 
@@ -576,13 +576,13 @@ class BoxManager(PrimitiveManager):
             else:
                 Mgr.update_app("active_grid_plane", plane_id2)
 
-            GlobalData["active_grid_plane"] = active_plane_id
+            GD["active_grid_plane"] = active_plane_id
 
     def __creation_phase2(self):
         """ Draw out box height """
 
         point = None
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_2"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_2"]
 
@@ -594,17 +594,17 @@ class BoxManager(PrimitiveManager):
             if snap_on and snap_tgt_type != "increment":
                 Mgr.do("set_projected_snap_marker_pos", None)
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
-            cam = self.cam()
-            lens_type = self.cam.lens_type
+            screen_pos = GD.mouse_watcher.get_mouse()
+            cam = GD.cam()
+            lens_type = GD.cam.lens_type
 
             near_point = Point3()
             far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: GD.world.get_relative_point(cam, point)
             near_point = rel_pt(near_point)
             far_point = rel_pt(far_point)
 
@@ -621,15 +621,14 @@ class BoxManager(PrimitiveManager):
 
         else:
 
-            grid_origin = Mgr.get(("grid", "origin"))
-            point = self.world.get_relative_point(grid_origin, point)
+            point = GD.world.get_relative_point(Mgr.get("grid").origin, point)
             vec = point - self._dragged_point
             proj_point = self._dragged_point + vec.project(self._height_axis)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         tmp_prim = self.get_temp_primitive()
-        pivot = tmp_prim.get_pivot()
-        z = pivot.get_relative_point(self.world, point)[2]
+        pivot = tmp_prim.pivot
+        z = pivot.get_relative_point(GD.world, point)[2]
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_2"]
@@ -644,9 +643,9 @@ class BoxManager(PrimitiveManager):
         model = Mgr.do("create_model", model_id, name, pos)
 
         if not rel_to_grid:
-            pivot = model.get_pivot()
+            pivot = model.pivot
             pivot.clear_transform()
-            pivot.set_pos(self.world, pos)
+            pivot.set_pos(GD.world, pos)
 
         next_color = self.get_next_object_color()
         model.set_color(next_color, update_app=False)
@@ -657,8 +656,8 @@ class BoxManager(PrimitiveManager):
                 yield
 
         prim.init_size(x, y, z)
-        prim.get_geom_data_object().finalize_geometry()
-        model.set_geom_object(prim)
+        prim.geom_data_obj.finalize_geometry()
+        model.geom_obj = prim
         self.set_next_object_color()
 
         if inverted:
@@ -670,13 +669,13 @@ class BoxManager(PrimitiveManager):
 
         selection = Mgr.get("selection_top")
         objs = selection[:]
-        obj_names = GlobalData["obj_names"]
+        obj_names = GD["obj_names"]
         box_names = []
 
         poly_count = 0
 
         for obj in objs:
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+            geom_data_obj = obj.geom_obj.geom_data_obj
             poly_count += len(geom_data_obj.get_subobjects("poly"))
 
         progress_steps = (poly_count // 20) * 4
@@ -684,7 +683,7 @@ class BoxManager(PrimitiveManager):
 
         if gradual:
             Mgr.update_remotely("screenshot", "create")
-            GlobalData["progress_steps"] = progress_steps
+            GD["progress_steps"] = progress_steps
 
         planes = self._created_planes
         side_hprs = {"left": VBase3(0., 90., -90.), "right": VBase3(0., 90., 90.),
@@ -693,15 +692,15 @@ class BoxManager(PrimitiveManager):
 
         for obj in objs:
 
-            group = obj.get_group()
-            parent = obj.get_parent()
+            group = obj.group
+            parent = obj.parent
             material = obj.get_material()
-            box_name = obj.get_name()
+            box_name = obj.name
             box_names.append(box_name)
-            box_origin = NodePath(obj.get_origin().node().make_copy())
-            box_origin.set_transform(obj.get_origin().get_net_transform())
+            box_origin = NodePath(obj.origin.node().make_copy())
+            box_origin.set_transform(obj.origin.get_net_transform())
             self._tmp_box_origin = box_origin
-            box = obj.get_geom_object()
+            box = obj.geom_obj
             side_data = box.get_side_data()
 
             for side_id, data in side_data.items():
@@ -722,15 +721,15 @@ class BoxManager(PrimitiveManager):
 
                 plane.register(restore=False)
                 planes.append(plane)
-                plane_pivot = plane.get_pivot()
+                plane_pivot = plane.pivot
                 plane_pivot.set_hpr(side_hprs[side_id])
                 plane_pivot.reparent_to(box_origin)
                 plane_pivot.wrt_reparent_to(Mgr.get("object_root"))
 
                 if group:
-                    plane.set_group(group.get_id())
+                    plane.group = group.id
                 elif parent:
-                    plane.set_parent(parent.get_id())
+                    plane.parent = parent.id
 
                 if material:
                     plane.set_material(material)
@@ -744,22 +743,22 @@ class BoxManager(PrimitiveManager):
         obj_data = {}
 
         for obj in objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store("deletion")
+            obj_data[obj.id] = obj.get_data_to_store("deletion")
             obj.destroy(add_to_hist=False)
 
         for plane in planes:
             hist_data = plane.get_data_to_store("creation")
             hist_data["selection_state"] = {"main": True}
-            obj_data[plane.get_id()] = hist_data
+            obj_data[plane.id] = hist_data
 
         selection.add(planes, add_to_hist=False, update=False)
         self._created_planes = []
 
         if len(objs) == 1:
-            event_descr = 'Make planes from box "{}"'.format(box_names[0])
+            event_descr = f'Make planes from box "{box_names[0]}"'
         else:
             event_descr = 'Make planes from boxes:\n'
-            event_descr += "".join(['\n    "{}"'.format(name) for name in box_names])
+            event_descr += "".join([f'\n    "{name}"' for name in box_names])
 
         event_data = {"objects": obj_data}
         event_data["object_ids"] = set(Mgr.get("object_ids"))

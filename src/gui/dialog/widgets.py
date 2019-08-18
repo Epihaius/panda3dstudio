@@ -16,9 +16,10 @@ class DialogWidgetGroup(WidgetGroup):
 
         WidgetGroup.__init__(self, parent, "dialog_main", "dialog", label)
 
-    def get_sort(self):
+    @property
+    def sort(self):
 
-        return self.get_parent().get_sort()
+        return self.parent.sort
 
     def add_group(self, label="", add_top_border=True):
 
@@ -59,7 +60,7 @@ class DialogText(Text):
         skin_text = Skin["text"]["dialog"]
         Text.__init__(self, parent, skin_text["font"], skin_text["color"], text)
 
-        self.set_widget_type("dialog_text")
+        self.widget_type = "dialog_text"
 
 
 class DialogLabel(Label):
@@ -70,7 +71,7 @@ class DialogLabel(Label):
         Label.__init__(self, parent, skin_text["font"], skin_text["color"], back_color,
                        border_color, text, borders, stretch_dir)
 
-        self.set_widget_type("dialog_label")
+        self.widget_type = "dialog_label"
 
 
 class DialogMessageText(Text):
@@ -80,7 +81,7 @@ class DialogMessageText(Text):
         skin_text = Skin["text"]["dialog_message"]
         Text.__init__(self, parent, skin_text["font"], skin_text["color"], text)
 
-        self.set_widget_type("dialog_message_text")
+        self.widget_type = "dialog_message_text"
 
 
 class DialogStandardButton(Button):
@@ -99,9 +100,9 @@ class DialogStandardButton(Button):
         Button.__init__(self, parent, self._gfx, text, "", tooltip_text, command,
                         button_type="dialog_standard_button")
 
-        self.set_widget_type("dialog_standard_button")
+        self.widget_type = "dialog_standard_button"
 
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.mouse_region.sort = parent.sort + 1
 
     def on_left_up(self):
 
@@ -131,9 +132,9 @@ class DialogButton(Button):
         Button.__init__(self, parent, self._gfx, text, icon_id, tooltip_text, command,
                         button_type="dialog_button")
 
-        self.set_widget_type("dialog_button")
+        self.widget_type = "dialog_button"
 
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.mouse_region.sort = parent.sort + 1
 
 
 class DialogDropdownButton(Button):
@@ -164,9 +165,9 @@ class DialogDropdownButton(Button):
         Button.__init__(self, parent, self._gfx, text, icon_id, tooltip_text, command,
                         button_type="dialog_button")
 
-        self.set_widget_type("dialog_dropdown_button")
+        self.widget_type = "dialog_dropdown_button"
 
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.mouse_region.sort = parent.sort + 1
 
         self._menu = Menu(on_hide=self.__on_hide)
 
@@ -177,8 +178,8 @@ class DialogDropdownButton(Button):
 
     def __on_hide(self):
 
-        if self.is_active():
-            self.set_active(False)
+        if self.active:
+            self.active = False
             self.on_leave(force=True)
 
     def __show_menu(self):
@@ -191,7 +192,7 @@ class DialogDropdownButton(Button):
         alt_pos = (x + offset_x, y + offset_y - h)
 
         if self._menu.show(pos, alt_pos):
-            self.set_active()
+            self.active = True
 
     def get_menu(self):
 
@@ -219,9 +220,9 @@ class DialogToolButton(Button):
         Button.__init__(self, parent, self._gfx, text, icon_id, tooltip_text, command,
                         button_type="dialog_button")
 
-        self.set_widget_type("dialog_toolbutton")
+        self.widget_type = "dialog_toolbutton"
 
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.mouse_region.sort = parent.sort + 1
 
 
 class DialogCheckButton(CheckButton):
@@ -267,13 +268,13 @@ class DialogCheckButton(CheckButton):
 
         self.create_base_image()
 
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.mouse_region.sort = parent.sort + 1
 
     def __create_border_image(self):
 
         x, y, w, h = TextureAtlas["regions"]["dialog_checkbox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both",
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
                             has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
@@ -330,13 +331,13 @@ class DialogRadioButton(RadioButton):
 
         self.create_base_image()
 
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.mouse_region.sort = parent.sort + 1
 
     def __create_border_image(self):
 
         x, y, w, h = TextureAtlas["regions"]["dialog_radiobox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both",
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
                             has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
@@ -397,8 +398,8 @@ class MouseWatcherMixin:
     def _get_mouse_region_mask(cls, mouse_watcher_name):
 
         if cls._active_field:
-            sort = cls._active_field.get_mouse_region().get_sort() - 4
-            cls._mouse_region_mask.set_sort(sort)
+            sort = cls._active_field.mouse_region.sort - 4
+            cls._mouse_region_mask.sort = sort
 
         return cls._mouse_region_mask
 
@@ -424,7 +425,7 @@ class DialogInputField(MouseWatcherMixin, InputField):
                  allow_reject=True):
 
         self._dialog = dialog if dialog else parent
-        sort = self._dialog.get_sort() + 8
+        sort = self._dialog.sort + 8
         cull_bin = ("dialog", sort)
 
         MouseWatcherMixin.__init__(self)
@@ -432,7 +433,7 @@ class DialogInputField(MouseWatcherMixin, InputField):
                             image_offset, font, text_color, back_color, sort, cull_bin, on_accept,
                             on_reject, on_key_enter, on_key_escape, allow_reject)
 
-        self.set_widget_type("dialog_input_field")
+        self.widget_type = "dialog_input_field"
 
     def destroy(self):
 
@@ -470,7 +471,7 @@ class DialogSliderField(MouseWatcherMixin, SliderInputField):
                  on_key_escape=None, allow_reject=True):
 
         self._dialog = dialog if dialog else parent
-        sort = self._dialog.get_sort() + 8
+        sort = self._dialog.sort + 8
         cull_bin = ("dialog", sort)
 
         MouseWatcherMixin.__init__(self)
@@ -479,7 +480,7 @@ class DialogSliderField(MouseWatcherMixin, SliderInputField):
                                   back_color, sort, cull_bin, on_accept, on_reject, on_key_enter,
                                   on_key_escape, allow_reject)
 
-        self.set_widget_type("dialog_input_field")
+        self.widget_type = "dialog_input_field"
 
     def destroy(self):
 
@@ -553,11 +554,11 @@ class ComboBoxInputField(DialogInputField):
         DialogInputField.__init__(self, parent, value_id, value_type, handler, width,
                                   gfx_data, img_offset, dialog, font, text_color, back_color)
 
-        self.set_widget_type("dialog_combo_field")
+        self.widget_type = "dialog_combo_field"
 
     def get_outer_borders(self):
 
-        return self._field_borders if self.get_parent().has_icon() else self._field_borders2
+        return self._field_borders if self.parent.has_icon() else self._field_borders2
 
     def get_image(self, state=None, composed=True, draw_border=False, crop=True):
 
@@ -565,16 +566,16 @@ class ComboBoxInputField(DialogInputField):
 
     def accept_input(self, text_handler=None):
 
-        DialogInputField.accept_input(self, text_handler=self.get_parent().set_text)
+        DialogInputField.accept_input(self, text_handler=self.parent.set_text)
 
     def set_value(self, value, text_handler=None, handle_value=False):
 
-        DialogInputField.set_value(self, value, text_handler=self.get_parent().set_text,
+        DialogInputField.set_value(self, value, text_handler=self.parent.set_text,
                                    handle_value=handle_value)
 
     def set_text(self, text, text_handler=None):
 
-        DialogInputField.set_text(self, text, text_handler=self.get_parent().set_text)
+        DialogInputField.set_text(self, text, text_handler=self.parent.set_text)
 
 
 class DialogComboBox(ComboBox):
@@ -646,9 +647,9 @@ class DialogComboBox(ComboBox):
         ComboBox.__init__(self, parent, field_width, gfx_data, text, icon_id,
                           tooltip_text, editable)
 
-        self.set_widget_type("dialog_combobox")
+        self.widget_type = "dialog_combobox"
 
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.mouse_region.sort = parent.sort + 1
 
         x, y, w, h = TextureAtlas["regions"]["dialog_combobox_field_back"]
         tmp_img = PNMImage(w, h, 4)
@@ -754,13 +755,13 @@ class DialogScrollPane(ScrollPane):
                  "dialog_scrollthumb_hilited_bottomright")
             )
         }
-        bar_inner_border_id = "dialog_scrollbar_{}".format("h" if scroll_dir == "horizontal" else "v")
+        bar_inner_border_id = f'dialog_scrollbar_{"h" if scroll_dir == "horizontal" else "v"}'
         ScrollPane.__init__(self, dialog, pane_id, scroll_dir, "dialog", frame_gfx_data,
                             bar_gfx_data, thumb_gfx_data, bar_inner_border_id, "dialog_main",
                             frame_client_size, stretch_dir, frame_has_mouse_region=False)
 
         self.setup()
-        mouse_watcher = self.get_mouse_watcher()
+        mouse_watcher = self.mouse_watcher
         mouse_watcher.add_region(dialog.get_mouse_region_mask())
         mouse_watcher.add_region(DialogInputField.get_mouse_region_mask())
 

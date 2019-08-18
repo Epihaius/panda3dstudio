@@ -36,18 +36,18 @@ class FileManager:
 
         file_ops = ("new", "open", "save")
         accelerators = ("n", "o", "s")
-        mod_code = GlobalData["mod_key_codes"]["ctrl"]
+        mod_code = GD["mod_key_codes"]["ctrl"]
         hotkeys = [(accel, mod_code) for accel in accelerators]
 
         for file_op, accel, hotkey in zip(file_ops, accelerators, hotkeys):
             data = file_data[file_op]
             menu.add(file_op, data["descr"], data["handler"])
-            menu.set_item_hotkey(file_op, hotkey, "Ctrl+{}".format(accel.upper()))
+            menu.set_item_hotkey(file_op, hotkey, f"Ctrl+{accel.upper()}")
 
         file_op = "save_as"
         data = file_data[file_op]
         menu.add(file_op, data["descr"], data["handler"])
-        hotkey = ("s", mod_code | GlobalData["mod_key_codes"]["alt"])
+        hotkey = ("s", mod_code | GD["mod_key_codes"]["alt"])
         menu.set_item_hotkey(file_op, hotkey, "Ctrl+Alt+S")
 
         file_op = "save_incr"
@@ -79,7 +79,7 @@ class FileManager:
 
             reset = lambda: Mgr.update_app("scene", "reset")
 
-            if GlobalData["unsaved_scene"]:
+            if GD["unsaved_scene"]:
                 on_yes = lambda: self.__save_scene(on_save=reset)
                 MessageDialog(title="Save changes",
                               message="Save changes to current scene before resetting?",
@@ -103,7 +103,7 @@ class FileManager:
                 Mgr.update_app("scene", "load", Filename.from_os_specific(filename).get_fullpath())
                 Mgr.do("set_scene_label", filename)
 
-            open_file = GlobalData["open_file"]
+            open_file = GD["open_file"]
             default_filename = open_file if open_file else ""
             FileDialog(title="Open scene",
                        ok_alias="Open",
@@ -114,7 +114,7 @@ class FileManager:
 
         def task():
 
-            if GlobalData["unsaved_scene"]:
+            if GD["unsaved_scene"]:
                 on_yes = lambda: self.__save_scene(on_save=load)
                 MessageDialog(title="Save changes",
                               message="Save changes to current scene before loading?",
@@ -142,11 +142,11 @@ class FileManager:
 
     def __save_scene(self, on_save=None):
 
-        open_file = GlobalData["open_file"]
+        open_file = GD["open_file"]
 
         if open_file:
 
-            if not GlobalData["unsaved_scene"]:
+            if not GD["unsaved_scene"]:
                 return
 
             Mgr.update_app("scene", "save", open_file)
@@ -165,7 +165,7 @@ class FileManager:
 
     def __save_scene_incrementally(self):
 
-        open_file = GlobalData["open_file"]
+        open_file = GD["open_file"]
 
         if not open_file:
             return
@@ -183,10 +183,10 @@ class FileManager:
 
     def __set_scene_as_unsaved(self):
 
-        open_file = GlobalData["open_file"]
+        open_file = GD["open_file"]
         scene_label = (Filename(open_file).to_os_specific() if open_file else "New")
 
-        if GlobalData["unsaved_scene"]:
+        if GD["unsaved_scene"]:
             scene_label += "*"
 
         Mgr.do("set_scene_label", scene_label)
@@ -210,7 +210,7 @@ class FileManager:
         elif update_type == "export":
             # TODO: implement and show ExportDialog
             on_yes = lambda filename: Mgr.update_remotely("export", "export", filename)
-            open_file = GlobalData["open_file"]
+            open_file = GD["open_file"]
             default_filename = Filename(open_file).get_dirname() + "/" if open_file else ""
             FileDialog(title="Export scene",
                        ok_alias="Export",
@@ -223,7 +223,7 @@ class FileManager:
 
         on_yes = lambda filename: Mgr.update_remotely("import", "prepare", filename)
         # TODO: show MessageDialog "Preparing import..." without OK button
-        open_file = GlobalData["open_file"]
+        open_file = GD["open_file"]
         default_filename = Filename(open_file).get_dirname() + "/" if open_file else ""
         FileDialog(title="Import scene",
                    ok_alias="Import",
@@ -246,9 +246,9 @@ class FileManager:
 
         def on_exit():
 
-            exit = lambda: Mgr.get("base").userExit()
+            exit = lambda: GD.showbase.userExit()
 
-            if GlobalData["unsaved_scene"]:
+            if GD["unsaved_scene"]:
                 on_yes = lambda: self.__save_scene(on_save=exit)
                 MessageDialog(title="Save changes",
                               message="Save changes to current scene before exiting?",
@@ -272,7 +272,7 @@ class SaveAsDialog(FileDialog):
             if on_save:
                 on_save()
 
-        open_file = GlobalData["open_file"]
+        open_file = GD["open_file"]
         default_filename = open_file if open_file else ""
 
         FileDialog.__init__(self, title="Save scene as", choices="okcancel", ok_alias="Save",

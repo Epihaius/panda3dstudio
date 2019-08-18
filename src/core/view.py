@@ -3,270 +3,11 @@ from direct.interval.IntervalGlobal import (LerpPosInterval, LerpQuatInterval,
     LerpScaleInterval, LerpQuatScaleInterval, Parallel)
 
 
-class ViewManager(BaseObject):
-
-    @property
-    def is_front_custom(self):
-
-        return self._is_front_custom[GlobalData["view"]]
-
-    @is_front_custom.setter
-    def is_front_custom(self, is_front_custom):
-
-        self._is_front_custom[GlobalData["view"]] = is_front_custom
-
-
-    @property
-    def default_front_quat(self):
-
-        return self._default_front_quats[GlobalData["view"]]
-
-    @default_front_quat.setter
-    def default_front_quat(self, quat):
-
-        self._default_front_quats[GlobalData["view"]] = quat
-
-
-    @property
-    def default_home_default_pos(self):
-
-        return self._default_home_default_transforms[GlobalData["view"]]["pos"]
-
-
-    @property
-    def default_home_default_quat(self):
-
-        return self._default_home_default_transforms[GlobalData["view"]]["quat"]
-
-
-    @property
-    def default_home_default_zoom(self):
-
-        return self._default_home_default_transforms[GlobalData["view"]]["zoom"]
-
-
-    @property
-    def custom_home_default_pos(self):
-
-        return self._custom_home_default_transforms[GlobalData["view"]]["pos"]
-
-    @custom_home_default_pos.setter
-    def custom_home_default_pos(self, pos):
-
-        self._custom_home_default_transforms[GlobalData["view"]]["pos"] = pos
-
-
-    @property
-    def custom_home_default_quat(self):
-
-        return self._custom_home_default_transforms[GlobalData["view"]]["quat"]
-
-    @custom_home_default_quat.setter
-    def custom_home_default_quat(self, quat):
-
-        self._custom_home_default_transforms[GlobalData["view"]]["quat"] = quat
-
-
-    @property
-    def custom_home_default_zoom(self):
-
-        return self._custom_home_default_transforms[GlobalData["view"]]["zoom"]
-
-    @custom_home_default_zoom.setter
-    def custom_home_default_zoom(self, zoom):
-
-        self._custom_home_default_transforms[GlobalData["view"]]["zoom"] = zoom
-
-
-    @property
-    def custom_home_custom_pos(self):
-
-        return self._custom_home_custom_transforms[GlobalData["view"]]["pos"]
-
-    @custom_home_custom_pos.setter
-    def custom_home_custom_pos(self, pos):
-
-        self._custom_home_custom_transforms[GlobalData["view"]]["pos"] = pos
-
-
-    @property
-    def custom_home_custom_quat(self):
-
-        return self._custom_home_custom_transforms[GlobalData["view"]]["quat"]
-
-    @custom_home_custom_quat.setter
-    def custom_home_custom_quat(self, quat):
-
-        self._custom_home_custom_transforms[GlobalData["view"]]["quat"] = quat
-
-
-    @property
-    def custom_home_custom_zoom(self):
-
-        return self._custom_home_custom_transforms[GlobalData["view"]]["zoom"]
-
-    @custom_home_custom_zoom.setter
-    def custom_home_custom_zoom(self, zoom):
-
-        self._custom_home_custom_transforms[GlobalData["view"]]["zoom"] = zoom
-
-
-    @property
-    def default_home_custom_pos(self):
-
-        pos = self._default_home_custom_transforms[GlobalData["view"]]["pos"]
-
-        return self.default_home_default_pos if pos is None else pos
-
-    @default_home_custom_pos.setter
-    def default_home_custom_pos(self, pos):
-
-        self._default_home_custom_transforms[GlobalData["view"]]["pos"] = pos
-
-
-    @property
-    def default_home_custom_quat(self):
-
-        quat = self._default_home_custom_transforms[GlobalData["view"]]["quat"]
-
-        return self.default_home_default_quat if quat is None else quat
-
-    @default_home_custom_quat.setter
-    def default_home_custom_quat(self, quat):
-
-        self._default_home_custom_transforms[GlobalData["view"]]["quat"] = quat
-
-
-    @property
-    def default_home_custom_zoom(self):
-
-        zoom = self._default_home_custom_transforms[GlobalData["view"]]["zoom"]
-
-        return self.default_home_default_zoom if zoom is None else zoom
-      
-    @default_home_custom_zoom.setter
-    def default_home_custom_zoom(self, zoom):
-
-        self._default_home_custom_transforms[GlobalData["view"]]["zoom"] = zoom
-
-
-    @property
-    def home_default_pos(self):
-
-        return self.custom_home_default_pos if self.is_front_custom else self.default_home_default_pos
-
-
-    @property
-    def home_default_quat(self):
-
-        return self.custom_home_default_quat if self.is_front_custom else self.default_home_default_quat
-
-
-    @property
-    def home_default_zoom(self):
-
-        return self.custom_home_default_zoom if self.is_front_custom else self.default_home_default_zoom
-
-
-    @property
-    def home_pos(self):
-
-        return self.custom_home_custom_pos if self.is_front_custom else self.default_home_custom_pos
-
-    @home_pos.setter
-    def home_pos(self, pos):
-
-        if self.is_front_custom:
-            self.custom_home_custom_pos = pos
-        else:
-            self.default_home_custom_pos = pos
-
-
-    @property
-    def home_quat(self):
-
-        return self.custom_home_custom_quat if self.is_front_custom else self.default_home_custom_quat
-
-    @home_quat.setter
-    def home_quat(self, quat):
-
-        if self.is_front_custom:
-            self.custom_home_custom_quat = quat
-        else:
-            self.default_home_custom_quat = quat
-
-    
-    @property
-    def home_zoom(self):
-
-        return self.custom_home_custom_zoom if self.is_front_custom else self.default_home_custom_zoom
-
-    @home_zoom.setter
-    def home_zoom(self, zoom):
-
-        if self.is_front_custom:
-            self.custom_home_custom_zoom = zoom
-        else:
-            self.default_home_custom_zoom = zoom
-            
-    
-    @property
-    def reset_interval(self):
-
-        interval1 = LerpPosInterval(self.cam.pivot, .5, self.home_pos,
-                                    blendType="easeInOut")
-
-        if self.cam.lens_type == "persp":
-            interval2 = LerpQuatInterval(self.cam.target, .5, self.home_quat,
-                                         blendType="easeInOut")
-            interval3 = LerpPosInterval(self.cam.origin, .5, Point3(0., self.home_zoom, 0.),
-                                        blendType="easeInOut")
-            lerp_interval = Parallel(interval1, interval2, interval3)
-        else:
-            interval2 = LerpQuatScaleInterval(self.cam.target, .5, self.home_quat,
-                                              self.home_zoom, blendType="easeInOut")
-            lerp_interval = Parallel(interval1, interval2)
-
-        return lerp_interval
-
-
-    @property
-    def default_grid_plane(self):
-
-        return self._grid_plane_defaults[GlobalData["view"]]
-
-
-    @property
-    def grid_plane(self):
-
-        return self._grid_planes[GlobalData["view"]]
-
-    @grid_plane.setter
-    def grid_plane(self, grid_plane):
-
-        self._grid_planes[GlobalData["view"]] = grid_plane
-
-
-    @property
-    def default_render_mode(self):
-
-        return self._render_mode_defaults[GlobalData["view"]]
-
-
-    @property
-    def render_mode(self):
-
-        return self._render_modes[GlobalData["view"]]
-
-    @render_mode.setter
-    def render_mode(self, render_mode):
-
-        self._render_modes[GlobalData["view"]] = render_mode
-
+class ViewManager:
 
     def __init__(self):
 
-        GlobalData.set_default("view", "persp")
+        GD.set_default("view", "persp")
 
         self._lerp_interval = None
         self._transition_done = True
@@ -290,7 +31,7 @@ class ViewManager(BaseObject):
         self._render_mode_defaults = {}
 
         self._backgrounds = backgrounds = {}
-        root = self.world.attach_new_node("view_background_root")
+        root = GD.world.attach_new_node("view_background_root")
         root.set_transparency(TransparencyAttrib.M_alpha)
         root.set_depth_write(False)
         root.set_depth_test(False)
@@ -325,8 +66,8 @@ class ViewManager(BaseObject):
             card.hide()
             backgrounds[view_id] = card
 
-        copier = lambda data: dict((key, value.copy()) for key, value in data.items())
-        GlobalData.set_default("view_backgrounds", data, copier)
+        copier = lambda data: {key: value.copy() for key, value in data.items()}
+        GD.set_default("view_backgrounds", data, copier)
 
         Mgr.expose("is_front_view_custom", lambda view_id: self._is_front_custom[view_id])
         Mgr.expose("view_transition_done", lambda: self._transition_done)
@@ -353,15 +94,15 @@ class ViewManager(BaseObject):
 
             return quat
 
-        self._is_front_custom = dict((view_id, False) for view_id in view_ids)
-        self._default_front_quats = dict((view_id, Quat()) for view_id in view_ids)
+        self._is_front_custom = {view_id: False for view_id in view_ids}
+        self._default_front_quats = {view_id: Quat() for view_id in view_ids}
         self._default_home_default_transforms = default_default = {}
         self._default_home_custom_transforms = default_custom = {}
         self._custom_home_default_transforms = custom_default = {}
         self._custom_home_custom_transforms = custom_custom = {}
         initial_values = {"pos": None, "quat": None, "zoom": None}
         lens_types = ("persp",) + ("ortho",) * 7
-        cam = self.cam
+        cam = GD.cam
 
         for view_id, hpr, zoom, lens_type in zip(view_ids, hprs, zooms, lens_types):
             default_default[view_id] = {"pos": Point3(), "quat": create_quat(hpr), "zoom": zoom}
@@ -371,11 +112,11 @@ class ViewManager(BaseObject):
             cam.add_rig(view_id, VBase3(), Point3(), hpr, lens_type, zoom)
 
         names = ["Perspective", "Orthographic"] + [view_id.title() for view_id in view_ids[2:]]
-        self._view_names = dict((view_id, name) for view_id, name in zip(view_ids, names))
+        self._view_names = {view_id: name for view_id, name in zip(view_ids, names)}
         planes = ("xy", "xy", "xz", "xz", "yz", "yz", "xy", "xy")
-        self._grid_planes = dict((view_id, plane) for view_id, plane in zip(view_ids, planes))
+        self._grid_planes = {view_id: plane for view_id, plane in zip(view_ids, planes)}
         self._grid_plane_defaults = self._grid_planes.copy()
-        self._render_modes = dict((view_id, "shaded") for view_id in view_ids)
+        self._render_modes = {view_id: "shaded" for view_id in view_ids}
         self._render_mode_defaults = self._render_modes.copy()
 
         add_state = Mgr.add_state
@@ -394,23 +135,257 @@ class ViewManager(BaseObject):
              exit_view_obj_picking_mode)
         bind("view_obj_picking_mode", "cancel view obj picking", "mouse3",
              exit_view_obj_picking_mode)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("view_obj_picking_mode", "pick view obj ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("view_obj_picking_mode", "pick view obj ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Pick object to align view to"
         info_text = "LMB to pick object; RMB to cancel"
         status_data["pick_view_obj"] = {"mode": mode_text, "info": info_text}
 
         return "views_ok"
 
-    def __enter_picking_mode(self, prev_state_id, is_active):
+    @property
+    def is_front_custom(self):
+
+        return self._is_front_custom[GD["view"]]
+
+    @is_front_custom.setter
+    def is_front_custom(self, is_front_custom):
+
+        self._is_front_custom[GD["view"]] = is_front_custom
+
+    @property
+    def default_front_quat(self):
+
+        return self._default_front_quats[GD["view"]]
+
+    @default_front_quat.setter
+    def default_front_quat(self, quat):
+
+        self._default_front_quats[GD["view"]] = quat
+
+    @property
+    def default_home_default_pos(self):
+
+        return self._default_home_default_transforms[GD["view"]]["pos"]
+
+    @property
+    def default_home_default_quat(self):
+
+        return self._default_home_default_transforms[GD["view"]]["quat"]
+
+    @property
+    def default_home_default_zoom(self):
+
+        return self._default_home_default_transforms[GD["view"]]["zoom"]
+
+    @property
+    def custom_home_default_pos(self):
+
+        return self._custom_home_default_transforms[GD["view"]]["pos"]
+
+    @custom_home_default_pos.setter
+    def custom_home_default_pos(self, pos):
+
+        self._custom_home_default_transforms[GD["view"]]["pos"] = pos
+
+    @property
+    def custom_home_default_quat(self):
+
+        return self._custom_home_default_transforms[GD["view"]]["quat"]
+
+    @custom_home_default_quat.setter
+    def custom_home_default_quat(self, quat):
+
+        self._custom_home_default_transforms[GD["view"]]["quat"] = quat
+
+    @property
+    def custom_home_default_zoom(self):
+
+        return self._custom_home_default_transforms[GD["view"]]["zoom"]
+
+    @custom_home_default_zoom.setter
+    def custom_home_default_zoom(self, zoom):
+
+        self._custom_home_default_transforms[GD["view"]]["zoom"] = zoom
+
+    @property
+    def custom_home_custom_pos(self):
+
+        return self._custom_home_custom_transforms[GD["view"]]["pos"]
+
+    @custom_home_custom_pos.setter
+    def custom_home_custom_pos(self, pos):
+
+        self._custom_home_custom_transforms[GD["view"]]["pos"] = pos
+
+    @property
+    def custom_home_custom_quat(self):
+
+        return self._custom_home_custom_transforms[GD["view"]]["quat"]
+
+    @custom_home_custom_quat.setter
+    def custom_home_custom_quat(self, quat):
+
+        self._custom_home_custom_transforms[GD["view"]]["quat"] = quat
+
+    @property
+    def custom_home_custom_zoom(self):
+
+        return self._custom_home_custom_transforms[GD["view"]]["zoom"]
+
+    @custom_home_custom_zoom.setter
+    def custom_home_custom_zoom(self, zoom):
+
+        self._custom_home_custom_transforms[GD["view"]]["zoom"] = zoom
+
+    @property
+    def default_home_custom_pos(self):
+
+        pos = self._default_home_custom_transforms[GD["view"]]["pos"]
+
+        return self.default_home_default_pos if pos is None else pos
+
+    @default_home_custom_pos.setter
+    def default_home_custom_pos(self, pos):
+
+        self._default_home_custom_transforms[GD["view"]]["pos"] = pos
+
+    @property
+    def default_home_custom_quat(self):
+
+        quat = self._default_home_custom_transforms[GD["view"]]["quat"]
+
+        return self.default_home_default_quat if quat is None else quat
+
+    @default_home_custom_quat.setter
+    def default_home_custom_quat(self, quat):
+
+        self._default_home_custom_transforms[GD["view"]]["quat"] = quat
+
+    @property
+    def default_home_custom_zoom(self):
+
+        zoom = self._default_home_custom_transforms[GD["view"]]["zoom"]
+
+        return self.default_home_default_zoom if zoom is None else zoom
+
+    @default_home_custom_zoom.setter
+    def default_home_custom_zoom(self, zoom):
+
+        self._default_home_custom_transforms[GD["view"]]["zoom"] = zoom
+
+    @property
+    def home_default_pos(self):
+
+        return self.custom_home_default_pos if self.is_front_custom else self.default_home_default_pos
+
+    @property
+    def home_default_quat(self):
+
+        return self.custom_home_default_quat if self.is_front_custom else self.default_home_default_quat
+
+    @property
+    def home_default_zoom(self):
+
+        return self.custom_home_default_zoom if self.is_front_custom else self.default_home_default_zoom
+
+    @property
+    def home_pos(self):
+
+        return self.custom_home_custom_pos if self.is_front_custom else self.default_home_custom_pos
+
+    @home_pos.setter
+    def home_pos(self, pos):
+
+        if self.is_front_custom:
+            self.custom_home_custom_pos = pos
+        else:
+            self.default_home_custom_pos = pos
+
+    @property
+    def home_quat(self):
+
+        return self.custom_home_custom_quat if self.is_front_custom else self.default_home_custom_quat
+
+    @home_quat.setter
+    def home_quat(self, quat):
+
+        if self.is_front_custom:
+            self.custom_home_custom_quat = quat
+        else:
+            self.default_home_custom_quat = quat
+
+    @property
+    def home_zoom(self):
+
+        return self.custom_home_custom_zoom if self.is_front_custom else self.default_home_custom_zoom
+
+    @home_zoom.setter
+    def home_zoom(self, zoom):
+
+        if self.is_front_custom:
+            self.custom_home_custom_zoom = zoom
+        else:
+            self.default_home_custom_zoom = zoom
+
+    @property
+    def reset_interval(self):
+
+        interval1 = LerpPosInterval(GD.cam.pivot, .5, self.home_pos,
+                                    blendType="easeInOut")
+
+        if GD.cam.lens_type == "persp":
+            interval2 = LerpQuatInterval(GD.cam.target, .5, self.home_quat,
+                                         blendType="easeInOut")
+            interval3 = LerpPosInterval(GD.cam.origin, .5, Point3(0., self.home_zoom, 0.),
+                                        blendType="easeInOut")
+            lerp_interval = Parallel(interval1, interval2, interval3)
+        else:
+            interval2 = LerpQuatScaleInterval(GD.cam.target, .5, self.home_quat,
+                                              self.home_zoom, blendType="easeInOut")
+            lerp_interval = Parallel(interval1, interval2)
+
+        return lerp_interval
+
+    @property
+    def default_grid_plane(self):
+
+        return self._grid_plane_defaults[GD["view"]]
+
+    @property
+    def grid_plane(self):
+
+        return self._grid_planes[GD["view"]]
+
+    @grid_plane.setter
+    def grid_plane(self, grid_plane):
+
+        self._grid_planes[GD["view"]] = grid_plane
+
+    @property
+    def default_render_mode(self):
+
+        return self._render_mode_defaults[GD["view"]]
+
+    @property
+    def render_mode(self):
+
+        return self._render_modes[GD["view"]]
+
+    @render_mode.setter
+    def render_mode(self, render_mode):
+
+        self._render_modes[GD["view"]] = render_mode
+
+    def __enter_picking_mode(self, prev_state_id, active):
 
         Mgr.add_task(self.__update_cursor, "update_view_obj_picking_cursor")
         Mgr.update_app("status", ["pick_view_obj"])
 
-        if not is_active:
+        if not active:
 
             def handler(obj_ids):
 
@@ -420,10 +395,10 @@ class ViewManager(BaseObject):
 
             Mgr.update_remotely("selection_by_name", "", "Pick object to align view to",
                                 None, False, "Pick", handler)
-            Mgr.get("gizmo_picking_cam").node().set_active(False)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
+            Mgr.get("gizmo_picking_cam").node().active = False
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = False
 
-    def __exit_picking_mode(self, next_state_id, is_active):
+    def __exit_picking_mode(self, next_state_id, active):
 
         self._pixel_under_mouse = None  # force an update of the cursor
                                         # next time self.__update_cursor()
@@ -431,9 +406,9 @@ class ViewManager(BaseObject):
         Mgr.remove_task("update_view_obj_picking_cursor")
         Mgr.set_cursor("main")
 
-        if not is_active:
-            Mgr.get("gizmo_picking_cam").node().set_active(True)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
+        if not active:
+            Mgr.get("gizmo_picking_cam").node().active = True
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = True
             Mgr.update_remotely("selection_by_name", "default")
 
     def __pick(self, picked_obj=None):
@@ -456,7 +431,7 @@ class ViewManager(BaseObject):
 
     def __get_view_data(self):
 
-        cam = self.cam
+        cam = GD.cam
         data = {}
         data["custom"] = self._is_front_custom
         data["default_home_custom"] = self._default_home_custom_transforms
@@ -466,23 +441,23 @@ class ViewManager(BaseObject):
         data["user_lenses"] = self._user_lens_types
         data["user_index"] = self._user_view_index
         names = self._view_names
-        data["user_names"] = dict((view_id, names[view_id]) for view_id in user_view_ids)
+        data["user_names"] = {view_id: names[view_id] for view_id in user_view_ids}
         front_quats = self._default_front_quats
-        data["user_front_quats"] = dict((view_id, front_quats[view_id]) for view_id in user_view_ids)
+        data["user_front_quats"] = {view_id: front_quats[view_id] for view_id in user_view_ids}
         default_transforms = self._default_home_default_transforms
-        data["user_defaults"] = dict((view_id, default_transforms[view_id]) for view_id in user_view_ids)
-        data["cam_pivot_pos"] = cam.get_pivot_positions()
-        data["cam_pivot_hpr"] = cam.get_pivot_hprs()
-        data["cam_target_hpr"] = cam.get_target_hprs()
-        data["cam_zoom"] = cam.get_zooms()
+        data["user_defaults"] = {view_id: default_transforms[view_id] for view_id in user_view_ids}
+        data["cam_pivot_pos"] = cam.pivot_positions
+        data["cam_pivot_hpr"] = cam.pivot_hprs
+        data["cam_target_hpr"] = cam.target_hprs
+        data["cam_zoom"] = cam.zooms
         data["grid"] = self._grid_planes
         grid_defaults = self._grid_plane_defaults
-        data["grid_user"] = dict((view_id, grid_defaults[view_id]) for view_id in user_view_ids)
+        data["grid_user"] = {view_id: grid_defaults[view_id] for view_id in user_view_ids}
         data["render_mode"] = self._render_modes
         render_mode_defaults = self._render_mode_defaults
-        data["render_mode_user"] = dict((view_id, render_mode_defaults[view_id]) for view_id in user_view_ids)
-        data["view"] = GlobalData["view"]
-        data["view_backgrounds"] = GlobalData["view_backgrounds"]
+        data["render_mode_user"] = {view_id: render_mode_defaults[view_id] for view_id in user_view_ids}
+        data["view"] = GD["view"]
+        data["view_backgrounds"] = GD["view_backgrounds"]
 
         return data
 
@@ -502,7 +477,7 @@ class ViewManager(BaseObject):
         self._default_home_default_transforms.update(user_defaults)
         front_quats = data["user_front_quats"]
         self._default_front_quats.update(front_quats)
-        cam = self.cam
+        cam = GD.cam
 
         for view_id in user_view_ids:
             defaults = user_defaults[view_id]
@@ -510,10 +485,10 @@ class ViewManager(BaseObject):
                         defaults["quat"].get_hpr(), lens_types[view_id], defaults["zoom"])
             Mgr.update_remotely("view", "add", view_id, view_names[view_id])
 
-        cam.set_pivot_positions(data["cam_pivot_pos"])
-        cam.set_pivot_hprs(data["cam_pivot_hpr"])
-        cam.set_target_hprs(data["cam_target_hpr"])
-        cam.set_zooms(data["cam_zoom"])
+        cam.pivot_positions = data["cam_pivot_pos"]
+        cam.pivot_hprs = data["cam_pivot_hpr"]
+        cam.target_hprs = data["cam_target_hpr"]
+        cam.zooms = data["cam_zoom"]
 
         self._grid_planes = data["grid"]
         grid_defaults = self._grid_plane_defaults
@@ -537,10 +512,10 @@ class ViewManager(BaseObject):
 
     def __clear_user_views(self):
 
-        if GlobalData["view"] in self._user_view_ids:
+        if GD["view"] in self._user_view_ids:
             self.__set_view("persp")
 
-        cam = self.cam
+        cam = GD.cam
         view_names = self._view_names
         default_front = self._default_front_quats
         default_default = self._default_home_default_transforms
@@ -579,7 +554,7 @@ class ViewManager(BaseObject):
 
     def __show_background(self, view_id):
 
-        data = GlobalData["view_backgrounds"][view_id]
+        data = GD["view_backgrounds"][view_id]
 
         if data["filename"] and data["show"]:
             self._backgrounds[view_id].show()
@@ -595,7 +570,7 @@ class ViewManager(BaseObject):
             return
 
         background = self._backgrounds[view_id]
-        background_data = GlobalData["view_backgrounds"][view_id]
+        background_data = GD["view_backgrounds"][view_id]
 
         filename = data["filename"]
         in_foreground = data["in_foreground"]
@@ -624,7 +599,7 @@ class ViewManager(BaseObject):
                 background.clear_texture()
 
         if data["show"]:
-            if filename and GlobalData["view"] == view_id:
+            if filename and GD["view"] == view_id:
                 background.show()
         else:
             background.hide()
@@ -661,7 +636,7 @@ class ViewManager(BaseObject):
             update_tex_scale = True
 
         if update_tex_scale:
-            background.set_tex_scale(TextureStage.get_default(), sx, sy)
+            background.set_tex_scale(TextureStage.default, sx, sy)
 
         background_data.update(data)
         del background_data["view"]
@@ -679,7 +654,7 @@ class ViewManager(BaseObject):
 
     def __update_view(self, update_type, *args):
 
-        view_id = GlobalData["view"]
+        view_id = GD["view"]
 
         if update_type == "set":
             self.__set_view(*args)
@@ -725,11 +700,11 @@ class ViewManager(BaseObject):
             name = args[0]
             name = get_unique_name(name, iter(self._view_names.values()))
             self._view_names[view_id] = name
-            lens_type = self.cam.lens_type
+            lens_type = GD.cam.lens_type
             Mgr.update_remotely("view", "rename", lens_type, view_id, name)
         elif update_type == "obj_align":
-            if GlobalData["active_obj_level"] != "top":
-                GlobalData["active_obj_level"] = "top"
+            if GD["active_obj_level"] != "top":
+                GD["active_obj_level"] = "top"
                 Mgr.update_app("active_obj_level")
             Mgr.enter_state("view_obj_picking_mode")
         elif update_type == "background":
@@ -739,18 +714,18 @@ class ViewManager(BaseObject):
 
         if update_type in ("copy", "take_snapshot", "toggle_lens_type", "remove", "clear",
                            "rename", "background", "reset_backgrounds"):
-            GlobalData["unsaved_scene"] = True
+            GD["unsaved_scene"] = True
             Mgr.update_app("unsaved_scene")
             Mgr.do("require_scene_save")
 
     def __toggle_lens_type(self):
 
-        view_id = GlobalData["view"]
+        view_id = GD["view"]
 
         if view_id not in self._user_view_ids:
             return
 
-        cam = self.cam
+        cam = GD.cam
         current_lens_type = cam.lens_type
         lens_type = "ortho" if current_lens_type == "persp" else "persp"
 
@@ -773,21 +748,21 @@ class ViewManager(BaseObject):
         cam.lens_type = lens_type
         cam.zoom = zoom
         cam.update()
-        Mgr.do("adjust_grid_to_lens")
-        Mgr.do("adjust_picking_cam_to_lens")
-        Mgr.do("adjust_transform_gizmo_to_lens", current_lens_type, lens_type)
+        Mgr.get("grid").adjust_to_lens()
+        Mgr.get("picking_cam").adjust_to_lens()
+        Mgr.get("transf_gizmo").adjust_to_lens(current_lens_type, lens_type)
 
     def __set_view(self, view_id, force=False):
         """ Switch to a different view """
 
-        current_view_id = GlobalData["view"]
+        current_view_id = GD["view"]
 
         if not force and current_view_id == view_id:
             return
 
-        cam = self.cam
+        cam = GD.cam
         current_lens_type = cam.lens_type
-        GlobalData["view"] = view_id
+        GD["view"] = view_id
         cam.update()
         lens_type = cam.lens_type
 
@@ -795,16 +770,16 @@ class ViewManager(BaseObject):
         Mgr.update_app("render_mode", self.render_mode)
 
         if current_lens_type != lens_type:
-            Mgr.do("adjust_grid_to_lens")
-            Mgr.do("adjust_picking_cam_to_lens")
-            Mgr.do("adjust_transform_gizmo_to_lens", current_lens_type, lens_type)
+            Mgr.get("grid").adjust_to_lens()
+            Mgr.get("picking_cam").adjust_to_lens()
+            Mgr.get("transf_gizmo").adjust_to_lens(current_lens_type, lens_type)
 
         Mgr.do("update_zoom_indicator")
         Mgr.do("update_view_gizmo", cube=False, hpr=True)
-        Mgr.do("update_transf_gizmo")
+        Mgr.get("transf_gizmo").update()
         Mgr.do("update_coord_sys")
 
-        if GlobalData["coord_sys_type"] == "view":
+        if GD["coord_sys_type"] == "view":
             Mgr.get("selection").update_transform_values()
 
         backgrounds = self._backgrounds
@@ -819,12 +794,12 @@ class ViewManager(BaseObject):
     def __copy_view(self, lens_type, name):
         """ Copy the current view using the given lens type and make it a user view """
 
-        current_view_id = GlobalData["view"]
+        current_view_id = GD["view"]
         name = get_unique_name(name, iter(self._view_names.values()))
         view_id = str(self._user_view_index)
         self._view_names[view_id] = name
 
-        cam = self.cam
+        cam = GD.cam
 
         pivot_pos = cam.pivot.get_pos()
         pivot_hpr = cam.pivot.get_hpr()
@@ -865,7 +840,7 @@ class ViewManager(BaseObject):
                 zoom = cam.convert_zoom(lens_type, zoom=zoom)
                 transforms[view_id]["zoom"] = zoom
 
-        name = "User {} - {}".format(lens_type, name)
+        name = f"User {lens_type} - {name}"
         Mgr.update_remotely("view", "add", view_id, name)
 
         self.__set_view(view_id)
@@ -873,14 +848,14 @@ class ViewManager(BaseObject):
     def __take_snapshot(self, view_name):
         """ Take a snapshot of the current view and make it a user view """
 
-        current_view_id = GlobalData["view"]
+        current_view_id = GD["view"]
         name = get_unique_name(view_name, iter(self._view_names.values()))
         view_id = str(self._user_view_index)
         self._view_names[view_id] = name
 
         self._is_front_custom[view_id] = False
 
-        cam = self.cam
+        cam = GD.cam
 
         pivot = cam.pivot
         pivot_pos = pivot.get_pos()
@@ -915,7 +890,7 @@ class ViewManager(BaseObject):
         self._user_view_index += 1
         cam.add_rig(view_id, pivot_hpr, pivot_pos, target_hpr, lens_type, zoom)
 
-        name = "User {} - {}".format(lens_type, name)
+        name = f"User {lens_type} - {name}"
         Mgr.update_remotely("view", "add", view_id, name)
 
         self.__set_view(view_id)
@@ -925,10 +900,10 @@ class ViewManager(BaseObject):
         if view_id not in self._user_view_ids:
             return
 
-        if GlobalData["view"] in self._user_view_ids:
+        if GD["view"] in self._user_view_ids:
             self.__set_view("persp")
 
-        cam = self.cam
+        cam = GD.cam
 
         del self._view_names[view_id]
         del self._default_front_quats[view_id]
@@ -946,7 +921,7 @@ class ViewManager(BaseObject):
 
     def __adjust_transition_hpr(self, task):
 
-        cam_target = self.cam.target
+        cam_target = GD.cam.target
         quat = cam_target.get_quat()
 
         # prevent the bottom view from flipping 180 degrees when orbiting
@@ -958,7 +933,7 @@ class ViewManager(BaseObject):
 
         cam_target.set_hpr(hpr)
 
-        Mgr.do("update_transf_gizmo")
+        Mgr.get("transf_gizmo").update()
         Mgr.do("update_coord_sys")
         Mgr.do("update_zoom_indicator")
 
@@ -969,7 +944,7 @@ class ViewManager(BaseObject):
             self._transition_done = True
             return
 
-        Mgr.do("update_transf_gizmo")
+        Mgr.get("transf_gizmo").update()
         Mgr.do("update_coord_sys")
         Mgr.do("update_zoom_indicator")
 
@@ -978,7 +953,7 @@ class ViewManager(BaseObject):
     def __start_view_transition(self, dest_view, quat):
 
         self._dest_view = dest_view
-        lerp_interval = LerpQuatInterval(self.cam.target, .5, quat,
+        lerp_interval = LerpQuatInterval(GD.cam.target, .5, quat,
                                          blendType="easeInOut")
         self._lerp_interval = lerp_interval
         lerp_interval.start()
@@ -991,10 +966,10 @@ class ViewManager(BaseObject):
         """ Set the given or current view as a custom Front view """
 
         if view_id:
-            current_view_id = GlobalData["view"]
-            GlobalData["view"] = view_id
+            current_view_id = GD["view"]
+            GD["view"] = view_id
 
-        cam = self.cam
+        cam = GD.cam
         self.is_front_custom = True
         pos = cam.pivot.get_pos()
         quat = Quat()
@@ -1005,7 +980,7 @@ class ViewManager(BaseObject):
         self.home_pos = pos
         self.home_quat = quat
         self.home_zoom = zoom
-        hpr = cam.target.get_hpr(self.world)
+        hpr = cam.target.get_hpr(GD.world)
         cam.target.set_hpr(0., 0., 0.)
         cam.pivot.set_hpr(hpr)
 
@@ -1013,23 +988,23 @@ class ViewManager(BaseObject):
             Mgr.do("update_view_gizmo", False, True)
 
         if view_id:
-            GlobalData["view"] = current_view_id
+            GD["view"] = current_view_id
 
     def __reset_front_view(self, view_id=None, transition=True, reset_roll=True):
         """ Realigns the Front view to the world (or original user view space) """
 
         if view_id:
-            current_view_id = GlobalData["view"]
-            GlobalData["view"] = view_id
+            current_view_id = GD["view"]
+            GD["view"] = view_id
 
         if not self.is_front_custom:
 
             if view_id:
-                GlobalData["view"] = current_view_id
+                GD["view"] = current_view_id
 
             return
 
-        cam = self.cam
+        cam = GD.cam
         ref_node = NodePath("ref_node")
         def_front_quat = self.default_front_quat
         ref_node.set_quat(def_front_quat)
@@ -1066,18 +1041,18 @@ class ViewManager(BaseObject):
             if not view_id or view_id == current_view_id:
                 Mgr.do("update_view_gizmo", False, True)
 
-            if GlobalData["coord_sys_type"] == "view":
+            if GD["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
         self.is_front_custom = False
 
         if view_id:
-            GlobalData["view"] = current_view_id
+            GD["view"] = current_view_id
 
     def __set_as_home_view(self):
         """ Set the current view as the Home view """
 
-        cam = self.cam
+        cam = GD.cam
         self.home_pos = cam.pivot.get_pos()
         self.home_quat = cam.target.get_quat()
         self.home_zoom = cam.zoom
@@ -1092,7 +1067,7 @@ class ViewManager(BaseObject):
     def __reset_view(self, to_default=True, transition=False):
         """ Make the Home view the current view """
 
-        cam = self.cam
+        cam = GD.cam
         lerp_view_gizmo = False
 
         if to_default:
@@ -1153,27 +1128,27 @@ class ViewManager(BaseObject):
             cam.pivot.set_pos(pos)
             cam.target.set_quat(quat)
             cam.zoom = zoom
-            Mgr.do("update_transf_gizmo")
+            Mgr.get("transf_gizmo").update()
             Mgr.do("update_coord_sys")
             Mgr.do("update_zoom_indicator")
             Mgr.do("update_view_gizmo")
 
-            if GlobalData["coord_sys_type"] == "view":
+            if GD["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
     def __reset_all_views(self, to_default=True, transition=False):
 
-        current_view_id = GlobalData["view"]
+        current_view_id = GD["view"]
         view_ids = ["persp", "ortho", "front", "back", "left", "right", "top", "bottom"]
         view_ids += self._user_view_ids
 
         for view_id in view_ids:
-            GlobalData["view"] = view_id
+            GD["view"] = view_id
             self.__reset_view(to_default, transition)
 
         def task():
 
-            GlobalData["view"] = current_view_id
+            GD["view"] = current_view_id
             Mgr.update_app("view", "set", "persp")
 
         PendingTasks.add(task, "set_persp_view", "ui")
@@ -1216,32 +1191,32 @@ class ViewManager(BaseObject):
             return
 
         obj_root = Mgr.get("object_root")
-        cam = self.cam
+        cam = GD.cam
         bounds_np = cam.origin.attach_new_node("cam_aligned_node")
         tmp_np = bounds_np.attach_new_node("tmp_node")
 
         if obj_to_align_to:
-            bounds_np.set_hpr(obj_to_align_to.get_pivot(), 0., 0., 0.)
+            bounds_np.set_hpr(obj_to_align_to.pivot, 0., 0., 0.)
 
         parents = {}
         parent_copies = {}
 
-        bboxes = dict((obj, obj.get_bbox()) for obj in objs if obj.get_type() == "model")
+        bboxes = {obj: obj.bbox for obj in objs if obj.type == "model"}
 
         for bbox in bboxes.values():
-            bbox.get_origin().detach_node()
+            bbox.origin.detach_node()
 
         for obj in objs:
 
-            orig = obj.get_origin()
-            parent = orig.get_parent()
+            orig = obj.origin
+            parent = orig.parent
             parents[orig] = parent
 
             if parent in parent_copies:
                 parent_copy = parent_copies[parent]
             else:
                 parent_copy = NodePath("parent_copy")
-                parent_copy.set_transform(parent.get_transform(self.world))
+                parent_copy.set_transform(parent.get_transform(GD.world))
                 parent_copy.wrt_reparent_to(tmp_np)
                 parent_copies[parent] = parent_copy
 
@@ -1253,7 +1228,7 @@ class ViewManager(BaseObject):
             orig.reparent_to(parent)
 
         for obj, bbox in bboxes.items():
-            bbox.get_origin().reparent_to(obj.get_origin())
+            bbox.origin.reparent_to(obj.origin)
 
         centers = {}
 
@@ -1284,16 +1259,16 @@ class ViewManager(BaseObject):
 
         if cam.lens.is_perspective():
             vec = (point_min - point_max) * .5
-            center_pos = self.world.get_relative_point(tmp_np, point_max + vec)
+            center_pos = GD.world.get_relative_point(tmp_np, point_max + vec)
         else:
             vec = point_max - point_min
-            center_pos = self.world.get_relative_point(tmp_np, point_min + vec * .5)
+            center_pos = GD.world.get_relative_point(tmp_np, point_min + vec * .5)
 
         bounds_np.remove_node()
 
         if cam.lens.is_perspective():
 
-            fov_h, fov_v = cam.lens.get_fov()
+            fov_h, fov_v = cam.lens.fov
             x, y, z = vec
             x = min(-.01, x)
             y = min(-.01, y)
@@ -1304,7 +1279,7 @@ class ViewManager(BaseObject):
             else:
                 zoom = y + ((x / tan(radians(fov_h * .5))) if x / z > fov_h / fov_v
                     else (z / tan(radians(fov_v * .5))))
-                zoom = max(-1000000., min(-cam.lens.get_near(), zoom))
+                zoom = max(-1000000., min(-cam.lens.near, zoom))
 
             if transition:
                 if zoom is None:
@@ -1317,7 +1292,7 @@ class ViewManager(BaseObject):
 
         else:
 
-            size_h, size_v = cam.lens.get_film_size()
+            size_h, size_v = cam.lens.film_size
             x, y, z = vec
             x = max(.01, x)
             y = max(.01, y)
@@ -1347,7 +1322,7 @@ class ViewManager(BaseObject):
                 lerp_interval.append(interval1)
 
             if obj_to_align_to:
-                quat = obj_to_align_to.get_pivot().get_quat(self.world)
+                quat = obj_to_align_to.pivot.get_quat(GD.world)
                 interval3 = LerpQuatInterval(cam.pivot, .3, quat, blendType="easeInOut")
                 interval4 = LerpQuatInterval(cam.target, .3, Quat(), blendType="easeInOut")
                 interval5 = LerpQuatInterval(Mgr.get("view_gizmo_root"), .5,
@@ -1367,14 +1342,14 @@ class ViewManager(BaseObject):
 
             cam.pivot.set_pos(center_pos)
             set_zoom()
-            Mgr.do("update_transf_gizmo")
+            Mgr.get("transf_gizmo").update()
             Mgr.do("update_coord_sys")
             Mgr.do("update_zoom_indicator")
 
             if obj_to_align_to:
                 Mgr.do("update_view_gizmo", False, True)
 
-            if GlobalData["coord_sys_type"] == "view":
+            if GD["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
         if obj_to_align_to:
@@ -1390,28 +1365,28 @@ class ViewManager(BaseObject):
 
     def __do_preview(self, view_id):
 
-        current_view_id = GlobalData["view"]
+        current_view_id = GD["view"]
 
         if view_id != current_view_id:
 
-            current_lens_type = self.cam.lens_type
-            GlobalData["view"] = view_id
-            self.cam.update()
-            lens_type = self.cam.lens_type
+            current_lens_type = GD.cam.lens_type
+            GD["view"] = view_id
+            GD.cam.update()
+            lens_type = GD.cam.lens_type
             Mgr.update_app("active_grid_plane", self.grid_plane)
             Mgr.update_app("render_mode", self.render_mode)
 
             if current_lens_type != lens_type:
-                Mgr.do("adjust_grid_to_lens")
-                Mgr.do("adjust_picking_cam_to_lens")
-                Mgr.do("adjust_transform_gizmo_to_lens", current_lens_type, lens_type)
+                Mgr.get("grid").adjust_to_lens()
+                Mgr.get("picking_cam").adjust_to_lens()
+                Mgr.get("transf_gizmo").adjust_to_lens(current_lens_type, lens_type)
 
             Mgr.do("update_zoom_indicator")
             Mgr.do("update_view_gizmo", cube=False, hpr=True)
-            Mgr.do("update_transf_gizmo")
+            Mgr.get("transf_gizmo").update()
             Mgr.do("update_coord_sys")
 
-            if GlobalData["coord_sys_type"] == "view":
+            if GD["coord_sys_type"] == "view":
                 Mgr.get("selection").update_transform_values()
 
             backgrounds = self._backgrounds

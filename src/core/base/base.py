@@ -1,6 +1,6 @@
-from ...base import logging, re, pickle, GlobalData, ObjectName, get_unique_name, DirectObject
+from ...base import logging, re, pickle, ObjectName, get_unique_name, DirectObject
+from ...base import GlobalData as GD
 from panda3d.core import *
-from collections import OrderedDict
 import weakref
 import sys
 import os
@@ -12,78 +12,6 @@ import copy
 import struct
 
 GFX_PATH = "res/"
-
-
-# All objects that need access to core variables should derive from the
-# following class
-class BaseObject:
-
-    world = None
-    screen = None
-    viewport = None
-    mouse_watcher = None
-    cam = None
-
-    _defaults = {
-        "data_retriever": lambda *args, **kwargs: None
-    }
-
-    _verbose = False
-
-    @classmethod
-    def init(cls, world, screen, viewport, mouse_watcher, verbose):
-
-        cls.world = world
-        cls.screen = screen
-        cls.viewport = viewport
-        cls.mouse_watcher = mouse_watcher
-        cls._verbose = verbose
-
-    @classmethod
-    def set_cam(cls, cam):
-
-        if not cls.cam:
-            cls.cam = cam
-
-    def __init__(self):
-
-        # structure to store callables through which data can be retrieved by id
-        self._data_retrievers = {}
-
-    def setup(self, *args, **kwargs):
-        """
-        Should be called to set up things that cannot be handled during __init__(),
-        e.g. because they depend on objects that were not created yet.
-        Should return True if successful.
-
-        Override in derived class.
-
-        """
-
-        return True
-
-    def expose(self, data_id, retriever):
-        """ Make data publicly available by id through a callable """
-
-        self._data_retrievers[data_id] = retriever
-
-    def get(self, data_id, *args, **kwargs):
-        """
-        Obtain data by id. The arguments provided will be passed to the callable
-        that returns the data.
-
-        """
-
-        if data_id not in self._data_retrievers:
-
-            logging.warning('CORE: data "{}" is not defined.'.format(data_id))
-
-            if self._verbose:
-                print('CORE warning: data "{}" is not defined.'.format(data_id))
-
-        retriever = self._data_retrievers.get(data_id, self._defaults["data_retriever"])
-
-        return retriever(*args, **kwargs)
 
 
 # All main objects, especially those that need to be set up at the start of the
@@ -118,10 +46,14 @@ class MainObjects:
 
             for obj in objs_to_setup[:]:
 
-                setup_result = obj.setup()
+                if hasattr(obj, "setup"):
+                    setup_result = obj.setup()
+                else:
+                    setup_result = True
 
                 if setup_result:
-                    cls._setup_results.setdefault(interface_id, []).append(setup_result)
+                    if setup_result is not True:
+                        cls._setup_results.setdefault(interface_id, []).append(setup_result)
                     setup_successful = True
                     objs_to_setup.remove(obj)
 
@@ -284,7 +216,7 @@ class PendingTasks:
                 sort = 0
 
         if id_prefix:
-            task_id = "{}_{}".format(id_prefix, task_id)
+            task_id = f"{id_prefix}_{task_id}"
 
         pending_task = _PendingTask(task, gradual, process_id, descr, cancellable)
         t = _Tasks()
@@ -508,7 +440,7 @@ class PosObj:
 
         x, y, z = self._pos
 
-        return "PosObj({:f}, {:f}, {:f})".format(x, y, z)
+        return f"PosObj(Point3({x :.6f}, {y :.6f}, {z :.6f}))"
 
     def __getitem__(self, index):
 
@@ -519,11 +451,11 @@ class PosObj:
 # to allow concise vector math
 class V3D(Vec3):
 
-    def __str__(self):
+    def __repr__(self):
 
         x, y, z = self
 
-        return "V3D({:f}, {:f}, {:f})".format(x, y, z)
+        return f"V3D({x :.6f}, {y :.6f}, {z :.6f})"
 
     def get_h(self):
         """ Get the heading of this vector """

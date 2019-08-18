@@ -17,7 +17,7 @@ class RegionTypeComboBox(ToolbarComboBox):
 
             def set_region_type():
 
-                GlobalData["region_select"]["type"] = region_type
+                GD["region_select"]["type"] = region_type
                 self.select_item(region_type)
 
             self.add_item(region_type, text, set_region_type)
@@ -203,7 +203,7 @@ class SelectionToolbar(Toolbar):
         btn = ToolbarButton(self, icon_id="icon_region_sel",
                             tooltip_text="Region-select objects by default",
                             command=self.__toggle_region_select)
-        mod_code = GlobalData["mod_key_codes"]["alt"]
+        mod_code = GD["mod_key_codes"]["alt"]
         hotkey = ("s", mod_code)
         btn.set_hotkey(hotkey, "Alt+S")
         btns["region_select"] = btn
@@ -229,21 +229,21 @@ class SelectionToolbar(Toolbar):
 
     def __toggle_region_select(self):
 
-        is_default = not GlobalData["region_select"]["is_default"]
-        GlobalData["region_select"]["is_default"] = is_default
-        self._btns["region_select"].set_active(is_default)
+        is_default = not GD["region_select"]["is_default"]
+        GD["region_select"]["is_default"] = is_default
+        self._btns["region_select"].active = is_default
 
     def __toggle_enclose(self):
 
-        enclose = not GlobalData["region_select"]["enclose"]
-        GlobalData["region_select"]["enclose"] = enclose
+        enclose = not GD["region_select"]["enclose"]
+        GD["region_select"]["enclose"] = enclose
         colors = Skin["colors"]
-        shape_color = colors["selection_region_shape_{}".format("enclose" if enclose else "default")]
-        fill_color = colors["selection_region_fill_{}".format("enclose" if enclose else "default")]
-        GlobalData["region_select"]["shape_color"] = shape_color
-        GlobalData["region_select"]["fill_color"] = fill_color
+        shape_color = colors[f'selection_region_shape_{"enclose" if enclose else "default"}']
+        fill_color = colors[f'selection_region_fill_{"enclose" if enclose else "default"}']
+        GD["region_select"]["shape_color"] = shape_color
+        GD["region_select"]["fill_color"] = fill_color
         Mgr.update_remotely("object_selection", "region_color")
-        self._btns["enclose"].set_active(enclose)
+        self._btns["enclose"].active = enclose
 
 
 class SelectionPanel(Panel):
@@ -435,7 +435,7 @@ class SelectionPanel(Panel):
     def __hide_name(self):
 
         self._fields["name"].clear()
-        self._btns["edit_set_name"].set_active(False)
+        self._btns["edit_set_name"].active = False
         self._comboboxes["set1"].show_input_field(False)
         self._comboboxes["set1"].select_none()
         self._comboboxes["set2"].select_item("cur_sel")
@@ -486,7 +486,7 @@ class SelectionPanel(Panel):
             combobox = self._comboboxes["set1"]
             show = combobox.is_input_field_hidden()
             combobox.show_input_field(show)
-            self._btns["edit_set_name"].set_active(show)
+            self._btns["edit_set_name"].active = show
 
     def __copy_set(self):
 
@@ -534,7 +534,7 @@ class SelectionPanel(Panel):
         if set_id is None:
             self._fields["name"].clear()
             self._comboboxes["set1"].show_input_field(False)
-            self._btns["edit_set_name"].set_active(False)
+            self._btns["edit_set_name"].active = False
         else:
             text = self._comboboxes["set1"].get_item_text(set_id)
             self._fields["name"].set_value(text)
@@ -549,7 +549,7 @@ class SelectionPanel(Panel):
             item_ids.append(item_id)
             self._fields["name"].clear()
             combobox.show_input_field(False)
-            self._btns["edit_set_name"].set_active(False)
+            self._btns["edit_set_name"].active = False
 
         if not item_ids:
             return
@@ -584,7 +584,7 @@ class SelectionManager:
     def __init__(self, menubar):
 
         menu = menubar.add_menu("select", "Select")
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
         handler = lambda: Mgr.update_remotely("object_selection", "all")
         menu.add("select_all", "Select all", handler)
         hotkey = ("a", mod_ctrl)
@@ -607,7 +607,7 @@ class SelectionManager:
         region_select = {"is_default": False, "type": "rect", "enclose": False}
         region_select["shape_color"] = Skin["colors"]["selection_region_shape_default"]
         region_select["fill_color"] = Skin["colors"]["selection_region_fill_default"]
-        GlobalData.set_default("region_select", region_select)
+        GD.set_default("region_select", region_select)
 
         def disable_selection_dialog(disabler_id=None, disabler=None):
 

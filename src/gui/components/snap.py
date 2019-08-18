@@ -55,11 +55,11 @@ class SnapToolbar(Toolbar):
 
     def setup(self):
 
-        def enter_transf_start_snap_mode(prev_state_id, is_active):
+        def enter_transf_start_snap_mode(prev_state_id, active):
 
             Mgr.do("enable_gui", False)
 
-        def exit_transf_start_snap_mode(next_state_id, is_active):
+        def exit_transf_start_snap_mode(next_state_id, active):
 
             Mgr.do("enable_gui")
 
@@ -71,7 +71,7 @@ class SnapToolbar(Toolbar):
 
         if update_type == "reset":
 
-            self._btns["snap"].set_active(False)
+            self._btns["snap"].active = False
             self._btns["snap"].enable(False)
             self._btns["snap_options"].enable(False)
             self._tools_menu_item.enable(False)
@@ -89,29 +89,29 @@ class SnapToolbar(Toolbar):
                 self._tool_options_menu_item.enable()
 
                 if force_snap_on:
-                    self._btns["snap"].set_active()
+                    self._btns["snap"].active = True
                     self._tools_menu_item.check()
                 else:
-                    snap_settings = GlobalData["snap"]
+                    snap_settings = GD["snap"]
                     snap_type = snap_settings["type"]
                     active = snap_settings["on"][snap_type]
-                    self._btns["snap"].set_active(active)
+                    self._btns["snap"].active = active
                     self._tools_menu_item.check(active)
 
             else:
 
                 if not (Mgr.is_state_active("creation_mode")
-                        or GlobalData["active_transform_type"]):
+                        or GD["active_transform_type"]):
                     self._btns["snap"].enable(False)
                     self._btns["snap_options"].enable(False)
                     self._tools_menu_item.enable(False)
                     self._tools_menu_item.check(False)
                     self._tool_options_menu_item.enable(False)
                 else:
-                    snap_settings = GlobalData["snap"]
+                    snap_settings = GD["snap"]
                     snap_type = snap_settings["prev_type"]
                     active = snap_settings["on"][snap_type]
-                    self._btns["snap"].set_active(active)
+                    self._btns["snap"].active = active
                     self._tools_menu_item.check(active)
 
         elif update_type == "show_options":
@@ -120,30 +120,30 @@ class SnapToolbar(Toolbar):
 
         elif update_type == "snap":
 
-            snap_settings = GlobalData["snap"]
+            snap_settings = GD["snap"]
             snap_type = snap_settings["type"]
 
             if snap_type in ("transf_center", "coord_origin"):
-                self._btns["snap"].set_active()
+                self._btns["snap"].active = True
                 self._tools_menu_item.check()
                 return
 
             snap_on = not snap_settings["on"][snap_type]
             snap_settings["on"][snap_type] = snap_on
-            self._btns["snap"].set_active(snap_on)
+            self._btns["snap"].active = snap_on
             self._tools_menu_item.check(snap_on)
 
-            transf_type = GlobalData["active_transform_type"]
+            transf_type = GD["active_transform_type"]
             state_id = Mgr.get_state_id()
 
             if transf_type and state_id == "selection_mode":
-                if GlobalData["snap"]["on"][transf_type]:
+                if GD["snap"]["on"][transf_type]:
                     Mgr.update_app("status", ["select", transf_type, "snap_idle"])
                 else:
                     Mgr.update_app("status", ["select", transf_type, "idle"])
             elif state_id == "creation_mode":
-                creation_type = GlobalData["active_creation_type"]
-                if GlobalData["snap"]["on"]["creation"]:
+                creation_type = GD["active_creation_type"]
+                if GD["snap"]["on"]["creation"]:
                     Mgr.update_app("status", ["create", creation_type, "snap_idle"])
                 else:
                     Mgr.update_app("status", ["create", creation_type, "idle"])
@@ -180,7 +180,7 @@ class SnapDialog(Dialog):
 
     def __init__(self):
 
-        old_options = GlobalData["snap"]
+        old_options = GD["snap"]
         self._snap_type = snap_type = old_options["type"]
 
         if snap_type == "creation":
@@ -349,7 +349,7 @@ class SnapDialog(Dialog):
                     incr_unit_descr = ""
                     input_parser = self.__parse_input
 
-                text = DialogText(group, "{} increment{}:".format(incr_type, incr_unit_descr))
+                text = DialogText(group, f"{incr_type} increment{incr_unit_descr}:")
                 borders = (5, 0, 0, 0)
                 subsizer.add(text, alignment="center_v", borders=borders)
                 val_id = "increment"
@@ -492,7 +492,7 @@ class SnapDialog(Dialog):
 
                 def enable_snapping(enable):
 
-                    self._options["creation_{}".format(phase_id)]["on"] = enable
+                    self._options[f"creation_{phase_id}"]["on"] = enable
 
                 return enable_snapping
 
@@ -501,7 +501,7 @@ class SnapDialog(Dialog):
                 def command():
 
                     toggle_btns.set_active_button(phase_id)
-                    options = self._options["creation_{}".format(phase_id)]
+                    options = self._options[f"creation_{phase_id}"]
                     creation_phase_radio_btns["tgt_type"].set_selected_button(options["tgt_type"])
 
                     for option_id in ("show_marker", "show_proj_marker", "show_proj_line"):
@@ -510,17 +510,17 @@ class SnapDialog(Dialog):
                     for option_id in ("increment", "size", "marker_size", "proj_marker_size"):
                         fields[option_id].set_value(options[option_id])
 
-                    self._creation_phase_id = "creation_{}".format(phase_id)
+                    self._creation_phase_id = f"creation_{phase_id}"
 
                 return command
 
             for index in range(3):
-                phase_id = "phase_{:d}".format(index + 1)
+                phase_id = f"phase_{index + 1}"
                 checkbtn = DialogCheckButton(group, get_checkbox_command(phase_id))
-                checkbtn.check(old_options["on"]["creation_{}".format(phase_id)])
+                checkbtn.check(old_options["on"][f"creation_{phase_id}"])
                 subsizer.add(checkbtn, alignment="center_v")
-                text = "Phase {:d}".format(index + 1)
-                tooltip_text = "Creation phase {:d} settings".format(index + 1)
+                text = f"Phase {index + 1}"
+                tooltip_text = f"Creation phase {index + 1} settings"
                 btn = DialogButton(group, text, "", tooltip_text)
                 toggle = (get_btn_command(phase_id), lambda: None)
                 toggle_btns.add_button(btn, phase_id, toggle)
@@ -673,7 +673,7 @@ class SnapDialog(Dialog):
 
     def __get_value_handler(self, snap_type="creation_phase"):
 
-        def handle_value(value_id, value, state):
+        def handle_value(value_id, value, state="done"):
 
             if snap_type == "creation_phase":
                 self._options[self._creation_phase_id][value_id] = value
@@ -682,7 +682,7 @@ class SnapDialog(Dialog):
 
         return handle_value
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         self._options[value_id] = value
 
@@ -710,7 +710,7 @@ class SnapDialog(Dialog):
                 or state_id == "creation_mode"):
             Mgr.enter_state("suppressed")
 
-        old_options = GlobalData["snap"]
+        old_options = GD["snap"]
         new_options = self._options
 
         if snap_type == "creation":

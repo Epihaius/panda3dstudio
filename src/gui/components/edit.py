@@ -6,7 +6,7 @@ class EditManager:
     def __init__(self, menubar, uv_edit_command):
 
         self._menu = menu = menubar.add_menu("edit", "Edit")
-        mod_key_codes = GlobalData["mod_key_codes"]
+        mod_key_codes = GD["mod_key_codes"]
 
         handler = lambda: Mgr.update_app("history", "undo")
         menu.add("undo", "Undo", handler)
@@ -28,8 +28,8 @@ class EditManager:
 
         def handler():
 
-            if GlobalData["active_obj_level"] != "top":
-                GlobalData["active_obj_level"] = "top"
+            if GD["active_obj_level"] != "top":
+                GD["active_obj_level"] = "top"
                 Mgr.update_app("active_obj_level")
 
             Mgr.enter_state("grouping_mode")
@@ -48,7 +48,7 @@ class EditManager:
 
     def setup(self):
 
-        def enter_grouping_mode(prev_state_id, is_active):
+        def enter_grouping_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_group_objects")
             Mgr.do("enable_gui")
@@ -61,8 +61,8 @@ class EditManager:
         if update_type != "check":
             return
 
-        to_undo = GlobalData["history_to_undo"]
-        to_redo = GlobalData["history_to_redo"]
+        to_undo = GD["history_to_undo"]
+        to_redo = GD["history_to_redo"]
         menu = self._menu
         menu.enable_item("undo", to_undo)
         menu.enable_item("redo", to_redo)

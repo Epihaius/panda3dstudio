@@ -1,19 +1,20 @@
 from ....base import *
 
 
-class SurfaceBase(BaseObject):
+class SurfaceMixin:
+    """ PolygonEditMixin class mix-in """
 
     def get_polygon_surface(self, poly_id):
 
         polys = self._subobjs["poly"]
         poly = polys[poly_id]
         poly_ids = set([poly_id])
-        neighbor_ids = list(poly.get_neighbor_ids())
+        neighbor_ids = list(poly.neighbor_ids)
 
         while neighbor_ids:
             neighbor_id = neighbor_ids.pop()
             neighbor = polys[neighbor_id]
-            neighbor_ids.extend(neighbor.get_neighbor_ids() - poly_ids)
+            neighbor_ids.extend(neighbor.neighbor_ids - poly_ids)
             poly_ids.add(neighbor_id)
 
         return [polys[p_id] for p_id in poly_ids]
@@ -45,11 +46,11 @@ class SurfaceBase(BaseObject):
             poly_id = poly_ids.pop()
             surface = self.get_polygon_surface(poly_id)
             polys_to_flip.update(surface)
-            poly_ids.difference_update([poly.get_id() for poly in surface])
+            poly_ids.difference_update([poly.id for poly in surface])
 
         verts = self._subobjs["vert"]
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         shared_normals = self._shared_normals
         combined_subobjs = {"vert": merged_verts, "edge": merged_edges, "normal": shared_normals}
         tmp_combined_subobjs = {}
@@ -66,7 +67,7 @@ class SurfaceBase(BaseObject):
         for poly in polys_to_flip:
 
             poly.reverse_normal()
-            poly_vert_ids = poly.get_vertex_ids()
+            poly_vert_ids = poly.vertex_ids
             l = len(poly_vert_ids)
             l_half = l // 2
             vert_ids1 = poly_vert_ids[::-1][:l_half]
@@ -167,7 +168,7 @@ class SurfaceBase(BaseObject):
                         new_tri_data.append(tuple(vert_ids))
 
                     poly.set_triangle_data(new_tri_data)
-                    tri_change.add(poly.get_id())
+                    tri_change.add(poly.id)
 
             # switch vertices by swapping their properties
             for vert1_id, vert2_id in zip(vert_ids1, vert_ids2):
@@ -185,8 +186,8 @@ class SurfaceBase(BaseObject):
                 uvs2 = vert2.get_uvs()
                 vert1_selected = vert1_id in selected_vert_ids
                 vert2_selected = vert2_id in selected_vert_ids
-                normal1 = vert1.get_normal() * -1.
-                normal2 = vert2.get_normal() * -1.
+                normal1 = vert1.normal * -1.
+                normal2 = vert2.normal * -1.
                 shared_normal1 = shared_normals[vert1_id]
                 shared_normal2 = shared_normals[vert2_id]
                 normal1_selected = vert1_id in selected_normal_ids
@@ -221,8 +222,8 @@ class SurfaceBase(BaseObject):
                         tmp_desel_subobj = Mgr.do("create_merged_vert", self)
                         tmp_combined_subobjs["vert"] = (tmp_sel_subobj, tmp_desel_subobj)
 
-                vert1.set_normal(normal2)
-                vert2.set_normal(normal1)
+                vert1.normal = normal2
+                vert2.normal = normal1
                 shared_normal1.discard(vert1_id)
                 shared_normal1.add(vert2_id)
                 shared_normal2.discard(vert2_id)
@@ -247,8 +248,8 @@ class SurfaceBase(BaseObject):
                 if vert2.lock_normal(locked_normal1):
                     lock_change.add(vert2_id)
 
-                edge1_id = vert1.get_edge_ids()[0]
-                edge2_id = vert2.get_edge_ids()[1]
+                edge1_id = vert1.edge_ids[0]
+                edge2_id = vert2.edge_ids[1]
 
                 if edge1_id != edge2_id:
 
@@ -276,9 +277,7 @@ class SurfaceBase(BaseObject):
                             tmp_combined_subobjs["edge"] = (tmp_sel_subobj, tmp_desel_subobj)
 
             for vert_id in set(poly_vert_ids).difference(vert_ids1 + vert_ids2):
-                vert = verts[vert_id]
-                normal = vert.get_normal() * -1.
-                vert.set_normal(normal)
+                verts[vert_id].normal *= -1.
 
         toplvl_geom = self._toplvl_node.modify_geom(0)
         vertex_data_top = toplvl_geom.modify_vertex_data()
@@ -286,11 +285,11 @@ class SurfaceBase(BaseObject):
         uv_writers = {}
 
         for uv_set_id in uv_set_ids:
-            column = "texcoord" if uv_set_id == 0 else "texcoord.{:d}".format(uv_set_id)
+            column = "texcoord" if uv_set_id == 0 else f"texcoord.{uv_set_id}"
             uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, column)
 
         for vert in verts_to_swap:
-            row = vert.get_row_index()
+            row = vert.row_index
             pos = vert.get_pos()
             pos_writer.set_row(row)
             pos_writer.set_data3(pos)
@@ -298,7 +297,7 @@ class SurfaceBase(BaseObject):
         for vert_id in uv_change:
 
             vert = verts[vert_id]
-            row = vert.get_row_index()
+            row = vert.row_index
 
             for uv_set_id, uv in vert.get_uvs().items():
                 uv_writer = uv_writers[uv_set_id]
@@ -344,7 +343,7 @@ class SurfaceBase(BaseObject):
             for poly in self._ordered_polys:
                 for tri_vert_ids in poly:
                     data_unselected.append(tri_vert_ids)
-                    indices = [verts[v_id].get_row_index() for v_id in tri_vert_ids]
+                    indices = [verts[v_id].row_index for v_id in tri_vert_ids]
                     prim.add_vertices(*indices)
 
             poly_unselected_geom = geoms["poly"]["unselected"].node().modify_geom(0)
@@ -356,18 +355,18 @@ class SurfaceBase(BaseObject):
             self.restore_selection_backup("poly")
 
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
-        sign = -1. if self._owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_flipped_normals() else 1.
         normal_change = self._normal_change
 
         for poly in polys_to_flip:
 
-            vert_ids = poly.get_vertex_ids()
+            vert_ids = poly.vertex_ids
             normal_change.update(vert_ids)
 
             for vert_id in vert_ids:
                 vert = verts[vert_id]
-                normal_writer.set_row(vert.get_row_index())
-                normal_writer.set_data3(vert.get_normal() * sign)
+                normal_writer.set_row(vert.row_index)
+                normal_writer.set_data3(vert.normal * sign)
 
         normal_array = vertex_data_top.get_array(2)
         vertex_data_poly.set_array(2, GeomVertexArrayData(normal_array))
@@ -383,8 +382,8 @@ class SurfaceBase(BaseObject):
                     tmp_sel_subobj, tmp_desel_subobj = tmp_combined_subobjs[subobj_type]
                     tmp_sel_subobj.extend(subobjs_to_select[subobj_type])
                     tmp_desel_subobj.extend(subobjs_to_deselect[subobj_type])
-                    sel_subobj_id = tmp_sel_subobj.get_id()
-                    desel_subobj_id = tmp_desel_subobj.get_id()
+                    sel_subobj_id = tmp_sel_subobj.id
+                    desel_subobj_id = tmp_desel_subobj.id
                     orig_sel_subobj = combined_subobjs[subobj_type][sel_subobj_id]
                     orig_desel_subobj = combined_subobjs[subobj_type][desel_subobj_id]
                     combined_subobjs[subobj_type][sel_subobj_id] = tmp_sel_subobj
@@ -394,19 +393,21 @@ class SurfaceBase(BaseObject):
                     combined_subobjs[subobj_type][desel_subobj_id] = orig_desel_subobj
 
         self._normal_sharing_change = True
-        model = self.get_toplevel_object()
+        model = self.toplevel_obj
 
         if model.has_tangent_space():
             tangent_flip, bitangent_flip = model.get_tangent_space_flip()
-            poly_ids = [p.get_id() for p in polys_to_flip]
+            poly_ids = [p.id for p in polys_to_flip]
             self.update_tangent_space(tangent_flip, bitangent_flip, poly_ids)
         else:
             self._is_tangent_space_initialized = False
 
+        self._update_verts_to_transform("poly")
+
         return tri_change, uv_change, sel_change
 
 
-class SurfaceManager(BaseObject):
+class SurfaceManager:
 
     def __init__(self):
 
@@ -422,8 +423,8 @@ class SurfaceManager(BaseObject):
 
         for model in selection:
 
-            model_id = model.get_id()
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            model_id = model.id
+            geom_data_obj = model.geom_obj.geom_data_obj
             change = geom_data_obj.invert_polygon_surfaces()
 
             if change:

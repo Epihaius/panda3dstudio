@@ -74,11 +74,11 @@ class MenuItem(Button):
         Button.__init__(self, parent, gfx_data, text, command=item_command, text_alignment="left",
                         button_type="menu_item")
 
-        self.set_widget_type("menu_item")
+        self.widget_type = "menu_item"
         w, h = self.get_min_size()
         self.set_size((w + 20, h), is_min=True)
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
-        self._id = item_id
+        self.mouse_region.sort = parent.sort + 1
+        self.id = item_id
         self._item_type = item_type
         self._hotkey_label = None
         self._hotkey_label_disabled = None
@@ -87,7 +87,7 @@ class MenuItem(Button):
         self._submenu = Menu(self, is_submenu=True) if item_type == "submenu" else None
 
         if self._submenu:
-            self.get_mouse_region().set_suppress_flags(MouseWatcherRegion.SF_mouse_button)
+            self.mouse_region.suppress_flags = MouseWatcherRegion.SF_mouse_button
             self.enable(False)
 
     def destroy(self):
@@ -97,10 +97,6 @@ class MenuItem(Button):
         if self._submenu:
             self._submenu.destroy()
             self._submenu = None
-
-    def get_id(self):
-
-        return self._id
 
     def get_item_type(self):
 
@@ -112,8 +108,8 @@ class MenuItem(Button):
 
     def update_sort(self):
 
-        if self.get_parent():
-            self.get_mouse_region().set_sort(self.get_parent().get_sort() + 1)
+        if self.parent:
+            self.mouse_region.sort = self.parent.sort + 1
 
         if self._submenu:
             self._submenu.update_sort()
@@ -124,7 +120,7 @@ class MenuItem(Button):
 
         if parent:
 
-            self.get_mouse_region().set_sort(parent.get_sort() + 1)
+            self.mouse_region.sort = parent.sort + 1
 
             if self._submenu:
                 self._submenu.update_sort()
@@ -147,11 +143,11 @@ class MenuItem(Button):
     def hide_menu(self):
 
         self._submenu.hide()
-        mouse_watcher = self.get_mouse_watcher()
-        region = self.get_mouse_region()
+        mouse_watcher = self.mouse_watcher
+        region = self.mouse_region
         mouse_watcher.remove_region(region)
         mouse_watcher.add_region(region)
-        self.get_parent().set_active_item(None)
+        self.parent.set_active_item(None)
         Button.on_leave(self, force=True)
 
     def set_pos(self, pos):
@@ -165,7 +161,7 @@ class MenuItem(Button):
     def confine_menu_to_window(self):
 
         menu = self._submenu
-        parent = self.get_parent()
+        parent = self.parent
         w, h = parent.get_size()
         w_m, h_m = menu.get_size()
         w_w, h_w = Mgr.get("window_size")
@@ -213,8 +209,7 @@ class MenuItem(Button):
 
         if self.get_hotkey_text():
             label = self._hotkey_label if self.is_enabled() else self._hotkey_label_disabled
-            w = label.get_x_size()
-            h = label.get_y_size()
+            w, h = label.size
             x = width - r - w
             y = (height - h) // 2 + 1
             image.blend_sub_image(label, x, y, 0, 0)
@@ -269,7 +264,7 @@ class MenuItem(Button):
         if not self.is_enabled():
             return
 
-        parent = self.get_parent()
+        parent = self.parent
         active_item = parent.get_active_item()
 
         if active_item:
@@ -285,7 +280,7 @@ class MenuItem(Button):
 
     def on_leave(self):
 
-        parent =  self.get_parent()
+        parent =  self.parent
 
         if not parent or parent.get_active_item() is not self:
             Button.on_leave(self, force=True)
@@ -306,7 +301,7 @@ class MenuItem(Button):
             self._is_checked = not self._is_checked
         elif self._item_type == "radio" and not self._is_checked:
             self._is_checked = True
-            self.get_parent().check_radio_item(self._id)
+            self.parent.check_radio_item(self.id)
         elif self._item_type != "normal":
             return
 
@@ -325,14 +320,14 @@ class MenuItem(Button):
         if not Button.enable(self, enable):
             return False
 
-        self.get_mouse_region().set_active(True)
+        self.mouse_region.active = True
 
         if enable and not self._submenu:
             flags = 0
         else:
             flags = MouseWatcherRegion.SF_mouse_button
 
-        self.get_mouse_region().set_suppress_flags(flags)
+        self.mouse_region.suppress_flags = flags
 
         return True
 
@@ -342,7 +337,7 @@ class Menu(WidgetCard):
     _shown_menu = None
     _listener = None
     _mouse_region_mask = MouseWatcherRegion("menu_mask", -100000., 100000., -100000., 100000.)
-    _mouse_region_mask.set_sort(1000)
+    _mouse_region_mask.sort = 1000
     _entered_suppressed_state = False
     _ignoring_dialog_events = False
 
@@ -395,7 +390,7 @@ class Menu(WidgetCard):
 
         def task():
 
-            parent = menu.get_parent()
+            parent = menu.parent
 
             if parent is Mgr.get("window"):
                 menu.hide()
@@ -425,7 +420,7 @@ class Menu(WidgetCard):
             listener.accept("gui_escape", lambda: self.__hide(last_shown=True))
 
         self._is_submenu = is_submenu
-        self._sort = parent.get_parent().get_sort() + 1 if is_submenu else 1001
+        self.sort = parent.parent.sort + 1 if is_submenu else 1001
         self._items = {}
         self._radio_items = {}
         self._active_item = None
@@ -440,10 +435,10 @@ class Menu(WidgetCard):
         subsizer.add(label_sizer)
         subsizer.add(hotkey_label_sizer)
         self.set_sizer(sizer)
-        self._mouse_region = mouse_region = MouseWatcherRegion("menu", 0., 0., 0., 0.)
-        self.get_mouse_watcher().add_region(mouse_region)
-        mouse_region.set_suppress_flags(MouseWatcherRegion.SF_mouse_button)
-        mouse_region.set_sort(self._sort)
+        self.mouse_region = mouse_region = MouseWatcherRegion("menu", 0., 0., 0., 0.)
+        self.mouse_watcher.add_region(mouse_region)
+        mouse_region.suppress_flags = MouseWatcherRegion.SF_mouse_button
+        mouse_region.sort = self.sort
         self._mouse_regions = [mouse_region]
         self._initial_pos = (0, 0)
         self._on_hide = on_hide if on_hide else lambda: None
@@ -472,12 +467,10 @@ class Menu(WidgetCard):
         if update_initial_pos:
             self._initial_pos = self.get_pos()
 
-        self._mouse_regions = mouse_regions = [self._mouse_region]
+        self._mouse_regions = mouse_regions = [self.mouse_region]
 
         for item in self._items.values():
-
-            mouse_region = item.get_mouse_region()
-
+            mouse_region = item.mouse_region
             if mouse_region:
                 mouse_regions.append(mouse_region)
 
@@ -499,13 +492,13 @@ class Menu(WidgetCard):
 
     def update_sort(self):
 
-        self._sort = self.get_parent().get_parent().get_sort() + 1 if self._is_submenu else 1001
-        self._mouse_region.set_sort(self._sort)
+        self.sort = self.parent.parent.sort + 1 if self._is_submenu else 1001
+        self.mouse_region.sort = self.sort
 
         quad = self.get_quad()
 
         if quad:
-            quad.set_bin("menu", self._sort)
+            quad.set_bin("menu", self.sort)
 
         for item in self._items.values():
             item.update_sort()
@@ -544,6 +537,7 @@ class Menu(WidgetCard):
             self._label_sizer.add((item.get_min_size()[0], 0), index=index)
 
             if update:
+                self._item_sizer.set_min_size_stale()
                 self.update()
 
     def set_item_hotkey(self, item_id, hotkey=None, hotkey_text="", interface_id="main", update=False):
@@ -557,7 +551,7 @@ class Menu(WidgetCard):
             sizer_item = self._hotkey_label_sizer.get_item(index)
             self._hotkey_label_sizer.remove_item(sizer_item)
             hotkey_label = item.get_hotkey_label()
-            w = hotkey_label.get_x_size() if hotkey_label else 0
+            w = hotkey_label.size[0] if hotkey_label else 0
             self._hotkey_label_sizer.add((w, 0), index=index)
 
             if update:
@@ -587,7 +581,7 @@ class Menu(WidgetCard):
 
         for item in radio_items:
             if item.is_checked():
-                return item.get_id()
+                return item.id
 
     def clear_radio_check(self, radio_group=""):
 
@@ -604,10 +598,6 @@ class Menu(WidgetCard):
             return self
 
         return self._active_item.get_submenu().get_last_shown_submenu()
-
-    def get_sort(self):
-
-        return self._sort
 
     def add(self, item_id, item_text="", item_command=None, item_type="normal", radio_group="",
             index=None, update=False):
@@ -631,7 +621,7 @@ class Menu(WidgetCard):
         if update:
             self.update()
 
-        parent = self.get_parent()
+        parent = self.parent
 
         if parent is not Mgr.get("window"):
             parent.enable()
@@ -640,7 +630,7 @@ class Menu(WidgetCard):
 
     def add_item(self, item, index=None, update=False):
 
-        item_id = item.get_id()
+        item_id = item.id
 
         if item_id in self._items:
             return False
@@ -650,9 +640,9 @@ class Menu(WidgetCard):
         self._item_sizer.add_item(item.get_sizer_item(), index)
         self._label_sizer.add((item.get_min_size()[0], 0), index=index)
         hotkey_label = item.get_hotkey_label()
-        w = hotkey_label.get_x_size() if hotkey_label else 0
+        w = hotkey_label.size[0] if hotkey_label else 0
         self._hotkey_label_sizer.add((w, 0), index=index)
-        mouse_region = item.get_mouse_region()
+        mouse_region = item.mouse_region
 
         if mouse_region:
             self._mouse_regions.append(mouse_region)
@@ -660,7 +650,7 @@ class Menu(WidgetCard):
         if update:
             self.update()
 
-        parent = self.get_parent()
+        parent = self.parent
 
         if parent is not Mgr.get("window"):
             parent.enable()
@@ -673,11 +663,11 @@ class Menu(WidgetCard):
             return False
 
         menu_item = self._items[item_id]
-        mouse_region = menu_item.get_mouse_region()
+        mouse_region = menu_item.mouse_region
 
         if mouse_region:
 
-            mouse_watcher = self.get_mouse_watcher()
+            mouse_watcher = self.mouse_watcher
             mouse_watcher.remove_region(mouse_region)
 
             if mouse_region in self._mouse_regions:
@@ -709,7 +699,7 @@ class Menu(WidgetCard):
 
         else:
 
-            parent = self.get_parent()
+            parent = self.parent
 
             if parent is not Mgr.get("window"):
                 parent.enable(False)
@@ -764,7 +754,7 @@ class Menu(WidgetCard):
     def show_at_mouse_pos(self):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
+        pos = (mouse_pointer.x, mouse_pointer.y)
 
         return self.show(pos)
 
@@ -778,7 +768,7 @@ class Menu(WidgetCard):
         if not quad.is_hidden():
             return False
 
-        parent = self.get_parent()
+        parent = self.parent
         parent_is_window = parent is Mgr.get("window")
         region_mask = self._mouse_region_mask
  
@@ -830,10 +820,10 @@ class Menu(WidgetCard):
 
         task_id = "enable_menu_dismiss_by_mouse"
         Mgr.do_next_frame(task, task_id)
-        mouse_watcher = self.get_mouse_watcher()
+        mouse_watcher = self.mouse_watcher
 
         if not self._is_submenu:
-            for watcher in GlobalData["mouse_watchers"] + GlobalData["viewport"]["mouse_watchers2"]:
+            for watcher in GD["mouse_watchers"] + GD["viewport"]["mouse_watchers2"]:
                 watcher.add_region(region_mask)
 
         for mouse_region in self._mouse_regions:
@@ -858,16 +848,16 @@ class Menu(WidgetCard):
             Menu._shown_menu = None
 
         quad.hide()
-        mouse_watcher = self.get_mouse_watcher()
+        mouse_watcher = self.mouse_watcher
         region_mask = self._mouse_region_mask
-        parent_is_window = self.get_parent() is Mgr.get("window")
+        parent_is_window = self.parent is Mgr.get("window")
 
         if not parent_is_window and self._initial_pos != self.get_pos():
             self.set_pos(self._initial_pos)
             self._item_sizer.update_mouse_region_frames()
 
         if not self._is_submenu:
-            for watcher in GlobalData["mouse_watchers"] + GlobalData["viewport"]["mouse_watchers2"]:
+            for watcher in GD["mouse_watchers"] + GD["viewport"]["mouse_watchers2"]:
                 watcher.remove_region(region_mask)
 
         for mouse_region in self._mouse_regions:
@@ -954,7 +944,7 @@ class Menu(WidgetCard):
         x, y = self.get_pos(from_root=True)
         quad.set_transparency(TransparencyAttrib.M_alpha)
         quad.set_pos(x, 0., -y)
-        quad.set_bin("menu", self._sort)
+        quad.set_bin("menu", self.sort)
         self._image = img
 
     def copy_sub_image(self, widget, sub_image, width, height, offset_x=0, offset_y=0):
@@ -964,10 +954,6 @@ class Menu(WidgetCard):
         offset_y += item_offset_y
         WidgetCard.copy_sub_image(self, widget, sub_image, width, height, offset_x, offset_y)
 
-    def get_mouse_region(self):
-
-        return self._mouse_region
-
     def update_mouse_region_frames(self):
 
         w, h = self.get_size()
@@ -976,7 +962,7 @@ class Menu(WidgetCard):
         r = x + w
         b = -y - h
         t = -y
-        self._mouse_region.set_frame(l, r, b, t)
+        self.mouse_region.frame = (l, r, b, t)
 
         self._item_sizer.update_mouse_region_frames()
 

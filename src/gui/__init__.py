@@ -10,7 +10,7 @@ class GUI:
     def __init__(self, app_mgr, verbose=False):
 
         Mgr.init(app_mgr, verbose)
-        load_skin(GlobalData["config"]["skin"])
+        load_skin(GD["config"]["skin"])
 
         self._hotkey_prev = None
 
@@ -27,7 +27,7 @@ class GUI:
         Mgr.expose("gui_root", lambda: gui_root)
         gui_mouse_watcher_node = MouseWatcher("gui")
         cursor_watcher_node = MouseWatcher("cursor")
-        GlobalData["mouse_watchers"] = [gui_mouse_watcher_node]
+        GD["mouse_watchers"] = [gui_mouse_watcher_node]
         Mgr.expose("mouse_watcher", lambda: gui_mouse_watcher_node)
         app_mgr.init_cursor_manager(cursor_watcher_node)
 
@@ -35,63 +35,69 @@ class GUI:
         cam_node = Camera("gui_cam")
         gui_cam = gui_cam_root.attach_new_node(cam_node)
         lens = OrthographicLens()
-        lens.set_near(-10.)
-        lens.set_film_size(2., 2.)
+        lens.near = -10.
+        lens.film_size = 2.
         cam_node.set_lens(lens)
-        cam_node.set_cull_bounds(OmniBoundingVolume())
+        cam_node.cull_bounds = OmniBoundingVolume()
 
         self._components = Components()
         self._exit_handler = self._components.exit_handler
         w, h = size = Mgr.get("window_size")
         gui_mouse_watcher_node.set_frame(0., w, -h, 0.)
 
-        wp = WindowProperties.get_default()
-        wp.set_size(*size)
-        wp.set_icon_filename(Filename.binary_filename(os.path.join("res", "p3ds.ico")))
-        base = Mgr.get("base")
-        base.open_default_window(props=wp, name="")
-        base.windowEvent = lambda *args, **kwargs: None
-        GlobalData["mouse_watchers"].append(base.mouseWatcherNode)
-        base.mouseWatcherNode.set_modifier_buttons(ModifierButtons())
-        base.buttonThrowers[0].node().set_modifier_buttons(ModifierButtons())
+        wp = WindowProperties.default
+        wp.size = size
+        wp.icon_filename = Filename.binary_filename(os.path.join("res", "p3ds.ico"))
+        showbase = GD.showbase
+        showbase.open_default_window(props=wp, name="")
+        showbase.windowEvent = lambda *args, **kwargs: None
+        GD.window = showbase.win
+        GD.graphics_engine = showbase.graphics_engine
+        GD.mouse_watcher = mouse_watcher = showbase.mouseWatcherNode
+        mouse_watcher.set_enter_pattern("region_enter")
+        mouse_watcher.set_leave_pattern("region_leave")
+        mouse_watcher.set_within_pattern("region_within")
+        mouse_watcher.set_without_pattern("region_without")
+        GD["mouse_watchers"].append(mouse_watcher)
+        mouse_watcher.set_modifier_buttons(ModifierButtons())
+        showbase.buttonThrowers[0].node().modifier_buttons = ModifierButtons()
 
-        viewport_display_regions = base.win.get_display_regions()[1:]
-        GlobalData["viewport"]["display_regions"] = list(viewport_display_regions)
+        GD["viewport"]["display_regions"] = list(GD.window.display_regions)[1:]
 
         # create a custom frame rate meter, so it can be placed at the bottom
         # of the viewport
         self._fps_meter = meter = FrameRateMeter("fps_meter")
-        meter.setup_window(base.win)
+        meter.setup_window(GD.window)
         meter_np = NodePath(meter)
         meter_np.set_pos(0., 0., -1.95)
-        GlobalData["fps_meter_display_region"] = meter.get_display_region()
+        GD["fps_meter_display_region"] = meter.get_display_region()
 
-        r, g, b, a = base.win.get_clear_color()
+        r, g, b, a = GD.window.clear_color
         background_color = (r, g, b, a)
 
-        region = base.win.get_display_region(1)
-        region.set_clear_color(background_color)
+        region = GD.window.get_display_region(1)
+        region.clear_color = background_color
         region.set_clear_color_active(True)
-        base.mouseWatcherNode.set_display_region(region)
-        fov_v = base.camLens.get_vfov()
+        mouse_watcher.set_display_region(region)
+        fov_v = showbase.camLens.get_vfov()
         fov_h = math.degrees(math.atan(math.tan(math.radians(fov_v * .5)) * 4. / 3.) * 2.)
-        base.camLens.set_fov(fov_h, fov_v)
+        showbase.camLens.fov = (fov_h, fov_v)
 
-        region = base.win.make_display_region(0., 1., 0., 1.)
-        region.set_sort(10000)
-        region.set_clear_depth(1000.)
+        region = GD.window.make_display_region(0., 1., 0., 1.)
+        region.sort = 10000
+        region.clear_depth = 1000.
         region.set_clear_depth_active(True)
-        region.set_camera(gui_cam)
+        region.camera = gui_cam
         gui_mouse_watcher_node.set_display_region(region)
-        input_ctrl = base.mouseWatcher.get_parent()
+        input_ctrl = showbase.mouseWatcher.parent
         mw = input_ctrl.attach_new_node(gui_mouse_watcher_node)
         gui_mouse_watcher_node.set_enter_pattern("gui_region_enter")
         gui_mouse_watcher_node.set_leave_pattern("gui_region_leave")
         self._mouse_watcher = gui_mouse_watcher_node
         btn_thrower_node = ButtonThrower("btn_thrower_gui")
-        btn_thrower_node.set_prefix("gui_")
-        btn_thrower_node.set_modifier_buttons(ModifierButtons())
-        btn_thrower_node.set_keystroke_event("keystroke")
+        btn_thrower_node.prefix = "gui_"
+        btn_thrower_node.modifier_buttons = ModifierButtons()
+        btn_thrower_node.keystroke_event = "keystroke"
         mw.attach_new_node(btn_thrower_node)
         cursor_watcher = input_ctrl.attach_new_node(cursor_watcher_node)
         gui_cursor_region = MouseWatcherRegion("gui", -1., 1., -1., 1.)
@@ -100,19 +106,19 @@ class GUI:
         app_mgr.add_cursor_region("", gui_cursor_region)
         app_mgr.add_cursor_region("", viewport_cursor_region)
 
-        base.accept("gui_region_enter", self.__on_region_enter)
-        base.accept("gui_region_leave", self.__on_region_leave)
-        base.accept("gui_mouse1", self.__on_left_down)
-        base.accept("gui_mouse1-up", self.__on_left_up)
-        base.accept("gui_mouse3", self.__on_right_down)
-        base.accept("gui_mouse3-up", self.__on_right_up)
+        showbase.accept("gui_region_enter", self.__on_region_enter)
+        showbase.accept("gui_region_leave", self.__on_region_leave)
+        showbase.accept("gui_mouse1", self.__on_left_down)
+        showbase.accept("gui_mouse1-up", self.__on_left_up)
+        showbase.accept("gui_mouse3", self.__on_right_down)
+        showbase.accept("gui_mouse3-up", self.__on_right_up)
 
-        base.win.set_close_request_event("close_request_event")
-        base.accept("close_request_event", self.__on_close_request)
+        GD.window.close_request_event = "close_request_event"
+        showbase.accept("close_request_event", self.__on_close_request)
 
     def __on_region_enter(self, *args):
 
-        name = args[0].get_name()
+        name = args[0].name
         label = None
 
         def get_grip_tooltip_label(name_start):
@@ -136,7 +142,7 @@ class GUI:
 
     def __on_region_leave(self, *args):
 
-        name = args[0].get_name()
+        name = args[0].name
 
         if name.startswith("widget_"):
 
@@ -162,7 +168,7 @@ class GUI:
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         if name == "inputfield_mask":
             Mgr.do("accept_field_input")
@@ -177,7 +183,7 @@ class GUI:
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         if name.startswith("widget_"):
             widget_id = int(name.replace("widget_", ""))
@@ -190,7 +196,7 @@ class GUI:
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         if name == "inputfield_mask":
             Mgr.do("reject_field_input")
@@ -205,7 +211,7 @@ class GUI:
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         if name.startswith("widget_"):
             widget_id = int(name.replace("widget_", ""))
@@ -226,7 +232,7 @@ class GUI:
     def __on_close_request(self):
 
         if self._exit_handler():
-            Mgr.get("base").userExit()
+            GD.showbase.userExit()
 
     def __on_key_down(self, key=None):
 
@@ -234,15 +240,15 @@ class GUI:
             return
 
         mod_code = 0
-        mod_key_codes = GlobalData["mod_key_codes"]
+        mod_key_codes = GD["mod_key_codes"]
 
-        if GlobalData["alt_down"]:
+        if GD["alt_down"]:
             mod_code |= mod_key_codes["alt"]
 
-        if GlobalData["ctrl_down"]:
+        if GD["ctrl_down"]:
             mod_code |= mod_key_codes["ctrl"]
 
-        if GlobalData["shift_down"]:
+        if GD["shift_down"]:
             mod_code |= mod_key_codes["shift"]
 
         hotkey = (key, mod_code)
@@ -262,5 +268,5 @@ class GUI:
     def __set_scene_label(self, scene_label):
 
         props = WindowProperties()
-        props.set_title(self._title_main + scene_label)
-        Mgr.get("base").win.request_properties(props)
+        props.title = self._title_main + scene_label
+        GD.window.request_properties(props)

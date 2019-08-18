@@ -4,6 +4,11 @@ from .mgr import GUIManager as Mgr
 
 class SizerItem:
 
+    @property
+    def type(self):
+
+        return self._type
+
     def __init__(self, sizer, obj, obj_type, proportion=0., expand=False,
                  alignment="", borders=None):
 
@@ -64,15 +69,11 @@ class SizerItem:
         self._sizer = sizer
 
         if self._type == "sizer":
-            self._obj.set_owner(sizer)
+            self._obj.owner = sizer
 
     def get_sizer(self):
 
         return self._sizer
-
-    def get_type(self):
-
-        return self._type
 
     def get_object(self):
 
@@ -187,6 +188,11 @@ class SizerItem:
 
 class Sizer:
 
+    @property
+    def type(self):
+
+        return self._type
+
     def __init__(self, stretch_dir="", hidden=False):
 
         self._type = "sizer"
@@ -225,24 +231,22 @@ class Sizer:
         self._items = []
         self.set_min_size_stale()
 
-    def get_type(self):
-
-        return self._type
-
     def get_sizer_type(self):
 
         return self._sizer_type
 
-    def set_owner(self, owner):
+    @property
+    def owner(self):
+
+        return self._owner
+
+    @owner.setter
+    def owner(self, owner):
 
         self._owner = owner
 
-        if owner and owner.get_type() == "widget":
+        if owner and owner.type == "widget":
             self.set_default_size(owner.get_gfx_size())
-
-    def get_owner(self):
-
-        return self._owner
 
     def set_sizer_item(self, sizer_item):
         """ Create a reference to the SizerItem this subsizer is tracked by """
@@ -256,7 +260,7 @@ class Sizer:
 
     def add(self, obj, proportion=0., expand=False, alignment="", borders=None, index=None):
 
-        obj_type = "size" if type(obj) == tuple else obj.get_type()
+        obj_type = "size" if type(obj) == tuple else obj.type
         item = SizerItem(self, obj, obj_type, proportion, expand, alignment, borders)
 
         if index is None:
@@ -267,7 +271,7 @@ class Sizer:
         self.set_min_size_stale()
 
         if obj_type == "sizer":
-            obj.set_owner(self)
+            obj.owner = self
 
         if obj_type != "size":
             obj.set_sizer_item(item)
@@ -326,7 +330,7 @@ class Sizer:
 
         for item in self._items:
 
-            if item.get_type() == "widget":
+            if item.type == "widget":
 
                 widget = item.get_object()
                 widgets.append(widget)
@@ -338,7 +342,7 @@ class Sizer:
                     if sizer:
                         widgets.extend(sizer.get_widgets())
 
-            elif item.get_type() == "sizer":
+            elif item.type == "sizer":
 
                 widgets.extend(item.get_object().get_widgets(include_children))
 
@@ -358,13 +362,13 @@ class Sizer:
 
             while owner:
 
-                if owner.get_type() == "widget":
+                if owner.type == "widget":
                     x_o, y_o = owner.get_pos(from_root=True)
                     x += x_o
                     y += y_o
                     break
 
-                owner = owner.get_owner()
+                owner = owner.owner
 
         return (x, y)
 
@@ -395,11 +399,11 @@ class Sizer:
 
         if stale and self._owner:
 
-            if self._owner.get_type() == "sizer":
+            if self._owner.type == "sizer":
 
                 self._owner.set_min_size_stale()
 
-            elif self._owner.get_type() == "widget":
+            elif self._owner.type == "widget":
 
                 item = self._owner.get_sizer_item()
 
@@ -429,7 +433,7 @@ class Sizer:
 
         for item in self._items:
 
-            if item.get_type() == "widget":
+            if item.type == "widget":
 
                 sizer = item.get_object().get_sizer()
 
@@ -620,7 +624,7 @@ class Sizer:
             offset_x, offset_y = item.get_object_offset()
             pos = (x + offset_x, y + offset_y)
 
-            if item.get_type() == "widget":
+            if item.type == "widget":
 
                 obj.set_pos(pos)
                 sizer = obj.get_sizer()
@@ -628,7 +632,7 @@ class Sizer:
                 if sizer:
                     sizer.calculate_positions()
 
-            elif item.get_type() == "sizer":
+            elif item.type == "sizer":
 
                 obj.set_pos(pos)
                 obj.calculate_positions(pos)
@@ -656,7 +660,7 @@ class Sizer:
             return
 
         for item in self._items:
-            if item.get_type() != "size":
+            if item.type != "size":
                 item.get_object().update_images()
 
     def get_composed_image(self, image):
@@ -666,21 +670,20 @@ class Sizer:
             if item.is_hidden():
                 continue
 
-            if item.get_type() == "widget":
+            if item.type == "widget":
 
                 widget = item.get_object()
                 img = widget.get_image()
 
                 if img:
-                    w = img.get_x_size()
-                    h = img.get_y_size()
+                    w, h = img.size
                     x, y = widget.get_pos()
                     offset_x, offset_y = widget.get_image_offset()
                     x += offset_x
                     y += offset_y
                     image.blend_sub_image(img, x, y, 0, 0, w, h)
 
-            elif item.get_type() == "sizer":
+            elif item.type == "sizer":
 
                 sizer = item.get_object()
                 sizer.get_composed_image(image)
@@ -693,7 +696,7 @@ class Sizer:
             return
 
         for item in self._items:
-            if item.get_type() != "size":
+            if item.type != "size":
                 item.get_object().update_mouse_region_frames(exclude)
 
     def lock_item_size(self, locked=True):
@@ -957,7 +960,7 @@ class GridSizer(Sizer):
                                                 stretch_h, stretch_v,
                                                 alignment_h, alignment_v, borders, index)
 
-        if item.get_type() != "size":
+        if item.type != "size":
             obj.set_sizer_item(item)
 
         if not rebuilding:

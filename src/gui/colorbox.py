@@ -56,7 +56,7 @@ class ColorBox(Widget):
         image = self.get_image(composed=False)
 
         if image:
-            w, h = image.get_x_size(), image.get_y_size()
+            w, h = image.size
             img_offset_x, img_offset_y = self.get_image_offset()
             self.get_card().copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
 
@@ -90,7 +90,7 @@ class ColorBox(Widget):
             image.alpha_fill(1.)
 
         border_img = self.get_border_image()
-        w, h = border_img.get_x_size(), border_img.get_y_size()
+        w, h = border_img.size
         img = PNMImage(w, h, 4)
         img_offset_x, img_offset_y = self.get_image_offset()
         img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)

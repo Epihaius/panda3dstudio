@@ -37,7 +37,7 @@ class SectionHeader(Widget):
     def set_size(self, size, includes_borders=True, is_min=False):
 
         Widget.set_size(self, size, includes_borders, is_min)
-        self.get_parent().get_collapsed_header().set_size(size)
+        self.parent.get_collapsed_header().set_size(size)
 
     def set_pos(self, pos): pass
 
@@ -55,16 +55,16 @@ class SectionHeader(Widget):
             image.blend_sub_image(tex_atlas, l, (height - h) // 2, x, y, w, h)
             SectionHeader.images = images
 
-        self.get_parent().get_collapsed_header().update_images()
+        self.parent.get_collapsed_header().update_images()
 
     def update_mouse_region_frames(self, exclude=""):
 
         Widget.update_mouse_region_frames(self, exclude)
-        self.get_parent().get_collapsed_header().update_mouse_region_frames(exclude)
+        self.parent.get_collapsed_header().update_mouse_region_frames(exclude)
 
     def on_left_up(self):
 
-        self.get_parent().expand(False)
+        self.parent.expand(False)
 
 
 class CollapsedSectionHeader(Widget):
@@ -89,7 +89,7 @@ class CollapsedSectionHeader(Widget):
             CollapsedSectionHeader.height = self.get_min_size()[1]
 
         l, r, b, t = TextureAtlas["inner_borders"]["panel"]
-        self._hook_node = hook_node = self.get_node().attach_new_node("hook_node")
+        self._hook_node = hook_node = self.node.attach_new_node("hook_node")
         hook_node.set_pos(-l, 0, -self.height)
 
     def set_pos(self, pos): pass
@@ -114,7 +114,7 @@ class CollapsedSectionHeader(Widget):
 
     def on_left_up(self):
 
-        self.get_parent().expand()
+        self.parent.expand()
 
 
 class PanelSection(Widget):
@@ -137,7 +137,7 @@ class PanelSection(Widget):
                         hidden=hidden, has_mouse_region=False)
 
         self.registry[section_id] = self
-        self._id = section_id
+        self.id = section_id
 
         sizer = Sizer("vertical")
         Widget.set_sizer(self, sizer)
@@ -148,9 +148,9 @@ class PanelSection(Widget):
         l, r, b, t = TextureAtlas["inner_borders"]["section"]
         borders = (l, r, b, t)
         sizer.add(client_sizer, expand=True, borders=borders)
-        header_region = header.get_mouse_region()
-        collapsed_header_region = collapsed_header.get_mouse_region()
-        mouse_watcher = parent.get_mouse_watcher()
+        header_region = header.mouse_region
+        collapsed_header_region = collapsed_header.mouse_region
+        mouse_watcher = parent.mouse_watcher
         mouse_watcher.remove_region(collapsed_header_region)
         regions_expanded = set([header_region])
         regions_collapsed = set([collapsed_header_region])
@@ -161,14 +161,14 @@ class PanelSection(Widget):
 
         # Build the node hierarchy
 
-        top_node = self.get_node()
-        top_node.set_name("section_top__{}".format(section_id))
+        top_node = self.node
+        top_node.name = f"section_top__{section_id}"
         l, r, b, t = TextureAtlas["inner_borders"]["panel"]
         top_node.set_pos(l, 0, -t)
         self._bottom_node = bottom_node = top_node.attach_new_node("section_bottom")
         bottom_node.set_x(-l)
         collapsed_header.get_hook_node().reparent_to(top_node)
-        self._hook_node = bottom_node.attach_new_node("section_hook__{}".format(section_id))
+        self._hook_node = bottom_node.attach_new_node(f"section_hook__{section_id}")
 
         self._is_expanded = True
 
@@ -183,21 +183,17 @@ class PanelSection(Widget):
 
         for widget in self._client_sizer.get_widgets():
 
-            mouse_region = widget.get_mouse_region()
+            mouse_region = widget.mouse_region
 
             if mouse_region:
                 mouse_region_group.add(mouse_region)
 
         if self.is_hidden(check_ancestors=False):
 
-            mouse_watcher = self.get_mouse_watcher()
+            mouse_watcher = self.mouse_watcher
 
             for mouse_region in mouse_region_group:
                 mouse_watcher.remove_region(mouse_region)
-
-    def get_id(self):
-
-        return self._id
 
     def get_hook_node(self):
 
@@ -246,9 +242,9 @@ class PanelSection(Widget):
         if self.is_hidden(check_ancestors=False):
             return
 
-        if self.get_parent().is_expanded():
+        if self.parent.is_expanded():
 
-            mouse_watcher = self.get_mouse_watcher()
+            mouse_watcher = self.mouse_watcher
             mouse_region_groups = self._mouse_region_groups
 
             for region in mouse_region_groups["collapsed" if expand else "expanded"]:
@@ -258,8 +254,7 @@ class PanelSection(Widget):
 
                 for region in mouse_region_groups["expanded"]:
 
-                    name = region.get_name()
-                    widget_id = int(name.replace("widget_", ""))
+                    widget_id = int(region.name.replace("widget_", ""))
                     widget = Widget.registry[widget_id]
 
                     if widget is self._header or not widget.is_hidden():
@@ -275,7 +270,7 @@ class PanelSection(Widget):
         else:
             self._hook_node.reparent_to(self._collapsed_header.get_hook_node())
 
-        self.get_parent().handle_section_change(self, "expand" if expand else "collapse")
+        self.parent.handle_section_change(self, "expand" if expand else "collapse")
 
     def is_expanded(self):
 
@@ -286,17 +281,17 @@ class PanelSection(Widget):
         if not Widget.hide(self, recurse=False):
             return False
 
-        if self.get_parent().is_expanded():
+        if self.parent.is_expanded():
 
-            mouse_watcher = self.get_mouse_watcher()
+            mouse_watcher = self.mouse_watcher
             mouse_region_groups = self._mouse_region_groups
 
             for region in mouse_region_groups["expanded" if self._is_expanded else "collapsed"]:
                 mouse_watcher.remove_region(region)
 
-        self._hook_node.reparent_to(self.get_node().get_parent())
+        self._hook_node.reparent_to(self.node.parent)
 
-        self.get_parent().handle_section_change(self, "hide")
+        self.parent.handle_section_change(self, "hide")
 
         return True
 
@@ -305,17 +300,16 @@ class PanelSection(Widget):
         if not Widget.show(self, recurse=False):
             return False
 
-        if self.get_parent().is_expanded():
+        if self.parent.is_expanded():
 
-            mouse_watcher = self.get_mouse_watcher()
+            mouse_watcher = self.mouse_watcher
             mouse_region_groups = self._mouse_region_groups
 
             if self._is_expanded:
 
                 for region in mouse_region_groups["expanded"]:
 
-                    name = region.get_name()
-                    widget_id = int(name.replace("widget_", ""))
+                    widget_id = int(region.name.replace("widget_", ""))
                     widget = Widget.registry[widget_id]
 
                     if widget is self._header or not widget.is_hidden():
@@ -331,7 +325,7 @@ class PanelSection(Widget):
         else:
             self._hook_node.reparent_to(self._collapsed_header.get_hook_node())
 
-        self.get_parent().handle_section_change(self, "show")
+        self.parent.handle_section_change(self, "show")
 
         return True
 
@@ -353,8 +347,7 @@ class PanelSection(Widget):
 
         if composed:
             width, height = self._collapsed_header.get_size()
-            w = self._label.get_x_size()
-            h = self._label.get_y_size()
+            w, h = self._label.size
             x = (width - w) // 2
             y = (height - h) // 2 + 1
             image.blend_sub_image(self._label, x, y, 0, 0, w, h)

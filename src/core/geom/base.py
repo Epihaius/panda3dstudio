@@ -1,7 +1,7 @@
 from ..base import *
 
 
-class GeomDataOwner(BaseObject):
+class GeomDataOwner:
 
     def __getstate__(self):
 
@@ -9,53 +9,53 @@ class GeomDataOwner(BaseObject):
         state["_model"] = None
         state["_geom_data_obj"] = None
         state["_normals_flipped"] = False
+        del state["model"]
+        del state["geom_data_obj"]
 
         return state
+
+    def __setstate__(self, state):
+
+        state["model"] = state.pop("_model")
+        state["geom_data_obj"] = state.pop("_geom_data_obj")
+        self.__dict__ = state
 
     def __init__(self, prop_ids, type_prop_ids, model, geom_data_obj=None, has_vert_colors=False):
 
         self._prop_ids = prop_ids + ["geom_data"]
         self._type_prop_ids = type_prop_ids + ["normal_flip"]
-        self._model = model
-        self._geom_data_obj = geom_data_obj
+        self.model = model
+        self.geom_data_obj = geom_data_obj
         self._geom_data_backup = None
         # the following refers to the vertex colors of imported geometry
         self._has_vert_colors = has_vert_colors
         self._normals_flipped = False
-        model.set_geom_object(self)
+        model.geom_obj = self
 
         if geom_data_obj:
-            geom_data_obj.set_owner(self)
+            geom_data_obj.owner = self
 
     def cancel_creation(self):
 
         logging.debug('GeomDataOwner creation cancelled.')
-        self._model = None
+        self.model = None
 
-        if self._geom_data_obj:
-            self._geom_data_obj.cancel_creation()
-            self._geom_data_obj = None
+        if self.geom_data_obj:
+            self.geom_data_obj.cancel_creation()
+            self.geom_data_obj = None
 
     def destroy(self, unregister=True):
 
-        self._geom_data_obj.destroy(unregister)
-        self._geom_data_obj = None
+        self.geom_data_obj.destroy(unregister)
+        self.geom_data_obj = None
 
     def register(self, restore=True):
 
-        self._geom_data_obj.register(restore)
+        self.geom_data_obj.register(restore)
 
     def unregister(self):
 
-        self._geom_data_obj.unregister()
-
-    def get_geom_data_object(self):
-
-        return self._geom_data_obj
-
-    def set_geom_data_object(self, geom_data_obj):
-
-        self._geom_data_obj = geom_data_obj
+        self.geom_data_obj.unregister()
 
     def get_geom_data_backup(self):
 
@@ -71,73 +71,72 @@ class GeomDataOwner(BaseObject):
             self._geom_data_backup.destroy(unregister=False)
             self._geom_data_backup = None
 
+    @property
+    def origin(self):
+
+        if self.geom_data_obj:
+            return self.geom_data_obj.origin
+
+    @origin.setter
+    def origin(self, origin):
+
+        self.geom_data_obj.origin = origin
+
     def get_toplevel_object(self, get_group=False):
 
-        return self._model.get_toplevel_object(get_group)
+        return self.model.get_toplevel_object(get_group)
 
-    def get_model(self):
+    @property
+    def toplevel_obj(self):
 
-        return self._model
-
-    def set_model(self, model):
-
-        self._model = model
-
-    def get_origin(self):
-
-        if self._geom_data_obj:
-            return self._geom_data_obj.get_origin()
-
-    def set_origin(self, origin):
-
-        self._geom_data_obj.set_origin(origin)
+        return self.get_toplevel_object()
 
     def replace(self, other):
 
-        geom_data_obj = self._geom_data_obj
+        geom_data_obj = self.geom_data_obj
 
-        if other.get_type() == "basic_geom":
+        if other.type == "basic_geom":
             geom_data_obj.destroy()
-            other.get_geom().reparent_to(self._model.get_origin())
+            other.geom.reparent_to(self.model.origin)
             other.register()
-            other.update_render_mode(self._model.is_selected())
+            other.update_render_mode(self.model.is_selected())
             return
 
-        geom_data_obj.set_owner(other)
-        other.set_geom_data_object(geom_data_obj)
+        geom_data_obj.owner = other
+        other.geom_data_obj = geom_data_obj
         other.set_flipped_normals(self._normals_flipped)
 
     def get_subobj_selection(self, subobj_lvl):
 
-        return  self._geom_data_obj.get_selection(subobj_lvl)
+        return  self.geom_data_obj.get_selection(subobj_lvl)
 
     def set_wireframe_color(self, color):
 
-        self._geom_data_obj.set_wireframe_color(color)
+        self.geom_data_obj.set_wireframe_color(color)
 
     def update_selection_state(self, is_selected=True):
 
-        self._geom_data_obj.update_selection_state(is_selected)
+        self.geom_data_obj.update_selection_state(is_selected)
 
     def update_render_mode(self, is_selected):
 
-        self._geom_data_obj.update_render_mode(is_selected)
+        self.geom_data_obj.update_render_mode(is_selected)
 
     def update_tangent_space(self, tangent_flip, bitangent_flip):
 
-        self._geom_data_obj.update_tangent_space(tangent_flip, bitangent_flip)
+        self.geom_data_obj.update_tangent_space(tangent_flip, bitangent_flip)
 
     def init_tangent_space(self):
 
-        self._geom_data_obj.init_tangent_space()
+        self.geom_data_obj.init_tangent_space()
 
     def is_tangent_space_initialized(self):
 
-        return self._geom_data_obj.is_tangent_space_initialized()
+        return self.geom_data_obj.is_tangent_space_initialized()
 
     def bake_texture(self, texture):
 
-        self._geom_data_obj.bake_texture(texture)
+        self.geom_data_obj.bake_texture(texture)
 
     def has_vertex_colors(self):
 
@@ -146,16 +145,16 @@ class GeomDataOwner(BaseObject):
     def reset_vertex_colors(self):
 
         if self._has_vert_colors:
-            self._geom_data_obj.set_initial_vertex_colors()
+            self.geom_data_obj.set_initial_vertex_colors()
         else:
-            self._geom_data_obj.clear_vertex_colors()
+            self.geom_data_obj.clear_vertex_colors()
 
     def flip_normals(self, flip=True, restore=""):
 
         if self._normals_flipped == flip:
             return False
 
-        self._geom_data_obj.flip_normals(flip)
+        self.geom_data_obj.flip_normals(flip)
         self._normals_flipped = flip
 
         return True
@@ -170,7 +169,7 @@ class GeomDataOwner(BaseObject):
 
     def set_two_sided(self, two_sided=True):
 
-        origin = self._model.get_origin()
+        origin = self.model.origin
 
         if two_sided:
             origin.set_two_sided(True)
@@ -179,17 +178,17 @@ class GeomDataOwner(BaseObject):
 
     def make_pickable(self, mask_index, pickable=True):
 
-        render_mode = GlobalData["render_mode"]
+        render_mode = GD["render_mode"]
         subobj_lvl = "poly" if "shaded" in render_mode else "edge"
-        self._geom_data_obj.make_subobjs_pickable(subobj_lvl, mask_index, pickable)
+        self.geom_data_obj.make_subobjs_pickable(subobj_lvl, mask_index, pickable)
 
     def show_subobj_level(self, obj_lvl):
 
-        self._geom_data_obj.show_subobj_level(obj_lvl)
+        self.geom_data_obj.show_subobj_level(obj_lvl)
 
     def show_top_level(self):
 
-        self._geom_data_obj.show_top_level()
+        self.geom_data_obj.show_top_level()
 
     def get_data_to_store(self, event_type, prop_id=""):
 
@@ -209,7 +208,7 @@ class GeomDataOwner(BaseObject):
             if prop_id in self.get_property_ids():
                 data.update(self.get_property_to_store(prop_id, event_type))
 
-        data.update(self._geom_data_obj.get_data_to_store(event_type, prop_id))
+        data.update(self.geom_data_obj.get_data_to_store(event_type, prop_id))
 
         return data
 
@@ -225,7 +224,7 @@ class GeomDataOwner(BaseObject):
 
     def restore_data(self, data_ids, restore_type, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
 
         if "self" in data_ids:
 
@@ -246,7 +245,7 @@ class GeomDataOwner(BaseObject):
                     data_ids.remove(prop_id)
 
             if data_ids and "geom_data" not in data_ids:
-                self._geom_data_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)
+                self.geom_data_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)
 
     def restore_property(self, prop_id, restore_type, old_time_id, new_time_id):
         """
@@ -260,16 +259,16 @@ class GeomDataOwner(BaseObject):
 
         if prop_id == "geom_data":
 
-            if self._geom_data_obj:
+            if self.geom_data_obj:
 
-                if value.get_id() == self._geom_data_obj.get_id():
+                if value.id == self.geom_data_obj.id:
                     return False
 
-                self._geom_data_obj.destroy()
+                self.geom_data_obj.destroy()
 
-            self._geom_data_obj = value
-            value.get_origin().reparent_to(self._model.get_origin())
-            value.set_owner(self)
+            self.geom_data_obj = value
+            value.origin.reparent_to(self.model.origin)
+            value.owner = self
 
             if self._normals_flipped:
                 value.flip_normals()
@@ -286,9 +285,9 @@ class GeomDataOwner(BaseObject):
         if prop_id == "normal_flip":
             return self._normals_flipped
 
-        obj_lvl = GlobalData["active_obj_level"]
+        obj_lvl = GD["active_obj_level"]
 
-        return self._geom_data_obj.get_property(prop_id, for_remote_update, obj_lvl)
+        return self.geom_data_obj.get_property(prop_id, for_remote_update, obj_lvl)
 
     def get_property_ids(self, for_hist=False):
 
@@ -296,6 +295,6 @@ class GeomDataOwner(BaseObject):
 
     def get_type_property_ids(self):
 
-        obj_lvl = GlobalData["active_obj_level"]
+        obj_lvl = GD["active_obj_level"]
 
-        return self._type_prop_ids + self._geom_data_obj.get_type_property_ids(obj_lvl)
+        return self._type_prop_ids + self.geom_data_obj.get_type_property_ids(obj_lvl)

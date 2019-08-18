@@ -35,8 +35,8 @@ class App:
         except:
             GlobalData["config"] = init_config()
 
-        GlobalData["status_data"] = {}
-        mgr = AppManager(verbose=False)
+        GlobalData["status"] = {}
+        mgr = AppManager()
         gui = GUI(mgr, verbose=True)
         core = Core(mgr, verbose=True)
 
@@ -49,7 +49,7 @@ class App:
 
         mgr.set_default_state("main", "selection_mode")
 
-        mgr.get_base().run()
+        GlobalData.showbase.run()
 
 
 App()

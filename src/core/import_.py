@@ -2,7 +2,7 @@ from .base import *
 from .geom.material import render_state_to_material
 
 
-class ImportManager(BaseObject):
+class ImportManager:
 
     def __init__(self):
 
@@ -32,14 +32,14 @@ class ImportManager(BaseObject):
             model_root = NodePath(ModelRoot(""))
             child.reparent_to(model_root)
 
-        if not model_root.get_children():
+        if not model_root.children:
             return
 
         self._imported_file_type = path.get_extension()
         self._model_root = model_root
         hierarchy = self._hierarchy
 
-        obj_names = GlobalData["obj_names"]
+        obj_names = GD["obj_names"]
         self._obj_names = new_obj_names = []
         coll_indices = self._coll_obj_indices
         node_paths = [(model_root, 0, None)]
@@ -54,7 +54,7 @@ class ImportManager(BaseObject):
             child_indices = []
             node_data = {"node_path": node_path, "child_indices": child_indices}
             hierarchy[index] = node_data
-            children = node_path.get_children()
+            children = node_path.children
 
             for child in children:
                 self._obj_index += 1
@@ -65,7 +65,7 @@ class ImportManager(BaseObject):
             if node_path is model_root:
                 continue
 
-            old_name = node_path.get_name()
+            old_name = node_path.name
             new_name = obj_name = old_name.strip()
 
             if not new_name:
@@ -77,12 +77,12 @@ class ImportManager(BaseObject):
                 old_name = "<Unnamed>"
 
             node = node_path.node()
-            node_type = node.get_class_type().get_name()
+            node_type = node.type.name
             node_data["parent_index"] = parent_index
             node_data["old_name"] = old_name
             node_data["new_name"] = new_name
 
-            if node_type == "GeomNode" and Geom.PT_polygons in [geom.get_primitive_type()
+            if node_type == "GeomNode" and Geom.PT_polygons in [geom.primitive_type
                     for geom in node.get_geoms()]:
                 node_data["geom_type"] = "regular"
             elif node_type == "CollisionNode":
@@ -214,7 +214,7 @@ class ImportManager(BaseObject):
                 creator = Mgr.do("create_custom_box", name, x, y, z, segments, pos, inverted=True)
                 model = next(creator)
                 model.register(restore=False)
-                model.get_pivot().set_hpr(hpr)
+                model.pivot.set_hpr(hpr)
 
                 return [model]
 
@@ -257,7 +257,7 @@ class ImportManager(BaseObject):
             creator = Mgr.do("create_custom_plane", name, x, y, segments, pos)
             model = next(creator)
             model.register(restore=False)
-            model.get_pivot().set_hpr(hpr)
+            model.pivot.set_hpr(hpr)
             plane_models.append(model)
 
         return plane_models
@@ -282,7 +282,7 @@ class ImportManager(BaseObject):
         model.register(restore=False)
 
         if obj_type == "CollisionCapsule":
-            pivot = model.get_pivot()
+            pivot = model.pivot
             pivot.set_hpr(hpr)
             pivot.set_p(pivot, -90.)
 
@@ -346,8 +346,8 @@ class ImportManager(BaseObject):
         node = GeomNode("basic_geom")
         node.add_geom(geom)
         node_path = NodePath(node)
-        model = Mgr.do("create_basic_geom", node_path, name).get_model()
-        model.get_bbox().update(*node_path.get_tight_bounds())
+        model = Mgr.do("create_basic_geom", node_path, name).model
+        model.bbox.update(*node_path.get_tight_bounds())
         r, g, b = [random.random() * .4 + .5 for i in range(3)]
         color = (r, g, b, 1.)
         model.set_color(color, update_app=False)
@@ -386,14 +386,14 @@ class ImportManager(BaseObject):
 
                 obj_name = node_data["new_name"]
                 node = node_path.node()
-                node_type = node.get_class_type().get_name()
+                node_type = node.type.name
 
-                if node_type == "GeomNode" and Geom.PT_polygons in [geom.get_primitive_type()
+                if node_type == "GeomNode" and Geom.PT_polygons in [geom.primitive_type
                         for geom in node.get_geoms()]:
 
                     bounds_node = node_path
                     geom_indices = [i for i, geom in enumerate(node.get_geoms())
-                                    if geom.get_primitive_type() == Geom.PT_polygons]
+                                    if geom.primitive_type == Geom.PT_polygons]
                     geom_count = len(geom_indices)
 
                     materials = self._imported_materials
@@ -401,8 +401,8 @@ class ImportManager(BaseObject):
                     if geom_count > 1:
 
                         obj = self.__create_model_group(obj_name, node_path.get_transform())
-                        obj.get_origin().node().copy_tags(node)
-                        obj_names = GlobalData["obj_names"] + self._obj_names
+                        obj.origin.node().copy_tags(node)
+                        obj_names = GD["obj_names"] + self._obj_names
                         obj_names.remove(obj_name)
 
                         for i in geom_indices:
@@ -418,10 +418,10 @@ class ImportManager(BaseObject):
                             member_name = "object 0001"
                             member_name = get_unique_name(member_name, obj_names)
                             obj_names.append(member_name)
-                            member = Mgr.do("create_basic_geom", new_geom, member_name, materials).get_model()
+                            member = Mgr.do("create_basic_geom", new_geom, member_name, materials).model
                             member.register(restore=False)
                             Mgr.do("add_group_member", member, obj, restore="import")
-                            member.get_bbox().update(*new_geom.get_tight_bounds())
+                            member.bbox.update(*new_geom.get_tight_bounds())
                             self._imported_objs.append(member)
                             material = member.get_material()
 
@@ -445,9 +445,9 @@ class ImportManager(BaseObject):
 
                         new_node.decompose()
                         new_node.unify(1000000, False)
-                        obj = Mgr.do("create_basic_geom", new_geom, obj_name, materials).get_model()
+                        obj = Mgr.do("create_basic_geom", new_geom, obj_name, materials).model
                         obj.register(restore=False)
-                        obj.get_origin().node().copy_tags(node)
+                        obj.origin.node().copy_tags(node)
                         material = obj.get_material()
 
                         if material and material not in materials:
@@ -458,11 +458,11 @@ class ImportManager(BaseObject):
                     coll_objs = []
                     coll_polys = []
                     coll_planes = []
-                    obj_names = GlobalData["obj_names"] + self._obj_names
+                    obj_names = GD["obj_names"] + self._obj_names
 
-                    for solid in node.get_solids():
+                    for solid in node.solids:
 
-                        obj_type = solid.get_class_type().get_name()
+                        obj_type = solid.type.name
 
                         if obj_type not in ("CollisionSphere", "CollisionInvSphere", "CollisionCapsule",
                                             "CollisionBox", "CollisionPlane", "CollisionPolygon"):
@@ -470,13 +470,13 @@ class ImportManager(BaseObject):
 
                         if obj_type == "CollisionPolygon":
 
-                            if solid.is_valid():
-                                poly = solid.get_points()
+                            if solid.valid:
+                                poly = tuple(solid.points)
                                 coll_polys.append(poly)
 
                         elif obj_type == "CollisionPlane":
 
-                            coll_planes.append(solid.get_plane())
+                            coll_planes.append(solid.plane)
 
                         else:
 
@@ -486,15 +486,15 @@ class ImportManager(BaseObject):
 
                             if obj_type in ("CollisionSphere", "CollisionInvSphere"):
 
-                                radius = solid.get_radius()
-                                pos = solid.get_center()
+                                radius = solid.radius
+                                pos = solid.center
                                 args = (name, radius, pos)
 
                             elif obj_type == "CollisionCapsule":
 
-                                radius = solid.get_radius()
-                                a = solid.get_point_a()
-                                b = solid.get_point_b()
+                                radius = solid.radius
+                                a = solid.point_a
+                                b = solid.point_b
                                 height_vec = V3D(b - a)
                                 height = height_vec.length()
                                 hpr = height_vec.get_hpr()
@@ -502,7 +502,7 @@ class ImportManager(BaseObject):
 
                             elif obj_type == "CollisionBox":
 
-                                pos = Point3(solid.get_center())
+                                pos = Point3(solid.center)
                                 size = {"x": 0., "y": 0., "z": 0.}
 
                                 for i in range(6):
@@ -550,11 +550,11 @@ class ImportManager(BaseObject):
 
                 obj.restore_link(parent_id, None)
 
-                if obj.get_type() == "model":
-                    obj.get_bbox().update(*bounds_node.get_tight_bounds())
+                if obj.type == "model":
+                    obj.bbox.update(*bounds_node.get_tight_bounds())
 
                 self._imported_objs.append(obj)
-                obj_id = obj.get_id()
+                obj_id = obj.id
                 self._obj_names.remove(obj_name)
 
             child_indices = node_data["child_indices"]
@@ -578,11 +578,8 @@ class ImportManager(BaseObject):
 
             coll_poly_count = 0
 
-            for solid in node.get_solids():
-
-                obj_type = solid.get_class_type().get_name()
-
-                if obj_type == "CollisionPolygon" and solid.is_valid():
+            for solid in node.solids:
+                if solid.type.name == "CollisionPolygon" and solid.is_valid():
                     coll_poly_count += 1
 
             progress_steps += coll_poly_count // 20
@@ -598,7 +595,7 @@ class ImportManager(BaseObject):
 
         if gradual:
             Mgr.update_remotely("screenshot", "create")
-            GlobalData["progress_steps"] = progress_steps
+            GD["progress_steps"] = progress_steps
 
         Mgr.do("update_history_time")
 
@@ -621,11 +618,11 @@ class ImportManager(BaseObject):
 
         obj_data = {}
         event_data = {"objects": obj_data}
-        event_descr = 'Import "{}"'.format(os.path.basename(self._imported_file))
+        event_descr = f'Import "{os.path.basename(self._imported_file)}"'
         self._imported_file = ""
 
         for obj in self._imported_objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store("creation")
+            obj_data[obj.id] = obj.get_data_to_store("creation")
 
         self._imported_objs = []
         event_data["object_ids"] = set(Mgr.get("object_ids"))

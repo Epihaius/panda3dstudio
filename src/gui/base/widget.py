@@ -10,10 +10,10 @@ class Widget:
     def __init__(self, widget_type, parent, gfx_data, initial_state="", stretch_dir="",
                  hidden=False, has_mouse_region=True):
 
-        self._type = "widget"
-        self._widget_type = widget_type
+        self.type = "widget"
+        self.widget_type = widget_type
         self._parent = parent
-        self._node = parent.get_node().attach_new_node("widget") if parent else NodePath("widget")
+        self.node = parent.node.attach_new_node("widget") if parent else NodePath("widget")
         self._gfx_data = gfx_data
         self._current_state = initial_state
         self._stretch_dir = stretch_dir
@@ -79,11 +79,11 @@ class Widget:
         Widget._count += 1
 
         if has_mouse_region:
-            self._mouse_region = MouseWatcherRegion("widget_{:d}".format(self._widget_id), 0., 0., 0., 0.)
+            self.mouse_region = MouseWatcherRegion(f"widget_{self._widget_id}", 0., 0., 0., 0.)
             if parent and not parent.is_hidden() and not hidden:
-                self.get_mouse_watcher().add_region(self._mouse_region)
+                self.mouse_watcher.add_region(self.mouse_region)
         else:
-            self._mouse_region = None
+            self.mouse_region = None
 
         Widget.registry[self._widget_id] = self
 
@@ -92,9 +92,9 @@ class Widget:
         if self._widget_id not in Widget.registry:
             return False
 
-        if self._node:
-            self._node.remove_node()
-            self._node = None
+        if self.node:
+            self.node.remove_node()
+            self.node = None
 
         if self._sizer:
             self._sizer.destroy()
@@ -104,9 +104,9 @@ class Widget:
 
         if self._parent:
 
-            if self._mouse_region:
-                self.get_mouse_watcher().remove_region(self._mouse_region)
-                self._mouse_region = None
+            if self.mouse_region:
+                self.mouse_watcher.remove_region(self.mouse_region)
+                self.mouse_region = None
 
             self._parent = None
 
@@ -116,21 +116,9 @@ class Widget:
 
         return True
 
-    def get_type(self):
-
-        return self._type
-
-    def set_widget_type(self, widget_type):
-
-        self._widget_type = widget_type
-
-    def get_widget_type(self):
-
-        return self._widget_type
-
     def get_ancestor(self, widget_type):
 
-        if self._widget_type == widget_type:
+        if self.widget_type == widget_type:
             return self
 
         if self._parent:
@@ -140,25 +128,31 @@ class Widget:
 
         return self._widget_id
 
+    @property
+    def parent(self):
+
+        return self._parent
+
     def set_parent(self, parent, show=True):
 
         if parent:
 
             self._parent = parent
-            self._node.reparent_to(parent.get_node())
+            self.node.reparent_to(parent.node)
 
             if show:
                 self.show()
 
         else:
 
-            self._node.detach_node()
+            self.node.detach_node()
             self.hide()
             self._parent = parent
 
-    def get_parent(self):
+    @parent.setter
+    def parent(self, parent):
 
-        return self._parent
+        self.set_parent(parent)
 
     def get_card(self):
 
@@ -184,14 +178,6 @@ class Widget:
 
         return self._outer_borders
 
-    def get_mouse_region(self):
-
-        return self._mouse_region
-
-    def get_node(self):
-
-        return self._node
-
     def has_state(self, state):
 
         return state in self._gfx_data
@@ -208,18 +194,18 @@ class Widget:
     def set_pos(self, pos):
 
         x, y = pos
-        self.get_node().set_pos(x, 0, -y)
+        self.node.set_pos(x, 0, -y)
 
     def get_pos(self, ref_node=None, from_root=False):
 
-        node = self.get_node()
+        node = self.node
 
         if ref_node:
             x, y, z = node.get_pos(ref_node)
         elif from_root:
             x, y, z = node.get_pos(node.get_top())
         else:
-            x, y, z = node.get_pos(self.get_parent().get_node())
+            x, y, z = node.get_pos(self.parent.node)
 
         y = -z
 
@@ -228,7 +214,7 @@ class Widget:
     def set_sizer(self, sizer):
 
         if sizer:
-            sizer.set_owner(self)
+            sizer.owner = self
 
         self._sizer = sizer
 
@@ -333,8 +319,8 @@ class Widget:
                 painter = PNMPainter(scaled_img)
                 fill = PNMBrush.make_image(center_img, 0, 0)
                 pen = PNMBrush.make_transparent()
-                painter.set_fill(fill)
-                painter.set_pen(pen)
+                painter.fill = fill
+                painter.pen = pen
                 painter.draw_rectangle(0, 0, scaled_width, scaled_height)
             else:
                 scaled_img.unfiltered_stretch_from(center_img)
@@ -416,14 +402,14 @@ class Widget:
         if self._sizer and recurse:
             self._sizer.update_mouse_region_frames(exclude)
 
-        if not self._mouse_region:
+        if not self.mouse_region:
             return
 
         w, h = self.get_size()
         x, y = self.get_pos(from_root=True)
 
         if exclude:
-            l, r, b, t = self._mouse_region.get_frame()
+            l, r, b, t = self.mouse_region.frame
 
         if "l" not in exclude:
             l = x
@@ -437,11 +423,12 @@ class Widget:
         if "t" not in exclude:
             t = -y
 
-        self._mouse_region.set_frame(l, r, b, t)
+        self.mouse_region.frame = (l, r, b, t)
 
-    def get_mouse_watcher(self):
+    @property
+    def mouse_watcher(self):
 
-        return self._parent.get_mouse_watcher()
+        return self._parent.mouse_watcher
 
     def set_contents_hidden(self, hidden=True):
         """ This method is relevant only for container widgets like panels """
@@ -458,16 +445,16 @@ class Widget:
         if self._is_hidden:
             return False
 
-        mouse_watcher = self.get_mouse_watcher()
+        mouse_watcher = self.mouse_watcher
 
-        if self._mouse_region:
-            mouse_watcher.remove_region(self._mouse_region)
+        if self.mouse_region:
+            mouse_watcher.remove_region(self.mouse_region)
 
         if recurse and self._sizer:
 
             for widget in self._sizer.get_widgets():
 
-                mouse_region = widget.get_mouse_region()
+                mouse_region = widget.mouse_region
 
                 if mouse_region and not widget.is_hidden():
                     mouse_watcher.remove_region(mouse_region)
@@ -481,16 +468,16 @@ class Widget:
         if not self._is_hidden:
             return False
 
-        mouse_watcher = self.get_mouse_watcher()
+        mouse_watcher = self.mouse_watcher
 
-        if self._mouse_region:
-            mouse_watcher.add_region(self._mouse_region)
+        if self.mouse_region:
+            mouse_watcher.add_region(self.mouse_region)
 
         if recurse and self._sizer:
 
             for widget in self._sizer.get_widgets():
 
-                mouse_region = widget.get_mouse_region()
+                mouse_region = widget.mouse_region
 
                 if mouse_region and not widget.is_hidden(check_ancestors=False):
                     mouse_watcher.add_region(mouse_region)
@@ -543,8 +530,8 @@ class Widget:
 
         self._is_enabled = enable
 
-        if self._mouse_region:
-            self._mouse_region.set_active(enable)
+        if self.mouse_region:
+            self.mouse_region.active = enable
 
         if self._sizer:
             for widget in self._sizer.get_widgets():
@@ -573,10 +560,10 @@ class WidgetCard:
 
     def __init__(self, widget_type, parent=None, stretch_dir=""):
 
-        self._type = "widget"
-        self._widget_type = widget_type
+        self.type = "widget"
+        self.widget_type = widget_type
         self._parent = parent if parent else Mgr.get("window")
-        self._node = self._parent.get_node().attach_new_node("card")
+        self.node = self._parent.node.attach_new_node("card")
         self._stretch_dir = stretch_dir
         self._size = self._min_size = (0, 0)
         self._sizer = None
@@ -585,17 +572,17 @@ class WidgetCard:
         self._quad = None
         self.create_quad()
         self._tex = tex = Texture("card_tex")
-        tex.set_minfilter(SamplerState.FT_nearest)
-        tex.set_magfilter(SamplerState.FT_nearest)
+        tex.minfilter = SamplerState.FT_nearest
+        tex.magfilter = SamplerState.FT_nearest
         self._image = None
-        self._mouse_region = None
+        self.mouse_region = None
         self._outer_borders = (0, 0, 0, 0)
 
     def destroy(self):
 
-        if self._node:
-            self._node.remove_node()
-            self._node = None
+        if self.node:
+            self.node.remove_node()
+            self.node = None
 
         if self._sizer:
             self._sizer.destroy()
@@ -607,27 +594,30 @@ class WidgetCard:
             self._quad.remove_node()
             self._quad = None
 
-        if self._mouse_region:
-            self.get_mouse_watcher().remove_region(self._mouse_region)
-            self._mouse_region = None
+        if self.mouse_region:
+            self.mouse_watcher.remove_region(self.mouse_region)
+            self.mouse_region = None
 
         self._image = None
 
-    def get_type(self):
+    @property
+    def parent(self):
 
-        return self._type
+        return self._parent
 
-    def set_widget_type(self, widget_type):
+    @parent.setter
+    def parent(self, parent):
 
-        self._widget_type = widget_type
+        self.set_parent(parent)
 
-    def get_widget_type(self):
+    def set_parent(self, parent):
 
-        return self._widget_type
+        self._parent = parent if parent else Mgr.get("window")
+        self.node.reparent_to(self._parent.node)
 
     def get_ancestor(self, widget_type):
 
-        if self._widget_type == widget_type:
+        if self.widget_type == widget_type:
             return self
 
         if self._parent:
@@ -655,19 +645,6 @@ class WidgetCard:
 
         return self._quad
 
-    def set_parent(self, parent):
-
-        self._parent = parent if parent else Mgr.get("window")
-        self._node.reparent_to(self._parent.get_node())
-
-    def get_parent(self):
-
-        return self._parent
-
-    def get_node(self):
-
-        return self._node
-
     def get_card(self):
 
         return self
@@ -675,7 +652,7 @@ class WidgetCard:
     def set_pos(self, pos):
 
         x, y = pos
-        self._node.set_pos(x, 0, -y)
+        self.node.set_pos(x, 0, -y)
         self.update_quad_pos()
 
     def update_quad_pos(self):
@@ -686,12 +663,12 @@ class WidgetCard:
 
     def get_pos(self, from_root=False):
 
-        node = self._node
+        node = self.node
 
         if from_root:
             x, y, z = node.get_pos(node.get_top())
         else:
-            x, y, z = node.get_pos(self.get_parent().get_node())
+            x, y, z = node.get_pos(self.parent.node)
 
         y = -z
 
@@ -699,7 +676,7 @@ class WidgetCard:
 
     def set_sizer(self, sizer):
 
-        sizer.set_owner(self)
+        sizer.owner = self
         self._sizer = sizer
 
     def get_sizer(self):
@@ -784,7 +761,7 @@ class WidgetCard:
         if not img:
             return False
 
-        x, y = widget.get_pos(ref_node=self._node)
+        x, y = widget.get_pos(ref_node=self.node)
         x += offset_x
         y += offset_y
         img.copy_sub_image(sub_image, x, y, 0, 0, width, height)
@@ -796,27 +773,24 @@ class WidgetCard:
 
         return self._tex
 
-    def get_mouse_watcher(self):
+    @property
+    def mouse_watcher(self):
 
-        return self._parent.get_mouse_watcher()
-
-    def get_mouse_region(self):
-
-        return self._mouse_region
+        return self._parent.mouse_watcher
 
     def update_mouse_region_frames(self, exclude="", recurse=True):
 
         if self._sizer and recurse:
             self._sizer.update_mouse_region_frames(exclude)
 
-        if not self._mouse_region:
+        if not self.mouse_region:
             return
 
         w, h = self.get_size()
         x, y = self.get_pos(from_root=True)
 
         if exclude:
-            l, r, b, t = self._mouse_region.get_frame()
+            l, r, b, t = self.mouse_region.frame
 
         if "l" not in exclude:
             l = x
@@ -830,7 +804,7 @@ class WidgetCard:
         if "t" not in exclude:
             t = -y
 
-        self._mouse_region.set_frame(l, r, b, t)
+        self.mouse_region.frame = (l, r, b, t)
 
     def is_contents_hidden(self):
         """ This method is meaningful only for container widgets like panels """

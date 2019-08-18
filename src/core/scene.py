@@ -1,12 +1,12 @@
 from .base import *
 
 
-class SceneManager(BaseObject):
+class SceneManager:
 
     def __init__(self):
 
-        GlobalData.set_default("unsaved_scene", False)
-        GlobalData.set_default("loading_scene", False)
+        GD.set_default("unsaved_scene", False)
+        GD.set_default("loading_scene", False)
 
         self._handlers = {
             "reset": self.__reset,
@@ -20,10 +20,10 @@ class SceneManager(BaseObject):
     def __reset(self):
 
         Mgr.enter_state("selection_mode")
-        obj_lvl = GlobalData["active_obj_level"]
+        obj_lvl = GD["active_obj_level"]
 
         if obj_lvl != "top":
-            GlobalData["active_obj_level"] = "top"
+            GD["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
         for obj in Mgr.get("objects"):
@@ -45,12 +45,12 @@ class SceneManager(BaseObject):
         PendingTasks.add(task, "update_selection", "ui")
         PendingTasks.handle(["object", "ui"], True)
 
-        if GlobalData["object_links_shown"]:
-            GlobalData["object_links_shown"] = False
+        if GD["object_links_shown"]:
+            GD["object_links_shown"] = False
             Mgr.update_app("object_link_viz")
 
-        if GlobalData["transform_target_type"] != "all":
-            GlobalData["transform_target_type"] = "all"
+        if GD["transform_target_type"] != "all":
+            GD["transform_target_type"] = "all"
             Mgr.update_app("transform_target_type")
 
         Mgr.update_app("view", "clear")
@@ -66,17 +66,17 @@ class SceneManager(BaseObject):
         Mgr.update_app("active_transform_type", "")
         Mgr.update_app("status", ["select", ""])
 
-        GlobalData.reset()
+        GD.reset()
         Mgr.update_remotely("two_sided")
         Mgr.update_remotely("object_snap", "reset")
         Mgr.update_app("group_options")
         Mgr.update_app("subobj_edit_options")
 
-        for transf_type, axes in GlobalData["axis_constraints"].items():
+        for transf_type, axes in GD["axis_constraints"].items():
             Mgr.update_app("axis_constraints", transf_type, axes)
 
         for obj_type in Mgr.get("object_types"):
-            Mgr.do("set_last_{}_obj_id".format(obj_type), 0)
+            Mgr.do(f"set_last_{obj_type}_obj_id", 0)
 
         Mgr.update_remotely("scene_label", "New")
 
@@ -110,12 +110,12 @@ class SceneManager(BaseObject):
 
         def finish():
 
-            GlobalData["loading_scene"] = False
+            GD["loading_scene"] = False
 
         task_id = "finish_loading_scene"
         PendingTasks.add(finish, task_id, "ui", sort=100)
 
-        GlobalData["loading_scene"] = True
+        GD["loading_scene"] = True
         Mgr.update_remotely("screenshot", "create")
         scene_data_str = scene_file.read_subfile(scene_file.find_subfile("scene/data"))
         scene_data = pickle.loads(scene_data_str)
@@ -124,10 +124,10 @@ class SceneManager(BaseObject):
         scene_file.close()
 
         for obj_type in Mgr.get("object_types"):
-            data_id = "last_{}_obj_id".format(obj_type)
-            Mgr.do("set_last_{}_obj_id".format(obj_type), scene_data[data_id])
+            data_id = f"last_{obj_type}_obj_id"
+            Mgr.do(f"set_last_{obj_type}_obj_id", scene_data[data_id])
 
-        GlobalData["axis_constraints"] = constraints = scene_data["axis_constraints"]
+        GD["axis_constraints"] = constraints = scene_data["axis_constraints"]
 
         for transf_type, axes in constraints.items():
             Mgr.update_app("axis_constraints", transf_type, axes)
@@ -151,18 +151,18 @@ class SceneManager(BaseObject):
         Mgr.do("set_selection_sets", selection_sets)
 
         if "snap_settings" in scene_data:
-            GlobalData["snap"] = scene_data["snap_settings"]
+            GD["snap"] = scene_data["snap_settings"]
 
         if "transform_options" in scene_data:
-            GlobalData["transform_options"] = scene_data["transform_options"]
+            GD["transform_options"] = scene_data["transform_options"]
 
-        GlobalData["rel_transform_values"] = scene_data["rel_transform_values"]
+        GD["rel_transform_values"] = scene_data["rel_transform_values"]
         transf_type = scene_data["active_transform_type"]
-        GlobalData["active_transform_type"] = transf_type
+        GD["active_transform_type"] = transf_type
         Mgr.update_app("active_transform_type", transf_type)
 
         if transf_type:
-            if GlobalData["snap"]["on"][transf_type]:
+            if GD["snap"]["on"][transf_type]:
                 Mgr.update_app("status", ["select", transf_type, "snap_idle"])
             else:
                 Mgr.update_app("status", ["select", transf_type, "idle"])
@@ -174,11 +174,11 @@ class SceneManager(BaseObject):
             for x in ("coord_sys", "transf_center"):
                 x_type = scene_data[x]["type"]
                 obj = Mgr.get("object", scene_data[x]["obj_id"])
-                name = obj.get_name(as_object=True) if obj else None
+                name_obj = obj.name_obj if obj else None
                 transform = scene_data[x].get("custom_transform", [])
-                Mgr.do("set_custom_{}_transform".format(x), *transform)
+                Mgr.do(f"set_custom_{x}_transform", *transform)
                 Mgr.update_locally(x, x_type, obj)
-                Mgr.update_remotely(x, x_type, name)
+                Mgr.update_remotely(x, x_type, name_obj)
 
             Mgr.do("set_view_data", scene_data["view_data"])
 
@@ -186,7 +186,7 @@ class SceneManager(BaseObject):
         PendingTasks.add(task, task_id, "ui", sort=100)
 
         PendingTasks.handle(["object", "ui"], True)
-        GlobalData["open_file"] = filename
+        GD["open_file"] = filename
 
     def __save(self, filename, set_saved_state=True):
 
@@ -197,19 +197,19 @@ class SceneManager(BaseObject):
 
         for x in ("coord_sys", "transf_center"):
             scene_data[x] = {}
-            scene_data[x]["custom_transform"] = Mgr.get("custom_{}_transform".format(x))
-            scene_data[x]["type"] = GlobalData["{}_type".format(x)]
-            obj = Mgr.get("{}_obj".format(x))
-            scene_data[x]["obj_id"] = obj.get_id() if obj else None
+            scene_data[x]["custom_transform"] = Mgr.get(f"custom_{x}_transform")
+            scene_data[x]["type"] = GD[f"{x}_type"]
+            obj = Mgr.get(f"{x}_obj")
+            scene_data[x]["obj_id"] = obj.id if obj else None
 
-        scene_data["active_transform_type"] = GlobalData["active_transform_type"]
-        scene_data["rel_transform_values"] = GlobalData["rel_transform_values"]
-        scene_data["axis_constraints"] = GlobalData["axis_constraints"]
-        scene_data["transform_options"] = GlobalData["transform_options"]
-        scene_data["snap_settings"] = GlobalData["snap"]
+        scene_data["active_transform_type"] = GD["active_transform_type"]
+        scene_data["rel_transform_values"] = GD["rel_transform_values"]
+        scene_data["axis_constraints"] = GD["axis_constraints"]
+        scene_data["transform_options"] = GD["transform_options"]
+        scene_data["snap_settings"] = GD["snap"]
 
         for obj_type in Mgr.get("object_types"):
-            data_id = "last_{}_obj_id".format(obj_type)
+            data_id = f"last_{obj_type}_obj_id"
             scene_data[data_id] = Mgr.get(data_id)
 
         scene_file = Multifile()
@@ -227,14 +227,14 @@ class SceneManager(BaseObject):
         scene_file.close()
 
         if set_saved_state:
-            GlobalData["unsaved_scene"] = False
-            GlobalData["open_file"] = filename
+            GD["unsaved_scene"] = False
+            GD["open_file"] = filename
 
     def __make_backup(self, index):
 
-        open_file = GlobalData["open_file"]
+        open_file = GD["open_file"]
         filename = Filename(open_file if open_file else "autobackup")
-        filename.set_extension("bak{:d}".format(index))
+        filename.set_extension(f"bak{index}")
         self.__save(filename.get_fullpath(), set_saved_state=False)
 
 

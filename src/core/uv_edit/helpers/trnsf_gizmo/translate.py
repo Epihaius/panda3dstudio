@@ -7,7 +7,7 @@ class TranslationComponent:
 
         self._gizmo = gizmo
         self._type = "translate"
-        self._origin = gizmo.get_root().attach_new_node("uv_translation_gizmo")
+        self._origin = gizmo.root.attach_new_node("uv_translation_gizmo")
         self._render_mask = UVMgr.get("render_mask")
         self._picking_mask = UVMgr.get("picking_mask")
         self._handle_root = self._origin.attach_new_node("handle_root")
@@ -16,7 +16,7 @@ class TranslationComponent:
         self._hilited_handles = []
         self._axis_colors = {}
         self._active_axes = ""
-        self._is_active = True
+        self._active = True
 
         self.__create_handles()
 
@@ -39,8 +39,8 @@ class TranslationComponent:
             pos1[i] = .04
             pos2 = Point2()
             pos2[i] = .16
-            handle = self.__create_axis_handle(self._handle_root, color_vec, pos1, pos2,
-                                               "{}_axis_handle".format(axis))
+            handle = self.__create_axis_handle(self._handle_root, color_vec, pos1,
+                                               pos2, f"{axis}_axis_handle")
             color = self._axis_colors[axis]
             handle.set_color(color)
             self._handles["axes"][axis] = handle
@@ -53,8 +53,8 @@ class TranslationComponent:
             pos2 = pos1 + arrow_vec
             arrow_vec[(i + 1) % 2] = .01
             pos3 = pos1 + arrow_vec
-            arrow = self.__create_axis_arrow(self._handle_root, color_vec, pos1, pos2,
-                                             pos3, "{}_axis_arrow".format(axis))
+            arrow = self.__create_axis_arrow(self._handle_root, color_vec, pos1,
+                                             pos2, pos3, f"{axis}_axis_arrow")
             arrow.set_color(color)
 
         # Create double-axis handle
@@ -67,8 +67,8 @@ class TranslationComponent:
         pos2 = Point2()
         pos3 = Point2()
         pos1[0] = pos2[0] = pos2[1] = pos3[1] = .07
-        handle, quad = self.__create_plane_handle(self._handle_root, color_vec, pos1, pos2, pos3,
-                                                  "{}_plane_handle".format(plane))
+        handle, quad = self.__create_plane_handle(self._handle_root, color_vec, pos1,
+                                                  pos2, pos3, f"{plane}_plane_handle")
         self._handles["planes"][plane] = handle
         self._handles["quads"][plane] = quad
         handle[0].set_color(self._axis_colors[plane[0]])
@@ -213,13 +213,13 @@ class TranslationComponent:
                 else:
                     self._handles["axes"][handle_name].set_color(cyan)
 
-            GlobalData["uv_cursor"] = self._type
+            GD["uv_cursor"] = self._type
 
     def remove_hilite(self):
 
         if self._hilited_handles:
 
-            if self._is_active:
+            if self._active:
                 rgb = (1., 1., 0., 1.)
                 rgba = (1., 1., 0., .25)
             else:
@@ -237,7 +237,7 @@ class TranslationComponent:
 
                 if handle_name in self._handles["planes"]:
 
-                    if handle_name == self._active_axes or not self._is_active:
+                    if handle_name == self._active_axes or not self._active:
                         color1 = color2 = rgb
                     else:
                         color1 = self._axis_colors[handle_name[0]]
@@ -249,7 +249,7 @@ class TranslationComponent:
 
                 else:
 
-                    if handle_name in self._active_axes or not self._is_active:
+                    if handle_name in self._active_axes or not self._active:
                         color = rgb
                     else:
                         color = self._axis_colors[handle_name]
@@ -257,7 +257,7 @@ class TranslationComponent:
                     self._handles["axes"][handle_name].set_color(color)
 
             self._hilited_handles = []
-            GlobalData["uv_cursor"] = ""
+            GD["uv_cursor"] = ""
 
     def select_handle(self, color_id):
 
@@ -302,12 +302,18 @@ class TranslationComponent:
                 handle[1].set_color(self._axis_colors[plane[1]])
                 quad.hide()
 
-    def set_active(self, is_active=True):
+    @property
+    def active(self):
 
-        if self._is_active == is_active:
+        return self._active
+
+    @active.setter
+    def active(self, active):
+
+        if self._active == active:
             return
 
-        if is_active:
+        if active:
             rgb = (1., 1., 0., 1.)
             rgba = (1., 1., 0., .25)
         else:
@@ -324,7 +330,7 @@ class TranslationComponent:
         for handle in self._handles["axes"].values():
             handle.set_color(rgb)
 
-        self._is_active = is_active
+        self._active = active
 
     def show(self):
 

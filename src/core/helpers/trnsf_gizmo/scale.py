@@ -5,7 +5,7 @@ class ScalingGizmo(TransformationGizmo):
 
     def _create_handles(self):
 
-        root = Mgr.get("transf_gizmo_root")
+        root = Mgr.get("transf_gizmo").root
         self._origin = root.attach_new_node("scaling_gizmo")
 
         self._scale = VBase3(1., 1., 1.)
@@ -26,8 +26,8 @@ class ScalingGizmo(TransformationGizmo):
             self._handle_names[color_id] = axis
             pos = Point3()
             pos[i] = .2
-            handle, point = self.__create_axis_handle(self._origin, color_vec, pos,
-                                                      "{}_axis_handle".format(axis))
+            handle, point = self.__create_axis_handle(self._origin, color_vec,
+                                                      pos, f"{axis}_axis_handle")
             color = self._axis_colors[axis]
             handle.set_color(color)
             point.set_color(color)
@@ -48,8 +48,8 @@ class ScalingGizmo(TransformationGizmo):
             pos4 = Point3()
             pos1[index1] = pos3[index2] = .1
             pos2[index1] = pos4[index2] = .14
-            handle, quad = self.__create_plane_handle(self._origin, color_vec, pos1, pos2, pos3,
-                                                      pos4, "{}_plane_handle".format(plane))
+            handle, quad = self.__create_plane_handle(self._origin, color_vec, pos1, pos2,
+                                                      pos3, pos4, f"{plane}_plane_handle")
             self._handles["planes"][plane] = handle
             self._handles["quads"][plane] = quad
             handle[0].set_color(self._axis_colors[plane[0]])
@@ -238,9 +238,9 @@ class ScalingGizmo(TransformationGizmo):
 
     def __show_scale_indicator(self, pos, heading, pitch):
 
-        self._scale_indicator.set_pos(self.world, pos)
+        self._scale_indicator.set_pos(GD.world, pos)
         h = -90. if heading < 0. else 90.
-        self._scale_indicator.set_hpr(self.cam(), h, pitch, 0.)
+        self._scale_indicator.set_hpr(GD.cam(), h, pitch, 0.)
         self._scale_indicator.show()
 
     def hilite_handle(self, color_id):
@@ -395,15 +395,15 @@ class ScalingGizmo(TransformationGizmo):
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        cam = self.cam()
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
-        normal = self.world.get_relative_vector(cam, Vec3.forward())
+        cam = GD.cam()
+        rel_pt = lambda point: GD.world.get_relative_point(cam, point)
+        normal = GD.world.get_relative_vector(cam, Vec3.forward())
         point = rel_pt(Point3(0., 2., 0.))
         plane = Plane(normal, point)
 
         near_point = Point3()
         far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
+        GD.cam.lens.extrude(screen_pos, near_point, far_point)
 
         intersection_point = Point3()
 
@@ -414,10 +414,10 @@ class ScalingGizmo(TransformationGizmo):
 
     def face_camera(self):
 
-        root = Mgr.get("transf_gizmo_root")
-        cam = self.cam()
+        root = Mgr.get("transf_gizmo").root
+        cam = GD.cam()
 
-        if self.cam.lens_type == "persp":
+        if GD.cam.lens_type == "persp":
             vec = V3D(root.get_pos(cam))
         else:
             vec = V3D(Vec3.forward())

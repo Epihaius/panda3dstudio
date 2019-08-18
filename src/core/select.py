@@ -1,12 +1,12 @@
 from .base import *
-from .transform import SelectionTransformBase
+from .transform import TransformMixin
 
 
-class Selection(SelectionTransformBase):
+class Selection(TransformMixin):
 
     def __init__(self):
 
-        SelectionTransformBase.__init__(self)
+        TransformMixin.__init__(self)
 
         self._objs = []
         self._prev_obj_ids = set()
@@ -34,22 +34,23 @@ class Selection(SelectionTransformBase):
         if self._objs:
             return self._objs[0].get_toplevel_object(get_group)
 
+    @property
+    def toplevel_obj(self):
+
+        return self.get_toplevel_object()
+
     def clear_prev_obj_ids(self):
 
         self._prev_obj_ids = None
 
     def update_obj_props(self, force=False):
 
-        obj_ids = set(obj.get_id() for obj in self._objs)
+        obj_ids = set(obj.id for obj in self._objs)
 
         if not force and obj_ids == self._prev_obj_ids:
             return
 
-        names = OrderedDict()
-
-        for obj in self._objs:
-            names[obj.get_id()] = obj.get_name()
-
+        names = {obj.id: obj.name for obj in self._objs}
         Mgr.update_remotely("selected_obj_names", names)
 
         count = len(self._objs)
@@ -65,11 +66,11 @@ class Selection(SelectionTransformBase):
             color_values = [x for x in color][:3]
             Mgr.update_remotely("selected_obj_color", color_values)
 
-        GlobalData["sel_color_count"] = sel_color_count
+        GD["sel_color_count"] = sel_color_count
         Mgr.update_app("sel_color_count")
 
-        type_checker = lambda obj, main_type: obj.get_geom_type() if main_type == "model" else main_type
-        obj_types = set(type_checker(obj, obj.get_type()) for obj in self._objs)
+        type_checker = lambda obj, main_type: obj.geom_type if main_type == "model" else main_type
+        obj_types = set(type_checker(obj, obj.type) for obj in self._objs)
         Mgr.update_app("selected_obj_types", tuple(obj_types))
 
         if count == 1:
@@ -121,16 +122,16 @@ class Selection(SelectionTransformBase):
 
             if count == 1:
                 obj = sel_to_add.copy().pop()
-                event_descr = 'Select "{}"'.format(obj.get_name())
+                event_descr = f'Select "{obj.name}"'
             else:
-                event_descr = 'Select {:d} objects:\n'.format(count)
-                event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in sel_to_add])
+                event_descr = f'Select {count} objects:\n'
+                event_descr += "".join([f'\n    "{obj.name}"' for obj in sel_to_add])
 
             obj_data = {}
             event_data = {"objects": obj_data}
 
             for obj in sel_to_add:
-                obj_data[obj.get_id()] = {"selection_state": {"main": True}}
+                obj_data[obj.id] = {"selection_state": {"main": True}}
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
@@ -161,16 +162,16 @@ class Selection(SelectionTransformBase):
 
             if count == 1:
                 obj = common.copy().pop()
-                event_descr = 'Deselect "{}"'.format(obj.get_name())
+                event_descr = f'Deselect "{obj.name}"'
             else:
-                event_descr = 'Deselect {:d} objects:\n'.format(count)
-                event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in common])
+                event_descr = f'Deselect {count} objects:\n'
+                event_descr += "".join([f'\n    "{obj.name}"' for obj in common])
 
             obj_data = {}
             event_data = {"objects": obj_data}
 
             for obj in common:
-                obj_data[obj.get_id()] = {"selection_state": {"main": False}}
+                obj_data[obj.id] = {"selection_state": {"main": False}}
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
@@ -213,14 +214,14 @@ class Selection(SelectionTransformBase):
 
                 if new_count == 1:
 
-                    event_descr += 'Select "{}"'.format(new_sel.copy().pop().get_name())
+                    event_descr += f'Select "{new_sel.copy().pop().name}"'
 
                 else:
 
-                    event_descr += 'Select {:d} objects:\n'.format(new_count)
+                    event_descr += f'Select {new_count} objects:\n'
 
                     for new_obj in new_sel:
-                        event_descr += '\n    "{}"'.format(new_obj.get_name())
+                        event_descr += f'\n    "{new_obj.name}"'
 
             if old_sel:
 
@@ -228,14 +229,14 @@ class Selection(SelectionTransformBase):
 
                 if old_count == 1:
 
-                    event_descr += 'Deselect "{}"'.format(old_sel.copy().pop().get_name())
+                    event_descr += f'Deselect "{old_sel.copy().pop().name}"'
 
                 else:
 
-                    event_descr += 'Deselect {:d} objects:\n'.format(old_count)
+                    event_descr += f'Deselect {old_count} objects:\n'
 
                     for old_obj in old_sel:
-                        event_descr += '\n    "{}"'.format(old_obj.get_name())
+                        event_descr += f'\n    "{old_obj.name}"'
 
             if event_descr:
 
@@ -243,10 +244,10 @@ class Selection(SelectionTransformBase):
                 event_data = {"objects": obj_data}
 
                 for old_obj in old_sel:
-                    obj_data[old_obj.get_id()] = {"selection_state": {"main": False}}
+                    obj_data[old_obj.id] = {"selection_state": {"main": False}}
 
                 for new_obj in new_sel:
-                    obj_data[new_obj.get_id()] = {"selection_state": {"main": True}}
+                    obj_data[new_obj.id] = {"selection_state": {"main": True}}
 
                 # make undo/redoable
                 Mgr.do("add_history", event_descr, event_data)
@@ -276,20 +277,20 @@ class Selection(SelectionTransformBase):
 
             if obj_count > 1:
 
-                event_descr = 'Deselect {:d} objects:\n'.format(obj_count)
+                event_descr = f'Deselect {obj_count} objects:\n'
 
                 for obj in sel:
-                    event_descr += '\n    "{}"'.format(obj.get_name())
+                    event_descr += f'\n    "{obj.name}"'
 
             else:
 
-                event_descr = 'Deselect "{}"'.format(sel[0].get_name())
+                event_descr = f'Deselect "{sel[0].name}"'
 
             obj_data = {}
             event_data = {"objects": obj_data}
 
             for obj in sel:
-                obj_data[obj.get_id()] = {"selection_state": {"main": False}}
+                obj_data[obj.id] = {"selection_state": {"main": False}}
 
             # make undo/redoable
             Mgr.do("add_history", event_descr, event_data)
@@ -314,14 +315,14 @@ class Selection(SelectionTransformBase):
 
             if obj_count > 1:
 
-                event_descr = 'Delete {:d} objects:\n'.format(obj_count)
+                event_descr = f'Delete {obj_count} objects:\n'
 
                 for obj in sel:
-                    event_descr += '\n    "{}"'.format(obj.get_name())
+                    event_descr += f'\n    "{obj.name}"'
 
             else:
 
-                event_descr = 'Delete "{}"'.format(sel[0].get_name())
+                event_descr = f'Delete "{sel[0].name}"'
 
             obj_data = {}
             event_data = {"objects": obj_data}
@@ -329,8 +330,8 @@ class Selection(SelectionTransformBase):
 
             for obj in sel:
 
-                obj_data[obj.get_id()] = obj.get_data_to_store("deletion")
-                group = obj.get_group()
+                obj_data[obj.id] = obj.get_data_to_store("deletion")
+                group = obj.group
 
                 if group and group not in sel:
                     groups.add(group)
@@ -347,7 +348,7 @@ class Selection(SelectionTransformBase):
         return True
 
 
-class SelectionManager(BaseObject):
+class SelectionManager:
 
     def __init__(self):
 
@@ -408,11 +409,11 @@ class SelectionManager(BaseObject):
         self._fence_point_coords = {}
         self._fence_mouse_coords = [[], []]
         self._fence_point_pick_lens = lens = OrthographicLens()
-        lens.set_film_size(30.)
-        lens.set_near(-10.)
+        lens.film_size = 30.
+        lens.near = -10.
 
-        GlobalData.set_default("selection_count", 0)
-        GlobalData.set_default("sel_color_count", 0)
+        GD.set_default("selection_count", 0)
+        GD.set_default("sel_color_count", 0)
 
         Mgr.expose("selection", self.__get_selection)
         Mgr.expose("selection_top", lambda: self._selection)
@@ -452,29 +453,29 @@ class SelectionManager(BaseObject):
                   self.__exit_region_selection_mode)
         add_state("checking_mouse_offset", -1, self.__start_mouse_check)
 
-        mod_alt = GlobalData["mod_key_codes"]["alt"]
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        mod_shift = GlobalData["mod_key_codes"]["shift"]
+        mod_alt = GD["mod_key_codes"]["alt"]
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        mod_shift = GD["mod_key_codes"]["shift"]
         bind = Mgr.bind_state
         bind("selection_mode", "select (replace)", "mouse1", self.__init_select)
-        bind("selection_mode", "select (add)", "{:d}|mouse1".format(mod_ctrl),
+        bind("selection_mode", "select (add)", f"{mod_ctrl}|mouse1",
              lambda: self.__init_select(op="add"))
-        bind("selection_mode", "select (remove)", "{:d}|mouse1".format(mod_shift),
+        bind("selection_mode", "select (remove)", f"{mod_shift}|mouse1",
              lambda: self.__init_select(op="remove"))
-        bind("selection_mode", "select (toggle)", "{:d}|mouse1".format(mod_ctrl | mod_shift),
+        bind("selection_mode", "select (toggle)", f"{mod_ctrl | mod_shift}|mouse1",
              lambda: self.__init_select(op="toggle"))
-        bind("selection_mode", "select (replace) alt", "{:d}|mouse1".format(mod_alt),
+        bind("selection_mode", "select (replace) alt", f"{mod_alt}|mouse1",
              self.__init_select)
-        bind("selection_mode", "select (add) alt", "{:d}|mouse1".format(mod_alt | mod_ctrl),
+        bind("selection_mode", "select (add) alt", f"{mod_alt | mod_ctrl}|mouse1",
              lambda: self.__init_select(op="add"))
-        bind("selection_mode", "select (remove) alt", "{:d}|mouse1".format(mod_alt | mod_shift),
+        bind("selection_mode", "select (remove) alt", f"{mod_alt | mod_shift}|mouse1",
              lambda: self.__init_select(op="remove"))
-        bind("selection_mode", "select (toggle) alt", "{:d}|mouse1".format(mod_alt | mod_ctrl | mod_shift),
+        bind("selection_mode", "select (toggle) alt", f"{mod_alt | mod_ctrl | mod_shift}|mouse1",
              lambda: self.__init_select(op="toggle"))
         bind("selection_mode", "select -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("selection_mode", "handle right-click", "mouse3", self.__on_right_click)
-        bind("selection_mode", "handle ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        bind("selection_mode", "handle ctrl-right-click", f"{mod_ctrl}|mouse3",
              self.__on_right_click)
         bind("selection_mode", "del selection", "delete", self.__delete_selection)
         bind("region_selection_mode", "quit region-select", "escape",
@@ -494,7 +495,7 @@ class SelectionManager(BaseObject):
         bind("checking_mouse_offset", "cancel mouse check",
              "mouse1-up", cancel_mouse_check)
 
-        GlobalData["status_data"]["select"] = status_data = {}
+        GD["status"]["select"] = status_data = {}
         info_start = "<Space> to navigate; (<Alt>-)LMB to (region-)select; <Del> to delete selection; "
         info_text = info_start + "<W>, <E>, <R> to set transform type"
         status_data[""] = {"mode": "Select", "info": info_text}
@@ -503,7 +504,7 @@ class SelectionManager(BaseObject):
         info_text = "LMB-drag to transform selection; RMB to cancel transformation"
 
         for transf_type in ("translate", "rotate", "scale"):
-            mode_text = "Select and {}".format(transf_type)
+            mode_text = f"Select and {transf_type}"
             status_data[transf_type] = {}
             status_data[transf_type]["idle"] = {
                 "mode": mode_text,
@@ -526,9 +527,9 @@ class SelectionManager(BaseObject):
     def setup(self):
 
         cam = Camera("region_selection_cam")
-        cam.set_active(False)
-        cam.set_scene(Mgr.get("object_root"))
-        self._region_sel_cam = self.cam().attach_new_node(cam)
+        cam.active = False
+        cam.scene = Mgr.get("object_root")
+        self._region_sel_cam = GD.cam().attach_new_node(cam)
 
         return True
 
@@ -537,9 +538,9 @@ class SelectionManager(BaseObject):
         self._sel_mask_root = root = NodePath("selection_mask_root")
         self._sel_mask_geom_root = geom_root = root.attach_new_node("selection_mask_geom_root")
         cam = Camera("selection_mask_cam")
-        cam.set_active(False)
+        cam.active = False
         lens = OrthographicLens()
-        lens.set_film_size(2.)
+        lens.film_size = 2.
         cam.set_lens(lens)
         self._sel_mask_cam = NodePath(cam)
         vertex_format = GeomVertexFormat.get_v3()
@@ -569,7 +570,7 @@ class SelectionManager(BaseObject):
     def __transform_picking_cam(self, cam):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        cam.set_pos(mouse_pointer.get_x(), 0., -mouse_pointer.get_y())
+        cam.set_pos(mouse_pointer.x, 0., -mouse_pointer.y)
 
     def __init_fence_point_picking(self, mouse_x, mouse_y):
 
@@ -681,7 +682,7 @@ class SelectionManager(BaseObject):
             return NodePath(geom_node)
 
         shape = NodePath(geom_node)
-        shape.set_color(GlobalData["region_select"]["shape_color"])
+        shape.set_color(GD["region_select"]["shape_color"])
         geom = Geom(vertex_data)
         geom.add_primitive(tris)
         geom_node = GeomNode("selection_area")
@@ -691,28 +692,27 @@ class SelectionManager(BaseObject):
         area.set_depth_write(False)
         area.set_bin("fixed", 99)
         area.set_transparency(TransparencyAttrib.M_alpha)
-        area.set_color(GlobalData["region_select"]["fill_color"])
+        area.set_color(GD["region_select"]["fill_color"])
 
         return shape
 
     def __draw_selection_shape(self, task):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.mouse_watcher.has_mouse():
             return task.cont
 
         x, y = self._sel_shape_pos
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = -mouse_pointer.get_y()
+        mouse_x, mouse_y = mouse_pointer.x, -mouse_pointer.y
 
-        shape_type = GlobalData["region_select"]["type"]
+        shape_type = GD["region_select"]["type"]
 
         if shape_type == "paint":
 
             shape = self._selection_shapes[shape_type]
-            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
-            x, y = GlobalData["viewport"]["pos_aux" if GlobalData["viewport"][2] == "main" else "pos"]
-            center_x, center_y = self.mouse_watcher.get_mouse()
+            w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
+            x, y = GD["viewport"]["pos_aux" if GD["viewport"][2] == "main" else "pos"]
+            center_x, center_y = GD.mouse_watcher.get_mouse()
             shape.set_pos(mouse_x - x, 0., mouse_y + y)
             geom_root = self._sel_mask_geom_root
             brush = geom_root.find("**/brush")
@@ -770,7 +770,7 @@ class SelectionManager(BaseObject):
             sx = mouse_x - x
             sy = mouse_y - y
             shape = self._selection_shapes[shape_type]
-            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+            w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
 
             if "square" in shape_type or "circle" in shape_type:
 
@@ -797,7 +797,7 @@ class SelectionManager(BaseObject):
                 sx = .001 if abs(sx) < .001 else sx
                 sy = .001 if abs(sy) < .001 else sy
                 shape.set_scale(sx, 1., sy)
-                self._mouse_end_pos = self.mouse_watcher.get_mouse()
+                self._mouse_end_pos = GD.mouse_watcher.get_mouse()
 
                 if "centered" in shape_type:
                     d_x = sx * 2. / w
@@ -809,10 +809,10 @@ class SelectionManager(BaseObject):
 
     def __add_selection_shape_vertex(self, add_fence_point=False, coords=None):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.mouse_watcher.has_mouse():
             return
 
-        x, y = self.mouse_watcher.get_mouse()
+        x, y = GD.mouse_watcher.get_mouse()
 
         if add_fence_point:
             mouse_coords_x, mouse_coords_y = self._fence_mouse_coords
@@ -839,8 +839,7 @@ class SelectionManager(BaseObject):
             mouse_x, mouse_y = coords
         else:
             mouse_pointer = Mgr.get("mouse_pointer", 0)
-            mouse_x = mouse_pointer.get_x()
-            mouse_y = -mouse_pointer.get_y()
+            mouse_x, mouse_y = mouse_pointer.x, -mouse_pointer.y
             self._mouse_prev = (mouse_x, mouse_y)
 
         shape = self._selection_shapes["free"]
@@ -908,7 +907,7 @@ class SelectionManager(BaseObject):
 
     def __remove_fence_vertex(self):
 
-        if GlobalData["region_select"]["type"] != "fence":
+        if GD["region_select"]["type"] != "fence":
             return
 
         mouse_coords_x, mouse_coords_y = self._fence_mouse_coords
@@ -983,23 +982,22 @@ class SelectionManager(BaseObject):
         self._sel_brush_size = max(1., self._sel_brush_size - max(5., self._sel_brush_size * .1))
         self._sel_brush_size_stale = True
 
-    def __enter_region_selection_mode(self, prev_state_id, is_active):
+    def __enter_region_selection_mode(self, prev_state_id, active):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.mouse_watcher.has_mouse():
             return
 
-        screen_pos = self.mouse_watcher.get_mouse()
+        screen_pos = GD.mouse_watcher.get_mouse()
         self._mouse_start_pos = (screen_pos.x, screen_pos.y)
 
-        x, y = GlobalData["viewport"]["pos_aux" if GlobalData["viewport"][2] == "main" else "pos"]
+        x, y = GD["viewport"]["pos_aux" if GD["viewport"][2] == "main" else "pos"]
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = -mouse_pointer.get_y()
+        mouse_x, mouse_y = mouse_pointer.x, -mouse_pointer.y
         self._sel_shape_pos = (mouse_x, mouse_y)
 
         self._region_sel_uvs = prev_state_id == "uv_edit_mode"
 
-        shape_type = GlobalData["region_select"]["type"]
+        shape_type = GD["region_select"]["type"]
 
         if "centered" in shape_type:
             self._region_center_pos = (screen_pos.x, screen_pos.y)
@@ -1028,28 +1026,27 @@ class SelectionManager(BaseObject):
 
         if shape_type in ("fence", "lasso", "paint"):
             self._sel_mask_tex = tex = Texture()
-            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+            w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
             card = self._sel_shape_tex_card
-            card.reparent_to(self.viewport)
+            card.reparent_to(GD.viewport_origin)
             card.set_texture(tex)
             card.set_scale(w, 1., h)
             geom_root = self._sel_mask_geom_root
-            geom_root.set_transform(self.viewport.get_transform())
+            geom_root.set_transform(GD.viewport_origin.get_transform())
             sh = shaders.region_sel
-            base = Mgr.get("base")
-            self._sel_mask_buffer = bfr = base.win.make_texture_buffer(
-                                                                       "sel_mask_buffer",
-                                                                       w, h,
-                                                                       tex,
-                                                                       to_ram=True
-                                                                      )
-            bfr.set_clear_color((0., 0., 0., 0.))
+            self._sel_mask_buffer = bfr = GD.window.make_texture_buffer(
+                                                                        "sel_mask_buffer",
+                                                                        w, h,
+                                                                        tex,
+                                                                        to_ram=True
+                                                                       )
+            bfr.clear_color = (0., 0., 0., 0.)
             bfr.set_clear_color_active(True)
             cam = self._sel_mask_cam
-            base.make_camera(bfr, useCamera=cam)
-            cam.node().set_active(True)
+            GD.showbase.make_camera(bfr, useCamera=cam)
+            cam.node().active = True
             cam.reparent_to(self._sel_mask_root)
-            cam.set_transform(base.cam2d.get_transform())
+            cam.set_transform(GD.showbase.cam2d.get_transform())
             background = self._sel_mask_background
             background.set_scale(w, 1., h)
             self._mouse_end_pos = (screen_pos.x, screen_pos.y)
@@ -1063,7 +1060,7 @@ class SelectionManager(BaseObject):
             shader = Shader.make(Shader.SL_GLSL, vs, fs)
             tri.set_shader(shader)
             tri.set_shader_input("prev_tex", tex)
-            r, g, b, a = GlobalData["region_select"]["fill_color"]
+            r, g, b, a = GD["region_select"]["fill_color"]
             fill_color = (r, g, b, a) if a else (1., 1., 1., 1.)
             tri.set_shader_input("fill_color", fill_color)
             card.show() if a else card.hide()
@@ -1074,28 +1071,28 @@ class SelectionManager(BaseObject):
             card.show()
             shape.set_scale(self._sel_brush_size)
             brush = shape.get_child(0).copy_to(geom_root)
-            brush.set_name("brush")
+            brush.name = "brush"
             brush.set_scale(self._sel_brush_size)
             brush.clear_attrib(TransparencyAttrib)
-            base.graphics_engine.render_frame()
+            GD.graphics_engine.render_frame()
             background.set_color((1., 1., 1., 1.))
             background.set_texture(tex)
 
-        shape.reparent_to(self.viewport)
+        shape.reparent_to(GD.viewport_origin)
         shape.set_pos(mouse_x - x, 0., mouse_y + y)
 
         Mgr.add_task(self.__draw_selection_shape, "draw_selection_shape", sort=3)
 
-    def __exit_region_selection_mode(self, next_state_id, is_active):
+    def __exit_region_selection_mode(self, next_state_id, active):
 
         Mgr.remove_task("draw_selection_shape")
-        shape_type = GlobalData["region_select"]["type"]
+        shape_type = GD["region_select"]["type"]
 
         if shape_type == "fence":
             Mgr.remove_task("update_cursor")
-            Mgr.do("adjust_picking_cam_to_lens")
+            Mgr.get("picking_cam").adjust_to_lens()
             picking_cam = Mgr.get("picking_cam")
-            picking_cam().reparent_to(self.cam().get_parent())
+            picking_cam().reparent_to(GD.cam().parent)
             picking_cam.set_transformer(None)
             self._fence_points.remove_node()
             self._fence_points = None
@@ -1112,9 +1109,8 @@ class SelectionManager(BaseObject):
         if shape_type in ("fence", "lasso", "paint"):
             self._sel_shape_tex_card.detach_node()
             self._sel_shape_tex_card.clear_texture()
-            self._sel_mask_cam.node().set_active(False)
-            base = Mgr.get("base")
-            base.graphics_engine.remove_window(self._sel_mask_buffer)
+            self._sel_mask_cam.node().active = False
+            GD.graphics_engine.remove_window(self._sel_mask_buffer)
             self._sel_mask_buffer = None
             self._sel_mask_background.clear_texture()
             self._sel_mask_background.set_color((0., 0., 0., 0.))
@@ -1150,7 +1146,7 @@ class SelectionManager(BaseObject):
 
     def __handle_region_select_mouse_up(self):
 
-        shape_type = GlobalData["region_select"]["type"]
+        shape_type = GD["region_select"]["type"]
 
         if shape_type == "fence":
 
@@ -1161,7 +1157,7 @@ class SelectionManager(BaseObject):
                     r, g, b, _ = [int(round(c * 255.)) for c in pixel_under_mouse]
                     color_id = r << 16 | g << 8 | b
                     self.__add_selection_shape_vertex(coords=self._fence_point_coords[color_id])
-                    Mgr.get("base").graphics_engine.render_frame()
+                    GD.graphics_engine.render_frame()
                     Mgr.exit_state("region_selection_mode")
                 else:
                     self.__add_selection_shape_vertex(add_fence_point=True)
@@ -1185,22 +1181,22 @@ class SelectionManager(BaseObject):
 
     def __region_select(self, frame):
 
-        region_type = GlobalData["region_select"]["type"]
+        region_type = GD["region_select"]["type"]
 
         if self._region_sel_cancelled:
             if region_type in ("fence", "lasso", "paint"):
                 self._sel_mask_tex = None
             return
 
-        lens = self.cam.lens
-        w, h = lens.get_film_size()
+        lens = GD.cam.lens
+        w, h = lens.film_size
         l, r, b, t = frame
         # compute film size and offset
         w_f = (r - l) * w
         h_f = (t - b) * h
         x_f = ((r + l) * .5 - .5) * w
         y_f = ((t + b) * .5 - .5) * h
-        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
         viewport_size = (w, h)
         # compute buffer size
         w_b = int(round((r - l) * w))
@@ -1212,12 +1208,12 @@ class SelectionManager(BaseObject):
 
         def get_off_axis_lens(film_size):
 
-            lens = self.cam.lens
-            focal_len = lens.get_focal_length()
+            lens = GD.cam.lens
+            focal_len = lens.focal_length
             lens = lens.make_copy()
-            lens.set_film_size(film_size)
-            lens.set_film_offset(x_f, y_f)
-            lens.set_focal_length(focal_len)
+            lens.film_size = film_size
+            lens.film_offset = (x_f, y_f)
+            lens.focal_length = focal_len
 
             return lens
 
@@ -1230,14 +1226,14 @@ class SelectionManager(BaseObject):
             b_exp = (int(round(b * h)) - 2) / h
             t_exp = (int(round(t * h)) + 2) / h
             # compute expanded film size
-            lens = self.cam.lens
-            w, h = lens.get_film_size()
+            lens = GD.cam.lens
+            w, h = lens.film_size
             w_f = (r_exp - l_exp) * w
             h_f = (t_exp - b_exp) * h
 
             return get_off_axis_lens((w_f, h_f))
 
-        enclose = GlobalData["region_select"]["enclose"]
+        enclose = GD["region_select"]["enclose"]
         lens_exp = get_expanded_region_lens() if enclose else None
 
         if "ellipse" in region_type or "circle" in region_type:
@@ -1263,22 +1259,21 @@ class SelectionManager(BaseObject):
             cropped_img.copy_sub_image(img, 0, 0, int(round(l * w)), int(round((1. - t) * h)))
             self._sel_mask_tex.load(cropped_img)
 
-        Mgr.get("picking_cam").set_active(False)
+        Mgr.get("picking_cam").active = False
 
         lens = get_off_axis_lens((w_f, h_f))
         picking_mask = Mgr.get("picking_mask")
         cam_np = self._region_sel_cam
         cam = cam_np.node()
         cam.set_lens(lens)
-        cam.set_camera_mask(picking_mask)
-        base = Mgr.get("base")
-        bfr = base.win.make_texture_buffer("tex_buffer", w_b, h_b)
-        cam.set_active(True)
-        base.make_camera(bfr, useCamera=cam_np)
-        ge = base.graphics_engine
+        cam.camera_mask = picking_mask
+        bfr = GD.window.make_texture_buffer("tex_buffer", w_b, h_b)
+        cam.active = True
+        GD.showbase.make_camera(bfr, useCamera=cam_np)
+        ge = GD.graphics_engine
 
-        ctrl_down = self.mouse_watcher.is_button_down("control")
-        shift_down = self.mouse_watcher.is_button_down("shift")
+        ctrl_down = GD.mouse_watcher.is_button_down("control")
+        shift_down = GD.mouse_watcher.is_button_down("shift")
 
         if ctrl_down:
             op = "toggle" if shift_down else "add"
@@ -1287,7 +1282,7 @@ class SelectionManager(BaseObject):
         else:
             op = self._selection_op
 
-        obj_lvl = GlobalData["active_obj_level"]
+        obj_lvl = GD["active_obj_level"]
 
         if self._region_sel_uvs:
 
@@ -1301,10 +1296,10 @@ class SelectionManager(BaseObject):
 
             for i, obj in enumerate(objs):
 
-                obj.get_pivot().set_shader_input("index", i)
+                obj.pivot.set_shader_input("index", i)
 
-                if obj.get_type() == "model":
-                    obj.get_bbox().hide(picking_mask)
+                if obj.type == "model":
+                    obj.bbox.hide(picking_mask)
 
             sh = shaders.region_sel
             vs = sh.VERT_SHADER
@@ -1315,7 +1310,7 @@ class SelectionManager(BaseObject):
 
                 tex = Texture()
                 tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
-                tex.set_clear_color(0)
+                tex.clear_color = (0., 0., 0., 0.)
 
                 if "rect" in region_type or "square" in region_type:
                     fs = sh.FRAG_SHADER_INV if enclose else sh.FRAG_SHADER
@@ -1347,13 +1342,13 @@ class SelectionManager(BaseObject):
                 state_np.set_texture_off(1)
                 state_np.set_transparency(TransparencyAttrib.M_none, 1)
                 state = state_np.get_state()
-                cam.set_initial_state(state)
+                cam.initial_state = state
 
                 Mgr.update_locally("region_picking", True)
 
                 ge.render_frame()
 
-                if ge.extract_texture_data(tex, base.win.get_gsg()):
+                if ge.extract_texture_data(tex, GD.window.get_gsg()):
 
                     texels = memoryview(tex.get_ram_image()).cast("I")
 
@@ -1374,8 +1369,8 @@ class SelectionManager(BaseObject):
             ge.remove_window(bfr)
 
             if enclose:
-                bfr_exp = base.win.make_texture_buffer("tex_buffer_exp", w_b + 4, h_b + 4)
-                base.make_camera(bfr_exp, useCamera=cam_np)
+                bfr_exp = GD.window.make_texture_buffer("tex_buffer_exp", w_b + 4, h_b + 4)
+                GD.showbase.make_camera(bfr_exp, useCamera=cam_np)
                 cam.set_lens(lens_exp)
                 inverse_sel = set()
                 region_select_objects(inverse_sel, True)
@@ -1394,8 +1389,8 @@ class SelectionManager(BaseObject):
                 self._selection.add(new_sel - old_sel)
 
             for obj in objs:
-                if obj.get_type() == "model":
-                    obj.get_bbox().show(picking_mask)
+                if obj.type == "model":
+                    obj.bbox.show(picking_mask)
 
         else:
 
@@ -1405,32 +1400,32 @@ class SelectionManager(BaseObject):
         if region_type in ("fence", "lasso", "paint"):
             self._sel_mask_tex = None
 
-        cam.set_active(False)
-        Mgr.get("picking_cam").set_active()
+        cam.active = False
+        Mgr.get("picking_cam").active = True
         Mgr.update_remotely("selection_set", "hide_name")
 
     def __get_selection(self, obj_lvl=""):
 
-        lvl = obj_lvl if obj_lvl else GlobalData["active_obj_level"]
+        lvl = obj_lvl if obj_lvl else GD["active_obj_level"]
 
         return Mgr.get("selection_" + lvl)
 
-    def __enter_selection_mode(self, prev_state_id, is_active):
+    def __enter_selection_mode(self, prev_state_id, active):
 
         Mgr.add_task(self.__update_cursor, "update_cursor")
-        Mgr.do("enable_transf_gizmo")
+        Mgr.get("transf_gizmo").enable()
 
-        transf_type = GlobalData["active_transform_type"]
+        transf_type = GD["active_transform_type"]
 
         if transf_type:
-            if GlobalData["snap"]["on"][transf_type]:
+            if GD["snap"]["on"][transf_type]:
                 Mgr.update_app("status", ["select", transf_type, "snap_idle"])
             else:
                 Mgr.update_app("status", ["select", transf_type, "idle"])
         else:
             Mgr.update_app("status", ["select", ""])
 
-    def __exit_selection_mode(self, next_state_id, is_active):
+    def __exit_selection_mode(self, next_state_id, active):
 
         if next_state_id != "checking_mouse_offset":
             self._pixel_under_mouse = None  # force an update of the cursor
@@ -1439,12 +1434,12 @@ class SelectionManager(BaseObject):
             Mgr.remove_task("update_cursor")
             Mgr.set_cursor("main")
 
-        Mgr.do("enable_transf_gizmo", False)
+        Mgr.get("transf_gizmo").enable(False)
 
     def __update_active_selection(self, restore=False):
 
         Mgr.update_remotely("selection_set", "hide_name")
-        obj_lvl = GlobalData["active_obj_level"]
+        obj_lvl = GD["active_obj_level"]
 
         if obj_lvl == "top":
 
@@ -1456,12 +1451,12 @@ class SelectionManager(BaseObject):
             Mgr.do("update_selection_" + obj_lvl)
             Mgr.do("disable_object_name_checking")
 
-            toplvl_obj = self.__get_selection(obj_lvl).get_toplevel_object()
+            toplvl_obj = self.__get_selection(obj_lvl).toplevel_obj
 
             if toplvl_obj:
 
-                cs_type = GlobalData["coord_sys_type"]
-                tc_type = GlobalData["transf_center_type"]
+                cs_type = GD["coord_sys_type"]
+                tc_type = GD["transf_center_type"]
 
                 if cs_type == "local":
                     Mgr.update_locally("coord_sys", cs_type, toplvl_obj)
@@ -1479,7 +1474,7 @@ class SelectionManager(BaseObject):
 
         if Mgr.get_state_id() == "uv_edit_mode":
             Mgr.do("inverse_select_uvs")
-        elif GlobalData["active_obj_level"] == "top":
+        elif GD["active_obj_level"] == "top":
             old_sel = set(self._selection)
             new_sel = set(Mgr.get("objects", "top")) - old_sel
             self._selection.replace(new_sel)
@@ -1492,7 +1487,7 @@ class SelectionManager(BaseObject):
 
         if Mgr.get_state_id() == "uv_edit_mode":
             Mgr.do("select_all_uvs")
-        elif GlobalData["active_obj_level"] == "top":
+        elif GD["active_obj_level"] == "top":
             self._selection.replace(Mgr.get("objects", "top"))
         else:
             Mgr.do("select_all_subobjs")
@@ -1503,7 +1498,7 @@ class SelectionManager(BaseObject):
 
         if Mgr.get_state_id() == "uv_edit_mode":
             Mgr.do("clear_uv_selection")
-        elif GlobalData["active_obj_level"] == "top":
+        elif GD["active_obj_level"] == "top":
             self._selection.clear()
         else:
             Mgr.do("clear_subobj_selection")
@@ -1512,11 +1507,11 @@ class SelectionManager(BaseObject):
 
     def __add_selection_set(self, name=None):
 
-        obj_level = GlobalData["active_obj_level"]
+        obj_level = GD["active_obj_level"]
 
         if obj_level == "top":
-            new_set = set(obj.get_id() for obj in self._selection)
-        elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+            new_set = set(obj.id for obj in self._selection)
+        elif "uv" in (GD["viewport"][1], GD["viewport"][2]):
             obj_level = "uv_" + obj_level
             new_set = Mgr.get("uv_selection_set")
         else:
@@ -1540,9 +1535,9 @@ class SelectionManager(BaseObject):
 
     def __copy_selection_set(self, set_id):
 
-        obj_level = GlobalData["active_obj_level"]
+        obj_level = GD["active_obj_level"]
 
-        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+        if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             obj_level = "uv_" + obj_level
 
         sets = self._selection_sets["sets"][obj_level]
@@ -1559,9 +1554,9 @@ class SelectionManager(BaseObject):
 
     def __remove_selection_set(self, set_id):
 
-        obj_level = GlobalData["active_obj_level"]
+        obj_level = GD["active_obj_level"]
 
-        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+        if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             obj_level = "uv_" + obj_level
 
         del self._selection_sets["sets"][obj_level][set_id]
@@ -1570,9 +1565,9 @@ class SelectionManager(BaseObject):
 
     def __clear_selection_sets(self):
 
-        obj_level = GlobalData["active_obj_level"]
+        obj_level = GD["active_obj_level"]
 
-        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+        if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             obj_level = "uv_" + obj_level
 
         self._selection_sets["sets"][obj_level].clear()
@@ -1581,31 +1576,32 @@ class SelectionManager(BaseObject):
 
     def __rename_selection_set(self, set_id, name):
 
-        obj_level = GlobalData["active_obj_level"]
+        obj_level = GD["active_obj_level"]
 
-        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+        if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             obj_level = "uv_" + obj_level
 
         names = self._selection_sets["names"][obj_level]
+        del names[set_id]
         name = get_unique_name(name, list(names.values()))
         names[set_id] = name
         Mgr.update_remotely("selection_set", "rename", set_id, name)
 
     def __combine_selection_sets(self, set_id1, set_id2, op, in_place):
 
-        obj_level = GlobalData["active_obj_level"]
+        obj_level = GD["active_obj_level"]
 
         if set_id2 == "cur_sel":
             if obj_level == "top":
-                set2 = set(obj.get_id() for obj in self._selection)
-            elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+                set2 = set(obj.id for obj in self._selection)
+            elif "uv" in (GD["viewport"][1], GD["viewport"][2]):
                 set2 = Mgr.get("uv_selection_set")
             else:
                 set2 = Mgr.get("subobj_selection_set")
         else:
             set2 = None
 
-        if "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+        if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             obj_level = "uv_" + obj_level
 
         sets = self._selection_sets["sets"][obj_level]
@@ -1649,14 +1645,14 @@ class SelectionManager(BaseObject):
 
     def __apply_selection_set(self, set_id):
 
-        obj_level = GlobalData["active_obj_level"]
+        obj_level = GD["active_obj_level"]
 
         if obj_level == "top":
             sel_set = self._selection_sets["sets"][obj_level][set_id]
             new_sel = set(obj.get_toplevel_object(get_group=True) for obj in
                           (Mgr.get("object", obj_id) for obj_id in sel_set) if obj)
             self._selection.replace(new_sel)
-        elif "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2]):
+        elif "uv" in (GD["viewport"][1], GD["viewport"][2]):
             obj_level = "uv_" + obj_level
             sel_set = self._selection_sets["sets"][obj_level][set_id]
             Mgr.do("apply_uv_selection_set", sel_set)
@@ -1700,12 +1696,12 @@ class SelectionManager(BaseObject):
 
             for obj in Mgr.get("objects"):
 
-                obj_type = obj.get_type()
+                obj_type = obj.type
 
                 if obj_type not in ("model", "group", "light", "camera"):
                     obj_type = "helper"
 
-                data = (obj.get_id(), obj.is_selected(), obj.get_name())
+                data = (obj.id, obj.is_selected(), obj.name)
                 obj_data.setdefault(obj_type, []).append(data)
 
             sel_sets = self._selection_sets
@@ -1729,8 +1725,8 @@ class SelectionManager(BaseObject):
             self.__select_none()
         elif update_type == "region_color":
             shapes = self._selection_shapes
-            shape_color = GlobalData["region_select"]["shape_color"]
-            fill_color = GlobalData["region_select"]["fill_color"]
+            shape_color = GD["region_select"]["shape_color"]
+            fill_color = GD["region_select"]["fill_color"]
             for shape_type in ("square", "square_centered", "circle", "circle_centered"):
                 shape = shapes[shape_type]
                 shape.set_color(shape_color)
@@ -1754,7 +1750,7 @@ class SelectionManager(BaseObject):
 
         if update_type in ("add_set", "copy_set", "remove_set", "clear_sets",
                            "rename_set", "combine_sets"):
-            GlobalData["unsaved_scene"] = True
+            GD["unsaved_scene"] = True
             Mgr.update_app("unsaved_scene")
             Mgr.do("require_scene_save")
 
@@ -1782,8 +1778,8 @@ class SelectionManager(BaseObject):
 
                 else:
 
-                    if (GlobalData["active_obj_level"] == "edge" and
-                            GlobalData["subobj_edit_options"]["sel_edges_by_border"]):
+                    if (GD["active_obj_level"] == "edge" and
+                            GD["subobj_edit_options"]["sel_edges_by_border"]):
 
                         r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
                         color_id = r << 16 | g << 8 | b
@@ -1793,15 +1789,15 @@ class SelectionManager(BaseObject):
 
                             cursor_id = "select"
 
-                        elif GlobalData["subobj_edit_options"]["pick_via_poly"]:
+                        elif GD["subobj_edit_options"]["pick_via_poly"]:
 
                             poly = Mgr.get("poly", color_id)
 
                             if poly:
 
-                                merged_edges = poly.get_geom_data_object().get_merged_edges()
+                                merged_edges = poly.geom_data_obj.merged_edges
 
-                                for edge_id in poly.get_edge_ids():
+                                for edge_id in poly.edge_ids:
                                     if len(merged_edges[edge_id]) == 1:
                                         cursor_id = "select"
                                         break
@@ -1809,7 +1805,7 @@ class SelectionManager(BaseObject):
                         else:
 
                             edge = Mgr.get("edge", color_id)
-                            merged_edge = edge.get_merged_edge() if edge else None
+                            merged_edge = edge.merged_edge if edge else None
 
                             if merged_edge and len(merged_edge) == 1:
                                 cursor_id = "select"
@@ -1820,7 +1816,7 @@ class SelectionManager(BaseObject):
 
                     if cursor_id == "select":
 
-                        active_transform_type = GlobalData["active_transform_type"]
+                        active_transform_type = GD["active_transform_type"]
 
                         if active_transform_type:
                             cursor_id = active_transform_type
@@ -1838,8 +1834,7 @@ class SelectionManager(BaseObject):
         """
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = mouse_pointer.get_y()
+        mouse_x, mouse_y = mouse_pointer.x, mouse_pointer.y
         mouse_start_x, mouse_start_y = self._mouse_start_pos
 
         if max(abs(mouse_x - mouse_start_x), abs(mouse_y - mouse_start_y)) > 3:
@@ -1849,7 +1844,7 @@ class SelectionManager(BaseObject):
 
         return task.cont
 
-    def __start_mouse_check(self, prev_state_id, is_active):
+    def __start_mouse_check(self, prev_state_id, active):
 
         Mgr.add_task(self.__check_mouse_offset, "check_mouse_offset")
         Mgr.remove_task("update_cursor")
@@ -1858,15 +1853,15 @@ class SelectionManager(BaseObject):
 
         Mgr.remove_task("check_mouse_offset")
 
-        active_transform_type = GlobalData["active_transform_type"]
+        active_transform_type = GD["active_transform_type"]
 
         if active_transform_type == "rotate" \
-                and GlobalData["axis_constraints"]["rotate"] == "trackball":
-            prev_constraints = GlobalData["prev_axis_constraints_rotate"]
+                and GD["axis_constraints"]["rotate"] == "trackball":
+            prev_constraints = GD["prev_axis_constraints_rotate"]
             Mgr.update_app("axis_constraints", "rotate", prev_constraints)
 
         if self._can_select_single:
-            obj_lvl = GlobalData["active_obj_level"]
+            obj_lvl = GD["active_obj_level"]
             Mgr.do("select_single_" + obj_lvl)
 
     def __get_picked_object(self, color_id, obj_type_id):
@@ -1880,7 +1875,7 @@ class SelectionManager(BaseObject):
             return "", None
 
         if pickable_type == "transf_gizmo":
-            return "transf_gizmo", Mgr.do("select_transf_gizmo_handle", color_id)
+            return "transf_gizmo", Mgr.get("transf_gizmo").select_handle(color_id)
 
         picked_obj = Mgr.get(pickable_type, color_id)
 
@@ -1888,28 +1883,28 @@ class SelectionManager(BaseObject):
 
     def __init_select(self, op="replace"):
 
-        alt_down = self.mouse_watcher.is_button_down("alt")
-        region_select = not alt_down if GlobalData["region_select"]["is_default"] else alt_down
+        alt_down = GD.mouse_watcher.is_button_down("alt")
+        region_select = not alt_down if GD["region_select"]["is_default"] else alt_down
 
         if region_select:
             self.__init_region_select(op)
             return
 
-        if not (self.mouse_watcher.has_mouse() and self._pixel_under_mouse):
+        if not (GD.mouse_watcher.has_mouse() and self._pixel_under_mouse):
             return
 
         self._can_select_single = False
-        screen_pos = Point2(self.mouse_watcher.get_mouse())
+        screen_pos = Point2(GD.mouse_watcher.get_mouse())
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
-        obj_lvl = GlobalData["active_obj_level"]
+        self._mouse_start_pos = (mouse_pointer.x, mouse_pointer.y)
+        obj_lvl = GD["active_obj_level"]
 
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
         color_id = r << 16 | g << 8 | b
         pickable_type, picked_obj = self.__get_picked_object(color_id, a)
 
-        if (GlobalData["active_transform_type"] and obj_lvl != pickable_type == "poly"
-                and GlobalData["subobj_edit_options"]["pick_via_poly"]):
+        if (GD["active_transform_type"] and obj_lvl != pickable_type == "poly"
+                and GD["subobj_edit_options"]["pick_via_poly"]):
             Mgr.do("init_selection_via_poly", picked_obj, op)
             return
 
@@ -1929,7 +1924,7 @@ class SelectionManager(BaseObject):
     def __select_toplvl_obj(self, picked_obj, op):
 
         obj = picked_obj.get_toplevel_object(get_group=True) if picked_obj else None
-        self._obj_id = obj.get_id() if obj else None
+        self._obj_id = obj.id if obj else None
         r = self.__select(op)
         selection = self._selection
 
@@ -1938,8 +1933,8 @@ class SelectionManager(BaseObject):
 
         if obj:
 
-            cs_type = GlobalData["coord_sys_type"]
-            tc_type = GlobalData["transf_center_type"]
+            cs_type = GD["coord_sys_type"]
+            tc_type = GD["transf_center_type"]
 
             if cs_type == "local":
                 Mgr.update_locally("coord_sys", cs_type, obj)
@@ -1960,7 +1955,7 @@ class SelectionManager(BaseObject):
 
             if op == "replace":
 
-                if GlobalData["active_transform_type"]:
+                if GD["active_transform_type"]:
 
                     if obj in selection and len(selection) > 1:
 
@@ -1988,7 +1983,7 @@ class SelectionManager(BaseObject):
                 if obj not in selection:
                     selection.add([obj])
 
-                transform_allowed = GlobalData["active_transform_type"]
+                transform_allowed = GD["active_transform_type"]
 
                 if transform_allowed:
                     start_mouse_checking = True
@@ -2005,7 +2000,7 @@ class SelectionManager(BaseObject):
                     transform_allowed = False
                 else:
                     selection.add([obj])
-                    transform_allowed = GlobalData["active_transform_type"]
+                    transform_allowed = GD["active_transform_type"]
 
                 if transform_allowed:
                     start_mouse_checking = True
@@ -2028,10 +2023,10 @@ class SelectionManager(BaseObject):
 
     def __on_right_click(self):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.mouse_watcher.has_mouse():
             return
 
-        ctrl_down = self.mouse_watcher.is_button_down("control")
+        ctrl_down = GD.mouse_watcher.is_button_down("control")
         r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
         color_id = r << 16 | g << 8 | b
         pickable_type = PickableTypes.get(a)
@@ -2047,10 +2042,10 @@ class SelectionManager(BaseObject):
 
             picked_obj = Mgr.get(pickable_type, color_id)
             obj = picked_obj.get_toplevel_object(get_group=True) if picked_obj else None
-            obj_lvl = GlobalData["active_obj_level"]
+            obj_lvl = GD["active_obj_level"]
 
             if obj_lvl == "top" and obj:
-                Mgr.do("set_object_id", obj.get_id())
+                Mgr.do("set_object_id", obj.id)
                 if ctrl_down:
                     Mgr.update_remotely("main_context", "obj_props")
                 else:

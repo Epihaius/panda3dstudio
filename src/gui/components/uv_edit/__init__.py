@@ -32,7 +32,7 @@ class UVEditGUI:
 
     def __create_layout(self):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
 
         if config_data["gui_view"]["toolbars"]:
             layout_data = config_data["gui_layout"]["uv"]
@@ -40,7 +40,7 @@ class UVEditGUI:
 
     def __clear_layout(self):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
 
         if config_data["gui_view"]["toolbars"]:
             layout_data = config_data["gui_layout"]["uv"]
@@ -54,29 +54,28 @@ class UVEditGUI:
 
     def setup(self):
 
-        def enter_editing_mode(prev_state_id, is_active):
+        def enter_editing_mode(prev_state_id, active):
 
             color = Skin["colors"]["viewport_frame_edit_uvs"]
-            index = GlobalData["viewport"]["active"]
-            GlobalData["viewport"]["border_color{:d}".format(index)] = color
-            GlobalData["viewport"]["border{:d}".format(index)].set_clear_color(color)
+            index = GD["viewport"]["active"]
+            GD["viewport"][f"border_color{index}"] = color
+            GD["viewport"][f"border{index}"].clear_color = color
 
-            if not is_active:
+            if not active:
 
                 key_handlers = {
                     "down": self.__on_key_down,
                     "up": self.__on_key_up
                 }
                 Mgr.add_interface("uv", key_handlers)
-                Mgr.add_state("uv_edit_mode", 0, lambda prev_state_id, is_active:
+                Mgr.add_state("uv_edit_mode", 0, lambda prev_state_id, active:
                               Mgr.do("enable_gui"), interface_id="uv")
-                Mgr.add_state("region_selection_mode", -11, lambda prev_state_id, is_active:
+                Mgr.add_state("region_selection_mode", -11, lambda prev_state_id, active:
                               Mgr.do("enable_gui", False), interface_id="uv")
-                base = Mgr.get("base")
 
-                GlobalData["viewport"][1] = "uv"
-                GlobalData["viewport"][2] = "main"
-                GlobalData["viewport"]["border_color2"] = color
+                GD["viewport"][1] = "uv"
+                GD["viewport"][2] = "main"
+                GD["viewport"]["border_color2"] = color
 
                 main_components = self._main_components
                 components = self._components
@@ -95,7 +94,7 @@ class UVEditGUI:
                 menu.enable_item("export", False)
                 menu.enable_item("import", False)
                 menubar.get_menu("view").enable_item("obj_align", False)
-                disabler = lambda: "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2])
+                disabler = lambda: "uv" in (GD["viewport"][1], GD["viewport"][2])
                 Mgr.do("disable_selection_dialog", "uv", disabler)
 
                 Mgr.do("clear_main_layout")
@@ -106,7 +105,7 @@ class UVEditGUI:
                 # Show all panels used in the UV interface
 
                 for panel_id in ("uv_set", "subobj", "background", "export"):
-                    panel = components["{}_panel".format(panel_id)]
+                    panel = components[f"{panel_id}_panel"]
                     panel.enable_hotkeys()
                     panel_stack.show_panel(panel)
 
@@ -129,7 +128,7 @@ class UVEditGUI:
                 # Hide all panels used in the main interface
 
                 for panel_id in ("hierarchy", "prop", "material"):
-                    panel = main_components["{}_panel".format(panel_id)]
+                    panel = main_components[f"{panel_id}_panel"]
                     panel.enable_hotkeys(False)
                     panel_stack.show_panel(panel, False)
 
@@ -143,18 +142,17 @@ class UVEditGUI:
                 Mgr.do("set_interface_status", "uv")
                 Mgr.update_app("status", ["select_uvs", ""], "uv")
 
-        def exit_editing_mode(next_state_id, is_active):
+        def exit_editing_mode(next_state_id, active):
 
-            if not is_active:
+            if not active:
 
-                base = Mgr.get("base")
                 region = self._display_region
                 self._display_region = None
-                base.win.remove_display_region(region)
+                GD.window.remove_display_region(region)
                 mouse_watcher = NodePath(self._mouse_watcher)
                 self._mouse_watcher = None
                 mouse_watcher.remove_node()
-                GlobalData["active_obj_level"] = "top"
+                GD["active_obj_level"] = "top"
 
                 main_components = self._main_components
                 docking_targets = main_components["docking_targets"]
@@ -174,7 +172,7 @@ class UVEditGUI:
                 menu.enable_item("export")
                 menu.enable_item("import")
                 view_ids = ("front", "back", "left", "right", "bottom", "top")
-                enable = GlobalData["view"] not in view_ids
+                enable = GD["view"] not in view_ids
                 menubar.get_menu("view").enable_item("obj_align", enable)
                 Mgr.do("enable_selection_dialog", "uv")
 
@@ -194,14 +192,14 @@ class UVEditGUI:
                 # Hide all panels used in the UV interface
 
                 for panel_id in ("uv_set", "subobj", "background", "export"):
-                    panel = components["{}_panel".format(panel_id)]
+                    panel = components[f"{panel_id}_panel"]
                     panel.enable_hotkeys(False)
                     panel_stack.show_panel(panel, False)
 
                 # Show all panels used in the main interface
 
                 for panel_id in ("hierarchy", "prop", "material"):
-                    panel = main_components["{}_panel".format(panel_id)]
+                    panel = main_components[f"{panel_id}_panel"]
                     panel.enable_hotkeys()
                     panel_stack.show_panel(panel)
 
@@ -227,15 +225,15 @@ class UVEditGUI:
             return
 
         mod_code = 0
-        mod_key_codes = GlobalData["mod_key_codes"]
+        mod_key_codes = GD["mod_key_codes"]
 
-        if GlobalData["alt_down"]:
+        if GD["alt_down"]:
             mod_code |= mod_key_codes["alt"]
 
-        if GlobalData["ctrl_down"]:
+        if GD["ctrl_down"]:
             mod_code |= mod_key_codes["ctrl"]
 
-        if GlobalData["shift_down"]:
+        if GD["shift_down"]:
             mod_code |= mod_key_codes["shift"]
 
         hotkey = (key, mod_code)

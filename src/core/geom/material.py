@@ -31,28 +31,21 @@ COMBINE_MODE_SRC_CHANNELS = (TS.CO_src_color, TS.CO_one_minus_src_color,
                              TS.CO_src_alpha, TS.CO_one_minus_src_alpha)
 COMBINE_MODE_SRC_CHANNEL_IDS = ("rgb", "1-rgb", "alpha", "1-alpha")
 
-COLOR_ATTR_TYPE = ColorAttrib.get_class_type()
-COLOR_SCALE_ATTR_TYPE = ColorScaleAttrib.get_class_type()
-MATERIAL_ATTR_TYPE = MaterialAttrib.get_class_type()
-TRANSP_ATTR_TYPE = TransparencyAttrib.get_class_type()
-TEX_ATTR_TYPE = TextureAttrib.get_class_type()
-TEX_MATRIX_ATTR_TYPE = TexMatrixAttrib.get_class_type()
-
 
 def __set_texmap_properties(tex_map, texture, stage, tex_xforms):
 
-    tex_map.set_border_color(tuple(texture.get_border_color()))
-    wrap_ids = dict(list(zip(WRAP_MODES, WRAP_MODE_IDS)))
-    wrap_u_mode = texture.get_wrap_u()
-    wrap_v_mode = texture.get_wrap_v()
+    tex_map.border_color = tuple(texture.border_color)
+    wrap_ids = {k: v for k, v in zip(WRAP_MODES, WRAP_MODE_IDS)}
+    wrap_u_mode = texture.wrap_u
+    wrap_v_mode = texture.wrap_v
     tex_map.lock_wrap_modes(False)
-    tex_map.set_wrap_mode("u", wrap_ids[wrap_u_mode])
-    tex_map.set_wrap_mode("v", wrap_ids[wrap_v_mode])
+    tex_map.wrap_u = wrap_ids[wrap_u_mode]
+    tex_map.wrap_v = wrap_ids[wrap_v_mode]
     tex_map.lock_wrap_modes(wrap_u_mode == wrap_v_mode)
-    filter_ids = dict(list(zip(FILTER_TYPES, FILTER_TYPE_IDS)))
-    tex_map.set_filter_type("min", filter_ids[texture.get_minfilter()])
-    tex_map.set_filter_type("mag", filter_ids[texture.get_magfilter()])
-    tex_map.set_anisotropic_degree(texture.get_anisotropic_degree())
+    filter_ids = {k: v for k, v in zip(FILTER_TYPES, FILTER_TYPE_IDS)}
+    tex_map.minfilter = filter_ids[texture.minfilter]
+    tex_map.magfilter = filter_ids[texture.magfilter]
+    tex_map.anisotropic_degree = texture.anisotropic_degree
 
     if stage in tex_xforms:
         transform = tex_xforms[stage]
@@ -69,7 +62,7 @@ def __set_texmap_properties(tex_map, texture, stage, tex_xforms):
 def __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms):
 
     if stage in off_stages:
-        layer.set_active(False)
+        layer.active = False
 
     texture = tex_attrib.get_on_texture(stage)
 
@@ -79,19 +72,19 @@ def __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms):
         layer.set_texture(rgb_filename, alpha_filename)
         __set_texmap_properties(layer, texture, stage, tex_xforms)
 
-    layer.set_sort(stage.get_sort())
-    layer.set_priority(stage.get_priority())
+    layer.sort = stage.sort
+    layer.priority = stage.priority
 
-    mode = stage.get_mode()
+    mode = stage.mode
 
     if mode == TS.M_combine:
 
-        layer.set_blend_mode("modulate")
+        layer.blend_mode = "modulate"
 
         cmbmode_data = {}
         cmbmode_data["channels"] = "rgb"
         mode_ids = list(COMBINE_MODE_IDS)
-        combine_ids = dict(list(zip(COMBINE_MODES, COMBINE_MODE_IDS)))
+        combine_ids = {k: v for k, v in zip(COMBINE_MODES, COMBINE_MODE_IDS)}
         combine_ids[TS.CM_undefined] = "modulate"
 
         for channels in ("rgb", "alpha"):
@@ -123,8 +116,9 @@ def __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms):
 
             sources["interpolate"].append(["last_stored_layer", channels])
 
-        combine_src_ids = dict(list(zip(COMBINE_MODE_SOURCES, COMBINE_MODE_SOURCE_IDS)))
-        combine_src_chnl_ids = dict(list(zip(COMBINE_MODE_SRC_CHANNELS, COMBINE_MODE_SRC_CHANNEL_IDS)))
+        combine_src_ids = {k: v for k, v in zip(COMBINE_MODE_SOURCES, COMBINE_MODE_SOURCE_IDS)}
+        combine_src_chnl_ids = {k: v for k, v in zip(COMBINE_MODE_SRC_CHANNELS,
+                                COMBINE_MODE_SRC_CHANNEL_IDS)}
 
         source_ids = cmbmode_data["rgb"]["sources"][combine_rgb_mode_id]
         src_count = len(source_ids)
@@ -171,14 +165,14 @@ def __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms):
                 source_ids[2][1] = combine_src_chnl_ids[source_channel]
 
         layer.set_combine_mode_data(cmbmode_data)
-        layer.store(stage.get_saved_result())
-        layer.set_rgb_scale(stage.get_rgb_scale())
-        layer.set_alpha_scale(stage.get_alpha_scale())
-        layer.set_color(tuple(stage.get_color()))
+        layer.stored = stage.saved_result
+        layer.rgb_scale = stage.rgb_scale
+        layer.alpha_scale = stage.alpha_scale
+        layer.color = tuple(stage.color)
 
     elif mode in BLEND_MODES:
 
-        layer.set_blend_mode(dict(list(zip(BLEND_MODES, BLEND_MODE_IDS)))[mode])
+        layer.blend_mode = BLEND_MODE_IDS[BLEND_MODES.index(mode)]
 
 
 def render_state_to_material(render_state, geom_vertex_format, other_materials=None,
@@ -207,35 +201,35 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
 
     else:
 
-        if render_state.has_attrib(COLOR_ATTR_TYPE):
-            color_attrib = render_state.get_attrib(COLOR_ATTR_TYPE)
+        if render_state.has_attrib(ColorAttrib):
+            color_attrib = render_state.get_attrib(ColorAttrib)
         else:
             color_attrib = ColorAttrib.make_off()
 
-        if render_state.has_attrib(COLOR_SCALE_ATTR_TYPE):
-            color_scale_attrib = render_state.get_attrib(COLOR_SCALE_ATTR_TYPE)
+        if render_state.has_attrib(ColorScaleAttrib):
+            color_scale_attrib = render_state.get_attrib(ColorScaleAttrib)
         else:
             color_scale_attrib = ColorScaleAttrib.make_off()
 
-        if render_state.has_attrib(MATERIAL_ATTR_TYPE):
-            mat_attrib = render_state.get_attrib(MATERIAL_ATTR_TYPE)
+        if render_state.has_attrib(MaterialAttrib):
+            mat_attrib = render_state.get_attrib(MaterialAttrib)
         else:
             mat_attrib = MaterialAttrib.make_off()
 
-        if render_state.has_attrib(TEX_ATTR_TYPE):
-            tex_attrib = render_state.get_attrib(TEX_ATTR_TYPE)
+        if render_state.has_attrib(TextureAttrib):
+            tex_attrib = render_state.get_attrib(TextureAttrib)
         else:
             tex_attrib = TextureAttrib.make_off()
 
-        if render_state.has_attrib(TRANSP_ATTR_TYPE):
-            transp_attrib = render_state.get_attrib(TRANSP_ATTR_TYPE)
+        if render_state.has_attrib(TransparencyAttrib):
+            transp_attrib = render_state.get_attrib(TransparencyAttrib)
         else:
             transp_attrib = TransparencyAttrib.make(TransparencyAttrib.M_none)
 
         if (color_attrib.get_color_type() == ColorAttrib.T_off
                 and color_scale_attrib.is_off() and mat_attrib.is_off()
                 and tex_attrib.is_off()
-                and transp_attrib.get_mode() == TransparencyAttrib.M_none):
+                and transp_attrib.mode == TransparencyAttrib.M_none):
             create_material = False
         else:
             create_material = True
@@ -244,15 +238,15 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
 
         material = Mgr.do("create_material")
 
-        if color_attrib.get_color_type() == ColorAttrib.T_vertex:
+        if color_attrib.color_type == ColorAttrib.T_vertex:
             material.set_property("show_vert_colors", True)
-        elif color_attrib.get_color_type() == ColorAttrib.T_flat:
-            color = color_attrib.get_color()
+        elif color_attrib.color_type == ColorAttrib.T_flat:
+            color = color_attrib.color
             material.set_property("flat_color", tuple(color))
 
         if not mat_attrib.is_off():
 
-            m = mat_attrib.get_material()
+            m = mat_attrib.material
             diffuse = {"value": tuple(m.get_diffuse()), "on": m.has_diffuse()}
             ambient = {"value": tuple(m.get_ambient()), "on": m.has_ambient()}
             emissive = {"value": tuple(m.get_emission()), "on": m.has_emission()}
@@ -266,7 +260,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
             material.set_property("shininess", shininess)
 
         alpha_value = color_scale_attrib.get_scale()[3]
-        alpha_on = transp_attrib.get_mode() != TransparencyAttrib.M_none
+        alpha_on = transp_attrib.mode != TransparencyAttrib.M_none
         alpha = {"value": alpha_value, "on": alpha_on}
         material.set_property("alpha", alpha)
 
@@ -279,16 +273,16 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
             all_stages = off_stages + tex_attrib.get_on_stages()
             tex_xforms = {}
 
-            if render_state.has_attrib(TEX_MATRIX_ATTR_TYPE):
+            if render_state.has_attrib(TexMatrixAttrib):
 
-                tex_matrix_attrib = render_state.get_attrib(TEX_MATRIX_ATTR_TYPE)
+                tex_matrix_attrib = render_state.get_attrib(TexMatrixAttrib)
 
                 for stage in tex_matrix_attrib.get_stages():
                     tex_xforms[stage] = tex_matrix_attrib.get_transform(stage)
 
             for stage in all_stages:
 
-                mode = stage.get_mode()
+                mode = stage.mode
 
                 if mode == TS.M_modulate:
                     colormap_stages.append(stage)
@@ -300,7 +294,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
             if not layer_stages and len(colormap_stages) == 1:
 
                 stage = colormap_stages[0]
-                uv_set_name = stage.get_texcoord_name()
+                uv_set_name = stage.texcoord_name
 
                 if uv_set_name != default_uv_set_name or not for_basic_geom:
 
@@ -328,13 +322,13 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                     tex_map = material.get_tex_map("color")
                     __set_texmap_properties(tex_map, texture, stage, tex_xforms)
                 else:
-                    material.set_map_active("color", is_active=False)
+                    material.set_map_active("color", active=False)
 
             elif colormap_stages:
 
                 layer_stages.extend(colormap_stages)
 
-            fxmap_ids = dict(list(zip(FXMAP_TYPES, FXMAP_IDS)))
+            fxmap_ids = {k: v for k, v in zip(FXMAP_TYPES, FXMAP_IDS)}
 
             for stage in fxmap_stages:
 
@@ -342,7 +336,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
 
                 if texture:
                     map_data = {}
-                    map_type = fxmap_ids[stage.get_mode()]
+                    map_type = fxmap_ids[stage.mode]
                     map_data["map_type"] = map_type
                     rgb_filename = texture.get_fullpath().to_os_specific()
                     alpha_filename = texture.get_alpha_fullpath().to_os_specific()
@@ -359,7 +353,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                 stages_by_uv_set = {}
 
                 for stage in layer_stages:
-                    uv_set_name = stage.get_texcoord_name()
+                    uv_set_name = stage.texcoord_name
                     stages_by_uv_set.setdefault(uv_set_name, []).append(stage)
 
                 # limit the number of texture coordinate sets to 8
@@ -370,7 +364,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                     for uv_set_name, stages in stages_by_uv_set.items():
                         # check the highest priority of all texture stages
                         # that use a particular texture coordinate set
-                        priority = max(stage.get_priority() for stage in stages)
+                        priority = max(stage.priority for stage in stages)
                         uv_sets_by_priority.append((priority, uv_set_name))
 
                     uv_sets_by_priority.sort(reverse=True)
@@ -390,7 +384,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                 d = {}
 
                 for stage in layer_stages:
-                    d.setdefault(stage.get_sort(), []).append(stage)
+                    d.setdefault(stage.sort, []).append(stage)
 
                 layer_stages = []
 
@@ -399,7 +393,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
 
                 # give the stages consecutive sort values
                 for i, stage in enumerate(layer_stages):
-                    stage.set_sort(i)
+                    stage.sort = i
 
                 src_uv_set_names = set(stages_by_uv_set)
                 dest_uv_set_names = set(uv_set_list[:len(stages_by_uv_set)])
@@ -411,32 +405,28 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                 else:
                     common = set()
 
-                uv_set_names = dict(list(zip(src_uv_set_names, dest_uv_set_names)))
+                uv_set_names = {k: v for k, v in zip(src_uv_set_names, dest_uv_set_names)}
 
                 stage = layer_stages.pop(0)
                 layer = material.get_layer()
-                name = stage.get_name()
-                name = Mgr.get("unique_tex_layer_name", material, name, layer)
-                layer.set_name(name)
-                src_uv_name = stage.get_texcoord_name()
+                layer.name = Mgr.get("unique_tex_layer_name", material, stage.name, layer)
+                src_uv_name = stage.texcoord_name
                 uv_set_name = src_uv_name if src_uv_name in common else uv_set_names[src_uv_name]
                 material.set_layer_uv_set_id(layer, uv_set_list.index(uv_set_name))
                 __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms)
 
                 for stage in layer_stages:
                     layer = Mgr.do("create_tex_layer", material)
-                    name = stage.get_name()
-                    name = Mgr.get("unique_tex_layer_name", material, name)
-                    layer.set_name(name)
-                    src_uv_name = stage.get_texcoord_name()
+                    layer.name = Mgr.get("unique_tex_layer_name", material, stage.name)
+                    src_uv_name = stage.texcoord_name
                     uv_set_name = src_uv_name if src_uv_name in common else uv_set_names[src_uv_name]
-                    layer.set_uv_set_id(uv_set_list.index(uv_set_name))
+                    layer.uv_set_id = uv_set_list.index(uv_set_name)
                     __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms)
                     material.add_layer(layer)
 
         else:
 
-            material.set_map_active("color", is_active=False)
+            material.set_map_active("color", active=False)
 
         if other_materials:
             for other_material in other_materials:

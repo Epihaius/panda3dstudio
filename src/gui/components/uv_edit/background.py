@@ -62,7 +62,7 @@ class BackgroundPanel(Panel):
 
         Mgr.add_app_updater("uv_background", self.__set_background_property, interface_id="uv")
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         Mgr.update_interface_remotely("uv", "uv_background", value_id, value)
 
@@ -70,7 +70,7 @@ class BackgroundPanel(Panel):
 
         def load(tex_filename):
 
-            config_data = GlobalData["config"]
+            config_data = GD["config"]
             texfile_paths = config_data["texfile_paths"]
             path = os.path.dirname(tex_filename)
 

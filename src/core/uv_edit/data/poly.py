@@ -1,15 +1,18 @@
 from ..base import *
 
 
-class Polygon(BaseObject):
+class Polygon:
+
+    __slots__ = ("type", "id", "picking_color_id", "vertex_ids", "edge_ids",
+                 "uv_data_obj", "_tri_data", "_center_pos")
 
     def __init__(self, poly_id, picking_col_id, uv_data_obj=None, triangle_data=None,
                  vert_ids=None, edge_ids=None, data_copy=None):
 
-        self._type = "poly"
-        self._id = poly_id
-        self._picking_col_id = picking_col_id
-        self._uv_data_obj = uv_data_obj
+        self.type = "poly"
+        self.id = poly_id
+        self.picking_color_id = picking_col_id
+        self.uv_data_obj = uv_data_obj
 
         if data_copy:
             center_pos = data_copy["center_pos"]
@@ -21,17 +24,17 @@ class Polygon(BaseObject):
 
         self._center_pos = center_pos
         self._tri_data = triangle_data
-        self._vert_ids = vert_ids
-        self._edge_ids = edge_ids
+        self.vertex_ids = vert_ids
+        self.edge_ids = edge_ids
 
     def copy(self):
 
         data_copy = {}
         data_copy["center_pos"] = self._center_pos
         data_copy["tri_data"] = self._tri_data[:]
-        data_copy["vert_ids"] = self._vert_ids[:]
-        data_copy["edge_ids"] = self._edge_ids[:]
-        poly = Polygon(self._id, self._picking_col_id, data_copy=data_copy)
+        data_copy["vert_ids"] = self.vertex_ids[:]
+        data_copy["edge_ids"] = self.edge_ids[:]
+        poly = Polygon(self.id, self.picking_color_id, data_copy=data_copy)
 
         return poly
 
@@ -53,84 +56,63 @@ class Polygon(BaseObject):
 
         return len(self._tri_data) * 3
 
-    def get_type(self):
-
-        return self._type
-
-    def get_id(self):
-
-        return self._id
-
-    def get_picking_color_id(self):
-
-        return self._picking_col_id
-
-    def set_uv_data_object(self, uv_data_obj):
-
-        self._uv_data_obj = uv_data_obj
-
-    def get_uv_data_object(self):
-
-        return self._uv_data_obj
-
-    def get_merged_object(self):
+    @property
+    def merged_subobj(self):
 
         return self
 
-    def get_neighbor_ids(self):
+    @property
+    def neighbor_ids(self):
 
-        merged_verts = self._uv_data_obj.get_merged_vertices()
+        merged_verts = self.uv_data_obj.merged_verts
         neighbor_ids = set()
 
-        for vert_id in self._vert_ids:
-            neighbor_ids.update(merged_verts[vert_id].get_polygon_ids())
+        for vert_id in self.vertex_ids:
+            neighbor_ids.update(merged_verts[vert_id].polygon_ids)
 
-        neighbor_ids.remove(self._id)
+        neighbor_ids.remove(self.id)
 
         return neighbor_ids
 
-    def get_vertex_ids(self):
+    @property
+    def vertices(self):
 
-        return self._vert_ids
+        verts = self.uv_data_obj.get_subobjects("vert")
 
-    def get_edge_ids(self):
+        return [verts[vert_id] for vert_id in self.vertex_ids]
 
-        return self._edge_ids
+    @property
+    def edges(self):
 
-    def get_vertices(self):
+        edges = self.uv_data_obj.get_subobjects("edge")
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        return [edges[edge_id] for edge_id in self.edge_ids]
 
-        return [verts[vert_id] for vert_id in self._vert_ids]
+    @property
+    def vertex_count(self):
 
-    def get_edges(self):
+        return len(self.vertex_ids)
 
-        edges = self._uv_data_obj.get_subobjects("edge")
+    @property
+    def row_indices(self):
 
-        return [edges[edge_id] for edge_id in self._edge_ids]
+        verts = self.uv_data_obj.get_subobjects("vert")
 
-    def get_vertex_count(self):
+        return [verts[vert_id].row_index for vert_id in self.vertex_ids]
 
-        return len(self._vert_ids)
-
-    def get_row_indices(self):
-
-        verts = self._uv_data_obj.get_subobjects("vert")
-
-        return [verts[vert_id].get_row_index() for vert_id in self._vert_ids]
-
-    def get_special_selection(self):
+    @property
+    def special_selection(self):
 
         polys = [self]
 
-        if GlobalData["uv_edit_options"]["sel_polys_by_cluster"]:
-            polys = self._uv_data_obj.get_polygon_cluster(self._id)
+        if GD["uv_edit_options"]["sel_polys_by_cluster"]:
+            polys = self.uv_data_obj.get_polygon_cluster(self.id)
 
         return polys
 
     def update_center_pos(self):
 
-        verts = self.get_vertices()
+        verts = self.vertices
         positions = [vert.get_pos() for vert in verts]
         self._center_pos = sum(positions, Point3()) / len(positions)
 
@@ -140,7 +122,7 @@ class Polygon(BaseObject):
 
     def get_center_pos(self, ref_node):
 
-        origin = self._uv_data_obj.get_origin()
+        origin = self.uv_data_obj.origin
         pos = ref_node.get_relative_point(origin, self._center_pos)
 
         return pos

@@ -3,25 +3,36 @@ from ..base import *
 
 class SharedNormal:
 
+    __slots__ = ("type", "full_type", "_ids", "geom_data_obj")
+
     def __getstate__(self):
 
-        state = self.__dict__.copy()
-        state["_geom_data_obj"] = None
+        state = {
+            "_ids": self._ids
+            # leave out the GeomDataObject, as it is pickled separately
+        }
 
         return state
 
+    def __setstate__(self, state):
+
+        self.type = "normal"
+        self.full_type = "shared_normal"
+        self.geom_data_obj = None
+        self._ids = state["_ids"]
+
     def __init__(self, geom_data_obj, vert_ids=None):
 
-        self._type = "normal"
-        self._full_type = "shared_normal"
-        self._geom_data_obj = geom_data_obj
+        self.type = "normal"
+        self.full_type = "shared_normal"
+        self.geom_data_obj = geom_data_obj
         # the IDs associated with this SharedNormal are actually Vertex IDs,
         # since there is one normal for every vertex
         self._ids = set() if vert_ids is None else set(vert_ids)
 
     def __deepcopy__(self, memo):
 
-        return SharedNormal(self._geom_data_obj, self._ids)
+        return SharedNormal(self.geom_data_obj, self._ids)
 
     def __hash__(self):
 
@@ -52,9 +63,23 @@ class SharedNormal:
 
         return len(self._ids)
 
+    @property
+    def id(self):
+
+        vert = self.geom_data_obj.get_subobject("vert", sorted(self._ids)[0])
+
+        return vert.id if vert else None
+
+    @property
+    def picking_color_id(self):
+
+        vert = self.geom_data_obj.get_subobject("vert", self[0])
+
+        return vert.picking_color_id if vert else None
+
     def copy(self):
 
-        return SharedNormal(self._geom_data_obj, self._ids)
+        return SharedNormal(self.geom_data_obj, self._ids)
 
     def add(self, vert_id):
 
@@ -74,7 +99,7 @@ class SharedNormal:
 
     def difference(self, vert_ids):
 
-        return SharedNormal(self._geom_data_obj, self._ids.difference(vert_ids))
+        return SharedNormal(self.geom_data_obj, self._ids.difference(vert_ids))
 
     def difference_update(self, vert_ids):
 
@@ -82,7 +107,7 @@ class SharedNormal:
 
     def intersection(self, vert_ids):
 
-        return SharedNormal(self._geom_data_obj, self._ids.intersection(vert_ids))
+        return SharedNormal(self.geom_data_obj, self._ids.intersection(vert_ids))
 
     def intersection_update(self, vert_ids):
 
@@ -96,102 +121,85 @@ class SharedNormal:
 
         return self._ids.issubset(vert_ids)
 
-    def get_type(self):
+    @property
+    def connected_verts(self):
 
-        return self._type
-
-    def get_full_type(self):
-
-        return self._full_type
-
-    def get_id(self):
-
-        vert = self._geom_data_obj.get_subobject("vert", sorted(self._ids)[0])
-
-        return vert.get_id() if vert else None
-
-    def get_picking_color_id(self):
-
-        vert = self._geom_data_obj.get_subobject("vert", self[0])
-
-        return vert.get_picking_color_id() if vert else None
-
-    def get_connected_verts(self):
-
-        verts = self._geom_data_obj.get_subobjects("vert")
+        verts = self.geom_data_obj.get_subobjects("vert")
 
         return set(verts[v_id] for v_id in self._ids)
 
-    def get_connected_edges(self):
+    @property
+    def connected_edges(self):
 
-        verts = self._geom_data_obj.get_subobjects("vert")
-        edges = self._geom_data_obj.get_subobjects("edge")
+        verts = self.geom_data_obj.get_subobjects("vert")
+        edges = self.geom_data_obj.get_subobjects("edge")
 
-        return set(edges[e_id] for v_id in self._ids for e_id in verts[v_id].get_edge_ids())
+        return set(edges[e_id] for v_id in self._ids for e_id in verts[v_id].edge_ids)
 
-    def get_connected_polys(self):
+    @property
+    def connected_polys(self):
 
-        verts = self._geom_data_obj.get_subobjects("vert")
-        polys = self._geom_data_obj.get_subobjects("poly")
+        verts = self.geom_data_obj.get_subobjects("vert")
+        polys = self.geom_data_obj.get_subobjects("poly")
 
-        return set(polys[verts[v_id].get_polygon_id()] for v_id in self._ids)
+        return set(polys[verts[v_id].polygon_id] for v_id in self._ids)
 
     def get_connected_subobjs(self, subobj_type):
 
         if subobj_type == "vert":
-            return self.get_connected_verts()
+            return self.connected_verts
         elif subobj_type == "edge":
-            return self.get_connected_edges()
+            return self.connected_edges
         elif subobj_type == "poly":
-            return self.get_connected_polys()
+            return self.connected_polys
 
-    def get_special_selection(self):
+    @property
+    def special_selection(self):
 
         return [self]
 
-    def get_row_indices(self):
+    @property
+    def row_indices(self):
 
-        verts = self._geom_data_obj.get_subobjects("vert")
+        verts = self.geom_data_obj.get_subobjects("vert")
 
-        return [verts[v_id].get_row_index() for v_id in self._ids]
-
-    def set_geom_data_object(self, geom_data_obj):
-
-        self._geom_data_obj = geom_data_obj
-
-    def get_geom_data_object(self):
-
-        return self._geom_data_obj
+        return [verts[v_id].row_index for v_id in self._ids]
 
     def get_toplevel_object(self, get_group=False):
 
-        return self._geom_data_obj.get_toplevel_object(get_group)
+        return self.geom_data_obj.get_toplevel_object(get_group)
+
+    @property
+    def toplevel_obj(self):
+
+        return self.get_toplevel_object()
 
     def get_hpr(self, ref_node):
 
-        geom_data_obj = self._geom_data_obj
+        geom_data_obj = self.geom_data_obj
         vert = geom_data_obj.get_subobject("vert", self[0])
-        normal = vert.get_normal()
-        sign = -1. if geom_data_obj.get_owner().has_flipped_normals() else 1.
-        origin = geom_data_obj.get_origin()
+        normal = vert.normal
+        sign = -1. if geom_data_obj.owner.has_flipped_normals() else 1.
+        origin = geom_data_obj.origin
         normal = V3D(ref_node.get_relative_vector(origin, normal * sign))
 
         return normal.get_hpr()
 
     def get_center_pos(self, ref_node=None):
 
-        vert = self._geom_data_obj.get_subobject("vert", self[0])
+        vert = self.geom_data_obj.get_subobject("vert", self[0])
 
         return vert.get_pos(ref_node)
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        vert = self._geom_data_obj.get_subobject("vert", self[0])
+        vert = self.geom_data_obj.get_subobject("vert", self[0])
 
         return vert.get_point_at_screen_pos(screen_pos)
 
 
-class NormalEditBase(BaseObject):
+class NormalEditMixin:
+    """ GeomDataObject class mix-in """
 
     def __init__(self):
 
@@ -206,7 +214,7 @@ class NormalEditBase(BaseObject):
         self._shared_normals = shared_normals = {}
         self._normal_sharing_change = True
 
-        for merged_vert in set(self._merged_verts.values()):
+        for merged_vert in set(self.merged_verts.values()):
 
             vert_ids = merged_vert[:]
 
@@ -232,7 +240,7 @@ class NormalEditBase(BaseObject):
         verts = self._subobjs["vert"]
         shared_normals = self._shared_normals
 
-        for merged_vert in set(self._merged_verts.values()):
+        for merged_vert in set(self.merged_verts.values()):
 
             vert_ids = merged_vert[:]
 
@@ -242,13 +250,13 @@ class NormalEditBase(BaseObject):
                 shared_normal = SharedNormal(self, [vert_id])
                 shared_normals[vert_id] = shared_normal
                 vert = verts[vert_id]
-                normal = vert.get_normal()
+                normal = vert.normal
 
                 for other_vert_id in vert_ids[:]:
 
                     other_vert = verts[other_vert_id]
 
-                    if other_vert.get_normal() == normal:
+                    if other_vert.normal == normal:
                         shared_normal.add(other_vert_id)
                         shared_normals[other_vert_id] = shared_normal
                         vert_ids.remove(other_vert_id)
@@ -281,7 +289,7 @@ class NormalEditBase(BaseObject):
                 for vert_id in merged_vert:
 
                     vert = verts[vert_id]
-                    poly_id = vert.get_polygon_id()
+                    poly_id = vert.polygon_id
                     smoothing = poly_smoothing.get(poly_id)
 
                     if smoothing:
@@ -321,7 +329,7 @@ class NormalEditBase(BaseObject):
                                         or id_set.issubset(selected_normal_ids)):
                                     id_set.difference_update(selected_normal_ids)
                                     tmp_shared_normal = SharedNormal(self, id_set)
-                                    normal_id = tmp_shared_normal.get_id()
+                                    normal_id = tmp_shared_normal.id
                                     shared_normals[normal_id] = tmp_shared_normal
                                     self.update_selection("normal", [tmp_shared_normal], [])
                                     selection_change = True
@@ -387,7 +395,7 @@ class NormalEditBase(BaseObject):
 
         def task():
 
-            origin = self._origin
+            origin = self.origin
 
             if not origin:
                 return
@@ -406,19 +414,19 @@ class NormalEditBase(BaseObject):
             geom.set_vertex_data(vertex_data)
             normal_array = GeomVertexArrayData(vertex_data.get_array(2))
             self._vertex_data["poly"].set_array(2, normal_array)
-            self._owner.set_flipped_normals(flip)
+            self.owner.set_flipped_normals(flip)
 
             for geom_type in ("pickable", "sel_state"):
                 geom = self._geoms["normal"][geom_type].node().modify_geom(0)
                 vertex_data = geom.modify_vertex_data()
                 vertex_data.set_array(2, normal_array)
 
-            if GlobalData["active_obj_level"] == "normal":
+            if GD["active_obj_level"] == "normal":
                 Mgr.get("selection").update_transform_values()
 
         if delay:
             task_id = "flip_normals"
-            obj_id = self.get_toplevel_object().get_id()
+            obj_id = self.toplevel_obj.id
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
         else:
             task()
@@ -431,7 +439,7 @@ class NormalEditBase(BaseObject):
             return False
 
         shared_normals = self._shared_normals
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         merged_verts_to_update = set()
         change = False
 
@@ -497,7 +505,7 @@ class NormalEditBase(BaseObject):
 
         verts = self._subobjs["vert"]
         shared_normals = self._shared_normals
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         merged_verts_to_update = set()
         lock_change = self._normal_lock_change
         change = False
@@ -535,7 +543,7 @@ class NormalEditBase(BaseObject):
         normals = {}
 
         for vert_id, vert in verts.items():
-            normals[vert_id] = vert.get_normal()
+            normals[vert_id] = vert.normal
 
         return normals
 
@@ -551,7 +559,7 @@ class NormalEditBase(BaseObject):
         """ Update the normals of the given merged vertices """
 
         if merged_verts is None:
-            merged_verts = set(self._merged_verts.values())
+            merged_verts = set(self.merged_verts.values())
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
@@ -568,7 +576,7 @@ class NormalEditBase(BaseObject):
 
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
-        sign = -1. if self._owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_flipped_normals() else 1.
         shared_normals_tmp = [s.difference(locked_normals) for s in
                               set(shared_normals[v_id] for v_id in verts_to_process)]
 
@@ -576,22 +584,22 @@ class NormalEditBase(BaseObject):
 
             vert = verts[shared_normal.pop()]
             verts_to_update = [vert]
-            poly = polys[vert.get_polygon_id()]
-            normal = Vec3(poly.get_normal())
+            poly = polys[vert.polygon_id]
+            normal = Vec3(poly.normal)
 
             for vert_id in shared_normal:
 
                 vert = verts[vert_id]
                 verts_to_update.append(vert)
-                poly = polys[vert.get_polygon_id()]
-                normal += poly.get_normal()
+                poly = polys[vert.polygon_id]
+                normal += poly.normal
 
             normal.normalize()
 
             for vert in verts_to_update:
-                normal_writer.set_row(vert.get_row_index())
+                normal_writer.set_row(vert.row_index)
                 normal_writer.set_data3(normal * sign)
-                vert.set_normal(normal)
+                vert.normal = normal
 
         normal_array = vertex_data_top.get_array(2)
         vertex_data_poly = self._vertex_data["poly"]
@@ -604,10 +612,10 @@ class NormalEditBase(BaseObject):
 
         if update_tangent_space:
 
-            model = self.get_toplevel_object()
+            model = self.toplevel_obj
 
             if model.has_tangent_space():
-                polys_to_update = set(verts[v_id].get_polygon_id() for v_id in verts_to_process)
+                polys_to_update = set(verts[v_id].polygon_id for v_id in verts_to_process)
                 tangent_flip, bitangent_flip = model.get_tangent_space_flip()
                 self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
             else:
@@ -615,7 +623,7 @@ class NormalEditBase(BaseObject):
 
     def _restore_normal_length(self, time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["normal_length"]
         normal_length = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
         self._normal_length = normal_length
@@ -624,17 +632,17 @@ class NormalEditBase(BaseObject):
 
     def _restore_normal_sharing(self, time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["normal_sharing"]
         shared_normals = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
         self._shared_normals = shared_normals
 
         for shared_normal in set(shared_normals.values()):
-            shared_normal.set_geom_data_object(self)
+            shared_normal.geom_data_obj = self
 
     def _restore_vertex_normals(self, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["normals"]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
@@ -717,7 +725,7 @@ class NormalEditBase(BaseObject):
 
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
-        sign = -1. if self._owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_flipped_normals() else 1.
 
         for vert_id, normal in normals.items():
 
@@ -725,9 +733,9 @@ class NormalEditBase(BaseObject):
                 continue
 
             vert = verts[vert_id]
-            normal_writer.set_row(vert.get_row_index())
+            normal_writer.set_row(vert.row_index)
             normal_writer.set_data3(normal * sign)
-            vert.set_normal(normal)
+            vert.normal = normal
 
         normal_array = vertex_data_top.get_array(2)
         vertex_data_poly = self._vertex_data["poly"]
@@ -740,7 +748,7 @@ class NormalEditBase(BaseObject):
 
     def _restore_normal_lock(self, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["normal_lock"]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
@@ -861,7 +869,7 @@ class NormalEditBase(BaseObject):
 
             for vert_id in locked_normal_ids:
                 vert = verts[vert_id]
-                row = vert.get_row_index()
+                row = vert.row_index
                 col_writer.set_row(row)
                 col_writer.set_data4(color_sel if vert_id in sel_ids else color_unsel)
 
@@ -870,7 +878,7 @@ class NormalEditBase(BaseObject):
 
             for vert_id in unlocked_normal_ids:
                 vert = verts[vert_id]
-                row = vert.get_row_index()
+                row = vert.row_index
                 col_writer.set_row(row)
                 col_writer.set_data4(color_sel if vert_id in sel_ids else color_unsel)
 
@@ -884,7 +892,7 @@ class NormalEditBase(BaseObject):
             vert = verts[vert_id]
 
             if vert.has_locked_normal():
-                row = vert.get_row_index()
+                row = vert.row_index
                 col_writer.set_row(row)
                 col_writer.set_data4(color_sel)
 
@@ -893,7 +901,7 @@ class NormalEditBase(BaseObject):
             vert = verts[vert_id]
 
             if vert.has_locked_normal():
-                row = vert.get_row_index()
+                row = vert.row_index
                 col_writer.set_row(row)
                 col_writer.set_data4(color_unsel)
 
@@ -901,7 +909,7 @@ class NormalEditBase(BaseObject):
 
         geom = self._toplvl_node.get_geom(0)
         prim_count = geom.get_primitive(0).get_num_primitives()
-        p1, p2 = self._origin.get_tight_bounds()
+        p1, p2 = self.origin.get_tight_bounds()
         x, y, z = p2 - p1
         a = (x + y + z) / 3.
         normal_length = min(a * .25, max(.001, 500. * a / prim_count))
@@ -942,10 +950,10 @@ class NormalEditBase(BaseObject):
         # as soon as the mouse is released over a normal, it gets picked and
         # polys become pickable again.
 
-        origin = self._origin
+        origin = self.origin
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        count = poly.get_vertex_count()
+        count = poly.vertex_count
 
         # create pickable geometry, specifically for the normals of the
         # given polygon and belonging to the given category, if any
@@ -957,8 +965,8 @@ class NormalEditBase(BaseObject):
         normal_writer = GeomVertexWriter(vertex_data, "normal")
         pickable_id = PickableTypes.get_id("vert")
         rows = self._tmp_row_indices
-        sign = -1. if self._owner.has_flipped_normals() else 1.
-        by_aiming = GlobalData["subobj_edit_options"]["pick_by_aiming"]
+        sign = -1. if self.owner.has_flipped_normals() else 1.
+        by_aiming = GD["subobj_edit_options"]["pick_by_aiming"]
 
         if by_aiming:
 
@@ -974,9 +982,9 @@ class NormalEditBase(BaseObject):
 
             aux_picking_root = Mgr.get("aux_picking_root")
             aux_picking_cam = Mgr.get("aux_picking_cam")
-            cam = self.cam()
-            cam_pos = cam.get_pos(self.world)
-            normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
+            cam = GD.cam()
+            cam_pos = cam.get_pos(GD.world)
+            normal = GD.world.get_relative_vector(cam, Vec3.forward()).normalized()
             plane = Plane(normal, cam_pos + normal * 10.)
             aux_picking_cam.set_plane(plane)
             aux_picking_cam.update_pos()
@@ -987,24 +995,24 @@ class NormalEditBase(BaseObject):
             col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
             tmp_poly_prim = GeomTriangles(Geom.UH_static)
             tmp_poly_prim.reserve_num_vertices(count * 12)
-            rel_pt = lambda point: self.world.get_relative_point(origin, point)
-            lens_is_ortho = self.cam.lens_type == "ortho"
+            rel_pt = lambda point: GD.world.get_relative_point(origin, point)
+            lens_is_ortho = GD.cam.lens_type == "ortho"
 
-        for i, vert_id in enumerate(poly.get_vertex_ids()):
+        for i, vert_id in enumerate(poly.vertex_ids):
 
             vertex = verts[vert_id]
             pos = vertex.get_pos()
             pos_writer.add_data3(pos)
-            color_id = vertex.get_picking_color_id()
+            color_id = vertex.picking_color_id
             picking_color = get_color_vec(color_id, pickable_id)
             col_writer.add_data4(picking_color)
             rows[color_id] = i
-            vert_normal = vertex.get_normal()
+            vert_normal = vertex.normal
             normal_writer.add_data3(vert_normal * sign)
 
             if by_aiming:
 
-                edge1_id, edge2_id = vertex.get_edge_ids()
+                edge1_id, edge2_id = vertex.edge_ids
                 edge1_center = edges[edge1_id].get_center_pos()
                 edge2_center = edges[edge2_id].get_center_pos()
                 p1 = Point3()
@@ -1055,7 +1063,7 @@ class NormalEditBase(BaseObject):
         normal_length = self._normal_length
         geom_pickable.set_shader_input("normal_length", normal_length)
         geom_sel_state = geom_pickable.copy_to(origin)
-        geom_sel_state.set_name("tmp_geom_sel_state")
+        geom_sel_state.name = "tmp_geom_sel_state"
         geom_sel_state.set_light_off()
         geom_sel_state.set_color_off()
         geom_sel_state.set_texture_off()
@@ -1086,7 +1094,7 @@ class NormalEditBase(BaseObject):
         col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
         tmp_poly_prim = GeomTriangles(Geom.UH_static)
         tmp_poly_prim.reserve_num_vertices(len(poly))
-        vert_ids = poly.get_vertex_ids()
+        vert_ids = poly.vertex_ids
         white = (1., 1., 1., 1.)
 
         for vert_id in vert_ids:
@@ -1116,7 +1124,7 @@ class NormalEditBase(BaseObject):
         geom_pickable.show_through(picking_mask)
 
         if by_aiming:
-            aux_picking_cam.set_active()
+            aux_picking_cam.active = True
             Mgr.do("start_drawing_aux_picking_viz")
 
         geoms = self._geoms
@@ -1155,7 +1163,7 @@ class NormalEditBase(BaseObject):
         if not sel_ids:
             return
 
-        origin = self._origin
+        origin = self.origin
         ref_node = self._get_ref_node()
         geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
         vertex_data = geom.modify_vertex_data()
@@ -1166,7 +1174,7 @@ class NormalEditBase(BaseObject):
 
         for sel_id in sel_ids:
             vert = verts[sel_id]
-            row = vert.get_row_index()
+            row = vert.row_index
             normal_rewriter.set_row(row)
             normal = normal_rewriter.get_data3()
             normal = V3D(ref_node.get_relative_vector(origin, normal))
@@ -1195,7 +1203,7 @@ class NormalEditBase(BaseObject):
         if not sel_ids:
             return
 
-        origin = self._origin
+        origin = self.origin
         target_pos = origin.get_relative_point(ref_node, point)
         geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
         vertex_data = geom.modify_vertex_data()
@@ -1207,7 +1215,7 @@ class NormalEditBase(BaseObject):
             vert = verts[sel_id]
             pos = vert.get_pos()
             normal = (target_pos - pos).normalized() * (1. if toward else -1.)
-            row = vert.get_row_index()
+            row = vert.row_index
             normal_writer.set_row(row)
             normal_writer.set_data3(normal)
 
@@ -1233,7 +1241,7 @@ class NormalEditBase(BaseObject):
         vertex_data = geom.modify_vertex_data()
         tmp_vertex_data = GeomVertexData(vertex_data)
         tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
-        origin = self._origin
+        origin = self.origin
 
         if transf_type == "custom":
 
@@ -1246,13 +1254,13 @@ class NormalEditBase(BaseObject):
                     if ref_type == "ref_node":
                         node = ref_node
                     elif ref_type == "pivot":
-                        node = self.get_toplevel_object().get_pivot()
+                        node = self.toplevel_obj.pivot
                     elif ref_type == "grid_origin":
-                        node = Mgr.get(("grid", "origin"))
+                        node = Mgr.get("grid").origin
                     elif ref_type == "origin":
                         node = origin
                     elif ref_type == "world":
-                        node = self.world
+                        node = GD.world
                     elif ref_type == "custom":
                         node = value["ref_node"]
                     final_mat = final_mat * origin.get_mat(node) * mat * node.get_mat(origin)
@@ -1288,7 +1296,7 @@ class NormalEditBase(BaseObject):
 
         for sel_id in sel_ids:
             vert = verts[sel_id]
-            row = vert.get_row_index()
+            row = vert.row_index
             pos_reader.set_row(row)
             pos = pos_reader.get_data3()
             normal = Vec3(pos).normalized()
@@ -1325,21 +1333,21 @@ class NormalEditBase(BaseObject):
             verts = self._subobjs["vert"]
             polys_to_update = set()
             normal_reader = GeomVertexReader(vertex_data_top, "normal")
-            sign = -1. if self._owner.has_flipped_normals() else 1.
+            sign = -1. if self.owner.has_flipped_normals() else 1.
             sel_ids = self._selected_subobj_ids["normal"]
 
             for sel_id in sel_ids:
                 vert = verts[sel_id]
-                polys_to_update.add(vert.get_polygon_id())
-                row = vert.get_row_index()
+                polys_to_update.add(vert.polygon_id)
+                row = vert.row_index
                 normal_reader.set_row(row)
                 normal = Vec3(normal_reader.get_data3()) * sign
-                vert.set_normal(normal)
+                vert.normal = normal
 
             if lock_normals:
                 self._normal_change = set(sel_ids)
 
-            model = self.get_toplevel_object()
+            model = self.toplevel_obj
 
             if model.has_tangent_space():
                 tangent_flip, bitangent_flip = model.get_tangent_space_flip()
@@ -1365,15 +1373,15 @@ class NormalEditBase(BaseObject):
         normal_writer = GeomVertexWriter(tmp_vertex_data, "normal")
         verts = self._subobjs["vert"]
         polys_to_update = set()
-        sign = -1. if self._owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_flipped_normals() else 1.
 
         for sel_id in sel_ids:
             vert = verts[sel_id]
-            polys_to_update.add(vert.get_polygon_id())
-            row = vert.get_row_index()
+            polys_to_update.add(vert.polygon_id)
+            row = vert.row_index
             normal_writer.set_row(row)
             normal_writer.set_data3(normal * sign)
-            vert.set_normal(Vec3(normal))
+            vert.normal = Vec3(normal)
 
         normal_array = tmp_vertex_data.get_array(2)
         vertex_data.set_array(2, normal_array)
@@ -1386,7 +1394,7 @@ class NormalEditBase(BaseObject):
         vertex_data.set_array(2, normal_array)
 
         self._normal_change = set(sel_ids)
-        model = self.get_toplevel_object()
+        model = self.toplevel_obj
 
         if model.has_tangent_space():
             tangent_flip, bitangent_flip = model.get_tangent_space_flip()
@@ -1399,7 +1407,7 @@ class NormalEditBase(BaseObject):
         return True
 
 
-class NormalManager(BaseObject):
+class NormalManager:
 
     def __init__(self):
 
@@ -1428,15 +1436,15 @@ class NormalManager(BaseObject):
         bind("normal_dir_copy_mode", "normal dir copy -> select", "escape", exit_mode)
         bind("normal_dir_copy_mode", "exit normal dir copy mode", "mouse3", exit_mode)
         bind("normal_dir_copy_mode", "copy normal dir", "mouse1", self.__pick)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("normal_dir_copy_mode", "normal dir ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("normal_dir_copy_mode", "normal dir ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
         bind("normal_picking_via_poly", "pick hilited normal",
              "mouse1-up", self.__pick_hilited_normal)
         bind("normal_picking_via_poly", "cancel normal picking",
              "mouse3", self.__cancel_normal_picking_via_poly)
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Copy normal direction"
         info_text = "Pick normal to copy direction to selected normals;" \
                     " RMB or <Escape> to end"
@@ -1450,7 +1458,7 @@ class NormalManager(BaseObject):
         changed_objs = []
 
         for obj in selection:
-            if obj.get_geom_object().set_normal_length(normal_length):
+            if obj.geom_obj.set_normal_length(normal_length):
                 changed_objs.append(obj)
 
         if not changed_objs:
@@ -1460,20 +1468,19 @@ class NormalManager(BaseObject):
         obj_data = {}
 
         for obj in changed_objs:
-            if obj.get_geom_type() == "basic_geom":
-                geom_obj = obj.get_geom_object()
-                obj_data[obj.get_id()] = geom_obj.get_data_to_store("prop_change", "normal_length")
-            elif obj.get_geom_type() == "editable_geom":
-                geom_data_obj = obj.get_geom_object().get_geom_data_object()
-                obj_data[obj.get_id()] = geom_data_obj.get_property_to_store("normal_length")
+            if obj.geom_type == "basic_geom":
+                obj_data[obj.id] = obj.geom_obj.get_data_to_store("prop_change", "normal_length")
+            elif obj.geom_type == "editable_geom":
+                geom_data_obj = obj.geom_obj.geom_data_obj
+                obj_data[obj.id] = geom_data_obj.get_property_to_store("normal_length")
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = 'Change normal length of "{}"\nto {:f}'.format(obj.get_name(), normal_length)
+            event_descr = f'Change normal length of "{obj.name}"\nto {normal_length :.6f}'
         else:
             event_descr = 'Change normal length of objects:\n'
-            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
-            event_descr += '\n\nto {:f}'.format(normal_length)
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
+            event_descr += f'\n\nto {normal_length :.6f}'
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -1484,7 +1491,7 @@ class NormalManager(BaseObject):
         changed_objs = []
 
         for obj in selection:
-            if obj.get_geom_object().flip_normals(flip):
+            if obj.geom_obj.flip_normals(flip):
                 changed_objs.append(obj)
 
         if not changed_objs:
@@ -1494,14 +1501,14 @@ class NormalManager(BaseObject):
         obj_data = {}
 
         for obj in changed_objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "normal_flip")
+            obj_data[obj.id] = obj.get_data_to_store("prop_change", "normal_flip")
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = '{} normals of "{}"'.format("Flip" if flip else "Unflip", obj.get_name())
+            event_descr = f'{"Flip" if flip else "Unflip"} normals of "{obj.name}"'
         else:
-            event_descr = '{} normals of objects:\n'.format("Flip" if flip else "Unflip")
-            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
+            event_descr = f'{"Flip" if flip else "Unflip"} normals of objects:\n'
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -1513,10 +1520,10 @@ class NormalManager(BaseObject):
 
         for model in selection:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
 
             if geom_data_obj.unify_normals(unify):
-                changed_objs[model.get_id()] = geom_data_obj
+                changed_objs[model.id] = geom_data_obj
 
         if not changed_objs:
             return
@@ -1528,7 +1535,7 @@ class NormalManager(BaseObject):
         for obj_id, geom_data_obj in changed_objs.items():
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
-        event_descr = "{} normals".format("Unify" if unify else "Separate")
+        event_descr = f'{"Unify" if unify else "Separate"} normals'
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
@@ -1539,10 +1546,10 @@ class NormalManager(BaseObject):
 
         for model in selection:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
 
             if geom_data_obj.lock_normals(lock):
-                changed_objs[model.get_id()] = geom_data_obj
+                changed_objs[model.id] = geom_data_obj
 
         if not changed_objs:
             return
@@ -1554,20 +1561,20 @@ class NormalManager(BaseObject):
         for obj_id, geom_data_obj in changed_objs.items():
             obj_data[obj_id] = geom_data_obj.get_data_to_store()
 
-        event_descr = "{} normals".format("Lock" if lock else "Unlock")
+        event_descr = f'{"Lock" if lock else "Unlock"} normals'
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-    def __enter_picking_mode(self, prev_state_id, is_active):
+    def __enter_picking_mode(self, prev_state_id, active):
 
-        if GlobalData["active_transform_type"]:
-            GlobalData["active_transform_type"] = ""
+        if GD["active_transform_type"]:
+            GD["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
         Mgr.add_task(self.__update_cursor, "update_mode_cursor")
         Mgr.update_app("status", ["normal_dir_copy_mode"])
 
-    def __exit_picking_mode(self, next_state_id, is_active):
+    def __exit_picking_mode(self, next_state_id, active):
 
         Mgr.remove_task("update_mode_cursor")
         self._pixel_under_mouse = None  # force an update of the cursor
@@ -1603,15 +1610,15 @@ class NormalManager(BaseObject):
             if not vert:
                 return
 
-        normal = vert.get_normal()
+        normal = vert.normal
         changed_objs = {}
 
         for obj in Mgr.get("selection_top"):
 
-            geom_data_obj = obj.get_geom_object().get_geom_data_object()
+            geom_data_obj = obj.geom_obj.geom_data_obj
 
             if geom_data_obj.copy_vertex_normal(normal):
-                changed_objs[obj.get_id()] = geom_data_obj
+                changed_objs[obj.id] = geom_data_obj
 
         if not changed_objs:
             return
@@ -1626,18 +1633,18 @@ class NormalManager(BaseObject):
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-    def __start_normal_picking_via_poly(self, prev_state_id, is_active):
+    def __start_normal_picking_via_poly(self, prev_state_id, active):
 
         Mgr.remove_task("update_mode_cursor")
 
-        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj = self._picked_poly.geom_data_obj
         geom_data_obj.init_subobj_picking_via_poly("normal", self._picked_poly)
         # temporarily select picked poly
         geom_data_obj.update_selection("poly", [self._picked_poly], [], False)
 
         for model in Mgr.get("selection_top"):
 
-            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+            other_geom_data_obj = model.geom_obj.geom_data_obj
 
             if other_geom_data_obj is not geom_data_obj:
                 other_geom_data_obj.set_pickable(False)
@@ -1645,9 +1652,9 @@ class NormalManager(BaseObject):
         Mgr.add_task(self.__hilite_normal, "hilite_normal")
         Mgr.update_app("status", ["normal_picking_via_poly"])
 
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
-        toplvl_obj = self._picked_poly.get_toplevel_object()
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
+        toplvl_obj = self._picked_poly.toplevel_obj
 
         if cs_type == "local":
             Mgr.update_locally("coord_sys", cs_type, toplvl_obj)
@@ -1665,7 +1672,7 @@ class NormalManager(BaseObject):
 
                 r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
                 color_id = r << 16 | g << 8 | b
-                geom_data_obj = self._picked_poly.get_geom_data_object()
+                geom_data_obj = self._picked_poly.geom_data_obj
 
                 # highlight temporary normal
                 if geom_data_obj.hilite_temp_subobject("normal", color_id):
@@ -1676,7 +1683,7 @@ class NormalManager(BaseObject):
         not_hilited = pixel_under_mouse in (VBase4(), VBase4(1., 1., 1., 1.))
         cursor_id = "main" if not_hilited else "select"
 
-        if GlobalData["subobj_edit_options"]["pick_by_aiming"]:
+        if GD["subobj_edit_options"]["pick_by_aiming"]:
 
             aux_pixel_under_mouse = Mgr.get("aux_pixel_under_mouse")
 
@@ -1686,7 +1693,7 @@ class NormalManager(BaseObject):
 
                     r, g, b, a = [int(round(c * 255.)) for c in aux_pixel_under_mouse]
                     color_id = r << 16 | g << 8 | b
-                    geom_data_obj = self._picked_poly.get_geom_data_object()
+                    geom_data_obj = self._picked_poly.geom_data_obj
 
                     # highlight temporary normal
                     if geom_data_obj.hilite_temp_subobject("normal", color_id):
@@ -1711,12 +1718,12 @@ class NormalManager(BaseObject):
 
         Mgr.enter_state("normal_dir_copy_mode")
 
-        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj = self._picked_poly.geom_data_obj
         geom_data_obj.prepare_subobj_picking_via_poly("normal")
 
         for model in Mgr.get("selection_top"):
 
-            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+            other_geom_data_obj = model.geom_obj.geom_data_obj
 
             if other_geom_data_obj is not geom_data_obj:
                 other_geom_data_obj.set_pickable()
@@ -1732,12 +1739,12 @@ class NormalManager(BaseObject):
         Mgr.remove_task("hilite_normal")
         Mgr.exit_state("normal_picking_via_poly")
 
-        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj = self._picked_poly.geom_data_obj
         geom_data_obj.prepare_subobj_picking_via_poly("normal")
 
         for model in Mgr.get("selection_top"):
 
-            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+            other_geom_data_obj = model.geom_obj.geom_data_obj
 
             if other_geom_data_obj is not geom_data_obj:
                 other_geom_data_obj.set_pickable()

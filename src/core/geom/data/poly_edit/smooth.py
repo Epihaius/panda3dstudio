@@ -9,7 +9,7 @@ class SmoothingGroup:
 
     def __repr__(self):
 
-        return "SmoothingGroup({})".format(self._poly_ids)
+        return f"SmoothingGroup({self._poly_ids})"
 
     def __hash__(self):
 
@@ -68,7 +68,8 @@ class SmoothingGroup:
         return self._poly_ids.issubset(poly_ids)
 
 
-class SmoothingBase(BaseObject):
+class SmoothingMixin:
+    """ PolygonEditMixin class mix-in """
 
     def __init__(self):
 
@@ -80,7 +81,7 @@ class SmoothingBase(BaseObject):
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         shared_normals = self._shared_normals
         poly_smoothing = {}
         creases = {}
@@ -96,11 +97,11 @@ class SmoothingBase(BaseObject):
 
                 vert_id = vert_ids.pop()
                 vert = verts[vert_id]
-                poly_id = vert.get_polygon_id()
+                poly_id = vert.polygon_id
 
                 for other_vert_id in vert_ids:
                     if other_vert_id not in shared_normals[vert_id]:
-                        other_poly_id = verts[other_vert_id].get_polygon_id()
+                        other_poly_id = verts[other_vert_id].polygon_id
                         creases.setdefault(poly_id, set()).add(other_poly_id)
                         creases.setdefault(other_poly_id, set()).add(poly_id)
 
@@ -118,14 +119,14 @@ class SmoothingBase(BaseObject):
                 neighbor_id = neighbor_ids.pop()
                 polys_to_process.discard(neighbor_id)
 
-                for vert_id in polys[neighbor_id].get_vertex_ids():
+                for vert_id in polys[neighbor_id].vertex_ids:
 
                     other_vert_ids = merged_verts[vert_id][:]
                     other_vert_ids.remove(vert_id)
 
                     for other_vert_id in other_vert_ids:
 
-                        other_poly_id = verts[other_vert_id].get_polygon_id()
+                        other_poly_id = verts[other_vert_id].polygon_id
 
                         for poly_id in creases.get(other_poly_id, set()):
 
@@ -182,7 +183,7 @@ class SmoothingBase(BaseObject):
             shared_normals = self._shared_normals
             self._poly_smoothing = poly_smoothing = {}
             polys = self._subobjs["poly"]
-            merged_verts = self._merged_verts
+            merged_verts = self.merged_verts
 
             for smoothing_grp in smoothing:
 
@@ -194,12 +195,12 @@ class SmoothingBase(BaseObject):
 
                     poly_id = poly_ids.pop()
                     poly = polys[poly_id]
-                    vert_ids = poly.get_vertex_ids()[:]
+                    vert_ids = poly.vertex_ids[:]
 
                     for other_poly_id in poly_ids:
 
                         other_poly = polys[other_poly_id]
-                        other_vert_ids = other_poly.get_vertex_ids()[:]
+                        other_vert_ids = other_poly.vertex_ids[:]
 
                         for vert_id in vert_ids:
 
@@ -225,10 +226,10 @@ class SmoothingBase(BaseObject):
 
                 self._poly_smoothing_change = True
 
-            merged_verts = set(self._merged_verts.values())
+            merged_verts = set(self.merged_verts.values())
             self.update_vertex_normals(merged_verts, update_tangent_space=False)
 
-            model = self.get_toplevel_object()
+            model = self.toplevel_obj
 
             if model.has_tangent_space():
                 model.update_tangent_space()
@@ -258,7 +259,7 @@ class SmoothingBase(BaseObject):
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
-        sign = -1. if self._owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_flipped_normals() else 1.
         normals_to_sel = False
 
         if smooth:
@@ -276,12 +277,12 @@ class SmoothingBase(BaseObject):
 
             smoothing_grp = SmoothingGroup(polys)
 
-            self._poly_smoothing = dict((poly_id, set([smoothing_grp])) for poly_id in polys)
+            self._poly_smoothing = {poly_id: set([smoothing_grp]) for poly_id in polys}
 
             vertex_data_poly = self._vertex_data["poly"]
             normal_writer = GeomVertexWriter(vertex_data_poly, "normal")
 
-            merged_verts = self._merged_verts
+            merged_verts = self.merged_verts
             selected_normal_ids = set(self._selected_subobj_ids["normal"])
 
             for merged_vert in set(merged_verts.values()):
@@ -297,15 +298,15 @@ class SmoothingBase(BaseObject):
                         continue
 
                     verts_to_smooth.append(vert)
-                    poly = polys[vert.get_polygon_id()]
-                    normal += poly.get_normal()
+                    poly = polys[vert.polygon_id]
+                    normal += poly.normal
 
                 normal.normalize()
 
                 for vert in verts_to_smooth:
-                    normal_writer.set_row(vert.get_row_index())
+                    normal_writer.set_row(vert.row_index)
                     normal_writer.set_data3(normal * sign)
-                    vert.set_normal(normal)
+                    vert.normal = normal
 
                 # Make sure that all normals in the same merged vertex become
                 # selected if at least one of them is already selected.
@@ -317,7 +318,7 @@ class SmoothingBase(BaseObject):
                     continue
 
                 tmp_normal = Mgr.do("create_shared_normal", self, ids.difference(sel_ids))
-                tmp_id = tmp_normal.get_id()
+                tmp_id = tmp_normal.id
                 orig_normal = shared_normals[tmp_id]
                 shared_normals[tmp_id] = tmp_normal
                 self.update_selection("normal", [tmp_normal], [])
@@ -346,13 +347,13 @@ class SmoothingBase(BaseObject):
 
             for poly in polys.values():
 
-                normal = poly.get_normal().normalized()
+                normal = poly.normal.normalized()
 
-                for vert in poly.get_vertices():
+                for vert in poly.vertices:
                     if not vert.has_locked_normal():
-                        normal_writer.set_row(vert.get_row_index())
+                        normal_writer.set_row(vert.row_index)
                         normal_writer.set_data3(normal * sign)
-                        vert.set_normal(Vec3(normal))
+                        vert.normal = Vec3(normal)
 
             normal_array = vertex_data_poly.get_array(2)
             vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
@@ -366,7 +367,7 @@ class SmoothingBase(BaseObject):
         self._normal_change = set(verts)
         self._poly_smoothing_change = True
 
-        model = self.get_toplevel_object()
+        model = self.toplevel_obj
 
         if model.has_tangent_space():
             model.update_tangent_space()
@@ -527,8 +528,8 @@ class SmoothingBase(BaseObject):
 
         if update_normals:
 
-            merged_verts = set(self._merged_verts[v_id] for p_id in polys_to_update
-                               for v_id in polys[p_id].get_vertex_ids())
+            merged_verts = set(self.merged_verts[v_id] for p_id in polys_to_update
+                               for v_id in polys[p_id].vertex_ids)
 
             # Update vertex normal sharing
 
@@ -544,12 +545,12 @@ class SmoothingBase(BaseObject):
                     vert_id = vert_ids.pop()
                     shared_normal = shared_normals[vert_id]
                     vert = verts[vert_id]
-                    poly_id = vert.get_polygon_id()
+                    poly_id = vert.polygon_id
 
                     for other_vert_id in vert_ids[:]:
 
                         other_vert = verts[other_vert_id]
-                        other_poly_id = other_vert.get_polygon_id()
+                        other_poly_id = other_vert.polygon_id
 
                         for smoothing_grp in poly_smoothing.get(poly_id, []):
                             if other_poly_id in smoothing_grp:
@@ -576,7 +577,7 @@ class SmoothingBase(BaseObject):
                         continue
 
                     tmp_normal = Mgr.do("create_shared_normal", self, ids.difference(sel_ids))
-                    tmp_id = tmp_normal.get_id()
+                    tmp_id = tmp_normal.id
                     orig_normal = shared_normals[tmp_id]
                     shared_normals[tmp_id] = tmp_normal
                     self.update_selection("normal", [tmp_normal], [])
@@ -605,12 +606,12 @@ class SmoothingBase(BaseObject):
 
     def _restore_poly_smoothing(self, time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["smoothing"]
         self._poly_smoothing = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
 
 
-class SmoothingManager(BaseObject):
+class SmoothingManager:
 
     def __init__(self):
 
@@ -618,7 +619,7 @@ class SmoothingManager(BaseObject):
         Mgr.add_app_updater("poly_smoothing", self.__smooth_polygons)
         Mgr.add_app_updater("poly_smoothing_update", self.__update_polygon_smoothing)
 
-        GlobalData.set_default("sel_polys_by_smoothing", False)
+        GD.set_default("sel_polys_by_smoothing", False)
 
         add_state = Mgr.add_state
         add_state("smoothing_poly_picking_mode", -10, self.__enter_smoothing_poly_picking_mode,
@@ -635,8 +636,8 @@ class SmoothingManager(BaseObject):
              lambda: Mgr.exit_state("smoothing_poly_picking_mode"))
         bind("smoothing_poly_picking_mode", "pick smoothing poly", "mouse1",
              self.__pick_smoothing_poly)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("smoothing_poly_picking_mode", "smooth ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("smoothing_poly_picking_mode", "smooth ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
         bind("unsmoothing_poly_picking_mode", "unsmooth with poly -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
@@ -646,10 +647,10 @@ class SmoothingManager(BaseObject):
              lambda: Mgr.exit_state("unsmoothing_poly_picking_mode"))
         bind("unsmoothing_poly_picking_mode", "pick unsmoothing poly", "mouse1",
              self.__pick_smoothing_poly)
-        bind("unsmoothing_poly_picking_mode", "unsmooth ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        bind("unsmoothing_poly_picking_mode", "unsmooth ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Pick poly for smoothing"
         info_text = "LMB to pick a polygon to smooth the selection with; RMB to cancel"
         status_data["smooth_with_poly"] = {"mode": mode_text, "info": info_text}
@@ -660,8 +661,7 @@ class SmoothingManager(BaseObject):
     def __set_smooth_shaded(self, smooth=True):
 
         selection = Mgr.get("selection_top")
-        geom_data_objs = dict((obj.get_id(), obj.get_geom_object().get_geom_data_object())
-                              for obj in selection)
+        geom_data_objs = {obj.id: obj.geom_obj.geom_data_obj for obj in selection}
         changed_objs = {}
         changed_selections = []
 
@@ -701,15 +701,15 @@ class SmoothingManager(BaseObject):
 
         for model in selection:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
             change, normals_to_sel = geom_data_obj.smooth_selected_polygons(smooth, poly_id)
 
             if change:
 
-                changed_objs[model.get_id()] = geom_data_obj
+                changed_objs[model.id] = geom_data_obj
 
                 if normals_to_sel:
-                    changed_selections.append(model.get_id())
+                    changed_selections.append(model.id)
 
         if not changed_objs:
             return
@@ -735,10 +735,10 @@ class SmoothingManager(BaseObject):
 
         for model in selection:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
 
             if geom_data_obj.update_smoothing():
-                changed_objs[model.get_id()] = geom_data_obj
+                changed_objs[model.id] = geom_data_obj
 
         if not changed_objs:
             return
@@ -753,21 +753,21 @@ class SmoothingManager(BaseObject):
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-    def __enter_smoothing_poly_picking_mode(self, prev_state_id, is_active):
+    def __enter_smoothing_poly_picking_mode(self, prev_state_id, active):
 
-        GlobalData["active_transform_type"] = ""
+        GD["active_transform_type"] = ""
         Mgr.update_app("active_transform_type", "")
         Mgr.add_task(self._update_cursor, "update_poly_picking_cursor")
         Mgr.update_app("status", ["smooth_with_poly"])
 
-    def __enter_unsmoothing_poly_picking_mode(self, prev_state_id, is_active):
+    def __enter_unsmoothing_poly_picking_mode(self, prev_state_id, active):
 
-        GlobalData["active_transform_type"] = ""
+        GD["active_transform_type"] = ""
         Mgr.update_app("active_transform_type", "")
         Mgr.add_task(self._update_cursor, "update_poly_picking_cursor")
         Mgr.update_app("status", ["unsmooth_with_poly"])
 
-    def __exit_smoothing_poly_picking_mode(self, next_state_id, is_active):
+    def __exit_smoothing_poly_picking_mode(self, next_state_id, active):
 
         self._pixel_under_mouse = None  # force an update of the cursor
                                         # next time self._update_cursor()
@@ -787,6 +787,6 @@ class SmoothingManager(BaseObject):
 
         if poly:
             if state_id == "smoothing_poly_picking_mode":
-                Mgr.update_locally("poly_smoothing", True, poly.get_id())
+                Mgr.update_locally("poly_smoothing", True, poly.id)
             else:
-                Mgr.update_locally("poly_smoothing", False, poly.get_id())
+                Mgr.update_locally("poly_smoothing", False, poly.id)

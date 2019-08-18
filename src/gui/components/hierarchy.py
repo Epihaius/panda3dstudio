@@ -94,7 +94,7 @@ class HierarchyPanel(Panel):
 
         # ************************ Transforms section **************************
 
-        disabler = lambda: GlobalData["active_obj_level"] != "top"
+        disabler = lambda: GD["active_obj_level"] != "top"
 
         section = self.add_section("transforms", "Transforms")
 
@@ -171,20 +171,20 @@ class HierarchyPanel(Panel):
 
     def __update_group_member_linking(self):
 
-        for option, value in GlobalData["group_options"]["member_linking"].items():
-            self._checkbuttons["group_member_linking_{}".format(option)].check(value)
+        for option, value in GD["group_options"]["member_linking"].items():
+            self._checkbuttons[f"group_member_linking_{option}"].check(value)
 
     def setup(self):
 
-        def enter_linking_mode(prev_state_id, is_active):
+        def enter_linking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_link_objects")
-            self._btns[GlobalData["object_linking_mode"]].set_active()
+            self._btns[GD["object_linking_mode"]].active = True
 
-        def exit_linking_mode(next_state_id, is_active):
+        def exit_linking_mode(next_state_id, active):
 
-            if not is_active:
-                self._btns[GlobalData["object_linking_mode"]].set_active(False)
+            if not active:
+                self._btns[GD["object_linking_mode"]].active = False
 
         add_state = Mgr.add_state
         add_state("object_linking_mode", -10, enter_linking_mode, exit_linking_mode)
@@ -194,20 +194,20 @@ class HierarchyPanel(Panel):
 
     def __toggle_linking_mode(self, linking_mode):
 
-        if GlobalData["active_obj_level"] != "top":
-            GlobalData["active_obj_level"] = "top"
+        if GD["active_obj_level"] != "top":
+            GD["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
-        current_linking_mode = GlobalData["object_linking_mode"]
+        current_linking_mode = GD["object_linking_mode"]
 
         if current_linking_mode and current_linking_mode != linking_mode:
             Mgr.exit_state("object_linking_mode")
 
-        if self._btns[linking_mode].is_active():
+        if self._btns[linking_mode].active:
             Mgr.exit_state("object_linking_mode")
-            GlobalData["object_linking_mode"] = ""
+            GD["object_linking_mode"] = ""
         else:
-            GlobalData["object_linking_mode"] = linking_mode
+            GD["object_linking_mode"] = linking_mode
             Mgr.enter_state("object_linking_mode")
 
     def __unlink_selection(self):
@@ -216,34 +216,34 @@ class HierarchyPanel(Panel):
 
     def __toggle_link_visibility(self, links_shown):
 
-        GlobalData["object_links_shown"] = links_shown
+        GD["object_links_shown"] = links_shown
         Mgr.update_remotely("object_link_viz")
 
     def __update_link_visibility(self):
 
-        links_shown = GlobalData["object_links_shown"]
+        links_shown = GD["object_links_shown"]
         self._checkbuttons["show_links"].check(links_shown)
 
     def __toggle_group_member_linking(self, allowed):
 
-        GlobalData["group_options"]["member_linking"]["allowed"] = allowed
+        GD["group_options"]["member_linking"]["allowed"] = allowed
 
     def __toggle_open_group_member_linking(self, open_groups_only):
 
-        GlobalData["group_options"]["member_linking"]["open_groups_only"] = open_groups_only
+        GD["group_options"]["member_linking"]["open_groups_only"] = open_groups_only
 
     def __toggle_group_member_unlink_only(self, unlink_only):
 
-        GlobalData["group_options"]["member_linking"]["unlink_only"] = unlink_only
+        GD["group_options"]["member_linking"]["unlink_only"] = unlink_only
 
     def __set_xform_target_type(self, target_type="all"):
 
-        GlobalData["transform_target_type"] = target_type
+        GD["transform_target_type"] = target_type
         Mgr.update_app("transform_target_type")
 
     def __update_xform_target_type(self):
 
-        target_type = GlobalData["transform_target_type"]
+        target_type = GD["transform_target_type"]
 
         if target_type == "all":
             self._toggle_btns.deactivate()

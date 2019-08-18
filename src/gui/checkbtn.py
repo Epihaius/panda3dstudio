@@ -35,12 +35,13 @@ class CheckButton(Widget):
             font = skin_text["font"]
             color = skin_text["color"]
             self._label = label = font.create_image(text, color)
-            color = Skin["colors"]["disabled_{}_text".format(widget_type)]
+            color = Skin["colors"][f"disabled_{widget_type}_text"]
             self._label_disabled = font.create_image(text, color)
             x, y, w, h = TextureAtlas["regions"][parent_type + "_checkbox"]
             l, _, b, t = self._btn_borders
-            w += text_offset + label.get_x_size() - l
-            h = max(h - b - t, label.get_y_size())
+            w_l, h_l = label.size
+            w += text_offset + w_l - l
+            h = max(h - b - t, h_l)
             self.set_size((w, h), is_min=True)
         else:
             self._label = self._label_disabled = None
@@ -88,7 +89,7 @@ class CheckButton(Widget):
             return
 
         image = self.get_image(composed=False)
-        parent = self.get_parent()
+        parent = self.parent
 
         if not (image and parent):
             return
@@ -112,7 +113,7 @@ class CheckButton(Widget):
 
         else:
 
-            w, h = image.get_x_size(), image.get_y_size()
+            w, h = image.size
             img_offset_x, img_offset_y = self.get_image_offset()
             self.get_card().copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
 
@@ -136,11 +137,11 @@ class CheckButton(Widget):
     def create_base_image(self):
 
         border_image = self.get_border_image()
-        w_b, h_b = border_image.get_x_size(), border_image.get_y_size()
+        w_b, h_b = border_image.size
         label = self._label
 
         if label:
-            w_l, h_l = label.get_x_size(), label.get_y_size()
+            w_l, h_l = label.size
             x_l = w_b + self._text_offset
             w = x_l + w_l
             h = max(h_b, h_l)
@@ -181,7 +182,7 @@ class CheckButton(Widget):
         if self._is_checked:
             w, h = self._box_size
             checkmark = PNMImage(self._checkmark) * self._mark_color
-            w_c, h_c = checkmark.get_x_size(), checkmark.get_y_size()
+            w_c, h_c = checkmark.size
             x, y = self._box_pos
             x += (w - w_c) // 2
             y += (h - h_c) // 2

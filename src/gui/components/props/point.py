@@ -55,9 +55,9 @@ class PointProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             Mgr.update_app("point_helper_prop_default", value_id, value)
             return
 
@@ -65,7 +65,7 @@ class PointProperties:
 
     def __draw_on_top(self, on_top):
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             Mgr.update_app("point_helper_prop_default", "on_top", on_top)
             return
 
@@ -81,9 +81,9 @@ class PointProperties:
     def __handle_color(self, sel_state, color):
 
         r, g, b = color
-        prop_id = "{}_color".format(sel_state)
+        prop_id = f"{sel_state}_color"
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             Mgr.update_remotely("point_helper_prop_default", prop_id, (r, g, b, 1.))
             self.set_object_property_default(prop_id, color)
             return
@@ -138,7 +138,7 @@ class PointProperties:
         checkbtns = self._checkbuttons
         fields = self._fields
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 

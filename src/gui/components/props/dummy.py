@@ -14,9 +14,9 @@ class DummyProperties:
         get_handler = lambda geom_type: lambda val: self.__handle_viz(geom_type, val)
 
         for geom_type in ("box", "cross"):
-            text = "Show {}".format(geom_type)
+            text = f"Show {geom_type}"
             checkbtn = PanelCheckButton(section, get_handler(geom_type), text)
-            self._checkbuttons["{}_viz".format(geom_type)] = checkbtn
+            self._checkbuttons[f"{geom_type}_viz"] = checkbtn
             section.add(checkbtn)
             section.add((0, 5))
 
@@ -55,7 +55,7 @@ class DummyProperties:
         sizer.add(checkbtn, alignment="center_v", borders=borders)
         prop_id = "const_size"
         field = PanelInputField(section, prop_id, "float", self.__handle_value, 40)
-        field.set_value_parser(lambda value: "{:.1f}".format(value))
+        field.set_value_parser(lambda value: f"{value :.1f}")
         field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
@@ -70,9 +70,9 @@ class DummyProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             Mgr.update_app("dummy_prop_default", value_id, value)
             return
 
@@ -81,10 +81,10 @@ class DummyProperties:
     def __handle_viz(self, geom_type, shown):
 
         other_geom_type = "cross" if geom_type == "box" else "box"
-        other_shown = self._checkbuttons["{}_viz".format(other_geom_type)].is_checked()
+        other_shown = self._checkbuttons[f"{other_geom_type}_viz"].is_checked()
 
         if not shown and not other_shown:
-            self._checkbuttons["{}_viz".format(other_geom_type)].check()
+            self._checkbuttons[f"{other_geom_type}_viz"].check()
             other_shown = True
 
         viz = set()
@@ -95,7 +95,7 @@ class DummyProperties:
         if other_shown:
             viz.add(other_geom_type)
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             Mgr.update_app("dummy_prop_default", "viz", viz)
             return
 
@@ -127,7 +127,7 @@ class DummyProperties:
 
         if prop_id == "viz":
             for geom_type in ("box", "cross"):
-                check_id = "{}_viz".format(geom_type)
+                check_id = f"{geom_type}_viz"
                 checkbtns[check_id].check(True if geom_type in value else False)
                 checkbtns[check_id].set_checkmark_color(color)
         elif prop_id in checkbtns:
@@ -146,7 +146,7 @@ class DummyProperties:
 
         if prop_id == "viz":
             for geom_type in ("box", "cross"):
-                check_id = "{}_viz".format(geom_type)
+                check_id = f"{geom_type}_viz"
                 checkbtns[check_id].check(True if geom_type in value else False)
         elif prop_id in checkbtns:
             checkbtns[prop_id].check(value)
@@ -158,7 +158,7 @@ class DummyProperties:
         checkbtns = self._checkbuttons
         fields = self._fields
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 

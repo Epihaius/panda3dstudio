@@ -12,7 +12,7 @@ class ComboBox(Button):
 
         Button.__init__(self, parent, gfx_data, tooltip_text=tooltip_text, command=self.__show_menu)
 
-        self.set_widget_type("combobox")
+        self.widget_type = "combobox"
         self._field_text = text
         self._field_text_in_tooltip = True
 
@@ -78,8 +78,8 @@ class ComboBox(Button):
 
     def __on_hide(self):
 
-        if self.is_active():
-            self.set_active(False)
+        if self.active:
+            self.active = False
             self.on_leave(force=True)
 
     def __show_menu(self):
@@ -87,7 +87,7 @@ class ComboBox(Button):
         if not self._popup_menu.get_item_count():
             return
 
-        self.set_active()
+        self.active = True
         x, y = self.get_pos(ref_node=self._ref_node)
         offset_x, offset_y = self.get_menu_offset("bottom")
         pos = (x + offset_x, y + offset_y)
@@ -283,7 +283,7 @@ class ComboBox(Button):
         if not image:
             return
 
-        parent = self.get_parent()
+        parent = self.parent
 
         if not parent:
             return
@@ -379,11 +379,14 @@ class ComboBox(Button):
             return
 
         self._item_texts[item_id] = text
-        self._popup_menu.set_item_text(item_id, text, update=True)
- 
-        if self._selected_item_id == item_id:
+
+        if item_id in self._persistent_items or self._selected_item_id != item_id:
+            self._popup_menu.set_item_text(item_id, text, update=True)
+        else:
             item = self._items[self._selected_item_id]
             item.set_text(text)
+
+        if self._selected_item_id == item_id:
             self.set_text(text)
 
     def get_item_text(self, item_id):
@@ -401,8 +404,10 @@ class ComboBox(Button):
         self._item_ids.remove(item_id)
         self._item_ids.insert(index, item_id)
         item = self._items[item_id]
-        self._popup_menu.remove(item_id)
-        self._popup_menu.add_item(item, index, update=True)
+
+        if item_id in self._persistent_items or self._selected_item_id != item_id:
+            self._popup_menu.remove(item_id)
+            self._popup_menu.add_item(item, index, update=True)
 
     def set_input_field(self, input_field):
 

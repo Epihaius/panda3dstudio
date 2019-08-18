@@ -83,7 +83,7 @@ class TemporaryTexProjector:
 
         for proj_type in ("orthographic", "perspective"):
 
-            vertex_data = GeomVertexData("tex_proj_lens_{}_viz_data".format(proj_type),
+            vertex_data = GeomVertexData(f"tex_proj_lens_{proj_type}_viz_data",
                                          vertex_format, Geom.UH_static)
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -98,7 +98,7 @@ class TemporaryTexProjector:
 
             geom = Geom(vertex_data)
             geom.add_primitive(lines)
-            node = GeomNode("tex_proj_lens_{}_viz".format(proj_type))
+            node = GeomNode(f"tex_proj_lens_{proj_type}_viz")
             node.add_geom(geom)
             lens_viz = tmp_geom.attach_new_node(node)
             lens_viz.hide(Mgr.get("picking_mask"))
@@ -131,24 +131,15 @@ class TemporaryTexProjector:
         tripod.set_z(-.6)
         tripod.set_color(.5, .8, .5)
 
-
-    @property
-    def original_geom(self):
-
-        if not self._original_geom:
-            TemporaryTexProjector.__create_original_geom()
-
-        return self._original_geom
-
-
     def __init__(self, pos, projection_type):
 
         self._size = 0.
         object_root = Mgr.get("object_root")
         self._temp_geom = tmp_geom = self.original_geom.copy_to(object_root)
 
-        active_grid_plane = Mgr.get(("grid", "plane"))
-        grid_origin = Mgr.get(("grid", "origin"))
+        grid = Mgr.get("grid")
+        active_grid_plane = grid.plane_id
+        grid_origin = grid.origin
 
         if active_grid_plane == "xz":
             tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
@@ -157,7 +148,7 @@ class TemporaryTexProjector:
         else:
             tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
 
-        lens_viz = tmp_geom.find("**/tex_proj_lens_{}_viz".format(projection_type))
+        lens_viz = tmp_geom.find(f"**/tex_proj_lens_{projection_type}_viz")
         lens_viz.show()
 
     def __del__(self):
@@ -168,6 +159,14 @@ class TemporaryTexProjector:
 
         self._temp_geom.remove_node()
         self._temp_geom = None
+
+    @property
+    def original_geom(self):
+
+        if not self._original_geom:
+            TemporaryTexProjector.__create_original_geom()
+
+        return self._original_geom
 
     def set_size(self, size):
 
@@ -185,7 +184,7 @@ class TemporaryTexProjector:
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos(Mgr.get(("grid", "origin")))
+        pos = self._temp_geom.get_pos(Mgr.get("grid").origin)
 
         for step in Mgr.do("create_tex_projector", pos, self._size):
             pass
@@ -193,14 +192,26 @@ class TemporaryTexProjector:
         self.destroy()
 
 
-class TexProjectorEdge(BaseObject):
+class TexProjectorEdge:
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        state["_picking_col_id"] = state.pop("picking_color_id")
+
+        return state
+
+    def __setstate__(self, state):
+
+        state["picking_color_id"] = state.pop("_picking_col_id")
+        self.__dict__ = state
 
     def __init__(self, projector, axis, corner_index, picking_col_id):
 
         self._projector = projector
         self._axis = axis
         self._corner_index = corner_index
-        self._picking_col_id = picking_col_id
+        self.picking_color_id = picking_col_id
 
     def __del__(self):
 
@@ -210,19 +221,20 @@ class TexProjectorEdge(BaseObject):
 
         return self._projector.get_toplevel_object(get_group)
 
-    def get_picking_color_id(self):
+    @property
+    def toplevel_obj(self):
 
-        return self._picking_col_id
+        return self.get_toplevel_object()
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        cam = self.cam()
+        cam = GD.cam()
         body = self._projector.get_body()
         corner_pos = self._projector.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
         vec_coords["xyz".index(self._axis)] = 1.
-        edge_vec = V3D(self.world.get_relative_vector(body, Vec3(*vec_coords)))
-        cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+        edge_vec = V3D(GD.world.get_relative_vector(body, Vec3(*vec_coords)))
+        cam_vec = V3D(GD.world.get_relative_vector(cam, Vec3.forward()))
         cross_vec = edge_vec ** cam_vec
 
         if not cross_vec.normalize():
@@ -235,8 +247,8 @@ class TexProjectorEdge(BaseObject):
 
         near_point = Point3()
         far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        GD.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.world.get_relative_point(cam, point)
 
         intersection_point = Point3()
 
@@ -347,7 +359,7 @@ class TexProjector(TopLevelObject):
         for proj_type in ("orthographic", "perspective"):
 
             vertex_format = GeomVertexFormat.get_v3c4()
-            vertex_data = GeomVertexData("tex_proj_lens_{}_viz_data".format(proj_type),
+            vertex_data = GeomVertexData(f"tex_proj_lens_{proj_type}_viz_data",
                                          vertex_format, Geom.UH_static)
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
 
@@ -362,7 +374,7 @@ class TexProjector(TopLevelObject):
 
             geom = Geom(vertex_data)
             geom.add_primitive(lines)
-            node = GeomNode("tex_proj_lens_{}_viz".format(proj_type))
+            node = GeomNode(f"tex_proj_lens_{proj_type}_viz")
             node.add_geom(geom)
             lens_viz = parent.attach_new_node(node)
             lens_viz.hide(Mgr.get("picking_mask"))
@@ -397,25 +409,6 @@ class TexProjector(TopLevelObject):
         tripod.set_z(-.6)
         tripod.set_color(.5, .8, .5)
 
-
-    @property
-    def corners(self):
-
-        if not self._corners:
-            TexProjector.__define_corners()
-
-        return self._corners
-
-
-    @property
-    def original(self):
-
-        if not self._original:
-            TexProjector.__create_original()
-
-        return self._original
-
-
     def __getstate__(self):
 
         state = TopLevelObject.__getstate__(self)
@@ -429,7 +422,7 @@ class TexProjector(TopLevelObject):
 
         TopLevelObject.__setstate__(self, state)
 
-        origin = self.get_origin()
+        origin = self.origin
         origin.set_light_off()
         origin.set_texture_off()
         origin.set_material_off()
@@ -478,7 +471,7 @@ class TexProjector(TopLevelObject):
         self._projection_type = projection_type
         self._targets = {}
 
-        origin = self.get_origin()
+        origin = self.origin
         origin.set_light_off()
         origin.set_texture_off()
         origin.set_material_off()
@@ -486,8 +479,8 @@ class TexProjector(TopLevelObject):
 
         self._subobj_root = subobj_root = self.original.copy_to(origin)
         self._body = subobj_root.find("**/tex_proj_body")
-        self._lens_viz = dict((proj_type, subobj_root.find("**/tex_proj_lens_{}_viz".format(proj_type)))
-                              for proj_type in ("orthographic", "perspective"))
+        self._lens_viz = {proj_type: subobj_root.find(f"**/tex_proj_lens_{proj_type}_viz")
+                          for proj_type in ("orthographic", "perspective")}
         self._lens_viz[projection_type].show()
         self._tripod = subobj_root.find("**/tex_proj_tripod")
 
@@ -498,8 +491,8 @@ class TexProjector(TopLevelObject):
         lens_np.reparent_to(origin)
 
         for lens in self._lenses.values():
-            lens.set_film_size(1., 1.)
-            lens.set_focal_length(1.5)
+            lens.film_size = 1.
+            lens.focal_length = 1.5
 
         self.set_film_width(film_w)
         self.set_film_height(film_h)
@@ -516,7 +509,7 @@ class TexProjector(TopLevelObject):
         for i, corner in enumerate(self._corners):
             for axis in "xyz":
                 edge = Mgr.do("create_tex_proj_edge", self, axis, i)
-                color_id = edge.get_picking_color_id()
+                color_id = edge.picking_color_id
                 picking_color = get_color_vec(color_id, pickable_type_id)
                 col_writer.set_data4(picking_color)
                 col_writer.set_data4(picking_color)
@@ -541,10 +534,10 @@ class TexProjector(TopLevelObject):
 
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
-                    geom_obj = model.get_geom_object()
+                    geom_obj = model.geom_obj
 
                     if geom_obj:
-                        target = geom_obj.get_geom_data_object()
+                        target = geom_obj.geom_data_obj
                         target.project_uvs(uv_set_ids, False, toplvl=toplvl)
 
         self.unregister(unregister)
@@ -566,7 +559,7 @@ class TexProjector(TopLevelObject):
         TopLevelObject.register(self)
 
         obj_type = "tex_proj_edge"
-        Mgr.do("register_{}_objs".format(obj_type), iter(self._edges.values()), restore)
+        Mgr.do(f"register_{obj_type}_objs", iter(self._edges.values()), restore)
 
         if restore:
             Mgr.notify("pickable_geom_altered", self)
@@ -575,9 +568,25 @@ class TexProjector(TopLevelObject):
 
         if unregister:
             obj_type = "tex_proj_edge"
-            Mgr.do("unregister_{}_objs".format(obj_type), iter(self._edges.values()))
+            Mgr.do(f"unregister_{obj_type}_objs", iter(self._edges.values()))
 
         Mgr.do("unregister_texproj_targets", iter(self._targets.keys()))
+
+    @property
+    def corners(self):
+
+        if not self._corners:
+            TexProjector.__define_corners()
+
+        return self._corners
+
+    @property
+    def original(self):
+
+        if not self._original:
+            TexProjector.__create_original()
+
+        return self._original
 
     def get_subobject_root(self):
 
@@ -591,11 +600,11 @@ class TexProjector(TopLevelObject):
 
         corner_pos = Point3(self.corners[corner_index])
 
-        return self.world.get_relative_point(self._body, corner_pos)
+        return GD.world.get_relative_point(self._body, corner_pos)
 
     def get_center_pos(self, ref_node):
 
-        return self.get_origin().get_pos(ref_node)
+        return self.origin.get_pos(ref_node)
 
     def set_on(self, on):
 
@@ -617,7 +626,7 @@ class TexProjector(TopLevelObject):
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
                     show_poly_sel = target_data["show_poly_sel"]
-                    target = model.get_geom_object().get_geom_data_object()
+                    target = model.geom_obj.geom_data_obj
                     target.project_uvs(uv_set_ids, projector=self._lens_np, toplvl=toplvl,
                                        show_poly_sel=show_poly_sel)
 
@@ -630,7 +639,7 @@ class TexProjector(TopLevelObject):
                 if model:
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
-                    target = model.get_geom_object().get_geom_data_object()
+                    target = model.geom_obj.geom_data_obj
                     target.project_uvs(uv_set_ids, False, toplvl=toplvl)
 
         return True
@@ -661,7 +670,7 @@ class TexProjector(TopLevelObject):
         self._film_w = film_w
 
         for lens in self._lenses.values():
-            lens.set_film_size(film_w, self._film_h)
+            lens.film_size = (film_w, self._film_h)
 
         return True
 
@@ -677,7 +686,7 @@ class TexProjector(TopLevelObject):
         self._film_h = film_h
 
         for lens in self._lenses.values():
-            lens.set_film_size(self._film_w, film_h)
+            lens.film_size = (self._film_w, film_h)
 
         return True
 
@@ -693,7 +702,7 @@ class TexProjector(TopLevelObject):
         self._film_x = film_x
 
         for lens in self._lenses.values():
-            lens.set_film_offset(film_x, self._film_y)
+            lens.film_offset = (film_x, self._film_y)
 
         return True
 
@@ -709,7 +718,7 @@ class TexProjector(TopLevelObject):
         self._film_y = film_y
 
         for lens in self._lenses.values():
-            lens.set_film_offset(self._film_x, film_y)
+            lens.film_offset = (self._film_x, film_y)
 
         return True
 
@@ -748,8 +757,7 @@ class TexProjector(TopLevelObject):
 
         if restore:
             Mgr.do("unregister_texproj_targets", old_target_ids - new_target_ids)
-            Mgr.do("register_texproj_targets", new_target_ids - old_target_ids,
-                   self.get_id(), True)
+            Mgr.do("register_texproj_targets", new_target_ids - old_target_ids, self.id, True)
 
         if self._is_on and self.is_selected():
 
@@ -761,7 +769,7 @@ class TexProjector(TopLevelObject):
                     target_data = old_targets[target_id]
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
-                    target = model.get_geom_object().get_geom_data_object()
+                    target = model.geom_obj.geom_data_obj
                     target.project_uvs(uv_set_ids, False, toplvl=toplvl)
 
         if self._is_on and self.is_selected():
@@ -775,7 +783,7 @@ class TexProjector(TopLevelObject):
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
                     show_poly_sel = target_data["show_poly_sel"]
-                    target = model.get_geom_object().get_geom_data_object()
+                    target = model.geom_obj.geom_data_obj
                     target.project_uvs(uv_set_ids, projector=self._lens_np, toplvl=toplvl,
                                        show_poly_sel=show_poly_sel)
 
@@ -789,7 +797,7 @@ class TexProjector(TopLevelObject):
                     target_data = old_targets[target_id]
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
-                    target = model.get_geom_object().get_geom_data_object()
+                    target = model.geom_obj.geom_data_obj
                     target.project_uvs(uv_set_ids, False, toplvl=toplvl)
 
             return True
@@ -814,7 +822,7 @@ class TexProjector(TopLevelObject):
                 old_toplvl = old_target_data["toplvl"]
                 new_toplvl = new_target_data["toplvl"]
                 show_poly_sel = new_target_data["show_poly_sel"]
-                target = model.get_geom_object().get_geom_data_object()
+                target = model.geom_obj.geom_data_obj
 
                 if old_uv_set_ids:
                     target.project_uvs(old_uv_set_ids, False, toplvl=old_toplvl)
@@ -849,8 +857,7 @@ class TexProjector(TopLevelObject):
             if restore:
                 task = lambda: restore_on(value)
                 task_id = "update_texproj"
-                PendingTasks.add(task, task_id, "object",
-                                 id_prefix="on_{}".format(self.get_id()))
+                PendingTasks.add(task, task_id, "object", id_prefix=f"on_{self.id}")
             elif self.set_on(value):
                 update_app()
                 return True
@@ -882,8 +889,7 @@ class TexProjector(TopLevelObject):
             if restore:
                 task = lambda: restore_proj_targets(value)
                 task_id = "update_texproj"
-                PendingTasks.add(task, task_id, "object",
-                                 id_prefix="targets_{}".format(self.get_id()))
+                PendingTasks.add(task, task_id, "object", id_prefix=f"targets_{self.id}")
             elif self.set_projection_targets(value):
                 update_app()
                 return True
@@ -907,10 +913,9 @@ class TexProjector(TopLevelObject):
         elif prop_id == "projection_type":
             return self._projection_type
         elif prop_id == "targets":
-            targets = dict((k, v.copy()) for k, v in self._targets.items())
+            targets = {k: v.copy() for k, v in self._targets.items()}
             if for_remote_update:
-                target_names = dict((k, Mgr.get("model", k).get_name())
-                                    for k in targets)
+                target_names = {k: Mgr.get("model", k).name for k in targets}
                 targets = (targets, target_names)
             return targets
 
@@ -927,20 +932,20 @@ class TexProjector(TopLevelObject):
     def add_target(self, target_id):
 
         uv_set_ids = (0,)
-        targets = dict((k, v.copy()) for k, v in self._targets.items())
+        targets = {k: v.copy() for k, v in self._targets.items()}
         targets[target_id] = {"uv_set_ids": uv_set_ids,
                               "toplvl": True, "show_poly_sel": True}
 
         if self._is_on:
-            target = Mgr.get("model", target_id).get_geom_object().get_geom_data_object()
+            target = Mgr.get("model", target_id).geom_obj.geom_data_obj
             target.project_uvs(uv_set_ids, projector=self._lens_np, toplvl=True)
 
-        Mgr.update_locally("texproj_prop", "targets", targets, self.get_id(), True,
+        Mgr.update_locally("texproj_prop", "targets", targets, self.id, True,
                            target_id, "add")
 
     def remove_target(self, target_id, add_to_hist=True):
 
-        targets = dict((k, v.copy()) for k, v in self._targets.items())
+        targets = {k: v.copy() for k, v in self._targets.items()}
 
         if self._is_on and self.is_selected():
 
@@ -950,11 +955,11 @@ class TexProjector(TopLevelObject):
                 target_data = targets[target_id]
                 uv_set_ids = target_data["uv_set_ids"]
                 toplvl = target_data["toplvl"]
-                target = model.get_geom_object().get_geom_data_object()
+                target = model.geom_obj.geom_data_obj
                 target.project_uvs(uv_set_ids, False, toplvl=toplvl)
 
         del targets[target_id]
-        Mgr.update_locally("texproj_prop", "targets", targets, self.get_id(),
+        Mgr.update_locally("texproj_prop", "targets", targets, self.id,
                            add_to_hist, target_id, "remove")
 
     def apply_uvs(self):
@@ -964,7 +969,7 @@ class TexProjector(TopLevelObject):
 
         obj_root = Mgr.get("object_root")
         screen = ProjectionScreen()
-        screen_np = self.world.attach_new_node(screen)
+        screen_np = GD.world.attach_new_node(screen)
         screen.set_projector(self._lens_np)
         uv_set_ids = set()
         geoms = {}
@@ -972,9 +977,9 @@ class TexProjector(TopLevelObject):
 
         for target_id, target_data in targets.items():
             uv_set_ids.update(target_data["uv_set_ids"])
-            target = Mgr.get("model", target_id).get_geom_object().get_geom_data_object()
-            origin = target.get_origin()
-            geom = target.get_toplevel_geom().copy_to(origin)
+            target = Mgr.get("model", target_id).geom_obj.geom_data_obj
+            origin = target.origin
+            geom = target.toplevel_geom.copy_to(origin)
             geom.wrt_reparent_to(screen_np)
             geoms[target_id] = geom
 
@@ -990,7 +995,7 @@ class TexProjector(TopLevelObject):
             vertex_data = geom.node().get_geom(0).get_vertex_data()
             uv_set_ids = target_data["uv_set_ids"]
             toplvl = target_data["toplvl"]
-            target = Mgr.get("model", target_id).get_geom_object().get_geom_data_object()
+            target = Mgr.get("model", target_id).geom_obj.geom_data_obj
             target.project_uvs(uv_set_ids, False, toplvl=toplvl)
             target.apply_uv_projection(vertex_data, uv_set_ids, toplvl)
 
@@ -1004,21 +1009,20 @@ class TexProjector(TopLevelObject):
 
         for target_id in targets:
             obj = Mgr.get("model", target_id)
-            names.append(obj.get_name())
-            target = obj.get_geom_object().get_geom_data_object()
+            names.append(obj.name)
+            target = obj.geom_obj.geom_data_obj
             obj_data[target_id] = target.get_data_to_store("prop_change", "uvs")
 
         if len(targets) > 1:
-            event_descr = 'Apply projected UVs to "{}" targets:\n'.format(self.get_name())
-            event_descr += "".join(['\n    "{}"'.format(name) for name in names])
+            event_descr = f'Apply projected UVs to "{self.name}" targets:\n'
+            event_descr += "".join([f'\n    "{name}"' for name in names])
         else:
-            event_descr = 'Apply projected UVs to "{}" target:\n    "{}"'.format(
-                self.get_name(), names[0])
+            event_descr = f'Apply projected UVs to "{self.name}" target:\n    "{names[0]}"'
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-        Mgr.update_locally("texproj_prop", "on", False, self.get_id())
+        Mgr.update_locally("texproj_prop", "on", False, self.id)
 
     def update_selection_state(self, is_selected=True):
 
@@ -1042,7 +1046,7 @@ class TexProjector(TopLevelObject):
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
                     show_poly_sel = target_data["show_poly_sel"]
-                    target = model.get_geom_object().get_geom_data_object()
+                    target = model.geom_obj.geom_data_obj
                     target.project_uvs(uv_set_ids, projector=self._lens_np, toplvl=toplvl,
                                        show_poly_sel=show_poly_sel)
 
@@ -1055,16 +1059,16 @@ class TexProjector(TopLevelObject):
                 if model:
                     uv_set_ids = target_data["uv_set_ids"]
                     toplvl = target_data["toplvl"]
-                    target = model.get_geom_object().get_geom_data_object()
+                    target = model.geom_obj.geom_data_obj
                     target.project_uvs(uv_set_ids, False, toplvl=toplvl)
 
     def show(self, *args, **kwargs):
 
-        self.get_origin().show(*args, **kwargs)
+        self.origin.show(*args, **kwargs)
 
     def hide(self, *args, **kwargs):
 
-        self.get_origin().hide(*args, **kwargs)
+        self.origin.hide(*args, **kwargs)
 
     def display_link_effect(self):
         """
@@ -1169,23 +1173,23 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
              lambda: Mgr.exit_state("texprojtarget_picking_mode"))
         bind("texprojtarget_picking_mode", "cancel texproj target picking", "mouse3",
              lambda: Mgr.exit_state("texprojtarget_picking_mode"))
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("texprojtarget_picking_mode", "texproj ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("texprojtarget_picking_mode", "texproj ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Pick projector target"
         info_text = "LMB to pick object; RMB to end"
         status_data["pick_texproj_target"] = {"mode": mode_text, "info": info_text}
 
         return True
 
-    def __enter_picking_mode(self, prev_state_id, is_active):
+    def __enter_picking_mode(self, prev_state_id, active):
 
         Mgr.add_task(self.__update_cursor, "update_tpt_picking_cursor")
         Mgr.update_app("status", ["pick_texproj_target"])
 
-    def __exit_picking_mode(self, next_state_id, is_active):
+    def __exit_picking_mode(self, next_state_id, active):
 
         self._pixel_under_mouse = None  # force an update of the cursor
                                         # next time self.__update_cursor()
@@ -1197,16 +1201,16 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
         target = Mgr.get("object", pixel_color=self._pixel_under_mouse)
 
-        if target and target.get_type() == "model" and target.get_geom_type() != "basic_geom":
+        if target and target.type == "model" and target.geom_type != "basic_geom":
 
             projectors = [obj for obj in Mgr.get("selection_top")
-                          if obj.get_type() == "tex_projector"]
+                          if obj.type == "tex_projector"]
 
             if len(projectors) == 1:
                 projector = projectors[0]
-                target_id = target.get_id()
+                target_id = target.id
                 projector.add_target(target_id)
-                self.__register_projection_targets([target_id], projector.get_id())
+                self.__register_projection_targets([target_id], projector.id)
 
     def __update_cursor(self, task):
 
@@ -1221,7 +1225,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
     def __apply_uvs(self):
 
         projectors = [obj for obj in Mgr.get("selection_top")
-                      if obj.get_type() == "tex_projector"]
+                      if obj.type == "tex_projector"]
 
         if len(projectors) == 1:
             projectors[0].apply_uvs()
@@ -1301,17 +1305,16 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         # Create the plane parallel to the camera and going through the projector
         # origin, used to determine the size drawn by the user.
 
-        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, origin_pos)
+        normal = GD.world.get_relative_vector(GD.cam(), Vec3.forward())
+        point = GD.world.get_relative_point(Mgr.get("grid").origin, origin_pos)
         self._draw_plane = Plane(normal, point)
 
     def __creation_phase1(self):
         """ Draw out texture projector """
 
         end_point = None
-        grid_origin = Mgr.get(("grid", "origin"))
-        snap_settings = GlobalData["snap"]
+        grid_origin = Mgr.get("grid").origin
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
@@ -1320,15 +1323,15 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
         if end_point is None:
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
-            cam = self.cam()
+            screen_pos = GD.mouse_watcher.get_mouse()
+            cam = GD.cam()
             near_point = Point3()
             far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: GD.world.get_relative_point(cam, point)
             near_point = rel_pt(near_point)
             far_point = rel_pt(far_point)
             end_point = Point3()
@@ -1336,9 +1339,9 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
         else:
 
-            end_point = self.world.get_relative_point(grid_origin, end_point)
+            end_point = GD.world.get_relative_point(grid_origin, end_point)
 
-        start_point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        start_point = GD.world.get_relative_point(grid_origin, self.get_origin_pos())
         size = (end_point - start_point).length()
 
         if snap_on and snap_tgt_type == "increment":
@@ -1371,51 +1374,51 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         obj_data = {}
 
         for obj in changed_objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", prop_id)
+            obj_data[obj.id] = obj.get_data_to_store("prop_change", prop_id)
 
         if prop_id == "on":
 
             if len(changed_objs) == 1:
                 obj = changed_objs[0]
-                event_descr = 'Turn {} "{}"'.format("on" if value else "off", obj.get_name())
+                event_descr = f'Turn {"on" if value else "off"} "{obj.name}"'
             else:
-                event_descr = 'Turn {} texture projectors:\n'.format("on" if value else "off")
-                event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
+                event_descr = f'Turn {"on" if value else "off"} texture projectors:\n'
+                event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
 
         elif prop_id == "targets":
 
             model = Mgr.get("model", target_id)
-            target_name = model.get_name() if model else ""
+            target_name = model.name if model else ""
 
             if target_id in value:
                 target_data = value[target_id]
 
             if target_prop == "add":
-                event_descr = 'Add projection target to "{}":\n'.format(obj.get_name())
-                event_descr += '\n    "{}"'.format(target_name)
+                event_descr = f'Add projection target to "{obj.name}":\n'
+                event_descr += f'\n    "{target_name}"'
             elif target_prop == "remove":
                 if target_name:
-                    event_descr = 'Remove projection target from "{}":\n'.format(obj.get_name())
-                    event_descr += '\n    "{}"'.format(target_name)
+                    event_descr = f'Remove projection target from "{obj.name}":\n'
+                    event_descr += f'\n    "{target_name}"'
                 else:
-                    event_descr = 'Remove deleted projection target from "{}"'.format(obj.get_name())
+                    event_descr = f'Remove deleted projection target from "{obj.name}"'
             elif target_prop == "clear":
-                event_descr = 'Clear projection targets from "{}"'.format(obj.get_name())
+                event_descr = f'Clear projection targets from "{obj.name}"'
             elif target_prop == "use_poly_sel":
-                event_descr = 'Change projection property of "{}"'.format(obj.get_name())
-                event_descr += '\nfor target "{}":\n'.format(target_name)
-                event_descr += "\n    project onto {}".format("entire target"
-                    if target_data["toplvl"] else "selected polys only")
+                event_descr = f'Change projection property of "{obj.name}"'
+                event_descr += f'\nfor target "{target_name}":\n'
+                target_descr = "entire target" if target_data["toplvl"] else "selected polys only"
+                event_descr += f"\n    project onto {target_descr}"
             elif target_prop == "show_poly_sel":
-                event_descr = 'Change projection property of "{}"'.format(obj.get_name())
-                event_descr += '\nfor target "{}":\n'.format(target_name)
-                event_descr += "\n    {} selection state of affected polys".format("show"
-                    if target_data["show_poly_sel"] else "hide")
+                event_descr = f'Change projection property of "{obj.name}"'
+                event_descr += f'\nfor target "{target_name}":\n'
+                show_or_hide = "show" if target_data["show_poly_sel"] else "hide"
+                event_descr += f'\n    {show_or_hide} selection state of affected polys'
             elif target_prop == "uv_set_ids":
                 uv_set_id_str = str(target_data["uv_set_ids"]).strip("(),")
-                event_descr = 'Change projection property of "{}"'.format(obj.get_name())
-                event_descr += '\nfor target "{}":\n'.format(target_name)
-                event_descr += "\n    affect UV sets: {}".format(uv_set_id_str)
+                event_descr = f'Change projection property of "{obj.name}"'
+                event_descr += f'\nfor target "{target_name}":\n'
+                event_descr += f"\n    affect UV sets: {uv_set_id_str}"
 
         else:
 
@@ -1434,11 +1437,11 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
             if len(changed_objs) == 1:
                 obj = changed_objs[0]
-                event_descr = 'Change {} of "{}"\nto {}'.format(prop_descr, obj.get_name(), value)
+                event_descr = f'Change {prop_descr} of "{obj.name}"\nto {value}'
             else:
-                event_descr = 'Change {} of texture projectors:\n'.format(prop_descr)
-                event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
-                event_descr += '\n\nto {}'.format(value)
+                event_descr = f'Change {prop_descr} of texture projectors:\n'
+                event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
+                event_descr += f'\n\nto {value}'
 
         event_data = {"objects": obj_data}
 

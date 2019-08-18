@@ -60,24 +60,24 @@ class SnapAlignToolbar(SnapToolbar):
 
         SnapToolbar.setup(self)
 
-        def enter_picking_mode(prev_state_id, is_active):
+        def enter_picking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
 
-            if not is_active and GlobalData["active_obj_level"] != "top":
+            if not active and GD["active_obj_level"] != "top":
                 Mgr.do("enable_selection_dialog")
 
-        def exit_picking_mode(next_state_id, is_active):
+        def exit_picking_mode(next_state_id, active):
 
-            if not is_active and GlobalData["active_obj_level"] != "top":
+            if not active and GD["active_obj_level"] != "top":
                 Mgr.do("disable_selection_dialog")
 
-        def enter_align_mode(prev_state_id, is_active):
+        def enter_align_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
             Mgr.do("enable_gui", False)
 
-        def exit_align_mode(next_state_id, is_active):
+        def exit_align_mode(next_state_id, active):
 
             Mgr.do("enable_gui")
 
@@ -127,16 +127,16 @@ class AlignmentDialog(Dialog):
         if target_type == "view":
             title = 'Align to current view'
         elif "obj" in target_type:
-            title = 'Align to object ("{}")'.format(obj_name)
+            title = f'Align to object ("{obj_name}")'
         else:
-            title = 'Align to surface ("{}")'.format(obj_name)
+            title = f'Align to surface ("{obj_name}")'
 
         on_cancel = lambda: Mgr.update_remotely("object_alignment", "cancel")
 
         Dialog.__init__(self, title, "okcancel", "Align", self.__on_yes, on_cancel=on_cancel)
 
-        obj_lvl = GlobalData["active_obj_level"]
-        xform_target_type = GlobalData["transform_target_type"]
+        obj_lvl = GD["active_obj_level"]
+        xform_target_type = GD["transform_target_type"]
         sel_point_type = "pivot" if xform_target_type == "pivot" else "center"
         align = True if obj_lvl == "normal" or target_type == "obj_axis_point" else False
         tgt_axis = "z" if obj_lvl == "normal" and target_type in ("view", "object") else "y"
@@ -231,7 +231,7 @@ class AlignmentDialog(Dialog):
                 radio_btns.set_button_command("z", get_command("z"))
             else:
                 for axis_id in "xyz":
-                    radio_btns.add_button(axis_id, "{}-axis".format(axis_id.upper()))
+                    radio_btns.add_button(axis_id, f"{axis_id.upper()}-axis")
                     radio_btns.set_button_command(axis_id, get_command(axis_id))
 
             radio_btns.set_selected_button("y" if target_type == "obj_axis_point" else "z")
@@ -307,7 +307,7 @@ class AlignmentDialog(Dialog):
 
         elif target_type == "obj_axis_point":
 
-            group_title = "Aim {} at point".format("normals" if obj_lvl == "normal" else "local axis")
+            group_title = f'Aim {"normals" if obj_lvl == "normal" else "local axis"} at point'
             group = create_axis_align_group(group_title, False)
 
             if obj_lvl != "normal":
@@ -351,17 +351,17 @@ class AlignmentDialog(Dialog):
                         else:
                             axis3_id = other_axis_ids
                         self._axis_toggle_btns.get_button(axis3_id).enable(False)
-                        checkbtn = checkbtns["{}_axis".format(axis3_id)]
+                        checkbtn = checkbtns[f"{axis3_id}_axis"]
                         checkbtn.enable(False)
                         checkbtn.set_checkmark_color((.5, .5, .5, 1.))
                         checkbtn.check()
                         for axis_id in (self._sel_obj_axis, axis2_id):
-                            checkbtns["{}_axis".format(axis_id)].check()
+                            checkbtns[f"{axis_id}_axis"].check()
                             axis_options[axis_id]["align"] = True
                     else:
                         for axis_id in "xyz":
                             self._axis_toggle_btns.get_button(axis_id).enable()
-                            checkbtn = checkbtns["{}_axis".format(axis_id)]
+                            checkbtn = checkbtns[f"{axis_id}_axis"]
                             checkbtn.enable()
                             checkbtn.set_checkmark_color()
                             checkbtn.check(False)
@@ -391,14 +391,14 @@ class AlignmentDialog(Dialog):
 
                         if axis_count == 2:
                             axis3_id = "xyz".replace(axes_aligned[0], "").replace(axes_aligned[1], "")
-                            checkbtn = checkbtns["{}_axis".format(axis3_id)]
+                            checkbtn = checkbtns[f"{axis3_id}_axis"]
                             checkbtn.enable()
                             checkbtn.set_checkmark_color()
                             checkbtn.check(False)
                             self._axis_toggle_btns.get_button(axis3_id).enable()
                         elif axis_count == 1 and align:
                             axis3_id = "xyz".replace(axis_id, "").replace(axes_aligned[0], "")
-                            checkbtn = checkbtns["{}_axis".format(axis3_id)]
+                            checkbtn = checkbtns[f"{axis3_id}_axis"]
                             checkbtn.enable(False)
                             checkbtn.set_checkmark_color((.5, .5, .5, 1.))
                             checkbtn.check()
@@ -446,9 +446,9 @@ class AlignmentDialog(Dialog):
                 for axis_id in "xyz":
                     checkbtn = DialogCheckButton(group, get_checkbox_command(axis_id))
                     subsizer.add(checkbtn, alignment="center_v")
-                    checkbtns["{}_axis".format(axis_id)] = checkbtn
+                    checkbtns[f"{axis_id}_axis"] = checkbtn
                     text = axis_id.upper()
-                    tooltip_text = "Selected obj. {}-axis".format(axis_id.upper())
+                    tooltip_text = f"Selected obj. {axis_id.upper()}-axis"
                     btn = DialogButton(group, text, "", tooltip_text)
                     toggle = (get_btn_command(axis_id), lambda: None)
                     toggle_btns.add_button(btn, axis_id, toggle)
@@ -486,7 +486,7 @@ class AlignmentDialog(Dialog):
             else:
                 text = "s" if obj_lvl == "top" else " to point"
 
-            title = "Align {}{}".format("point" if obj_lvl == "top" else "center", text)
+            title = f'Align {"point" if obj_lvl == "top" else "center"}{text}'
             group = DialogWidgetGroup(self, title)
             borders = (20, 20, 0, 10)
             client_sizer.add(group, expand=True, borders=borders)
@@ -501,7 +501,7 @@ class AlignmentDialog(Dialog):
                     axis_ids = "xy" if target_type == "view" else "xyz"
 
                     for axis_id in axis_ids:
-                        checkbtns["{}_coord".format(axis_id)].check(align)
+                        checkbtns[f"{axis_id}_coord"].check(align)
                         point_options[axis_id]["align"] = align
 
                     if self._preview:
@@ -560,7 +560,7 @@ class AlignmentDialog(Dialog):
                 for axis_id in ("xy" if target_type == "view" else "xyz"):
                     checkbtn = DialogCheckButton(group, get_checkbox_command(axis_id))
                     subsizer.add(checkbtn, alignment="center_v")
-                    checkbtns["{}_coord".format(axis_id)] = checkbtn
+                    checkbtns[f"{axis_id}_coord"] = checkbtn
                     text = axis_id.upper()
                     tooltip_text = tooltip_str.format(axis_id.upper())
                     btn = DialogButton(group, text, "", tooltip_text)
@@ -573,7 +573,7 @@ class AlignmentDialog(Dialog):
 
             else:
 
-                text_str = "Along the {} axes:".format("view" if target_type == "view" else "ref. coord.")
+                text_str = f'Along the {"view" if target_type == "view" else "ref. coord."} axes:'
                 text = DialogText(group, text_str)
                 borders = (5, 0, 5, 0)
                 group.add(text, borders=borders)
@@ -587,7 +587,7 @@ class AlignmentDialog(Dialog):
                     text = axis_id.upper()
                     checkbtn = DialogCheckButton(group, get_checkbox_command(axis_id), text)
                     subsizer.add(checkbtn, borders=borders)
-                    checkbtns["{}_coord".format(axis_id)] = checkbtn
+                    checkbtns[f"{axis_id}_coord"] = checkbtn
                     subsizer.add((0, 0), proportion=1.)
 
             subgroup_sizer = Sizer("horizontal")
@@ -649,7 +649,7 @@ class AlignmentDialog(Dialog):
                         Mgr.update_remotely("object_alignment", "", self._options)
 
                 s = "view" if target_type == "view" else "ref."
-                text = "Local min./max. (ignore {} coord. sys.)".format(s)
+                text = f"Local min./max. (ignore {s} coord. sys.)"
                 checkbtn = DialogCheckButton(group, command, text)
                 borders = (5, 0, 0, 0)
                 group.add(checkbtn, borders=borders)

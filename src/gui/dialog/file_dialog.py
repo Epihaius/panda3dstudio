@@ -13,7 +13,7 @@ def get_incremented_filename(filename, namestring):
     min_index = 1
     pattern = r"(.*?)(\s*)(\d*)$"
     basename, space, index_str = re.search(pattern, filename).groups()
-    search_pattern = r"^{}\s*(\d+)$".format(re.escape(basename))
+    search_pattern = fr"^{re.escape(basename)}\s*(\d+)$"
 
     if index_str:
         min_index = int(index_str)
@@ -73,13 +73,13 @@ class FileButton(Button):
     @classmethod
     def __check_candidate_filebutton(cls, task):
 
-        if cls._clock.get_real_time() > .5:
+        if cls._clock.real_time > .5:
 
             if cls.selected_btn:
-                cls.selected_btn.set_active(False)
+                cls.selected_btn.active = False
 
             cls.selected_btn = cls._candidate_btn
-            cls.selected_btn.set_active()
+            cls.selected_btn.active = True
             cls.__set_candidate_button(None)
 
         return task.cont
@@ -102,10 +102,10 @@ class FileButton(Button):
     def set_selected_filebutton(cls, button):
 
         if cls.selected_btn:
-            cls.selected_btn.set_active(False)
+            cls.selected_btn.active = False
 
         if button:
-            button.set_active()
+            button.active = True
 
         cls.selected_btn = button
         cls.__set_candidate_button(None)
@@ -128,10 +128,10 @@ class FileButton(Button):
         Button.__init__(self, parent, self._gfx, filename, command=command,
                         text_alignment="left", button_type="file_button")
 
-        self.set_widget_type("file_button")
+        self.widget_type = "file_button"
 
-        self.get_node().reparent_to(parent.get_widget_root_node())
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.node.reparent_to(parent.get_widget_root_node())
+        self.mouse_region.sort = parent.sort + 1
         self._filename = filename
         self._on_select = on_select if on_select else lambda filename: None
         self._is_dir = is_dir
@@ -164,7 +164,7 @@ class FileButton(Button):
         image = Button.get_image(self, state, composed)
 
         if self._is_name_field_shown:
-            field = self.get_parent().get_filename_field()
+            field = self.parent.get_filename_field()
             field_img = field.get_image()
             image.copy_sub_image(field_img, 0, 0, 0, 0)
 
@@ -182,7 +182,7 @@ class FileButton(Button):
         if self._is_name_field_shown == show:
             return
 
-        field = self.get_parent().get_filename_field()
+        field = self.parent.get_filename_field()
 
         if show:
 
@@ -190,17 +190,17 @@ class FileButton(Button):
                 self.set_selected_filebutton(self)
 
             file_type = "folder" if self._is_dir else "file"
-            open_file = GlobalData["open_file"]
+            open_file = GD["open_file"]
 
             if open_file:
 
-                current_dir = self.get_parent().get_directory()
+                current_dir = self.parent.get_directory()
                 path = join(current_dir, self._filename)
 
                 if file_type == "file" and path == open_file:
                     MessageDialog(title="Cannot rename file",
-                                  message="The file is open in this application," \
-                                          + "\nso it cannot be renamed.",
+                                  message="The file is open in this application,"
+                                          "\nso it cannot be renamed.",
                                   choices="ok",
                                   icon_id="icon_exclamation")
                     return
@@ -238,28 +238,28 @@ class FileButton(Button):
 
         def command():
 
-            if self.get_parent().remove_file(self):
+            if self.parent.remove_file(self):
                 self.set_selected_filebutton(None)
 
         file_type = "folder" if self._is_dir else "file"
-        open_file = GlobalData["open_file"]
+        open_file = GD["open_file"]
 
         if open_file:
 
-            current_dir = self.get_parent().get_directory()
+            current_dir = self.parent.get_directory()
             path = join(current_dir, self._filename)
 
             if file_type == "file" and path == open_file:
                 MessageDialog(title="Cannot delete file",
-                              message="The file is open in this application," \
-                                      + "\nso it cannot be deleted.",
+                              message="The file is open in this application,"
+                                      "\nso it cannot be deleted.",
                               choices="ok",
                               icon_id="icon_exclamation")
                 return
 
-        MessageDialog(title="Confirm delete {}".format(file_type),
-                      message="You have chosen to PERMANENTLY delete this {}!".format(file_type) \
-                              + "\n\nAre you sure?",
+        MessageDialog(title=f"Confirm delete {file_type}",
+                      message=f"You have chosen to PERMANENTLY delete this {file_type}!"
+                              "\n\nAre you sure?",
                       choices="yesno", on_yes=command,
                       icon_id="icon_exclamation")
 
@@ -296,9 +296,9 @@ class FileButton(Button):
 
         self._popup_menu.show_at_mouse_pos()
 
-    def set_active(self, is_active=True):
+    def set_active(self, active):
 
-        if Button.set_active(self, is_active) and is_active:
+        if Button.set_active(self, active) and active:
             self._on_select(self._filename)
 
 
@@ -395,9 +395,9 @@ class FilePane(DialogScrollPane):
 
         self._btns = []
 
-        def handler(value_id, value, state):
+        def handler(value_id, value, state="done"):
 
-            if not self._filename_field.get_parent().is_directory():
+            if not self._filename_field.parent.is_directory():
                 file_selection_handler(value)
 
         field = FileButtonInputField(handler, 1, dialog)
@@ -448,7 +448,7 @@ class FilePane(DialogScrollPane):
         filenames = []
 
         for ext in self._extensions.split(";"):
-            pattern = "*" if ext == "*" else "*.{}".format(ext)
+            pattern = "*" if ext == "*" else f"*.{ext}"
             names = glob(Filename(join(directory_path, pattern)).to_os_specific_w())
             filenames.extend(Filename.from_os_specific_w(name).get_basename() for name in names
                              if not Filename(name).is_directory())
@@ -526,7 +526,7 @@ class FilePane(DialogScrollPane):
 
         try:
             if filename.lower() != old_name.lower() and os.path.exists(new_path):
-                MessageDialog(title="Rename {}".format(file_type),
+                MessageDialog(title=f"Rename {file_type}",
                               message="File or folder with that name already exists!",
                               choices="ok",
                               icon_id="icon_exclamation")
@@ -534,8 +534,8 @@ class FilePane(DialogScrollPane):
             else:
                 os.rename(old_path, new_path)
         except:
-            MessageDialog(title="Rename {}".format(file_type),
-                          message="Could not rename {}!".format(file_type),
+            MessageDialog(title=f"Rename {file_type}",
+                          message=f"Could not rename {file_type}!",
                           choices="ok",
                           icon_id="icon_exclamation")
             return
@@ -560,8 +560,8 @@ class FilePane(DialogScrollPane):
         try:
             command(path)
         except:
-            MessageDialog(title="Delete {}".format(file_type),
-                          message="Could not delete {}!".format(file_type),
+            MessageDialog(title=f"Delete {file_type}",
+                          message=f"Could not delete {file_type}!",
                           choices="ok",
                           icon_id="icon_exclamation")
             return False
@@ -593,7 +593,7 @@ class FilePane(DialogScrollPane):
         dirlist = self._file_sys.scan_directory(self._current_path)
 
         if dirlist:
-            names = ("_{}".format(name[10:])
+            names = (f"_{name[10:]}"
                 for name in (item.get_filename().get_basename() for item in dirlist)
                 if name.lower().startswith("new folder"))
             dir_name = get_unique_name("_", names)
@@ -716,8 +716,8 @@ class FileDialog(Dialog):
                 if not Filename(path).exists():
                     command = lambda: self.__remove_dir_path(item_id, path)
                     MessageDialog(title="Invalid folder",
-                                  message="The chosen folder does not exist." \
-                                  + "\n\nDo you want to remove it from the list?",
+                                  message="The chosen folder does not exist."
+                                          "\n\nDo you want to remove it from the list?",
                                   choices="yesno", on_yes=command,
                                   icon_id="icon_exclamation")
                     return
@@ -730,12 +730,12 @@ class FileDialog(Dialog):
                     up_btn.enable(False)
                 else:
                     up_btn.enable()
-                    tooltip_text = 'Up to "{}"'.format(Filename(path_up).to_os_specific())
+                    tooltip_text = f'Up to "{Filename(path_up).to_os_specific()}"'
                     up_btn.set_tooltip_text(tooltip_text)
 
         dir_combobox.add_item("cwd", cwd.to_os_specific(),
             lambda: set_path("cwd", cwd.get_fullpath()), persistent=True)
-        recent_dirs = GlobalData["config"]["recent_dirs"]
+        recent_dirs = GD["config"]["recent_dirs"]
         self._recent_dirs.extend(recent_dirs)
         get_command = lambda item_id, path: lambda: set_path(item_id, path)
 
@@ -756,7 +756,7 @@ class FileDialog(Dialog):
                                    command=pane.create_subdirectory)
         self._new_dir_btn = new_btn
         dir_sizer.add(new_btn, borders=borders, alignment="center_v")
-        frame = pane.get_frame()
+        frame = pane.frame
         borders = (50, 50, 0, 20)
         client_sizer.add(frame, borders=borders, proportion=1., expand=True)
         file_sizer = Sizer("horizontal")
@@ -783,7 +783,7 @@ class FileDialog(Dialog):
         for i, type_data in enumerate(file_types):
             type_descr, extensions = type_data.split("|")
             item_id = str(i)
-            item_text = "{} ({})".format(type_descr, ";".join("*.{}".format(ext) for ext in extensions.split(";")))
+            item_text = f'{type_descr} ({";".join(f"*.{ext}" for ext in extensions.split(";"))})'
             get_command = lambda item_id, extensions: lambda: set_extensions(item_id, extensions)
             type_combobox.add_item(item_id, item_text, get_command(item_id, extensions))
 
@@ -833,7 +833,7 @@ class FileDialog(Dialog):
 
         def add_recent_directory():
 
-            config_data = GlobalData["config"]
+            config_data = GD["config"]
             recent_dirs = config_data["recent_dirs"]
             path = self._current_path
 
@@ -903,7 +903,7 @@ class FileDialog(Dialog):
             up_btn.enable(False)
         else:
             up_btn.enable()
-            tooltip_text = 'Up to "{}"'.format(Filename(path_up).to_os_specific())
+            tooltip_text = f'Up to "{Filename(path_up).to_os_specific()}"'
             up_btn.set_tooltip_text(tooltip_text)
 
     def set_filename(self, filename):
@@ -954,7 +954,7 @@ class FileDialog(Dialog):
 
     def __remove_dir_path(self, item_id, dir_path):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         recent_dirs = config_data["recent_dirs"]
         recent_dirs.remove(dir_path)
 

@@ -5,28 +5,28 @@ class Text(Widget):
 
     def __init__(self, parent, font, color, text):
 
-        self._type = "widget"
-        self._widget_type = "text"
+        self.type = "widget"
+        self.widget_type = "text"
         self._parent = parent
         self._font = font
         self._color = color
         self._text = text
-        self._node = parent.get_node().attach_new_node("text_widget")
+        self.node = parent.node.attach_new_node("text_widget")
         self._image_offset = (0, 0)
 
         self._image = img = self.__create_image(text)
-        self._size = self._min_size = (img.get_x_size(), img.get_y_size())
+        self._size = self._min_size = (w, h) = img.size
         self._sizer = None
         self._sizer_item = None
         self._stretch_dir = ""
-        self._mouse_region = None
+        self.mouse_region = None
         self._is_hidden = False
 
     def destroy(self):
 
-        if self._node:
-            self._node.remove_node()
-            self._node = None
+        if self.node:
+            self.node.remove_node()
+            self.node = None
 
         self._parent = None
         self._sizer = None
@@ -49,7 +49,7 @@ class Text(Widget):
         self._text = text
 
         self._image = img = self.__create_image(text)
-        self._size = self._min_size = (img.get_x_size(), img.get_y_size())
+        self._size = self._min_size = (w, h) = img.size
 
         return True
 
@@ -63,7 +63,7 @@ class Text(Widget):
 
         if update:
             self._image = img = self.__create_image(self._text)
-            self._size = self._min_size = (img.get_x_size(), img.get_y_size())
+            self._size = self._min_size = (w, h) = img.size
 
     def get_font(self):
 
@@ -75,7 +75,7 @@ class Text(Widget):
 
         if update:
             self._image = img = self.__create_image(self._text)
-            self._size = self._min_size = (img.get_x_size(), img.get_y_size())
+            self._size = self._min_size = (w, h) = img.size
 
     def get_color(self):
 
@@ -108,34 +108,34 @@ class Label(Widget):
     def __init__(self, parent, font, text_color, back_color, edge_color, text,
                  text_borders=None, edge_borders=None, stretch_dir=""):
 
-        self._type = "widget"
-        self._widget_type = "label"
+        self.type = "widget"
+        self.widget_type = "label"
         self._parent = parent
         self._font = font
         self._text_color = text_color
         self._back_color = back_color
         self._edge_color = edge_color
         self._text = text
-        self._node = parent.get_node().attach_new_node("label_widget")
+        self.node = parent.node.attach_new_node("label_widget")
         self._size = self._min_size = (0, 0)
         self._image_offset = (0, 0)
         self._text_borders = text_borders if text_borders else (0, 0, 0, 0)
         self._edge_borders = edge_borders if edge_borders else (0, 0, 0, 0)
 
         self._image = img = self.__create_image(text)
-        self._size = self._min_size = (img.get_x_size(), img.get_y_size())
+        self._size = self._min_size = (w, h) = img.size
         self._sizer = None
         self._sizer_item = None
         self._stretch_dir = stretch_dir
 
-        self._mouse_region = None
+        self.mouse_region = None
         self._is_hidden = False
 
     def destroy(self):
 
-        if self._node:
-            self._node.remove_node()
-            self._node = None
+        if self.node:
+            self.node.remove_node()
+            self.node = None
 
         self._parent = None
         self._sizer = None
@@ -152,8 +152,7 @@ class Label(Widget):
         l_e, r_e, b_e, t_e = self._edge_borders
         l_t, r_t, b_t, t_t = self._text_borders
         w, h = self._size
-        w_text = img.get_x_size()
-        h_text = img.get_y_size()
+        w_text, h_text = img.size
         w = max(w, w_text + l_e + r_e + l_t + r_t)
         h = max(h, h_text + b_e + t_e + b_t + t_t)
         image = PNMImage(w, h, 4)
@@ -181,7 +180,7 @@ class Label(Widget):
         self._text = text
 
         self._image = img = self.__create_image(text)
-        self._size = self._min_size = (img.get_x_size(), img.get_y_size())
+        self._size = self._min_size = (w, h) = img.size
 
         return True
 

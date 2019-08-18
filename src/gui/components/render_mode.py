@@ -12,8 +12,8 @@ class RenderModeButtons(ToggleButtonGroup):
         render_modes = ("shaded", "wire", "shaded+wire")
         hotkeys = {"wire": [("f3", 0), "F3"], "shaded+wire": [("f4", 0), "F4"]}
 
-        btn_data = dict((mode, ("icon_render_mode_" + mode, mode.title()))
-                        for mode in render_modes[1:])
+        btn_data = {mode: ("icon_render_mode_" + mode, mode.title())
+                    for mode in render_modes[1:]}
 
         def add_toggle(render_mode):
 
@@ -68,9 +68,9 @@ class RenderModeToolbar(Toolbar):
 
         def toggle_two_sided():
 
-            if GlobalData["two_sided"]:
-                self._btn_two_sided.set_active()
+            if GD["two_sided"]:
+                self._btn_two_sided.active = True
             else:
-                self._btn_two_sided.set_active(False)
+                self._btn_two_sided.active = False
 
         Mgr.add_app_updater("two_sided", toggle_two_sided)

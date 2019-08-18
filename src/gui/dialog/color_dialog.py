@@ -23,8 +23,7 @@ class ColorSwatchGroup(Widget):
 
         self.set_image_offset(self._img_offset)
         self.set_outer_borders(self._group_borders)
-        sort = parent.get_sort() + 1
-        self.get_mouse_region().set_sort(sort)
+        self.mouse_region.sort = parent.sort + 1
 
         self._command = command
 
@@ -43,8 +42,7 @@ class ColorSwatchGroup(Widget):
             return
 
         border_img = self._border_image
-        w, h = border_img.get_x_size(), border_img.get_y_size()
-        img = PNMImage(w, h, 4)
+        img = PNMImage(*border_img.size, 4)
         offset_x, offset_y = self.get_image_offset()
         img.copy_sub_image(image, -offset_x, -offset_y, 0, 0)
         img.blend_sub_image(border_img, 0, 0, 0, 0)
@@ -66,8 +64,8 @@ class ColorSwatchGroup(Widget):
 
         w, h = self.get_size()
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = int(mouse_pointer.get_x())
-        mouse_y = int(mouse_pointer.get_y())
+        mouse_x = int(mouse_pointer.x)
+        mouse_y = int(mouse_pointer.y)
         x, y = self.get_pos(from_root=True)
         x = max(0, min(mouse_x - x, w - 1))
         y = max(0, min(mouse_y - y, h - 1))
@@ -127,18 +125,18 @@ class BasicColorGroup(ColorSwatchGroup):
             self.__create_border_image()
 
         swatches = self._swatches
-        size = (swatches.get_x_size(), swatches.get_y_size())
-        self.set_size(size, is_min=True)
+        w, h = swatches.size
+        self.set_size((w, h), is_min=True)
 
     def __create_border_image(self):
 
         swatches = self._swatches
-        w, h = swatches.get_x_size(), swatches.get_y_size()
+        w, h = swatches.size
         l, r, b, t = self._group_borders
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -157,7 +155,7 @@ class CustomColorGroup(ColorSwatchGroup):
 
         w = Skin["options"]["small_colorswatch_width"]
         h = Skin["options"]["small_colorswatch_height"]
-        colors = GlobalData["config"]["custom_colors"]
+        colors = GD["config"]["custom_colors"]
         cls._swatches = img = PNMImage(w * 6, h * 5, 4)
         img.fill(1., 1., 1.)
         img.alpha_fill(1.)
@@ -184,18 +182,18 @@ class CustomColorGroup(ColorSwatchGroup):
             self.__create_border_image()
 
         swatches = self._swatches
-        size = (swatches.get_x_size(), swatches.get_y_size())
-        self.set_size(size, is_min=True)
+        w, h = swatches.size
+        self.set_size((w, h), is_min=True)
 
     def __create_border_image(self):
 
         swatches = self._swatches
-        w, h = swatches.get_x_size(), swatches.get_y_size()
+        w, h = swatches.size
         l, r, b, t = self._group_borders
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -205,7 +203,7 @@ class CustomColorGroup(ColorSwatchGroup):
 
     def add_swatch(self, color):
 
-        config_data = GlobalData["config"]
+        config_data = GD["config"]
         colors = config_data["custom_colors"]
 
         if color in colors:
@@ -230,7 +228,7 @@ class CustomColorGroup(ColorSwatchGroup):
         image = self.get_image(composed=False)
 
         if image:
-            w, h = image.get_x_size(), image.get_y_size()
+            w, h = image.size
             x, y = self.get_image_offset()
             self.get_card().copy_sub_image(self, image, w, h, x, y)
 
@@ -330,15 +328,12 @@ class HueSatControl(WidgetCard):
 
         self.set_outer_borders(self._gradient_borders)
         gradient = self._gradient
-        w = gradient.get_x_size()
-        h = gradient.get_y_size()
+        w, h = gradient.size
         self.set_size((w, h), is_min=True)
         border_image = self._border_image
-        w_b = border_image.get_x_size()
-        h_b = border_image.get_y_size()
+        w_b, h_b = border_image.size
         marker = self._marker
-        w_m = marker.get_x_size()
-        h_m = marker.get_y_size()
+        w_m, h_m = marker.size
         offset_x, offset_y = self._img_offset
 
         # Create the texture stages
@@ -347,12 +342,12 @@ class HueSatControl(WidgetCard):
         ts1 = TextureStage("hue_sat")
         # the second texture stage should show the marker
         self._ts2 = ts2 = TextureStage("marker")
-        ts2.set_sort(1)
-        ts2.set_mode(TextureStage.M_decal)
+        ts2.sort = 1
+        ts2.mode = TextureStage.M_decal
         # the third texture stage should show the border
         ts3 = TextureStage("border")
-        ts3.set_sort(2)
-        ts3.set_mode(TextureStage.M_decal)
+        ts3.sort = 2
+        ts3.mode = TextureStage.M_decal
 
         gradient_tex = Texture("hue_sat")
         image = PNMImage(w_b, h_b, 4)
@@ -360,13 +355,13 @@ class HueSatControl(WidgetCard):
         gradient_tex.load(image)
         marker_tex = Texture("marker")
         marker_tex.load(self._marker)
-        marker_tex.set_wrap_u(SamplerState.WM_border_color)
-        marker_tex.set_wrap_v(SamplerState.WM_border_color)
-        marker_tex.set_border_color((0., 0., 0., 0.))
+        marker_tex.wrap_u = SamplerState.WM_border_color
+        marker_tex.wrap_v = SamplerState.WM_border_color
+        marker_tex.border_color = (0., 0., 0., 0.)
         border_tex = Texture("border")
         border_tex.load(border_image)
 
-        sort = parent.get_sort() + 1
+        sort = parent.sort + 1
 
         quad = self.create_quad((offset_x, w_b + offset_x, -h_b - offset_y, -offset_y))
         quad.set_bin("dialog", sort)
@@ -375,9 +370,9 @@ class HueSatControl(WidgetCard):
         quad.set_tex_scale(ts2, w_b / w_m, h_b / h_m)
         quad.set_texture(ts3, border_tex)
 
-        self._mouse_region = mouse_region = MouseWatcherRegion("hue_sat_control", 0., 0., 0., 0.)
-        mouse_region.set_sort(sort)
-        self.get_mouse_watcher().add_region(mouse_region)
+        self.mouse_region = mouse_region = MouseWatcherRegion("hue_sat_control", 0., 0., 0., 0.)
+        mouse_region.sort = sort
+        self.mouse_watcher.add_region(mouse_region)
         listener = self._listener = DirectObject()
         listener.accept("gui_region_enter", self.__on_enter)
         listener.accept("gui_region_leave", self.__on_leave)
@@ -400,12 +395,12 @@ class HueSatControl(WidgetCard):
     def __create_border_image(self):
 
         gradient = self._gradient
-        w, h = gradient.get_x_size(), gradient.get_y_size()
+        w, h = gradient.size
         l, r, b, t = self._gradient_borders
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -423,15 +418,15 @@ class HueSatControl(WidgetCard):
         r = x + w
         b = -y - h
         t = -y
-        self._mouse_region.set_frame(l, r, b, t)
+        self.mouse_region.frame = (l, r, b, t)
 
     def __set_marker_pos(self, x, y):
 
         border_img = self._border_image
         w, h = self.get_size()
-        w_b, h_b = border_img.get_x_size(), border_img.get_y_size()
+        w_b, h_b = border_img.size
         marker = self._marker
-        w_m, h_m = marker.get_x_size(), marker.get_y_size()
+        w_m, h_m = marker.size
         offset_x, offset_y = self._img_offset
         x -= offset_x
         x = .5 - (x / w_b) * w_b / w_m
@@ -443,9 +438,9 @@ class HueSatControl(WidgetCard):
 
         border_img = self._border_image
         w, h = self.get_size()
-        w_b, h_b = border_img.get_x_size(), border_img.get_y_size()
+        w_b, h_b = border_img.size
         marker = self._marker
-        w_m, h_m = marker.get_x_size(), marker.get_y_size()
+        w_m, h_m = marker.size
         offset_x, offset_y = self._img_offset
         x = int(w * hue)
         x -= offset_x
@@ -459,8 +454,8 @@ class HueSatControl(WidgetCard):
 
         w, h = self.get_size()
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = int(mouse_pointer.get_x())
-        mouse_y = int(mouse_pointer.get_y())
+        mouse_x = int(mouse_pointer.x)
+        mouse_y = int(mouse_pointer.y)
         mouse_pos = (mouse_x, mouse_y)
 
         if self._prev_mouse_pos != mouse_pos:
@@ -484,24 +479,24 @@ class HueSatControl(WidgetCard):
             w, h = self.get_size()
             mouse_pointer = Mgr.get("mouse_pointer", 0)
             x, y = self.get_pos(from_root=True)
-            x = max(0, min(int(mouse_pointer.get_x() - x), w - 1))
-            y = max(0, min(int(mouse_pointer.get_y() - y), h - 1))
+            x = max(0, min(int(mouse_pointer.x - x), w - 1))
+            y = max(0, min(int(mouse_pointer.y - y), h - 1))
             self._picking_color = False
             r, g, b = self._gradient.get_xel(x, y)
             color = (r, g, b)
             self._command(color, continuous=False, update_fields=True)
 
-            if self.get_mouse_watcher().get_over_region() != self._mouse_region:
+            if self.mouse_watcher.get_over_region() != self.mouse_region:
                 Mgr.set_cursor("main")
 
     def __on_enter(self, *args):
 
-        if args[0] == self._mouse_region:
+        if args[0] == self.mouse_region:
             Mgr.set_cursor("eyedropper")
 
     def __on_leave(self, *args):
 
-        if args[0] == self._mouse_region and not self._picking_color:
+        if args[0] == self.mouse_region and not self._picking_color:
             if Mgr.get("active_input_field") and not Menu.is_menu_shown():
                 Mgr.set_cursor("input_commit")
             else:
@@ -511,7 +506,7 @@ class HueSatControl(WidgetCard):
 
         region = Mgr.get("mouse_watcher").get_over_region()
 
-        if region == self._mouse_region:
+        if region == self.mouse_region:
             self._picking_color = True
             Mgr.add_task(self.__pick_color, "pick_color")
             self._listener.accept("gui_mouse1-up", self.__end_color_picking)
@@ -562,8 +557,8 @@ class LuminanceControl(WidgetCard):
         cls._marker = img = PNMImage(w, h, 4)
         img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
 
-        w_b = cls._border_image.get_x_size()
-        w_g = cls._gradient.get_x_size()
+        w_b = cls._border_image.size[0]
+        w_g = cls._gradient.size[0]
         offset_x = cls._img_offset[0]
         x = int(.5 * w_g)
         x -= offset_x
@@ -581,38 +576,35 @@ class LuminanceControl(WidgetCard):
 
         self.set_outer_borders(self._gradient_borders)
         gradient = self._gradient
-        w = gradient.get_x_size()
-        h = gradient.get_y_size()
+        w, h = gradient.size
         self.set_size((w, h), is_min=True)
         border_image = self._border_image
-        w_b = border_image.get_x_size()
-        h_b = border_image.get_y_size()
+        w_b, h_b = border_image.size
         marker = self._marker
-        w_m = marker.get_x_size()
-        h_m = marker.get_y_size()
+        w_m, h_m = marker.size
         offset_x, offset_y = self._img_offset
 
         # Create the texture stages
 
         # the first texture stage should show a constant color
         self._ts1 = ts1 = TextureStage("flat_color")
-        ts1.set_color((1., 0., 0., 1.))
+        ts1.color = (1., 0., 0., 1.)
         ts1.set_combine_rgb(TextureStage.CM_modulate,
                             TextureStage.CS_constant, TextureStage.CO_src_color,
                             TextureStage.CS_previous, TextureStage.CO_src_color)
         # the second texture stage should allow the constant color to show through
         # a semi-transparent gradient texture
         ts2 = TextureStage("luminance")
-        ts2.set_sort(1)
-        ts2.set_mode(TextureStage.M_decal)
+        ts2.sort = 1
+        ts2.mode = TextureStage.M_decal
         # the third texture stage should show the marker
         self._ts3 = ts3 = TextureStage("marker")
-        ts3.set_sort(2)
-        ts3.set_mode(TextureStage.M_decal)
+        ts3.sort = 2
+        ts3.mode = TextureStage.M_decal
         # the fourth texture stage should show the border
         ts4 = TextureStage("border")
-        ts4.set_sort(3)
-        ts4.set_mode(TextureStage.M_decal)
+        ts4.sort = 3
+        ts4.mode = TextureStage.M_decal
 
         gradient_tex = Texture("luminance")
         image = PNMImage(w_b, h_b, 4)
@@ -620,13 +612,13 @@ class LuminanceControl(WidgetCard):
         gradient_tex.load(image)
         marker_tex = Texture("marker")
         marker_tex.load(self._marker)
-        marker_tex.set_wrap_u(SamplerState.WM_border_color)
-        marker_tex.set_wrap_v(SamplerState.WM_border_color)
-        marker_tex.set_border_color((0., 0., 0., 0.))
+        marker_tex.wrap_u = SamplerState.WM_border_color
+        marker_tex.wrap_v = SamplerState.WM_border_color
+        marker_tex.border_color = (0., 0., 0., 0.)
         border_tex = Texture("border")
         border_tex.load(border_image)
 
-        sort = parent.get_sort() + 1
+        sort = parent.sort + 1
 
         quad = self.create_quad((offset_x, w_b + offset_x, -h_b - offset_y, -offset_y))
         quad.set_bin("dialog", sort)
@@ -636,8 +628,8 @@ class LuminanceControl(WidgetCard):
         quad.set_tex_scale(ts3, w_b / w_m, h_b / h_m)
         quad.set_texture(ts4, border_tex)
 
-        self._mouse_region = mouse_region = MouseWatcherRegion("lum_control", 0., 0., 0., 0.)
-        mouse_region.set_sort(sort)
+        self.mouse_region = mouse_region = MouseWatcherRegion("lum_control", 0., 0., 0., 0.)
+        mouse_region.sort = sort
         Mgr.get("mouse_watcher").add_region(mouse_region)
         listener = self._listener = DirectObject()
         listener.accept("gui_region_enter", self.__on_enter)
@@ -660,12 +652,12 @@ class LuminanceControl(WidgetCard):
     def __create_border_image(self):
 
         gradient = self._gradient
-        w, h = gradient.get_x_size(), gradient.get_y_size()
+        w, h = gradient.size
         l, r, b, t = self._gradient_borders
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -683,15 +675,15 @@ class LuminanceControl(WidgetCard):
         r = x + w
         b = -y - h
         t = -y
-        self._mouse_region.set_frame(l, r, b, t)
+        self.mouse_region.frame = (l, r, b, t)
 
     def set_luminance(self, luminance):
 
         border_img = self._border_image
         h = self.get_size()[1]
-        h_b = border_img.get_y_size()
+        h_b = border_img.size[1]
         marker = self._marker
-        h_m = marker.get_y_size()
+        h_m = marker.size[1]
         offset_y = self._img_offset[1]
         y = int(h * luminance)
         y -= offset_y
@@ -717,8 +709,8 @@ class LuminanceControl(WidgetCard):
         w, h = self.get_size()
         h_ = h - 1
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = int(mouse_pointer.get_x())
-        mouse_y = int(mouse_pointer.get_y())
+        mouse_x = int(mouse_pointer.x)
+        mouse_y = int(mouse_pointer.y)
         mouse_pos = (mouse_x, mouse_y)
 
         if self._prev_mouse_pos != mouse_pos:
@@ -739,19 +731,19 @@ class LuminanceControl(WidgetCard):
             Mgr.remove_task("pick_color")
             self.__apply_luminance(continuous=False, update_fields=True)
 
-            if self.get_mouse_watcher().get_over_region() != self._mouse_region:
+            if self.mouse_watcher.get_over_region() != self.mouse_region:
                 Mgr.set_cursor("main")
 
             self._picking_color = False
 
     def __on_enter(self, *args):
 
-        if args[0] == self._mouse_region:
+        if args[0] == self.mouse_region:
             Mgr.set_cursor("eyedropper")
 
     def __on_leave(self, *args):
 
-        if args[0] == self._mouse_region and not self._picking_color:
+        if args[0] == self.mouse_region and not self._picking_color:
             if Mgr.get("active_input_field") and not Menu.is_menu_shown():
                 Mgr.set_cursor("input_commit")
             else:
@@ -761,7 +753,7 @@ class LuminanceControl(WidgetCard):
 
         region = Mgr.get("mouse_watcher").get_over_region()
 
-        if region == self._mouse_region:
+        if region == self.mouse_region:
             self._picking_color = True
             Mgr.add_task(self.__pick_color, "pick_color")
             self._listener.accept("gui_mouse1-up", self.__end_color_picking)
@@ -806,7 +798,7 @@ class NewColorSwatch(WidgetCard):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -819,21 +811,21 @@ class NewColorSwatch(WidgetCard):
         # Create the texture stages
 
         ts1 = self._ts1
-        ts1.set_color((1., 0., 0., 1.))
-        ts1.set_sort(0)
+        ts1.color = (1., 0., 0., 1.)
+        ts1.sort = 0
         # the first texture stage should show a constant color
         ts1.set_combine_rgb(TextureStage.CM_modulate,
                             TextureStage.CS_constant, TextureStage.CO_src_color,
                             TextureStage.CS_previous, TextureStage.CO_src_color)
         ts2 = TextureStage("luminance")
-        ts2.set_sort(1)
+        ts2.sort = 1
         # the second texture stage should allow the constant color to show through
         # a semi-transparent border texture
-        ts2.set_mode(TextureStage.M_decal)
+        ts2.mode = TextureStage.M_decal
 
         tex = Texture("border")
         tex.load(self._border_image)
-        sort = self.get_parent().get_sort() + 1
+        sort = self.parent.sort + 1
         w_b, h_b = self._border_image.size
         offset_x, offset_y = self._img_offset
         quad = self.create_quad((offset_x, w_b + offset_x, -h_b - offset_y, -offset_y))
@@ -884,7 +876,7 @@ class CurrentColorSwatch(Widget):
 
         Widget.__init__(self, "current_swatch", parent, gfx_data={}, stretch_dir="vertical")
 
-        self.get_mouse_region().set_sort(parent.get_sort() + 1)
+        self.mouse_region.sort = parent.sort + 1
         w = Skin["options"]["large_colorswatch_width"]
         h = Skin["options"]["large_colorswatch_height"]
         self.set_size((w, h), is_min=True)
@@ -904,7 +896,7 @@ class CurrentColorSwatch(Widget):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -920,8 +912,7 @@ class CurrentColorSwatch(Widget):
     def get_image(self, state=None, composed=True):
 
         border_img = self._border_image
-        w, h = border_img.get_x_size(), border_img.get_y_size()
-        image = PNMImage(w, h, 4)
+        image = PNMImage(*border_img.size, 4)
         image.fill(*self._color)
         image.alpha_fill(1.)
         image.blend_sub_image(border_img, 0, 0, 0, 0)
@@ -1107,7 +1098,7 @@ class ColorDialog(Dialog):
         if fields:
 
             if continuous:
-                if self._clock.get_real_time() > .1:
+                if self._clock.real_time > .1:
                     self._clock.reset()
                 else:
                     update_fields = False
@@ -1130,7 +1121,7 @@ class ColorDialog(Dialog):
                     lum_ctrl.set_main_color((r, g, b), continuous=False, update_fields=False)
                     self._controls["hue_sat"].set_hue_sat(h, s)
 
-    def __handle_color_component(self, component_id, value, state):
+    def __handle_color_component(self, component_id, value, state="done"):
 
         fields = self._fields
         rgb_components = ["red", "green", "blue"]

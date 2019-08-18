@@ -130,7 +130,7 @@ class PanelStack(ScrollPane):
 
     def _can_scroll(self):
 
-        if (self.get_mouse_watcher().get_over_region() is None
+        if (self.mouse_watcher.get_over_region() is None
                 or Dialog.get_dialogs() or Mgr.get("active_input_field")
                 or Menu.is_menu_shown() or not Mgr.get("gui_enabled")):
             return False
@@ -157,7 +157,7 @@ class PanelStack(ScrollPane):
             panel.finalize()
             heights.append(panel.get_size()[1])
             command = self.__get_scroll_command(panel)
-            item = menu.add("panel_{}".format(panel.get_id()), panel.get_name(), command)
+            item = menu.add(f"panel_{panel.id}", panel.name, command)
             panel_menu_items.append(item)
 
         self._menu.update()
@@ -263,7 +263,7 @@ class PanelStack(ScrollPane):
         self._image = img_new
         sizer.set_virtual_size((w, h_virt_new))
 
-        tex_offset_y = self.get_quad().get_tex_offset(TextureStage.get_default())[1]
+        tex_offset_y = self.get_quad().get_tex_offset(TextureStage.default)[1]
 
         width, height = self.get_size()
         tex_scale = (1., min(1., height / h_virt_new))
@@ -274,12 +274,12 @@ class PanelStack(ScrollPane):
         t = -y
         quad = self.create_quad((l, r, b, t))
 
-        if not GlobalData["config"]["gui_view"]["control_pane"]:
+        if not GD["config"]["gui_view"]["control_pane"]:
             quad.detach_node()
 
         quad.set_texture(tex)
         quad.set_y(-1.)
-        quad.set_tex_scale(TextureStage.get_default(), *tex_scale)
+        quad.set_tex_scale(TextureStage.default, *tex_scale)
         self.reset_sub_image_index()
         self._scrollthumb.update()
         self.update_mouse_region_frames()
@@ -354,7 +354,7 @@ class PanelStack(ScrollPane):
         self._panel_heights = new_heights
 
         img = self._image
-        w = img.get_x_size()
+        w = img.size[0]
         img_new = PNMImage(w, h_virt_new)
 
         for y_dest, y_src, dh in regions_to_copy:
@@ -368,7 +368,7 @@ class PanelStack(ScrollPane):
         self._image = img_new
         self._sizer.set_virtual_size((w, h_virt_new))
 
-        tex_offset_y = self._quad.get_tex_offset(TextureStage.get_default())[1]
+        tex_offset_y = self._quad.get_tex_offset(TextureStage.default)[1]
         self._quad.remove_node()
 
         width, height = self.get_size()
@@ -382,12 +382,12 @@ class PanelStack(ScrollPane):
         cm.set_frame(l, r, b, t)
         self._quad = quad = NodePath(cm.generate())
 
-        if GlobalData["config"]["gui_view"]["control_pane"]:
+        if GD["config"]["gui_view"]["control_pane"]:
             quad.reparent_to(Mgr.get("gui_root"))
 
         quad.set_texture(tex)
         quad.set_y(-1.)
-        quad.set_tex_scale(TextureStage.get_default(), *tex_scale)
+        quad.set_tex_scale(TextureStage.default, *tex_scale)
         self.reset_sub_image_index()
         self._scrollthumb.update()
         self.update_mouse_region_frames()
@@ -425,7 +425,7 @@ class PanelStack(ScrollPane):
             index = shown_panels.index(panel)
             self._panel_menu.add_item(menu_item, index)
         else:
-            self._panel_menu.remove("panel_{}".format(panel.get_id()))
+            self._panel_menu.remove(f"panel_{panel.id}")
 
         task = self.__toggle_panels
         task_id = "toggle_panels"
@@ -436,7 +436,7 @@ class PanelStack(ScrollPane):
         self._quad.detach_node()
         self._scrollthumb.get_quad().detach_node()
         self._scrollthumb.hide()
-        self.get_frame().get_scrollbar().hide()
+        self.frame.get_scrollbar().hide()
         mw = self.get_mouse_watcher_nodepath()
         mw.detach_node()
         Mgr.get("mouse_watcher").remove_region(self._mouse_region_mask)
@@ -447,7 +447,7 @@ class PanelStack(ScrollPane):
         self._quad.reparent_to(gui_root)
         self._scrollthumb.get_quad().reparent_to(gui_root)
         self._scrollthumb.show()
-        self.get_frame().get_scrollbar().show()
+        self.frame.get_scrollbar().show()
         mw = self.get_mouse_watcher_nodepath()
-        mw.reparent_to(Mgr.get("base").mouseWatcher.get_parent())
+        mw.reparent_to(GD.showbase.mouseWatcher.parent)
         Mgr.get("mouse_watcher").add_region(self._mouse_region_mask)

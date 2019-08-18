@@ -28,7 +28,7 @@ class BasicGeomProperties:
 
         for i in range(8):
             text = str(i)
-            tooltip_text = "UV set {:d}".format(i)
+            tooltip_text = f"UV set {i}"
             btn = PanelButton(group, text, "", tooltip_text)
             toggle = (get_command(i), lambda: None)
             uv_set_btns.add_button(btn, str(i), toggle)
@@ -107,10 +107,10 @@ class BasicGeomProperties:
     def set_object_property(self, prop_id, value):
 
         if prop_id == "uv_set_names":
-            if GlobalData["selection_count"] == 1:
+            if GD["selection_count"] == 1:
                 self.__set_uv_name(value)
         elif prop_id == "normal_color":
-            multi_sel = GlobalData["selection_count"] > 1
+            multi_sel = GD["selection_count"] > 1
             gray = (.5, .5, .5)
             color = gray if multi_sel else value[:3]
             self._colorbox.set_color(color)
@@ -121,7 +121,7 @@ class BasicGeomProperties:
 
     def check_selection_count(self):
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 
@@ -139,7 +139,7 @@ class BasicGeomProperties:
             field.set_text_color(color)
             field.show_text(not multi_sel)
 
-    def __handle_uv_name(self, value_id, value, state):
+    def __handle_uv_name(self, value_id, value, state="done"):
 
         uv_set_id = int(self._uv_set_btns.get_active_button_id())
         Mgr.update_remotely(value_id, uv_set_id, value)
@@ -149,7 +149,7 @@ class BasicGeomProperties:
         r, g, b = color
         Mgr.update_remotely("normal_color", (r, g, b, 1.))
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         Mgr.update_remotely(value_id, value)
 

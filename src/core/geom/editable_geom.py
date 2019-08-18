@@ -3,23 +3,37 @@ from .base import *
 
 class EditableGeom(GeomDataOwner):
 
+    def __getstate__(self):
+
+        state = GeomDataOwner.__getstate__(self)
+
+        state["_type"] = state.pop("type")
+
+        return state
+
+    def __setstate__(self, state):
+
+        GeomDataOwner.__setstate__(self, state)
+
+        state["type"] = state.pop("_type")
+
     def __init__(self, model, geom_data_obj, has_vert_colors):
 
         data_obj = geom_data_obj if geom_data_obj else Mgr.do("create_geom_data", self)
         GeomDataOwner.__init__(self, [], [], model, data_obj, has_vert_colors)
-        model.set_geom_object(self)
+        model.geom_obj = self
 
-        self._type = "editable_geom"
+        self.type = "editable_geom"
 
     def create(self, geom_data_obj=None, gradual=False):
 
         if geom_data_obj:
-            self.set_geom_data_object(geom_data_obj)
+            self.geom_data_obj = geom_data_obj
             data_obj = geom_data_obj
         else:
-            data_obj = self.get_geom_data_object()
+            data_obj = self.geom_data_obj
 
-        for step in data_obj.create_geometry(self._type, gradual=gradual):
+        for step in data_obj.create_geometry(self.type, gradual=gradual):
             if gradual:
                 yield True
 
@@ -32,10 +46,6 @@ class EditableGeom(GeomDataOwner):
 
         return False
 
-    def get_type(self):
-
-        return self._type
-
     def get_property_to_store(self, prop_id, event_type=""):
 
         data = {prop_id: {"main": self.get_property(prop_id)}}
@@ -44,7 +54,7 @@ class EditableGeom(GeomDataOwner):
 
     def restore_property(self, prop_id, restore_type, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
         self.set_property(prop_id, val, restore_type)
 
@@ -53,14 +63,14 @@ class EditableGeom(GeomDataOwner):
 
     def set_normal_length(self, normal_length):
 
-        return self.get_geom_data_object().set_normal_length(normal_length)
+        return self.geom_data_obj.set_normal_length(normal_length)
 
     def get_initial_vertex_colors(self):
 
-        return self.get_geom_data_object().get_initial_vertex_colors()
+        return self.geom_data_obj.get_initial_vertex_colors()
 
 
-class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
+class EditableGeomManager(ObjPropDefaultsManager):
 
     def __init__(self):
 
@@ -70,15 +80,13 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
 
     def __create(self, model, geom_data_obj=None, has_vert_colors=False):
 
-        obj = EditableGeom(model, geom_data_obj, has_vert_colors)
-
-        return obj
+        return EditableGeom(model, geom_data_obj, has_vert_colors)
 
     def __unlock_primitive_geometry(self, models):
 
         for model in models:
-            geom_obj = model.get_geom_object()
-            geom_data_obj = geom_obj.get_geom_data_object()
+            geom_obj = model.geom_obj
+            geom_data_obj = geom_obj.geom_data_obj
             editable_geom = self.__create(model, geom_data_obj)
             editable_geom.set_flipped_normals(geom_obj.has_flipped_normals())
             geom_data_obj.init_normal_length()
@@ -91,25 +99,24 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
         obj_data = {}
 
         for model in models1:
-            geom_obj = model.get_geom_object()
-            data = geom_obj.get_data_to_store("creation")
-            obj_data[model.get_id()] = data
+            data = model.geom_obj.get_data_to_store("creation")
+            obj_data[model.id] = data
 
         for model in models2:
-            geom_obj = model.get_geom_object()
+            geom_obj = model.geom_obj
             data = {"geom_obj": {"main": geom_obj}}
-            geom_data_obj = geom_obj.get_geom_data_object()
+            geom_data_obj = geom_obj.geom_data_obj
             data.update(geom_data_obj.get_property_to_store("normal_length"))
-            obj_data[model.get_id()] = data
+            obj_data[model.id] = data
 
         models = models1 + models2
 
         if len(models) == 1:
             model = models[0]
-            event_descr = 'Access geometry of "{}"'.format(model.get_name())
+            event_descr = f'Access geometry of "{model.name}"'
         else:
             event_descr = 'Access geometry of objects:\n'
-            event_descr += "".join(['\n    "{}"'.format(model.get_name()) for model in models])
+            event_descr += "".join([f'\n    "{model.name}"' for model in models])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -121,11 +128,11 @@ class EditableGeomManager(BaseObject, ObjPropDefaultsManager):
         models2 = []
 
         for model in selection:
-            models = models1 if model.get_geom_type() == "basic_geom" else models2
+            models = models1 if model.geom_type == "basic_geom" else models2
             models.append(model)
 
         for model in models1:
-            geom_obj = model.get_geom_object()
+            geom_obj = model.geom_obj
             editable_geom = self.__create(model, has_vert_colors=True)
             geom_obj.unlock_geometry(editable_geom)
 

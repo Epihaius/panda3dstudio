@@ -3,12 +3,13 @@ from .vert import MergedVertex
 from .edge import MergedEdge
 
 
-class EdgeEditBase(BaseObject):
+class EdgeEditMixin:
+    """ UVDataObject class mix-in """
 
     def get_seam_edges(self, start_edge):
 
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         seam_edges = [start_edge]
@@ -23,7 +24,7 @@ class EdgeEditBase(BaseObject):
             for vert_id in merged_vert:
 
                 vert = verts[vert_id]
-                merged_edge = merged_edges[vert.get_edge_ids()[0]]
+                merged_edge = merged_edges[vert.edge_ids[0]]
 
                 if len(merged_edge) == 1:
                     seam_edge = merged_edge
@@ -45,8 +46,8 @@ class EdgeEditBase(BaseObject):
 
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         new_merged_verts = []
         seam_verts = set()
 
@@ -66,7 +67,7 @@ class EdgeEditBase(BaseObject):
 
                 vert = verts[vert_id]
 
-                for edge_id in vert.get_edge_ids():
+                for edge_id in vert.edge_ids:
 
                     merged_edge = merged_edges[edge_id]
 
@@ -120,8 +121,8 @@ class EdgeEditBase(BaseObject):
             return False
 
         selected_vert_ids = selection_ids["vert"]
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         selected_edges = set(merged_edges[i] for i in selected_edge_ids)
@@ -162,7 +163,7 @@ class EdgeEditBase(BaseObject):
 
                     next_vert = verts[next_vert_id]
                     vert_ids_to_separate.append(next_vert_id)
-                    next_edge_ids = next_vert.get_edge_ids()
+                    next_edge_ids = next_vert.edge_ids
 
                     if next_edge_ids[0] == edge_id:
                         next_edge_id = next_edge_ids[1]
@@ -254,12 +255,12 @@ class EdgeEditBase(BaseObject):
                 if seam_edges_to_select:
                     color = UVMgr.get("uv_selection_colors")["seam"]["selected"]
                     self.update_seam_selection(seam_edges_to_select, color)
-                    self._geom_data_obj.update_tex_seam_selection(seam_edges_to_select, color)
+                    self.geom_data_obj.update_tex_seam_selection(seam_edges_to_select, color)
 
                 if seam_edges_to_unselect:
                     color = UVMgr.get("uv_selection_colors")["seam"]["unselected"]
                     self.update_seam_selection(seam_edges_to_unselect, color)
-                    self._geom_data_obj.update_tex_seam_selection(seam_edges_to_unselect, color)
+                    self.geom_data_obj.update_tex_seam_selection(seam_edges_to_unselect, color)
 
         return change
 
@@ -274,12 +275,12 @@ class EdgeEditBase(BaseObject):
 
         selected_vert_ids = selection_ids["vert"]
         selected_poly_ids = selection_ids["poly"]
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        geom_data_obj = self._geom_data_obj
-        merged_geom_verts = geom_data_obj.get_merged_vertices()
+        geom_data_obj = self.geom_data_obj
+        merged_geom_verts = geom_data_obj.merged_verts
 
         seam_edges_to_remove = set()
         uv_by_geom_vert = {}
@@ -366,10 +367,10 @@ class EdgeEditBase(BaseObject):
 
                 vert = verts[vert_id]
 
-                if vert.get_polygon_id() in selected_poly_ids:
+                if vert.polygon_id in selected_poly_ids:
                     update_polys_to_transf = True
 
-                for edge1_id in vert.get_edge_ids():
+                for edge1_id in vert.edge_ids:
 
                     merged_edge = merged_edges[edge1_id]
 
@@ -400,7 +401,7 @@ class EdgeEditBase(BaseObject):
         selection_change = False
 
         if tmp_merged_vert[:]:
-            vert_id = tmp_merged_vert.get_id()
+            vert_id = tmp_merged_vert.id
             orig_merged_vert = merged_verts[vert_id]
             merged_verts[vert_id] = tmp_merged_vert
             self.update_selection("vert", [tmp_merged_vert], [], False)
@@ -409,7 +410,7 @@ class EdgeEditBase(BaseObject):
             selection_change = True
 
         if tmp_merged_edge[:]:
-            edge_id = tmp_merged_edge.get_id()
+            edge_id = tmp_merged_edge.id
             orig_merged_edge = merged_edges[edge_id]
             merged_edges[edge_id] = tmp_merged_edge
             self.update_selection("edge", [tmp_merged_edge], [], False)
@@ -432,22 +433,22 @@ class EdgeEditBase(BaseObject):
         # as soon as the mouse is released over an edge, it gets picked and
         # polys become pickable again.
 
-        origin = self._origin
+        origin = self.origin
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
 
         if category == "seam":
 
-            merged_edges = self._merged_edges
+            merged_edges = self.merged_edges
             edge_ids = []
 
-            for edge_id in poly.get_edge_ids():
+            for edge_id in poly.edge_ids:
                 if len(merged_edges[edge_id]) == 1:
                     edge_ids.append(edge_id)
 
         else:
 
-            edge_ids = poly.get_edge_ids()
+            edge_ids = poly.edge_ids
 
         count = len(edge_ids)
 
@@ -460,7 +461,7 @@ class EdgeEditBase(BaseObject):
         col_writer = GeomVertexWriter(vertex_data, "color")
         pickable_id = PickableTypes.get_id("edge")
         rows = self._tmp_row_indices
-        by_aiming = GlobalData["uv_edit_options"]["pick_by_aiming"]
+        by_aiming = GD["uv_edit_options"]["pick_by_aiming"]
 
         if by_aiming:
 
@@ -475,8 +476,8 @@ class EdgeEditBase(BaseObject):
 
             aux_picking_root = Mgr.get("aux_picking_root")
             aux_picking_cam = UVMgr.get("aux_picking_cam")
-            cam = self.cam
-            cam_pos = cam.get_pos(self.uv_space)
+            cam = GD.uv_cam
+            cam_pos = cam.get_pos(GD.uv_space)
             normal = Vec3.forward()
             plane = Plane(normal, cam_pos + normal * 10.)
             aux_picking_cam.set_plane(plane)
@@ -488,7 +489,7 @@ class EdgeEditBase(BaseObject):
             col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
             tmp_poly_prim = GeomTriangles(Geom.UH_static)
             tmp_poly_prim.reserve_num_vertices(count * 6)
-            rel_pt = lambda point: self.uv_space.get_relative_point(origin, point)
+            rel_pt = lambda point: GD.uv_space.get_relative_point(origin, point)
 
         for i, edge_id in enumerate(edge_ids):
 
@@ -500,7 +501,7 @@ class EdgeEditBase(BaseObject):
             vertex = verts[vert2_id]
             pos2 = vertex.get_pos()
             pos_writer.add_data3(pos2)
-            color_id = edge.get_picking_color_id()
+            color_id = edge.picking_color_id
             picking_color = get_color_vec(color_id, pickable_id)
             col_writer.add_data4(picking_color)
             col_writer.add_data4(picking_color)
@@ -540,7 +541,7 @@ class EdgeEditBase(BaseObject):
         geom_pickable.set_depth_test(False)
         geom_pickable.set_depth_write(False)
         geom_sel_state = geom_pickable.copy_to(origin)
-        geom_sel_state.set_name("tmp_geom_sel_state")
+        geom_sel_state.name = "tmp_geom_sel_state"
         geom_sel_state.set_light_off()
         geom_sel_state.set_color_off()
         geom_sel_state.set_texture_off()
@@ -570,7 +571,7 @@ class EdgeEditBase(BaseObject):
         pos_writer_poly = GeomVertexWriter(vertex_data_poly, "vertex")
         tmp_poly_prim = GeomTriangles(Geom.UH_static)
         tmp_poly_prim.reserve_num_vertices(len(poly))
-        vert_ids = poly.get_vertex_ids()
+        vert_ids = poly.vertex_ids
 
         for vert_id in vert_ids:
             vertex = verts[vert_id]
@@ -595,32 +596,8 @@ class EdgeEditBase(BaseObject):
         geom_sel_state.hide(picking_mask)
 
         if by_aiming:
-            aux_picking_cam.set_active()
+            aux_picking_cam.active = True
             UVMgr.do("start_drawing_aux_picking_viz")
 
         geoms = self._geoms
         geoms["poly"]["sel_state"].hide(picking_mask)
-
-
-class EdgeEditManager(BaseObject):
-
-    def setup(self):
-
-        Mgr.add_app_updater("edge_split", self.__split_edges, interface_id="uv")
-        Mgr.add_app_updater("edge_stitch", self.__stitch_edges, interface_id="uv")
-
-    def __split_edges(self):
-
-        selection = self._selections[self._uv_set_id]["edge"]
-        uv_data_objs = selection.get_uv_data_objects()
-
-        for data_obj in uv_data_objs:
-            data_obj.split_edges()
-
-    def __stitch_edges(self):
-
-        selection = self._selections[self._uv_set_id]["edge"]
-        uv_data_objs = selection.get_uv_data_objects()
-
-        for data_obj in uv_data_objs:
-            data_obj.stitch_edges()

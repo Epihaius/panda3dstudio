@@ -1,7 +1,8 @@
 from ...base import *
 
 
-class GeomTransformBase(BaseObject):
+class GeomTransformMixin:
+    """ GeomDataObject class mix-in """
 
     def __init__(self):
 
@@ -20,7 +21,7 @@ class GeomTransformBase(BaseObject):
         if subobj_lvl != "normal":
             self._verts_to_transf[subobj_lvl] = verts_to_transf = {}
 
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         merged_verts_to_transf = set()
 
         if subobj_lvl == "vert":
@@ -57,13 +58,13 @@ class GeomTransformBase(BaseObject):
 
             for vert_id in selected_subobj_ids:
                 vert = verts[vert_id]
-                rows_to_transf.set_bit(vert.get_row_index())
+                rows_to_transf.set_bit(vert.row_index)
 
             return
 
         for merged_vert in merged_verts_to_transf:
 
-            rows = merged_vert.get_row_indices()
+            rows = merged_vert.row_indices
             verts_to_transf[merged_vert] = rows
 
             for row in rows:
@@ -71,18 +72,18 @@ class GeomTransformBase(BaseObject):
 
     def _get_ref_node(self):
 
-        if GlobalData["coord_sys_type"] == "local":
-            return self.get_toplevel_object().get_pivot()
+        if GD["coord_sys_type"] == "local":
+            return self.toplevel_obj.pivot
         else:
-            return Mgr.get(("grid", "origin"))
+            return Mgr.get("grid").origin
 
     def _get_transf_center_pos(self):
 
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
 
         if tc_type == "pivot" or (cs_type == "local" and tc_type == "cs_origin"):
-            return self.get_toplevel_object().get_pivot().get_pos(self.world)
+            return self.toplevel_obj.pivot.get_pos(GD.world)
         else:
             return Mgr.get("transf_center_pos")
 
@@ -90,7 +91,7 @@ class GeomTransformBase(BaseObject):
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         polys_to_update = set()
         verts_to_resmooth = set()
         geom_node_top = self._toplvl_node
@@ -99,9 +100,9 @@ class GeomTransformBase(BaseObject):
 
         for vert_id in vertex_ids:
             vert = verts[vert_id]
-            poly = polys[vert.get_polygon_id()]
+            poly = polys[vert.polygon_id]
             polys_to_update.add(poly)
-            row = vert.get_row_index()
+            row = vert.row_index
             pos = vert.get_pos()
             pos_writer.set_row(row)
             pos_writer.set_data3(pos)
@@ -134,14 +135,14 @@ class GeomTransformBase(BaseObject):
         for poly in polys_to_update:
             poly.update_center_pos()
             poly.update_normal()
-            verts_to_resmooth.update(merged_verts[v_id] for v_id in poly.get_vertex_ids())
+            verts_to_resmooth.update(merged_verts[v_id] for v_id in poly.vertex_ids)
 
         self.update_vertex_normals(verts_to_resmooth)
 
         bounds = geom_node_top.get_bounds()
-        self._origin.node().set_bounds(bounds)
-        model = self.get_toplevel_object()
-        model.get_bbox().update(*self._origin.get_tight_bounds())
+        self.origin.node().set_bounds(bounds)
+        model = self.toplevel_obj
+        model.bbox.update(*self.origin.get_tight_bounds())
 
     def reposition_vertices(self, computation):
         """ Change the positions of all vertices using the given computation """
@@ -153,7 +154,7 @@ class GeomTransformBase(BaseObject):
         pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
 
         for vert in self._subobjs["vert"].values():
-            row = vert.get_row_index()
+            row = vert.row_index
             old_pos = vert.get_initial_pos()
             new_pos = computation(Point3(*old_pos))
             pos_writer.set_row(row)
@@ -186,16 +187,16 @@ class GeomTransformBase(BaseObject):
         self.update_poly_centers()
         self.update_poly_normals()
 
-        self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
+        self.toplevel_obj.bbox.update(*self.origin.get_tight_bounds())
 
     def bake_transform(self):
         """ Bake the origin's transform into the vertices and reset it to identity """
 
-        mat = self._origin.get_mat()
+        mat = self.origin.get_mat()
         geoms = self._geoms
         geom_node_top = self._toplvl_node
         geom_node_top.modify_geom(0).transform_vertices(mat)
-        self._origin.clear_transform()
+        self.origin.clear_transform()
         vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
         pos_array = vertex_data_top.get_array(0)
 
@@ -223,7 +224,7 @@ class GeomTransformBase(BaseObject):
         pos_reader = GeomVertexReader(vertex_data_top, "vertex")
 
         for vert in self._subobjs["vert"].values():
-            row = vert.get_row_index()
+            row = vert.row_index
             pos_reader.set_row(row)
             pos = pos_reader.get_data3()
             # NOTE: the LVecBase3f returned by the GeomVertexReader is a const
@@ -232,7 +233,7 @@ class GeomTransformBase(BaseObject):
         self.update_poly_centers()
         self.update_poly_normals()
 
-        self.get_toplevel_object().get_bbox().update(*self._origin.get_tight_bounds())
+        self.toplevel_obj.bbox.update(*self.origin.get_tight_bounds())
 
     def set_picking_geom_xform_locked(self, locked=True):
 
@@ -298,7 +299,7 @@ class GeomTransformBase(BaseObject):
         if not verts:
             return
 
-        origin = self._origin
+        origin = self.origin
         ref_node = self._get_ref_node()
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         tmp_vertex_data = GeomVertexData(vertex_data_top)
@@ -335,7 +336,7 @@ class GeomTransformBase(BaseObject):
 
         ref_node = self._get_ref_node()
         transf_center_pos = self._get_transf_center_pos()
-        origin = self._origin
+        origin = self.origin
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         tmp_vertex_data = GeomVertexData(vertex_data_top)
         tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
@@ -351,13 +352,13 @@ class GeomTransformBase(BaseObject):
                     if ref_type == "ref_node":
                         node = ref_node
                     elif ref_type == "pivot":
-                        node = self.get_toplevel_object().get_pivot()
+                        node = self.toplevel_obj.pivot
                     elif ref_type == "grid_origin":
-                        node = Mgr.get(("grid", "origin"))
+                        node = Mgr.get("grid").origin
                     elif ref_type == "origin":
                         node = origin
                     elif ref_type == "world":
-                        node = self.world
+                        node = GD.world
                     elif ref_type == "custom":
                         node = value["ref_node"]
                     final_mat = final_mat * origin.get_mat(node) * mat * node.get_mat(origin)
@@ -373,7 +374,7 @@ class GeomTransformBase(BaseObject):
 
         elif transf_type == "rotate":
 
-            tc_pos = origin.get_relative_point(self.world, transf_center_pos)
+            tc_pos = origin.get_relative_point(GD.world, transf_center_pos)
             quat = origin.get_quat(ref_node) * value * ref_node.get_quat(origin)
             quat_mat = Mat4()
             quat.extract_to_matrix(quat_mat)
@@ -384,7 +385,7 @@ class GeomTransformBase(BaseObject):
 
         elif transf_type == "scale":
 
-            tc_pos = origin.get_relative_point(self.world, transf_center_pos)
+            tc_pos = origin.get_relative_point(GD.world, transf_center_pos)
             scale_mat = Mat4.scale_mat(value)
             mat = origin.get_mat(ref_node) * scale_mat * ref_node.get_mat(origin)
             # remove translation component
@@ -455,7 +456,7 @@ class GeomTransformBase(BaseObject):
             bounds = geom_node_top.get_bounds()
 
             pos_reader = GeomVertexReader(vertex_data_top, "vertex")
-            subobj_lvl = GlobalData["active_obj_level"]
+            subobj_lvl = GD["active_obj_level"]
             polys = self._subobjs["poly"]
             poly_ids = set()
 
@@ -463,7 +464,7 @@ class GeomTransformBase(BaseObject):
                 pos_reader.set_row(indices[0])
                 pos = Point3(pos_reader.get_data3())
                 merged_vert.set_pos(pos)
-                poly_ids.update(merged_vert.get_polygon_ids())
+                poly_ids.update(merged_vert.polygon_ids)
 
             vert_ids = []
             polys_to_update = [polys[poly_id] for poly_id in poly_ids]
@@ -471,9 +472,9 @@ class GeomTransformBase(BaseObject):
             for poly in polys_to_update:
                 poly.update_center_pos()
                 poly.update_normal()
-                vert_ids.extend(poly.get_vertex_ids())
+                vert_ids.extend(poly.vertex_ids)
 
-            merged_verts = set(self._merged_verts[vert_id] for vert_id in vert_ids)
+            merged_verts = set(self.merged_verts[vert_id] for vert_id in vert_ids)
             self.update_vertex_normals(merged_verts)
 
             pos_array = geom_node_top.get_geom(0).get_vertex_data().get_array(0)
@@ -487,16 +488,16 @@ class GeomTransformBase(BaseObject):
             pos_array = vertex_data.get_array(0)
             vertex_data = normal_geoms["sel_state"].node().modify_geom(0).modify_vertex_data()
             vertex_data.set_array(0, pos_array)
-            model = self.get_toplevel_object()
-            model.get_bbox().update(*self._origin.get_tight_bounds())
+            model = self.toplevel_obj
+            model.bbox.update(*self.origin.get_tight_bounds())
 
-        self._origin.node().set_bounds(bounds)
+        self.origin.node().set_bounds(bounds)
         start_data.clear()
         self._pos_arrays = {"main": None, "edge": None}
 
     def _restore_subobj_transforms(self, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["subobj_transform"]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
@@ -590,10 +591,10 @@ class GeomTransformBase(BaseObject):
         for vert_id, pos in positions.items():
             if vert_id in verts:
                 vert = verts[vert_id]
-                poly = polys[vert.get_polygon_id()]
+                poly = polys[vert.polygon_id]
                 polys_to_update.add(poly)
                 vert.set_pos(pos)
-                row = vert.get_row_index()
+                row = vert.row_index
                 pos_writer.set_row(row)
                 pos_writer.set_data3(pos)
 
@@ -629,13 +630,14 @@ class GeomTransformBase(BaseObject):
             poly.update_center_pos()
             poly.update_normal()
 
-        bounds = self._origin.get_tight_bounds()
+        bounds = self.origin.get_tight_bounds()
 
         if bounds:
-            self.get_toplevel_object().get_bbox().update(*bounds)
+            self.toplevel_obj.bbox.update(*bounds)
 
 
-class SelectionTransformBase(BaseObject):
+class TransformMixin:
+    """ Selection class mix-in """
 
     def __init__(self):
 
@@ -647,7 +649,7 @@ class SelectionTransformBase(BaseObject):
         if not self._objs:
             return
 
-        self._center_pos = sum([obj.get_center_pos(self.world)
+        self._center_pos = sum([obj.get_center_pos(GD.world)
                                for obj in self._objs], Point3()) / len(self._objs)
 
     def get_center_pos(self):
@@ -656,7 +658,7 @@ class SelectionTransformBase(BaseObject):
 
     def update_ui(self):
 
-        tc_type = GlobalData["transf_center_type"]
+        tc_type = GD["transf_center_type"]
 
         if tc_type == "adaptive":
             adaptive_tc_type = Mgr.get("adaptive_transf_center_type")
@@ -667,10 +669,10 @@ class SelectionTransformBase(BaseObject):
 
         if count:
             if tc_type == "sel_center" or adaptive_tc_type:
-                Mgr.do("set_transf_gizmo_pos", self.get_center_pos())
+                Mgr.get("transf_gizmo").pos = self.get_center_pos()
 
         if count == 1:
-            grid_origin = Mgr.get(("grid", "origin"))
+            grid_origin = Mgr.get("grid").origin
             if self._obj_level == "normal":
                 h, p, r = self._objs[0].get_hpr(grid_origin)
                 transform_values = {"rotate": (p, r, h)}
@@ -682,11 +684,12 @@ class SelectionTransformBase(BaseObject):
 
         Mgr.update_remotely("transform_values", transform_values)
 
-        prev_count = GlobalData["selection_count"]
+        prev_count = GD["selection_count"]
 
         if count != prev_count:
-            Mgr.do("{}_transf_gizmo".format("show" if count else "hide"))
-            GlobalData["selection_count"] = count
+            transf_gizmo = Mgr.get("transf_gizmo")
+            transf_gizmo.show() if count else transf_gizmo.hide()
+            GD["selection_count"] = count
 
         Mgr.update_remotely("selection_count")
         Mgr.update_remotely("sel_color_count")
@@ -757,8 +760,7 @@ class SelectionTransformBase(BaseObject):
                 geom_data_obj.finalize_normal_transform()
 
             if len(self._objs) == 1:
-                grid_origin = Mgr.get(("grid", "origin"))
-                h, p, r = self._objs[0].get_hpr(grid_origin)
+                h, p, r = self._objs[0].get_hpr(Mgr.get("grid").origin)
                 transform_values = {"rotate": (p, r, h)}
                 Mgr.update_remotely("transform_values", transform_values)
 
@@ -771,8 +773,7 @@ class SelectionTransformBase(BaseObject):
                 geom_data_obj.finalize_transform()
 
             if len(self._objs) == 1:
-                grid_origin = Mgr.get(("grid", "origin"))
-                x, y, z = self._objs[0].get_pos(grid_origin)
+                x, y, z = self._objs[0].get_pos(Mgr.get("grid").origin)
                 transform_values = {"translate": (x, y, z)}
                 Mgr.update_remotely("transform_values", transform_values)
 
@@ -780,8 +781,8 @@ class SelectionTransformBase(BaseObject):
 
             self.update_center_pos()
 
-            if GlobalData["transf_center_type"] in ("adaptive", "sel_center"):
-                Mgr.do("set_transf_gizmo_pos", self.get_center_pos())
+            if GD["transf_center_type"] in ("adaptive", "sel_center"):
+                Mgr.get("transf_gizmo").pos = self.get_center_pos()
 
         if add_to_hist:
             self.add_history(transf_type)
@@ -790,16 +791,14 @@ class SelectionTransformBase(BaseObject):
 
         if self._obj_level == "normal":
 
-            geom_data_objs = [o.get_geom_object().get_geom_data_object()
-                for o in objects] if objects else self._groups
+            geom_data_objs = [o.geom_obj.geom_data_obj for o in objects] if objects else self._groups
 
             for geom_data_obj in geom_data_objs:
                 geom_data_obj.aim_selected_normals(point, ref_node, toward)
                 geom_data_obj.finalize_normal_transform(lock_normals=lock_normals)
 
             if len(self._objs) == 1:
-                grid_origin = Mgr.get(("grid", "origin"))
-                h, p, r = self._objs[0].get_hpr(grid_origin)
+                h, p, r = self._objs[0].get_hpr(Mgr.get("grid").origin)
                 transform_values = {"rotate": (p, r, h)}
                 Mgr.update_remotely("transform_values", transform_values)
 
@@ -812,10 +811,10 @@ class SelectionTransformBase(BaseObject):
 
             subobj = self._objs[0]
 
-            if GlobalData["coord_sys_type"] == "local":
-                ref_node = subobj.get_toplevel_object().get_pivot()
+            if GD["coord_sys_type"] == "local":
+                ref_node = subobj.toplevel_obj.pivot
             else:
-                ref_node = Mgr.get(("grid", "origin"))
+                ref_node = Mgr.get("grid").origin
 
             if self._obj_level == "normal":
                 h, p, r = subobj.get_hpr(ref_node)
@@ -828,8 +827,7 @@ class SelectionTransformBase(BaseObject):
 
     def init_transform(self, objects=None):
 
-        geom_data_objs = [o.get_geom_object().get_geom_data_object()
-            for o in objects] if objects else self._groups
+        geom_data_objs = [o.geom_obj.geom_data_obj for o in objects] if objects else self._groups
 
         if self._obj_level == "normal":
             for geom_data_obj in geom_data_objs:
@@ -887,8 +885,7 @@ class SelectionTransformBase(BaseObject):
 
         self.init_transform(objects)
 
-        geom_data_objs = [o.get_geom_object().get_geom_data_object()
-            for o in objects] if objects else self._groups
+        geom_data_objs = [o.geom_obj.geom_data_obj for o in objects] if objects else self._groups
 
         obj_lvl = self._obj_level
 
@@ -905,8 +902,7 @@ class SelectionTransformBase(BaseObject):
     def finalize_transform(self, cancelled=False, add_to_hist=True, data=None,
                            objects=None, lock_normals=True):
 
-        geom_data_objs = [o.get_geom_object().get_geom_data_object()
-            for o in objects] if objects else self._groups
+        geom_data_objs = [o.geom_obj.geom_data_obj for o in objects] if objects else self._groups
 
         if self._obj_level == "normal":
 
@@ -916,7 +912,7 @@ class SelectionTransformBase(BaseObject):
             if not cancelled:
                 self.update_transform_values()
                 if add_to_hist:
-                    xform_type = "custom" if data else GlobalData["active_transform_type"]
+                    xform_type = "custom" if data else GD["active_transform_type"]
                     self.add_history(xform_type, data["descr"] if data else "")
 
         else:
@@ -928,15 +924,15 @@ class SelectionTransformBase(BaseObject):
 
                 self.update_center_pos()
 
-                if GlobalData["transf_center_type"] in ("adaptive", "sel_center"):
-                    Mgr.do("set_transf_gizmo_pos", self.get_center_pos())
+                if GD["transf_center_type"] in ("adaptive", "sel_center"):
+                    Mgr.get("transf_gizmo").pos = self.get_center_pos()
                 else:
-                    Mgr.do("set_transf_gizmo_pos", Mgr.get("transf_center_pos"))
+                    Mgr.get("transf_gizmo").pos = Mgr.get("transf_center_pos")
 
                 self.update_transform_values()
 
                 if add_to_hist:
-                    xform_type = "custom" if data else GlobalData["active_transform_type"]
+                    xform_type = "custom" if data else GD["active_transform_type"]
                     self.add_history(xform_type, data["descr"] if data else "")
 
     def add_history(self, transf_type, descr=""):
@@ -957,15 +953,15 @@ class SelectionTransformBase(BaseObject):
         if descr:
             event_descr = descr.format(subobj_descr)
         else:
-            event_descr = '{} {}'.format(transf_type.title(), subobj_descr)
+            event_descr = f'{transf_type.title()} {subobj_descr}'
 
         if self._obj_level == "normal":
             for geom_data_obj in self._groups:
-                obj_id = geom_data_obj.get_toplevel_object().get_id()
+                obj_id = geom_data_obj.toplevel_obj.id
                 obj_data[obj_id] = geom_data_obj.get_data_to_store("prop_change", "normals")
         else:
             for geom_data_obj in self._groups:
-                obj_id = geom_data_obj.get_toplevel_object().get_id()
+                obj_id = geom_data_obj.toplevel_obj.id
                 obj_data[obj_id] = geom_data_obj.get_data_to_store("prop_change", "subobj_transform")
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

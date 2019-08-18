@@ -13,7 +13,7 @@ def get_default_constraints(): return False
 def get_default_increment(): return 1.
 
 
-class SnapManager(BaseObject):
+class SnapManager:
 
     def __init__(self):
 
@@ -23,7 +23,7 @@ class SnapManager(BaseObject):
         src_types["translate"] = "transf_center"
         tgt_types = defaultdict(get_default_point_type)
         rubber_band_display = defaultdict(get_default_viz_display)
-        creation_phase_ids = tuple("creation_phase_{:d}".format(i + 1) for i in range(3))
+        creation_phase_ids = tuple(f"creation_phase_{i + 1}" for i in range(3))
 
         for snap_type in ("translate", "rotate", "scale") + creation_phase_ids:
             tgt_types[snap_type] = "increment"
@@ -53,7 +53,7 @@ class SnapManager(BaseObject):
         }
 
         copier = copy.deepcopy
-        GlobalData.set_default("snap", snap_settings, copier)
+        GD.set_default("snap", snap_settings, copier)
 
         self._pixel_under_mouse = None
         self._snap_target_point = None
@@ -97,8 +97,7 @@ class SnapManager(BaseObject):
                 Mgr.exit_state("transf_start_snap_mode")
                 Mgr.do("cancel_transform_init")
             elif self._snap_target_point:
-                grid_origin = Mgr.get(("grid", "origin"))
-                point = self.world.get_relative_point(grid_origin, self._snap_target_point)
+                point = GD.world.get_relative_point(Mgr.get("grid").origin, self._snap_target_point)
                 Mgr.do("start_transform", point)
 
         def end_transf_center_snap(cancelled=True):
@@ -126,7 +125,7 @@ class SnapManager(BaseObject):
              end_transf_start_snap)
         bind("transf_start_snap_mode", "abort transf start snap", "focus_loss",
              end_transf_start_snap)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
         bind("transf_center_snap_mode", "snap transf center -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("transf_center_snap_mode", "quit transf center snap", "mouse1",
@@ -136,7 +135,7 @@ class SnapManager(BaseObject):
         bind("transf_center_snap_mode", "cancel transf center snap", "mouse3",
              end_transf_center_snap)
         bind("transf_center_snap_mode", "snap transf center ctrl-right-click",
-             "{:d}|mouse3".format(mod_ctrl), lambda: Mgr.update_remotely("main_context"))
+             f"{mod_ctrl}|mouse3", lambda: Mgr.update_remotely("main_context"))
         bind("coord_origin_snap_mode", "snap coord origin -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("coord_origin_snap_mode", "quit coord origin snap", "mouse1",
@@ -146,9 +145,9 @@ class SnapManager(BaseObject):
         bind("coord_origin_snap_mode", "cancel coord origin snap", "mouse3",
              end_coord_origin_snap)
         bind("coord_origin_snap_mode", "snap coord origin ctrl-right-click",
-             "{:d}|mouse3".format(mod_ctrl), lambda: Mgr.update_remotely("main_context"))
+             f"{mod_ctrl}|mouse3", lambda: Mgr.update_remotely("main_context"))
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode = "Pick transf. start point"
         info = "<Ctrl> or LMB to pick point and start transforming; RMB to cancel"
         status_data["snap_transf_start"] = {"mode": mode, "info": info}
@@ -160,7 +159,7 @@ class SnapManager(BaseObject):
 
     def __update_snapping(self):
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         state_id = Mgr.get_state_id()
 
         if snap_settings["type"] == "creation" and state_id == "creation_mode":
@@ -247,18 +246,18 @@ class SnapManager(BaseObject):
         sel = Mgr.get("selection_top")[:]
 
         for obj in sel[:]:
-            sel.extend(obj.get_descendants())
+            sel.extend(obj.descendants)
 
         return sel
 
     def __get_selected_models(self, include_linked=False):
 
         sel = Mgr.get("selection_top")
-        models = [o for o in sel if o.get_type() == "model" and o.get_geom_type() != "basic_geom"]
+        models = [o for o in sel if o.type == "model" and o.geom_type != "basic_geom"]
 
         if include_linked:
             for obj in sel:
-                models.extend(obj.get_descendants())
+                models.extend(obj.descendants)
 
         return models
 
@@ -272,18 +271,18 @@ class SnapManager(BaseObject):
         # a (0., -1., 0.) translation matrix, will be applied to them.
 
         selection = Mgr.get("selection")
-        cam = self.cam()
+        cam = GD.cam()
         # the transformation in camera space
         local_xform = Mat4.scale_mat(0., 0., 0.) * Mat4.translate_mat(0., -1., 0.)
 
         for model in self.__get_selected_models():
 
             rows_to_transf = SparseArray()
-            origin = model.get_origin()
+            origin = model.origin
             orig_to_cam = origin.get_mat(cam)
             cam_to_orig = cam.get_mat(origin)
             mat = orig_to_cam * local_xform * cam_to_orig
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
             geom_data_obj.set_picking_geom_xform_locked()
 
             subobjs = set()
@@ -292,7 +291,7 @@ class SnapManager(BaseObject):
                 subobjs.update(subobj.get_connected_subobjs(subobj_lvl))
 
             for subobj in subobjs:
-                for row in subobj.get_row_indices():
+                for row in subobj.row_indices:
                     rows_to_transf.set_bit(row)
 
             vertex_data = geom_data_obj.get_pickable_vertex_data(subobj_lvl)
@@ -300,8 +299,8 @@ class SnapManager(BaseObject):
 
     def __make_subobjs_pickable(self, subobj_lvl, pickable=True):
 
-        obj_lvl = GlobalData["active_obj_level"]
-        models = set(m for m in Mgr.get("model_objs") if m.get_geom_type() != "basic_geom")
+        obj_lvl = GD["active_obj_level"]
+        models = set(m for m in Mgr.get("model_objs") if m.geom_type != "basic_geom")
         exclude_selection = Mgr.get_state_id() == "transforming"
 
         if obj_lvl == "top" and exclude_selection:
@@ -309,13 +308,13 @@ class SnapManager(BaseObject):
 
         if pickable:
             for model in models:
-                geom_data_obj = model.get_geom_object().get_geom_data_object()
+                geom_data_obj = model.geom_obj.geom_data_obj
                 geom_data_obj.make_subobjs_pickable(subobj_lvl, 1)
             if obj_lvl != "top" and exclude_selection:
                 self.__make_subobj_sel_unpickable(subobj_lvl)
         else:
             for model in models:
-                geom_data_obj = model.get_geom_object().get_geom_data_object()
+                geom_data_obj = model.geom_obj.geom_data_obj
                 geom_data_obj.make_subobjs_pickable(subobj_lvl, 1, False)
 
     def __handle_pickable_geom_change(self, obj):
@@ -330,17 +329,17 @@ class SnapManager(BaseObject):
         elif self._snapping_coord_origin:
             snap_type = "coord_origin"
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         tgt_type = snap_settings["tgt_type"][snap_type]
 
         if "obj" in tgt_type:
-            if obj.get_type() == "point_helper":
+            if obj.type == "point_helper":
                 obj.make_pickable()
             else:
                 obj.make_pickable(1)
         elif tgt_type in ("vert", "edge", "poly"):
-            if obj.get_type() == "model" and obj.get_geom_type() != "basic_geom":
-                geom_data_obj = obj.get_geom_object().get_geom_data_object()
+            if obj.type == "model" and obj.geom_type != "basic_geom":
+                geom_data_obj = obj.geom_obj.geom_data_obj
                 geom_data_obj.make_subobjs_pickable(tgt_type, 1)
 
     def __handle_render_mode_change(self, old_mode, new_mode):
@@ -355,7 +354,7 @@ class SnapManager(BaseObject):
         elif self._snapping_coord_origin:
             snap_type = "coord_origin"
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         tgt_type = snap_settings["tgt_type"][snap_type]
         old_subobj_lvl = "poly" if "shaded" in old_mode else "edge"
         new_subobj_lvl = "poly" if "shaded" in new_mode else "edge"
@@ -366,13 +365,13 @@ class SnapManager(BaseObject):
             selection = Mgr.get("selection_top")
 
             for obj in selection:
-                if obj.get_type() == "model" and obj.get_geom_type() != "basic_geom":
-                    geom_data_obj = obj.get_geom_object().get_geom_data_object()
+                if obj.type == "model" and obj.geom_type != "basic_geom":
+                    geom_data_obj = obj.geom_obj.geom_data_obj
                     geom_data_obj.make_subobjs_pickable(new_subobj_lvl, 1, False)
 
             for model in models:
-                if model.get_geom_type() != "basic_geom":
-                    geom_data_obj = model.get_geom_object().get_geom_data_object()
+                if model.geom_type != "basic_geom":
+                    geom_data_obj = model.geom_obj.geom_data_obj
                     geom_data_obj.make_subobjs_pickable(old_subobj_lvl, 1, False)
                     geom_data_obj.make_subobjs_pickable(new_subobj_lvl, 1)
 
@@ -388,7 +387,7 @@ class SnapManager(BaseObject):
         elif self._snapping_coord_origin:
             snap_type = "coord_origin"
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         tgt_type = snap_settings["tgt_type"][snap_type]
 
         if "obj" in tgt_type:
@@ -401,7 +400,7 @@ class SnapManager(BaseObject):
             self._snap_target_point = None
 
         self._default_cursor = default_cursor
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_type = snap_settings["type"]
 
         if self._start_creation:
@@ -412,12 +411,12 @@ class SnapManager(BaseObject):
             snap_type = "coord_origin"
 
         if snap_settings["show_marker"][snap_type]:
-            self._snap_target_marker.reparent_to(self.viewport)
+            self._snap_target_marker.reparent_to(GD.viewport_origin)
             size = snap_settings["marker_size"][snap_type]
             self._snap_target_marker.set_scale(size)
 
         picking_cam = Mgr.get("picking_cam")
-        picking_cam.set_active()
+        picking_cam.active = True
         point_size = snap_settings["size"][snap_type]
         picking_cam.set_film_scale(point_size / 5.)
         picking_cam.set_mask(1)
@@ -440,14 +439,14 @@ class SnapManager(BaseObject):
             tgt_type = snap_settings[pt_type][snap_type]
 
             if snap_settings["show_proj_marker"][snap_type]:
-                self._projected_snap_target_marker.reparent_to(self.viewport)
+                self._projected_snap_target_marker.reparent_to(GD.viewport_origin)
                 self._projected_snap_target_marker.hide()
                 size = snap_settings["proj_marker_size"][snap_type]
                 self._projected_snap_target_marker.set_scale(size)
 
             if snap_settings["show_proj_line"][snap_type]:
                 dashed_line = Mgr.get("dashed_line")
-                dashed_line.reparent_to(self.world)
+                dashed_line.reparent_to(GD.world)
                 dashed_line.hide()
 
         else:
@@ -457,13 +456,13 @@ class SnapManager(BaseObject):
 
             if not self._start_transform_mode and snap_settings["show_rubber_band"][snap_type]:
 
-                self._rubber_band.reparent_to(self.world)
+                self._rubber_band.reparent_to(GD.world)
 
                 if src_type == "transf_center":
                     pos = Mgr.get("transf_center_pos")
                 else:
-                    grid_origin = Mgr.get(("grid", "origin"))
-                    pos = self.world.get_relative_point(grid_origin, self._snap_target_point)
+                    grid_origin = Mgr.get("grid").origin
+                    pos = GD.world.get_relative_point(grid_origin, self._snap_target_point)
 
                 self._transf_start_pos = pos
                 self._rubber_band.set_pos(pos)
@@ -471,20 +470,20 @@ class SnapManager(BaseObject):
             if snap_settings["use_axis_constraints"][snap_type]:
 
                 if snap_settings["show_proj_marker"][snap_type]:
-                    self._projected_snap_target_marker.reparent_to(self.viewport)
+                    self._projected_snap_target_marker.reparent_to(GD.viewport_origin)
                     self._projected_snap_target_marker.hide()
                     size = snap_settings["proj_marker_size"][snap_type]
                     self._projected_snap_target_marker.set_scale(size)
 
                 if snap_settings["show_proj_line"][snap_type]:
                     dashed_line = Mgr.get("dashed_line")
-                    dashed_line.reparent_to(self.world)
+                    dashed_line.reparent_to(GD.world)
                     dashed_line.hide()
 
-        self.world.hide(Mgr.get("picking_mask", 1))
+        GD.world.hide(Mgr.get("picking_mask", 1))
 
         if tgt_type == "grid_point":
-            Mgr.do("make_grid_pickable", 1)
+            Mgr.get("grid").make_pickable(1)
         elif "obj" in tgt_type:
             Mgr.do("make_point_helpers_pickable", True, 1, True)
             objects = set(Mgr.get("objects"))
@@ -494,11 +493,11 @@ class SnapManager(BaseObject):
                                   or "creation_phase" in snap_type)
             objs = objects if incl_objs_to_xform else objects.difference(objs_to_xform)
             for obj in objs:
-                if obj.get_type() != "point_helper":
+                if obj.type != "point_helper":
                     obj.make_pickable(1)
             if not incl_objs_to_xform:
                 for obj in objs_to_xform:
-                    if obj.get_type() == "point_helper":
+                    if obj.type == "point_helper":
                         obj.make_pickable(False)
         else:
             self.__make_subobjs_pickable(tgt_type)
@@ -516,13 +515,13 @@ class SnapManager(BaseObject):
         picking_cam = Mgr.get("picking_cam")
         picking_cam.set_film_scale(1.)
         picking_cam.set_mask(0)
-        self.world.show(Mgr.get("picking_mask", 1))
+        GD.world.show(Mgr.get("picking_mask", 1))
         self._pixel_under_mouse = None  # force an update of the cursor
                                         # next time self.__update_cursor()
                                         # is called
         Mgr.set_cursor("main")
         Mgr.remove_task("update_snap_target_cursor")
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_type = snap_settings["type"]
 
         if self._start_creation:
@@ -536,7 +535,7 @@ class SnapManager(BaseObject):
         tgt_type = snap_settings[pt_type][snap_type]
 
         if tgt_type == "grid_point":
-            Mgr.do("make_grid_pickable", 1, False)
+            Mgr.get("grid").make_pickable(1, False)
         elif "obj" in tgt_type:
             Mgr.do("make_point_helpers_pickable", False, 1)
             objects = set(Mgr.get("objects"))
@@ -546,11 +545,11 @@ class SnapManager(BaseObject):
                                   or "creation_phase" in snap_type)
             objs = objects if incl_objs_to_xform else objects.difference(objs_to_xform)
             for obj in objs:
-                if obj.get_type() != "point_helper":
+                if obj.type != "point_helper":
                     obj.make_pickable(1, False)
             if not incl_objs_to_xform:
                 for obj in objs_to_xform:
-                    if obj.get_type() == "point_helper":
+                    if obj.type == "point_helper":
                         obj.make_pickable()
         else:
             self.__make_subobjs_pickable(tgt_type, False)
@@ -562,7 +561,7 @@ class SnapManager(BaseObject):
         if self._pixel_under_mouse != pixel_under_mouse:
 
             Mgr.set_cursor(self._default_cursor if pixel_under_mouse == VBase4() else "select")
-            snap_settings = GlobalData["snap"]
+            snap_settings = GD["snap"]
             snap_type = snap_settings["type"]
 
             if self._start_creation:
@@ -570,10 +569,11 @@ class SnapManager(BaseObject):
 
             pt_type = "src_type" if self._start_transform_mode else "tgt_type"
             tgt_type = snap_settings[pt_type][snap_type]
-            grid_origin = Mgr.get(("grid", "origin"))
+            grid = Mgr.get("grid")
+            grid_origin = grid.origin
 
             if tgt_type == "grid_point":
-                self._snap_target_point = Mgr.get(("grid", "snap_point"), pixel_under_mouse)
+                self._snap_target_point = grid.get_snap_point(pixel_under_mouse)
             elif "obj" in tgt_type:
                 self._snap_target_point = None
                 r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
@@ -584,7 +584,7 @@ class SnapManager(BaseObject):
                     if subobj:
                         obj = subobj.get_toplevel_object(get_group=True)
                         if tgt_type == "obj_pivot":
-                            self._snap_target_point = obj.get_pivot().get_pos(grid_origin)
+                            self._snap_target_point = obj.pivot.get_pos(grid_origin)
                         else:
                             self._snap_target_point = obj.get_center_pos(grid_origin)
             else:
@@ -601,12 +601,12 @@ class SnapManager(BaseObject):
 
                 if snap_settings["show_marker"][snap_type]:
                     self._snap_target_marker.show()
-                    vp_data = GlobalData["viewport"]
+                    vp_data = GD["viewport"]
                     w, h = vp_data["size_aux" if vp_data[2] == "main" else "size"]
-                    cam = self.cam()
+                    cam = GD.cam()
                     snap_target_point = cam.get_relative_point(grid_origin, self._snap_target_point)
                     point = Point2()
-                    self.cam.lens.project(snap_target_point, point)
+                    GD.cam.lens.project(snap_target_point, point)
                     mouse_x, mouse_y = point
                     x = (mouse_x + 1.) * .5 * w
                     y = -(1. - (mouse_y + 1.) * .5) * h
@@ -615,7 +615,7 @@ class SnapManager(BaseObject):
                 if not (self._snapping_transf_center or self._snapping_coord_origin
                         or self._start_transform_mode or self._start_creation):
 
-                    point = self.world.get_relative_point(grid_origin, self._snap_target_point)
+                    point = GD.world.get_relative_point(grid_origin, self._snap_target_point)
 
                     if snap_settings["show_rubber_band"][snap_type]:
                         rubber_band = self._rubber_band
@@ -645,20 +645,20 @@ class SnapManager(BaseObject):
 
     def __set_projected_snap_marker_pos(self, projected_point):
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_type = snap_settings["type"]
-        grid_origin = Mgr.get(("grid", "origin"))
+        grid_origin = Mgr.get("grid").origin
 
         if projected_point:
 
             if snap_settings["show_proj_marker"][snap_type]:
                 self._projected_snap_target_marker.show()
-                vp_data = GlobalData["viewport"]
+                vp_data = GD["viewport"]
                 w, h = vp_data["size_aux" if vp_data[2] == "main" else "size"]
-                cam = self.cam()
-                proj_point = cam.get_relative_point(self.world, projected_point)
+                cam = GD.cam()
+                proj_point = cam.get_relative_point(GD.world, projected_point)
                 point = Point2()
-                self.cam.lens.project(proj_point, point)
+                GD.cam.lens.project(proj_point, point)
                 mouse_x, mouse_y = point
                 x = (mouse_x + 1.) * .5 * w
                 y = -(1. - (mouse_y + 1.) * .5) * h
@@ -680,90 +680,90 @@ class SnapManager(BaseObject):
 
         self._start_creation = start_creation
 
-    def __enter_transf_start_snap_mode(self, prev_state_id, is_active):
+    def __enter_transf_start_snap_mode(self, prev_state_id, active):
 
         self._start_transform_mode = True
         self.__init_target_checking("main")
         Mgr.update_app("status", ["snap_transf_start"])
 
-    def __exit_transf_start_snap_mode(self, next_state_id, is_active):
+    def __exit_transf_start_snap_mode(self, next_state_id, active):
 
         self.__end_target_checking()
         self._start_transform_mode = False
 
-    def __enter_transf_center_snap_mode(self, prev_state_id, is_active):
+    def __enter_transf_center_snap_mode(self, prev_state_id, active):
 
         self._snapping_transf_center = True
         self.__init_target_checking("main")
         Mgr.update_app("status", ["snap_transf_center"])
 
-        if not is_active:
-            Mgr.get("gizmo_picking_cam").node().set_active(False)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
+        if not active:
+            Mgr.get("gizmo_picking_cam").node().active = False
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = False
 
-    def __exit_transf_center_snap_mode(self, next_state_id, is_active):
+    def __exit_transf_center_snap_mode(self, next_state_id, active):
 
         self.__end_target_checking()
         self._snapping_transf_center = False
 
-        if not is_active:
+        if not active:
 
-            Mgr.get("gizmo_picking_cam").node().set_active(True)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
+            Mgr.get("gizmo_picking_cam").node().active = True
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = True
 
             def cancel_snap():
 
-                tc_type_prev = GlobalData["transf_center_type"]
+                tc_type_prev = GD["transf_center_type"]
                 obj = Mgr.get("transf_center_obj")
-                name = obj.get_name(as_object=True) if obj else None
+                name_obj = obj.name_obj if obj else None
                 Mgr.update_locally("transf_center", tc_type_prev, obj)
-                Mgr.update_remotely("transf_center", tc_type_prev, name)
+                Mgr.update_remotely("transf_center", tc_type_prev, name_obj)
 
             if self._transf_center_snap_cancelled:
                 cancel_snap()
                 return
 
             if self._snap_target_point:
-                pos = self.world.get_relative_point(Mgr.get(("grid", "origin")), self._snap_target_point)
+                pos = GD.world.get_relative_point(Mgr.get("grid").origin, self._snap_target_point)
                 Mgr.do("set_custom_transf_center_transform", pos)
                 Mgr.update_app("transf_center", "snap_pt")
             else:
                 cancel_snap()
 
-    def __enter_coord_origin_snap_mode(self, prev_state_id, is_active):
+    def __enter_coord_origin_snap_mode(self, prev_state_id, active):
 
         self._snapping_coord_origin = True
         self.__init_target_checking("main")
         Mgr.update_app("status", ["snap_coord_origin"])
 
-        if not is_active:
-            Mgr.get("gizmo_picking_cam").node().set_active(False)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
+        if not active:
+            Mgr.get("gizmo_picking_cam").node().active = False
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = False
 
-    def __exit_coord_origin_snap_mode(self, next_state_id, is_active):
+    def __exit_coord_origin_snap_mode(self, next_state_id, active):
 
         self.__end_target_checking()
         self._snapping_coord_origin = False
 
-        if not is_active:
+        if not active:
 
-            Mgr.get("gizmo_picking_cam").node().set_active(True)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
+            Mgr.get("gizmo_picking_cam").node().active = True
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = True
 
             def cancel_snap():
 
-                cs_type_prev = GlobalData["coord_sys_type"]
+                cs_type_prev = GD["coord_sys_type"]
                 obj = Mgr.get("coord_sys_obj")
-                name = obj.get_name(as_object=True) if obj else None
+                name_obj = obj.name_obj if obj else None
                 Mgr.update_locally("coord_sys", cs_type_prev, obj)
-                Mgr.update_remotely("coord_sys", cs_type_prev, name)
+                Mgr.update_remotely("coord_sys", cs_type_prev, name_obj)
 
             if self._coord_origin_snap_cancelled:
                 cancel_snap()
                 return
 
             if self._snap_target_point:
-                pos = self.world.get_relative_point(Mgr.get(("grid", "origin")), self._snap_target_point)
+                pos = GD.world.get_relative_point(Mgr.get("grid").origin, self._snap_target_point)
                 Mgr.do("set_custom_coord_sys_transform", pos)
                 Mgr.update_app("coord_sys", "snap_pt")
             else:

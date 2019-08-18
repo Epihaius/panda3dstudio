@@ -30,9 +30,9 @@ class Button(Widget, HotkeyManager):
             font = skin_text["font"]
             color = skin_text["color"]
             self._label = label = font.create_image(text, color)
-            color = Skin["colors"]["disabled_{}_text".format(button_type)]
+            color = Skin["colors"][f"disabled_{button_type}_text"]
             self._label_disabled = font.create_image(text, color)
-            self.set_size((label.get_x_size(), 0), includes_borders=False, is_min=True)
+            self.set_size((label.size[0], 0), includes_borders=False, is_min=True)
         else:
             self._label = self._label_disabled = None
 
@@ -60,7 +60,7 @@ class Button(Widget, HotkeyManager):
         self._icon_alignment = icon_alignment
         self._is_pressed = False
         self._has_mouse = False
-        self._is_active = False
+        self._active = False
         self._delay_card_update = False
         self._command = command if command else lambda: None
         self._tooltip_text = tooltip_text
@@ -99,10 +99,9 @@ class Button(Widget, HotkeyManager):
             font = skin_text["font"]
             color = skin_text["color"]
             self._label = label = font.create_image(text, color)
-            color = Skin["colors"]["disabled_{}_text".format(self._button_type)]
+            color = Skin["colors"][f"disabled_{self._button_type}_text"]
             self._label_disabled = font.create_image(text, color)
-            width = label.get_x_size()
-            height = label.get_y_size()
+            width, height = label.size
             self.set_size((width, height), includes_borders=False, is_min=True)
         else:
             self._label = self._label_disabled = None
@@ -133,7 +132,7 @@ class Button(Widget, HotkeyManager):
             registry[hotkey] = self
 
         if hotkey_text and self._tooltip_text:
-            tooltip_text = self._tooltip_text + " ({})".format(hotkey_text)
+            tooltip_text = self._tooltip_text + f" ({hotkey_text})"
             self._tooltip_label = ToolTip.create_label(tooltip_text)
 
         self._hotkey = hotkey
@@ -183,8 +182,7 @@ class Button(Widget, HotkeyManager):
             else:
                 label = self._label
 
-            w = label.get_x_size()
-            h = label.get_y_size()
+            w, h = label.size
 
             if self._text_alignment == "center":
                 x = (l + width - r - w) // 2
@@ -204,8 +202,7 @@ class Button(Widget, HotkeyManager):
             else:
                 icon = self._icon
 
-            w = icon.get_x_size()
-            h = icon.get_y_size()
+            w, h = icon.size
 
             if self._icon_alignment == "center":
                 x = (width - w) // 2
@@ -237,7 +234,7 @@ class Button(Widget, HotkeyManager):
         hilited_state = "hilited" if self.has_state("hilited") else ""
         disabled_state = "disabled" if self.has_state("disabled") else "normal"
         state = ((pressed_state if pressed_state and self._is_pressed else
-                 (active_state if active_state and self._is_active else
+                 (active_state if active_state and self._active else
                  (hilited_state if hilited_state and self._has_mouse else "normal")))
                  if self.is_enabled() else disabled_state)
         self.set_state(state)
@@ -247,7 +244,7 @@ class Button(Widget, HotkeyManager):
             self.set_state(prev_state)
             return
 
-        parent = self.get_parent()
+        parent = self.parent
 
         if not parent or self.is_hidden():
             return
@@ -330,29 +327,35 @@ class Button(Widget, HotkeyManager):
         else:
             self._tooltip_label = None
 
-        if self.get_mouse_watcher().get_over_region() == self.get_mouse_region():
+        if self.mouse_watcher.get_over_region() == self.mouse_region:
             ToolTip.update(self._tooltip_label) if self._tooltip_label else ToolTip.hide()
 
-    def set_active(self, is_active=True):
+    @property
+    def active(self):
 
-        if self._is_active == is_active:
+        return self._active
+
+    @active.setter
+    def active(self, active):
+
+        self.set_active(active)
+
+    def set_active(self, active):
+
+        if self._active == active:
             return False
 
-        self._is_active = is_active
+        self._active = active
         self.__update_card_image()
 
         return True
-
-    def is_active(self):
-
-        return self._is_active
 
     def hide(self, recurse=True):
 
         if Widget.hide(self, recurse):
             active_state = "active" if self.has_state("active") else "normal"
             disabled_state = "disabled" if self.has_state("disabled") else "normal"
-            state = ((active_state if self._is_active else "normal") if self.is_enabled()
+            state = ((active_state if self._active else "normal") if self.is_enabled()
                      else disabled_state)
             self.set_state(state)
             self._is_pressed = False
@@ -368,7 +371,7 @@ class Button(Widget, HotkeyManager):
             return False
 
         if not enable:
-            self._is_active = False
+            self._active = False
 
         self.enable_hotkey(enable)
         self.__update_card_image()
@@ -478,7 +481,7 @@ class ToggleButtonGroup(ButtonGroup):
     def deactivate(self):
 
         for btn in self.get_buttons():
-            btn.set_active(False)
+            btn.active = False
 
         if self._default_toggle_id is None:
             default_toggle_id = ""
@@ -491,7 +494,7 @@ class ToggleButtonGroup(ButtonGroup):
     def set_active_button(self, toggle_id):
 
         self.deactivate()
-        self.get_button(toggle_id).set_active()
+        self.get_button(toggle_id).active = True
         self._toggle_id = toggle_id
 
     def get_active_button_id(self):

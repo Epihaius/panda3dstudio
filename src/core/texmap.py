@@ -25,29 +25,35 @@ class TextureMap:
 
         state = self.__dict__.copy()
         state["_texture"] = None
+        state["_type"] = state.pop("type")
+        state["_tex_stage"] = state.pop("tex_stage")
+        state["_is_active"] = state.pop("active")
 
         return state
 
     def __setstate__(self, state):
 
+        state["type"] = state.pop("_type")
+        state["tex_stage"] = state.pop("_tex_stage")
+        state["active"] = state.pop("_is_active")
         self.__dict__ = state
 
-        if self._type != "layer":
-            self._tex_stage = Mgr.get("tex_stage", self._type)
+        if self.type != "layer":
+            self.tex_stage = Mgr.get("tex_stage", self.type)
 
         self.set_texture(self._rgb_filename, self._alpha_filename)
 
     def __init__(self, map_type, layer_name=None):
 
-        self._type = map_type
+        self.type = map_type
 
         if map_type == "layer":
-            self._tex_stage = TextureStage(layer_name)
+            self.tex_stage = TextureStage(layer_name)
         else:
-            self._tex_stage = Mgr.get("tex_stage", map_type)
+            self.tex_stage = Mgr.get("tex_stage", map_type)
 
         self._uv_set_id = 0
-        self._is_active = False
+        self.active = False
         self._texture = None
         self._rgb_filename = ""
         self._alpha_filename = ""
@@ -60,27 +66,27 @@ class TextureMap:
 
     def copy(self):
 
-        tex_map = TextureMap(self._type)
-        tex_map.set_border_color(self._border_color)
-        tex_map.set_wrap_mode("u", self._wrap_mode_ids["u"])
-        tex_map.set_wrap_mode("v", self._wrap_mode_ids["v"])
+        tex_map = TextureMap(self.type)
+        tex_map.border_color = self._border_color
+        tex_map.wrap_u = self._wrap_mode_ids["u"]
+        tex_map.wrap_v = self._wrap_mode_ids["v"]
         tex_map.lock_wrap_modes(self._wrap_modes_locked)
-        tex_map.set_filter_type("min", self._filter_ids["min"])
-        tex_map.set_filter_type("mag", self._filter_ids["mag"])
-        tex_map.set_anisotropic_degree(self._anisotropic_degree)
+        tex_map.minfilter = self._filter_ids["min"]
+        tex_map.magfilter = self._filter_ids["mag"]
+        tex_map.anisotropic_degree = self._anisotropic_degree
         tex_map.copy_transform(self._transform)
         texture = self._texture.make_copy() if self._texture else None
         tex_map.set_texture(self._rgb_filename, self._alpha_filename, texture)
-        tex_map.set_active(self._is_active)
+        tex_map.active = self.active
 
         return tex_map
 
     def equals(self, other):
 
-        if self._is_active != other.is_active():
+        if self.active != other.active:
             return False
 
-        if not self._is_active:
+        if not self.active:
             return True
 
         if self.get_tex_filenames() != other.get_tex_filenames():
@@ -89,27 +95,31 @@ class TextureMap:
         if not self._texture:
             return True
 
-        other_tex_stage = TextureStage(other.get_tex_stage())
-        other_tex_stage.set_name(self._tex_stage.get_name())
+        other_tex_stage = TextureStage(other.tex_stage)
+        other_tex_stage.name = self.tex_stage.name
 
-        if self._tex_stage != other_tex_stage:
+        if self.tex_stage != other_tex_stage:
             return False
 
-        if self._border_color != other.get_border_color():
+        if self._border_color != other.border_color:
             return False
 
-        for axis in "uv":
-            if self._wrap_mode_ids[axis] != other.get_wrap_mode(axis):
-                return False
+        if self._wrap_mode_ids["u"] != other.wrap_u:
+            return False
+
+        if self._wrap_mode_ids["v"] != other.wrap_v:
+            return False
 
         if self._wrap_modes_locked != other.are_wrap_modes_locked():
             return False
 
-        for minmag in ("min", "mag"):
-            if self._filter_ids[minmag] != other.get_filter_type(minmag):
-                return False
+        if self._filter_ids["min"] != other.minfilter:
+            return False
 
-        if self._anisotropic_degree != other.get_anisotropic_degree():
+        if self._filter_ids["mag"] != other.magfilter:
+            return False
+
+        if self._anisotropic_degree != other.anisotropic_degree:
             return False
 
         for transf_type in ("offset", "rotate", "scale"):
@@ -118,29 +128,131 @@ class TextureMap:
 
         return True
 
-    def get_type(self):
+    @property
+    def anisotropic_degree(self):
 
-        return self._type
+        return self._anisotropic_degree
 
-    def get_tex_stage(self):
+    @anisotropic_degree.setter
+    def anisotropic_degree(self, anisotropic_degree):
 
-        return self._tex_stage
+        self._anisotropic_degree = anisotropic_degree
+        texture = self._texture
 
-    def set_sort(self, sort):
+        if texture:
+            texture.anisotropic_degree = anisotropic_degree
 
-        self._tex_stage.set_sort(sort)
+    @property
+    def border_color(self):
 
-    def get_sort(self):
+        return self._border_color
 
-        return self._tex_stage.get_sort()
+    @border_color.setter
+    def border_color(self, color_values):
 
-    def set_priority(self, priority):
+        self._border_color = color_values
+        texture = self._texture
 
-        self._tex_stage.set_priority(priority)
+        if texture:
+            texture.border_color = VBase4(*color_values)
 
-    def get_priority(self):
+    @property
+    def sort(self):
 
-        return self._tex_stage.get_priority()
+        return self.tex_stage.sort
+
+    @sort.setter
+    def sort(self, sort):
+
+        self.tex_stage.sort = sort
+
+    @property
+    def priority(self):
+
+        return self.tex_stage.priority
+
+    @priority.setter
+    def priority(self, priority):
+
+        self.tex_stage.priority = priority
+
+    def __set_wrap_mode(self, axis, wrap_mode_id):
+
+        self._wrap_mode_ids[axis] = wrap_mode_id
+
+        if self._wrap_modes_locked:
+            self._wrap_mode_ids["v" if axis == "u" else "u"] = wrap_mode_id
+
+        texture = self._texture
+
+        if texture:
+
+            wrap_mode = self._wrap_modes[wrap_mode_id]
+
+            if axis == "u":
+                texture.wrap_u = wrap_mode
+                if self._wrap_modes_locked:
+                    texture.wrap_v = wrap_mode
+            else:
+                texture.wrap_v = wrap_mode
+                if self._wrap_modes_locked:
+                    texture.wrap_u = wrap_mode
+
+    @property
+    def wrap_u(self):
+
+        return self._wrap_mode_ids["u"]
+
+    @wrap_u.setter
+    def wrap_u(self, wrap_mode_id):
+
+        self.__set_wrap_mode("u", wrap_mode_id)
+
+    @property
+    def wrap_v(self):
+
+        return self._wrap_mode_ids["v"]
+
+    @wrap_v.setter
+    def wrap_v(self, wrap_mode_id):
+
+        self.__set_wrap_mode("v", wrap_mode_id)
+
+    def __set_filter_type(self, minmag, filter_id):
+
+        self._filter_ids[minmag] = filter_id
+        texture = self._texture
+
+        if texture:
+            if minmag == "min":
+                texture.minfilter = self._filter_types[filter_id]
+            else:
+                texture.magfilter = self._filter_types[filter_id]
+
+    @property
+    def minfilter(self):
+
+        return self._filter_ids["min"]
+
+    @minfilter.setter
+    def minfilter(self, filter_id):
+
+        self.__set_filter_type("min", filter_id)
+
+    @property
+    def magfilter(self):
+
+        return self._filter_ids["mag"]
+
+    @magfilter.setter
+    def magfilter(self, filter_id):
+
+        self.__set_filter_type("mag", filter_id)
+
+    @property
+    def uv_set_name(self):
+
+        return self.tex_stage.texcoord_name.name
 
     def set_uv_set_id(self, uv_set_id):
 
@@ -148,18 +260,20 @@ class TextureMap:
             return False
 
         name = str(uv_set_id) if uv_set_id else InternalName.get_texcoord()
-        self._tex_stage.set_texcoord_name(name)
+        self.tex_stage.set_texcoord_name(name)
         self._uv_set_id = uv_set_id
 
         return True
 
-    def get_uv_set_id(self):
+    @property
+    def uv_set_id(self):
 
         return self._uv_set_id
 
-    def get_uv_set_name(self):
+    @uv_set_id.setter
+    def uv_set_id(self, uv_set_id):
 
-        return self._tex_stage.get_texcoord_name().GetName()
+        self.set_uv_set_id(uv_set_id)
 
     def set_texture(self, rgb_filename="", alpha_filename="", texture=None):
 
@@ -167,7 +281,7 @@ class TextureMap:
 
             if rgb_filename:
 
-                paths = ",".join(GlobalData["config"]["texfile_paths"])
+                paths = ",".join(GD["config"]["texfile_paths"])
                 rgb_fname = Filename.from_os_specific(rgb_filename)
 
                 if rgb_fname.exists():
@@ -185,7 +299,7 @@ class TextureMap:
 
                     if not texture.is_of_type(MovieTexture):
 
-                        texture = Texture(self._type)
+                        texture = Texture(self.type)
 
                         if alpha_filename:
 
@@ -223,12 +337,12 @@ class TextureMap:
             alpha_fullpath = alpha_filename
 
         if texture:
-            texture.set_border_color(VBase4(*self._border_color))
-            texture.set_wrap_u(self._wrap_modes[self._wrap_mode_ids["u"]])
-            texture.set_wrap_v(self._wrap_modes[self._wrap_mode_ids["v"]])
-            texture.set_minfilter(self._filter_types[self._filter_ids["min"]])
-            texture.set_magfilter(self._filter_types[self._filter_ids["mag"]])
-            texture.set_anisotropic_degree(self._anisotropic_degree)
+            texture.border_color = VBase4(*self._border_color)
+            texture.wrap_u = self._wrap_modes[self._wrap_mode_ids["u"]]
+            texture.wrap_v = self._wrap_modes[self._wrap_mode_ids["v"]]
+            texture.minfilter = self._filter_types[self._filter_ids["min"]]
+            texture.magfilter = self._filter_types[self._filter_ids["mag"]]
+            texture.anisotropic_degree = self._anisotropic_degree
             self._rgb_filename = rgb_fullpath
             self._alpha_filename = alpha_fullpath
         else:
@@ -247,29 +361,9 @@ class TextureMap:
 
         return self._rgb_filename, self._alpha_filename
 
-    def set_active(self, is_active=True):
-
-        self._is_active = is_active
-
-    def is_active(self):
-
-        return self._is_active
-
     def has_texture(self, rgb_filename, alpha_filename):
 
         return self._rgb_filename == rgb_filename and self._alpha_filename == alpha_filename
-
-    def set_border_color(self, color_values):
-
-        self._border_color = color_values
-        texture = self._texture
-
-        if texture:
-            texture.set_border_color(VBase4(*color_values))
-
-    def get_border_color(self):
-
-        return self._border_color
 
     def lock_wrap_modes(self, lock):
 
@@ -284,64 +378,11 @@ class TextureMap:
         texture = self._texture
 
         if texture:
-            texture.set_wrap_v(self._wrap_modes[wrap_mode_id])
+            texture.wrap_v = self._wrap_modes[wrap_mode_id]
 
     def are_wrap_modes_locked(self):
 
         return self._wrap_modes_locked
-
-    def set_wrap_mode(self, axis, wrap_mode_id):
-
-        self._wrap_mode_ids[axis] = wrap_mode_id
-
-        if self._wrap_modes_locked:
-            self._wrap_mode_ids["v" if axis == "u" else "u"] = wrap_mode_id
-
-        texture = self._texture
-
-        if texture:
-
-            wrap_mode = self._wrap_modes[wrap_mode_id]
-
-            if axis == "u":
-                texture.set_wrap_u(wrap_mode)
-                if self._wrap_modes_locked:
-                    texture.set_wrap_v(wrap_mode)
-            else:
-                texture.set_wrap_v(wrap_mode)
-                if self._wrap_modes_locked:
-                    texture.set_wrap_u(wrap_mode)
-
-    def get_wrap_mode(self, axis):
-
-        return self._wrap_mode_ids[axis]
-
-    def set_filter_type(self, minmag, filter_id):
-
-        self._filter_ids[minmag] = filter_id
-        texture = self._texture
-
-        if texture:
-            if minmag == "min":
-                texture.set_minfilter(self._filter_types[filter_id])
-            else:
-                texture.set_magfilter(self._filter_types[filter_id])
-
-    def get_filter_type(self, minmag):
-
-        return self._filter_ids[minmag]
-
-    def set_anisotropic_degree(self, anisotropic_degree):
-
-        self._anisotropic_degree = anisotropic_degree
-        texture = self._texture
-
-        if texture:
-            texture.set_anisotropic_degree(anisotropic_degree)
-
-    def get_anisotropic_degree(self):
-
-        return self._anisotropic_degree
 
     def set_transform(self, transf_type, comp_index, value):
 
@@ -353,7 +394,7 @@ class TextureMap:
 
     def copy_transform(self, transform):
 
-        self._transform = dict((k, v[:]) for k, v in transform.items())
+        self._transform = {k: v[:] for k, v in transform.items()}
 
 
 class Layer(TextureMap):
@@ -393,11 +434,25 @@ class Layer(TextureMap):
         "1-alpha": TextureStage.CO_one_minus_src_alpha
     }
 
+    def __getstate__(self):
+
+        state = TextureMap.__getstate__(self)
+
+        state["_id"] = state.pop("id")
+
+        return state
+
+    def __setstate__(self, state):
+
+        TextureMap.__setstate__(self, state)
+
+        state["id"] = state.pop("_id")
+
     def __init__(self, layer_id, name):
 
         TextureMap.__init__(self, "layer", name)
 
-        self._id = layer_id
+        self.id = layer_id
         self._name = name
         self._blend_mode = "modulate"
         self._uses_combine_mode = False
@@ -430,7 +485,7 @@ class Layer(TextureMap):
 
         self._combine_mode_data = cmbmode_data
 
-        self.set_active()
+        self.active = True
 
     def __copy_combine_mode_data(self):
 
@@ -455,91 +510,98 @@ class Layer(TextureMap):
         layer = Mgr.do("create_tex_layer")
 
         if copy_name:
-            layer.set_name(self._name)
+            layer.name = self._name
 
-        layer.set_border_color(self.get_border_color())
-        layer.set_wrap_mode("u", self.get_wrap_mode("u"))
-        layer.set_wrap_mode("v", self.get_wrap_mode("v"))
+        layer.border_color = self.border_color
+        layer.wrap_u = self.wrap_u
+        layer.wrap_v = self.wrap_v
         layer.lock_wrap_modes(self.are_wrap_modes_locked())
-        layer.set_filter_type("min", self.get_filter_type("min"))
-        layer.set_filter_type("mag", self.get_filter_type("mag"))
-        layer.set_anisotropic_degree(self.get_anisotropic_degree())
-        layer.set_uv_set_id(self.get_uv_set_id())
+        layer.minfilter = self.minfilter
+        layer.magfilter = self.magfilter
+        layer.anisotropic_degree = self.anisotropic_degree
+        layer.uv_set_id = self.uv_set_id
         layer.copy_transform(self.get_transform())
         rgb_filename, alpha_filename = self.get_tex_filenames()
         tex = self.get_texture()
         tex_copy = tex.make_copy() if tex else None
         layer.set_texture(rgb_filename, alpha_filename, tex_copy)
-        layer.set_color(self.get_color())
-        layer.set_rgb_scale(self.get_rgb_scale())
-        layer.set_alpha_scale(self.get_alpha_scale())
-        layer.set_sort(self.get_sort())
-        layer.set_priority(self.get_priority())
-        layer.store(self.is_stored())
+        layer.color = self.color
+        layer.rgb_scale = self.rgb_scale
+        layer.alpha_scale = self.alpha_scale
+        layer.sort = self.sort
+        layer.priority = self.priority
+        layer.stored = self.stored
         layer.set_combine_mode_data(self.__copy_combine_mode_data())
-        layer.set_blend_mode(self._blend_mode)
-        layer.set_active(self.is_active())
+        layer.blend_mode = self._blend_mode
+        layer.active = self.active
 
         return layer
 
-    def get_id(self):
-
-        return self._id
-
-    def set_name(self, name):
-
-        self.get_tex_stage().set_name(name)
-        self._name = name
-
-    def get_name(self):
+    @property
+    def name(self):
 
         return self._name
 
-    def set_color(self, color):
+    @name.setter
+    def name(self, name):
 
-        self.get_tex_stage().set_color(color)
+        self.tex_stage.name = name
+        self._name = name
 
-    def get_color(self):
+    @property
+    def color(self):
 
-        color = self.get_tex_stage().get_color()
-        r, g, b, a = color
+        r, g, b, a = self.tex_stage.color
 
         return r, g, b, a
 
-    def set_rgb_scale(self, scale):
+    @color.setter
+    def color(self, color):
 
-        self.get_tex_stage().set_rgb_scale(scale)
+        self.tex_stage.color = color
 
-    def get_rgb_scale(self):
+    @property
+    def rgb_scale(self):
 
-        return self.get_tex_stage().get_rgb_scale()
+        return self.tex_stage.rgb_scale
 
-    def set_alpha_scale(self, scale):
+    @rgb_scale.setter
+    def rgb_scale(self, scale):
 
-        self.get_tex_stage().set_alpha_scale(scale)
+        self.tex_stage.rgb_scale = scale
 
-    def get_alpha_scale(self):
+    @property
+    def alpha_scale(self):
 
-        return self.get_tex_stage().get_alpha_scale()
+        return self.tex_stage.alpha_scale
 
-    def store(self, is_stored):
+    @alpha_scale.setter
+    def alpha_scale(self, scale):
 
-        self.get_tex_stage().set_saved_result(is_stored)
+        self.tex_stage.alpha_scale = scale
 
-    def is_stored(self):
+    @property
+    def stored(self):
 
-        return self.get_tex_stage().get_saved_result()
+        return self.tex_stage.saved_result
 
-    def set_blend_mode(self, mode_id):
+    @stored.setter
+    def stored(self, stored):
+
+        self.tex_stage.saved_result = stored
+
+    @property
+    def blend_mode(self):
+
+        return self._blend_mode
+
+    @blend_mode.setter
+    def blend_mode(self, mode_id):
 
         self._blend_mode = mode_id
 
         if not self._uses_combine_mode:
-            self.get_tex_stage().set_mode(self.blend_modes[mode_id])
-
-    def get_blend_mode(self):
-
-        return self._blend_mode
+            self.tex_stage.set_mode(self.blend_modes[mode_id])
 
     def __apply_combine_mode(self, combine_channels=None):
 
@@ -557,9 +619,9 @@ class Layer(TextureMap):
                         for j in range(2)]
 
         if channels == "rgb":
-            self.get_tex_stage().set_combine_rgb(mode, *used_sources)
+            self.tex_stage.set_combine_rgb(mode, *used_sources)
         else:
-            self.get_tex_stage().set_combine_alpha(mode, *used_sources)
+            self.tex_stage.set_combine_alpha(mode, *used_sources)
 
     def set_combine_mode_data(self, data):
 
@@ -582,7 +644,7 @@ class Layer(TextureMap):
         count = len(source_ids)
         index = data[channels]["source_index"]
         source, src_channels = source_ids[index]
-        layer_id = self._id
+        layer_id = self.id
         Mgr.update_remotely("tex_layer_prop", layer_id, "combine_channels_use", on)
         Mgr.update_remotely("tex_layer_prop", layer_id, "combine_mode", mode_id)
         Mgr.update_remotely("tex_layer_prop", layer_id, "combine_source_count", count)
@@ -614,15 +676,15 @@ class Layer(TextureMap):
 
             if channels == "rgb":
                 rgb = self.combine_mode_src_channels["rgb"]
-                self.get_tex_stage().set_combine_rgb(mode, tex, rgb, prev, rgb)
+                self.tex_stage.set_combine_rgb(mode, tex, rgb, prev, rgb)
             else:
                 alpha = self.combine_mode_src_channels["alpha"]
-                self.get_tex_stage().set_combine_alpha(mode, tex, alpha, prev, alpha)
+                self.tex_stage.set_combine_alpha(mode, tex, alpha, prev, alpha)
 
             other_channels = "alpha" if channels == "rgb" else "rgb"
 
             if not data[other_channels]["on"]:
-                self.get_tex_stage().set_mode(self.blend_modes[self._blend_mode])
+                self.tex_stage.set_mode(self.blend_modes[self._blend_mode])
 
     def uses_combine_mode(self):
 
@@ -641,7 +703,7 @@ class Layer(TextureMap):
         count = len(source_ids)
         data[channels]["source_index"] = 0
         source, src_channels = source_ids[0]
-        layer_id = self._id
+        layer_id = self.id
         Mgr.update_remotely("tex_layer_prop", layer_id, "combine_source_count", count)
         Mgr.update_remotely("tex_layer_prop", layer_id, "combine_source_index", 0)
         Mgr.update_remotely("tex_layer_prop", layer_id, "combine_source", source)
@@ -655,7 +717,7 @@ class Layer(TextureMap):
         mode_id = data[channels]["mode"]
         source_ids = data[channels]["sources"][mode_id]
         source, src_channels = source_ids[index]
-        layer_id = self._id
+        layer_id = self.id
         Mgr.update_remotely("tex_layer_prop", layer_id, "combine_source", source)
         Mgr.update_remotely("tex_layer_prop", layer_id, "combine_source_channels", src_channels)
 
@@ -686,37 +748,37 @@ class Layer(TextureMap):
     def set_property(self, prop_id, value):
 
         if prop_id == "name":
-            self.set_name(value)
+            self.name = value
         elif prop_id == "color":
-            self.set_color(value)
+            self.color = value
         elif prop_id == "rgb_scale":
-            self.set_rgb_scale(value)
+            self.rgb_scale = value
         elif prop_id == "alpha_scale":
-            self.set_alpha_scale(value)
+            self.alpha_scale = value
         elif prop_id == "uv_set_id":
-            self.set_uv_set_id(value)
+            self.uv_set_id = value
         elif prop_id == "sort":
-            self.set_sort(value)
+            self.sort = value
         elif prop_id == "priority":
-            self.set_priority(value)
+            self.priority = value
         elif prop_id == "border_color":
-            self.set_border_color(value)
+            self.border_color = value
         elif prop_id == "wrap_lock":
             self.lock_wrap_modes(value)
         elif prop_id == "wrap_u":
-            self.set_wrap_mode("u", value)
+            self.wrap_u = value
         elif prop_id == "wrap_v":
-            self.set_wrap_mode("v", value)
+            self.wrap_v = value
         elif prop_id == "filter_min":
-            self.set_filter_type("min", value)
+            self.minfilter = value
         elif prop_id == "filter_mag":
-            self.set_filter_type("mag", value)
+            self.magfilter = value
         elif prop_id == "anisotropic_degree":
-            self.set_anisotropic_degree(value)
-        elif prop_id == "is_stored":
-            self.store(value)
+            self.anisotropic_degree = value
+        elif prop_id == "stored":
+            self.stored = value
         elif prop_id == "blend_mode":
-            self.set_blend_mode(value)
+            self.blend_mode = value
         elif prop_id == "combine_mode":
             self.set_combine_mode(value)
         elif prop_id == "combine_channels":
@@ -749,11 +811,11 @@ class TexMapManager:
                  TS.M_modulate_gloss, TS.M_normal_gloss, TS.M_glow, TS.M_modulate_glow)
 
         for map_type, mode in zip(map_types, modes):
-            stage = TS("tex_stage_{}".format(map_type))
+            stage = TS(f"tex_stage_{map_type}")
             stage.set_mode(mode)
             stages[map_type] = stage
 
-        stages["vertex_colors"] = TS.get_default()
+        stages["vertex_colors"] = TS.default
 
         Mgr.accept("create_tex_map", self.__create_tex_map)
         Mgr.accept("create_tex_layer", self.__create_layer)
@@ -777,7 +839,7 @@ class TexMapManager:
         if layer and layer in layers:
             layers.remove(layer)
 
-        namelist = [l.get_name() for l in layers]
+        namelist = [l.name for l in layers]
         search_pattern = r"^Layer\s*(\d+)$"
         naming_pattern = "Layer {:02d}"
 
@@ -802,11 +864,11 @@ class TexMapManager:
 
     def __register_layer(self, layer):
 
-        self._layers[layer.get_id()] = layer
+        self._layers[layer.id] = layer
 
     def __unregister_layer(self, layer):
 
-        del self._layers[layer.get_id()]
+        del self._layers[layer.id]
 
     def __update_new_layer(self, material_id, source_layer_id):
 
@@ -822,13 +884,13 @@ class TexMapManager:
             return
 
         source_layer = self._layers[source_layer_id]
-        source_name = source_layer.get_name()
+        source_name = source_layer.name
         original_name = re.sub(r" - copy$| - copy \(\d+\)$", "", source_name, 1)
         copy_name = original_name + " - copy"
         copy_name = self.__get_unique_layer_name(material, copy_name)
         layer = source_layer.copy()
-        layer.set_name(copy_name)
-        layer_id = layer.get_id()
+        layer.name = copy_name
+        layer_id = layer.id
         self._layers[layer_id] = layer
         material.add_layer(layer)
         Mgr.update_remotely("new_tex_layer", layer_id, copy_name)
@@ -855,45 +917,45 @@ class TexMapManager:
         layer = self._layers[layer_id]
 
         prop_id = "on"
-        on = layer.is_active()
+        on = layer.active
         Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, on)
         rgb_filename, alpha_filename = layer.get_tex_filenames()
         prop_id = "color"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_color())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.color)
         prop_id = "rgb_scale"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_rgb_scale())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.rgb_scale)
         prop_id = "alpha_scale"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_alpha_scale())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.alpha_scale)
         prop_id = "file_main"
         Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, rgb_filename)
         prop_id = "file_alpha"
         Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, alpha_filename)
         prop_id = "sort"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_sort())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.sort)
         prop_id = "priority"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_priority())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.priority)
         prop_id = "border_color"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_border_color())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.border_color)
         prop_id = "wrap_u"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_wrap_mode("u"))
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.wrap_u)
         prop_id = "wrap_v"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_wrap_mode("v"))
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.wrap_v)
         prop_id = "wrap_lock"
         Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.are_wrap_modes_locked())
         prop_id = "filter_min"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_filter_type("min"))
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.minfilter)
         prop_id = "filter_mag"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_filter_type("mag"))
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.magfilter)
         prop_id = "anisotropic_degree"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_anisotropic_degree())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.anisotropic_degree)
         prop_id = "transform"
         Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_transform())
         prop_id = "uv_set"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_uv_set_id())
-        prop_id = "is_stored"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.is_stored())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.uv_set_id)
+        prop_id = "stored"
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.stored)
         prop_id = "blend_mode"
-        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.get_blend_mode())
+        Mgr.update_remotely("tex_layer_prop", layer_id, prop_id, layer.blend_mode)
 
         channels = layer.get_selected_combine_channels()
         prop_id = "combine_channels"
@@ -917,7 +979,9 @@ class TexMapManager:
             value = max(0, min(value, len(layers) - 1))
             layers.remove(layer)
             layers.insert(value, layer)
-            [l.set_sort(i) for i, l in enumerate(layers) if l is not layer]
+            for i, l in enumerate(layers):
+                if l is not layer:
+                    l.sort = i
             reapply_layer = True
         elif prop_id == "wrap_u":
             if layer.are_wrap_modes_locked():
@@ -927,7 +991,7 @@ class TexMapManager:
                 Mgr.update_remotely("tex_layer_prop", layer_id, "wrap_u", value)
         elif prop_id == "wrap_lock":
             if value:
-                mode_id = layer.get_wrap_mode("u")
+                mode_id = layer.wrap_u
                 Mgr.update_remotely("tex_layer_prop", layer_id, "wrap_v", mode_id)
         elif prop_id == "anisotropic_degree":
             value = max(1, min(value, 16))
@@ -958,7 +1022,7 @@ class TexMapManager:
             return
         elif prop_id in ("color", "rgb_scale", "alpha_scale", "blend_mode",
                          "combine_mode", "combine_channels_use", "combine_source",
-                         "combine_source_channels", "is_stored"):
+                         "combine_source_channels", "stored"):
             reapply_layer = True
 
         layer.set_property(prop_id, value)

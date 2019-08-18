@@ -22,24 +22,22 @@ class Core:
 
             return task.cont
 
-        base = app_mgr.get_base()
-        base.task_mgr.add(handle_pending_tasks, "handle_pending_tasks", sort=48)
+        GD.showbase.task_mgr.add(handle_pending_tasks, "handle_pending_tasks", sort=48)
 
     def setup(self):
 
-        base = self._app_mgr.get_base()
-        self._listeners["main"].set_mouse_watcher(base.mouseWatcherNode)
+        self._listeners["main"].set_mouse_watcher(GD.mouse_watcher)
 
         Mgr.init(self, self._app_mgr, self._gizmo_root, PickingColorIDManager, self._verbose)
         _PendingTask.init(self.do_gradually)
 
-        GlobalData.set_default("active_interface", "main")
-        GlobalData.set_default("open_file", "")
-        GlobalData.set_default("shift_down", False)
-        GlobalData.set_default("ctrl_down", False)
-        GlobalData.set_default("alt_down", False)
-        GlobalData.set_default("long_process_running", False)
-        GlobalData.set_default("progress_steps", 0)
+        GD.set_default("active_interface", "main")
+        GD.set_default("open_file", "")
+        GD.set_default("shift_down", False)
+        GD.set_default("ctrl_down", False)
+        GD.set_default("alt_down", False)
+        GD.set_default("long_process_running", False)
+        GD.set_default("progress_steps", 0)
 
         def enter_suppressed_state(*args):
 
@@ -86,47 +84,47 @@ class Core:
         # it will be handled over multiple frames while a progressbar gives an indication
         # of when it will finish.
 
-        if GlobalData["long_process_running"]:
+        if GD["long_process_running"]:
             return False
 
         PendingTasks.suspend()
-        GlobalData["long_process_running"] = True
+        GD["long_process_running"] = True
         self._long_process_id = process_id
-        task_mgr = self._app_mgr.get_base().task_mgr
+        task_mgr = GD.showbase.task_mgr
         Mgr.update_remotely("progress", "start", descr, cancellable)
 
         def progress(task):
 
-            progress_steps = GlobalData["progress_steps"]
+            progress_steps = GD["progress_steps"]
 
             if progress_steps:
                 Mgr.update_remotely("progress", "set_rate", 1. / progress_steps)
-                logging.debug('Long-running process to be handled over {:d} frames.'.format(progress_steps))
-                GlobalData["progress_steps"] = 0
+                logging.debug(f'Long-running process to be handled over {progress_steps} frames.')
+                GD["progress_steps"] = 0
 
             if next(process):
                 Mgr.update_remotely("progress", "advance")
                 return task.cont
 
             self.__end_long_process()
-            logging.debug('****** Long-running process finished: {}.'.format(process_id))
+            logging.debug(f'****** Long-running process finished: {process_id}.')
 
         task_mgr.add(progress, "progress")
-        logging.debug('****** Long-running process started: {}.'.format(process_id))
+        logging.debug(f'****** Long-running process started: {process_id}.')
 
         return True
 
     def __end_long_process(self):
 
         Mgr.update_remotely("progress", "end")
-        GlobalData["long_process_running"] = False
+        GD["long_process_running"] = False
         self._long_process_id = ""
         PendingTasks.suspend(False)
 
     def __cancel_long_process(self, info=""):
 
         Mgr.update_remotely("screenshot", "remove")
-        GlobalData["long_process_running"] = False
+        GD["long_process_running"] = False
         self._long_process_id = ""
         PendingTasks.suspend(False)
         PendingTasks.clear()
@@ -195,7 +193,7 @@ class KeyEventListener:
             cls._event_ids.append(chr(key_code))
 
         for i in range(12):
-            cls._event_ids.append("f{:d}".format(i + 1))
+            cls._event_ids.append(f"f{i + 1}")
 
     def __init__(self, interface_id="main", prefix="", mouse_watcher=None):
 
@@ -232,28 +230,28 @@ class KeyEventListener:
 
             if is_mouse_btn:
 
-                index = 1 if GlobalData["viewport"][1] == self._interface_id else 2
+                index = 1 if GD["viewport"][1] == self._interface_id else 2
 
-                if GlobalData["viewport"]["active"] != index:
+                if GD["viewport"]["active"] != index:
                     Mgr.update_app("active_viewport", index)
 
             else:
 
-                index = GlobalData["viewport"]["active"]
+                index = GD["viewport"]["active"]
 
-                if GlobalData["viewport"][index] != self._interface_id:
+                if GD["viewport"][index] != self._interface_id:
                     return
 
             mod_key_down = self._mouse_watcher.is_button_down
 
             if mod_key_down("shift"):
-                GlobalData["shift_down"] = True
+                GD["shift_down"] = True
 
             if mod_key_down("control"):
-                GlobalData["ctrl_down"] = True
+                GD["ctrl_down"] = True
 
             if mod_key_down("alt"):
-                GlobalData["alt_down"] = True
+                GD["alt_down"] = True
 
             if not self.__handle_event(self._prefix + key):
                 Mgr.handle_key_down_remotely(key, self._interface_id)
@@ -264,16 +262,16 @@ class KeyEventListener:
 
         def handle_key_up():
 
-            index = GlobalData["viewport"]["active"]
+            index = GD["viewport"]["active"]
 
             if key == "shift":
-                GlobalData["shift_down"] = False
+                GD["shift_down"] = False
             elif key == "control":
-                GlobalData["ctrl_down"] = False
+                GD["ctrl_down"] = False
             elif key == "alt":
-                GlobalData["alt_down"] = False
+                GD["alt_down"] = False
 
-            if GlobalData["viewport"][index] != self._interface_id:
+            if GD["viewport"][index] != self._interface_id:
                 return
 
             if not self.__handle_event(self._prefix + key + "-up"):
@@ -292,13 +290,13 @@ class KeyEventListener:
         elif event_id.replace(self._prefix, "") in ("shift", "control", "alt"):
             mod_code = 0
         else:
-            mod_key_codes = GlobalData["mod_key_codes"]
+            mod_key_codes = GD["mod_key_codes"]
             mod_shift = mod_key_codes["shift"]
             mod_ctrl = mod_key_codes["ctrl"]
             mod_alt = mod_key_codes["alt"]
-            mod_code = mod_shift if GlobalData["shift_down"] else 0
-            mod_code |= mod_ctrl if GlobalData["ctrl_down"] else 0
-            mod_code |= mod_alt if GlobalData["alt_down"] else 0
+            mod_code = mod_shift if GD["shift_down"] else 0
+            mod_code |= mod_ctrl if GD["ctrl_down"] else 0
+            mod_code |= mod_alt if GD["alt_down"] else 0
 
         if event_id in self._evt_handlers and mod_code in self._evt_handlers[event_id]:
 

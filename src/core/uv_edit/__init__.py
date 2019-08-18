@@ -1,30 +1,33 @@
 from .base import *
-from .data import UVDataObject, VertexEditManager, EdgeEditManager, PolygonEditManager
-from .cam import UVNavigationBase, UVTemplateSaver
-from .uv_select import UVSelectionBase
-from .uv_transform import UVTransformationBase
+from .data import UVDataObject
+from .cam import UVNavigationMixin, UVTemplateSaver
+from .uv_select import UVSelectionMixin
+from .uv_transform import UVTransformationMixin
 from .world_select import SelectionManager
 from .helpers import Grid, UVTransformGizmo
 
 
-class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
-               VertexEditManager, EdgeEditManager, PolygonEditManager):
+class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
 
     def __init__(self):
 
         uv_space = NodePath("uv_space")
         uv_space.set_two_sided(True)
         lens = OrthographicLens()
-        lens.set_near(-10.)
+        lens.near = -10.
         cam_node = Camera("main_uv_cam", lens)
-        cam_node.set_active(False)
+        cam_node.active = False
         mask = next(camera_mask)
-        cam_node.set_camera_mask(mask)
+        cam_node.camera_mask = mask
         UVMgr.expose("render_mask", lambda: mask)
         cam = uv_space.attach_new_node(cam_node)
         cam.set_pos(.5, -10., .5)
         geom_root = uv_space.attach_new_node("uv_geom_root")
-        BaseObject.init(uv_space, cam, cam_node, lens, geom_root)
+        GD.uv_space = uv_space
+        GD.uv_cam = cam
+        GD.uv_cam_node = cam_node
+        GD.uv_cam_lens = lens
+        GD.uv_geom_root = geom_root
         UVMgr.init(verbose=True)
 
         uv_edit_options = {
@@ -34,7 +37,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             "sel_polys_by_cluster": False
         }
         copier = dict.copy
-        GlobalData.set_default("uv_edit_options", uv_edit_options, copier)
+        GD.set_default("uv_edit_options", uv_edit_options, copier)
 
         self._uv_registry = {}
         self._uv_data_objs = {}
@@ -42,9 +45,9 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self._uv_data_obj_copies = {}
         self._models = []
 
-        UVNavigationBase.__init__(self)
-        UVSelectionBase.__init__(self)
-        UVTransformationBase.__init__(self)
+        UVNavigationMixin.__init__(self)
+        UVSelectionMixin.__init__(self)
+        UVTransformationMixin.__init__(self)
 
         self._world_sel_mgr = SelectionManager(self)
         self._uv_template_saver = UVTemplateSaver()
@@ -143,7 +146,6 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __toggle_interface(self, show, display_region=None, mouse_watcher_node=None):
 
-        base = Mgr.get("base")
         transf_gizmo = self._transf_gizmo
 
         if not show:
@@ -153,8 +155,8 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             Mgr.update_interface_locally("uv", "uv_background", "show_on_models", False)
             Mgr.remove_task("update_cursor_uvs")
             Mgr.remove_interface("uv")
-            UVMgr.get("picking_cam").set_active(False)
-            self.cam_node.set_active(False)
+            UVMgr.get("picking_cam").active = False
+            GD.uv_cam_node.active = False
             self.delete_selections()
             self.__destroy_uv_data()
             self._obj_lvl = "top"
@@ -163,14 +165,18 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             transf_gizmo.hide()
             Mgr.exit_state("uv_edit_mode")
             Mgr.update_remotely("active_obj_level")
-            BaseObject.mouse_watcher = None
+            del GD.uv_mouse_watcher
             self._models = []
             Mgr.remove_notification_handler("suppressed_state_enter", "uv_editor")
             Mgr.remove_notification_handler("suppressed_state_exit", "uv_editor")
-            GlobalData["active_interface"] = "main"
+            GD["active_interface"] = "main"
             Mgr.do("enable_object_name_checking")
 
             return
+
+        if GD["transform_target_type"] != "all":
+            GD["transform_target_type"] = "all"
+            Mgr.update_app("transform_target_type")
 
         Mgr.do("disable_object_name_checking")
         Mgr.add_notification_handler("suppressed_state_enter", "uv_editor",
@@ -178,21 +184,19 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         Mgr.add_notification_handler("suppressed_state_exit", "uv_editor",
                                      self.__exit_suppressed_state)
         self.__handle_viewport_resize(start=True)
-        display_region.set_camera(self.cam)
+        display_region.camera = GD.uv_cam
         Mgr.add_interface("uv", "uv_edit_", mouse_watcher_node)
-        GlobalData["active_interface"] = "uv"
-        BaseObject.mouse_watcher = mouse_watcher_node
+        GD["active_interface"] = "uv"
+        GD.uv_mouse_watcher = mouse_watcher_node
         self._reset_view()
-        self.cam_node.set_active(True)
-        UVMgr.get("picking_cam").set_active()
+        GD.uv_cam_node.active = True
+        UVMgr.get("picking_cam").active = True
         self._models = self._world_sel_mgr.get_models()
 
-        UVSelectionBase.setup(self)
-        UVNavigationBase.setup(self)
-        UVTransformationBase.setup(self)
-        VertexEditManager.setup(self)
-        EdgeEditManager.setup(self)
-        PolygonEditManager.setup(self)
+        UVSelectionMixin.setup(self)
+        UVNavigationMixin.setup(self)
+        UVTransformationMixin.setup(self)
+
         Mgr.set_default_state("uv_edit_mode", "uv")
 
         def set_obj_level(obj_lvl):
@@ -209,12 +213,17 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         Mgr.add_app_updater("poly_color", self.__update_poly_color, interface_id="uv")
         Mgr.add_app_updater("picking_via_poly", self.__set_uv_picking_via_poly, interface_id="uv")
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize, interface_id="uv")
+        Mgr.add_app_updater("vert_break", self.__break_vertices, interface_id="uv")
+        Mgr.add_app_updater("edge_split", self.__split_edges, interface_id="uv")
+        Mgr.add_app_updater("edge_stitch", self.__stitch_edges, interface_id="uv")
+        Mgr.add_app_updater("poly_detach", self.__detach_polygons, interface_id="uv")
+        Mgr.add_app_updater("poly_stitch", self.__stitch_polygons, interface_id="uv")
 
         self._grid.add_interface_updaters()
         self._uv_template_saver.add_interface_updaters()
         transf_gizmo.add_interface_updaters()
         transf_gizmo.update_transform_handles()
-        GlobalData["active_uv_transform_type"] = ""
+        GD["active_uv_transform_type"] = ""
         Mgr.update_interface("uv", "active_transform_type", "")
 
         for sel_state in ("unselected", "selected"):
@@ -229,12 +238,12 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self.__update_object_level()
 
         uv_set_names = self._uv_set_names
-        target_names = OrderedDict()
+        target_names = {}
 
         for model in self._models:
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
             uv_set_names[geom_data_obj] = geom_data_obj.get_uv_set_names()[:]
-            target_names[model.get_id()] = model.get_name()
+            target_names[model.id] = model.name
 
         Mgr.update_interface_remotely("uv", "uv_name_targets", target_names)
         Mgr.update_interface_remotely("uv", "uv_edit_options")
@@ -244,9 +253,9 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __handle_viewport_resize(self, start=False):
 
-        w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
-        lens = self.cam_lens
-        size_h, size_v = (1., 1.) if start else lens.get_film_size()
+        w, h = GD["viewport"]["size" if GD["viewport"][2] == "main" else "size_aux"]
+        lens = GD.uv_cam_lens
+        size_h, size_v = (1., 1.) if start else lens.film_size
 
         if h < w:
             size_v = min(size_h, size_v)
@@ -255,19 +264,19 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             size_h = min(size_h, size_v)
             size_v = size_h * h / w
 
-        lens.set_film_size(size_h, size_v)
+        lens.film_size = (size_h, size_v)
 
         self._transf_gizmo.set_relative_scale(512. / min(w, h))
-        self._projector_lens.set_film_size(7. / min(w, h))
+        self._projector_lens.film_size = 7. / min(w, h)
 
     def __enter_suppressed_state(self):
 
         self._transf_gizmo.enable(False)
-        UVMgr.get("picking_cam").set_active(False)
+        UVMgr.get("picking_cam").active = False
 
     def __exit_suppressed_state(self):
 
-        UVMgr.get("picking_cam").set_active()
+        UVMgr.get("picking_cam").active = True
         self._transf_gizmo.enable()
 
     def get_uv_data_object(self, geom_data_obj):
@@ -282,7 +291,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         self._uv_data_objs[uv_set_id] = uv_data_objs = {}
 
         for model in models:
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
             uv_data_objs[geom_data_obj] = UVDataObject(uv_set_id, uv_registry, geom_data_obj)
 
     def __destroy_uv_data(self):
@@ -318,7 +327,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         if uv_set_id == self._uv_set_id:
             return
 
-        pick_via_poly = GlobalData["uv_edit_options"]["pick_via_poly"]
+        pick_via_poly = GD["uv_edit_options"]["pick_via_poly"]
 
         if pick_via_poly:
             self.__set_uv_picking_via_poly(False)
@@ -349,9 +358,9 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
         uv_names = {}
 
         for model in self._models:
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
             uv_set_name = uv_set_names[geom_data_obj][uv_set_id]
-            uv_names[model.get_id()] = uv_set_name
+            uv_names[model.id] = uv_set_name
 
         Mgr.update_interface_remotely("uv", "target_uv_name", uv_names)
 
@@ -363,14 +372,14 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             if obj_lvl == "poly":
 
-                color_ids = [subobj.get_picking_color_id() for subobj in selection]
+                color_ids = [subobj.picking_color_id for subobj in selection]
 
             else:
 
                 color_ids = []
 
                 for subobj in selection:
-                    color_ids.extend(subobj.get_picking_color_ids())
+                    color_ids.extend(subobj.picking_color_ids)
 
             self._world_sel_mgr.sync_selection(color_ids, object_level=obj_lvl)
 
@@ -379,7 +388,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __copy_uv_set(self):
 
-        pick_via_poly = GlobalData["uv_edit_options"]["pick_via_poly"]
+        pick_via_poly = GD["uv_edit_options"]["pick_via_poly"]
 
         if pick_via_poly:
             self.__set_uv_picking_via_poly(False)
@@ -417,8 +426,8 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             uv_data_objs[geom_data_obj] = copy
 
             for subobj_type in ("vert", "edge", "poly"):
-                uv_registry[subobj_type].update(dict((s.get_picking_color_id(), s)
-                                                for s in copy.get_subobjects(subobj_type).values()))
+                uv_registry[subobj_type].update({s.picking_color_id: s
+                                                for s in copy.get_subobjects(subobj_type).values()})
 
             for subobj_type in selections:
                 selections[subobj_type].extend(copy.get_selection(subobj_type))
@@ -436,25 +445,25 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
             if obj_lvl == "poly":
 
-                color_ids = [subobj.get_picking_color_id() for subobj in selection]
+                color_ids = [subobj.picking_color_id for subobj in selection]
 
             else:
 
                 color_ids = []
 
                 for subobj in selection:
-                    color_ids.extend(subobj.get_picking_color_ids())
+                    color_ids.extend(subobj.picking_color_ids)
 
             self._world_sel_mgr.sync_selection(color_ids, object_level=obj_lvl)
 
-        if GlobalData["uv_edit_options"]["pick_via_poly"]:
+        if GD["uv_edit_options"]["pick_via_poly"]:
             self.__set_uv_picking_via_poly(True)
 
     def __set_uv_name(self, model_id, uv_set_name):
 
         model = Mgr.get("model", model_id)
         uv_set_id = self._uv_set_id
-        geom_data_obj = model.get_geom_object().get_geom_data_object()
+        geom_data_obj = model.geom_obj.geom_data_obj
         uv_set_names = self._uv_set_names[geom_data_obj][:]
         del uv_set_names[uv_set_id]
 
@@ -471,7 +480,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
         model = Mgr.get("model", model_id)
         uv_set_id = self._uv_set_id
-        geom_data_obj = model.get_geom_object().get_geom_data_object()
+        geom_data_obj = model.geom_obj.geom_data_obj
         uv_set_name = self._uv_set_names[geom_data_obj][uv_set_id]
         Mgr.update_interface_remotely("uv", "uv_name", uv_set_name)
 
@@ -520,7 +529,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
     def __set_uv_picking_via_poly(self, via_poly=False):
 
         Mgr.update_interface_locally("main", "picking_via_poly", via_poly)
-        GlobalData["uv_edit_options"]["pick_via_poly"] = via_poly
+        GD["uv_edit_options"]["pick_via_poly"] = via_poly
         uv_data_objs = self._uv_data_objs[self._uv_set_id]
 
         if not via_poly:
@@ -537,18 +546,18 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
     def __start_drawing_aux_picking_viz(self):
 
-        cam = self.cam
+        cam = GD.uv_cam
         plane = self._draw_plane
         point = Point3()
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.uv_mouse_watcher.has_mouse():
             return
 
-        screen_pos = self.mouse_watcher.get_mouse()
+        screen_pos = GD.uv_mouse_watcher.get_mouse()
         near_point = Point3()
         far_point = Point3()
-        self.cam_lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.uv_space.get_relative_point(cam, point)
+        GD.uv_cam_lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.uv_space.get_relative_point(cam, point)
         plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
 
         line = Mgr.get("aux_picking_viz")
@@ -560,22 +569,22 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             pos_writer.set_row(0)
             pos_writer.set_data3(point)
 
-        line.reparent_to(self.uv_space)
+        line.reparent_to(GD.uv_space)
         self._draw_start_pos = point
 
         Mgr.add_task(self.__draw_aux_picking_viz, "draw_aux_uv_picking_viz")
 
     def __draw_aux_picking_viz(self, task):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.uv_mouse_watcher.has_mouse():
             return task.cont
 
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam
+        screen_pos = GD.uv_mouse_watcher.get_mouse()
+        cam = GD.uv_cam
         near_point = Point3()
         far_point = Point3()
-        self.cam_lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.uv_space.get_relative_point(cam, point)
+        GD.uv_cam_lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.uv_space.get_relative_point(cam, point)
         point = Point3()
         self._draw_plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
         start_pos = self._draw_start_pos
@@ -604,7 +613,7 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
 
         for model in self._models:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
 
             if geom_data_obj.set_uv_set_names(uv_set_names[geom_data_obj]):
                 uv_name_change.append(geom_data_obj)
@@ -625,15 +634,15 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             names = []
 
             for geom_data_obj in uv_name_change:
-                model = geom_data_obj.get_toplevel_object()
-                obj_data[model.get_id()] = geom_data_obj.get_data_to_store("prop_change", "uv_set_names")
-                names.append(model.get_name())
+                model = geom_data_obj.toplevel_obj
+                obj_data[model.id] = geom_data_obj.get_data_to_store("prop_change", "uv_set_names")
+                names.append(model.name)
 
             if len(names) > 1:
                 event_descr += 'Change UV set name(s) of objects:\n'
-                event_descr += ''.join(['\n    "{}"'.format(name) for name in names])
+                event_descr += ''.join([f'\n    "{name}"' for name in names])
             else:
-                event_descr += 'Change UV set name(s) of "{}"'.format(names[0])
+                event_descr += f'Change UV set name(s) of "{names[0]}"'
 
             if changed_objs:
                 event_descr += '\n\n'
@@ -643,19 +652,59 @@ class UVEditor(UVNavigationBase, UVSelectionBase, UVTransformationBase,
             names = []
 
             for geom_data_obj in changed_objs:
-                model = geom_data_obj.get_toplevel_object()
+                model = geom_data_obj.toplevel_obj
                 data = geom_data_obj.get_data_to_store("prop_change", "uvs")
-                obj_data.setdefault(model.get_id(), {}).update(data)
-                names.append(model.get_name())
+                obj_data.setdefault(model.id, {}).update(data)
+                names.append(model.name)
 
             if len(names) > 1:
                 event_descr += 'Edit UVs of objects:\n'
-                event_descr += ''.join(['\n    "{}"'.format(name) for name in names])
+                event_descr += ''.join([f'\n    "{name}"' for name in names])
             else:
-                event_descr += 'Edit UVs of "{}"'.format(names[0])
+                event_descr += f'Edit UVs of "{names[0]}"'
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __break_vertices(self):
+
+        selection = self._selections[self._uv_set_id]["vert"]
+        uv_data_objs = selection.uv_data_objects
+
+        for data_obj in uv_data_objs:
+            data_obj.break_vertices()
+
+    def __split_edges(self):
+
+        selection = self._selections[self._uv_set_id]["edge"]
+        uv_data_objs = selection.uv_data_objects
+
+        for data_obj in uv_data_objs:
+            data_obj.split_edges()
+
+    def __stitch_edges(self):
+
+        selection = self._selections[self._uv_set_id]["edge"]
+        uv_data_objs = selection.uv_data_objects
+
+        for data_obj in uv_data_objs:
+            data_obj.stitch_edges()
+
+    def __detach_polygons(self):
+
+        selection = self._selections[self._uv_set_id]["poly"]
+        uv_data_objs = selection.uv_data_objects
+
+        for data_obj in uv_data_objs:
+            data_obj.detach_polygons()
+
+    def __stitch_polygons(self):
+
+        selection = self._selections[self._uv_set_id]["poly"]
+        uv_data_objs = selection.uv_data_objects
+
+        for data_obj in uv_data_objs:
+            data_obj.stitch_polygons()
 
 
 MainObjects.add_class(UVEditor, "uv")

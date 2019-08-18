@@ -1,7 +1,8 @@
 from ...base import *
 
 
-class UVEditBase(BaseObject):
+class UVEditMixin:
+    """ GeomDataObject class mix-in """
 
     def __init__(self):
 
@@ -21,14 +22,13 @@ class UVEditBase(BaseObject):
         uv_writers = [GeomVertexWriter(vertex_data_poly, "texcoord")]
 
         for i in range(1, 8):
-            uv_writer = GeomVertexWriter(vertex_data_poly, "texcoord.{:d}".format(i))
-            uv_writers.append(uv_writer)
+            uv_writers.append(GeomVertexWriter(vertex_data_poly, f"texcoord.{i}"))
 
         for poly in self._ordered_polys:
 
-            for vert in poly.get_vertices():
+            for vert in poly.vertices:
 
-                row = vert.get_row_index()
+                row = vert.row_index
                 uvs = vert.get_uvs()
 
                 for uv_set_id, uv in uvs.items():
@@ -62,7 +62,7 @@ class UVEditBase(BaseObject):
 
     def _restore_uv_set_names(self, time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["uv_set_names"]
         data = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
         self._uv_set_names = data
@@ -96,7 +96,7 @@ class UVEditBase(BaseObject):
         for edge_id in seam_edge_ids:
             tmp_merged_edge.append(edge_id)
 
-        row_indices = tmp_merged_edge.get_start_row_indices()
+        row_indices = tmp_merged_edge.start_row_indices
         edge_array = edge_prim.modify_vertices()
         stride = edge_array.array_format.stride
         edge_view = memoryview(edge_array).cast("B")
@@ -151,7 +151,7 @@ class UVEditBase(BaseObject):
         for edge_id in edge_ids:
             tmp_merged_edge.append(edge_id)
 
-        row_indices = tmp_merged_edge.get_start_row_indices()
+        row_indices = tmp_merged_edge.start_row_indices
         edge_array = edge_prim.modify_vertices()
         stride = edge_array.array_format.stride
         edge_view = memoryview(edge_array).cast("B")
@@ -193,7 +193,7 @@ class UVEditBase(BaseObject):
 
         seam_edge_ids = self._tex_seam_edge_ids[uv_set_id]
         selected_edge_ids = self._selected_subobj_ids["edge"]
-        merged_edges = self._merged_edges
+        merged_edges = self.merged_edges
         tmp_merged_edge1 = Mgr.do("create_merged_edge", self)
         tmp_merged_edge2 = Mgr.do("create_merged_edge", self)
 
@@ -209,14 +209,14 @@ class UVEditBase(BaseObject):
                 tmp_merged_edge2.append(edge_id)
 
         if tmp_merged_edge1[:]:
-            edge_id = tmp_merged_edge1.get_id()
+            edge_id = tmp_merged_edge1.id
             orig_merged_edge = merged_edges[edge_id]
             merged_edges[edge_id] = tmp_merged_edge1
             self.update_selection("edge", [tmp_merged_edge1], [], False)
             merged_edges[edge_id] = orig_merged_edge
 
         if tmp_merged_edge2[:]:
-            edge_id = tmp_merged_edge2.get_id()
+            edge_id = tmp_merged_edge2.id
             orig_merged_edge = merged_edges[edge_id]
             merged_edges[edge_id] = tmp_merged_edge2
             self.update_selection("edge", [], [tmp_merged_edge2], False)
@@ -230,7 +230,7 @@ class UVEditBase(BaseObject):
         for edge_id in edge_ids:
             tmp_merged_edge.append(edge_id)
 
-        row_indices = tmp_merged_edge.get_start_row_indices()
+        row_indices = tmp_merged_edge.start_row_indices
         seam_array = seam_prim.modify_vertices()
         stride = seam_array.array_format.stride
         seam_view = memoryview(seam_array).cast("B")
@@ -273,7 +273,7 @@ class UVEditBase(BaseObject):
         if not uv_set_id in self._tex_seam_edge_ids:
             return
 
-        if edge.get_id() in self._tex_seam_edge_ids[uv_set_id]:
+        if edge.id in self._tex_seam_edge_ids[uv_set_id]:
             sel_colors = colors
             geom = self._tex_seam_geom
         else:
@@ -305,7 +305,7 @@ class UVEditBase(BaseObject):
         vertex_data = self._tex_seam_geom.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
 
-        for row_index in tmp_merged_edge.get_row_indices():
+        for row_index in tmp_merged_edge.row_indices:
             col_writer.set_row(row_index)
             col_writer.set_data4(color)
 
@@ -319,7 +319,7 @@ class UVEditBase(BaseObject):
         vertex_data = self._tex_seam_geom.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
 
-        for row_index in tmp_merged_edge.get_row_indices():
+        for row_index in tmp_merged_edge.row_indices:
             col_writer.set_row(row_index)
             col_writer.set_data4(color)
 
@@ -363,7 +363,7 @@ class UVEditBase(BaseObject):
     def project_uvs(self, uv_set_ids=None, project=True, projector=None,
                     toplvl=True, show_poly_sel=True):
 
-        material = self.get_toplevel_object().get_material()
+        material = self.toplevel_obj.get_material()
 
         if not material:
             return
@@ -373,7 +373,7 @@ class UVEditBase(BaseObject):
 
         if toplvl:
 
-            geom = self._toplvl_geom
+            geom = self.toplevel_geom
             self._geoms["poly"]["unselected"].hide(render_mask)
             self._geoms["poly"]["selected"].hide(render_mask)
             self._geoms["poly"]["selected"].set_state(Mgr.get("poly_selection_state"))
@@ -392,7 +392,7 @@ class UVEditBase(BaseObject):
                 geom.hide(render_mask)
                 self._geoms["poly"]["unselected"].hide(render_mask)
 
-        self.update_render_mode(self.get_toplevel_object().is_selected())
+        self.update_render_mode(self.toplevel_obj.is_selected())
 
         if not uv_set_ids:
             return
@@ -403,7 +403,7 @@ class UVEditBase(BaseObject):
         if project:
             for tex_stage in tex_stages:
                 geom.set_tex_gen(tex_stage, TexGenAttrib.M_world_position)
-                geom.set_tex_projector(tex_stage, self.world, projector)
+                geom.set_tex_projector(tex_stage, GD.world, projector)
         else:
             for tex_stage in tex_stages:
                 geom.clear_tex_gen(tex_stage)
@@ -412,13 +412,13 @@ class UVEditBase(BaseObject):
     def apply_uv_projection(self, vertex_data, uv_set_ids, toplvl=True):
 
         verts = self._subobjs["vert"]
-        model = self.get_toplevel_object()
+        model = self.toplevel_obj
         tangent_space_needs_update = 0 in uv_set_ids and model.has_tangent_space()
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         uv_readers = {}
 
         for uv_set_id in uv_set_ids:
-            column = "texcoord" if uv_set_id == 0 else "texcoord.{:d}".format(uv_set_id)
+            column = "texcoord" if uv_set_id == 0 else f"texcoord.{uv_set_id}"
             uv_readers[uv_set_id] = GeomVertexReader(vertex_data, column)
 
         if toplvl:
@@ -436,7 +436,7 @@ class UVEditBase(BaseObject):
 
             for vert in verts.values():
 
-                row_index = vert.get_row_index()
+                row_index = vert.row_index
 
                 for uv_set_id in uv_set_ids:
                     uv_reader = uv_readers[uv_set_id]
@@ -450,7 +450,7 @@ class UVEditBase(BaseObject):
             uv_writers = {}
 
             for uv_set_id in uv_set_ids:
-                column = "texcoord" if uv_set_id == 0 else "texcoord.{:d}".format(uv_set_id)
+                column = "texcoord" if uv_set_id == 0 else f"texcoord.{uv_set_id}"
                 uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, column)
 
             if tangent_space_needs_update:
@@ -459,13 +459,13 @@ class UVEditBase(BaseObject):
             for poly_id in self._selected_subobj_ids["poly"]:
 
                 poly = polys[poly_id]
-                vert_ids = poly.get_vertex_ids()
+                vert_ids = poly.vertex_ids
                 self._uv_change.update(vert_ids)
 
                 for vert_id in vert_ids:
 
                     vert = verts[vert_id]
-                    row_index = vert.get_row_index()
+                    row_index = vert.row_index
 
                     for uv_set_id in uv_set_ids:
                         uv_reader = uv_readers[uv_set_id]
@@ -501,7 +501,7 @@ class UVEditBase(BaseObject):
                 vert_color_map = material.get_tex_map("vertex color")
                 texture = vert_color_map.get_texture()
 
-                if vert_color_map.is_active() and texture:
+                if vert_color_map.active and texture:
                     self.bake_texture(texture)
 
     def apply_uv_edits(self, vert_ids, uv_set_id):
@@ -511,12 +511,12 @@ class UVEditBase(BaseObject):
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_poly = self._vertex_data["poly"]
 
-        column = "texcoord" if uv_set_id == 0 else "texcoord.{:d}".format(uv_set_id)
+        column = "texcoord" if uv_set_id == 0 else f"texcoord.{uv_set_id}"
         uv_writer = GeomVertexWriter(vertex_data_top, column)
 
         for vert_id in vert_ids:
             vert = verts[vert_id]
-            row_index = vert.get_row_index()
+            row_index = vert.row_index
             u, v = vert.get_uvs(uv_set_id)
             uv_writer.set_row(row_index)
             uv_writer.set_data2(u, v)
@@ -526,10 +526,10 @@ class UVEditBase(BaseObject):
 
         if uv_set_id == 0:
 
-            model = self.get_toplevel_object()
+            model = self.toplevel_obj
 
             if model.has_tangent_space():
-                polys_to_update = set(verts[vert_id].get_polygon_id() for vert_id in vert_ids)
+                polys_to_update = set(verts[vert_id].polygon_id for vert_id in vert_ids)
                 tangent_flip, bitangent_flip = model.get_tangent_space_flip()
                 self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
             else:
@@ -542,7 +542,7 @@ class UVEditBase(BaseObject):
                 vert_color_map = material.get_tex_map("vertex color")
                 texture = vert_color_map.get_texture()
 
-                if vert_color_map.is_active() and texture:
+                if vert_color_map.active and texture:
                     self.bake_texture(texture)
 
     def copy_uvs(self, uv_set_id):
@@ -571,7 +571,7 @@ class UVEditBase(BaseObject):
 
         if uv_set_id == 0:
 
-            model = self.get_toplevel_object()
+            model = self.toplevel_obj
 
             if model.has_tangent_space():
                 model.update_tangent_space()
@@ -585,7 +585,7 @@ class UVEditBase(BaseObject):
                 vert_color_map = material.get_tex_map("vertex color")
                 texture = vert_color_map.get_texture()
 
-                if vert_color_map.is_active() and texture:
+                if vert_color_map.active and texture:
                     self.bake_texture(texture)
 
     def clear_copied_uvs(self):
@@ -599,7 +599,7 @@ class UVEditBase(BaseObject):
 
     def _restore_uvs(self, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["uvs"]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
@@ -708,7 +708,7 @@ class UVEditBase(BaseObject):
         uv_writers = {0: GeomVertexWriter(vertex_data_top, "texcoord")}
 
         for uv_set_id in range(1, 8):
-            uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, "texcoord.{:d}".format(uv_set_id))
+            uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, f"texcoord.{uv_set_id}")
 
         uv_sets_to_restore = set()
 
@@ -731,7 +731,7 @@ class UVEditBase(BaseObject):
                         uvs[uv_set_id] = (0., 0.)
 
                 vert = verts[vert_id]
-                row = vert.get_row_index()
+                row = vert.row_index
 
                 for uv_set_id, uv in uvs.items():
                     uv_writer = uv_writers[uv_set_id]
@@ -747,12 +747,12 @@ class UVEditBase(BaseObject):
 
         if 0 in uv_sets_to_restore:
 
-            material = self.get_toplevel_object().get_material()
+            material = self.toplevel_obj.get_material()
 
             if material:
 
                 vert_color_map = material.get_tex_map("vertex color")
                 texture = vert_color_map.get_texture()
 
-                if vert_color_map.is_active() and texture:
+                if vert_color_map.active and texture:
                     self.bake_texture(texture)

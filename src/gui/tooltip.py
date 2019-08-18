@@ -16,8 +16,8 @@ class ToolTip:
         cm.set_frame(0., 1., -1., 0.)
         cls._card = card = Mgr.get("gui_root").attach_new_node(cm.generate())
         tex = Texture("tooltip_tex")
-        tex.set_minfilter(SamplerState.FT_nearest)
-        tex.set_magfilter(SamplerState.FT_nearest)
+        tex.minfilter = SamplerState.FT_nearest
+        tex.magfilter = SamplerState.FT_nearest
         cls._tex = tex
         card.set_bin("tooltip", 1)
         card.set_depth_test(False)
@@ -39,14 +39,13 @@ class ToolTip:
         font = skin_text["font"]
         colors = Skin["colors"]
         image = font.create_image(text, color)
-        w = image.get_x_size()
-        h = image.get_y_size()
+        w, h = image.size
         label = PNMImage(w + 8, h + 8, 4)
         painter = PNMPainter(label)
         fill = PNMBrush.make_pixel(colors["tooltip_background"])
         pen = PNMBrush.make_pixel(colors["tooltip_border"])
-        painter.set_fill(fill)
-        painter.set_pen(pen)
+        painter.fill = fill
+        painter.pen = pen
         painter.draw_rectangle(0, 0, w + 7, h + 7)
         label.blend_sub_image(image, 4, 4, 0, 0)
 
@@ -57,16 +56,15 @@ class ToolTip:
 
         cls._label = label
         card = cls._card
-        w = label.get_x_size()
-        h = label.get_y_size()
+        w, h = label.size
         card.set_sx(w)
         card.set_sz(h)
         cls._tex.load(label)
 
         if not card.is_hidden():
             mouse_pointer = Mgr.get("mouse_pointer", 0)
-            x = mouse_pointer.get_x()
-            y = mouse_pointer.get_y() + 20
+            x = mouse_pointer.x
+            y = mouse_pointer.y + 20
             w_w, h_w = Mgr.get("window_size")
             x = max(0, min(x, w_w - w))
             y = max(0, min(y, h_w - h))
@@ -76,14 +74,13 @@ class ToolTip:
     @classmethod
     def __show_delayed(cls, task):
 
-        if cls._clock.get_real_time() < cls._delay:
+        if cls._clock.real_time < cls._delay:
             return task.cont
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        x = mouse_pointer.get_x()
-        y = mouse_pointer.get_y() + 20
-        w = cls._label.get_x_size()
-        h = cls._label.get_y_size()
+        x = mouse_pointer.x
+        y = mouse_pointer.y + 20
+        w, h = cls._label.size
         w_w, h_w = Mgr.get("window_size")
         x = max(0, min(x, w_w - w))
         y = max(0, min(y, h_w - h))

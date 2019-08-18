@@ -31,7 +31,7 @@ class SubobjectPanel(Panel):
         btns = []
 
         for subobj_type, text in zip(subobj_types, subobj_text):
-            tooltip_text = "{} level".format(text)
+            tooltip_text = f"{text} level"
             btn = PanelButton(top_container, text, "", tooltip_text)
             toggle = (get_command(subobj_type), lambda: None)
             uv_lvl_btns.add_button(btn, subobj_type, toggle)
@@ -91,7 +91,7 @@ class SubobjectPanel(Panel):
 
         def handler(by_seam):
 
-            GlobalData["uv_edit_options"]["sel_edges_by_seam"] = by_seam
+            GD["uv_edit_options"]["sel_edges_by_seam"] = by_seam
 
         text = "Select by seam"
         checkbtn = PanelCheckButton(section, handler, text)
@@ -123,7 +123,7 @@ class SubobjectPanel(Panel):
 
         def handler(by_cluster):
 
-            GlobalData["uv_edit_options"]["sel_polys_by_cluster"] = by_cluster
+            GD["uv_edit_options"]["sel_polys_by_cluster"] = by_cluster
 
         text = "Select by cluster"
         checkbtn = PanelCheckButton(section, handler, text)
@@ -224,13 +224,13 @@ class SubobjectPanel(Panel):
 
     def __update_uv_edit_options(self):
 
-        for option, value in GlobalData["uv_edit_options"].items():
+        for option, value in GD["uv_edit_options"].items():
             if option == "pick_via_poly":
                 for subobj_type in ("vert", "edge"):
-                    self._checkbuttons["pick_{}_via_poly".format(subobj_type)].check(value)
+                    self._checkbuttons[f"pick_{subobj_type}_via_poly"].check(value)
             elif option == "pick_by_aiming":
                 for subobj_type in ("vert", "edge"):
-                    self._checkbuttons["pick_{}_by_aiming".format(subobj_type)].check(value)
+                    self._checkbuttons[f"pick_{subobj_type}_by_aiming"].check(value)
             elif option in self._checkbuttons:
                 self._checkbuttons[option].check(value)
             elif option in self._fields:
@@ -239,11 +239,11 @@ class SubobjectPanel(Panel):
     def __set_uv_level(self, uv_level):
 
         self._uv_lvl_btns.set_active_button(uv_level)
-        self.get_section("uv_{}_props".format(uv_level)).show()
+        self.get_section(f"uv_{uv_level}_props").show()
 
         for subobj_lvl in ("vert", "edge", "poly"):
             if subobj_lvl != uv_level:
-                self.get_section("uv_{}_props".format(subobj_lvl)).hide()
+                self.get_section(f"uv_{subobj_lvl}_props").hide()
 
         for state_id in self._subobj_state_ids[self._prev_obj_lvl]:
             Mgr.exit_state(state_id)
@@ -259,15 +259,15 @@ class SubobjectPanel(Panel):
         Mgr.update_interface_remotely("uv", "picking_via_poly", via_poly)
 
         for subobj_type in ("vert", "edge"):
-            self._checkbuttons["pick_{}_via_poly".format(subobj_type)].check(via_poly)
+            self._checkbuttons[f"pick_{subobj_type}_via_poly"].check(via_poly)
 
     def __handle_picking_by_aiming(self, by_aiming):
 
-        GlobalData["uv_edit_options"]["pick_by_aiming"] = by_aiming
-        GlobalData["subobj_edit_options"]["pick_by_aiming"] = by_aiming
+        GD["uv_edit_options"]["pick_by_aiming"] = by_aiming
+        GD["subobj_edit_options"]["pick_by_aiming"] = by_aiming
 
         for subobj_type in ("vert", "edge"):
-            self._checkbuttons["pick_{}_by_aiming".format(subobj_type)].check(by_aiming)
+            self._checkbuttons[f"pick_{subobj_type}_by_aiming"].check(by_aiming)
 
     def __break_vertices(self):
 
@@ -301,7 +301,7 @@ class SubobjectPanel(Panel):
         except:
             return None
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         sel_state = value_id.replace("_poly_alpha", "")
         Mgr.update_interface_remotely("uv", "poly_color", sel_state, "alpha", value)
@@ -309,7 +309,7 @@ class SubobjectPanel(Panel):
     def __set_poly_color(self, sel_state, channels, value):
 
         if channels == "rgb":
-            self._colorboxes["{}_poly_rgb".format(sel_state)].set_color(value[:3])
+            self._colorboxes[f"{sel_state}_poly_rgb"].set_color(value[:3])
         elif channels == "alpha":
-            prop_id = "{}_poly_alpha".format(sel_state)
+            prop_id = f"{sel_state}_poly_alpha"
             self._fields[prop_id].set_value(value)

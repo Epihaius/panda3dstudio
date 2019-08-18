@@ -10,7 +10,7 @@ else:
     paste_emit_keystrokes = "false"
 
 load_prc_file_data("",
-"""
+f"""
 sync-video false
 model-cache-dir
 geom-cache-size 0
@@ -20,18 +20,18 @@ notify-output p3ds.log
 garbage-collect-states false
 load-file-type p3assimp
 notify-level-linmath error
-paste-emit-keystrokes {}
+paste-emit-keystrokes {paste_emit_keystrokes}
 
-""".format(paste_emit_keystrokes)
+"""
 )
+
 
 # the CursorManager class is used to set the mouse cursor image, but also to reset it to the image
 # that was last used for a particular region (GUI, viewport, etc.) when entering that region again
 class CursorManager:
 
-    def __init__(self, base, mouse_watcher_node):
+    def __init__(self, mouse_watcher_node):
 
-        self._base = base
         self._mouse_watcher_node = mouse_watcher_node
         self._regions = {}
         self._cursor_filenames = {}
@@ -44,7 +44,7 @@ class CursorManager:
 
         self._regions.setdefault(interface_id, []).append(region)
         self._mouse_watcher_node.add_region(region)
-        self._cursor_filenames[region.get_name()] = Filename()
+        self._cursor_filenames[region.name] = Filename()
 
     def remove_cursor_regions(self, interface_id):
 
@@ -52,7 +52,7 @@ class CursorManager:
 
             for region in self._regions[interface_id]:
                 self._mouse_watcher_node.remove_region(region)
-                del self._cursor_filenames[region.get_name()]
+                del self._cursor_filenames[region.name]
 
             del self._regions[interface_id]
 
@@ -60,11 +60,11 @@ class CursorManager:
 
         if interface_id in self._regions:
             for region in self._regions[interface_id]:
-                region.set_active(active)
+                region.active = active
 
     def __set_cursor(self, *args):
 
-        region_id = args[0].get_name()
+        region_id = args[0].name
         self.set_cursor(region_id)
 
     def set_cursor(self, region_id, cursor_filename=None):
@@ -78,35 +78,33 @@ class CursorManager:
         filenames[region_id] = c_f
         region = self._mouse_watcher_node.get_over_region()
 
-        if region and region.get_name() == region_id:
+        if region and region.name == region_id:
             win_props = WindowProperties()
-            win_props.set_cursor_filename(c_f)
-            self._base.win.request_properties(win_props)
+            win_props.cursor_filename = c_f
+            GlobalData.showbase.win.request_properties(win_props)
 
 
 # the AppManager is responsible for unifying the two main components of the
 # application: the Core and the GUI
 class AppManager:
 
-    def __init__(self, verbose=False):
+    def __init__(self):
 
-        self._base = ShowBase()
-        self._verbose = verbose
         self._updaters = {}
         self._state_mgrs = {}
         self._key_handlers = {}
         self._cursor_manager = None
+        GlobalData.showbase = showbase = ShowBase()
+        GlobalData.world = showbase.render
+        GlobalData.viewport_origin = showbase.pixel2d
         GlobalData["mod_key_codes"] = {"alt": 1, "ctrl": 2, "shift": 4}
+        showbase.disable_mouse()
 
     def setup(self, listener, key_handlers):
 
         self._state_mgrs["main"] = {"CORE": StateBinder(EventBinder(listener)),
                                     "GUI": StateManager()}
         self._key_handlers["main"] = key_handlers
-
-    def get_base(self):
-
-        return self._base
 
     def remove_interface(self, interface_id):
 
@@ -136,7 +134,7 @@ class AppManager:
             state_mgr = state_mgrs[component_id]
 
             if state_mgr.is_state_binder():
-                event_binder = state_mgr.get_event_binder()
+                event_binder = state_mgr.event_binder
                 event_binder.ignore_all()
 
         del self._state_mgrs[interface_id]
@@ -154,7 +152,7 @@ class AppManager:
 
     def init_cursor_manager(self, mouse_watcher):
 
-        self._cursor_manager = CursorManager(self._base, mouse_watcher)
+        self._cursor_manager = CursorManager(mouse_watcher)
 
     def add_cursor_region(self, interface_id, mouse_region):
 
@@ -208,7 +206,7 @@ class AppManager:
 
     def get_state_id(self, interface_id, component_id):
 
-        return self._state_mgrs[interface_id][component_id].get_current_state_id()
+        return self._state_mgrs[interface_id][component_id].current_state_id
 
     def get_state_persistence(self, interface_id, component_id, state_id):
 
@@ -270,12 +268,12 @@ class AppManager:
 
         if locally:
             for updater, param_ids in local_updaters:
-                _kwargs = dict((k, v) for k, v in kwargs.items() if k in param_ids)
+                _kwargs = {k: v for k, v in kwargs.items() if k in param_ids}
                 updater(*args, **_kwargs)
 
         if remotely:
             for updater, param_ids in remote_updaters:
-                _kwargs = dict((k, v) for k, v in kwargs.items() if k in param_ids)
+                _kwargs = {k: v for k, v in kwargs.items() if k in param_ids}
                 updater(*args, **_kwargs)
 
     def update_interface(self, interface_id, component_id, locally, remotely,
@@ -291,12 +289,12 @@ class AppManager:
 
         if locally:
             for updater, param_ids in local_updaters:
-                _kwargs = dict((k, v) for k, v in kwargs.items() if k in param_ids)
+                _kwargs = {k: v for k, v in kwargs.items() if k in param_ids}
                 updater(*args, **_kwargs)
 
         if remotely:
             for updater, param_ids in remote_updaters:
-                _kwargs = dict((k, v) for k, v in kwargs.items() if k in param_ids)
+                _kwargs = {k: v for k, v in kwargs.items() if k in param_ids}
                 updater(*args, **_kwargs)
 
     def remove_updaters(self, interface_id):

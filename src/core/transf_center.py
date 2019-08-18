@@ -1,7 +1,7 @@
 from .base import *
 
 
-class TransformCenterManager(BaseObject):
+class TransformCenterManager:
 
     def __init__(self):
 
@@ -12,7 +12,7 @@ class TransformCenterManager(BaseObject):
         self._user_obj_id = None
         self._pixel_under_mouse = None
 
-        GlobalData.set_default("transf_center_type", "adaptive")
+        GD.set_default("transf_center_type", "adaptive")
 
         Mgr.expose("adaptive_transf_center_type", self.__get_adaptive_transf_center)
         Mgr.expose("transf_center_obj", self.__get_transform_center_object)
@@ -37,18 +37,18 @@ class TransformCenterManager(BaseObject):
              exit_transf_center_picking_mode)
         bind("transf_center_picking_mode", "cancel transf center picking", "mouse3",
              exit_transf_center_picking_mode)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
         bind("transf_center_picking_mode", "pick transf center ctrl-right-click",
-             "{:d}|mouse3".format(mod_ctrl), lambda: Mgr.update_remotely("main_context"))
+             f"{mod_ctrl}|mouse3", lambda: Mgr.update_remotely("main_context"))
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode = "Pick transf. center object"
         info = "LMB to pick object; RMB to cancel"
         status_data["pick_transf_center"] = {"mode": mode, "info": info}
 
     def __get_adaptive_transf_center(self):
 
-        if GlobalData["active_obj_level"] != "top" or len(Mgr.get("selection")) > 1:
+        if GD["active_obj_level"] != "top" or len(Mgr.get("selection")) > 1:
             return "sel_center"
 
         return "pivot"
@@ -57,8 +57,8 @@ class TransformCenterManager(BaseObject):
 
         if self._tc_obj and check_valid:
 
-            cs_type = GlobalData["coord_sys_type"]
-            tc_type = GlobalData["transf_center_type"]
+            cs_type = GD["coord_sys_type"]
+            tc_type = GD["transf_center_type"]
 
             if tc_type == "adaptive":
                 tc_type = self.__get_adaptive_transf_center()
@@ -71,7 +71,7 @@ class TransformCenterManager(BaseObject):
 
     def __set_transform_center(self, tc_type, obj=None):
 
-        GlobalData["transf_center_type"] = tc_type
+        GD["transf_center_type"] = tc_type
 
         self._tc_obj = obj
 
@@ -82,7 +82,7 @@ class TransformCenterManager(BaseObject):
 
         if _tc_type == "pivot" and not obj:
 
-            if GlobalData["coord_sys_type"] == "local":
+            if GD["coord_sys_type"] == "local":
                 self._tc_obj = Mgr.get("coord_sys_obj", check_valid=True)
 
             if not self._tc_obj:
@@ -95,23 +95,23 @@ class TransformCenterManager(BaseObject):
             self._user_obj_id = None
 
             if user_obj:
-                user_obj.get_name(as_object=True).remove_updater("transf_center")
+                user_obj.name_obj.remove_updater("transf_center")
 
         tc_pos = self.__get_transform_center_pos()
-        Mgr.do("set_transf_gizmo_pos", tc_pos)
+        Mgr.get("transf_gizmo").pos = tc_pos
 
     def __get_transform_center_pos(self):
 
-        tc_type = GlobalData["transf_center_type"]
+        tc_type = GD["transf_center_type"]
 
         if tc_type == "adaptive" and self.__get_adaptive_transf_center() == "sel_center":
             pos = Mgr.get("selection").get_center_pos()
         elif self._tc_obj:
-            pos = self._tc_obj.get_pivot().get_pos(self.world)
+            pos = self._tc_obj.pivot.get_pos(GD.world)
         elif tc_type == "snap_pt":
             pos = self._tc_custom_pos
         elif tc_type == "cs_origin":
-            pos = Mgr.get(("grid", "origin")).get_pos()
+            pos = Mgr.get("grid").origin.get_pos()
         else:
             pos = Mgr.get("selection").get_center_pos()
 
@@ -121,12 +121,12 @@ class TransformCenterManager(BaseObject):
 
         self._tc_custom_pos = pos
 
-    def __enter_picking_mode(self, prev_state_id, is_active):
+    def __enter_picking_mode(self, prev_state_id, active):
 
         Mgr.add_task(self.__update_cursor, "update_tc_picking_cursor")
         Mgr.update_app("status", ["pick_transf_center"])
 
-        if not is_active:
+        if not active:
 
             def handler(obj_ids):
 
@@ -136,23 +136,23 @@ class TransformCenterManager(BaseObject):
 
             Mgr.update_remotely("selection_by_name", "", "Pick transform center object",
                                 None, False, "Pick", handler)
-            Mgr.get("gizmo_picking_cam").node().set_active(False)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(False)
+            Mgr.get("gizmo_picking_cam").node().active = False
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = False
 
-    def __exit_picking_mode(self, next_state_id, is_active):
+    def __exit_picking_mode(self, next_state_id, active):
 
-        if not is_active:
+        if not active:
 
             if not self._tc_obj_picked:
-                tc_type_prev = GlobalData["transf_center_type"]
+                tc_type_prev = GD["transf_center_type"]
                 obj = self._tc_obj
-                name = obj.get_name(as_object=True) if obj else None
+                name_obj = obj.name_obj if obj else None
                 Mgr.update_locally("transf_center", tc_type_prev, obj)
-                Mgr.update_remotely("transf_center", tc_type_prev, name)
+                Mgr.update_remotely("transf_center", tc_type_prev, name_obj)
 
             self._tc_obj_picked = None
-            Mgr.get("gizmo_picking_cam").node().set_active(True)
-            Mgr.get("gizmo_picking_cam").node().get_display_region(0).set_active(True)
+            Mgr.get("gizmo_picking_cam").node().active = True
+            Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = True
             Mgr.update_remotely("selection_by_name", "default")
 
         self._pixel_under_mouse = None  # force an update of the cursor
@@ -169,16 +169,16 @@ class TransformCenterManager(BaseObject):
 
             obj_id = self._user_obj_id
 
-            if obj_id == obj.get_id():
+            if obj_id == obj.id:
                 return
             elif obj_id:
                 user_obj = Mgr.get("object", obj_id)
-                user_obj.get_name(as_object=True).remove_updater("transf_center")
+                user_obj.name_obj.remove_updater("transf_center")
 
             self._tc_obj_picked = obj
             Mgr.exit_state("transf_center_picking_mode")
             Mgr.update_locally("transf_center", "object", obj)
-            Mgr.update_remotely("transf_center", "object", obj.get_name(as_object=True))
+            Mgr.update_remotely("transf_center", "object", obj.name_obj)
 
     def __update_cursor(self, task):
 

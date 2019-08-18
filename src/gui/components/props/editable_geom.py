@@ -36,7 +36,7 @@ class EditableGeomProperties:
         get_level_setter = lambda subobj_type: lambda: self.__set_subobj_level(subobj_type)
 
         for subobj_type, subobj_name in zip(subobj_types, subobj_names):
-            tooltip_text = "{} level".format(subobj_name)
+            tooltip_text = f"{subobj_name} level"
             btn = PanelButton(section, subobj_name, "", tooltip_text)
             sizer.add(btn, proportion_h=1.)
             toggle = (get_level_setter(subobj_type), lambda: None)
@@ -191,7 +191,7 @@ class EditableGeomProperties:
 
         def handler(by_border):
 
-            GlobalData["subobj_edit_options"]["sel_edges_by_border"] = by_border
+            GD["subobj_edit_options"]["sel_edges_by_border"] = by_border
 
         text = "Select by border"
         checkbtn = PanelCheckButton(section, handler, text)
@@ -233,9 +233,9 @@ class EditableGeomProperties:
         sizer = Sizer("horizontal")
         section.add(sizer)
 
-        def handler(value_id, segments, state):
+        def handler(value_id, segments, state="done"):
 
-            GlobalData["subobj_edit_options"]["edge_bridge_segments"] = segments
+            GD["subobj_edit_options"]["edge_bridge_segments"] = segments
 
         text = "Bridge segments:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
@@ -302,7 +302,7 @@ class EditableGeomProperties:
 
         def handler(by_surface):
 
-            GlobalData["subobj_edit_options"]["sel_polys_by_surface"] = by_surface
+            GD["subobj_edit_options"]["sel_polys_by_surface"] = by_surface
 
         text = "Select by surface"
         checkbtn = PanelCheckButton(group, handler, text)
@@ -321,7 +321,7 @@ class EditableGeomProperties:
 
         def handler(by_smoothing):
 
-            GlobalData["subobj_edit_options"]["sel_polys_by_smoothing"] = by_smoothing
+            GD["subobj_edit_options"]["sel_polys_by_smoothing"] = by_smoothing
 
         text = "Select by smoothing"
         checkbtn = PanelCheckButton(group, handler, text)
@@ -398,16 +398,16 @@ class EditableGeomProperties:
 
     def __update_subobj_edit_options(self):
 
-        for option, value in GlobalData["subobj_edit_options"].items():
+        for option, value in GD["subobj_edit_options"].items():
             if option == "pick_via_poly":
                 for subobj_type in ("vert", "edge", "normal"):
-                    self._checkbuttons["pick_{}_via_poly".format(subobj_type)].check(value)
+                    self._checkbuttons[f"pick_{subobj_type}_via_poly"].check(value)
             elif option == "pick_by_aiming":
                 for subobj_type in ("vert", "edge", "normal"):
-                    self._checkbuttons["pick_{}_by_aiming".format(subobj_type)].check(value)
+                    self._checkbuttons[f"pick_{subobj_type}_by_aiming"].check(value)
             elif option == "normal_preserve":
                 for subobj_type in ("vert", "edge", "poly"):
-                    self._checkbuttons["{}_normal_preserve".format(subobj_type)].check(value)
+                    self._checkbuttons[f"{subobj_type}_normal_preserve"].check(value)
             elif option in self._checkbuttons:
                 self._checkbuttons[option].check(value)
             elif option in self._fields:
@@ -418,112 +418,112 @@ class EditableGeomProperties:
         Mgr.update_remotely("picking_via_poly", via_poly)
 
         for subobj_type in ("vert", "edge", "normal"):
-            self._checkbuttons["pick_{}_via_poly".format(subobj_type)].check(via_poly)
+            self._checkbuttons[f"pick_{subobj_type}_via_poly"].check(via_poly)
 
     def __handle_picking_by_aiming(self, by_aiming):
 
-        GlobalData["subobj_edit_options"]["pick_by_aiming"] = by_aiming
+        GD["subobj_edit_options"]["pick_by_aiming"] = by_aiming
 
         for subobj_type in ("vert", "edge", "normal"):
-            self._checkbuttons["pick_{}_by_aiming".format(subobj_type)].check(by_aiming)
+            self._checkbuttons[f"pick_{subobj_type}_by_aiming"].check(by_aiming)
 
     def __handle_normal_preserve(self, preserve):
 
-        GlobalData["subobj_edit_options"]["normal_preserve"] = preserve
+        GD["subobj_edit_options"]["normal_preserve"] = preserve
 
         for subobj_type in ("vert", "edge", "poly"):
-            self._checkbuttons["{}_normal_preserve".format(subobj_type)].check(preserve)
+            self._checkbuttons[f"{subobj_type}_normal_preserve"].check(preserve)
 
     def setup(self):
 
-        def enter_normal_dir_copy_mode(prev_state_id, is_active):
+        def enter_normal_dir_copy_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
             Mgr.do("enable_gui")
-            self._btns["copy_normal_dir"].set_active()
+            self._btns["copy_normal_dir"].active = True
 
-        def exit_normal_dir_copy_mode(next_state_id, is_active):
+        def exit_normal_dir_copy_mode(next_state_id, active):
 
-            if not is_active:
-                self._btns["copy_normal_dir"].set_active(False)
+            if not active:
+                self._btns["copy_normal_dir"].active = False
 
-        def enter_edge_merge_mode(prev_state_id, is_active):
-
-            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
-            Mgr.do("enable_gui")
-            self._btns["merge_edges"].set_active()
-
-        def exit_edge_merge_mode(next_state_id, is_active):
-
-            if not is_active:
-                self._btns["merge_edges"].set_active(False)
-
-        def enter_edge_bridge_mode(prev_state_id, is_active):
+        def enter_edge_merge_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
             Mgr.do("enable_gui")
-            self._btns["bridge_edges"].set_active()
+            self._btns["merge_edges"].active = True
 
-        def exit_edge_bridge_mode(next_state_id, is_active):
+        def exit_edge_merge_mode(next_state_id, active):
 
-            if not is_active:
-                self._btns["bridge_edges"].set_active(False)
+            if not active:
+                self._btns["merge_edges"].active = False
 
-        def enter_creation_mode(prev_state_id, is_active):
+        def enter_edge_bridge_mode(prev_state_id, active):
+
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
+            Mgr.do("enable_gui")
+            self._btns["bridge_edges"].active = True
+
+        def exit_edge_bridge_mode(next_state_id, active):
+
+            if not active:
+                self._btns["bridge_edges"].active = False
+
+        def enter_creation_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_create_objects")
             Mgr.do("enable_gui")
-            self._btns["create_poly"].set_active()
+            self._btns["create_poly"].active = True
 
-        def exit_creation_mode(next_state_id, is_active):
+        def exit_creation_mode(next_state_id, active):
 
-            if not is_active:
-                self._btns["create_poly"].set_active(False)
+            if not active:
+                self._btns["create_poly"].active = False
 
-        def enter_smoothing_poly_picking_mode(prev_state_id, is_active):
-
-            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
-            self._btns["smooth_with"].set_active()
-
-        def exit_smoothing_poly_picking_mode(next_state_id, is_active):
-
-            if not is_active:
-                self._btns["smooth_with"].set_active(False)
-
-        def enter_unsmoothing_poly_picking_mode(prev_state_id, is_active):
+        def enter_smoothing_poly_picking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
-            self._btns["unsmooth_with"].set_active()
+            self._btns["smooth_with"].active = True
 
-        def exit_unsmoothing_poly_picking_mode(next_state_id, is_active):
+        def exit_smoothing_poly_picking_mode(next_state_id, active):
 
-            if not is_active:
-                self._btns["unsmooth_with"].set_active(False)
+            if not active:
+                self._btns["smooth_with"].active = False
 
-        def enter_diagonal_turning_mode(prev_state_id, is_active):
+        def enter_unsmoothing_poly_picking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
-            self._btns["turn_diagonals"].set_active()
+            self._btns["unsmooth_with"].active = True
 
-        def exit_diagonal_turning_mode(next_state_id, is_active):
+        def exit_unsmoothing_poly_picking_mode(next_state_id, active):
 
-            if not is_active:
-                self._btns["turn_diagonals"].set_active(False)
+            if not active:
+                self._btns["unsmooth_with"].active = False
+
+        def enter_diagonal_turning_mode(prev_state_id, active):
+
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
+            self._btns["turn_diagonals"].active = True
+
+        def exit_diagonal_turning_mode(next_state_id, active):
+
+            if not active:
+                self._btns["turn_diagonals"].active = False
 
         add_state = Mgr.add_state
         add_state("normal_dir_copy_mode", -10,
                   enter_normal_dir_copy_mode, exit_normal_dir_copy_mode)
         add_state("edge_merge_mode", -10,
                   enter_edge_merge_mode, exit_edge_merge_mode)
-        add_state("edge_merge", -11, lambda prev_state_id, is_active:
+        add_state("edge_merge", -11, lambda prev_state_id, active:
                   Mgr.do("enable_gui", False))
         add_state("edge_bridge_mode", -10,
                   enter_edge_bridge_mode, exit_edge_bridge_mode)
-        add_state("edge_bridge", -11, lambda prev_state_id, is_active:
+        add_state("edge_bridge", -11, lambda prev_state_id, active:
                   Mgr.do("enable_gui", False))
         add_state("poly_creation_mode", -10,
                   enter_creation_mode, exit_creation_mode)
-        add_state("poly_creation", -11, lambda prev_state_id, is_active:
+        add_state("poly_creation", -11, lambda prev_state_id, active:
                   Mgr.do("enable_gui", False))
         add_state("smoothing_poly_picking_mode", -10, enter_smoothing_poly_picking_mode,
                   exit_smoothing_poly_picking_mode)
@@ -539,7 +539,7 @@ class EditableGeomProperties:
         if self._panel.get_active_object_type() != "editable_geom":
             return
 
-        obj_lvl = GlobalData["active_obj_level"]
+        obj_lvl = GD["active_obj_level"]
 
         # exit any subobject modes
         Mgr.exit_states(min_persistence=-99)
@@ -555,18 +555,18 @@ class EditableGeomProperties:
                 Mgr.do("disable_selection_dialog")
                 Mgr.do("disable_transform_targets")
                 self._subobj_btns.set_active_button(obj_lvl)
-                self._panel.get_section("{}_props".format(obj_lvl)).show()
+                self._panel.get_section(f"{obj_lvl}_props").show()
 
             for subobj_lvl in ("vert", "edge", "poly", "normal"):
                 if subobj_lvl != obj_lvl:
-                    self._panel.get_section("{}_props".format(subobj_lvl)).hide()
+                    self._panel.get_section(f"{subobj_lvl}_props").hide()
 
         task_id = "update_obj_level"
         PendingTasks.add(task, task_id, sort=0)
 
     def __set_topobj_level(self):
 
-        GlobalData["active_obj_level"] = "top"
+        GD["active_obj_level"] = "top"
         Mgr.update_app("active_obj_level")
 
     def __set_subobj_level(self, subobj_lvl):
@@ -574,14 +574,14 @@ class EditableGeomProperties:
         # exit any object modes
         Mgr.exit_states(min_persistence=-99)
 
-        if GlobalData["transform_target_type"] != "all":
-            GlobalData["transform_target_type"] = "all"
+        if GD["transform_target_type"] != "all":
+            GD["transform_target_type"] = "all"
             Mgr.update_app("transform_target_type")
 
-        GlobalData["active_obj_level"] = subobj_lvl
+        GD["active_obj_level"] = subobj_lvl
         Mgr.update_app("active_obj_level")
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         Mgr.update_remotely(value_id, value)
 
@@ -601,7 +601,7 @@ class EditableGeomProperties:
 
     def __toggle_poly_creation(self):
 
-        if self._btns["create_poly"].is_active():
+        if self._btns["create_poly"].active:
             Mgr.exit_state("poly_creation_mode")
         else:
             Mgr.enter_state("poly_creation_mode")
@@ -626,7 +626,7 @@ class EditableGeomProperties:
 
         btn = self._btns["copy_normal_dir"]
 
-        if btn.is_active():
+        if btn.active:
             Mgr.exit_state("normal_dir_copy_mode")
         else:
             Mgr.enter_state("normal_dir_copy_mode")
@@ -639,7 +639,7 @@ class EditableGeomProperties:
 
         btn = self._btns["merge_edges"]
 
-        if btn.is_active():
+        if btn.active:
             Mgr.exit_state("edge_merge_mode")
         else:
             Mgr.enter_state("edge_merge_mode")
@@ -648,7 +648,7 @@ class EditableGeomProperties:
 
         btn = self._btns["bridge_edges"]
 
-        if btn.is_active():
+        if btn.active:
             Mgr.exit_state("edge_bridge_mode")
         else:
             Mgr.enter_state("edge_bridge_mode")
@@ -678,7 +678,7 @@ class EditableGeomProperties:
         pick_btn = self._btns[("" if smooth else "un") + "smooth_with"]
         state_id = ("" if smooth else "un") + "smoothing_poly_picking_mode"
 
-        if pick_btn.is_active():
+        if pick_btn.active:
             Mgr.exit_state(state_id)
         else:
             Mgr.enter_state(state_id)
@@ -691,7 +691,7 @@ class EditableGeomProperties:
 
         pick_btn = self._btns["turn_diagonals"]
 
-        if pick_btn.is_active():
+        if pick_btn.active:
             Mgr.exit_state("diagonal_turning_mode")
         else:
             Mgr.update_remotely("diagonal_turn")
@@ -733,7 +733,7 @@ class EditableGeomProperties:
 
     def check_selection_count(self):
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 

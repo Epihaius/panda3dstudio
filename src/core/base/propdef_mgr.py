@@ -7,8 +7,8 @@ class ObjPropDefaultsManager:
 
         self._prop_defaults = {}
 
-        Mgr.add_app_updater("{}_prop_default".format(obj_type), self.set_property_default)
-        Mgr.expose("{}_prop_defaults".format(obj_type), self.get_property_defaults)
+        Mgr.add_app_updater(f"{obj_type}_prop_default", self.set_property_default)
+        Mgr.expose(f"{obj_type}_prop_defaults", self.get_property_defaults)
 
     def set_property_default(self, prop_id, value):
 

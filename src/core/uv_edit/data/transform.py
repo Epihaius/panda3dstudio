@@ -1,7 +1,8 @@
 from ..base import *
 
 
-class UVDataTransformBase(BaseObject):
+class TransformMixin:
+    """ UVDataObject class mix-in """
 
     def __init__(self, is_copy=False):
 
@@ -19,10 +20,10 @@ class UVDataTransformBase(BaseObject):
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         geoms = self._geoms
         uv_set_id = UVMgr.get("active_uv_set")
-        geom_data_obj = self._geom_data_obj
+        geom_data_obj = self.geom_data_obj
         geom_verts = geom_data_obj.get_subobjects("vert")
         polys_to_update = set()
         vertex_data = self._vertex_data_poly
@@ -31,9 +32,9 @@ class UVDataTransformBase(BaseObject):
 
         for vert_id in vertex_ids:
             vert = verts[vert_id]
-            poly = polys[vert.get_polygon_id()]
+            poly = polys[vert.polygon_id]
             polys_to_update.add(poly)
-            row = vert.get_row_index()
+            row = vert.row_index
             pos = vert.get_pos()
             pos_writer.set_row(row)
             pos_writer.set_data3(pos)
@@ -67,11 +68,10 @@ class UVDataTransformBase(BaseObject):
         geom.node().modify_geom(0).modify_vertex_data() # updates bounds
         bounds = geom.node().get_bounds()
 
-        if bounds.get_radius() == 0.:
-            center = bounds.get_center()
-            bounds = BoundingSphere(center, .1)
+        if bounds.radius == 0.:
+            bounds = BoundingSphere(bounds.center, .1)
 
-        self._origin.node().set_bounds(bounds)
+        self.origin.node().set_bounds(bounds)
 
         geom_data_obj.apply_uv_edits(vertex_ids, uv_set_id)
 
@@ -82,7 +82,7 @@ class UVDataTransformBase(BaseObject):
         self._verts_to_transf[subobj_lvl] = verts_to_transf = {}
         self._rows_to_transf[subobj_lvl] = rows_to_transf = SparseArray()
 
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         merged_verts_to_transf = set()
 
         if subobj_lvl == "vert":
@@ -115,7 +115,7 @@ class UVDataTransformBase(BaseObject):
 
         for merged_vert in merged_verts_to_transf:
 
-            rows = merged_vert.get_row_indices()
+            rows = merged_vert.row_indices
             verts_to_transf[merged_vert] = rows
 
             for row in rows:
@@ -257,7 +257,7 @@ class UVDataTransformBase(BaseObject):
             geom.node().modify_geom(0).modify_vertex_data() # updates bounds
             bounds = geom.node().get_bounds()
 
-            geom_data_obj = self._geom_data_obj
+            geom_data_obj = self.geom_data_obj
             geom_verts = geom_data_obj.get_subobjects("vert")
 
             pos_reader = GeomVertexReader(vertex_data, "vertex")
@@ -278,8 +278,7 @@ class UVDataTransformBase(BaseObject):
                 for vert_id in merged_vert:
                     geom_verts[vert_id].set_uvs((u, v), uv_set_id)
 
-                for poly_id in merged_vert.get_polygon_ids():
-                    poly_ids.add(poly_id)
+                poly_ids.update(merged_vert.polygon_ids)
 
             for poly_id in poly_ids:
                 poly = polys[poly_id]
@@ -287,10 +286,9 @@ class UVDataTransformBase(BaseObject):
 
             geom_data_obj.apply_uv_edits(vert_ids, uv_set_id)
 
-        if bounds.get_radius() == 0.:
-            center = bounds.get_center()
-            bounds = BoundingSphere(center, .1)
+        if bounds.radius == 0.:
+            bounds = BoundingSphere(bounds.center, .1)
 
-        self._origin.node().set_bounds(bounds)
+        self.origin.node().set_bounds(bounds)
         start_data.clear()
         self._pos_arrays = {"main": None, "edge": None}

@@ -18,7 +18,7 @@ class SphereProperties:
         section.add(sizer, expand=True)
 
         for prop_id, val_type in zip(prop_ids, val_types):
-            text = "{}:".format(prop_id.title())
+            text = f"{prop_id.title()}:"
             sizer.add(PanelText(section, text), alignment_v="center_v")
             field = PanelInputField(section, prop_id, val_type, self.__handle_value, 80)
             self._fields[prop_id] = field
@@ -38,9 +38,9 @@ class SphereProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             Mgr.update_app("sphere_prop_default", value_id, value)
             return
 
@@ -95,7 +95,7 @@ class SphereProperties:
 
     def check_selection_count(self):
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 

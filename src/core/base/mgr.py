@@ -27,11 +27,10 @@ class CoreManager:
         cls._core = core
         cls.expose("core", lambda: cls._core)
         cls._app_mgr = app_mgr
-        base = app_mgr.get_base()
-        cls.expose("base", lambda: cls._app_mgr.get_base())
         cls._verbose = verbose
-
-        BaseObject.init(base.render, base.aspect2d, base.pixel2d, base.mouseWatcherNode, verbose)
+        showbase = GD.showbase
+        cls._task_mgr = showbase.task_mgr
+        cls._msgr = showbase.messenger
 
         cls._cursors = {
             "create": Filename.binary_filename(GFX_PATH + "create.cur"),
@@ -42,31 +41,20 @@ class CoreManager:
             "link": Filename.binary_filename(GFX_PATH + "link.cur"),
             "no_link": Filename.binary_filename(GFX_PATH + "no_link.cur")
         }
-
         cls.expose("cursors", lambda: cls._cursors)
-
-        cls._task_mgr = base.task_mgr
-        cls._msgr = base.messenger
         cls.expose("gizmo_root", lambda: gizmo_root)
 
         def get_window_size():
 
-            win_props = cls._app_mgr.get_base().win.get_properties()
+            w, h = GD.window.properties.size
 
-            return win_props.get_x_size(), win_props.get_y_size()
+            return max(1, w), max(1, h)
 
         cls.expose("window_size", get_window_size)
-
-        base.disable_mouse()
-        mouse_watcher = base.mouseWatcherNode
-        mouse_watcher.set_enter_pattern("region_enter")
-        mouse_watcher.set_leave_pattern("region_leave")
-        mouse_watcher.set_within_pattern("region_within")
-        mouse_watcher.set_without_pattern("region_without")
-        cls.expose("mouse_pointer", lambda i: cls._app_mgr.get_base().win.get_pointer(i))
+        cls.expose("mouse_pointer", lambda i: GD.window.get_pointer(i))
 
         light_node = DirectionalLight("default_light")
-        light_node.set_color((1., 1., 1., 1.))
+        light_node.color = (1., 1., 1., 1.)
         cls._default_light = NodePath(light_node)
         cls._default_light.set_hpr(20., -20., 0.)
         cls.expose("default_light", lambda: cls._default_light)
@@ -124,10 +112,10 @@ class CoreManager:
 
         if task_id not in cls._task_handlers:
 
-            logging.warning('CORE: task "{}" is not defined.'.format(task_id))
+            logging.warning(f'CORE: task "{task_id}" is not defined.')
 
             if cls._verbose:
-                print('CORE warning: task "{}" is not defined.'.format(task_id))
+                print(f'CORE warning: task "{task_id}" is not defined.')
 
         task_handler = cls._task_handlers.get(task_id, cls._defaults["task_handler"])
 
@@ -149,7 +137,7 @@ class CoreManager:
         cls._data_retrievers[data_id] = retriever
 
     @classmethod
-    def __get(cls, data_id, *args, **kwargs):
+    def get(cls, data_id, *args, **kwargs):
         """
         Obtain data by id. The arguments provided will be passed to the callable
         that returns the data.
@@ -158,32 +146,14 @@ class CoreManager:
 
         if data_id not in cls._data_retrievers:
 
-            logging.warning('CORE: data "{}" is not defined.'.format(data_id))
+            logging.warning(f'CORE: data "{data_id}" is not defined.')
 
             if cls._verbose:
-                print('CORE warning: data "{}" is not defined.'.format(data_id))
+                print(f'CORE warning: data "{data_id}" is not defined.')
 
         retriever = cls._data_retrievers.get(data_id, cls._defaults["data_retriever"])
 
         return retriever(*args, **kwargs)
-
-    @classmethod
-    def get(cls, data_id, *args, **kwargs):
-        """
-        Obtain data by id. This id can either be the id of the data, or it can be a
-        sequence consisting of the id of the "owner" object and the id of the data
-        itself.
-        Example of the latter:
-            CoreManager.get( ("grid", "point_at_screen_pos") )
-
-        """
-
-        if isinstance(data_id, (list, tuple)):
-            obj_id, obj_data_id = data_id
-            obj = cls.__get(obj_id)
-            return obj.get(obj_data_id, *args, **kwargs)
-        else:
-            return cls.__get(data_id, *args, **kwargs)
 
     @classmethod
     def add_interface(cls, interface_id, key_prefix="", mouse_watcher=None):
@@ -338,19 +308,19 @@ class CoreManager:
     def load_model(cls, *args, **kwargs):
         """ Convenience wrapper around ShowBase.loader.load_model() """
 
-        return cls._app_mgr.get_base().loader.load_model(*args, **kwargs)
+        return GD.showbase.loader.load_model(*args, **kwargs)
 
     @classmethod
     def load_tex(cls, *args, **kwargs):
         """ Convenience wrapper around ShowBase.loader.load_texture() """
 
-        return cls._app_mgr.get_base().loader.load_texture(*args, **kwargs)
+        return GD.showbase.loader.load_texture(*args, **kwargs)
 
     @classmethod
     def render_frame(cls):
         """ Convenience wrapper around ShowBase.graphicsEngine.render_frame() """
 
-        cls._app_mgr.get_base().graphicsEngine.render_frame()
+        GD.showbase.graphicsEngine.render_frame()
 
     @classmethod
     def add_cursor_region(cls, interface_id, mouse_region):

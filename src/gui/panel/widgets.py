@@ -15,7 +15,7 @@ class PanelText(Text):
         skin_text = Skin["text"]["panel"]
         Text.__init__(self, parent, skin_text["font"], skin_text["color"], text)
 
-        self.set_widget_type("panel_text")
+        self.widget_type = "panel_text"
 
 
 class PanelButton(Button):
@@ -38,7 +38,7 @@ class PanelButton(Button):
         Button.__init__(self, parent, self._gfx, text, icon_id, tooltip_text, command,
                         button_type="panel_button")
 
-        self.set_widget_type("panel_button")
+        self.widget_type = "panel_button"
         self.delay_card_update()
 
 
@@ -91,7 +91,7 @@ class PanelCheckButton(CheckButton):
 
         x, y, w, h = TextureAtlas["regions"]["panel_checkbox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both",
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
                             has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
@@ -139,7 +139,7 @@ class PanelColorBox(ColorBox):
 
         ColorBox.__init__(self, parent, command, color, dialog_title)
 
-        self.set_widget_type("panel_colorbox")
+        self.widget_type = "panel_colorbox"
         self.delay_card_update()
 
         if not self._border_image:
@@ -155,7 +155,7 @@ class PanelColorBox(ColorBox):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both",
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
                             has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
@@ -212,7 +212,7 @@ class PanelRadioButton(RadioButton):
 
         x, y, w, h = TextureAtlas["regions"]["panel_radiobox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both",
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
                             has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
@@ -287,7 +287,7 @@ class PanelInputField(GfxMixin, InputField):
                             self._border_gfx_data, self._img_offset, font,
                             text_color, back_color)
 
-        self.set_widget_type("panel_input_field")
+        self.widget_type = "panel_input_field"
         self.delay_card_update()
 
         panel_stack = self.get_ancestor("panel_stack")
@@ -307,7 +307,7 @@ class PanelSliderField(GfxMixin, SliderInputField):
                                   handler, width, self._border_gfx_data, self._img_offset,
                                   font, text_color, back_color)
 
-        self.set_widget_type("panel_input_field")
+        self.widget_type = "panel_input_field"
         self.delay_card_update()
 
         panel_stack = self.get_ancestor("panel_stack")
@@ -343,7 +343,7 @@ class ComboBoxInputField(InputField):
                             self._border_gfx_data, self._img_offset, font,
                             text_color, back_color)
 
-        self.set_widget_type("panel_combo_field")
+        self.widget_type = "panel_combo_field"
         self.delay_card_update()
 
         panel_stack = self.get_ancestor("panel_stack")
@@ -362,16 +362,16 @@ class ComboBoxInputField(InputField):
 
     def accept_input(self, text_handler=None):
 
-        InputField.accept_input(self, text_handler=self.get_parent().set_text)
+        InputField.accept_input(self, text_handler=self.parent.set_text)
 
     def set_value(self, value, text_handler=None, handle_value=False):
 
-        InputField.set_value(self, value, text_handler=self.get_parent().set_text,
+        InputField.set_value(self, value, text_handler=self.parent.set_text,
                              handle_value=handle_value)
 
     def set_text(self, text, text_handler=None):
 
-        InputField.set_text(self, text, text_handler=self.get_parent().set_text)
+        InputField.set_text(self, text, text_handler=self.parent.set_text)
 
 
 class PanelComboBox(ComboBox):
@@ -414,7 +414,7 @@ class PanelComboBox(ComboBox):
         ComboBox.__init__(self, parent, field_width, self._gfx, text, icon_id,
                           tooltip_text, editable)
 
-        self.set_widget_type("panel_combobox")
+        self.widget_type = "panel_combobox"
         self.delay_card_update()
 
         x, y, w, h = TextureAtlas["regions"]["panel_combobox_field_back"]

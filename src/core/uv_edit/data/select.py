@@ -3,7 +3,8 @@ from .vert import Vertex, MergedVertex
 from .edge import Edge, MergedEdge
 
 
-class UVDataSelectionBase(BaseObject):
+class SelectionMixin:
+    """ UVDataObject class mix-in """
 
     def __init__(self, data_copy=None):
 
@@ -52,9 +53,9 @@ class UVDataSelectionBase(BaseObject):
         geoms = self._geoms[subobj_type]
         sel_state_geom = geoms["sel_state"]
         selected_subobjs = [subobj for subobj in subobjs_to_select
-                            if subobj.get_id() not in selected_subobj_ids]
+                            if subobj.id not in selected_subobj_ids]
         deselected_subobjs = [subobj for subobj in subobjs_to_deselect
-                              if subobj.get_id() in selected_subobj_ids]
+                              if subobj.id in selected_subobj_ids]
 
         if not (selected_subobjs or deselected_subobjs):
             return False
@@ -87,14 +88,14 @@ class UVDataSelectionBase(BaseObject):
             row_ranges_unsel_to_move = SparseArray()
 
             for poly in selected_subobjs:
-                selected_subobj_ids.append(poly.get_id())
+                selected_subobj_ids.append(poly.id)
                 start = data_unselected.index(poly[0]) * 3
                 polys_sel.append((start, poly))
                 row_ranges_unsel_to_keep.clear_range(start, len(poly))
                 row_ranges_unsel_to_move.set_range(start, len(poly))
 
             for poly in deselected_subobjs:
-                selected_subobj_ids.remove(poly.get_id())
+                selected_subobj_ids.remove(poly.id)
                 start = data_selected.index(poly[0]) * 3
                 polys_unsel.append((start, poly))
                 row_ranges_sel_to_keep.clear_range(start, len(poly))
@@ -154,9 +155,9 @@ class UVDataSelectionBase(BaseObject):
 
         else:
 
-            merged_subobjs = self._merged_verts if subobj_type == "vert" else self._merged_edges
-            selected_subobjs = set(merged_subobjs[subobj.get_id()] for subobj in selected_subobjs)
-            deselected_subobjs = set(merged_subobjs[subobj.get_id()] for subobj in deselected_subobjs)
+            merged_subobjs = self.merged_verts if subobj_type == "vert" else self.merged_edges
+            selected_subobjs = set(merged_subobjs[subobj.id] for subobj in selected_subobjs)
+            deselected_subobjs = set(merged_subobjs[subobj.id] for subobj in deselected_subobjs)
 
             vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
             col_writer = GeomVertexWriter(vertex_data, "color")
@@ -170,7 +171,7 @@ class UVDataSelectionBase(BaseObject):
 
                     selected_subobj_ids.extend(merged_vert)
 
-                    for row_index in merged_vert.get_row_indices():
+                    for row_index in merged_vert.row_indices:
                         col_writer.set_row(row_index)
                         col_writer.set_data4(color_sel)
 
@@ -179,7 +180,7 @@ class UVDataSelectionBase(BaseObject):
                     for v_id in merged_vert:
                         selected_subobj_ids.remove(v_id)
 
-                    for row_index in merged_vert.get_row_indices():
+                    for row_index in merged_vert.row_indices:
                         col_writer.set_row(row_index)
                         col_writer.set_data4(color_unsel)
 
@@ -193,12 +194,12 @@ class UVDataSelectionBase(BaseObject):
 
                     selected_subobj_ids.extend(merged_edge)
 
-                    if merged_edge.get_id() in self._seam_edge_ids:
+                    if merged_edge.id in self._seam_edge_ids:
                         color = seam_color_sel
                     else:
                         color = color_sel
 
-                    for row_index in merged_edge.get_row_indices():
+                    for row_index in merged_edge.row_indices:
                         col_writer.set_row(row_index)
                         col_writer.set_data4(color)
 
@@ -207,12 +208,12 @@ class UVDataSelectionBase(BaseObject):
                     for e_id in merged_edge:
                         selected_subobj_ids.remove(e_id)
 
-                    if merged_edge.get_id() in self._seam_edge_ids:
+                    if merged_edge.id in self._seam_edge_ids:
                         color = seam_color_unsel
                     else:
                         color = color_unsel
 
-                    for row_index in merged_edge.get_row_indices():
+                    for row_index in merged_edge.row_indices:
                         col_writer.set_row(row_index)
                         col_writer.set_data4(color)
 
@@ -232,14 +233,14 @@ class UVDataSelectionBase(BaseObject):
         vertex_data = sel_state_geom.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
 
-        for row_index in tmp_merged_edge.get_row_indices():
+        for row_index in tmp_merged_edge.row_indices:
             col_writer.set_row(row_index)
             col_writer.set_data4(color)
 
     def is_selected(self, subobj):
 
-        subobj_type = subobj.get_type()
-        subobj_id = subobj.get_id()
+        subobj_type = subobj.type
+        subobj_id = subobj.id
         selected_subobj_ids = self._selected_subobj_ids[subobj_type]
 
         return subobj_id in selected_subobj_ids
@@ -250,11 +251,11 @@ class UVDataSelectionBase(BaseObject):
         selected_subobj_ids = self._selected_subobj_ids[subobj_lvl]
 
         if subobj_lvl == "vert":
-            merged_verts = self._merged_verts
+            merged_verts = self.merged_verts
             verts = set(merged_verts[vert_id] for vert_id in selected_subobj_ids)
             selection = list(verts)
         elif subobj_lvl == "edge":
-            merged_edges = self._merged_edges
+            merged_edges = self.merged_edges
             edges = set(merged_edges[edge_id] for edge_id in selected_subobj_ids)
             selection = list(edges)
         elif subobj_lvl == "poly":
@@ -333,7 +334,7 @@ class UVDataSelectionBase(BaseObject):
             col_writer = GeomVertexWriter(vertex_data, "color")
             color = UVMgr.get("uv_selection_colors")["seam"]["unselected"]
 
-            for row_index in tmp_merged_edge.get_row_indices():
+            for row_index in tmp_merged_edge.row_indices:
                 col_writer.set_row(row_index)
                 col_writer.set_data4(color)
 

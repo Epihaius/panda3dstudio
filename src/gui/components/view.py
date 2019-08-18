@@ -68,10 +68,10 @@ class BackgroundDialog(Dialog):
         self._fields = fields = {}
         self._checkbuttons = checkbtns = {}
         self._data = data = {}
-        current_view_id = GlobalData["view"]
+        current_view_id = GD["view"]
         view_ids = ("front", "back", "left", "right", "bottom", "top")
         view_id = current_view_id if current_view_id in view_ids else "front"
-        data.update(GlobalData["view_backgrounds"][view_id])
+        data.update(GD["view_backgrounds"][view_id])
         data["view"] = view_id
         client_sizer = self.get_client_sizer()
 
@@ -287,7 +287,7 @@ class BackgroundDialog(Dialog):
 
         def load(filename):
 
-            config_data = GlobalData["config"]
+            config_data = GD["config"]
             texfile_paths = config_data["texfile_paths"]
             path = os.path.dirname(filename)
 
@@ -302,7 +302,8 @@ class BackgroundDialog(Dialog):
             data["filename"] = filename
             img = PNMImage()
             img.read(Filename.from_os_specific(filename))
-            ratio = img.get_y_size() / img.get_x_size()
+            w, h = img.size
+            ratio = h / w
             data["bitmap_aspect_ratio"] = ratio
 
             if data["fixed_aspect_ratio"]:
@@ -339,7 +340,8 @@ class BackgroundDialog(Dialog):
 
             img = PNMImage()
             img.read(Filename.from_os_specific(filename))
-            ratio = img.get_y_size() / img.get_x_size()
+            w, h = img.size
+            ratio = h / w
             self._data["bitmap_aspect_ratio"] = ratio
 
             if self._data["fixed_aspect_ratio"]:
@@ -417,7 +419,7 @@ class ViewManager:
         view_ids = ("persp", "ortho", "back", "front", "left", "right", "top")
         names = ("Perspective", "Orthographic", "Back", "Front", "Left", "Right", "Top")
         accelerators = ("p", "o", "b", "f", "l", "r", "t")
-        mod_key_codes = GlobalData["mod_key_codes"]
+        mod_key_codes = GD["mod_key_codes"]
         mod_code = mod_key_codes["shift"]
         hotkeys = [(accel, mod_code) for accel in accelerators]
 
@@ -425,7 +427,7 @@ class ViewManager:
 
         for view_id, name, accel, hotkey in zip(view_ids, names, accelerators, hotkeys):
             menu.add(view_id, name, get_command(view_id), item_type="radio")
-            menu.set_item_hotkey(view_id, hotkey, "Shift+{}".format(accel.upper()))
+            menu.set_item_hotkey(view_id, hotkey, f"Shift+{accel.upper()}")
 
         mod_code = mod_key_codes["shift"] | mod_key_codes["alt"]
         hotkey = ("b", mod_code)
@@ -469,7 +471,7 @@ class ViewManager:
         def command():
 
             Mgr.update_remotely("view", "reset_backgrounds")
-            GlobalData.reset("view_backgrounds")
+            GD.reset("view_backgrounds")
 
         main_menu.add("clear_bg_images", "Clear all backgr. images", command)
         main_menu.add("sep1", item_type="separator")
@@ -484,7 +486,7 @@ class ViewManager:
         main_menu.set_item_hotkey("obj_center", hotkey, "C")
         item = main_menu.add("obj_align", "Align to object...",
                              lambda: Mgr.update_remotely("view", "obj_align"))
-        disabler = lambda: "uv" in (GlobalData["viewport"][1], GlobalData["viewport"][2])
+        disabler = lambda: "uv" in (GD["viewport"][1], GD["viewport"][2])
         item.add_disabler("uv_edit", disabler)
         main_menu.add("sep2", item_type="separator")
 
@@ -526,7 +528,7 @@ class ViewManager:
 
     def setup(self):
 
-        def enter_obj_picking_mode(prev_state_id, is_active):
+        def enter_obj_picking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
             Mgr.do("enable_gui")
@@ -573,7 +575,7 @@ class ViewManager:
     def __confirm_clear_user_views(self, view_count):
 
         if view_count > 1:
-            msg = "Are you sure you want to remove all {:d} user views?".format(view_count)
+            msg = f"Are you sure you want to remove all {view_count} user views?"
         else:
             msg = "Are you sure you want to remove the user view?"
 
@@ -589,10 +591,10 @@ class ViewManager:
 
         for item in list(menu.get_items().values()):
 
-            if item.get_widget_type() == "menu_separator":
+            if item.widget_type == "menu_separator":
                 continue
 
-            item_id = item.get_id()
+            item_id = item.id
 
             if item_id != "edit_user_views":
                 menu.remove(item_id, update=False, destroy=True)
@@ -600,7 +602,7 @@ class ViewManager:
         menu.update()
         view_ids = ("persp", "ortho", "back", "front", "left", "right", "bottom", "top")
 
-        if GlobalData["view"] not in view_ids:
+        if GD["view"] not in view_ids:
             Mgr.update_locally("view", "set", "persp")
 
     def __request_view_copy_name(self, lens_type, proposed_name):
@@ -656,7 +658,8 @@ class ViewTileCard(WidgetCard):
 
         self.set_sizer(Sizer("vertical"))
 
-    def get_sort(self):
+    @property
+    def sort(self):
 
         return 1
 
@@ -758,7 +761,7 @@ class ViewTileButton(Button):
         menu = self._user_view_menu
 
         for item in list(menu.get_items().values()):
-            item_id = item.get_id()
+            item_id = item.id
             menu.remove(item_id, update=False, destroy=True)
 
         menu.update()
@@ -802,7 +805,7 @@ class ViewLabel(Text):
         skin_text = Skin["text"]["view_label"]
         Text.__init__(self, parent, skin_text["font"], skin_text["color"], text)
 
-        self.set_widget_type("view_label")
+        self.widget_type = "view_label"
 
     def post_process_image(self, image):
 
@@ -812,7 +815,8 @@ class ViewLabel(Text):
         offset_y = Skin["options"]["view_label_shadow_offset_y"]
         d_w = 1 + max(1, abs(offset_x))
         d_h = 1 + max(1, abs(offset_y))
-        img = PNMImage(text_img.get_x_size() + d_w, text_img.get_y_size() + d_h, 4)
+        w_t, h_t = text_img.size
+        img = PNMImage(w_t + d_w, h_t + d_h, 4)
         img.copy_sub_image(text_img, max(1, offset_x), max(1, offset_y), 0, 0)
         img.gaussian_filter(1.)
         img.blend_sub_image(image, max(0, 1 - offset_x), max(0, 1 - offset_y), 0, 0)
@@ -844,7 +848,7 @@ class ViewTile(Button):
         self._view_type = view_type
         self._view_id = view_id
         self._view_name = view_name
-        self.get_node().reparent_to(parent.get_widget_root_node())
+        self.node.reparent_to(parent.get_widget_root_node())
 
     def get_view_type(self):
 
@@ -999,9 +1003,9 @@ class ViewPane(ScrollPane):
         # viewport
         self._mouse_region_mask = mask = MouseWatcherRegion("aux_vp_mask_viewtile_pane", 0., 0., 0., 0.)
         flags = MouseWatcherRegion.SF_mouse_button | MouseWatcherRegion.SF_mouse_position
-        mask.set_suppress_flags(flags)
-        mask.set_sort(10)
-        self.get_mouse_watcher().add_region(mask)
+        mask.suppress_flags = flags
+        mask.sort = 10
+        self.mouse_watcher.add_region(mask)
 
     def _create_frame(self, parent, scroll_dir, cull_bin, gfx_data, bar_gfx_data,
             thumb_gfx_data, bar_inner_border_id, has_mouse_region=True):
@@ -1020,7 +1024,7 @@ class ViewPane(ScrollPane):
 
     def _can_scroll(self):
 
-        if (self.get_mouse_watcher().get_over_region() is None
+        if (self.mouse_watcher.get_over_region() is None
                 or Dialog.get_dialogs() or Mgr.get("active_input_field")
                 or Menu.is_menu_shown() or not Mgr.get("gui_enabled")):
             return False
@@ -1029,17 +1033,17 @@ class ViewPane(ScrollPane):
 
     def _finalize_mouse_watcher_frame_update(self):
 
-        viewport_id = GlobalData["viewport"][2]
+        viewport_id = GD["viewport"][2]
 
         if viewport_id == "main":
-            self._mouse_region_mask.set_active(False)
+            self._mouse_region_mask.active = False
         else:
-            x, y, w, h = GlobalData["viewport"]["aux_region"]
+            x, y, w, h = GD["viewport"]["aux_region"]
             x_offset, y_offset = self.get_pos(from_root=True)
             x -= x_offset
             y -= y_offset - self.get_scrollthumb().get_offset()
-            self._mouse_region_mask.set_frame(x, x + w, -y - h, -y)
-            self._mouse_region_mask.set_active(True)
+            self._mouse_region_mask.frame = (x, x + w, -y - h, -y)
+            self._mouse_region_mask.active = True
 
     def add_tile(self, tile):
 
@@ -1076,7 +1080,7 @@ class ViewTileManager:
         subsizer.add(btn, borders=borders)
         self._view_label = view_label = ViewLabel(card, "Perspective")
         subsizer.add(view_label, alignment="center_v")
-        card_sizer.add(pane.get_frame(), proportion=1.)
+        card_sizer.add(pane.frame, proportion=1.)
         self._space_item = card_sizer.add((0, 20))
         self._view_tiles = {}
         self._user_view_ids = []
@@ -1087,14 +1091,15 @@ class ViewTileManager:
 
         # the following mask is added to the main GUI mouse watcher, to prevent the mouse from
         # interacting with the view tile card where it overlaps with the auxiliary viewport
-        self._mouse_region_mask = mask = MouseWatcherRegion("aux_vp_mask_viewtile_card", 0., 0., 0., 0.)
+        mask = MouseWatcherRegion("aux_vp_mask_viewtile_card", 0., 0., 0., 0.)
+        self._mouse_region_mask = mask
         flags = MouseWatcherRegion.SF_mouse_button | MouseWatcherRegion.SF_mouse_position
-        mask.set_suppress_flags(flags)
-        mask.set_sort(10)
+        mask.suppress_flags = flags
+        mask.sort = 10
         Mgr.get("mouse_watcher").add_region(mask)
 
-        root = Mgr.get("base").pixel2d
-        self._scrollthumb_offset_node = node = root.attach_new_node("scrollthumb_offset")
+        node = GD.viewport_origin.attach_new_node("scrollthumb_offset")
+        self._scrollthumb_offset_node = node
         pane.get_scrollthumb().get_quad().reparent_to(node)
 
         menu_std = Menu()
@@ -1145,10 +1150,10 @@ class ViewTileManager:
             tile = ViewTile(pane, "std", view_id, view_name, text)
             pane.add_tile(tile)
             tiles[view_id] = tile
-            region = tile.get_mouse_region()
+            region = tile.mouse_region
             regions.append(region)
 
-        tiles["persp"].set_active()
+        tiles["persp"].active = True
 
         def task():
 
@@ -1164,18 +1169,18 @@ class ViewTileManager:
         tiles = self._view_tiles
         regions = self._view_tile_regions
         pane = self._pane
-        pane_mouse_watcher = pane.get_mouse_watcher()
+        pane_mouse_watcher = pane.mouse_watcher
         gui_mouse_watcher = Mgr.get("mouse_watcher")
         scrollthumb = pane.get_scrollthumb()
-        scrollbar = scrollthumb.get_parent()
+        scrollbar = scrollthumb.parent
         self._view_tiles_shown = shown = not self._view_tiles_shown
 
         if shown:
 
             pane.get_quad().show()
             scrollthumb.get_quad().show()
-            gui_mouse_watcher.add_region(scrollbar.get_mouse_region())
-            gui_mouse_watcher.add_region(scrollthumb.get_mouse_region())
+            gui_mouse_watcher.add_region(scrollbar.mouse_region)
+            gui_mouse_watcher.add_region(scrollthumb.mouse_region)
 
             for region in regions:
                 pane_mouse_watcher.add_region(region)
@@ -1184,8 +1189,8 @@ class ViewTileManager:
 
             pane.get_quad().hide()
             scrollthumb.get_quad().hide()
-            gui_mouse_watcher.remove_region(scrollbar.get_mouse_region())
-            gui_mouse_watcher.remove_region(scrollthumb.get_mouse_region())
+            gui_mouse_watcher.remove_region(scrollbar.mouse_region)
+            gui_mouse_watcher.remove_region(scrollthumb.mouse_region)
 
             for region in regions:
                 pane_mouse_watcher.remove_region(region)
@@ -1209,11 +1214,11 @@ class ViewTileManager:
             return
 
         if self._active_view_id in self._view_tiles:
-            self._view_tiles[self._active_view_id].set_active(False)
+            self._view_tiles[self._active_view_id].active = False
 
         self._active_view_id = view_id
         tile = self._view_tiles[view_id]
-        tile.set_active()
+        tile.active = True
         self.__set_view_name(tile.get_view_name())
 
     def __check_view(self, view_id, task):
@@ -1231,7 +1236,7 @@ class ViewTileManager:
             return
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
+        pos = (mouse_pointer.x, mouse_pointer.y)
 
         if pos == self._mouse_prev:
             self._view_label.use_main_text_attribs(False)
@@ -1260,9 +1265,9 @@ class ViewTileManager:
 
     def __update_sizer(self):
 
-        viewport_id = GlobalData["viewport"][2]
-        x, y = pos = GlobalData["viewport"]["pos_aux" if viewport_id == "main" else "pos"]
-        w, h = GlobalData["viewport"]["size_aux" if viewport_id == "main" else "size"]
+        viewport_id = GD["viewport"][2]
+        x, y = pos = GD["viewport"]["pos_aux" if viewport_id == "main" else "pos"]
+        w, h = GD["viewport"]["size_aux" if viewport_id == "main" else "size"]
         sizer = self._sizer
         h_min = sizer.update_min_size()[1]
         size = (w, min(h, h_min + self._pane.get_sizer().get_virtual_size()[1]))
@@ -1270,12 +1275,11 @@ class ViewTileManager:
         sizer.calculate_positions(pos)
         sizer.update_images()
         sizer.update_mouse_region_frames()
-        root = Mgr.get("base").pixel2d
         quad = self._card.get_quad()
-        quad.reparent_to(root)
+        quad.reparent_to(GD.viewport_origin)
         quad.set_pos(quad, -x, 0., y)
         quad = self._pane.get_quad()
-        quad.reparent_to(root)
+        quad.reparent_to(GD.viewport_origin)
         quad.set_pos(quad, -x, 0., y)
 
         if not self._view_tiles_shown:
@@ -1284,20 +1288,20 @@ class ViewTileManager:
         self._scrollthumb_offset_node.set_pos(-x, 0., y)
 
         if viewport_id in (None, "main"):
-            self._mouse_region_mask.set_active(False)
+            self._mouse_region_mask.active = False
         else:
-            x, y, w, h = GlobalData["viewport"]["aux_region"]
-            self._mouse_region_mask.set_frame(x, x + w, -y - h, -y)
-            self._mouse_region_mask.set_active(True)
+            x, y, w, h = GD["viewport"]["aux_region"]
+            self._mouse_region_mask.frame = (x, x + w, -y - h, -y)
+            self._mouse_region_mask.active = True
 
     def __add_user_view(self, view_id, view_name):
 
         pane = self._pane
-        tile = ViewTile(pane, "user", view_id, view_name, "U"+"{:02d}".format(int(view_id))[-2:])
+        tile = ViewTile(pane, "user", view_id, view_name, "U" + f"{int(view_id) :02d}"[-2:])
         pane.add_tile(tile)
         self._view_tiles[view_id] = tile
         self._user_view_ids.append(view_id)
-        region = tile.get_mouse_region()
+        region = tile.mouse_region
         self._view_tile_regions.append(region)
         self.__set_active_view(view_id)
         sizer = pane.get_sizer()
@@ -1308,14 +1312,14 @@ class ViewTileManager:
         sizer.lock_mouse_regions()
 
         if not self._view_tiles_shown:
-            pane.get_mouse_watcher().remove_region(region)
+            pane.mouse_watcher.remove_region(region)
 
     def __remove_user_view(self, view_id):
 
         tile = self._view_tiles[view_id]
         del self._view_tiles[view_id]
         self._user_view_ids.remove(view_id)
-        region = tile.get_mouse_region()
+        region = tile.mouse_region
         self._view_tile_regions.remove(region)
         self._pane.remove_tile(tile)
         sizer = self._pane.get_sizer()
@@ -1329,7 +1333,7 @@ class ViewTileManager:
 
         for view_id in self._user_view_ids:
             tile = self._view_tiles[view_id]
-            region = tile.get_mouse_region()
+            region = tile.mouse_region
             self._view_tile_regions.remove(region)
             del self._view_tiles[view_id]
 
@@ -1344,7 +1348,7 @@ class ViewTileManager:
 
     def __rename_user_view(self, lens_type, view_id, view_name):
 
-        name = "User {} - {}".format(lens_type, view_name)
+        name = f"User {lens_type} - {view_name}"
         self._view_tiles[view_id].set_view_name(name)
         self.__set_view_name(name)
 

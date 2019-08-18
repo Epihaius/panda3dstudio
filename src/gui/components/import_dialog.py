@@ -28,7 +28,7 @@ class NameField(DialogInputField):
         DialogInputField.__init__(self, parent, value_id, "string", handler, width,
                                   INSET1_BORDER_GFX_DATA, self._img_offset)
 
-        self.get_node().reparent_to(parent.get_widget_root_node())
+        self.node.reparent_to(parent.get_widget_root_node())
 
         self._connection_index = connection_index
 
@@ -80,7 +80,7 @@ class ObjectPane(DialogScrollPane):
             rect_sizers[index] = rect_sizer
             subsizer.add(rect_sizer, proportion=1.)
             geom_type_txt = DialogText(self, type_descriptions[geom_type])
-            geom_type_txt.get_node().reparent_to(root_node)
+            geom_type_txt.node.reparent_to(root_node)
             geom_type_txts.append(geom_type_txt)
             borders = (10, 0, 0, 0)
             rect_sizer.add(geom_type_txt, alignment="center_v", borders=borders)
@@ -88,7 +88,7 @@ class ObjectPane(DialogScrollPane):
             borders = (10, 10, 2, 10)
             rect_sizer.add(name_sizer, proportion=1., borders=borders)
             old_name_txt = DialogText(self, old_name)
-            old_name_txt.get_node().reparent_to(root_node)
+            old_name_txt.node.reparent_to(root_node)
             old_name_txts.append(old_name_txt)
             borders = (l, 0, 0, 0)
             name_sizer.add(old_name_txt, borders=borders)
@@ -114,8 +114,8 @@ class ObjectPane(DialogScrollPane):
         painter = PNMPainter(pane_image)
         pen = PNMBrush.make_pixel((0., 0., 0., 1.))
         fill = PNMBrush.make_transparent()
-        painter.set_pen(pen)
-        painter.set_fill(fill)
+        painter.pen = pen
+        painter.fill = fill
 
         for field in self._fields:
 
@@ -123,7 +123,7 @@ class ObjectPane(DialogScrollPane):
             offset_x, offset_y = field.get_image_offset()
             pane_image.copy_sub_image(field.get_image(), x + offset_x, y + offset_y, 0, 0)
 
-            subsizer = field.get_sizer_item().get_sizer().get_owner()
+            subsizer = field.get_sizer_item().get_sizer().owner
             x, y = subsizer.get_pos()
             w, h = subsizer.get_size()
             painter.draw_rectangle(x, y, x + w, y + h)
@@ -154,7 +154,7 @@ class ObjectPane(DialogScrollPane):
     def __parse_name(self, new_name, index):
 
         name = self._hierarchy[index]["new_name"]
-        obj_names = GlobalData["obj_names"] + self._obj_names
+        obj_names = GD["obj_names"] + self._obj_names
         obj_names.remove(name)
 
         return get_unique_name(new_name.strip(), obj_names)
@@ -200,7 +200,7 @@ class ImportDialog(Dialog):
         client_sizer.add(text, borders=borders)
 
         self._object_pane = pane = ObjectPane(self, hierarchy, new_obj_names)
-        frame = pane.get_frame()
+        frame = pane.frame
         borders = (50, 50, 20, 0)
         client_sizer.add(frame, proportion=1., expand=True, borders=borders)
 

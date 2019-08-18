@@ -22,9 +22,8 @@ class WidgetGroup(Widget):
         font = skin_text["font"]
         color = skin_text["color"]
         label_img = font.create_image(label, color)
-        w = label_img.get_x_size() + 8
-        h = label_img.get_y_size()
-        scaled_img = PNMImage(w, h, 4)
+        w, h = label_img.size
+        scaled_img = PNMImage(w + 8, h, 4)
         scaled_img.unfiltered_stretch_from(img)
         scaled_img.blend_sub_image(label_img, 4, 0, 0, 0)
         self._label = scaled_img
@@ -66,7 +65,7 @@ class WidgetGroup(Widget):
         l, r, b, t = self.get_gfx_inner_borders()
         borders_h = l + r
         borders_v = b + t
-        h_half = self._label.get_y_size() // 2
+        h_half = self._label.size[1] // 2
         height2 = height - h_half
 
         for state, part_rows in self._gfx.items():
@@ -129,16 +128,12 @@ class WidgetGroup(Widget):
         image = Widget.get_image(self, state, composed)
 
         if composed:
-            w = self._label.get_x_size()
-            h = self._label.get_y_size()
             x = self.get_gfx_inner_borders()[0] + 3
-            image.blend_sub_image(self._label, x, 0, 0, 0, w, h)
+            image.blend_sub_image(self._label, x, 0, 0, 0, *self._label.size)
         else:
-            parent_img = self.get_parent().get_image(composed=False)
+            parent_img = self.parent.get_image(composed=False)
             if parent_img:
-                w = image.get_x_size()
-                h = image.get_y_size()
-                image = PNMImage(w, h, 4)
+                image = PNMImage(*image.size, 4)
                 x, y = self.get_pos()
                 image.copy_sub_image(parent_img, -x, -y, 0, 0)
 

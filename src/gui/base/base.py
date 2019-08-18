@@ -1,5 +1,6 @@
 from panda3d.core import *
-from ...base import logging, re, pickle, GlobalData, get_unique_name, DirectObject, USING_TK
+from ...base import logging, re, pickle, get_unique_name, DirectObject, USING_TK
+from ...base import GlobalData as GD
 import platform
 import math
 import os
@@ -82,7 +83,7 @@ class Font:
         for line in lines:
             line_img = self.__create_line_image(line, text_color, back_color)
             line_imgs.append(line_img)
-            width = max(width, line_img.get_x_size())
+            width = max(width, line_img.size[0])
 
         image = PNMImage(width, line_spacing * (line_count - 1) + self._height, 4)
 
@@ -307,7 +308,7 @@ class PendingTaskBatch:
                 sort = 0
 
         if id_prefix:
-            task_id = "{}_{}".format(id_prefix, task_id)
+            task_id = f"{id_prefix}_{task_id}"
 
         t = _Tasks()
         self._tasks.setdefault(task_type, {}).setdefault(sort, t)()[task_id] = task

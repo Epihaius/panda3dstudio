@@ -34,7 +34,7 @@ class GlobalMeta(type):
         if data_id in cls._data:
             return cls._data[data_id]
 
-        raise KeyError('Global data ID "{}" not defined.'.format(data_id))
+        raise KeyError(f'Global data ID "{data_id}" not defined.')
 
     def __setitem__(cls, data_id, value):
         """
@@ -157,7 +157,7 @@ def get_unique_name(requested_name, namelist, default_search_pattern="",
         if index_str:
 
             min_index = int(index_str)
-            search_pattern = r"^{}\s*(\d+)$".format(re.escape(basename))
+            search_pattern = fr"^{re.escape(basename)}\s*(\d+)$"
             zero_padding = len(index_str) if index_str.startswith("0") else 0
             naming_pattern = basename + space + "{:0" + str(zero_padding) + "d}"
 
@@ -170,17 +170,17 @@ def get_unique_name(requested_name, namelist, default_search_pattern="",
             if index_str:
 
                 min_index = int(index_str)
-                search_pattern = r"^{}\s*\((\d+)\)$".format(re.escape(basename))
+                search_pattern = fr"^{re.escape(basename)}\s*\((\d+)\)$"
                 zero_padding = len(index_str) if index_str.startswith("0") else 0
                 naming_pattern = basename + space + "({:0" + str(zero_padding) + "d})"
 
             else:
 
-                search_pattern = r"^{}$".format(re.escape(basename))
+                search_pattern = fr"^{re.escape(basename)}$"
 
                 if re.findall(search_pattern, namestring, re.M):
                     min_index = 2
-                    search_pattern = r"^{}\s*\((\d+)\)$".format(re.escape(basename))
+                    search_pattern = fr"^{re.escape(basename)}\s*\((\d+)\)$"
                     naming_pattern = basename + " ({:d})"
                 else:
                     return basename
@@ -307,61 +307,39 @@ class StateObject:
 
     def __init__(self, state_id, persistence, on_enter=None, on_exit=None):
 
-        self._id = state_id
-        self._persistence = persistence
-        self._enter_command = on_enter if on_enter else lambda prev_state_id, is_active: None
-        self._exit_command = on_exit if on_exit else lambda next_state_id, is_active: None
-        self._is_active = False
+        self.id = state_id
+        self.persistence = persistence
+        self.enter_command = on_enter if on_enter else lambda prev_state_id, active: None
+        self.exit_command = on_exit if on_exit else lambda next_state_id, active: None
+        self.active = False
         self._prev_state = None
 
-    def get_id(self):
-
-        return self._id
-
-    def get_persistence(self):
-
-        return self._persistence
-
-    def set_active(self, is_active=True):
-
-        self._is_active = is_active
-
-    def is_active(self):
-
-        return self._is_active
-
-    def set_enter_command(self, on_enter):
-
-        self._enter_command = on_enter
-
-    def set_exit_command(self, on_exit):
-
-        self._exit_command = on_exit
-
-    def set_previous_state(self, prev_state):
-
-        while prev_state and prev_state.get_persistence() <= self._persistence:
-            prev_state = prev_state.get_previous_state()
-
-        self._prev_state = prev_state
-
-    def get_previous_state(self):
+    @property
+    def previous_state(self):
 
         prev_state = self._prev_state
 
-        while prev_state and not prev_state.is_active():
-            prev_state = prev_state.get_previous_state()
+        while prev_state and not prev_state.active:
+            prev_state = prev_state.previous_state
 
         return prev_state
 
+    @previous_state.setter
+    def previous_state(self, prev_state):
+
+        while prev_state and prev_state.persistence <= self.persistence:
+            prev_state = prev_state.previous_state
+
+        self._prev_state = prev_state
+
     def enter(self, prev_state_id):
 
-        self._enter_command(prev_state_id, self._is_active)
-        self._is_active = True
+        self.enter_command(prev_state_id, self.active)
+        self.active = True
 
     def exit(self, next_state_id):
 
-        self._exit_command(next_state_id, self._is_active)
+        self.exit_command(next_state_id, self.active)
 
 
 # The following class manages the different states that the application
@@ -372,8 +350,7 @@ class StateManager:
 
         self._states = {}
         self._default_state_id = ""
-        self._current_state_id = ""
-        self._is_state_binder = False
+        self.current_state_id = ""
         self._changing_state = False
 
     def add_state(self, state_id, persistence, on_enter=None, on_exit=None):
@@ -387,11 +364,11 @@ class StateManager:
 
     def set_state_enter_command(self, state_id, on_enter):
 
-        self._states[state_id].set_enter_command(on_enter)
+        self._states[state_id].enter_command = on_enter
 
     def set_state_exit_command(self, state_id, on_exit):
 
-        self._states[state_id].set_exit_command(on_exit)
+        self._states[state_id].exit_command = on_exit
 
     def has_state(self, state_id):
         """ Check if the state with the given id has been previously defined """
@@ -401,7 +378,7 @@ class StateManager:
     def is_state_binder(self):
         """ Check if this object is a StateBinder instance """
 
-        return self._is_state_binder
+        return False
 
     def set_default_state(self, state_id):
         """
@@ -419,7 +396,7 @@ class StateManager:
         if state_id not in self._states:
             return False
 
-        current_state_id = self._current_state_id
+        current_state_id = self.current_state_id
 
         if state_id == current_state_id:
             return False
@@ -428,11 +405,11 @@ class StateManager:
         state = self._states[state_id]
         state.enter(current_state_id)
 
-        if self._is_state_binder:
+        if self.is_state_binder():
             self._set_state_bindings(state_id)
 
         self._default_state_id = state_id
-        self._current_state_id = state_id
+        self.current_state_id = state_id
         self._changing_state = False
 
         return True
@@ -453,7 +430,7 @@ class StateManager:
         if state_id not in self._states:
             return False
 
-        current_state_id = self._current_state_id
+        current_state_id = self.current_state_id
 
         if state_id == current_state_id:
             return False
@@ -461,26 +438,26 @@ class StateManager:
         self._changing_state = True
         current_state = self._states[current_state_id]
         state = self._states[state_id]
-        state.set_previous_state(current_state)
-        persistence = state.get_persistence()
+        state.previous_state = current_state
+        persistence = state.persistence
 
-        if current_state.get_persistence() <= persistence:
-            current_state.set_active(False)
+        if current_state.persistence <= persistence:
+            current_state.active = False
 
         current_state.exit(state_id)
-        prev_state = current_state.get_previous_state()
+        prev_state = current_state.previous_state
 
-        while prev_state and prev_state is not state and prev_state.get_persistence() <= persistence:
-            prev_state.set_active(False)
+        while prev_state and prev_state is not state and prev_state.persistence <= persistence:
+            prev_state.active = False
             prev_state.exit(state_id)
-            prev_state = prev_state.get_previous_state()
+            prev_state = prev_state.previous_state
 
-        state.enter(self._current_state_id)
+        state.enter(self.current_state_id)
 
-        if self._is_state_binder:
+        if self.is_state_binder():
             self._set_state_bindings(state_id)
 
-        self._current_state_id = state_id
+        self.current_state_id = state_id
         self._changing_state = False
 
         return True
@@ -505,29 +482,29 @@ class StateManager:
 
         state = self._states[state_id]
 
-        if not state.is_active():
+        if not state.active:
             return False
 
-        prev_state = state.get_previous_state()
+        prev_state = state.previous_state
 
         if not prev_state:
             # the default state has no previous state and thus cannot be exited
             return False
 
         self._changing_state = True
-        current_state_id = self._current_state_id
-        state.set_active(False)
+        current_state_id = self.current_state_id
+        state.active = False
 
         if state_id == current_state_id:
 
-            prev_state_id = prev_state.get_id()
+            prev_state_id = prev_state.id
             state.exit(prev_state_id)
             prev_state.enter(state_id)
 
-            if self._is_state_binder:
+            if self.is_state_binder():
                 self._set_state_bindings(prev_state_id)
 
-            self._current_state_id = prev_state_id
+            self.current_state_id = prev_state_id
 
         else:
 
@@ -549,46 +526,41 @@ class StateManager:
             return False
 
         self._changing_state = True
-        current_state_id = self._current_state_id
+        current_state_id = self.current_state_id
         default_state_id = self._default_state_id
         current_state = self._states[current_state_id]
         default_state = self._states[default_state_id]
-        persistence = current_state.get_persistence() if min_persistence is None else min_persistence
+        persistence = current_state.persistence if min_persistence is None else min_persistence
         prev_state = current_state
 
         while prev_state and prev_state is not default_state:
 
-            if prev_state.get_persistence() >= persistence:
-                prev_state.set_active(False)
+            if prev_state.persistence >= persistence:
+                prev_state.active = False
                 prev_state.exit(default_state_id)
 
-            prev_state = prev_state.get_previous_state()
+            prev_state = prev_state.previous_state
 
-        if current_state.get_persistence() >= persistence:
+        if current_state.persistence >= persistence:
 
             default_state.enter(current_state_id)
 
-            if self._is_state_binder:
+            if self.is_state_binder():
                 self._set_state_bindings(default_state_id)
 
-            self._current_state_id = default_state_id
+            self.current_state_id = default_state_id
 
         self._changing_state = False
 
         return True
 
-    def get_current_state_id(self):
-        """ Return the id of the current state """
-
-        return self._current_state_id
-
     def get_state_persistence(self, state_id):
 
-        return self._states[state_id].get_persistence()
+        return self._states[state_id].persistence
 
     def is_state_active(self, state_id):
 
-        return self._states[state_id].is_active()
+        return self._states[state_id].active
 
 
 # The following class associates a particular state with a selection of event
@@ -600,8 +572,12 @@ class StateBinder(StateManager):
         StateManager.__init__(self)
 
         self._state_bindings = {}
-        self._evt_binder = event_binder
-        self._is_state_binder = True
+        self.event_binder = event_binder
+
+    def is_state_binder(self):
+        """ Confirm that this object is a StateBinder instance """
+
+        return True
 
     def add_state(self, state_id, persistence, on_enter=None, on_exit=None):
         """
@@ -620,7 +596,7 @@ class StateBinder(StateManager):
 
         """
 
-        self._evt_binder.bind(binding_id, event_props, event_handler)
+        self.event_binder.bind(binding_id, event_props, event_handler)
         self._state_bindings[state_id].append(binding_id)
 
     def accept(self, binding_ids, exclusive=False):
@@ -634,7 +610,7 @@ class StateBinder(StateManager):
 
         """
 
-        return self._evt_binder.accept(binding_ids, exclusive)
+        return self.event_binder.accept(binding_ids, exclusive)
 
     def _set_state_bindings(self, state_id):
         """
@@ -642,9 +618,4 @@ class StateBinder(StateManager):
 
         """
 
-        self._evt_binder.accept(self._state_bindings[state_id], exclusive=True)
-
-    def get_event_binder(self):
-        """ Get the event binder used by this StateBinder """
-
-        return self._evt_binder
+        self.event_binder.accept(self._state_bindings[state_id], exclusive=True)

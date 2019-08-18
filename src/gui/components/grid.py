@@ -65,7 +65,7 @@ class GridSpacingBox(Widget):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -81,7 +81,7 @@ class GridSpacingBox(Widget):
         image = self.get_image(composed=False)
 
         if image:
-            w, h = image.get_x_size(), image.get_y_size()
+            w, h = image.size
             img_offset_x, img_offset_y = self.get_image_offset()
             self.get_card().copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
 
@@ -95,13 +95,13 @@ class GridSpacingBox(Widget):
 
         if label:
             w, h = self._box_size
-            w_l, h_l = label.get_x_size(), label.get_y_size()
+            w_l, h_l = label.size
             x = (w - w_l) // 2
             y = h - h_l
             image.blend_sub_image(label, x, y, 0, 0)
 
         border_img = self._border_image
-        w, h = border_img.get_x_size(), border_img.get_y_size()
+        w, h = border_img.size
         img = PNMImage(w, h, 4)
         img_offset_x, img_offset_y = self.get_image_offset()
         img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)
@@ -116,7 +116,7 @@ class GridSpacingBox(Widget):
             self._grid_spacing_label = self._font.create_image(grid_spacing, self._text_color)
             self.__update_card_image()
             offset_x, offset_y = self.get_image_offset()
-            self.get_parent().update_composed_image(self, None, offset_x, offset_y)
+            self.parent.update_composed_image(self, None, offset_x, offset_y)
 
 
 class GridPlaneButtons(ToggleButtonGroup):

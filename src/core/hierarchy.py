@@ -1,7 +1,7 @@
 from .base import *
 
 
-class HierarchyManager(BaseObject):
+class HierarchyManager:
 
     def __init__(self):
 
@@ -10,7 +10,7 @@ class HierarchyManager(BaseObject):
         self._obj_to_link = None
         self._pixel_under_mouse = None
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Link selection"
         info_text = "LMB to pick parent object; RMB or <Escape> to end"
         status_data["sel_linking_mode"] = {"mode": mode_text, "info": info_text}
@@ -22,9 +22,9 @@ class HierarchyManager(BaseObject):
         info_text = "LMB to pick child object; RMB or <Escape> to end"
         status_data["obj_unlinking_mode"] = {"mode": mode_text, "info": info_text}
 
-        GlobalData.set_default("object_links_shown", False)
-        GlobalData.set_default("object_linking_mode", "")
-        GlobalData.set_default("transform_target_type", "all")
+        GD.set_default("object_links_shown", False)
+        GD.set_default("object_linking_mode", "")
+        GD.set_default("transform_target_type", "all")
         Mgr.accept("add_obj_link_viz", self.__add_obj_link_viz)
         Mgr.accept("remove_obj_link_viz", self.__remove_obj_link_viz)
         Mgr.accept("update_obj_link_viz", self.__update_obj_link_viz)
@@ -45,7 +45,7 @@ class HierarchyManager(BaseObject):
         def exit_mode():
 
             Mgr.exit_state("object_linking_mode")
-            GlobalData["object_linking_mode"] = ""
+            GD["object_linking_mode"] = ""
 
         bind = Mgr.bind_state
         bind("object_linking_mode", "link objects -> navigate", "space",
@@ -53,29 +53,29 @@ class HierarchyManager(BaseObject):
         bind("object_linking_mode", "link objects -> select", "escape", exit_mode)
         bind("object_linking_mode", "exit object linking mode", "mouse3", exit_mode)
         bind("object_linking_mode", "handle linking", "mouse1", self.__handle_linking)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("object_linking_mode", "link objects ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("object_linking_mode", "link objects ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
         bind("object_link_creation", "quit link creation", "escape", cancel_link_creation)
         bind("object_link_creation", "cancel link creation", "mouse3", cancel_link_creation)
         bind("object_link_creation", "finalize link creation",
              "mouse1-up", self.__finalize_object_linking)
 
-    def __enter_linking_mode(self, prev_state_id, is_active):
+    def __enter_linking_mode(self, prev_state_id, active):
 
         if prev_state_id == "object_link_creation":
             return
 
         Mgr.add_task(self.__update_cursor, "update_linking_cursor")
 
-        if GlobalData["active_transform_type"]:
-            GlobalData["active_transform_type"] = ""
+        if GD["active_transform_type"]:
+            GD["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
-        object_linking_mode = GlobalData["object_linking_mode"]
+        object_linking_mode = GD["object_linking_mode"]
         Mgr.update_app("status", [object_linking_mode])
 
-        if not is_active:
+        if not active:
 
             if object_linking_mode == "sel_linking_mode":
 
@@ -99,7 +99,7 @@ class HierarchyManager(BaseObject):
                 Mgr.update_remotely("selection_by_name", "", "Pick objects to unlink",
                                     None, True, "Pick", handler)
 
-    def __exit_linking_mode(self, next_state_id, is_active):
+    def __exit_linking_mode(self, next_state_id, active):
 
         if next_state_id == "object_link_creation":
             return
@@ -110,12 +110,12 @@ class HierarchyManager(BaseObject):
         Mgr.remove_task("update_linking_cursor")
         Mgr.set_cursor("main")
 
-        if not is_active:
+        if not active:
             Mgr.update_remotely("selection_by_name", "default")
 
     def __show_object_links(self):
 
-        show_links = GlobalData["object_links_shown"]
+        show_links = GD["object_links_shown"]
 
         if show_links:
             self._obj_link_viz_nps.show()
@@ -124,19 +124,19 @@ class HierarchyManager(BaseObject):
 
     def __get_linkability(self, obj_to_link, target_obj):
 
-        target_is_group = target_obj and target_obj.get_type() == "group"
-        objs = obj_to_link.get_descendants() + [obj_to_link]
-        member_linking = GlobalData["group_options"]["member_linking"]
+        target_is_group = target_obj and target_obj.type == "group"
+        objs = obj_to_link.descendants + [obj_to_link]
+        member_linking = GD["group_options"]["member_linking"]
 
         if (target_is_group and member_linking["allowed"]
                 and not member_linking["unlink_only"]
                 and (target_obj.is_open() or not member_linking["open_groups_only"])):
-            objs += [obj_to_link.get_group()]
+            objs += [obj_to_link.group]
             linkable = target_obj.can_contain(obj_to_link) and target_obj not in objs
             link_type = "member"
         else:
-            objs += [obj_to_link.get_parent()]
-            group = target_obj.get_group() if target_obj else None
+            objs += [obj_to_link.parent]
+            group = target_obj.group if target_obj else None
             linkable = not (group or target_obj in objs)
             link_type = "child"
 
@@ -175,8 +175,8 @@ class HierarchyManager(BaseObject):
 
     def __add_obj_link_viz(self, child, parent):
 
-        child_id = child.get_id()
-        parent_pivot = parent.get_pivot()
+        child_id = child.id
+        parent_pivot = parent.pivot
 
         if child_id in self._obj_link_viz:
             link_geom = self._obj_link_viz[child_id]
@@ -191,7 +191,7 @@ class HierarchyManager(BaseObject):
 
         pos_writer.add_data3(0., 0., 0.)
         col_writer.add_data4(1., 1., 1., 1.)
-        pos_writer.add_data3(child.get_pivot().get_pos(parent_pivot))
+        pos_writer.add_data3(child.pivot.get_pos(parent_pivot))
         col_writer.add_data4(.25, .25, .25, 1.)
 
         lines = GeomLines(Geom.UH_static)
@@ -211,7 +211,7 @@ class HierarchyManager(BaseObject):
         self._obj_link_viz[child_id] = link_geom
         self._obj_link_viz_nps.add_path(link_geom)
 
-        if not GlobalData["object_links_shown"]:
+        if not GD["object_links_shown"]:
             link_geom.hide()
 
     def __remove_obj_link_viz(self, child_id):
@@ -230,7 +230,7 @@ class HierarchyManager(BaseObject):
 
             obj_transf_info = obj_ids if obj_ids else Mgr.get("obj_transf_info")
             obj_link_viz = self._obj_link_viz
-            update_children = GlobalData["transform_target_type"] in ("pivot",
+            update_children = GD["transform_target_type"] in ("pivot",
                               "no_children") or force_update_children
 
             for obj_id in obj_transf_info:
@@ -239,39 +239,39 @@ class HierarchyManager(BaseObject):
 
                     link_viz = obj_link_viz[obj_id]
                     obj = Mgr.get("object", obj_id)
-                    parent = obj.get_parent()
+                    parent = obj.parent
                     vertex_data = link_viz.node().modify_geom(0).modify_vertex_data()
                     pos_writer = GeomVertexWriter(vertex_data, "vertex")
                     pos_writer.set_row(1)
-                    pivot = obj.get_pivot()
-                    pos_writer.set_data3(pivot.get_pos(parent.get_pivot()))
+                    pivot = obj.pivot
+                    pos_writer.set_data3(pivot.get_pos(parent.pivot))
 
                     if update_children:
-                        for child in obj.get_children():
-                            child_link_viz = obj_link_viz[child.get_id()]
+                        for child in obj.children:
+                            child_link_viz = obj_link_viz[child.id]
                             vertex_data = child_link_viz.node().modify_geom(0).modify_vertex_data()
                             pos_writer = GeomVertexWriter(vertex_data, "vertex")
                             pos_writer.set_row(1)
-                            pos_writer.set_data3(child.get_pivot().get_pos(pivot))
+                            pos_writer.set_data3(child.pivot.get_pos(pivot))
 
                 elif update_children:
 
                     obj = Mgr.get("object", obj_id)
-                    pivot = obj.get_pivot()
+                    pivot = obj.pivot
 
-                    for child in obj.get_children():
-                        child_link_viz = obj_link_viz[child.get_id()]
+                    for child in obj.children:
+                        child_link_viz = obj_link_viz[child.id]
                         vertex_data = child_link_viz.node().modify_geom(0).modify_vertex_data()
                         pos_writer = GeomVertexWriter(vertex_data, "vertex")
                         pos_writer.set_row(1)
-                        pos_writer.set_data3(child.get_pivot().get_pos(pivot))
+                        pos_writer.set_data3(child.pivot.get_pos(pivot))
 
         task_id = "obj_link_viz_update"
         PendingTasks.add(task, task_id, "object")
 
     def __handle_linking(self):
 
-        linking_mode = GlobalData["object_linking_mode"]
+        linking_mode = GD["object_linking_mode"]
 
         if linking_mode == "sel_linking_mode":
             self.__link_selection()
@@ -288,7 +288,7 @@ class HierarchyManager(BaseObject):
             return
 
         self._obj_to_link = obj
-        pivot_pos = obj.get_pivot().get_pos(self.world)
+        pivot_pos = obj.pivot.get_pos(GD.world)
         Mgr.do("start_drawing_rubber_band", pivot_pos)
         Mgr.enter_state("object_link_creation")
         Mgr.set_cursor("no_link")
@@ -306,22 +306,22 @@ class HierarchyManager(BaseObject):
 
     def __link_object(self, obj_to_link, new_target, link_type):
 
-        old_target = obj_to_link.get_link_target()
-        old_target_is_group = old_target and old_target.get_type() == "group"
-        target_id = new_target.get_id()
+        old_target = obj_to_link.link_target
+        old_target_is_group = old_target and old_target.type == "group"
+        target_id = new_target.id
 
         if link_type == "child":
 
-            obj_to_link.set_parent(target_id)
+            obj_to_link.parent = target_id
 
         else:
 
-            obj_to_link.set_group(target_id)
-            children = obj_to_link.get_children()
-            parent_id = new_target.get_outermost_group().get_id()
+            obj_to_link.group = target_id
+            children = obj_to_link.children
+            parent_id = new_target.outermost_group.id
 
             for child in children:
-                child.set_parent(parent_id)
+                child.parent = parent_id
 
         if link_type == "member" and not new_target.is_open():
 
@@ -337,11 +337,11 @@ class HierarchyManager(BaseObject):
                 event_data = {"objects": obj_data}
 
                 for group in closed_groups:
-                    obj_data[group.get_id()] = group.get_data_to_store("prop_change", "open")
+                    obj_data[group.id] = group.get_data_to_store("prop_change", "open")
 
                 for member in deselected_members:
                     data = member.get_data_to_store("prop_change", "selection_state")
-                    obj_data.setdefault(member.get_id(), {}).update(data)
+                    obj_data.setdefault(member.id, {}).update(data)
 
                 Mgr.do("add_history", "", event_data, update_time_id=False)
 
@@ -356,7 +356,7 @@ class HierarchyManager(BaseObject):
 
                 if obj_to_link_deselected:
                     data = obj_to_link.get_data_to_store("prop_change", "selection_state")
-                    obj_data.setdefault(obj_to_link.get_id(), {}).update(data)
+                    obj_data.setdefault(obj_to_link.id, {}).update(data)
 
                 if new_target.set_selected(add_to_hist=False):
                     data = new_target.get_data_to_store("prop_change", "selection_state")
@@ -374,7 +374,7 @@ class HierarchyManager(BaseObject):
             for child in children:
                 data = child.get_data_to_store("prop_change", "link")
                 data.update(child.get_data_to_store("prop_change", "transform"))
-                obj_data[child.get_id()] = data
+                obj_data[child.id] = data
 
             Mgr.do("add_history", "", event_data, update_time_id=False)
 
@@ -411,18 +411,17 @@ class HierarchyManager(BaseObject):
         # make undo/redoable
         data = obj_to_link.get_data_to_store("prop_change", "link")
         data.update(obj_to_link.get_data_to_store("prop_change", "transform"))
-        obj_data = {obj_to_link.get_id(): data}
-        names = (obj_to_link.get_name(), new_target.get_name())
+        obj_data = {obj_to_link.id: data}
 
         if link_type == "child":
-            event_descr = 'Link "{}"\nto "{}"'.format(*names)
+            event_descr = f'Link "{obj_to_link.name}"\nto "{new_target.name}"'
         else:
-            event_descr = 'Add to group "{}":\n    "{}"'.format(*names[::-1])
+            event_descr = f'Add to group "{new_target.name}":\n    "{obj_to_link.name}"'
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-        new_target_is_group = new_target.get_type() == "group"
+        new_target_is_group = new_target.type == "group"
 
         if link_type == "child" and not (new_target_is_group and not new_target.get_members()):
             new_target.display_link_effect()
@@ -451,9 +450,9 @@ class HierarchyManager(BaseObject):
             if not linkable:
                 continue
 
-            if obj.get_type() == "group":
+            if obj.type == "group":
                 groups.append(obj)
-                group_children[obj] = obj.get_children()
+                group_children[obj] = obj.children
 
             if link_type == "child":
                 children.append(obj)
@@ -488,10 +487,10 @@ class HierarchyManager(BaseObject):
                     members.remove(group)
 
         group_children = [child for group, c in group_children.items() for child in c]
-        new_target_id = new_target.get_id()
+        new_target_id = new_target.id
 
         for child in group_children:
-            child.set_parent(new_target_id)
+            child.parent = new_target_id
 
         # make undo/redoable
 
@@ -501,44 +500,42 @@ class HierarchyManager(BaseObject):
         for obj in children + members:
             data = obj.get_data_to_store("prop_change", "link")
             data.update(obj.get_data_to_store("prop_change", "transform"))
-            obj_data[obj.get_id()] = data
+            obj_data[obj.id] = data
 
         for child in group_children:
             data = child.get_data_to_store("prop_change", "link")
             data.update(child.get_data_to_store("prop_change", "transform"))
-            obj_data.setdefault(child.get_id(), {}).update(data)
+            obj_data.setdefault(child.id, {}).update(data)
 
         if children:
 
             if len(children) == 1:
 
-                names = (children[0].get_name(), new_target.get_name())
-                event_descr = 'Link "{}"\nto "{}"'.format(*names)
+                event_descr = f'Link "{children[0].name}"\nto "{new_target.name}"'
 
             else:
 
-                event_descr = 'Link objects to "{}":\n'.format(new_target.get_name())
+                event_descr = f'Link objects to "{new_target.name}":\n'
 
                 for child in children:
-                    event_descr += '\n    "{}"'.format(child.get_name())
+                    event_descr += f'\n    "{child.name}"'
 
         elif members:
 
             if len(members) == 1:
 
-                names = (new_target.get_name(), members[0].get_name())
-                event_descr = 'Add to group "{}":\n    "{}"'.format(*names)
+                event_descr = f'Add to group "{new_target.name}":\n    "{members[0].name}"'
 
             else:
 
-                event_descr = 'Add to group "{}":\n'.format(new_target.get_name())
+                event_descr = f'Add to group "{new_target.name}":\n'
 
                 for member in members:
-                    event_descr += '\n    "{}"'.format(member.get_name())
+                    event_descr += f'\n    "{member.name}"'
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-        new_target_is_group = new_target.get_type() == "group"
+        new_target_is_group = new_target.type == "group"
 
         if children and not (new_target_is_group and not new_target.get_members()):
             new_target.display_link_effect()
@@ -550,11 +547,11 @@ class HierarchyManager(BaseObject):
         if not obj:
             return
 
-        affect_group_members = GlobalData["group_options"]["member_linking"]["allowed"]
+        affect_group_members = GD["group_options"]["member_linking"]["allowed"]
         ungrouped = False
         unlinked = False
 
-        group = obj.get_group()
+        group = obj.group
         groups = [group] if group else []
 
         if group:
@@ -575,13 +572,13 @@ class HierarchyManager(BaseObject):
         event_data = {"objects": obj_data}
 
         if unlinked:
-            event_descr = 'Unlink "{}"'.format(obj.get_name())
+            event_descr = f'Unlink "{obj.name}"'
         elif ungrouped:
-            event_descr = 'Ungroup "{}"'.format(obj.get_name())
+            event_descr = f'Ungroup "{obj.name}"'
 
         data = obj.get_data_to_store("prop_change", "link")
         data.update(obj.get_data_to_store("prop_change", "transform"))
-        obj_data[obj.get_id()] = data
+        obj_data[obj.id] = data
 
         if Mgr.do("prune_empty_groups", groups, obj_data):
             event_data["object_ids"] = set(Mgr.get("object_ids"))
@@ -590,18 +587,18 @@ class HierarchyManager(BaseObject):
 
     def __unlink_objects(self, picked_objs=None):
 
-        if GlobalData["active_obj_level"] != "top":
+        if GD["active_obj_level"] != "top":
             return
 
         groups = set()
-        affect_group_members = GlobalData["group_options"]["member_linking"]["allowed"]
+        affect_group_members = GD["group_options"]["member_linking"]["allowed"]
         ungrouped_members = []
         unlinked_children = []
         objs = picked_objs if picked_objs else Mgr.get("selection_top")
 
         for obj in objs:
 
-            group = obj.get_group()
+            group = obj.group
 
             if group:
 
@@ -627,14 +624,14 @@ class HierarchyManager(BaseObject):
 
         if len(unlinked_children) == 1:
 
-            event_descr = 'Unlink "{}"'.format(unlinked_children[0].get_name())
+            event_descr = f'Unlink "{unlinked_children[0].name}"'
 
         elif unlinked_children:
 
             event_descr = 'Unlink objects:\n'
 
             for obj in unlinked_children:
-                event_descr += '\n    "{}"'.format(obj.get_name())
+                event_descr += f'\n    "{obj.name}"'
 
         if ungrouped_members:
 
@@ -645,19 +642,19 @@ class HierarchyManager(BaseObject):
 
             if len(ungrouped_members) == 1:
 
-                event_descr += 'Ungroup "{}"'.format(ungrouped_members[0].get_name())
+                event_descr += f'Ungroup "{ungrouped_members[0].name}"'
 
             else:
 
                 event_descr += 'Ungroup objects:\n'
 
                 for obj in ungrouped_members:
-                    event_descr += '\n    "{}"'.format(obj.get_name())
+                    event_descr += f'\n    "{obj.name}"'
 
         for obj in changed_objs:
             data = obj.get_data_to_store("prop_change", "link")
             data.update(obj.get_data_to_store("prop_change", "transform"))
-            obj_data[obj.get_id()] = data
+            obj_data[obj.id] = data
 
         if Mgr.do("prune_empty_groups", groups, obj_data):
             event_data["object_ids"] = set(Mgr.get("object_ids"))
@@ -666,13 +663,13 @@ class HierarchyManager(BaseObject):
 
     def __update_pivot_viz(self):
 
-        target_type = GlobalData["transform_target_type"]
+        target_type = GD["transform_target_type"]
         Mgr.do("show_pivot_gizmos", target_type in ("geom", "pivot"))
 
     def __update_xform_target_type(self, objs, reset=False):
 
-        new_target_type = "all" if reset else GlobalData["transform_target_type"]
-        old_target_type = GlobalData["transform_target_type"] if reset else "all"
+        new_target_type = "all" if reset else GD["transform_target_type"]
+        old_target_type = GD["transform_target_type"] if reset else "all"
 
         if new_target_type == old_target_type:
             return
@@ -683,50 +680,50 @@ class HierarchyManager(BaseObject):
 
             for obj in objs:
 
-                obj.get_origin().wrt_reparent_to(obj_root)
+                obj.origin.wrt_reparent_to(obj_root)
 
-                for child in obj.get_children():
-                    child.get_pivot().wrt_reparent_to(obj_root)
+                for child in obj.children:
+                    child.pivot.wrt_reparent_to(obj_root)
 
-                if obj.get_type() == "group":
+                if obj.type == "group":
                     for member in obj.get_members():
-                        member.get_pivot().wrt_reparent_to(obj_root)
+                        member.pivot.wrt_reparent_to(obj_root)
 
         elif new_target_type == "no_children":
 
             for obj in objs:
 
-                for child in obj.get_children():
-                    child.get_pivot().wrt_reparent_to(obj_root)
+                for child in obj.children:
+                    child.pivot.wrt_reparent_to(obj_root)
 
-                if obj.get_group() in objs:
-                    obj.get_pivot().wrt_reparent_to(obj_root)
+                if obj.group in objs:
+                    obj.pivot.wrt_reparent_to(obj_root)
 
         elif old_target_type == "pivot":
 
             for obj in objs:
 
-                pivot = obj.get_pivot()
-                obj.get_origin().wrt_reparent_to(pivot)
+                pivot = obj.pivot
+                obj.origin.wrt_reparent_to(pivot)
 
-                for child in obj.get_children():
-                    child.get_pivot().wrt_reparent_to(pivot)
+                for child in obj.children:
+                    child.pivot.wrt_reparent_to(pivot)
 
-                if obj.get_type() == "group":
+                if obj.type == "group":
                     for member in obj.get_members():
-                        member.get_pivot().wrt_reparent_to(pivot)
+                        member.pivot.wrt_reparent_to(pivot)
 
         elif old_target_type == "no_children":
 
             for obj in objs:
 
-                if obj.get_group() in objs:
-                    obj.get_pivot().wrt_reparent_to(obj.get_parent_pivot())
+                if obj.group in objs:
+                    obj.pivot.wrt_reparent_to(obj.parent_pivot)
 
-                pivot = obj.get_pivot()
+                pivot = obj.pivot
 
-                for child in obj.get_children():
-                    child.get_pivot().wrt_reparent_to(pivot)
+                for child in obj.children:
+                    child.pivot.wrt_reparent_to(pivot)
 
     def __reset_geoms(self):
 
@@ -737,11 +734,11 @@ class HierarchyManager(BaseObject):
 
         for obj in sel:
 
-            obj.get_origin().clear_transform(obj.get_pivot())
+            obj.origin.clear_transform(obj.pivot)
             obj.update_group_bbox()
 
-            if obj.get_type() == "group":
-                Mgr.do("update_group_bboxes", [obj.get_id()])
+            if obj.type == "group":
+                Mgr.do("update_group_bboxes", [obj.id])
 
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
@@ -755,18 +752,18 @@ class HierarchyManager(BaseObject):
 
         if obj_count > 1:
 
-            event_descr = "Reset {:d} objects' geometry:\n".format(obj_count)
+            event_descr = f"Reset {obj_count} objects' geometry:\n"
 
             for obj in sel:
-                event_descr += '\n    "{}"'.format(obj.get_name())
+                event_descr += f'\n    "{obj.name}"'
 
         else:
 
-            event_descr = 'Reset "{}" geometry'.format(sel[0].get_name())
+            event_descr = f'Reset "{sel[0].name}" geometry'
 
         for obj in sel:
             data = obj.get_data_to_store("prop_change", "origin_transform")
-            obj_data[obj.get_id()] = data
+            obj_data[obj.id] = data
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
@@ -783,49 +780,49 @@ class HierarchyManager(BaseObject):
 
             obj_root = Mgr.get("object_root")
 
-            for child in obj.get_children():
-                child.get_pivot().wrt_reparent_to(obj_root)
+            for child in obj.children:
+                child.pivot.wrt_reparent_to(obj_root)
 
-            if obj.get_type() == "group":
+            if obj.type == "group":
 
                 m = obj.get_members()
                 members.extend(m)
 
                 for member in m:
-                    member.get_pivot().wrt_reparent_to(obj_root)
+                    member.pivot.wrt_reparent_to(obj_root)
 
-            pivot = obj.get_pivot()
-            origin = obj.get_origin()
+            pivot = obj.pivot
+            origin = obj.origin
             pivot.clear_transform(origin)
             origin.clear_transform(pivot)
 
-            for child in obj.get_children():
-                child.get_pivot().wrt_reparent_to(pivot)
+            for child in obj.children:
+                child.pivot.wrt_reparent_to(pivot)
 
-            if obj.get_type() == "group":
+            if obj.type == "group":
                 for member in m:
-                    member.get_pivot().wrt_reparent_to(pivot)
+                    member.pivot.wrt_reparent_to(pivot)
 
-        cs_type = GlobalData["coord_sys_type"]
+        cs_type = GD["coord_sys_type"]
         cs_obj = Mgr.get("coord_sys_obj")
-        tc_type = GlobalData["transf_center_type"]
+        tc_type = GD["transf_center_type"]
         tc_obj = Mgr.get("transf_center_obj")
 
         if cs_obj in sel:
             Mgr.do("notify_coord_sys_transformed")
             Mgr.do("update_coord_sys")
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
 
             if tc_type == "cs_origin":
                 if cs_type == "object" and cs_obj in sel:
-                    Mgr.do("set_transf_gizmo_pos", cs_obj.get_pivot().get_pos())
+                    Mgr.get("transf_gizmo").pos = cs_obj.pivot.get_pos()
             elif tc_type == "object" and tc_obj in sel:
-                Mgr.do("set_transf_gizmo_pos", tc_obj.get_pivot().get_pos())
+                Mgr.get("transf_gizmo").pos = tc_obj.pivot.get_pos()
 
         task = lambda: Mgr.get("selection").update()
         PendingTasks.add(task, "update_selection", "ui")
-        self.__update_obj_link_viz([obj.get_id() for obj in sel], True)
+        self.__update_obj_link_viz([obj.id for obj in sel], True)
 
         # make undo/redoable
 
@@ -836,27 +833,27 @@ class HierarchyManager(BaseObject):
 
         if obj_count > 1:
 
-            event_descr = "Reset {:d} objects' pivots:\n".format(obj_count)
+            event_descr = f"Reset {obj_count} objects' pivots:\n"
 
             for obj in sel:
-                event_descr += '\n    "{}"'.format(obj.get_name())
+                event_descr += f'\n    "{obj.name}"'
 
         else:
 
-            event_descr = 'Reset "{}" pivot'.format(sel[0].get_name())
+            event_descr = f'Reset "{sel[0].name}" pivot'
 
         objs = set(sel)
         objs.update(members)
 
         for obj in sel:
-            objs.update(obj.get_children())
+            objs.update(obj.children)
 
         for obj in objs:
             data = obj.get_data_to_store("prop_change", "transform")
-            obj_data[obj.get_id()] = data
+            obj_data[obj.id] = data
 
         for obj in sel:
-            data = obj_data[obj.get_id()]
+            data = obj_data[obj.id]
             data.update(obj.get_data_to_store("prop_change", "origin_transform"))
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

@@ -21,8 +21,8 @@ class ViewportButton(Button):
         Button.__init__(self, parent, self._gfx, "", icon_id, tooltip_text, command,
                         button_type="viewport_button")
 
-        self._cursor_region = MouseWatcherRegion("viewport_button_{}".format(name), 0., 0., 0., 0.)
-        self.get_mouse_region().set_sort(11)
+        self._cursor_region = MouseWatcherRegion(f"viewport_button_{name}", 0., 0., 0., 0.)
+        self.mouse_region.sort = 11
 
     def get_cursor_region(self):
 
@@ -36,7 +36,7 @@ class ViewportButton(Button):
         w, h = self.get_size()
         w_ref, h_ref = Mgr.get("window_size")
         l, r, b, t = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
-        self._cursor_region.set_frame(2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
+        self._cursor_region.frame = (2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
 
 
 class ViewportButtonBar(WidgetCard):
@@ -106,11 +106,11 @@ class ViewportButtonBar(WidgetCard):
         if self._is_hidden:
             return False
 
-        mouse_watcher = self.get_mouse_watcher()
+        mouse_watcher = self.mouse_watcher
 
         for widget in self._sizer.get_widgets():
 
-            mouse_region = widget.get_mouse_region()
+            mouse_region = widget.mouse_region
 
             if mouse_region and not widget.is_hidden():
                 mouse_watcher.remove_region(mouse_region)
@@ -125,11 +125,11 @@ class ViewportButtonBar(WidgetCard):
         if not self._is_hidden:
             return False
 
-        mouse_watcher = self.get_mouse_watcher()
+        mouse_watcher = self.mouse_watcher
 
         for widget in self.get_sizer().get_widgets():
 
-            mouse_region = widget.get_mouse_region()
+            mouse_region = widget.mouse_region
 
             if mouse_region and not widget.is_hidden(check_ancestors=False):
                 mouse_watcher.add_region(mouse_region)
@@ -182,10 +182,10 @@ class ViewportBorder(Widget):
 
         self._size = self._min_size = size
         self._viewport = viewport
-        self.get_mouse_region().set_sort(11)
+        self.mouse_region.sort = 11
 
         prefix = stretch_dir if stretch_dir else "corner"
-        name = "{}_viewport_border".format(prefix)
+        name = f"{prefix}_viewport_border"
         self._cursor_region = MouseWatcherRegion(name, 0., 0., 0., 0.)
         self._mouse_start_pos = ()
         self._listener = DirectObject()
@@ -204,15 +204,14 @@ class ViewportBorder(Widget):
         w, h = self.get_size()
         w_ref, h_ref = Mgr.get("window_size")
         l, r, b, t = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
-        self._cursor_region.set_frame(2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
+        self._cursor_region.frame = (2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
 
     def __get_offsets(self):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        stretch_dir = self.get_stretch_dir()
         mouse_start_x, mouse_start_y = self._mouse_start_pos
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = mouse_pointer.get_y()
+        mouse_x, mouse_y = mouse_pointer.x, mouse_pointer.y
+        stretch_dir = self.get_stretch_dir()
 
         if stretch_dir == "vertical":
             return (int(mouse_x - mouse_start_x), 0)
@@ -224,12 +223,10 @@ class ViewportBorder(Widget):
     def _resize_aux_viewport(self, task):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        stretch_dir = self.get_stretch_dir()
-        mouse_start_x, mouse_start_y = self._mouse_start_pos
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = mouse_pointer.get_y()
+        mouse_x, mouse_y = mouse_pointer.x, mouse_pointer.y
         viz = self._frame_viz
-        w_v, h_v = GlobalData["viewport"]["size"]
+        w_v, h_v = GD["viewport"]["size"]
+        stretch_dir = self.get_stretch_dir()
 
         if stretch_dir == "vertical":
             sx = min(w_v, max(1, viz.get_pos()[0] - mouse_x))
@@ -256,7 +253,7 @@ class ViewportBorder(Widget):
         viz.set_pos(x + w, 0., -y - h)
         viz.set_scale(w, 1., h)
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        self._mouse_start_pos = (mouse_pointer.get_x(), mouse_pointer.get_y())
+        self._mouse_start_pos = (mouse_pointer.x, mouse_pointer.y)
         Mgr.add_task(self._resize_aux_viewport, "resize_aux_viewport")
         self._listener.accept("gui_mouse1-up", self.__on_left_up)
         cancel_resize = lambda: self.__on_left_up(cancel_resize=True)
@@ -264,7 +261,7 @@ class ViewportBorder(Widget):
         self._listener.accept("focus_loss", cancel_resize)
         Mgr.do("enable_gui", False)
         Mgr.enter_state("inactive")
-        interface_ids = GlobalData["viewport"]
+        interface_ids = GD["viewport"]
 
         if interface_ids[2] is not None:
             interface_id = interface_ids[2 if interface_ids[1] == "main" else 1]
@@ -274,7 +271,7 @@ class ViewportBorder(Widget):
 
         Mgr.do("enable_gui")
         Mgr.exit_state("inactive")
-        interface_ids = GlobalData["viewport"]
+        interface_ids = GD["viewport"]
 
         if interface_ids[2] is not None:
             interface_id = interface_ids[2 if interface_ids[1] == "main" else 1]
@@ -299,14 +296,11 @@ class AdjacentViewportBorder(ViewportBorder):
 
     def _resize_aux_viewport(self, task):
 
-        mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_start_x, mouse_start_y = self._mouse_start_pos
-        mouse_x = mouse_pointer.get_x()
         viz = self._frame_viz
         sizer = self._viewport.get_sizer()
-        w = GlobalData["viewport"]["size"][0] + 3
+        w = GD["viewport"]["size"][0] + 3
         w += sizer.get_size()[0]
-        sx = min(w, max(1, viz.get_pos()[0] - mouse_x))
+        sx = min(w, max(1, viz.get_pos()[0] - Mgr.get("mouse_pointer", 0).x))
         viz.set_sx(sx)
 
         return task.cont
@@ -327,8 +321,8 @@ class AuxiliaryViewport:
         Mgr.expose("viewport2_cursor_region", lambda: self._cursor_region)
         self._mouse_region_mask = mask = MouseWatcherRegion("aux_viewport_mask", 0., 0., 0., 0.)
         flags = MouseWatcherRegion.SF_mouse_button | MouseWatcherRegion.SF_mouse_position
-        mask.set_suppress_flags(flags)
-        mask.set_sort(900)
+        mask.suppress_flags = flags
+        mask.sort = 900
         self._spacer_h_item = viewport_sizer.add((0, 0), proportion=100.)
         sizer = Sizer("vertical")
         self._sizer = subsizer = Sizer("horizontal")
@@ -389,7 +383,7 @@ class AuxiliaryViewport:
         adjacent_viewport_sizer.remove_item(item)
         self._sizer_item_adj = item
 
-        GlobalData["viewport"]["aux_region"] = (0, 0, 0, 0)
+        GD["viewport"]["aux_region"] = (0, 0, 0, 0)
 
         Mgr.accept("open_aux_viewport", self.__open)
         Mgr.accept("close_aux_viewport", self.__request_close)
@@ -404,9 +398,9 @@ class AuxiliaryViewport:
         x, y = sizer.get_pos(from_root=True)
         w, h = sizer.get_size()
         w_ref, h_ref = Mgr.get("window_size")
-        GlobalData["viewport"]["pos_aux"] = (x, y)
-        GlobalData["viewport"]["size_aux"] = (w, h)
-        GlobalData["viewport"]["frame_aux"] = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
+        GD["viewport"]["pos_aux"] = (x, y)
+        GD["viewport"]["size_aux"] = (w, h)
+        GD["viewport"]["frame_aux"] = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
         l, r, b, t = TextureAtlas["inner_borders"]["aux_viewport"]
         r = b = 3
 
@@ -417,94 +411,87 @@ class AuxiliaryViewport:
         y -= t
         w += l + r
         h += ViewportButtonBar.height + b + t
-        GlobalData["viewport"]["aux_region"] = (x, y, w, h)
+        GD["viewport"]["aux_region"] = (x, y, w, h)
         l, r, b, t = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
-        self._display_region.set_dimensions(l, r, b, t)
-        l_v, r_v, b_v, t_v = GlobalData["viewport"]["frame"]
+        self._display_region.dimensions = (l, r, b, t)
+        l_v, r_v, b_v, t_v = GD["viewport"]["frame"]
         w = r_v - l_v
         h = t_v - b_v
         l = (l - l_v) / w
         r = (r - l_v) / w
         b = (b - b_v) / h
         t = (t - b_v) / h
-        self._mouse_region_mask.set_frame(2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
+        self._mouse_region_mask.frame = (2. * l - 1., 2. * r - 1., 2. * b - 1., 2. * t - 1.)
 
     def __on_enter(self, *args):
 
-        viewport1_id = GlobalData["viewport"][1]
+        viewport1_id = GD["viewport"][1]
         mask = self._mouse_region_mask
-        mouse_watcher = Mgr.get("base").mouseWatcherNode
 
         if viewport1_id == "main":
-            mouse_watcher.add_region(mask)
+            GD.mouse_watcher.add_region(mask)
         else:
-            for mw in GlobalData["viewport"]["mouse_watchers2"]:
+            for mw in GD["viewport"]["mouse_watchers2"]:
                 mw.add_region(mask)
 
     def __on_leave(self, *args):
 
-        viewport1_id = GlobalData["viewport"][1]
+        viewport1_id = GD["viewport"][1]
         mask = self._mouse_region_mask
-        mouse_watcher = Mgr.get("base").mouseWatcherNode
 
         if viewport1_id == "main":
-            mouse_watcher.remove_region(mask)
+            GD.mouse_watcher.remove_region(mask)
         else:
-            for mw in GlobalData["viewport"]["mouse_watchers2"]:
+            for mw in GD["viewport"]["mouse_watchers2"]:
                 mw.remove_region(mask)
 
     def __swap_viewports(self):
 
-        viewport1_id = GlobalData["viewport"][1]
-        viewport2_id = GlobalData["viewport"][2]
-        GlobalData["viewport"][1] = viewport2_id
-        GlobalData["viewport"][2] = viewport1_id
-        color1 = GlobalData["viewport"]["border_color1"]
-        color2 = GlobalData["viewport"]["border_color2"]
-        GlobalData["viewport"]["border_color1"] = color2
-        GlobalData["viewport"]["border_color2"] = color1
-        index = GlobalData["viewport"]["active"]
-        color = GlobalData["viewport"]["border_color{:d}".format(index)]
-        GlobalData["viewport"]["border{:d}".format(index)].set_clear_color(color)
+        viewport1_id = GD["viewport"][1]
+        viewport2_id = GD["viewport"][2]
+        GD["viewport"][1] = viewport2_id
+        GD["viewport"][2] = viewport1_id
+        color1 = GD["viewport"]["border_color1"]
+        color2 = GD["viewport"]["border_color2"]
+        GD["viewport"]["border_color1"] = color2
+        GD["viewport"]["border_color2"] = color1
+        index = GD["viewport"]["active"]
+        color = GD["viewport"][f"border_color{index}"]
+        GD["viewport"][f"border{index}"].clear_color = color
         Mgr.update_app("viewport")
         mask = self._mouse_region_mask
-        mouse_watcher = Mgr.get("base").mouseWatcherNode
-        interface_id = GlobalData["viewport"][index]
+        interface_id = GD["viewport"][index]
         Mgr.do("set_interface_status", interface_id)
 
         if viewport1_id == "main":
 
-            mouse_watcher.remove_region(mask)
+            GD.mouse_watcher.remove_region(mask)
 
-            for mw in GlobalData["viewport"]["mouse_watchers2"]:
+            for mw in GD["viewport"]["mouse_watchers2"]:
                 mw.add_region(mask)
 
             Mgr.update_app("viewport_region_sort_incr", 22)
 
-            for dr in GlobalData["viewport"]["display_regions"]:
-                sort = dr.get_sort()
-                dr.set_sort(sort + 22)
+            for dr in GD["viewport"]["display_regions"]:
+                dr.sort += 22
 
-            for dr in GlobalData["viewport"]["display_regions2"]:
-                sort = dr.get_sort()
-                dr.set_sort(sort - 22)
+            for dr in GD["viewport"]["display_regions2"]:
+                dr.sort -= 22
 
         else:
 
-            mouse_watcher.add_region(mask)
+            GD.mouse_watcher.add_region(mask)
 
-            for mw in GlobalData["viewport"]["mouse_watchers2"]:
+            for mw in GD["viewport"]["mouse_watchers2"]:
                 mw.remove_region(mask)
 
             Mgr.update_app("viewport_region_sort_incr", -22)
 
-            for dr in GlobalData["viewport"]["display_regions"]:
-                sort = dr.get_sort()
-                dr.set_sort(sort - 22)
+            for dr in GD["viewport"]["display_regions"]:
+                dr.sort -= 22
 
-            for dr in GlobalData["viewport"]["display_regions2"]:
-                sort = dr.get_sort()
-                dr.set_sort(sort + 22)
+            for dr in GD["viewport"]["display_regions2"]:
+                dr.sort += 22
 
     def __overlay(self, overlaid=True):
 
@@ -523,17 +510,17 @@ class AuxiliaryViewport:
             cursor_region = self._border_topleft.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_nwse"
-            Mgr.set_cursor(cursor_id, cursor_region.get_name())
+            Mgr.set_cursor(cursor_id, cursor_region.name)
             self._border_top.show()
             cursor_region = self._border_top.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ns"
-            Mgr.set_cursor(cursor_id, cursor_region.get_name())
+            Mgr.set_cursor(cursor_id, cursor_region.name)
             self._border_left.show()
             cursor_region = self._border_left.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ew"
-            Mgr.set_cursor(cursor_id, cursor_region.get_name())
+            Mgr.set_cursor(cursor_id, cursor_region.name)
             self._btn_bar.show()
 
             for btn in self._btn_bar.get_buttons():
@@ -555,7 +542,7 @@ class AuxiliaryViewport:
             cursor_region = self._border_adj.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ew"
-            Mgr.set_cursor(cursor_id, cursor_region.get_name())
+            Mgr.set_cursor(cursor_id, cursor_region.name)
             self._btn_bar_adj.show()
 
             for btn in self._btn_bar_adj.get_buttons():
@@ -628,8 +615,6 @@ class AuxiliaryViewport:
         self._interface_name = interface_name
         self._on_close = on_close
         ToolTip.hide()
-        base = Mgr.get("base")
-        win = base.win
 
         Mgr.add_cursor_region("aux_viewport", self._cursor_region)
 
@@ -639,17 +624,17 @@ class AuxiliaryViewport:
             cursor_region = self._border_topleft.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_nwse"
-            Mgr.set_cursor(cursor_id, cursor_region.get_name())
+            Mgr.set_cursor(cursor_id, cursor_region.name)
             self._border_top.show()
             cursor_region = self._border_top.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ns"
-            Mgr.set_cursor(cursor_id, cursor_region.get_name())
+            Mgr.set_cursor(cursor_id, cursor_region.name)
             self._border_left.show()
             cursor_region = self._border_left.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ew"
-            Mgr.set_cursor(cursor_id, cursor_region.get_name())
+            Mgr.set_cursor(cursor_id, cursor_region.name)
             self._btn_bar.show()
 
             for btn in self._btn_bar.get_buttons():
@@ -665,7 +650,7 @@ class AuxiliaryViewport:
             cursor_region = self._border_adj.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ew"
-            Mgr.set_cursor(cursor_id, cursor_region.get_name())
+            Mgr.set_cursor(cursor_id, cursor_region.name)
             self._btn_bar_adj.show()
 
             for btn in self._btn_bar_adj.get_buttons():
@@ -681,71 +666,68 @@ class AuxiliaryViewport:
         viewport_sizer.calculate_positions(viewport_sizer.get_pos(from_root=True))
         viewport_sizer.update_images()
         viewport_sizer.update_mouse_region_frames()
-        self._display_region = region = win.make_display_region(0., 1., 0., 1.)
-        region.set_active(True)
-        region.set_sort(21)
+        self._display_region = region = GD.window.make_display_region(0., 1., 0., 1.)
+        region.active = True
+        region.sort = 21
         color = Skin["colors"]["viewport_frame_inactive"]
-        region.set_clear_color(color)
+        region.clear_color = color
+        region.clear_depth = 1000.
         region.set_clear_color_active(True)
-        region.set_clear_depth(1000.)
         region.set_clear_depth_active(True)
-        GlobalData["viewport"]["border2"] = region
+        GD["viewport"]["border2"] = region
 
-        l, r, b, t = GlobalData["viewport"]["frame"]
-        region = win.make_display_region(l, r, b, t)
-        region.set_active(True)
-        color = win.get_display_region(1).get_clear_color()
-        region.set_clear_color(color)
+        l, r, b, t = GD["viewport"]["frame"]
+        region = GD.window.make_display_region(l, r, b, t)
+        region.active = True
+        color = GD.window.get_display_region(1).clear_color
+        region.clear_color = color
+        region.clear_depth = 1000.
         region.set_clear_color_active(True)
-        region.set_clear_depth(1000.)
         region.set_clear_depth_active(True)
-        GlobalData["viewport"]["display_regions2"].append(region)
-        input_ctrl = base.mouseWatcher.get_parent()
+        GD["viewport"]["display_regions2"].append(region)
+        input_ctrl = GD.showbase.mouseWatcher.parent
         mouse_watcher_node = MouseWatcher("main")
         mouse_watcher_node.set_display_region(region)
         mouse_watcher_node.set_modifier_buttons(ModifierButtons())
         mouse_watcher_node.add_region(self._mouse_region_mask)
-        GlobalData["viewport"]["mouse_watchers2"].append(mouse_watcher_node)
+        GD["viewport"]["mouse_watchers2"].append(mouse_watcher_node)
         mouse_watcher = input_ctrl.attach_new_node(mouse_watcher_node)
-        btn_thrower_node = ButtonThrower("btn_thrower_{}".format(button_prefix))
-        btn_thrower_node.set_prefix("{}_".format(button_prefix))
-        btn_thrower_node.set_modifier_buttons(ModifierButtons())
+        btn_thrower_node = ButtonThrower(f"btn_thrower_{button_prefix}")
+        btn_thrower_node.prefix = f"{button_prefix}_"
+        btn_thrower_node.modifier_buttons = ModifierButtons()
         mouse_watcher.attach_new_node(btn_thrower_node)
         self.update()
 
         Mgr.update_app("viewport")
         Mgr.update_app("viewport_region_sort_incr", 22)
 
-        for dr in GlobalData["viewport"]["display_regions"]:
-            sort = dr.get_sort()
-            dr.set_sort(sort + 22)
+        for dr in GD["viewport"]["display_regions"]:
+            dr.sort += 22
 
         return region, mouse_watcher_node
 
     def __close(self):
 
         self._interface_name = ""
-        base = Mgr.get("base")
-        win = base.win
-        index = GlobalData["viewport"]["active"]
-        interface_id = GlobalData["viewport"][index]
+        index = GD["viewport"]["active"]
+        interface_id = GD["viewport"][index]
 
         if interface_id != "main":
             Mgr.do("set_interface_status")
 
-        GlobalData["viewport"]["active"] = 1
+        GD["viewport"]["active"] = 1
 
-        if GlobalData["viewport"][1] != "main":
+        if GD["viewport"][1] != "main":
             self.__swap_viewports()
         else:
-            color = GlobalData["viewport"]["border_color1"]
-            GlobalData["viewport"]["border1"].set_clear_color(color)
+            color = GD["viewport"]["border_color1"]
+            GD["viewport"]["border1"].clear_color = color
 
-        GlobalData["viewport"][2] = None
+        GD["viewport"][2] = None
         w, h = Mgr.get("window_size")
-        l, r, b, t = GlobalData["viewport"]["frame"]
-        GlobalData["fps_meter_display_region"].set_dimensions(r - 800./w, r, b, b + 600./h)
-        base.mouseWatcherNode.remove_region(self._mouse_region_mask)
+        l, r, b, t = GD["viewport"]["frame"]
+        GD["fps_meter_display_region"].dimensions = (r - 800./w, r, b, b + 600./h)
+        GD.mouse_watcher.remove_region(self._mouse_region_mask)
         Mgr.remove_cursor_regions("aux_viewport")
 
         if self._placement == "overlaid":
@@ -762,18 +744,18 @@ class AuxiliaryViewport:
 
         region = self._display_region
         self._display_region = None
-        GlobalData["viewport"]["border1"] = win
-        GlobalData["viewport"]["border2"] = None
-        win.remove_display_region(region)
-        del GlobalData["viewport"]["display_regions2"][:]
-        del GlobalData["viewport"]["mouse_watchers2"][:]
+        GD["viewport"]["border1"] = GD.window
+        GD["viewport"]["border2"] = None
+        GD.window.remove_display_region(region)
+        del GD["viewport"]["display_regions2"][:]
+        del GD["viewport"]["mouse_watchers2"][:]
 
         if self._on_close:
             self._on_close()
 
     def __request_close(self, on_close):
 
-        if GlobalData["viewport"][2] is None:
+        if GD["viewport"][2] is None:
             on_close()
             return
 
@@ -783,8 +765,8 @@ class AuxiliaryViewport:
             command = lambda task: on_close()
             Mgr.do_next_frame(command, "on_close_aux_viewport")
 
-        title = "Close {} interface".format(self._interface_name)
-        message = "The {} interface needs to be closed and any changes saved.".format(self._interface_name)
+        title = f"Close {self._interface_name} interface"
+        message = f"The {self._interface_name} interface needs to be closed and any changes saved."
         message += "\n\nContinue?"
         MessageDialog(title=title,
                       message=message,

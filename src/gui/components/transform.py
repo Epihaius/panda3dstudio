@@ -12,7 +12,7 @@ class TransformButtons(ToggleButtonGroup):
 
         def toggle_on_default():
 
-            GlobalData["active_transform_type"] = ""
+            GD["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
             Mgr.update_app("status", ["select", ""])
 
@@ -29,10 +29,10 @@ class TransformButtons(ToggleButtonGroup):
             def toggle_on():
 
                 Mgr.enter_state("selection_mode")
-                GlobalData["active_transform_type"] = transf_type
+                GD["active_transform_type"] = transf_type
                 Mgr.update_app("active_transform_type", transf_type)
 
-                if GlobalData["snap"]["on"][transf_type]:
+                if GD["snap"]["on"][transf_type]:
                     Mgr.update_app("status", ["select", transf_type, "snap_idle"])
                 else:
                     Mgr.update_app("status", ["select", transf_type, "idle"])
@@ -58,7 +58,7 @@ class AxisButtons(ButtonGroup):
     def update_axis_constraints(self, transf_type, axes):
 
         for axis in "xyz":
-            self.get_button(axis).set_active(False)
+            self.get_button(axis).active = False
 
         if not transf_type:
             return
@@ -69,11 +69,11 @@ class AxisButtons(ButtonGroup):
         self._axes[transf_type] = axes
 
         for axis in axes:
-            self.get_button(axis).set_active()
+            self.get_button(axis).active = True
 
     def __set_axis_constraint(self, axis):
 
-        tt = GlobalData["active_transform_type"]
+        tt = GD["active_transform_type"]
 
         if not tt:
             return
@@ -113,8 +113,8 @@ class AxisButtons(ButtonGroup):
 
     def create_button(self, toolbar, axis):
 
-        icon_id = "icon_{}".format(axis)
-        tooltip_text = "Transform about {}-axis".format(axis.upper())
+        icon_id = f"icon_{axis}"
+        tooltip_text = f"Transform about {axis.upper()}-axis"
         command = lambda: self.__set_axis_constraint(axis)
         btn = ToolbarButton(toolbar, "", icon_id, tooltip_text, command)
         btn.set_hotkey((axis, 0), axis.upper())
@@ -138,8 +138,8 @@ class CoordSysComboBox(ToolbarComboBox):
 
                 def start_coord_sys_picking():
 
-                    if GlobalData["active_obj_level"] != "top":
-                        GlobalData["active_obj_level"] = "top"
+                    if GD["active_obj_level"] != "top":
+                        GD["active_obj_level"] = "top"
                         Mgr.update_app("active_obj_level")
 
                     Mgr.enter_state("coord_sys_picking_mode")
@@ -205,8 +205,8 @@ class TransfCenterComboBox(ToolbarComboBox):
 
                 def start_transf_center_picking():
 
-                    if GlobalData["active_obj_level"] != "top":
-                        GlobalData["active_obj_level"] = "top"
+                    if GD["active_obj_level"] != "top":
+                        GD["active_obj_level"] = "top"
                         Mgr.update_app("active_obj_level")
 
                     Mgr.enter_state("transf_center_picking_mode")
@@ -268,7 +268,7 @@ class TransformToolbar(Toolbar):
 
         def set_active_transform_off():
 
-            GlobalData["active_transform_type"] = ""
+            GD["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
             Mgr.update_app("status", ["select", ""])
 
@@ -285,14 +285,14 @@ class TransformToolbar(Toolbar):
         self._axis_btns = AxisButtons()
         self._fields = {}
 
-        get_value_handler = lambda axis: lambda value_id, value, state: \
+        get_value_handler = lambda axis: lambda value_id, value, state="done": \
             self.__handle_value(axis, value_id, value, state)
 
         font = Skin["text"]["input2"]["font"]
         is_relative_value = True
-        btn_disabler = lambda: not GlobalData["active_transform_type"]
+        btn_disabler = lambda: not GD["active_transform_type"]
         self._axis_btns.add_disabler("no_transf", btn_disabler)
-        field_disabler = lambda: not (GlobalData["active_transform_type"] and GlobalData["selection_count"])
+        field_disabler = lambda: not (GD["active_transform_type"] and GD["selection_count"])
 
         for axis in "xyz":
 
@@ -331,7 +331,7 @@ class TransformToolbar(Toolbar):
         self._axis_btns.enable(False)
         self.__enable_fields(False)
         self.__show_field_text(False)
-        self._offsets_btn.set_active(False)
+        self._offsets_btn.active = False
         self._offsets_btn.enable(False)
 
         tools_menu = Mgr.get("tool_options_menu")
@@ -349,19 +349,19 @@ class TransformToolbar(Toolbar):
 
                 self._transform_btns.set_active_button(transf_type)
                 self._axis_btns.enable()
-                axes = GlobalData["axis_constraints"][transf_type]
+                axes = GD["axis_constraints"][transf_type]
                 self._axis_btns.update_axis_constraints(transf_type, axes)
-                obj_lvl = GlobalData["active_obj_level"]
-                is_rel_value = GlobalData["rel_transform_values"][obj_lvl][transf_type]
+                obj_lvl = GD["active_obj_level"]
+                is_rel_value = GD["rel_transform_values"][obj_lvl][transf_type]
                 value_id = (transf_type, is_rel_value)
 
                 for field in self._fields.values():
                     field.show_value(value_id)
 
                 self._offsets_btn.enable(True)
-                self._offsets_btn.set_active(is_rel_value)
+                self._offsets_btn.active = is_rel_value
                 self.__check_selection_count(transf_type)
-                GlobalData["snap"]["type"] = transf_type
+                GD["snap"]["type"] = transf_type
                 Mgr.update_locally("object_snap", "enable", True, False)
 
             else:
@@ -370,7 +370,7 @@ class TransformToolbar(Toolbar):
                 self._axis_btns.enable(False)
                 self.__enable_fields(False)
                 self.__show_field_text(False)
-                self._offsets_btn.set_active(False)
+                self._offsets_btn.active = False
                 self._offsets_btn.enable(False)
 
                 if Mgr.get_state_id() not in ("transf_center_snap_mode",
@@ -389,22 +389,22 @@ class TransformToolbar(Toolbar):
     def setup(self):
 
         add_state = Mgr.add_state
-        add_state("transforming", -1, lambda prev_state_id, is_active:
+        add_state("transforming", -1, lambda prev_state_id, active:
                   Mgr.do("enable_gui", False))
 
         def add_picking_mode(picking_type):
 
-            state_id = "{}_picking_mode".format(picking_type)
+            state_id = f"{picking_type}_picking_mode"
 
-            def enter_picking_mode(prev_state_id, is_active):
+            def enter_picking_mode(prev_state_id, active):
 
                 tint = Skin["colors"]["combobox_field_tint_pick"]
                 self._comboboxes[picking_type].set_field_tint(tint)
                 Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
 
-            def exit_picking_mode(next_state_id, is_active):
+            def exit_picking_mode(next_state_id, active):
 
-                if not is_active:
+                if not active:
                     self._comboboxes[picking_type].set_field_tint(None)
 
             add_state(state_id, -80, enter_picking_mode, exit_picking_mode)
@@ -414,26 +414,26 @@ class TransformToolbar(Toolbar):
 
         def add_snap_mode(snap_type):
 
-            state_id = "{}_snap_mode".format(snap_type)
+            state_id = f"{snap_type}_snap_mode"
 
-            def enter_snap_mode(prev_state_id, is_active):
+            def enter_snap_mode(prev_state_id, active):
 
                 tint = Skin["colors"]["combobox_field_tint_pick"]
                 combobox_id = "coord_sys" if snap_type == "coord_origin" else snap_type
                 self._comboboxes[combobox_id].set_field_tint(tint)
                 Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
 
-                if not is_active:
-                    GlobalData["snap"]["prev_type"] = GlobalData["snap"]["type"]
-                    GlobalData["snap"]["type"] = snap_type
+                if not active:
+                    GD["snap"]["prev_type"] = GD["snap"]["type"]
+                    GD["snap"]["type"] = snap_type
 
-            def exit_snap_mode(next_state_id, is_active):
+            def exit_snap_mode(next_state_id, active):
 
-                if not is_active:
+                if not active:
                     combobox_id = "coord_sys" if snap_type == "coord_origin" else snap_type
                     self._comboboxes[combobox_id].set_field_tint(None)
                     Mgr.update_locally("object_snap", "enable", False, True)
-                    GlobalData["snap"]["type"] = GlobalData["snap"]["prev_type"]
+                    GD["snap"]["type"] = GD["snap"]["prev_type"]
 
             add_state(state_id, -80, enter_snap_mode, exit_snap_mode)
 
@@ -449,25 +449,25 @@ class TransformToolbar(Toolbar):
         transf_type = self._transform_btns.get_active_button_id()
 
         if transf_type:
-            obj_lvl = GlobalData["active_obj_level"]
-            is_rel_value = GlobalData["rel_transform_values"][obj_lvl][transf_type]
-            self._offsets_btn.set_active(is_rel_value)
+            obj_lvl = GD["active_obj_level"]
+            is_rel_value = GD["rel_transform_values"][obj_lvl][transf_type]
+            self._offsets_btn.active = is_rel_value
 
     def __toggle_relative_values(self):
 
         transf_type = self._transform_btns.get_active_button_id()
-        obj_lvl = GlobalData["active_obj_level"]
+        obj_lvl = GD["active_obj_level"]
 
         if obj_lvl in ("vert", "edge", "poly", "normal"):
             if not ((obj_lvl == "vert" and transf_type == "translate")
                     or (obj_lvl == "normal" and transf_type == "rotate")):
                 return
 
-        rel_values = GlobalData["rel_transform_values"][obj_lvl]
+        rel_values = GD["rel_transform_values"][obj_lvl]
         use_rel_values = not rel_values[transf_type]
         rel_values[transf_type] = use_rel_values
         value_id = (transf_type, use_rel_values)
-        self._offsets_btn.set_active(use_rel_values)
+        self._offsets_btn.active = use_rel_values
 
         for field in self._fields.values():
 
@@ -480,7 +480,7 @@ class TransformToolbar(Toolbar):
 
         self.__check_selection_count(transf_type)
 
-    def __handle_value(self, axis, value_id, value, state):
+    def __handle_value(self, axis, value_id, value, state="done"):
 
         transf_type, is_rel_value = value_id
         Mgr.update_remotely("transf_component", transf_type, axis, value, is_rel_value)
@@ -491,13 +491,13 @@ class TransformToolbar(Toolbar):
 
     def __set_field_values(self, transform_data=None):
 
-        transf_type = GlobalData["active_transform_type"]
+        transf_type = GD["active_transform_type"]
 
         if not transform_data:
 
-            obj_lvl = GlobalData["active_obj_level"]
+            obj_lvl = GD["active_obj_level"]
 
-            if not (transf_type and GlobalData["rel_transform_values"][obj_lvl][transf_type]):
+            if not (transf_type and GD["rel_transform_values"][obj_lvl][transf_type]):
                 self.__show_field_text(False)
 
             return
@@ -519,8 +519,8 @@ class TransformToolbar(Toolbar):
 
     def __enable_fields(self, enable=True):
 
-        if enable and not (GlobalData["active_transform_type"]
-                           and GlobalData["selection_count"]):
+        if enable and not (GD["active_transform_type"]
+                           and GD["selection_count"]):
             return
 
         for field in self._fields.values():
@@ -528,12 +528,12 @@ class TransformToolbar(Toolbar):
 
     def __check_selection_count(self, transf_type=None):
 
-        tr_type = GlobalData["active_transform_type"] if transf_type is None else transf_type
+        tr_type = GD["active_transform_type"] if transf_type is None else transf_type
 
         if not tr_type:
             return
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         self.__enable_fields(sel_count > 0)
 
         if sel_count > 1:
@@ -548,20 +548,20 @@ class TransformToolbar(Toolbar):
             for field in self._fields.values():
                 field.set_text_color()
 
-        obj_lvl = GlobalData["active_obj_level"]
-        use_rel_values = GlobalData["rel_transform_values"][obj_lvl][tr_type]
+        obj_lvl = GD["active_obj_level"]
+        use_rel_values = GD["rel_transform_values"][obj_lvl][tr_type]
         show = (use_rel_values and sel_count) or sel_count == 1
         self.__show_field_text(show)
 
     def __show_values(self):
 
-        transf_type = GlobalData["active_transform_type"]
+        transf_type = GD["active_transform_type"]
 
         if not transf_type:
             return
 
-        obj_lvl = GlobalData["active_obj_level"]
-        use_rel_values = GlobalData["rel_transform_values"][obj_lvl][transf_type]
+        obj_lvl = GD["active_obj_level"]
+        use_rel_values = GD["rel_transform_values"][obj_lvl][transf_type]
         value_id = (transf_type, use_rel_values)
 
         for field in self._fields.values():
@@ -624,8 +624,8 @@ class TransformDialog(Dialog):
 
     def __init__(self):
 
-        transf_type = GlobalData["active_transform_type"]
-        title = '{} selection'.format(transf_type.title())
+        transf_type = GD["active_transform_type"]
+        title = f'{transf_type.title()} selection'
         on_cancel = lambda: Mgr.update_remotely("componentwise_xform", "cancel")
         extra_button_data = (("Apply", "", self.__on_apply, None, 1.),)
 
@@ -633,7 +633,7 @@ class TransformDialog(Dialog):
                         on_cancel=on_cancel, extra_button_data=extra_button_data)
 
         value = 1. if transf_type == "scale" else 0.
-        rot_axis = GlobalData["axis_constraints"]["rotate"]
+        rot_axis = GD["axis_constraints"]["rotate"]
         self._rot_axis = "z" if rot_axis == "view" else rot_axis
         self._values = values = {axis_id: value for axis_id in "xyz"}
         self._link_values = True if transf_type == "scale" else False
@@ -669,7 +669,7 @@ class TransformDialog(Dialog):
 
                 toggle = (toggle_on, lambda: None)
                 axis_text = axis_id.upper()
-                tooltip_text = "Rotate about {}-axis".format(axis_text)
+                tooltip_text = f"Rotate about {axis_text}-axis"
                 btn = DialogButton(self, axis_text, tooltip_text=tooltip_text)
                 btns.add_button(btn, axis_id, toggle)
                 subsizer.add(btn, alignment="center_v", borders=borders)
@@ -731,7 +731,7 @@ class TransformDialog(Dialog):
                 toggle = (toggle_on, lambda: None)
                 text = "=".join(axes.upper())
                 axes_descr = "all" if axes == "xyz" else " and ".join(axes.upper())
-                tooltip_text = "Make {} values equal".format(axes_descr)
+                tooltip_text = f"Make {axes_descr} values equal"
                 btn = DialogButton(self, text, tooltip_text=tooltip_text)
                 btns.add_button(btn, axes, toggle)
                 subsizer.add(btn, expand=True, borders=borders)
@@ -744,7 +744,7 @@ class TransformDialog(Dialog):
 
             subsizer.add((0, 0), proportion=1.)
 
-            group_title = "Offset {}".format("factors" if transf_type == "scale" else "distances")
+            group_title = f'Offset {"factors" if transf_type == "scale" else "distances"}'
             group = DialogWidgetGroup(self, group_title)
             borders = (0, 0, 10, 10)
             main_sizer.add(group, proportion=1., borders=borders)
@@ -756,7 +756,7 @@ class TransformDialog(Dialog):
                 borders = (0, 0, 5, 0)
                 group.add(subsizer, expand=True, borders=borders)
 
-                text = DialogText(group, "{}:".format(axis_id.upper()))
+                text = DialogText(group, f"{axis_id.upper()}:")
                 subsizer.add(text, alignment="center_v")
                 field = ValueInputField(group, axis_id, "float", self.__handle_value, 100)
                 field.set_value(value)
@@ -784,7 +784,7 @@ class TransformDialog(Dialog):
 
         Dialog.close(self, answer)
 
-    def __handle_value(self, axis_id, value, state):
+    def __handle_value(self, axis_id, value, state="done"):
 
         if axis_id == "rot_axis":
 
@@ -821,7 +821,7 @@ class TransformOptionsDialog(Dialog):
 
     def __init__(self):
 
-        old_options = GlobalData["transform_options"]
+        old_options = GD["transform_options"]
         old_rot_options = old_options["rotation"]
         self._options = new_options = {}
         new_options["rotation"] = new_rot_options = {}
@@ -1024,7 +1024,7 @@ class TransformOptionsDialog(Dialog):
         except:
             return None
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         if value_id == "radius":
             self._options["rotation"]["circle_radius"] = value
@@ -1035,7 +1035,7 @@ class TransformOptionsDialog(Dialog):
 
     def __on_yes(self):
 
-        old_options = GlobalData["transform_options"]
+        old_options = GD["transform_options"]
         old_rot_options = old_options["rotation"]
         new_options = self._options
         new_rot_options = new_options["rotation"]

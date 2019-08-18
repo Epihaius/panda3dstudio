@@ -1,15 +1,16 @@
 from ....base import *
-from .merge import EdgeMergeBase, EdgeMergeManager
-from .bridge import EdgeBridgeBase, EdgeBridgeManager
+from .merge import EdgeMergeMixin, EdgeMergeManager
+from .bridge import EdgeBridgeMixin, EdgeBridgeManager
 import copy
 
 
-class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
+class EdgeEditMixin(EdgeMergeMixin, EdgeBridgeMixin):
+    """ GeomDataObject class mix-in """
 
     def get_border_edges(self, start_edge):
 
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         border_edges = [start_edge]
@@ -24,7 +25,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
             for vert_id in merged_vert:
 
                 vert = verts[vert_id]
-                merged_edge = merged_edges[vert.get_edge_ids()[0]]
+                merged_edge = merged_edges[vert.edge_ids[0]]
 
                 if len(merged_edge) == 1:
                     border_edge = merged_edge
@@ -46,8 +47,8 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
 
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         new_merged_verts = []
         border_verts = set()
 
@@ -67,7 +68,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
 
                 vert = verts[vert_id]
 
-                for edge_id in vert.get_edge_ids():
+                for edge_id in vert.edge_ids:
 
                     merged_edge = merged_edges[edge_id]
 
@@ -121,8 +122,8 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
             return False
 
         selected_vert_ids = selection_ids["vert"]
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         selected_edges = set(merged_edges[i] for i in selected_edge_ids)
@@ -162,7 +163,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
 
                     next_vert = verts[next_vert_id]
                     vert_ids_to_separate.append(next_vert_id)
-                    next_edge_ids = next_vert.get_edge_ids()
+                    next_edge_ids = next_vert.edge_ids
 
                     if next_edge_ids[0] == edge_id:
                         next_edge_id = next_edge_ids[1]
@@ -237,7 +238,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
 
         self.update_normal_sharing(merged_verts_to_resmooth)
 
-        if GlobalData["subobj_edit_options"]["normal_preserve"]:
+        if GD["subobj_edit_options"]["normal_preserve"]:
 
             vert_ids = set()
 
@@ -268,8 +269,8 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
         if not selected_edge_ids:
             return False, False
 
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         normal_sharing = self._shared_normals
@@ -311,7 +312,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
                         continue
 
                     tmp_normal = Mgr.do("create_shared_normal", self, ids.difference(sel_ids))
-                    tmp_id = tmp_normal.get_id()
+                    tmp_id = tmp_normal.id
                     orig_normal = normal_sharing[tmp_id]
                     normal_sharing[tmp_id] = tmp_normal
                     self.update_selection("normal", [tmp_normal], [])
@@ -366,7 +367,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
 
                         next_vert = verts[next_vert_id]
                         vert_ids_to_separate.append(next_vert_id)
-                        edge_ids = next_vert.get_edge_ids()
+                        edge_ids = next_vert.edge_ids
 
                         if edge_ids[0] == edge_id:
                             next_edge_id = edge_ids[1]
@@ -457,16 +458,16 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
         # as soon as the mouse is released over an edge, it gets picked and
         # polys become pickable again.
 
-        origin = self._origin
+        origin = self.origin
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
 
         if category == "border":
 
-            merged_edges = self._merged_edges
+            merged_edges = self.merged_edges
             edge_ids = []
 
-            for edge_id in poly.get_edge_ids():
+            for edge_id in poly.edge_ids:
                 if len(merged_edges[edge_id]) == 1:
                     edge_ids.append(edge_id)
 
@@ -475,13 +476,13 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
             merged_edges = extra_data
             edge_ids = []
 
-            for edge_id in poly.get_edge_ids():
+            for edge_id in poly.edge_ids:
                 if len(merged_edges[edge_id]) == 1:
                     edge_ids.append(edge_id)
 
         else:
 
-            edge_ids = poly.get_edge_ids()
+            edge_ids = poly.edge_ids
 
         count = len(edge_ids)
 
@@ -494,7 +495,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
         col_writer = GeomVertexWriter(vertex_data, "color")
         pickable_id = PickableTypes.get_id("edge")
         rows = self._tmp_row_indices
-        by_aiming = GlobalData["subobj_edit_options"]["pick_by_aiming"]
+        by_aiming = GD["subobj_edit_options"]["pick_by_aiming"]
 
         if by_aiming:
 
@@ -509,9 +510,9 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
 
             aux_picking_root = Mgr.get("aux_picking_root")
             aux_picking_cam = Mgr.get("aux_picking_cam")
-            cam = self.cam()
-            cam_pos = cam.get_pos(self.world)
-            normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
+            cam = GD.cam()
+            cam_pos = cam.get_pos(GD.world)
+            normal = GD.world.get_relative_vector(cam, Vec3.forward()).normalized()
             plane = Plane(normal, cam_pos + normal * 10.)
             aux_picking_cam.set_plane(plane)
             aux_picking_cam.update_pos()
@@ -522,8 +523,8 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
             col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
             tmp_poly_prim = GeomTriangles(Geom.UH_static)
             tmp_poly_prim.reserve_num_vertices(count * 6)
-            rel_pt = lambda point: self.world.get_relative_point(origin, point)
-            lens_is_ortho = self.cam.lens_type == "ortho"
+            rel_pt = lambda point: GD.world.get_relative_point(origin, point)
+            lens_is_ortho = GD.cam.lens_type == "ortho"
 
         for i, edge_id in enumerate(edge_ids):
 
@@ -535,7 +536,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
             vertex = verts[vert2_id]
             pos2 = vertex.get_pos()
             pos_writer.add_data3(pos2)
-            color_id = edge.get_picking_color_id()
+            color_id = edge.picking_color_id
             picking_color = get_color_vec(color_id, pickable_id)
             col_writer.add_data4(picking_color)
             col_writer.add_data4(picking_color)
@@ -575,7 +576,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
         geom_pickable.set_depth_test(False)
         geom_pickable.set_depth_write(False)
         geom_sel_state = geom_pickable.copy_to(origin)
-        geom_sel_state.set_name("tmp_geom_sel_state")
+        geom_sel_state.name = "tmp_geom_sel_state"
         geom_sel_state.set_light_off()
         geom_sel_state.set_color_off()
         geom_sel_state.set_texture_off()
@@ -605,7 +606,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
         pos_writer_poly = GeomVertexWriter(vertex_data_poly, "vertex")
         tmp_poly_prim = GeomTriangles(Geom.UH_static)
         tmp_poly_prim.reserve_num_vertices(len(poly))
-        vert_ids = poly.get_vertex_ids()
+        vert_ids = poly.vertex_ids
 
         for vert_id in vert_ids:
             vertex = verts[vert_id]
@@ -629,7 +630,7 @@ class EdgeEditBase(EdgeMergeBase, EdgeBridgeBase):
         geom_pickable.show_through(picking_mask)
 
         if by_aiming:
-            aux_picking_cam.set_active()
+            aux_picking_cam.active = True
             Mgr.do("start_drawing_aux_picking_viz")
 
         geoms = self._geoms
@@ -666,7 +667,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
         bind("edge_picking_via_poly", "abort edge picking",
              "focus_loss", self.__cancel_edge_picking_via_poly)
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         info = "LMB-drag over edge to pick it; RMB to cancel"
         status_data["edge_picking_via_poly"] = {"mode": "Pick edge", "info": info}
 
@@ -684,15 +685,15 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
                 r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
                 color_id = r << 16 | g << 8 | b
 
-                if GlobalData["subobj_edit_options"]["pick_via_poly"]:
+                if GD["subobj_edit_options"]["pick_via_poly"]:
 
                     poly = Mgr.get("poly", color_id)
 
                     if poly:
 
-                        merged_edges = poly.get_geom_data_object().get_merged_edges()
+                        merged_edges = poly.geom_data_obj.merged_edges
 
-                        for edge_id in poly.get_edge_ids():
+                        for edge_id in poly.edge_ids:
                             if len(merged_edges[edge_id]) == 1:
                                 cursor_id = "select"
                                 break
@@ -700,7 +701,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
                 else:
 
                     edge = Mgr.get("edge", color_id)
-                    target_edge = edge.get_merged_edge() if edge else None
+                    target_edge = edge.merged_edge if edge else None
 
                     if target_edge and len(target_edge) == 1:
                         cursor_id = "select"
@@ -718,9 +719,9 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
         if pickable_type == "poly":
 
             self._picked_poly = Mgr.get("poly", color_id)
-            merged_edges = self._picked_poly.get_geom_data_object().get_merged_edges()
+            merged_edges = self._picked_poly.geom_data_obj.merged_edges
 
-            for edge_id in self._picked_poly.get_edge_ids():
+            for edge_id in self._picked_poly.edge_ids:
                 if len(merged_edges[edge_id]) == 1:
                     break
             else:
@@ -728,18 +729,18 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
 
             Mgr.enter_state("edge_picking_via_poly")
 
-    def __start_edge_picking_via_poly(self, prev_state_id, is_active):
+    def __start_edge_picking_via_poly(self, prev_state_id, active):
 
         Mgr.remove_task("update_mode_cursor")
 
-        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj = self._picked_poly.geom_data_obj
         geom_data_obj.init_subobj_picking_via_poly("edge", self._picked_poly, category="border")
         # temporarily select picked poly
         geom_data_obj.update_selection("poly", [self._picked_poly], [], False)
 
         for model in Mgr.get("selection_top"):
 
-            other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+            other_geom_data_obj = model.geom_obj.geom_data_obj
 
             if other_geom_data_obj is not geom_data_obj:
                 other_geom_data_obj.set_pickable(False)
@@ -747,9 +748,9 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
         Mgr.add_task(self.__hilite_edge, "hilite_edge")
         Mgr.update_app("status", ["edge_picking_via_poly"])
 
-        cs_type = GlobalData["coord_sys_type"]
-        tc_type = GlobalData["transf_center_type"]
-        toplvl_obj = self._picked_poly.get_toplevel_object()
+        cs_type = GD["coord_sys_type"]
+        tc_type = GD["transf_center_type"]
+        toplvl_obj = self._picked_poly.toplevel_obj
 
         if cs_type == "local":
             Mgr.update_locally("coord_sys", cs_type, toplvl_obj)
@@ -767,7 +768,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
 
                 r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
                 color_id = r << 16 | g << 8 | b
-                geom_data_obj = self._picked_poly.get_geom_data_object()
+                geom_data_obj = self._picked_poly.geom_data_obj
 
                 # highlight temporary edge
                 if geom_data_obj.hilite_temp_subobject("edge", color_id):
@@ -778,7 +779,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
         not_hilited = pixel_under_mouse in (VBase4(), VBase4(1., 1., 1., 1.))
         cursor_id = "main" if not_hilited else "select"
 
-        if GlobalData["subobj_edit_options"]["pick_by_aiming"]:
+        if GD["subobj_edit_options"]["pick_by_aiming"]:
 
             aux_pixel_under_mouse = Mgr.get("aux_pixel_under_mouse")
 
@@ -788,7 +789,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
 
                     r, g, b, a = [int(round(c * 255.)) for c in aux_pixel_under_mouse]
                     color_id = r << 16 | g << 8 | b
-                    geom_data_obj = self._picked_poly.get_geom_data_object()
+                    geom_data_obj = self._picked_poly.geom_data_obj
 
                     # highlight temporary edge
                     if geom_data_obj.hilite_temp_subobject("edge", color_id):
@@ -806,12 +807,12 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
     def __pick_hilited_edge(self):
 
         Mgr.remove_task("hilite_edge")
-        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj = self._picked_poly.geom_data_obj
 
         if self._tmp_color_id is None:
             picked_edge = None
         else:
-            edge_id = Mgr.get("edge", self._tmp_color_id).get_id()
+            edge_id = Mgr.get("edge", self._tmp_color_id).id
             picked_edge = geom_data_obj.get_merged_edge(edge_id)
 
         if self._picking_dest_edge:
@@ -829,18 +830,18 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
                 self._init_bridge(picked_edge)
 
             Mgr.add_task(self._update_cursor, "update_mode_cursor")
-            Mgr.update_app("status", ["edge_{}_mode".format(self._mode_id)])
+            Mgr.update_app("status", [f"edge_{self._mode_id}_mode"])
 
         else:
 
             for model in Mgr.get("selection_top"):
 
-                other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+                other_geom_data_obj = model.geom_obj.geom_data_obj
 
                 if other_geom_data_obj is not geom_data_obj:
                     other_geom_data_obj.set_pickable()
 
-            Mgr.enter_state("edge_{}_mode".format(self._mode_id))
+            Mgr.enter_state(f"edge_{self._mode_id}_mode")
 
         geom_data_obj.prepare_subobj_picking_via_poly("edge")
 
@@ -854,7 +855,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
 
         Mgr.remove_task("hilite_edge")
         Mgr.exit_state("edge_picking_via_poly")
-        geom_data_obj = self._picked_poly.get_geom_data_object()
+        geom_data_obj = self._picked_poly.geom_data_obj
         geom_data_obj.prepare_subobj_picking_via_poly("edge")
 
         if self._picking_dest_edge:
@@ -868,7 +869,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
 
             for model in Mgr.get("selection_top"):
 
-                other_geom_data_obj = model.get_geom_object().get_geom_data_object()
+                other_geom_data_obj = model.geom_obj.geom_data_obj
 
                 if other_geom_data_obj is not geom_data_obj:
                     other_geom_data_obj.set_pickable()
@@ -886,10 +887,10 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
 
         for model in selection:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
 
             if geom_data_obj.split_edges():
-                changed_objs[model.get_id()] = geom_data_obj
+                changed_objs[model.id] = geom_data_obj
 
         if not changed_objs:
             return
@@ -913,15 +914,15 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
 
         for model in selection:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
             change, normals_to_sel = geom_data_obj.smooth_edges(smooth)
 
             if change:
 
-                changed_objs[model.get_id()] = geom_data_obj
+                changed_objs[model.id] = geom_data_obj
 
                 if normals_to_sel:
-                    changed_selections.append(model.get_id())
+                    changed_selections.append(model.id)
 
         if not changed_objs:
             return
@@ -936,7 +937,7 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
             if obj_id in changed_selections:
                 obj_data[obj_id].update(geom_data_obj.get_property_to_store("subobj_selection"))
 
-        event_descr = "{} edge selection".format("Smooth" if smooth else "Sharpen")
+        event_descr = f'{"Smooth" if smooth else "Sharpen"} edge selection'
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 

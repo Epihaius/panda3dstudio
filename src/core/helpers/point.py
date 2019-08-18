@@ -38,8 +38,9 @@ class TemporaryPointHelper:
         object_root = Mgr.get("object_root")
         self._temp_geom = tmp_geom = self._original_geom.copy_to(object_root)
 
-        active_grid_plane = Mgr.get(("grid", "plane"))
-        grid_origin = Mgr.get(("grid", "origin"))
+        grid = Mgr.get("grid")
+        active_grid_plane = grid.plane_id
+        grid_origin = grid.origin
 
         if active_grid_plane == "xz":
             tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
@@ -79,7 +80,7 @@ class TemporaryPointHelper:
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos(Mgr.get(("grid", "origin")))
+        pos = self._temp_geom.get_pos(Mgr.get("grid").origin)
 
         for step in Mgr.do("create_point_helper", pos):
             pass
@@ -87,12 +88,24 @@ class TemporaryPointHelper:
         self.destroy()
 
 
-class PointHelperViz(BaseObject):
+class PointHelperViz:
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        state["_picking_col_id"] = state.pop("picking_color_id")
+
+        return state
+
+    def __setstate__(self, state):
+
+        state["picking_color_id"] = state.pop("_picking_col_id")
+        self.__dict__ = state
 
     def __init__(self, point_helper, picking_col_id):
 
         self._point_helper = point_helper
-        self._picking_col_id = picking_col_id
+        self.picking_color_id = picking_col_id
 
     def __del__(self):
 
@@ -102,20 +115,21 @@ class PointHelperViz(BaseObject):
 
         return self._point_helper.get_toplevel_object(get_group)
 
-    def get_picking_color_id(self):
+    @property
+    def toplevel_obj(self):
 
-        return self._picking_col_id
+        return self.get_toplevel_object()
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        cam = self.cam()
-        normal = self.world.get_relative_vector(cam, Vec3.forward())
-        plane = Plane(normal, self._point_helper.get_origin().get_pos(self.world))
+        cam = GD.cam()
+        normal = GD.world.get_relative_vector(cam, Vec3.forward())
+        plane = Plane(normal, self._point_helper.origin.get_pos(GD.world))
 
         near_point = Point3()
         far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        GD.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.world.get_relative_point(cam, point)
 
         intersection_point = Point3()
         plane.intersects_line(intersection_point, rel_pt(near_point), rel_pt(far_point))
@@ -152,7 +166,7 @@ class PointHelper(TopLevelObject):
         TopLevelObject.register(self)
 
         obj_type = "point_helper_viz"
-        Mgr.do("register_{}".format(obj_type), self._viz, restore)
+        Mgr.do(f"register_{obj_type}", self._viz, restore)
 
         if restore:
             Mgr.do("add_point_helper", self)
@@ -162,7 +176,7 @@ class PointHelper(TopLevelObject):
 
         if unregister:
             obj_type = "point_helper_viz"
-            Mgr.do("unregister_{}".format(obj_type), self._viz)
+            Mgr.do(f"unregister_{obj_type}", self._viz)
 
         Mgr.do("remove_point_helper", self)
 
@@ -172,7 +186,7 @@ class PointHelper(TopLevelObject):
 
     def get_center_pos(self, ref_node):
 
-        return self.get_origin().get_pos(ref_node)
+        return self.origin.get_pos(ref_node)
 
     def set_size(self, size):
 
@@ -221,7 +235,7 @@ class PointHelper(TopLevelObject):
         task = lambda: Mgr.do("set_point_helper_pos", self)
         task_id = "transform_point_helper"
         sort = PendingTasks.get_sort("origin_transform", "object") + 1
-        PendingTasks.add(task, task_id, "object", sort, id_prefix=self.get_id())
+        PendingTasks.add(task, task_id, "object", sort, id_prefix=self.id)
 
     def set_property(self, prop_id, value, restore=""):
 
@@ -229,7 +243,7 @@ class PointHelper(TopLevelObject):
             task = lambda: Mgr.do("set_point_helper_pos", self)
             task_id = "transform_point_helper"
             sort = PendingTasks.get_sort("origin_transform", "object") + 1
-            PendingTasks.add(task, task_id, "object", sort, id_prefix=self.get_id())
+            PendingTasks.add(task, task_id, "object", sort, id_prefix=self.id)
 
         def update_app():
 
@@ -388,7 +402,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         geom_node = GeomNode("point_helper_geom")
         geom_node.add_geom(geom)
         geom_node.set_bounds(OmniBoundingVolume())
-        geom_node.set_final(True)
+        geom_node.final = True
 
         object_root = Mgr.get("object_root")
         self._pickable_geoms = pickable_geoms = []
@@ -461,12 +475,12 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         shown_helpers = self._shown_point_helpers
         count = len(point_helpers)
         point_helpers.append(point_helper)
-        picking_col_id = point_helper.get_viz().get_picking_color_id()
+        picking_col_id = point_helper.get_viz().picking_color_id
         pickable_type_id = PickableTypes.get_id("point_helper_viz")
         picking_color = get_color_vec(picking_col_id, pickable_type_id)
         colors = {"pickable": picking_color, "viz": unselected_color}
         geoms = self._geoms[draw_mode]
-        pos = point_helper.get_origin().get_pos(self.world)
+        pos = point_helper.origin.get_pos(GD.world)
 
         for geom_type in ("pickable", "viz"):
 
@@ -520,7 +534,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             point_helper.set_color(selection_state, colors[selection_state])
 
         if transform:
-            point_helper.get_pivot().set_transform(transform)
+            point_helper.pivot.set_transform(transform)
             self.__set_point_helper_pos(point_helper)
 
         return point_helper
@@ -565,10 +579,10 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         objs = set(selection)
 
         for obj in selection:
-            objs.update(obj.get_descendants())
+            objs.update(obj.descendants)
 
         for obj in objs:
-            if obj.get_type() == "point_helper":
+            if obj.type == "point_helper":
                 draw_mode = "on_top" if obj.is_drawn_on_top() else "normal"
                 helpers_to_transf[draw_mode].append(obj)
 
@@ -596,7 +610,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             for point_helper in helpers_to_transf:
                 row_index = point_helpers.index(point_helper)
                 pos_writer.set_row(row_index)
-                pos_writer.set_data3(point_helper.get_origin().get_pos(self.world))
+                pos_writer.set_data3(point_helper.origin.get_pos(GD.world))
 
             pos_array = geom_node.get_geom(0).get_vertex_data().get_array(0)
             geom_node = geoms["viz"].node()
@@ -630,7 +644,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         draw_mode = "on_top" if point_helper.is_drawn_on_top() else "normal"
         geoms = self._geoms[draw_mode]
         row_index = self._point_helpers[draw_mode].index(point_helper)
-        pos = point_helper.get_origin().get_pos(self.world)
+        pos = point_helper.origin.get_pos(GD.world)
 
         for geom_type in ("pickable", "viz"):
             geom_node = geoms[geom_type].node()
@@ -647,8 +661,8 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         shown_helpers = self._shown_point_helpers
         count = len(point_helpers)
         point_helpers.append(point_helper)
-        pos = point_helper.get_origin().get_pos(self.world)
-        picking_col_id = point_helper.get_viz().get_picking_color_id()
+        pos = point_helper.origin.get_pos(GD.world)
+        picking_col_id = point_helper.get_viz().picking_color_id
         pickable_type_id = PickableTypes.get_id("point_helper_viz")
         picking_color = get_color_vec(picking_col_id, pickable_type_id)
         unselected_color = point_helper.get_color("unselected")
@@ -692,11 +706,9 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
             sparse_array = shown_helpers[geom_type]
             s = SparseArray(sparse_array)
-            for i in range(0, row_index + 1):
-                s.clear_bit(i)
+            s.clear_range(0, row_index + 1)
             s >>= 1
-            for i in range(row_index, count + 1):
-                sparse_array.clear_bit(i)
+            sparse_array.clear_range(row_index, count + 1 - row_index)
             shown_helpers[geom_type] |= s
             geom_node = geoms[geom_type].node()
             vertex_data = geom_node.modify_geom(0).modify_vertex_data()
@@ -834,8 +846,8 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
         count = len(point_helpers)
         point_helpers.append(point_helper)
-        pos = point_helper.get_origin().get_pos(self.world)
-        picking_col_id = point_helper.get_viz().get_picking_color_id()
+        pos = point_helper.origin.get_pos(GD.world)
+        picking_col_id = point_helper.get_viz().picking_color_id
         pickable_type_id = PickableTypes.get_id("point_helper_viz")
         picking_color = get_color_vec(picking_col_id, pickable_type_id)
         selection_state = "selected" if point_helper.is_selected() else "unselected"
@@ -882,14 +894,11 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         geoms["normal"]["viz"].show_through(picking_mask)
         geoms["on_top"]["viz"].show_through(picking_mask)
 
-        region_type = GlobalData["region_select"]["type"]
-
-        base = Mgr.get("base")
-        ge = base.graphics_engine
+        region_type = GD["region_select"]["type"]
 
         tex = Texture()
         tex.setup_1d_texture(obj_count, Texture.T_int, Texture.F_r32i)
-        tex.set_clear_color(0)
+        tex.clear_color = (0., 0., 0., 0.)
         sh = shaders.region_sel
         vs = shaders.region_sel_point.VERT_SHADER
 
@@ -916,11 +925,12 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         state = state_np.get_state()
         attrib = state.get_attrib(ShaderAttrib).set_flag(ShaderAttrib.F_shader_point_size, True)
         state = state.set_attrib(attrib)
-        cam.set_initial_state(state)
+        cam.initial_state = state
 
+        ge = GD.graphics_engine
         ge.render_frame()
 
-        if ge.extract_texture_data(tex, base.win.get_gsg()):
+        if ge.extract_texture_data(tex, GD.window.get_gsg()):
 
             texels = memoryview(tex.get_ram_image()).cast("I")
 

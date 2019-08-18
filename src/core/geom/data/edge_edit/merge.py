@@ -1,12 +1,13 @@
 from ....base import *
 
 
-class EdgeMergeBase(BaseObject):
+class EdgeMergeMixin:
+    """ EdgeEditMixin class mix-in """
 
     def merge_edges(self, src_border_edge, dest_border_edge):
 
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         selection_ids = self._selected_subobj_ids
@@ -40,12 +41,12 @@ class EdgeMergeBase(BaseObject):
             for vert_id in merged_vert:
 
                 vert = verts[vert_id]
-                merged_edge = merged_edges[vert.get_edge_ids()[index]]
+                merged_edge = merged_edges[vert.edge_ids[index]]
 
                 if len(merged_edge) == 1:
                     return merged_edge
 
-        edge_id = src_border_edge.get_id()
+        edge_id = src_border_edge.id
 
         if edge_id in selected_edge_ids:
 
@@ -62,8 +63,7 @@ class EdgeMergeBase(BaseObject):
                     if src_edge is src_border_edge:
                         segment_is_border = index
 
-                    if (src_edge is src_border_edge
-                            or src_edge.get_id() not in selected_edge_ids):
+                    if (src_edge is src_border_edge or src_edge.id not in selected_edge_ids):
                         break
 
                     if src_edge is dest_border_edge:
@@ -119,7 +119,7 @@ class EdgeMergeBase(BaseObject):
             if src_vert is dest_vert:
                 return True
 
-            return set(src_vert.get_polygon_ids()).isdisjoint(dest_vert.get_polygon_ids())
+            return set(src_vert.polygon_ids).isdisjoint(dest_vert.polygon_ids)
 
         for src_edge, dest_edge in edges_to_merge.items():
 
@@ -142,8 +142,8 @@ class EdgeMergeBase(BaseObject):
             if src_vert2 is not dest_vert2 and src_vert2 not in verts_to_merge:
                 verts_to_merge[src_vert2] = dest_vert2
 
-            src_edge_id = src_edge.get_id()
-            dest_edge_id = dest_edge.get_id()
+            src_edge_id = src_edge.id
+            dest_edge_id = dest_edge.id
             dest_edge.append(src_edge_id)
             merged_edges[src_edge_id] = dest_edge
 
@@ -163,8 +163,8 @@ class EdgeMergeBase(BaseObject):
 
         for src_vert, dest_vert in verts_to_merge.items():
 
-            src_vert_selected = src_vert.get_id() in selected_vert_ids
-            dest_vert_selected = dest_vert.get_id() in selected_vert_ids
+            src_vert_selected = src_vert.id in selected_vert_ids
+            dest_vert_selected = dest_vert.id in selected_vert_ids
 
             if src_vert_selected != dest_vert_selected:
                 tmp_merged_vert.extend(dest_vert if src_vert_selected else src_vert)
@@ -181,7 +181,7 @@ class EdgeMergeBase(BaseObject):
 
             if not update_polys_to_transf:
                 for vert_id in dest_vert:
-                    if verts[vert_id].get_polygon_id() in selected_poly_ids:
+                    if verts[vert_id].polygon_id in selected_poly_ids:
                         update_polys_to_transf = True
                         break
 
@@ -223,7 +223,7 @@ class EdgeMergeBase(BaseObject):
         selection_change = False
 
         if tmp_merged_vert[:]:
-            vert_id = tmp_merged_vert.get_id()
+            vert_id = tmp_merged_vert.id
             orig_merged_vert = merged_verts[vert_id]
             merged_verts[vert_id] = tmp_merged_vert
             self.update_selection("vert", [tmp_merged_vert], [], False)
@@ -232,7 +232,7 @@ class EdgeMergeBase(BaseObject):
             selection_change = True
 
         if tmp_merged_edge[:]:
-            edge_id = tmp_merged_edge.get_id()
+            edge_id = tmp_merged_edge.id
             orig_merged_edge = merged_edges[edge_id]
             merged_edges[edge_id] = tmp_merged_edge
             self.update_selection("edge", [tmp_merged_edge], [], False)
@@ -251,7 +251,7 @@ class EdgeMergeBase(BaseObject):
         return True, selection_change
 
 
-class EdgeMergeManager(BaseObject):
+class EdgeMergeManager:
 
     def __init__(self):
 
@@ -268,8 +268,8 @@ class EdgeMergeManager(BaseObject):
         bind("edge_merge_mode", "merge edges -> select", "escape", exit_mode)
         bind("edge_merge_mode", "exit edge merge mode", "mouse3", exit_mode)
         bind("edge_merge_mode", "merge edges", "mouse1", self._init_merge)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("edge_merge_mode", "merge edges ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("edge_merge_mode", "merge edges ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
         bind("edge_merge", "quit edge merge", "escape", cancel_merge)
         bind("edge_merge", "cancel edge merge", "mouse3", cancel_merge)
@@ -278,26 +278,26 @@ class EdgeMergeManager(BaseObject):
         bind("edge_merge", "merge edges -> pick edge via poly",
              "mouse1", self._start_dest_edge_picking_via_poly)
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Merge edges"
         info_text = "LMB-drag over a border edge and release LMB over" \
                     " other border edge to merge; RMB or <Escape> to end"
         status_data["edge_merge_mode"] = {"mode": mode_text, "info": info_text}
 
-    def __enter_merge_mode(self, prev_state_id, is_active):
+    def __enter_merge_mode(self, prev_state_id, active):
 
         if prev_state_id == "edge_merge":
             return
 
-        if GlobalData["active_transform_type"]:
-            GlobalData["active_transform_type"] = ""
+        if GD["active_transform_type"]:
+            GD["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
         self._mode_id = "merge"
         Mgr.add_task(self._update_cursor, "update_mode_cursor")
         Mgr.update_app("status", ["edge_merge_mode"])
 
-    def __exit_merge_mode(self, next_state_id, is_active):
+    def __exit_merge_mode(self, next_state_id, active):
 
         if next_state_id == "edge_merge":
             return
@@ -329,9 +329,9 @@ class EdgeMergeManager(BaseObject):
             if pickable_type == "poly":
 
                 self._picked_poly = Mgr.get("poly", color_id)
-                merged_edges = self._picked_poly.get_geom_data_object().get_merged_edges()
+                merged_edges = self._picked_poly.geom_data_obj.merged_edges
 
-                for edge_id in self._picked_poly.get_edge_ids():
+                for edge_id in self._picked_poly.edge_ids:
                     if len(merged_edges[edge_id]) == 1:
                         break
                 else:
@@ -342,20 +342,20 @@ class EdgeMergeManager(BaseObject):
                 return
 
             picked_obj = Mgr.get("edge", color_id)
-            edge = picked_obj.get_merged_edge() if picked_obj else None
+            edge = picked_obj.merged_edge if picked_obj else None
 
         if not edge or len(edge) > 1:
             return
 
-        model = edge.get_toplevel_object()
+        model = edge.toplevel_obj
 
         for obj in Mgr.get("selection_top"):
             if obj is not model:
-                obj.get_geom_object().get_geom_data_object().set_pickable(False)
+                obj.geom_obj.geom_data_obj.set_pickable(False)
 
         self._src_border_edge = edge
         self._picking_dest_edge = True
-        pos = edge.get_center_pos(self.world)
+        pos = edge.get_center_pos(GD.world)
         Mgr.do("start_drawing_rubber_band", pos)
         Mgr.do("enable_view_gizmo", False)
         Mgr.enter_state("edge_merge")
@@ -370,11 +370,11 @@ class EdgeMergeManager(BaseObject):
 
         if src_border_edge:
 
-            model = src_border_edge.get_toplevel_object()
+            model = src_border_edge.toplevel_obj
 
             for obj in Mgr.get("selection_top"):
                 if obj is not model:
-                    obj.get_geom_object().get_geom_data_object().set_pickable()
+                    obj.geom_obj.geom_data_obj.set_pickable()
 
         Mgr.do("end_drawing_rubber_band")
         self._picking_dest_edge = False
@@ -391,7 +391,7 @@ class EdgeMergeManager(BaseObject):
         if not src_border_edge:
             return
 
-        model = src_border_edge.get_toplevel_object()
+        model = src_border_edge.toplevel_obj
 
         if picked_edge:
             dest_border_edge = picked_edge
@@ -399,12 +399,12 @@ class EdgeMergeManager(BaseObject):
             r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
             color_id = r << 16 | g << 8 | b
             picked_obj = Mgr.get("edge", color_id)
-            dest_border_edge = picked_obj.get_merged_edge() if picked_obj else None
+            dest_border_edge = picked_obj.merged_edge if picked_obj else None
 
         if not dest_border_edge or dest_border_edge is src_border_edge or len(dest_border_edge) > 1:
             return
 
-        geom_data_obj = model.get_geom_object().get_geom_data_object()
+        geom_data_obj = model.geom_obj.geom_data_obj
         change, selection_change = geom_data_obj.merge_edges(src_border_edge, dest_border_edge)
 
         if not change:
@@ -419,7 +419,7 @@ class EdgeMergeManager(BaseObject):
         if selection_change:
             data.update(geom_data_obj.get_property_to_store("subobj_selection"))
 
-        obj_data = {model.get_id(): data}
+        obj_data = {model.id: data}
 
         event_descr = "Merge edges"
         event_data = {"objects": obj_data}

@@ -147,30 +147,30 @@ class TexProjectorProperties:
 
     def setup(self):
 
-        def enter_picking_mode(prev_state_id, is_active):
+        def enter_picking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
-            self._pick_btn.set_active()
+            self._pick_btn.active = True
 
-        def exit_picking_mode(next_state_id, is_active):
+        def exit_picking_mode(next_state_id, active):
 
-            if not is_active:
-                self._pick_btn.set_active(False)
+            if not active:
+                self._pick_btn.active = False
 
         add_state = Mgr.add_state
         add_state("texprojtarget_picking_mode", -10, enter_picking_mode, exit_picking_mode)
 
     def __set_projection_type(self, projection_type):
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             Mgr.update_app("tex_projector_prop_default", "projection_type", projection_type)
             return
 
         Mgr.update_remotely("texproj_prop", "projection_type", projection_type)
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             Mgr.update_app("tex_projector_prop_default", value_id, value)
             return
 
@@ -178,19 +178,19 @@ class TexProjectorProperties:
             value_id = "targets"
             target_id = self._target_combobox.get_selected_item()
             self._targets[target_id]["toplvl"] = not value
-            value = dict((k, v.copy()) for k, v in self._targets.items())
+            value = {k: v.copy() for k, v in self._targets.items()}
             target_prop = "use_poly_sel"
         elif value_id == "show_poly_sel":
             value_id = "targets"
             target_id = self._target_combobox.get_selected_item()
             self._targets[target_id]["show_poly_sel"] = value
-            value = dict((k, v.copy()) for k, v in self._targets.items())
+            value = {k: v.copy() for k, v in self._targets.items()}
             target_prop = "show_poly_sel"
         elif value_id == "uv_set_ids":
             value_id = "targets"
             target_id = self._target_combobox.get_selected_item()
             self._targets[target_id]["uv_set_ids"] = value
-            value = dict((k, v.copy()) for k, v in self._targets.items())
+            value = {k: v.copy() for k, v in self._targets.items()}
             target_prop = "uv_set_ids"
         else:
             target_id = None
@@ -217,7 +217,7 @@ class TexProjectorProperties:
             return
 
         target_id = self._target_combobox.get_selected_item()
-        value = dict((k, v.copy()) for k, v in self._targets.items())
+        value = {k: v.copy() for k, v in self._targets.items()}
         del value[target_id]
 
         Mgr.update_remotely("texproj_prop", "targets", value, target_id=target_id,
@@ -377,7 +377,7 @@ class TexProjectorProperties:
 
     def check_selection_count(self):
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 
@@ -397,7 +397,7 @@ class TexProjectorProperties:
 
     def __pick_object(self):
 
-        if self._pick_btn.is_active():
+        if self._pick_btn.active:
             Mgr.exit_state("texprojtarget_picking_mode")
         else:
             Mgr.enter_state("texprojtarget_picking_mode")

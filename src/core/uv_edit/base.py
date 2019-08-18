@@ -1,42 +1,6 @@
 from ..base import *
 
 
-class BaseObject:
-
-    uv_space = None
-    cam = None
-    cam_node = None
-    cam_lens = None
-    geom_root = None
-    mouse_watcher = None
-
-    @classmethod
-    def init(cls, uv_space, cam, cam_node, cam_lens, geom_root):
-
-        cls.uv_space = uv_space
-        cls.cam = cam
-        cls.cam_node = cam_node
-        cls.cam_lens = cam_lens
-        cls.geom_root = geom_root
-
-    @classmethod
-    def set_mouse_watcher(cls, mouse_watcher):
-
-        cls.mouse_watcher = mouse_watcher
-
-    def setup(self, *args, **kwargs):
-        """
-        Should be called to set up things that cannot be handled during __init__(),
-        e.g. because they depend on objects that were not created yet.
-        Should return True if successful.
-
-        Override in derived class.
-
-        """
-
-        return True
-
-
 class UVManager:
 
     # structure to store callables through which data can be retrieved by id
@@ -73,10 +37,10 @@ class UVManager:
 
         if task_id not in cls._task_handlers:
 
-            logging.warning('CORE: task "{}" is not defined.'.format(task_id))
+            logging.warning(f'CORE: task "{task_id}" is not defined.')
 
             if cls._verbose:
-                print('CORE warning: task "{}" is not defined.'.format(task_id))
+                print(f'CORE warning: task "{task_id}" is not defined.')
 
         task_handler = cls._task_handlers.get(task_id, cls._defaults["task_handler"])
 
@@ -89,7 +53,7 @@ class UVManager:
         cls._data_retrievers[data_id] = retriever
 
     @classmethod
-    def __get(cls, data_id, *args, **kwargs):
+    def get(cls, data_id, *args, **kwargs):
         """
         Obtain data by id. The arguments provided will be passed to the callable
         that returns the data.
@@ -98,34 +62,14 @@ class UVManager:
 
         if data_id not in cls._data_retrievers:
 
-            logging.warning('CORE: data "{}" is not defined.'.format(data_id))
+            logging.warning(f'CORE: data "{data_id}" is not defined.')
 
             if cls._verbose:
-                print('CORE warning: data "{}" is not defined.'.format(data_id))
+                print(f'CORE warning: data "{data_id}" is not defined.')
 
         retriever = cls._data_retrievers.get(data_id, cls._defaults["data_retriever"])
 
         return retriever(*args, **kwargs)
-
-    @classmethod
-    def get(cls, data_id, *args, **kwargs):
-        """
-        Obtain data by id. This id can either be the id of the data, or it can be a
-        sequence consisting of the id of the "owner" object and the id of the data
-        itself.
-
-        """
-
-        if isinstance(data_id, (list, tuple)):
-
-            obj_id, obj_data_id = data_id
-            obj = cls.__get(obj_id)
-
-            return obj.get(obj_data_id, *args, **kwargs)
-
-        else:
-
-            return cls.__get(data_id, *args, **kwargs)
 
 
 UVMgr = UVManager

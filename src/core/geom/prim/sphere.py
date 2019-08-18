@@ -64,8 +64,6 @@ def _define_geom_data(segments, smooth, temp=False):
 
     # Define quadrangular faces
 
-    z_vec = V3D(0., 0., 1.)
-
     for i in range(1, segments // 2 - 1):
 
         s = segments + 1
@@ -234,7 +232,7 @@ class TemporarySphere(TemporaryPrimitive):
 
         if self._radius != r:
             self._radius = r
-            self.get_origin().set_scale(r)
+            self.origin.set_scale(r)
 
     def get_size(self):
 
@@ -290,9 +288,9 @@ class Sphere(Primitive):
     def __update_size(self):
 
         r = self._radius
-        self.get_origin().set_scale(r)
+        self.origin.set_scale(r)
         self.reset_initial_coords()
-        self.get_geom_data_object().bake_transform()
+        self.geom_data_obj.bake_transform()
 
     def init_radius(self, radius):
 
@@ -327,12 +325,12 @@ class Sphere(Primitive):
 
             if prop_id == "segments":
                 data.update(self.get_geom_data_backup().get_data_to_store("deletion"))
-                data.update(self.get_geom_data_object().get_data_to_store("creation"))
+                data.update(self.geom_data_obj.get_data_to_store("creation"))
                 self.remove_geom_data_backup()
             elif prop_id == "smoothness":
-                data.update(self.get_geom_data_object().get_data_to_store())
+                data.update(self.geom_data_obj.get_data_to_store())
             elif prop_id == "radius":
-                data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
+                data.update(self.geom_data_obj.get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
 
             return data
@@ -353,7 +351,7 @@ class Sphere(Primitive):
 
             Mgr.update_remotely("selected_obj_prop", "sphere", prop_id, self.get_property(prop_id, True))
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
 
         if prop_id == "segments":
 
@@ -379,7 +377,7 @@ class Sphere(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
-                self.get_model().update_group_bbox()
+                self.model.update_group_bbox()
                 update_app()
 
             return change
@@ -389,7 +387,7 @@ class Sphere(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                task = lambda: self.get_geom_data_object().set_smoothing(iter(self._smoothing.values())
+                task = lambda: self.geom_data_obj.set_smoothing(iter(self._smoothing.values())
                                                                          if value else None)
                 PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
 
@@ -484,17 +482,16 @@ class SphereManager(PrimitiveManager):
         # Create the plane parallel to the camera and going through the sphere
         # center, used to determine the radius drawn out by the user.
 
-        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        normal = GD.world.get_relative_vector(GD.cam(), Vec3.forward())
+        point = GD.world.get_relative_point(Mgr.get("grid").origin, self.get_origin_pos())
         self._draw_plane = Plane(normal, point)
 
     def __creation_phase1(self):
         """ Draw out sphere """
 
         end_point = None
-        grid_origin = Mgr.get(("grid", "origin"))
-        snap_settings = GlobalData["snap"]
+        grid_origin = Mgr.get("grid").origin
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
@@ -503,14 +500,14 @@ class SphereManager(PrimitiveManager):
 
         if end_point is None:
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
+            screen_pos = GD.mouse_watcher.get_mouse()
             near_point = Point3()
             far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            rel_pt = lambda point: self.world.get_relative_point(self.cam(), point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: GD.world.get_relative_point(GD.cam(), point)
             near_point = rel_pt(near_point)
             far_point = rel_pt(far_point)
             end_point = Point3()
@@ -518,9 +515,9 @@ class SphereManager(PrimitiveManager):
 
         else:
 
-            end_point = self.world.get_relative_point(grid_origin, end_point)
+            end_point = GD.world.get_relative_point(grid_origin, end_point)
 
-        start_point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        start_point = GD.world.get_relative_point(grid_origin, self.get_origin_pos())
         radius = (end_point - start_point).length()
 
         if snap_on and snap_tgt_type == "increment":
@@ -536,9 +533,9 @@ class SphereManager(PrimitiveManager):
         model = Mgr.do("create_model", model_id, name, pos)
 
         if not rel_to_grid:
-            pivot = model.get_pivot()
+            pivot = model.pivot
             pivot.clear_transform()
-            pivot.set_pos(self.world, pos)
+            pivot.set_pos(GD.world, pos)
 
         next_color = self.get_next_object_color()
         model.set_color(next_color, update_app=False)
@@ -549,8 +546,8 @@ class SphereManager(PrimitiveManager):
                 yield
 
         prim.init_radius(radius)
-        prim.get_geom_data_object().finalize_geometry()
-        model.set_geom_object(prim)
+        prim.geom_data_obj.finalize_geometry()
+        model.geom_obj = prim
         self.set_next_object_color()
 
         if inverted:

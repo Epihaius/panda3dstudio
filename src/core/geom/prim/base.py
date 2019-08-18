@@ -1,19 +1,20 @@
 from ..base import *
 
 
-class TemporaryPrimitive(BaseObject):
+class TemporaryPrimitive:
 
     def __init__(self, prim_type, color, pos):
 
-        self._type = prim_type
+        self.type = prim_type
         pivot = Mgr.get("object_root").attach_new_node("temp_prim_pivot")
         origin = pivot.attach_new_node("temp_prim_origin")
         origin.set_color(color)
-        self._pivot = pivot
-        self._origin = origin
+        self.pivot = pivot
+        self.origin = origin
 
-        active_grid_plane = Mgr.get(("grid", "plane"))
-        grid_origin = Mgr.get(("grid", "origin"))
+        grid = Mgr.get("grid")
+        active_grid_plane = grid.plane_id
+        grid_origin = grid.origin
 
         if active_grid_plane == "xz":
             pivot.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
@@ -32,22 +33,14 @@ class TemporaryPrimitive(BaseObject):
     def destroy(self, info=None):
 
         if info is None:
-            obj_id = "temp_" + self._type + "_prim"
+            obj_id = "temp_" + self.type + "_prim"
             Mgr.remove_notification_handler("long_process_cancelled", obj_id)
         elif info and info != "creation":
             return
 
-        self._pivot.remove_node()
-        self._pivot = None
-        self._origin = None
-
-    def get_pivot(self):
-
-        return self._pivot
-
-    def get_origin(self):
-
-        return self._origin
+        self.pivot.remove_node()
+        self.pivot = None
+        self.origin = None
 
     def define_geom_data(self):
         """
@@ -111,11 +104,11 @@ class TemporaryPrimitive(BaseObject):
             polygon = {"edge_vert_ids": edge_vert_ids, "tri_vert_ids": tri_vert_ids}
             polys.append(polygon)
 
-        origin = self._origin
+        origin = self.origin
 
         picking_mask = Mgr.get("picking_mask")
 
-        render_mode = GlobalData["render_mode"]
+        render_mode = GD["render_mode"]
         create_wire = "wire" in render_mode
         create_shaded = "shaded" in render_mode
 
@@ -172,17 +165,17 @@ class TemporaryPrimitive(BaseObject):
             shaded_geom = origin.attach_new_node(geom_node)
             shaded_geom.hide(picking_mask)
 
-            if GlobalData["two_sided"]:
+            if GD["two_sided"]:
                 origin.set_two_sided(True)
 
     def finalize(self):
 
         def create_primitive():
 
-            pos = self._pivot.get_pos(Mgr.get(("grid", "origin")))
+            pos = self.pivot.get_pos(Mgr.get("grid").origin)
             size = self.get_size()
 
-            for step in Mgr.do("create_{}".format(self._type), pos, size):
+            for step in Mgr.do(f"create_{self.type}", pos, size):
                 yield
 
             self.destroy()
@@ -196,11 +189,25 @@ class TemporaryPrimitive(BaseObject):
 
 class Primitive(GeomDataOwner):
 
+    def __getstate__(self):
+
+        state = GeomDataOwner.__getstate__(self)
+
+        state["_type"] = state.pop("type")
+
+        return state
+
+    def __setstate__(self, state):
+
+        GeomDataOwner.__setstate__(self, state)
+
+        state["type"] = state.pop("_type")
+
     def __init__(self, prim_type, model, type_prop_ids):
 
         GeomDataOwner.__init__(self, [], type_prop_ids, model)
 
-        self._type = prim_type
+        self.type = prim_type
         # the following "initial coordinates" correspond to the vertex positions
         # at the time the geometry is created or recreated; it is kept around to
         # facilitate reshaping the primitive (when "baking" the new size into
@@ -234,10 +241,10 @@ class Primitive(GeomDataOwner):
         gradual = True if force_gradual else progress_steps > 80
 
         if gradual and not force_gradual:
-            GlobalData["progress_steps"] = progress_steps
+            GD["progress_steps"] = progress_steps
 
         geom_data_obj = Mgr.do("create_geom_data", self)
-        self.set_geom_data_object(geom_data_obj)
+        self.geom_data_obj = geom_data_obj
         geom_data = self.define_geom_data()
 
         for data in geom_data_obj.process_geom_data(geom_data, gradual=gradual):
@@ -248,7 +255,7 @@ class Primitive(GeomDataOwner):
         geom_data_obj.init_normal_sharing()
         geom_data_obj.update_smoothing()
 
-        for step in geom_data_obj.create_geometry(self._type, gradual=gradual):
+        for step in geom_data_obj.create_geometry(self.type, gradual=gradual):
             if gradual:
                 yield
 
@@ -263,16 +270,16 @@ class Primitive(GeomDataOwner):
             if not geom_data_backup:
                 return
 
-            self.get_geom_data_object().cancel_creation()
-            model = self.get_model()
-            geom_data_backup.get_origin().reparent_to(model.get_origin())
-            self.set_geom_data_object(geom_data_backup)
+            self.geom_data_obj.cancel_creation()
+            model = self.model
+            geom_data_backup.origin.reparent_to(model.origin)
+            self.geom_data_obj = geom_data_backup
             self.set_geom_data_backup(None)
-            model.get_bbox().update(*self.get_origin().get_tight_bounds())
+            model.bbox.update(*self.origin.get_tight_bounds())
 
     def recreate_geometry(self, poly_count):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         id_str = str(obj_id) + "_geom_data"
         handler = self.cancel_geometry_recreation
         Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
@@ -282,7 +289,7 @@ class Primitive(GeomDataOwner):
 
         Mgr.do("create_registry_backups")
         Mgr.do("create_id_range_backups")
-        geom_data_obj = self.get_geom_data_object()
+        geom_data_obj = self.geom_data_obj
         geom_data_obj.unregister()
         Mgr.do("update_picking_col_id_ranges")
         Mgr.update_locally("screenshot_removal")
@@ -294,13 +301,13 @@ class Primitive(GeomDataOwner):
 
             if gradual:
                 Mgr.update_remotely("screenshot", "create")
-                GlobalData["progress_steps"] = progress_steps
+                GD["progress_steps"] = progress_steps
 
-            geom_data_obj = self.get_geom_data_object()
+            geom_data_obj = self.geom_data_obj
             self.set_geom_data_backup(geom_data_obj)
-            self.get_geom_data_backup().get_origin().detach_node()
+            self.get_geom_data_backup().origin.detach_node()
             geom_data_obj = Mgr.do("create_geom_data", self)
-            self.set_geom_data_object(geom_data_obj)
+            self.geom_data_obj = geom_data_obj
             geom_data = self.define_geom_data()
 
             for data in geom_data_obj.process_geom_data(geom_data, gradual=gradual):
@@ -311,7 +318,7 @@ class Primitive(GeomDataOwner):
             geom_data_obj.init_normal_sharing()
             geom_data_obj.update_smoothing()
 
-            for step in geom_data_obj.create_geometry(self._type, gradual=gradual):
+            for step in geom_data_obj.create_geometry(self.type, gradual=gradual):
                 if gradual:
                     yield True
 
@@ -325,10 +332,10 @@ class Primitive(GeomDataOwner):
 
             geom_data_obj.register(restore=False)
 
-            if self.get_model().has_tangent_space():
+            if self.model.has_tangent_space():
                 geom_data_obj.init_tangent_space()
 
-            Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
+            Mgr.notify("pickable_geom_altered", self.toplevel_obj)
 
             yield False
 
@@ -337,23 +344,19 @@ class Primitive(GeomDataOwner):
         PendingTasks.add(task, task_id, "object", id_prefix=obj_id, gradual=True,
                          process_id="creation", descr=descr, cancellable=True)
 
-        self.get_model().update_group_bbox()
+        self.model.update_group_bbox()
 
     def is_valid(self):
 
         return False
 
-    def get_type(self):
-
-        return self._type
-
     def update_initial_coords(self):
 
-        self._initial_coords = self.get_geom_data_object().get_vertex_coords()
+        self._initial_coords = self.geom_data_obj.vertex_coords
 
     def reset_initial_coords(self):
 
-        self.get_geom_data_object().set_vertex_coords(self._initial_coords)
+        self.geom_data_obj.vertex_coords = self._initial_coords
 
     def restore_initial_coords(self, coords):
 
@@ -369,7 +372,7 @@ class Primitive(GeomDataOwner):
 
     def finalize(self):
 
-        self.get_geom_data_object().finalize_geometry()
+        self.geom_data_obj.finalize_geometry()
 
     def get_property_to_store(self, prop_id, event_type=""):
 
@@ -379,7 +382,7 @@ class Primitive(GeomDataOwner):
 
     def restore_property(self, prop_id, restore_type, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
         self.set_property(prop_id, val, restore_type)
 
@@ -387,17 +390,17 @@ class Primitive(GeomDataOwner):
             val.restore_data(["self"], restore_type, old_time_id, new_time_id)
 
 
-class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager):
+class PrimitiveManager(CreationPhaseManager, ObjPropDefaultsManager):
 
     def __init__(self, prim_type, custom_creation=False):
 
         CreationPhaseManager.__init__(self, prim_type, has_color=True)
         ObjPropDefaultsManager.__init__(self, prim_type)
 
-        Mgr.accept("create_{}".format(prim_type), self.__create)
+        Mgr.accept(f"create_{prim_type}", self.__create)
 
         if custom_creation:
-            Mgr.accept("create_custom_{}".format(prim_type), self.create_custom_primitive)
+            Mgr.accept(f"create_custom_{prim_type}", self.create_custom_primitive)
 
     def setup(self, creation_phases, status_text):
 
@@ -458,7 +461,7 @@ class PrimitiveManager(BaseObject, CreationPhaseManager, ObjPropDefaultsManager)
                 yield True
 
         self.init_primitive_size(prim, size)
-        geom_data_obj = prim.get_geom_data_object()
+        geom_data_obj = prim.geom_data_obj
         geom_data_obj.finalize_geometry()
         self.set_next_object_color()
         Mgr.exit_state("processing")

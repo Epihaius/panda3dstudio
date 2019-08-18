@@ -7,14 +7,14 @@ class RotationComponent:
 
         self._gizmo = gizmo
         self._type = "rotate"
-        self._origin = gizmo.get_root().attach_new_node("uv_rotation_gizmo")
+        self._origin = gizmo.root.attach_new_node("uv_rotation_gizmo")
         self._render_mask = UVMgr.get("render_mask")
         self._picking_mask = UVMgr.get("picking_mask")
         self._handle_root = self._origin.attach_new_node("handle_root")
         self._handle = None
         self._handle_names = {}
         self._hilited_handles = []
-        self._is_active = True
+        self._active = True
 
         self.__create_handles()
 
@@ -89,20 +89,20 @@ class RotationComponent:
             self._hilited_handles = hilited_handles
             cyan = (0., 1., 1., 1.)
             self._handle.set_color(cyan)
-            GlobalData["uv_cursor"] = self._type
+            GD["uv_cursor"] = self._type
 
     def remove_hilite(self):
 
         if self._hilited_handles:
 
-            if self._is_active:
+            if self._active:
                 rgb = (1., 1., 0., 1.)
             else:
                 rgb = (.5, .5, .5, 1.)
 
             self._handle.set_color(rgb)
             self._hilited_handles = []
-            GlobalData["uv_cursor"] = ""
+            GD["uv_cursor"] = ""
 
     def select_handle(self, color_id):
 
@@ -117,18 +117,24 @@ class RotationComponent:
 
         self.remove_hilite()
 
-    def set_active(self, is_active=True):
+    @property
+    def active(self):
 
-        if self._is_active == is_active:
+        return self._active
+
+    @active.setter
+    def active(self, active):
+
+        if self._active == active:
             return
 
-        if is_active:
+        if active:
             rgb = (1., 1., 0., 1.)
         else:
             rgb = (.5, .5, .5, 1.)
 
         self._handle.set_color(rgb)
-        self._is_active = is_active
+        self._active = active
 
     def show(self):
 

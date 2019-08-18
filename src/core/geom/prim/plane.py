@@ -85,7 +85,7 @@ class TemporaryPlane(TemporaryPrimitive):
 
     def update_size(self, x=None, y=None):
 
-        origin = self.get_origin()
+        origin = self.origin
         size = self._size
 
         if x is not None:
@@ -114,12 +114,12 @@ class TemporaryPlane(TemporaryPrimitive):
 
     def finalize(self):
 
-        pos = self._pivot.get_pos()
-        pivot = self.get_pivot()
-        origin = self.get_origin()
+        pos = self.pivot.get_pos()
+        pivot = self.pivot
+        origin = self.origin
         x, y, z = origin.get_pos()
-        pos = self.world.get_relative_point(pivot, Point3(x, y, 0.))
-        pivot.set_pos(self.world, pos)
+        pos = GD.world.get_relative_point(pivot, Point3(x, y, 0.))
+        pivot.set_pos(GD.world, pos)
         origin.set_x(0.)
         origin.set_y(0.)
 
@@ -130,7 +130,7 @@ class Plane(Primitive):
 
     def __init__(self, model):
 
-        prop_ids = ["size_{}".format(axis) for axis in "xy"]
+        prop_ids = [f"size_{axis}" for axis in "xy"]
         prop_ids.append("segments")
 
         Primitive.__init__(self, "plane", model, prop_ids)
@@ -168,14 +168,14 @@ class Plane(Primitive):
         size = self._size
         sx = size["x"]
         sy = size["y"]
-        origin = self.get_origin()
+        origin = self.origin
         origin.set_scale(sx, sy, 1.)
         self.reset_initial_coords()
-        self.get_geom_data_object().bake_transform()
+        self.geom_data_obj.bake_transform()
 
     def init_size(self, x, y):
 
-        origin = self.get_origin()
+        origin = self.origin
         size = self._size
         size["x"] = max(abs(x), .001)
         size["y"] = max(abs(y), .001)
@@ -200,10 +200,10 @@ class Plane(Primitive):
 
             if prop_id == "segments":
                 data.update(self.get_geom_data_backup().get_data_to_store("deletion"))
-                data.update(self.get_geom_data_object().get_data_to_store("creation"))
+                data.update(self.geom_data_obj.get_data_to_store("creation"))
                 self.remove_geom_data_backup()
             elif "size" in prop_id:
-                data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
+                data.update(self.geom_data_obj.get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
 
             return data
@@ -225,7 +225,7 @@ class Plane(Primitive):
             Mgr.update_remotely("selected_obj_prop", "plane", prop_id,
                                 self.get_property(prop_id, True))
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
 
         if prop_id == "segments":
 
@@ -256,7 +256,7 @@ class Plane(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
-                self.get_model().update_group_bbox()
+                self.model.update_group_bbox()
                 update_app()
 
             return change
@@ -280,14 +280,14 @@ class Plane(Primitive):
 
     def __center_origin(self, adjust_pivot=True):
 
-        model = self.get_model()
-        origin = self.get_origin()
+        model = self.model
+        origin = self.origin
         x, y, z = origin.get_pos()
-        pivot = model.get_pivot()
+        pivot = model.pivot
 
         if adjust_pivot:
-            pos = self.world.get_relative_point(pivot, Point3(x, y, 0.))
-            pivot.set_pos(self.world, pos)
+            pos = GD.world.get_relative_point(pivot, Point3(x, y, 0.))
+            pivot.set_pos(GD.world, pos)
 
         origin.set_x(0.)
         origin.set_y(0.)
@@ -307,7 +307,7 @@ class PlaneManager(PrimitiveManager):
         PrimitiveManager.__init__(self, "plane", custom_creation=True)
 
         for axis in "xy":
-            self.set_property_default("size_{}".format(axis), 1.)
+            self.set_property_default(f"size_{axis}", 1.)
 
         self.set_property_default("temp_segments", {"x": 1, "y": 1})
         self.set_property_default("segments", {"x": 1, "y": 1})
@@ -328,7 +328,7 @@ class PlaneManager(PrimitiveManager):
 
         segs = self.get_property_defaults()["segments"]
         tmp_segs = self.get_property_defaults()["temp_segments"]
-        segments = dict((axis, min(segs[axis], tmp_segs[axis])) for axis in "xy")
+        segments = {axis: min(segs[axis], tmp_segs[axis]) for axis in "xy"}
         tmp_prim = TemporaryPlane(segments, color, pos)
 
         return tmp_prim
@@ -351,7 +351,7 @@ class PlaneManager(PrimitiveManager):
 
         if size is None:
             prop_defaults = self.get_property_defaults()
-            x, y = [prop_defaults["size_{}".format(axis)] for axis in "xy"]
+            x, y = [prop_defaults[f"size_{axis}"] for axis in "xy"]
         else:
             x, y = [size[axis] for axis in "xy"]
 
@@ -361,8 +361,8 @@ class PlaneManager(PrimitiveManager):
         """ Draw out plane """
 
         point = None
-        grid_origin = Mgr.get(("grid", "origin"))
-        snap_settings = GlobalData["snap"]
+        grid = Mgr.get("grid")
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
@@ -374,24 +374,24 @@ class PlaneManager(PrimitiveManager):
             if snap_on and snap_tgt_type != "increment":
                 Mgr.do("set_projected_snap_marker_pos", None)
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
-            point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos, self.get_origin_pos())
+            screen_pos = GD.mouse_watcher.get_mouse()
+            point = grid.get_point_at_screen_pos(screen_pos, self.get_origin_pos())
 
         else:
 
-            proj_point = Mgr.get(("grid", "projected_point"), point, self.get_origin_pos())
-            proj_point = self.world.get_relative_point(grid_origin, proj_point)
+            proj_point = grid.get_projected_point(point, self.get_origin_pos())
+            proj_point = GD.world.get_relative_point(grid.origin, proj_point)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if not point:
             return
 
         tmp_prim = self.get_temp_primitive()
-        pivot = tmp_prim.get_pivot()
-        x, y, _ = pivot.get_relative_point(grid_origin, point)
+        pivot = tmp_prim.pivot
+        x, y, _ = pivot.get_relative_point(grid.origin, point)
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_1"]
@@ -412,9 +412,9 @@ class PlaneManager(PrimitiveManager):
             Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
 
         if not rel_to_grid:
-            pivot = model.get_pivot()
+            pivot = model.pivot
             pivot.clear_transform()
-            pivot.set_pos(self.world, pos)
+            pivot.set_pos(GD.world, pos)
 
         next_color = self.get_next_object_color()
         model.set_color(next_color, update_app=False)
@@ -425,8 +425,8 @@ class PlaneManager(PrimitiveManager):
                 yield
 
         prim.init_size(x, y)
-        prim.get_geom_data_object().finalize_geometry()
-        model.set_geom_object(prim)
+        prim.geom_data_obj.finalize_geometry()
+        model.geom_obj = prim
         self.set_next_object_color()
 
         if inverted:

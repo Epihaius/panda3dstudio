@@ -2,7 +2,7 @@ from .base import *
 from .material import render_state_to_material
 
 
-class BasicGeom(BaseObject):
+class BasicGeom:
 
     _render_state_ids = {}
     _render_states = {}
@@ -61,20 +61,26 @@ class BasicGeom(BaseObject):
     def __getstate__(self):
 
         state = self.__dict__.copy()
-        state["_geom"] = geom = NodePath(self._geom.node().make_copy())
+        state["_geom"] = geom = NodePath(self.geom.node().make_copy())
         geom.set_state(RenderState.make_empty())
-        del state["_model"]
+        del state["model"]
         del state["_picking_states"]
         del state["_initial_vertex_colors"]
         del state["_is_tangent_space_initialized"]
+        state["_type"] = state.pop("type")
+        state["_picking_col_id"] = state.pop("picking_color_id")
+        del state["geom"]
 
         return state
 
     def __setstate__(self, state):
 
+        state["type"] = state.pop("_type")
+        state["picking_color_id"] = state.pop("_picking_col_id")
+        state["geom"] = state.pop("_geom")
         self.__dict__ = state
 
-        picking_col_id = self._picking_col_id
+        picking_col_id = self.picking_color_id
         pickable_type_id = PickableTypes.get_id("basic_geom")
         picking_color = get_color_vec(picking_col_id, pickable_type_id)
         np = NodePath("picking_color_state")
@@ -84,7 +90,7 @@ class BasicGeom(BaseObject):
         np.set_render_mode_thickness(5, 1)
         picking_states["wire"] = np.get_state()
         self._picking_states = picking_states
-        vertex_data = self._geom.node().get_geom(0).get_vertex_data()
+        vertex_data = self.geom.node().get_geom(0).get_vertex_data()
         array = GeomVertexArrayData(vertex_data.get_array(1))
         self._initial_vertex_colors = array
         self._is_tangent_space_initialized = False
@@ -94,10 +100,10 @@ class BasicGeom(BaseObject):
         self._prop_ids = []
         self._type_prop_ids = ["uv_set_names", "normal_flip", "normal_viz",
                                "normal_color", "normal_length"]
-        self._type = "basic_geom"
-        self._model = model
-        self._geom = geom
-        self._picking_col_id = picking_col_id
+        self.type = "basic_geom"
+        self.model = model
+        self.geom = geom
+        self.picking_color_id = picking_col_id
         self._is_tangent_space_initialized = False
         self._normals_flipped = False
         self._normals_shown = False
@@ -110,14 +116,14 @@ class BasicGeom(BaseObject):
         a = (x + y + z) / 3.
         self._normal_length = min(a * .25, max(.001, 500. * a / prim_count))
 
-        model.set_geom_object(self)
-        model.get_pivot().set_transform(geom.get_transform())
+        model.geom_obj = self
+        model.pivot.set_transform(geom.get_transform())
         geom.clear_transform()
-        model_orig = model.get_origin()
+        model_orig = model.origin
         render_state = geom.get_state()
         geom.set_state(RenderState.make_empty())
         src_vert_data = geom.node().get_geom(0).get_vertex_data()
-        src_format = src_vert_data.get_format()
+        src_format = src_vert_data.format
         dest_format = Mgr.get("vertex_format_full")
         dest_vert_data = src_vert_data.convert_to(dest_format)
         self._initial_vertex_colors = dest_vert_data.get_array(1)
@@ -133,8 +139,8 @@ class BasicGeom(BaseObject):
         for src_uv_set, dest_uv_set in uv_set_names.items():
 
             uv_set_id = uv_set_list.index(dest_uv_set)
-            uv_name = src_uv_set.get_name()
-            uv_name = "" if uv_name == "texcoord" else src_uv_set.get_basename()
+            uv_name = src_uv_set.name
+            uv_name = "" if uv_name == "texcoord" else src_uv_set.basename
             src_uv_set_names[uv_set_id] = uv_name
             uv_reader = GeomVertexReader(src_vert_data, src_uv_set)
             uv_writer = GeomVertexWriter(dest_vert_data, dest_uv_set)
@@ -171,7 +177,7 @@ class BasicGeom(BaseObject):
 
             self.update_render_mode(False)
 
-        obj_id = model.get_id()
+        obj_id = model.id
         PendingTasks.add(update_render_mode, "update_render_mode", "object", 0, obj_id)
 
     def __del__(self):
@@ -180,60 +186,45 @@ class BasicGeom(BaseObject):
 
     def destroy(self, unregister=True):
 
-        self._geom.remove_node()
-        self._geom = None
+        self.geom.remove_node()
+        self.geom = None
 
         if unregister:
             Mgr.do("unregister_basic_geom", self)
 
-        Mgr.do("clear_basic_geom_picking_color", str(self._picking_col_id))
+        Mgr.do("clear_basic_geom_picking_color", str(self.picking_color_id))
 
     def register(self, restore=True):
 
         Mgr.do("register_basic_geom", self, restore)
 
         if restore:
-            Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
+            Mgr.notify("pickable_geom_altered", self.toplevel_obj)
 
     def unregister(self):
 
         Mgr.do("unregister_basic_geom", self)
 
-    def get_type(self):
-
-        return self._type
-
-    def get_geom(self):
-
-        return self._geom
-
-    def set_model(self, model):
-
-        self._model = model
-
-    def get_model(self):
-
-        return self._model
-
     def get_toplevel_object(self, get_group=False):
 
-        return self._model.get_toplevel_object(get_group)
+        return self.model.get_toplevel_object(get_group)
 
-    def get_picking_color_id(self):
+    @property
+    def toplevel_obj(self):
 
-        return self._picking_col_id
+        return self.get_toplevel_object()
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        cam = self.cam()
-        normal = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
-        point = self._geom.get_pos(self.world)
+        cam = GD.cam()
+        normal = V3D(GD.world.get_relative_vector(cam, Vec3.forward()))
+        point = self.geom.get_pos(GD.world)
         plane = Plane(normal, point)
 
         near_point = Point3()
         far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        GD.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.world.get_relative_point(cam, point)
 
         intersection_point = Point3()
 
@@ -244,8 +235,8 @@ class BasicGeom(BaseObject):
 
     def update_tangent_space(self, flip_tangent, flip_bitangent):
 
-        vertex_data = self._geom.node().modify_geom(0).modify_vertex_data()
-        vert_indices = self._geom.node().get_geom(0).get_primitive(0).get_vertex_list()
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+        vert_indices = self.geom.node().get_geom(0).get_primitive(0).get_vertex_list()
 
         pos_reader = GeomVertexReader(vertex_data, "vertex")
         normal_reader = GeomVertexReader(vertex_data, "normal")
@@ -359,7 +350,7 @@ class BasicGeom(BaseObject):
     def init_tangent_space(self):
 
         if not self._is_tangent_space_initialized:
-            flip_tangent, flip_bitangent = self._model.get_tangent_space_flip()
+            flip_tangent, flip_bitangent = self.model.get_tangent_space_flip()
             self.update_tangent_space(flip_tangent, flip_bitangent)
 
     def is_tangent_space_initialized(self):
@@ -368,20 +359,20 @@ class BasicGeom(BaseObject):
 
     def bake_texture(self, texture):
 
-        vertex_data = self._geom.node().modify_geom(0).modify_vertex_data()
-        geom_copy = self._geom.copy_to(self.world)
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+        geom_copy = self.geom.copy_to(GD.world)
         geom_copy.detach_node()
-        geom_copy.set_texture(TextureStage.get_default(), texture)
+        geom_copy.set_texture(TextureStage.default, texture)
         geom_copy.flatten_light()
         geom_copy.apply_texture_colors()
         vertex_data_copy = geom_copy.node().modify_geom(0).modify_vertex_data()
-        index = vertex_data_copy.get_format().get_array_with("color")
+        index = vertex_data_copy.format.get_array_with("color")
         array = vertex_data_copy.modify_array(index)
         vertex_data.set_array(1, array)
 
     def reset_vertex_colors(self):
 
-        vertex_data = self._geom.node().modify_geom(0).modify_vertex_data()
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
         array = GeomVertexArrayData(self._initial_vertex_colors)
         vertex_data.set_array(1, array)
 
@@ -391,16 +382,16 @@ class BasicGeom(BaseObject):
 
     def set_wireframe_color(self, color):
 
-        render_mode = GlobalData["render_mode"]
+        render_mode = GD["render_mode"]
         state_id = self._render_state_ids[render_mode]["unselected"]
 
         if state_id in ("wire_unselected", "filled_wire_unselected"):
             render_state = self.__make_wireframe_render_state(state_id, color)
-            self._geom.set_state(render_state)
+            self.geom.set_state(render_state)
 
     def update_selection_state(self, is_selected=True):
 
-        render_mode = GlobalData["render_mode"]
+        render_mode = GD["render_mode"]
 
         if render_mode == "shaded":
             return
@@ -409,21 +400,21 @@ class BasicGeom(BaseObject):
 
     def update_render_mode(self, is_selected):
 
-        render_mode = GlobalData["render_mode"]
+        render_mode = GD["render_mode"]
         selection_state = "selected" if is_selected else "unselected"
         state_id = self._render_state_ids[render_mode][selection_state]
 
         if state_id in ("wire_unselected", "filled_wire_unselected"):
-            color = self._model.get_color()
+            color = self.model.get_color()
             render_state = self.__make_wireframe_render_state(state_id, color)
         else:
             render_state = self._render_states[state_id]
 
-        self._geom.set_state(render_state)
+        self.geom.set_state(render_state)
 
         state_id = "filled" if (is_selected or render_mode != "wire") else "wire"
         picking_state = self._picking_states[state_id]
-        Mgr.do("set_basic_geom_picking_color", str(self._picking_col_id), picking_state)
+        Mgr.do("set_basic_geom_picking_color", str(self.picking_color_id), picking_state)
 
     def set_uv_set_name(self, uv_set_id, uv_set_name):
 
@@ -465,12 +456,12 @@ class BasicGeom(BaseObject):
             return False
 
         if show:
-            points_geom = self._geom.node().get_geom(0).make_points()
+            points_geom = self.geom.node().get_geom(0).make_points()
             node = GeomNode("normals_geom")
             node.add_geom(points_geom)
             node.set_bounds(OmniBoundingVolume())
-            node.set_final(True)
-            normals_geom = self._geom.attach_new_node(node)
+            node.final = True
+            normals_geom = self.geom.attach_new_node(node)
             sh = shaders.normal
             vs = sh.VERT_SHADER
             fs = sh.FRAG_SHADER
@@ -481,7 +472,7 @@ class BasicGeom(BaseObject):
             normals_geom.set_color(self._normal_color)
             normals_geom.hide(Mgr.get("picking_mask"))
         else:
-            normals_geom = self._geom.find("**/normals_geom")
+            normals_geom = self.geom.find("**/normals_geom")
             normals_geom.remove_node()
 
         self._normals_shown = show
@@ -493,7 +484,7 @@ class BasicGeom(BaseObject):
         if self._normals_flipped == flip:
             return False
 
-        geom = self._geom.node().modify_geom(0)
+        geom = self.geom.node().modify_geom(0)
         geom.reverse_in_place()
         vertex_data = geom.get_vertex_data().reverse_normals()
         geom.set_vertex_data(vertex_data)
@@ -516,7 +507,7 @@ class BasicGeom(BaseObject):
             return False
 
         if self._normals_shown:
-            normals_geom = self._geom.find("**/normals_geom")
+            normals_geom = self.geom.find("**/normals_geom")
             normals_geom.set_color(color)
 
         self._normal_color = color
@@ -529,7 +520,7 @@ class BasicGeom(BaseObject):
             return False
 
         if self._normals_shown:
-            normals_geom = self._geom.find("**/normals_geom")
+            normals_geom = self.geom.find("**/normals_geom")
             normals_geom.set_shader_input("normal_length", length)
 
         self._normal_length = length
@@ -557,7 +548,7 @@ class BasicGeom(BaseObject):
 
     def restore_data(self, data_ids, restore_type, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
 
         if "self" in data_ids:
 
@@ -565,9 +556,9 @@ class BasicGeom(BaseObject):
                 val = Mgr.do("load_last_from_history", obj_id, prop_id, new_time_id)
                 self.set_property(prop_id, val, restore_type)
 
-            self._geom.reparent_to(self._model.get_origin())
+            self.geom.reparent_to(self.model.origin)
             self.register()
-            self.update_render_mode(self._model.is_selected())
+            self.update_render_mode(self.model.is_selected())
 
         else:
 
@@ -630,9 +621,9 @@ class BasicGeom(BaseObject):
         geom_data = []
         coords = []
 
-        geom = self._geom.node().get_geom(0)
+        geom = self.geom.node().get_geom(0)
         vertex_data = geom.get_vertex_data()
-        vertex_format = vertex_data.get_format()
+        vertex_format = vertex_data.format
         pos_reader = GeomVertexReader(vertex_data, "vertex")
         normal_reader = GeomVertexReader(vertex_data, "normal")
         col_reader = GeomVertexReader(vertex_data, "color")
@@ -701,16 +692,16 @@ class BasicGeom(BaseObject):
     def __cancel_geometry_unlock(self, info):
 
         if self._geometry_unlock_started:
-            self._model.get_geom_object().get_geom_data_object().cancel_creation()
+            self.model.geom_obj.geom_data_obj.cancel_creation()
         elif self._geometry_unlock_ended:
-            self._model.get_geom_object().get_geom_data_object().destroy(unregister=False)
+            self.model.geom_obj.geom_data_obj.destroy(unregister=False)
 
         if info == "geometry_unlock":
-            self._model.set_geom_object(self)
+            self.model.geom_obj = self
 
     def unlock_geometry(self, editable_geom):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         id_str = str(obj_id) + "_geom_data"
         handler = self.__cancel_geometry_unlock
         Mgr.add_notification_handler("long_process_cancelled", id_str, handler, once=True)
@@ -735,10 +726,10 @@ class BasicGeom(BaseObject):
 
             if gradual:
                 Mgr.update_remotely("screenshot", "create")
-                GlobalData["progress_steps"] = progress_steps
+                GD["progress_steps"] = progress_steps
 
-            geom_data_obj = editable_geom.get_geom_data_object()
-            editable_geom.set_geom_data_object(geom_data_obj)
+            geom_data_obj = editable_geom.geom_data_obj
+            editable_geom.geom_data_obj = geom_data_obj
 
             for step in geom_data_obj.process_geom_data(geom_data, gradual=gradual):
                 if gradual:
@@ -758,7 +749,7 @@ class BasicGeom(BaseObject):
             geom_data_obj.update_poly_centers()
             geom_data_obj.register(restore=False)
 
-            if self._model.has_tangent_space():
+            if self.model.has_tangent_space():
                 geom_data_obj.init_tangent_space()
 
             geom_data_obj.init_normal_length()
@@ -769,7 +760,7 @@ class BasicGeom(BaseObject):
             self._geometry_unlock_started = False
             self._geometry_unlock_ended = True
 
-            Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
+            Mgr.notify("pickable_geom_altered", self.toplevel_obj)
 
             yield False
 
@@ -781,7 +772,7 @@ class BasicGeom(BaseObject):
         def task():
 
             self.destroy()
-            self._model.get_bbox().set_color((1., 1., 1., 1.))
+            self.model.bbox.color = (1., 1., 1., 1.)
 
         task_id = "set_geom_data"
         PendingTasks.add(task, task_id, "object", 99, id_prefix=obj_id)
@@ -789,7 +780,7 @@ class BasicGeom(BaseObject):
     def make_pickable(self, mask_index=0, pickable=True, show_through=True):
 
         mask = Mgr.get("picking_mask", mask_index)
-        geom = self._geom
+        geom = self.geom
 
         if pickable:
             geom.show_through(mask) if show_through else geom.show(mask)
@@ -829,7 +820,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
         if len(selection) == 1:
             obj = selection[0]
-            uv_set_names = obj.get_geom_object().get_uv_set_names()
+            uv_set_names = obj.geom_obj.get_uv_set_names()
             Mgr.update_remotely("uv_set_name", uv_set_names)
 
     def __set_uv_set_name(self, uv_set_id, uv_set_name):
@@ -838,7 +829,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         changed_objs = []
 
         for obj in selection:
-            if obj.get_geom_object().set_uv_set_name(uv_set_id, uv_set_name):
+            if obj.geom_obj.set_uv_set_name(uv_set_id, uv_set_name):
                 changed_objs.append(obj)
 
         if not changed_objs:
@@ -848,15 +839,15 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         obj_data = {}
 
         for obj in changed_objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "uv_set_names")
+            obj_data[obj.id] = obj.get_data_to_store("prop_change", "uv_set_names")
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = 'Change UV set name {:d} of "{}"'.format(uv_set_id, obj.get_name())
-            event_descr += '\nto "{}"'.format(obj.get_geom_object().get_uv_set_names()[uv_set_id])
+            event_descr = f'Change UV set name {uv_set_id} of "{obj.name}"'
+            event_descr += f'\nto "{obj.geom_obj.get_uv_set_names()[uv_set_id]}"'
         else:
-            event_descr = 'Change UV set name {:d} of objects:\n'.format(uv_set_id)
-            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
+            event_descr = f'Change UV set name {uv_set_id} of objects:\n'
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -867,7 +858,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         changed_objs = []
 
         for obj in selection:
-            if obj.get_geom_object().show_normals(show):
+            if obj.geom_obj.show_normals(show):
                 changed_objs.append(obj)
 
         if not changed_objs:
@@ -877,14 +868,14 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         obj_data = {}
 
         for obj in changed_objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "normal_viz")
+            obj_data[obj.id] = obj.get_data_to_store("prop_change", "normal_viz")
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = '{} normals of "{}"'.format("Show" if show else "Hide", obj.get_name())
+            event_descr = f'{"Show" if show else "Hide"} normals of "{obj.name}"'
         else:
-            event_descr = '{} normals of objects:\n'.format("Show" if show else "Hide")
-            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
+            event_descr = f'{"Show" if show else "Hide"} normals of objects:\n'
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -896,7 +887,7 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         changed_objs = []
 
         for obj in selection:
-            if obj.get_geom_object().set_property("normal_color", color_values[:3]):
+            if obj.geom_obj.set_property("normal_color", color_values[:3]):
                 changed_objs.append(obj)
 
         if not changed_objs:
@@ -906,16 +897,16 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
         obj_data = {}
 
         for obj in changed_objs:
-            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "normal_color")
+            obj_data[obj.id] = obj.get_data_to_store("prop_change", "normal_color")
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = 'Change normal color of "{}"'.format(obj.get_name())
-            event_descr += '\nto R:{:.3f} | G:{:.3f} | B:{:.3f}'.format(r, g, b)
+            event_descr = f'Change normal color of "{obj.name}"'
+            event_descr += f'\nto R:{r :.3f} | G:{g :.3f} | B:{b :.3f}'
         else:
             event_descr = 'Change normal color of objects:\n'
-            event_descr += "".join(['\n    "{}"'.format(obj.get_name()) for obj in changed_objs])
-            event_descr += '\n\nto R:{:.3f} | G:{:.3f} | B:{:.3f}'.format(r, g, b)
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
+            event_descr += f'\n\nto R:{r :.3f} | G:{g :.3f} | B:{b :.3f}'
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

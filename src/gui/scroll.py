@@ -12,11 +12,11 @@ class ScrollThumb(Widget):
         self._pane = pane
         self._dir = scroll_dir
         self._inner_border_id = inner_border_id
-        sort = parent.get_sort() + 1
-        self.get_mouse_region().set_sort(sort)
+        sort = parent.sort + 1
+        self.mouse_region.sort = sort
         self._tex = tex = Texture("scrollthumb")
-        tex.set_minfilter(SamplerState.FT_nearest)
-        tex.set_magfilter(SamplerState.FT_nearest)
+        tex.minfilter = SamplerState.FT_nearest
+        tex.magfilter = SamplerState.FT_nearest
         cm = CardMaker("scrollthumb")
         cm.set_frame(0., 1., -1., 0.)
         self._quad = quad = Mgr.get("gui_root").attach_new_node(cm.generate())
@@ -71,7 +71,7 @@ class ScrollThumb(Widget):
             border = b + t
 
         if Skin["options"]["integrate_scrollbar_in_frame"]:
-            l_f, r_f, b_f, t_f = pane.get_frame().get_gfx_inner_borders()
+            l_f, r_f, b_f, t_f = pane.frame.get_gfx_inner_borders()
         else:
             l_f = r_f = b_f = t_f = 0
 
@@ -191,7 +191,7 @@ class ScrollThumb(Widget):
 
         d = self._dir
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_crd = mouse_pointer.get_x() if d == "horizontal" else mouse_pointer.get_y()
+        mouse_crd = mouse_pointer.x if d == "horizontal" else mouse_pointer.y
 
         if mouse_crd == self._mouse_crd:
             return task.cont
@@ -224,7 +224,7 @@ class ScrollThumb(Widget):
         Mgr.add_task(self.__scroll, "scroll")
         self._scrolling = True
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_crd = mouse_pointer.get_x() if self._dir == "horizontal" else mouse_pointer.get_y()
+        mouse_crd = mouse_pointer.x if self._dir == "horizontal" else mouse_pointer.y
         self._start_mouse_crd = self._mouse_crd = mouse_crd
         self._start_scroll_offset = self._scroll_offset
 
@@ -247,7 +247,7 @@ class ScrollThumb(Widget):
             z = root_node.get_z()
             root_node.set_z(z - self._start_scroll_offset + self._scroll_offset)
 
-        if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+        if self.mouse_watcher.get_over_region() != self.mouse_region:
             self.on_leave()
 
 
@@ -259,8 +259,8 @@ class ScrollBar(Widget):
         Widget.__init__(self, "scrollbar", parent, gfx_data, stretch_dir="both")
 
         self._dir = scroll_dir
-        self._sort = sort = parent.get_sort() + 1
-        self.get_mouse_region().set_sort(sort)
+        self.sort = sort = parent.sort + 1
+        self.mouse_region.sort = sort
         self._thumb = self._create_thumb(pane, thumb_gfx_data, cull_bin, scroll_dir, inner_border_id)
         self._start_mouse_crd = 0
         self._start_scroll_offset = 0
@@ -286,10 +286,6 @@ class ScrollBar(Widget):
     def get_direction(self):
 
         return self._dir
-
-    def get_sort(self):
-
-        return self._sort
 
     def get_thumb(self):
 
@@ -317,7 +313,7 @@ class ScrollBar(Widget):
         d = self._dir
         thumb = self._thumb
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_crd = mouse_pointer.get_x() if d == "horizontal" else mouse_pointer.get_y()
+        mouse_crd = mouse_pointer.x if d == "horizontal" else mouse_pointer.y
         quad = thumb.get_quad()
         crd = quad.get_x() if d == "horizontal" else -quad.get_z()
         thumb_size = quad.get_sx() if d == "horizontal" else quad.get_sz()
@@ -368,6 +364,11 @@ class ScrollPaneFrame(Widget):
                                            scroll_dir, inner_border_id)
         sizer = Sizer("horizontal" if scroll_dir == "vertical" else "vertical")
         self.set_sizer(sizer)
+
+    @property
+    def sort(self):
+
+        return self.parent.sort
 
     def _create_bar(self, pane, bar_gfx_data, thumb_gfx_data, cull_bin, scroll_dir, inner_border_id):
         """ Override in derived class """
@@ -429,10 +430,6 @@ class ScrollPaneFrame(Widget):
         self._pane = None
         self._scrollbar = None
 
-    def get_sort(self):
-
-        return self.get_parent().get_sort()
-
     def get_scrollbar(self):
 
         return self._scrollbar
@@ -450,7 +447,7 @@ class ScrollPane(WidgetCard):
         frame.setup(frame_client_size, append_scrollbar)
 
         self._background_tex_id = bg_tex_id
-        self._sort = frame.get_sort() + 1
+        self.sort = frame.sort + 1
         self._widget_root_node = NodePath("pane_widget_root")
         self._display_region = None
         self._scrollthumb = frame.get_scrollbar().get_thumb()
@@ -463,13 +460,13 @@ class ScrollPane(WidgetCard):
         self.set_sizer(sizer)
         sizer.set_default_size((1, 1))
 
-        self._mouse_region_mask = mask = MouseWatcherRegion("{}_mask".format(pane_id), 0., 0., 0., 0.)
-        mask.set_suppress_flags(MouseWatcherRegion.SF_mouse_button)
-        mask.set_sort(self._get_mask_sort())
+        self._mouse_region_mask = mask = MouseWatcherRegion(f"{pane_id}_mask", 0., 0., 0., 0.)
+        mask.suppress_flags = MouseWatcherRegion.SF_mouse_button
+        mask.sort = self._get_mask_sort()
         Mgr.get("mouse_watcher").add_region(mask)
         self._mouse_watcher = MouseWatcher(pane_id)
         self._mouse_watcher_np = None
-        GlobalData["mouse_watchers"].append(self._mouse_watcher)
+        GD["mouse_watchers"].append(self._mouse_watcher)
 
         self._cull_bin = cull_bin
         gui_root = Mgr.get("gui_root")
@@ -482,18 +479,18 @@ class ScrollPane(WidgetCard):
         self._scissor_nodes = (node_0, node_1)
 
         self._listener = listener = DirectObject()
-        listener.accept("{}_mouse1".format(pane_id), self.__on_left_down)
-        listener.accept("{}_mouse1-up".format(pane_id), self.__on_left_up)
-        listener.accept("{}_mouse3".format(pane_id), self.__on_right_down)
-        listener.accept("{}_mouse3-up".format(pane_id), self.__on_right_up)
-        listener.accept("{}_wheel_up".format(pane_id), self.__on_wheel_up)
-        listener.accept("{}_wheel_down".format(pane_id), self.__on_wheel_down)
-        listener.accept("{}_home".format(pane_id), self.__scroll_to_start)
-        listener.accept("{}_end".format(pane_id), self.__scroll_to_end)
-        listener.accept("{}_page_up".format(pane_id), self.__on_page_up)
-        listener.accept("{}_page_down".format(pane_id), self.__on_page_down)
-        listener.accept("{}_page_up-repeat".format(pane_id), self.__on_page_up)
-        listener.accept("{}_page_down-repeat".format(pane_id), self.__on_page_down)
+        listener.accept(f"{pane_id}_mouse1", self.__on_left_down)
+        listener.accept(f"{pane_id}_mouse1-up", self.__on_left_up)
+        listener.accept(f"{pane_id}_mouse3", self.__on_right_down)
+        listener.accept(f"{pane_id}_mouse3-up", self.__on_right_up)
+        listener.accept(f"{pane_id}_wheel_up", self.__on_wheel_up)
+        listener.accept(f"{pane_id}_wheel_down", self.__on_wheel_down)
+        listener.accept(f"{pane_id}_home", self.__scroll_to_start)
+        listener.accept(f"{pane_id}_end", self.__scroll_to_end)
+        listener.accept(f"{pane_id}_page_up", self.__on_page_up)
+        listener.accept(f"{pane_id}_page_down", self.__on_page_down)
+        listener.accept(f"{pane_id}_page_up-repeat", self.__on_page_up)
+        listener.accept(f"{pane_id}_page_down-repeat", self.__on_page_down)
 
     def _create_frame(self, parent, scroll_dir, cull_bin, gfx_data, bar_gfx_data,
                       thumb_gfx_data, bar_inner_border_id, has_mouse_region=True):
@@ -502,10 +499,15 @@ class ScrollPane(WidgetCard):
         return ScrollPaneFrame(parent, self, gfx_data, bar_gfx_data, thumb_gfx_data,
                                cull_bin, scroll_dir, bar_inner_border_id, has_mouse_region)
 
+    @property
+    def frame(self):
+
+        return self.parent
+
     def _get_mask_sort(self):
         """ Override in derived class """
 
-        return self._sort + 8
+        return self.sort + 8
 
     def _contents_needs_redraw(self):
         """ Override in derived class """
@@ -529,21 +531,20 @@ class ScrollPane(WidgetCard):
 
     def setup(self):
 
-        base = Mgr.get("base")
-        self._display_region = region = base.win.make_display_region(0., 1., 0., 1.)
-        base.win.remove_display_region(region)
+        self._display_region = region = GD.window.make_display_region(0., 1., 0., 1.)
+        GD.window.remove_display_region(region)
         self.update_display_region()
         self.update_mouse_watcher_frame()
         mouse_watcher_node = self._mouse_watcher
         mouse_watcher_node.set_display_region(region)
-        input_ctrl = base.mouseWatcher.get_parent()
+        input_ctrl = GD.showbase.mouseWatcher.parent
         self._mouse_watcher_np = mw = input_ctrl.attach_new_node(mouse_watcher_node)
         mouse_watcher_node.set_enter_pattern("gui_region_enter")
         mouse_watcher_node.set_leave_pattern("gui_region_leave")
-        pane_id = self.get_widget_type()
-        btn_thrower_node = ButtonThrower("btn_thrower_{}".format(pane_id))
-        btn_thrower_node.set_prefix("{}_".format(pane_id))
-        btn_thrower_node.set_modifier_buttons(ModifierButtons())
+        pane_id = self.widget_type
+        btn_thrower_node = ButtonThrower(f"btn_thrower_{pane_id}")
+        btn_thrower_node.prefix = f"{pane_id}_"
+        btn_thrower_node.modifier_buttons = ModifierButtons()
         mw.attach_new_node(btn_thrower_node)
 
     def destroy(self):
@@ -554,7 +555,7 @@ class ScrollPane(WidgetCard):
 
         WidgetCard.destroy(self)
 
-        GlobalData["mouse_watchers"].remove(self._mouse_watcher)
+        GD["mouse_watchers"].remove(self._mouse_watcher)
         self._mouse_watcher_np.detach_node()
         self._mouse_watcher_np = None
         self._mouse_watcher = None
@@ -569,14 +570,6 @@ class ScrollPane(WidgetCard):
         self._widget_root_node.detach_node()
         self._widget_root_node = None
         self._scrollthumb = None
-
-    def get_sort(self):
-
-        return self._sort
-
-    def get_frame(self):
-
-        return self.get_parent()
 
     def get_scrollthumb(self):
 
@@ -651,7 +644,7 @@ class ScrollPane(WidgetCard):
 
                 sx = tex_scale if scroll_dir == "horizontal" else 1.
                 sy = 1. if scroll_dir == "horizontal" else tex_scale
-                quad.set_tex_scale(TextureStage.get_default(), sx, sy)
+                quad.set_tex_scale(TextureStage.default, sx, sy)
                 self._subimg_x = x
                 self._subimg_y = y
                 self._subimg_w = w
@@ -666,10 +659,10 @@ class ScrollPane(WidgetCard):
 
         if scroll_dir == "horizontal":
             tex_offset = (scroll_offset / size) * tex_scale
-            quad.set_tex_offset(TextureStage.get_default(), tex_offset, 0.)
+            quad.set_tex_offset(TextureStage.default, tex_offset, 0.)
         else:
             tex_offset = 1. - tex_scale - (scroll_offset / size) * tex_scale
-            quad.set_tex_offset(TextureStage.get_default(), 0., tex_offset)
+            quad.set_tex_offset(TextureStage.default, 0., tex_offset)
 
     def set_size(self, size, is_min=False):
 
@@ -692,10 +685,10 @@ class ScrollPane(WidgetCard):
             h_subimg = self._subimg_h
 
         if scroll_dir == "horizontal":
-            tex_offset = (self.get_quad().get_tex_offset(TextureStage.get_default())[0], 1.)
+            tex_offset = (self.get_quad().get_tex_offset(TextureStage.default)[0], 1.)
             tex_scale = (min(1., width / w_subimg), 1.)
         else:
-            tex_offset = (1., self.get_quad().get_tex_offset(TextureStage.get_default())[1])
+            tex_offset = (1., self.get_quad().get_tex_offset(TextureStage.default)[1])
             tex_scale = (1., min(1., height / h_subimg))
 
         tex = self._tex
@@ -717,8 +710,8 @@ class ScrollPane(WidgetCard):
                     painter = PNMPainter(img)
                     fill = PNMBrush.make_image(src_img, 0, 0)
                     pen = PNMBrush.make_transparent()
-                    painter.set_fill(fill)
-                    painter.set_pen(pen)
+                    painter.fill = fill
+                    painter.pen = pen
                     painter.draw_rectangle(0, 0, w_virt, h_virt)
                 else:
                     img.unfiltered_stretch_from(src_img)
@@ -746,9 +739,9 @@ class ScrollPane(WidgetCard):
         x, y = self.get_pos(from_root=True)
         quad.set_pos(x, 0, -y)
         quad.set_texture(tex)
-        quad.set_bin(self._cull_bin, self._sort)
-        quad.set_tex_offset(TextureStage.get_default(), *tex_offset)
-        quad.set_tex_scale(TextureStage.get_default(), *tex_scale)
+        quad.set_bin(self._cull_bin, self.sort)
+        quad.set_tex_offset(TextureStage.default, *tex_offset)
+        quad.set_tex_scale(TextureStage.default, *tex_scale)
 
     def copy_sub_image(self, widget, sub_image, width, height, offset_x=0, offset_y=0):
 
@@ -786,7 +779,7 @@ class ScrollPane(WidgetCard):
         r = x + (min(w, w_virt) if scroll_dir == "horizontal" else w)
         b = -y - (h if scroll_dir == "horizontal" else min(h, h_virt))
         t = -y
-        self._mouse_region_mask.set_frame(l, r, b, t)
+        self._mouse_region_mask.frame = (l, r, b, t)
 
         if recurse:
             sizer.update_mouse_region_frames(exclude)
@@ -808,7 +801,7 @@ class ScrollPane(WidgetCard):
         r = (x + (min(w, w_virt) if scroll_dir == "horizontal" else w)) / w_ref
         b = 1. - (y + (h if scroll_dir == "horizontal" else min(h, h_virt))) / h_ref
         t = 1. - y / h_ref
-        self._display_region.set_dimensions(l, r, b, t)
+        self._display_region.dimensions = (l, r, b, t)
 
         # Update the nodes controlling the ScissorEffect so it keeps geometry of input fields
         # from being rendered outside of the display region.
@@ -834,7 +827,8 @@ class ScrollPane(WidgetCard):
 
         self._finalize_mouse_watcher_frame_update()
 
-    def get_mouse_watcher(self):
+    @property
+    def mouse_watcher(self):
 
         return self._mouse_watcher
 
@@ -860,7 +854,7 @@ class ScrollPane(WidgetCard):
     def update_layout(self):
 
         self._subimg_index = -1
-        sizer = self.get_parent().get_sizer()
+        sizer = self.parent.get_sizer()
         size = sizer.update_min_size()
         sizer.set_size(size)
         sizer.calculate_positions()
@@ -876,7 +870,7 @@ class ScrollPane(WidgetCard):
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         if name == "inputfield_mask":
             Mgr.do("accept_field_input")
@@ -891,7 +885,7 @@ class ScrollPane(WidgetCard):
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         if name.startswith("widget_"):
             widget_id = int(name.replace("widget_", ""))
@@ -904,7 +898,7 @@ class ScrollPane(WidgetCard):
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         if name == "inputfield_mask":
             Mgr.do("reject_field_input")
@@ -919,7 +913,7 @@ class ScrollPane(WidgetCard):
         if not region:
             return
 
-        name = region.get_name()
+        name = region.name
 
         if name.startswith("widget_"):
             widget_id = int(name.replace("widget_", ""))
@@ -955,14 +949,14 @@ class ScrollPane(WidgetCard):
 
     def __scroll_to_start(self):
 
-        ctrl_down = self.get_mouse_watcher().is_button_down("control")
+        ctrl_down = self._mouse_watcher.is_button_down("control")
 
         if ctrl_down and self._can_scroll():
             self._scrollthumb.set_offset(0)
 
     def __scroll_to_end(self):
 
-        ctrl_down = self.get_mouse_watcher().is_button_down("control")
+        ctrl_down = self._mouse_watcher.is_button_down("control")
 
         if ctrl_down and self._can_scroll():
             sizer = self.get_sizer()

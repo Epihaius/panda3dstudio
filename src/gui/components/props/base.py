@@ -69,7 +69,7 @@ class PropertyPanel(Panel):
         combobox = PanelComboBox(section, 120, tooltip_text="Selected object(s)",
                                  editable=True, value_id=val_id,
                                  handler=handler)
-        combobox.add_disabler("creating", lambda: GlobalData["active_creation_type"])
+        combobox.add_disabler("creating", lambda: GD["active_creation_type"])
         combobox.enable(False)
         self._comboboxes[val_id] = combobox
         borders = (5, 10, 0, 0)
@@ -150,7 +150,7 @@ class PropertyPanel(Panel):
 
         def set_obj_prop(obj_type, prop_id, value):
 
-            if GlobalData["active_creation_type"] != "":
+            if GD["active_creation_type"] != "":
                 return
 
             if prop_id in self._checkbuttons:
@@ -230,7 +230,7 @@ class PropertyPanel(Panel):
 
     def __handle_name(self, name):
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
             Mgr.update_remotely("custom_obj_name", obj_type, name)
         else:
@@ -240,7 +240,7 @@ class PropertyPanel(Panel):
 
         name = input_text.strip()
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             return name
 
         return name if name else None
@@ -258,7 +258,7 @@ class PropertyPanel(Panel):
 
     def __set_object_names(self, names):
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             return
 
         combobox = self._comboboxes["name"]
@@ -271,7 +271,7 @@ class PropertyPanel(Panel):
         count = len(names)
 
         if count > 1:
-            name = "{:d} Objects selected".format(count)
+            name = f"{count} Objects selected"
             combobox.add_item(None, name, lambda: None)
 
         get_command = lambda obj_id: lambda: self.__update_selection(obj_id)
@@ -282,7 +282,7 @@ class PropertyPanel(Panel):
         if count == 1:
             name = names.popitem()[1]
         else:
-            name = "{:d} Objects selected".format(count)
+            name = f"{count} Objects selected"
 
         combobox.update_popup_menu()
         self._name_field.set_value(name)
@@ -299,15 +299,15 @@ class PropertyPanel(Panel):
 
         r, g, b = color
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
-            GlobalData["next_{}_color".format(obj_type)] = color
+            GD[f"next_{obj_type}_color"] = color
         else:
             Mgr.update_remotely("selected_obj_color", color)
 
     def __set_object_color(self, color):
 
-        if GlobalData["active_creation_type"] != "":
+        if GD["active_creation_type"] != "":
             return
 
         self._colorbox.set_color(color[:3])
@@ -319,7 +319,7 @@ class PropertyPanel(Panel):
         if not obj_type or obj_type == "editable_geom":
             return
 
-        next_color = GlobalData["next_{}_color".format(obj_type)]
+        next_color = GD[f"next_{obj_type}_color"]
         self._colorbox.enable(True if next_color else False)
         self._colorbox.set_color_type("single" if next_color else "")
 
@@ -328,12 +328,12 @@ class PropertyPanel(Panel):
 
     def __check_selection_count(self, on_enable=False):
 
-        if GlobalData["active_creation_type"] != "" or GlobalData["temp_toplevel"]:
+        if GD["active_creation_type"] != "" or GD["temp_toplevel"]:
             return
 
-        self._sel_obj_count = sel_count = GlobalData["selection_count"]
+        self._sel_obj_count = sel_count = GD["selection_count"]
 
-        if GlobalData["active_obj_level"] == "top":
+        if GD["active_obj_level"] == "top":
 
             multi_sel = sel_count > 1
             color = self._colors["disabled"] if multi_sel else None
@@ -377,11 +377,11 @@ class PropertyPanel(Panel):
 
     def __check_selection_color_count(self):
 
-        if GlobalData["active_creation_type"] != "":
+        if GD["active_creation_type"] != "":
             return
 
-        if GlobalData["active_obj_level"] == "top":
-            count = GlobalData["sel_color_count"]
+        if GD["active_obj_level"] == "top":
+            count = GD["sel_color_count"]
             self._colorbox.enable(count > 0)
             self._colorbox.set_color_type(("single" if count == 1 else "multi")
                                           if count > 0 else "")
@@ -405,7 +405,7 @@ class PropertyPanel(Panel):
         if not Panel.enable(self, enable):
             return
 
-        if GlobalData["active_creation_type"]:
+        if GD["active_creation_type"]:
             self._name_field.enable()
             self._colorbox.enable()
         else:
@@ -422,7 +422,7 @@ class PropertyPanel(Panel):
 
     def __show(self, obj_types):
 
-        creation_type = GlobalData["active_creation_type"]
+        creation_type = GD["active_creation_type"]
         new_types = set([creation_type]) if creation_type else set(obj_types)
 
         if creation_type:

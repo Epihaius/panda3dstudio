@@ -5,11 +5,11 @@ class TriangleSide:
 
     def __init__(self, geom_data_obj, poly_id, vert_ids):
 
-        self._id = 0
-        self._geom_data_obj = geom_data_obj
-        self._poly_id = poly_id
+        self.id = 0
+        self.geom_data_obj = geom_data_obj
+        self.polygon_id = poly_id
         self._vert_ids = set(vert_ids)  # a set of 2 vertex IDs
-        self._start_row_index = 0
+        self.start_row_index = 0
 
     def __hash__(self):
 
@@ -17,46 +17,25 @@ class TriangleSide:
 
     def __eq__(self, other):
 
-        return self._vert_ids == other.get_vertex_ids()
+        return self._vert_ids == other.vertex_ids
 
     def __ne__(self, other):
 
-        return self._vert_ids != other.get_vertex_ids()
+        return self._vert_ids != other.vertex_ids
 
-    def set_id(self, diagonal_id):
-
-        self._id = diagonal_id
-
-    def get_id(self):
-
-        return self._id
-
-    def get_geom_data_object(self):
-
-        return self._geom_data_obj
-
-    def get_polygon_id(self):
-
-        return self._poly_id
-
-    def set_vertex_ids(self, vert_ids):
-
-        self._vert_ids = set(vert_ids)  # a set of 2 vertex IDs
-
-    def get_vertex_ids(self):
+    @property
+    def vertex_ids(self):
 
         return self._vert_ids
 
-    def set_start_row_index(self, row_index):
+    @vertex_ids.setter
+    def vertex_ids(self, vert_ids):
 
-        self._start_row_index = row_index
-
-    def get_start_row_index(self):
-
-        return self._start_row_index
+        self._vert_ids = set(vert_ids)  # a set of 2 vertex IDs
 
 
-class TriangulationBase(BaseObject):
+class TriangulationMixin:
+    """ PolygonEditMixin class mix-in """
 
     def __init__(self):
 
@@ -120,9 +99,9 @@ class TriangulationBase(BaseObject):
 
         for i, diagonal in enumerate(diagonals):
 
-            diagonal.set_start_row_index(i * 2)
-            rows = [verts[vert_id].get_row_index() for vert_id in diagonal.get_vertex_ids()]
-            picking_color = get_color_vec(diagonal.get_id(), 254)
+            diagonal.start_row_index = i * 2
+            rows = [verts[vert_id].row_index for vert_id in diagonal.vertex_ids]
+            picking_color = get_color_vec(diagonal.id, 254)
 
             for row in rows:
                 pos_reader.set_row(row)
@@ -136,7 +115,7 @@ class TriangulationBase(BaseObject):
         lines_geom.add_primitive(lines_prim)
         geom_node = GeomNode("diagonals_geom")
         geom_node.add_geom(lines_geom)
-        diagonals_geom = self._origin.attach_new_node(geom_node)
+        diagonals_geom = self.origin.attach_new_node(geom_node)
         diagonals_geom.show_through(render_mask | picking_mask)
         diagonals_geom.set_render_mode_thickness(3)
         diagonals_geom.set_color(.5, .5, .5)
@@ -171,15 +150,15 @@ class TriangulationBase(BaseObject):
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
-        poly_id = diagonal.get_polygon_id()
+        poly_id = diagonal.polygon_id
         poly = polys[poly_id]
         sel_data = self._poly_selection_data["selected"]
         poly_start = sel_data.index(poly[0]) * 3
         tris = self._tmp_tris[poly_id]
-        old_vert_ids = list(diagonal.get_vertex_ids())
+        old_vert_ids = list(diagonal.vertex_ids)
         new_vert_ids = tris[diagonal]
         del tris[diagonal]
-        diagonal.set_vertex_ids(new_vert_ids)
+        diagonal.vertex_ids = new_vert_ids
         tris[diagonal] = old_vert_ids
 
         # for each remaining side of each of the 2 old triangles, replace the
@@ -229,7 +208,7 @@ class TriangulationBase(BaseObject):
         diagonals_geom = self._tmp_geom
         geom_poly_selected = self._geoms["poly"]["selected"]
         geom_node_top = self._toplvl_node
-        start_row = diagonal.get_start_row_index()
+        start_row = diagonal.start_row_index
 
         # Update the temporary diagonals geom
 
@@ -251,7 +230,7 @@ class TriangulationBase(BaseObject):
 
         for vert_ids_to_replace, new_tri_vert_ids in zip(tris_to_replace, new_tris_vert_ids):
             tris_prim = GeomTriangles(Geom.UH_static)
-            rows = [verts[vert_id].get_row_index() for vert_id in new_tri_vert_ids]
+            rows = [verts[vert_id].row_index for vert_id in new_tri_vert_ids]
             tris_prim.reserve_num_vertices(3)
             tris_prim.add_vertices(*rows)
             view_tmp = memoryview(tris_prim.get_vertices()).cast("B")
@@ -264,10 +243,10 @@ class TriangulationBase(BaseObject):
             sel_data[start_row // 3] = new_tri_vert_ids
 
         vert_id = new_tri_data[0][0]
-        row_index = verts[vert_id].get_row_index()
+        row_index = verts[vert_id].row_index
         from_size = prim_poly_sel.get_vertex_list().index(row_index) * stride
         vert_id = poly[0][0]
-        row_index = verts[vert_id].get_row_index()
+        row_index = verts[vert_id].row_index
         to_size = prim_top.get_vertex_list().index(row_index) * stride
         size = len(poly) * stride
         view_top[to_size:to_size+size] = mem_view[from_size:from_size+size]
@@ -281,7 +260,7 @@ class TriangulationBase(BaseObject):
 
     def _restore_poly_triangle_data(self, old_time_id, new_time_id):
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["poly_tris"]
 
         prev_time_ids = Mgr.do("load_last_from_history", obj_id, prop_id, old_time_id)
@@ -410,14 +389,14 @@ class TriangulationBase(BaseObject):
                 prim.reserve_num_vertices(len(tri_data) * 3)
 
                 for tri_verts in tri_data:
-                    prim.add_vertices(*[verts[vert_id].get_row_index() for vert_id in tri_verts])
+                    prim.add_vertices(*[verts[vert_id].row_index for vert_id in tri_verts])
 
                 offset = row_offset * stride
                 size = len(poly) * stride
                 from_view = memoryview(prim.get_vertices()).cast("B")
                 view_top[offset:offset+size] = from_view
 
-                if poly.get_id() in selected_poly_ids:
+                if poly.id in selected_poly_ids:
                     sel_data = data_selected
                     mem_view = view_selected
                 else:
@@ -440,7 +419,7 @@ class TriangulationBase(BaseObject):
         poly_picking_geom.set_primitive(0, GeomTriangles(prim))
 
 
-class TriangulationManager(BaseObject):
+class TriangulationManager:
 
     def __init__(self):
 
@@ -464,11 +443,11 @@ class TriangulationManager(BaseObject):
              lambda: Mgr.exit_state("diagonal_turning_mode"))
         bind("diagonal_turning_mode", "turn diagonal", "mouse1",
              self.__turn_diagonal)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("diagonal_turning_mode", "turn diagonal ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("diagonal_turning_mode", "turn diagonal ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Turn polygon diagonal"
         info_text = "LMB to pick a polygon diagonal to turn; RMB to cancel"
         status_data["turn_diagonal"] = {"mode": mode_text, "info": info_text}
@@ -476,14 +455,13 @@ class TriangulationManager(BaseObject):
     def __add_diagonal(self, diagonal):
 
         self._diagonals.append(diagonal)
-        diagonal.set_id(len(self._diagonals))
+        diagonal.id = len(self._diagonals)
 
     def __init_diagonal_turning_mode(self):
 
         Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
-        geom_data_objs = [obj.get_geom_object().get_geom_data_object()
-                          for obj in selection]
+        geom_data_objs = [obj.geom_obj.geom_data_obj for obj in selection]
 
         for data_obj in geom_data_objs:
             if data_obj.create_triangulation_data():
@@ -502,16 +480,16 @@ class TriangulationManager(BaseObject):
 
             self._excluded_geom_data_objs = []
 
-    def __enter_diagonal_turning_mode(self, prev_state_id, is_active):
+    def __enter_diagonal_turning_mode(self, prev_state_id, active):
 
-        GlobalData["active_transform_type"] = ""
+        GD["active_transform_type"] = ""
         Mgr.update_app("active_transform_type", "")
         Mgr.add_task(self._update_cursor, "update_diagonal_turning_cursor")
         Mgr.update_app("status", ["turn_diagonal"])
 
-    def __exit_diagonal_turning_mode(self, next_state_id, is_active):
+    def __exit_diagonal_turning_mode(self, next_state_id, active):
 
-        if not is_active:
+        if not active:
 
             for data_obj in self._geom_data_objs:
                 data_obj.clear_triangulation_data()
@@ -541,14 +519,12 @@ class TriangulationManager(BaseObject):
             return
 
         diagonal = self._diagonals[color_id - 1]
-        geom_data_obj = diagonal.get_geom_data_object()
+        geom_data_obj = diagonal.geom_data_obj
         geom_data_obj.turn_diagonal(diagonal)
-        obj = geom_data_obj.get_toplevel_object()
-        obj_id = obj.get_id()
-        obj_name = obj.get_name()
+        obj = geom_data_obj.toplevel_obj
 
         Mgr.do("update_history_time")
-        obj_data = {obj_id: geom_data_obj.get_data_to_store("prop_change", "poly_tris")}
-        event_descr = 'Turn polygon diagonal of object:\n\n    "{}"'.format(obj_name)
+        obj_data = {obj.id: geom_data_obj.get_data_to_store("prop_change", "poly_tris")}
+        event_descr = f'Turn polygon diagonal of object:\n\n    "{obj.name}"'
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

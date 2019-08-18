@@ -1,7 +1,8 @@
 from ....base import *
 
 
-class EdgeBridgeBase(BaseObject):
+class EdgeBridgeMixin:
+    """ EdgeEditMixin class mix-in """
 
     def __create_bridge_polygon(self, ordered_verts):
 
@@ -10,8 +11,8 @@ class EdgeBridgeBase(BaseObject):
         edges = subobjs["edge"]
         polys = subobjs["poly"]
         ordered_polys = self._ordered_polys
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
 
         poly_verts = []
         poly_edges = []
@@ -26,10 +27,10 @@ class EdgeBridgeBase(BaseObject):
 
             if len(merged_vert) == 1:
 
-                vert_id = merged_vert.get_id()
+                vert_id = merged_vert.id
                 vert = verts[vert_id]
 
-                if not vert.get_edge_ids():
+                if not vert.edge_ids:
                     # this vertex was newly created to allow segmentation of bridge
                     # polygons; it can become part of the new bridge polygon
                     return vert, vert_id
@@ -41,12 +42,12 @@ class EdgeBridgeBase(BaseObject):
 
         if not vert1:
             vert1 = Mgr.do("create_vert", self, pos1)
-            vert1_id = vert1.get_id()
+            vert1_id = vert1.id
             verts[vert1_id] = vert1
             merged_vert1.append(vert1_id)
             merged_verts[vert1_id] = merged_vert1
 
-        vert1.set_row_index(row_index)
+        vert1.row_index = row_index
         row_index += 1
         poly_verts.append(vert1)
 
@@ -62,12 +63,12 @@ class EdgeBridgeBase(BaseObject):
 
             if not vert2:
                 vert2 = Mgr.do("create_vert", self, pos2)
-                vert2_id = vert2.get_id()
+                vert2_id = vert2.id
                 verts[vert2_id] = vert2
                 merged_vert2.append(vert2_id)
                 merged_verts[vert2_id] = merged_vert2
 
-            vert2.set_row_index(row_index)
+            vert2.row_index = row_index
             row_index += 1
             poly_verts.append(vert2)
 
@@ -76,12 +77,12 @@ class EdgeBridgeBase(BaseObject):
 
         if not vert3:
             vert3 = Mgr.do("create_vert", self, pos3)
-            vert3_id = vert3.get_id()
+            vert3_id = vert3.id
             verts[vert3_id] = vert3
             merged_vert3.append(vert3_id)
             merged_verts[vert3_id] = merged_vert3
 
-        vert3.set_row_index(row_index)
+        vert3.row_index = row_index
         row_index += 1
         poly_verts.append(vert3)
 
@@ -97,34 +98,34 @@ class EdgeBridgeBase(BaseObject):
 
             if not vert4:
                 vert4 = Mgr.do("create_vert", self, pos4)
-                vert4_id = vert4.get_id()
+                vert4_id = vert4.id
                 verts[vert4_id] = vert4
                 merged_vert4.append(vert4_id)
                 merged_verts[vert4_id] = merged_vert4
 
-            vert4.set_row_index(row_index)
+            vert4.row_index = row_index
             poly_verts.append(vert4)
 
         # Define triangulation
 
-        poly_tris.append(tuple(vert.get_id() for vert in poly_verts[:3]))
+        poly_tris.append(tuple(vert.id for vert in poly_verts[:3]))
 
         if len(poly_verts) == 4:
             tri_verts = poly_verts[:]
             del tri_verts[1]
-            poly_tris.append(tuple(vert.get_id() for vert in tri_verts))
+            poly_tris.append(tuple(vert.id for vert in tri_verts))
 
         # Create the edges
 
         if vert2:
             edge1 = Mgr.do("create_edge", self, (vert1_id, vert2_id))
-            edge1_id = edge1.get_id()
+            edge1_id = edge1.id
             vert2.add_edge_id(edge1_id)
             edges[edge1_id] = edge1
             poly_edges.append(edge1)
 
         edge2 = Mgr.do("create_edge", self, (vert2_id if vert2 else vert1_id, vert3_id))
-        edge2_id = edge2.get_id()
+        edge2_id = edge2.id
 
         if vert2:
             vert2.add_edge_id(edge2_id)
@@ -135,14 +136,14 @@ class EdgeBridgeBase(BaseObject):
 
         if vert4:
             edge3 = Mgr.do("create_edge", self, (vert3_id, vert4_id))
-            edge3_id = edge3.get_id()
+            edge3_id = edge3.id
             vert3.add_edge_id(edge3_id)
             vert4.add_edge_id(edge3_id)
             edges[edge3_id] = edge3
             poly_edges.append(edge3)
 
         edge4 = Mgr.do("create_edge", self, (vert4_id if vert4 else vert3_id, vert1_id))
-        edge4_id = edge4.get_id()
+        edge4_id = edge4.id
 
         if vert4:
             vert4.add_edge_id(edge4_id)
@@ -161,14 +162,14 @@ class EdgeBridgeBase(BaseObject):
 
         def merge_edge(edge):
 
-            border_edge_id = edge.get_id()
+            border_edge_id = edge.id
             merged_vert1, merged_vert2 = [merged_verts[v_id] for v_id in edge]
 
             for vert_id in merged_vert1:
 
                 vert = verts[vert_id]
 
-                for edge_id in vert.get_edge_ids():
+                for edge_id in vert.edge_ids:
 
                     if edge_id not in merged_edges:
                         continue
@@ -202,20 +203,20 @@ class EdgeBridgeBase(BaseObject):
 
         poly = Mgr.do("create_poly", self, poly_tris, poly_edges, poly_verts)
         ordered_polys.append(poly)
-        polys[poly.get_id()] = poly
+        polys[poly.id] = poly
         poly.update_center_pos()
         poly.update_normal()
-        normal = poly.get_normal().normalized()
+        normal = poly.normal.normalized()
 
         for vert in poly_verts:
-            vert.set_normal(normal)
+            vert.normal = normal
 
         return poly, poly_edges, poly_verts
 
     def bridge_edges(self, src_border_edge, dest_border_edge):
 
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         subobjs = self._subobjs
         verts = subobjs["vert"]
         edges = subobjs["edge"]
@@ -255,12 +256,12 @@ class EdgeBridgeBase(BaseObject):
             for vert_id in merged_vert:
 
                 vert = verts[vert_id]
-                merged_edge = merged_edges[vert.get_edge_ids()[index]]
+                merged_edge = merged_edges[vert.edge_ids[index]]
 
                 if len(merged_edge) == 1:
                     return merged_edge
 
-        edge_id = src_border_edge.get_id()
+        edge_id = src_border_edge.id
 
         if edge_id in selected_edge_ids:
 
@@ -277,8 +278,7 @@ class EdgeBridgeBase(BaseObject):
                     if src_edge is src_border_edge:
                         segment_is_border = index
 
-                    if (src_edge is src_border_edge
-                            or src_edge.get_id() not in selected_edge_ids):
+                    if (src_edge is src_border_edge or src_edge.id not in selected_edge_ids):
                         break
 
                     if src_edge is dest_border_edge:
@@ -322,7 +322,7 @@ class EdgeBridgeBase(BaseObject):
 
         update_polys_to_transf = False
 
-        bridge_segments = GlobalData["subobj_edit_options"]["edge_bridge_segments"]
+        bridge_segments = GD["subobj_edit_options"]["edge_bridge_segments"]
 
         if bridge_segments > 1:
 
@@ -343,7 +343,7 @@ class EdgeBridgeBase(BaseObject):
                     for i in range(bridge_segments - 1):
                         pos = src_pos + seg_vec * (i + 1)
                         new_vert = Mgr.do("create_vert", self, pos)
-                        vert_id = new_vert.get_id()
+                        vert_id = new_vert.id
                         verts[vert_id] = new_vert
                         new_merged_vert = Mgr.do("create_merged_vert", self, vert_id)
                         merged_verts[vert_id] = new_merged_vert
@@ -372,7 +372,7 @@ class EdgeBridgeBase(BaseObject):
 
             for merged_vert in set([src_vert1, src_vert2, dest_vert1, dest_vert2]):
                 for vert_id in merged_vert:
-                    if verts[vert_id].get_polygon_id() in selected_poly_ids:
+                    if verts[vert_id].polygon_id in selected_poly_ids:
                         update_polys_to_transf = True
 
             if bridge_segments > 1:
@@ -414,7 +414,7 @@ class EdgeBridgeBase(BaseObject):
         tmp_merged_edge = Mgr.do("create_merged_edge", self)
         tmp_merged_edge.extend(selected_edge_ids)
 
-        for vert_id in (vert.get_id() for vert in new_verts):
+        for vert_id in (vert.id for vert in new_verts):
 
             normal_change.add(vert_id)
             normal_lock_change.add(vert_id)
@@ -424,7 +424,7 @@ class EdgeBridgeBase(BaseObject):
             if not (id_set.isdisjoint(selected_vert_ids) or id_set.issubset(selected_vert_ids)):
                 tmp_merged_vert.extend(id_set.difference(selected_vert_ids))
 
-        for edge_id in (edge.get_id() for edge in new_edges):
+        for edge_id in (edge.id for edge in new_edges):
 
             id_set = set(merged_edges[edge_id])
 
@@ -435,7 +435,7 @@ class EdgeBridgeBase(BaseObject):
 
         # Update geometry structures
 
-        vert_count = sum([poly.get_vertex_count() for poly in new_polys])
+        vert_count = sum([poly.vertex_count for poly in new_polys])
         old_count = self._data_row_count
         count = old_count + vert_count
         self._data_row_count = count
@@ -456,7 +456,7 @@ class EdgeBridgeBase(BaseObject):
         ind_writer_poly.set_row(old_count)
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
         normal_writer.set_row(old_count)
-        sign = -1. if self._owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_flipped_normals() else 1.
 
         poly_type_id = PickableTypes.get_id("poly")
 
@@ -469,17 +469,17 @@ class EdgeBridgeBase(BaseObject):
 
         for poly in new_polys:
 
-            for vert in poly.get_vertices():
+            for vert in poly.vertices:
                 vert.offset_row_index(prev_count)
-                row = vert.get_row_index()
+                row = vert.row_index
                 verts_by_row[row] = vert
 
-            prev_count += poly.get_vertex_count()
+            prev_count += poly.vertex_count
 
-            picking_col_id = poly.get_picking_color_id()
+            picking_col_id = poly.picking_color_id
             picking_color = get_color_vec(picking_col_id, poly_type_id)
-            poly_picking_colors[poly.get_id()] = picking_color
-            poly_indices[poly.get_id()] = poly_index
+            poly_picking_colors[poly.id] = picking_color
+            poly_indices[poly.id] = poly_index
             indexed_polys[poly_index] = poly
             poly_index += 1
             sel_data.extend(poly)
@@ -488,11 +488,11 @@ class EdgeBridgeBase(BaseObject):
             vert = verts_by_row[row]
             pos = vert.get_pos()
             pos_writer.add_data3(pos)
-            picking_color = poly_picking_colors[vert.get_polygon_id()]
+            picking_color = poly_picking_colors[vert.polygon_id]
             col_writer.add_data4(picking_color)
-            poly_index = poly_indices[vert.get_polygon_id()]
+            poly_index = poly_indices[vert.polygon_id]
             ind_writer_poly.add_data1i(poly_index)
-            normal = vert.get_normal()
+            normal = vert.normal
             normal_writer.add_data3(normal * sign)
 
         vertex_data_vert1 = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
@@ -519,7 +519,7 @@ class EdgeBridgeBase(BaseObject):
 
         for row in sorted(verts_by_row):
             vert = verts_by_row[row]
-            picking_color = get_color_vec(vert.get_picking_color_id(), vert_type_id)
+            picking_color = get_color_vec(vert.picking_color_id, vert_type_id)
             col_writer1.add_data4(picking_color)
             col_writer2.add_data4(color_vert)
             col_writer3.add_data4(color_normal)
@@ -537,8 +537,8 @@ class EdgeBridgeBase(BaseObject):
         edge_index = len(edges)
 
         for edge in new_edges:
-            row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
-            picking_color = get_color_vec(edge.get_picking_color_id(), edge_type_id)
+            row1, row2 = [verts[v_id].row_index for v_id in edge]
+            picking_color = get_color_vec(edge.picking_color_id, edge_type_id)
             picking_colors1[row1] = picking_color
             picking_colors2[row2 + count] = picking_color
             indices1[row1] = edge_index
@@ -597,8 +597,8 @@ class EdgeBridgeBase(BaseObject):
         lines_prim.reserve_num_vertices(count * 2)
 
         for poly in self._ordered_polys:
-            for edge in poly.get_edges():
-                row1, row2 = [verts[v_id].get_row_index() for v_id in edge]
+            for edge in poly.edges:
+                row1, row2 = [verts[v_id].row_index for v_id in edge]
                 lines_prim.add_vertices(row1, row2 + count)
 
         geom_node = geoms["edge"]["pickable"].node()
@@ -637,7 +637,7 @@ class EdgeBridgeBase(BaseObject):
 
         for poly in new_polys:
             for vert_ids in poly:
-                tris_prim.add_vertices(*[verts[v_id].get_row_index() for v_id in vert_ids])
+                tris_prim.add_vertices(*[verts[v_id].row_index for v_id in vert_ids])
 
         from_array = tris_prim.get_vertices()
         stride = from_array.array_format.stride
@@ -686,7 +686,7 @@ class EdgeBridgeBase(BaseObject):
         geom_node.modify_geom(0).set_primitive(0, GeomPoints(prim))
 
         if tmp_merged_vert[:]:
-            vert_id = tmp_merged_vert.get_id()
+            vert_id = tmp_merged_vert.id
             orig_merged_vert = merged_verts[vert_id]
             merged_verts[vert_id] = tmp_merged_vert
             self.update_selection("vert", [tmp_merged_vert], [], False)
@@ -694,7 +694,7 @@ class EdgeBridgeBase(BaseObject):
             self._update_verts_to_transform("vert")
 
         if tmp_merged_edge[:]:
-            edge_id = tmp_merged_edge.get_id()
+            edge_id = tmp_merged_edge.id
             orig_merged_edge = merged_edges[edge_id]
             merged_edges[edge_id] = tmp_merged_edge
             self.update_selection("edge", [tmp_merged_edge], [], False)
@@ -705,7 +705,7 @@ class EdgeBridgeBase(BaseObject):
             self._update_verts_to_transform("poly")
 
         self._normal_sharing_change = True
-        model = self.get_toplevel_object()
+        model = self.toplevel_obj
 
         if model.has_tangent_space():
             tangent_flip, bitangent_flip = model.get_tangent_space_flip()
@@ -716,7 +716,7 @@ class EdgeBridgeBase(BaseObject):
         return True
 
 
-class EdgeBridgeManager(BaseObject):
+class EdgeBridgeManager:
 
     def __init__(self):
 
@@ -734,8 +734,8 @@ class EdgeBridgeManager(BaseObject):
         bind("edge_bridge_mode", "bridge edges -> select", "escape", exit_mode)
         bind("edge_bridge_mode", "exit edge bridge mode", "mouse3", exit_mode)
         bind("edge_bridge_mode", "bridge edges", "mouse1", self._init_bridge)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("edge_bridge_mode", "bridge edges ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("edge_bridge_mode", "bridge edges ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
         bind("edge_bridge", "quit edge bridge", "escape", cancel_bridge)
         bind("edge_bridge", "cancel edge bridge", "mouse3", cancel_bridge)
@@ -744,26 +744,26 @@ class EdgeBridgeManager(BaseObject):
         bind("edge_bridge", "bridge edges -> pick edge via poly",
              "mouse1", self._start_dest_edge_picking_via_poly)
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Bridge edges"
         info_text = "LMB-drag over a border edge and release LMB over" \
                     " other border edge to create bridge; RMB or <Escape> to end"
         status_data["edge_bridge_mode"] = {"mode": mode_text, "info": info_text}
 
-    def __enter_bridge_mode(self, prev_state_id, is_active):
+    def __enter_bridge_mode(self, prev_state_id, active):
 
         if prev_state_id == "edge_bridge":
             return
 
-        if GlobalData["active_transform_type"]:
-            GlobalData["active_transform_type"] = ""
+        if GD["active_transform_type"]:
+            GD["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
 
         self._mode_id = "bridge"
         Mgr.add_task(self._update_cursor, "update_mode_cursor")
         Mgr.update_app("status", ["edge_bridge_mode"])
 
-    def __exit_bridge_mode(self, next_state_id, is_active):
+    def __exit_bridge_mode(self, next_state_id, active):
 
         if next_state_id == "edge_bridge":
             return
@@ -795,9 +795,9 @@ class EdgeBridgeManager(BaseObject):
             if pickable_type == "poly":
 
                 self._picked_poly = Mgr.get("poly", color_id)
-                merged_edges = self._picked_poly.get_geom_data_object().get_merged_edges()
+                merged_edges = self._picked_poly.geom_data_obj.merged_edges
 
-                for edge_id in self._picked_poly.get_edge_ids():
+                for edge_id in self._picked_poly.edge_ids:
                     if len(merged_edges[edge_id]) == 1:
                         break
                 else:
@@ -808,20 +808,20 @@ class EdgeBridgeManager(BaseObject):
                 return
 
             picked_obj = Mgr.get("edge", color_id)
-            edge = picked_obj.get_merged_edge() if picked_obj else None
+            edge = picked_obj.merged_edge if picked_obj else None
 
         if not edge or len(edge) > 1:
             return
 
-        model = edge.get_toplevel_object()
+        model = edge.toplevel_obj
 
         for obj in Mgr.get("selection_top"):
             if obj is not model:
-                obj.get_geom_object().get_geom_data_object().set_pickable(False)
+                obj.geom_obj.geom_data_obj.set_pickable(False)
 
         self._src_border_edge = edge
         self._picking_dest_edge = True
-        pos = edge.get_center_pos(self.world)
+        pos = edge.get_center_pos(GD.world)
         Mgr.do("start_drawing_rubber_band", pos)
         Mgr.do("enable_view_gizmo", False)
         Mgr.enter_state("edge_bridge")
@@ -836,11 +836,11 @@ class EdgeBridgeManager(BaseObject):
 
         if src_border_edge:
 
-            model = src_border_edge.get_toplevel_object()
+            model = src_border_edge.toplevel_obj
 
             for obj in Mgr.get("selection_top"):
                 if obj is not model:
-                    obj.get_geom_object().get_geom_data_object().set_pickable()
+                    obj.geom_obj.geom_data_obj.set_pickable()
 
         Mgr.do("end_drawing_rubber_band")
         self._picking_dest_edge = False
@@ -857,7 +857,7 @@ class EdgeBridgeManager(BaseObject):
         if not src_border_edge:
             return
 
-        model = src_border_edge.get_toplevel_object()
+        model = src_border_edge.toplevel_obj
 
         if picked_edge:
             dest_border_edge = picked_edge
@@ -865,12 +865,12 @@ class EdgeBridgeManager(BaseObject):
             r, g, b, a = [int(round(c * 255.)) for c in self._pixel_under_mouse]
             color_id = r << 16 | g << 8 | b
             picked_obj = Mgr.get("edge", color_id)
-            dest_border_edge = picked_obj.get_merged_edge() if picked_obj else None
+            dest_border_edge = picked_obj.merged_edge if picked_obj else None
 
         if not dest_border_edge or dest_border_edge is src_border_edge or len(dest_border_edge) > 1:
             return
 
-        geom_data_obj = model.get_geom_object().get_geom_data_object()
+        geom_data_obj = model.geom_obj.geom_data_obj
 
         if not geom_data_obj.bridge_edges(src_border_edge, dest_border_edge):
             return
@@ -878,7 +878,7 @@ class EdgeBridgeManager(BaseObject):
         Mgr.do("update_active_selection")
         Mgr.do("update_history_time")
 
-        obj_data = {model.get_id(): geom_data_obj.get_data_to_store("subobj_change")}
+        obj_data = {model.id: geom_data_obj.get_data_to_store("subobj_change")}
         event_descr = "Bridge edges"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

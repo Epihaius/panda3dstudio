@@ -16,15 +16,14 @@ class ExpandButton(Button):
 
         Button.__init__(self, parent, self._gfx, "", "", "")
 
-        self.set_widget_type("expand_button")
-
-        self.get_mouse_region().set_sort(parent.get_sort())
+        self.widget_type = "expand_button"
+        self.mouse_region.sort = parent.sort
 
     def on_left_up(self):
 
         if Button.on_left_up(self):
-            self.set_active(not self.is_active())
-            self.get_parent().expand_description(self.is_active())
+            self.active = not self.active
+            self.parent.expand_description(self.active)
 
 
 class TimelineButton(Button):
@@ -47,8 +46,8 @@ class TimelineButton(Button):
 
         Button.__init__(self, parent, self._gfx, "", "", "Choose timeline", self.__show_menu)
 
-        self.set_widget_type("timeline_button")
-        self.get_mouse_region().set_sort(parent.get_sort())
+        self.widget_type = "timeline_button"
+        self.mouse_region.sort = parent.sort
 
         self._menu = menu = Menu(on_hide=self.__on_hide)
 
@@ -81,15 +80,15 @@ class TimelineButton(Button):
 
     def __on_hide(self):
 
-        if self.is_active():
-            self.set_active(False)
+        if self.active:
+            self.active = False
             self.on_leave(force=True)
 
     def __show_menu(self):
 
         pane = self.get_ancestor("history_pane")
-        pane.set_clicked_entry(self.get_parent())
-        self.set_active()
+        pane.set_clicked_entry(self.parent)
+        self.active = True
         x, y = self.get_pos(ref_node=self._ref_node)
         offset_x, offset_y = self._menu_offsets["bottom"]
         pos = (x + offset_x, y + offset_y)
@@ -105,9 +104,9 @@ class HistoryEntry(Widget):
 
         Widget.__init__(self, "hist_entry", parent, gfx_data={}, stretch_dir="both")
 
-        sort = parent.get_sort() + 1
-        self._sort = sort
-        self.get_mouse_region().set_sort(sort)
+        sort = parent.sort + 1
+        self.sort = sort
+        self.mouse_region.sort = sort
 
         self._event = event
         self._index = index
@@ -118,8 +117,8 @@ class HistoryEntry(Widget):
         self._is_selected = False
         colors = Skin["colors"]
         self._colors = {
-            "unselected": colors["history_entry_unselected{}".format("_alt" if index % 2 else "")][:3],
-            "selected": colors["history_entry_selected{}".format("_alt" if index % 2 else "")][:3]
+            "unselected": colors[f'history_entry_unselected{"_alt" if index % 2 else ""}'][:3],
+            "selected": colors[f'history_entry_selected{"_alt" if index % 2 else ""}'][:3]
         }
         timestamp = event.get_timestamp()
         sizer = Sizer("horizontal")
@@ -162,10 +161,6 @@ class HistoryEntry(Widget):
 
         borders = (10, 10, 6, 6)
         sizer.add(text, alignment="center_v", borders=borders)
-
-    def get_sort(self):
-
-        return self._sort
 
     def get_event(self):
 
@@ -269,7 +264,7 @@ class HistoryEntry(Widget):
 
         event = self._event
         self._expand_btn.enable(event.get_description_line_count() > 1)
-        expand = self._expand_btn.is_active()
+        expand = self._expand_btn.active
         text = event.get_full_description() if expand else event.get_description_start()
         descr = self._description
 
@@ -279,7 +274,7 @@ class HistoryEntry(Widget):
             self.get_ancestor("dialog").update_layout()
             item = self._subsizer.get_items()[-1]
 
-            if item.get_type() == "widget":
+            if item.type == "widget":
                 menu = item.get_object().get_menu()
                 timestamp = event.get_timestamp()
                 text = timestamp + "  |  " + event.get_description_start()
@@ -321,8 +316,8 @@ class HistoryEntry(Widget):
             painter = PNMPainter(image)
             pen = PNMBrush.make_pixel((0., 0., 0., 1.))
             fill = PNMBrush.make_transparent()
-            painter.set_pen(pen)
-            painter.set_fill(fill)
+            painter.pen = pen
+            painter.fill = fill
             painter.draw_rectangle(262, 2, w - 3, h - 3)
 
         if recurse:
@@ -407,7 +402,7 @@ class HistoryPanel(Widget):
         Widget.__init__(self, "history_panel", parent, gfx_data={}, stretch_dir="both",
                         has_mouse_region=False, hidden=True)
 
-        self.get_node().reparent_to(parent.get_widget_root_node())
+        self.node.reparent_to(parent.get_widget_root_node())
 
         self._prev_panel = prev_panel
         self._prev_panels = prev_panel.get_previous_panels() + [prev_panel] if prev_panel else []
@@ -442,6 +437,11 @@ class HistoryPanel(Widget):
         self._next_panels = []
         self._entries = []
 
+    @property
+    def sort(self):
+
+        return self.parent.sort
+
     def add_timeline_button(self, entries, commands):
 
         entry = self.get_sizer().get_items()[-1].get_object()
@@ -456,10 +456,6 @@ class HistoryPanel(Widget):
 
         entry = self.get_sizer().get_items()[-1].get_object()
         return entry.pop_timeline_item()
-
-    def get_sort(self):
-
-        return self.get_parent().get_sort()
 
     def update_images(self, recurse=True, size=None):
 
@@ -506,7 +502,7 @@ class HistoryPane(DialogScrollPane):
     def __init__(self, dialog, history, past, current_time_id):
 
         DialogScrollPane.__init__(self, dialog, "history_pane", "vertical", (700, 300), "both")
-        mouse_watcher = self.get_mouse_watcher()
+        mouse_watcher = self.mouse_watcher
         mouse_watcher.remove_region(DialogInputField.get_mouse_region_mask())
 
         self._start_time_id = history.get_time_id()
@@ -538,7 +534,7 @@ class HistoryPane(DialogScrollPane):
 
             def command():
 
-                clicked_panel = self._clicked_entry.get_parent()
+                clicked_panel = self._clicked_entry.parent
 
                 if panel is not clicked_panel:
                     item = clicked_panel.pop_timeline_item()
@@ -672,7 +668,7 @@ class HistoryPane(DialogScrollPane):
     def __jump_to_entry(self, entry):
 
         self.__show_panel(self._start_panel, False)
-        panel = entry.get_parent()
+        panel = entry.parent
         layout_stale = False
 
         for prev_panel in reversed(panel.get_previous_panels()):
@@ -785,11 +781,11 @@ class HistoryPane(DialogScrollPane):
 
             if can_merge:
 
-                panel = entry.get_parent()
+                panel = entry.parent
 
                 if entry is panel.get_entries()[0]:
 
-                    prev_panel = prev_entry.get_parent() if prev_entry else self._start_panel
+                    prev_panel = prev_entry.parent if prev_entry else self._start_panel
                     next_panels = prev_panel.get_next_panels()
 
                     for next_panel in next_panels:
@@ -866,12 +862,12 @@ class HistoryPane(DialogScrollPane):
     def __get_selected_entries(self):
 
         cur_entry = self._current_entry
-        cur_panel = cur_entry.get_parent() if cur_entry else None
+        cur_panel = cur_entry.parent if cur_entry else None
         cur_panel_entries = cur_panel.get_entries() if cur_entry else []
         cur_index = cur_panel_entries.index(cur_entry) if cur_entry else -1
         cur_panel_prev = cur_panel.get_previous_panels() if cur_entry else []
         sel_entry = self._selected_entry
-        sel_panel = sel_entry.get_parent()
+        sel_panel = sel_entry.parent
         sel_panel_entries = sel_panel.get_entries()
         sel_index = sel_panel_entries.index(sel_entry)
         sel_panel_prev = sel_panel.get_previous_panels()
@@ -1035,7 +1031,7 @@ class HistoryPane(DialogScrollPane):
     def __reject_events(self, reject=True):
 
         entry = self._clicked_entry
-        panel = entry.get_parent()
+        panel = entry.parent
         entries = panel.get_entries()
         index = entries.index(entry)
         menu = self.get_dialog().get_rejected_history_button().get_menu()
@@ -1180,7 +1176,7 @@ class HistoryPane(DialogScrollPane):
         entry.set_event_to_merge(not entry.has_event_to_merge())
         self._menu_items["merge_range"].enable()
         merge = entry.has_event_to_merge()
-        text = "{}ark range of events for merging".format("M" if merge else "Unm")
+        text = f'{"M" if merge else "Unm"}ark range of events for merging'
         self._menu.set_item_text("merge_range", text, update=True)
 
     def set_range_to_merge(self):
@@ -1190,12 +1186,12 @@ class HistoryPane(DialogScrollPane):
         if not start_entry:
             return
 
-        start_panel = start_entry.get_parent()
+        start_panel = start_entry.parent
         start_panel_entries = start_panel.get_entries()
         start_index = start_panel_entries.index(start_entry)
         start_panel_prev = start_panel.get_previous_panels()
         end_entry = self._clicked_entry
-        end_panel = end_entry.get_parent()
+        end_panel = end_entry.parent
         end_panel_entries = end_panel.get_entries()
         end_index = end_panel_entries.index(end_entry)
         end_panel_prev = end_panel.get_previous_panels()
@@ -1269,7 +1265,7 @@ class HistoryPane(DialogScrollPane):
 
             for entry in panel.get_entries():
                 entry.expand_description(expand, update=False)
-                entry.get_expand_button().set_active(expand)
+                entry.get_expand_button().active = expand
 
             panel = panel.get_next_panel()
 
@@ -1391,7 +1387,7 @@ class HistoryDialog(Dialog):
         subsizer.add(btn)
         subsizer.add((20, 0))
         self._hist_pane = pane = HistoryPane(self, self._history_root, past, time_id)
-        frame = pane.get_frame()
+        frame = pane.frame
         client_sizer.add(frame, proportion=1., expand=True, borders=borders)
         btn = DialogButton(self, "To current event", command=pane.jump_to_current_entry)
         subsizer.add(btn)

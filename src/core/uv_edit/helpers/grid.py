@@ -1,12 +1,12 @@
 from ..base import *
 
 
-class Grid(BaseObject):
+class Grid:
 
     def __init__(self):
 
         picking_mask = UVMgr.get("picking_mask")
-        self._origin = origin = self.uv_space.attach_new_node("grid")
+        self._origin = origin = GD.uv_space.attach_new_node("grid")
         origin.hide(picking_mask)
         self._grid_lines = grid_lines = self.__create_lines()
         grid_lines.set_bin("background", 2)
@@ -31,7 +31,7 @@ class Grid(BaseObject):
         borders.set_depth_test(False)
         self._background_tex_filename = ""
         self._background = quad = self.__create_quad()
-        quad.reparent_to(self.uv_space)
+        quad.reparent_to(GD.uv_space)
         quad.hide(picking_mask)
         quad.set_light_off()
         quad.set_color_scale(.5)
@@ -80,7 +80,7 @@ class Grid(BaseObject):
             self._background_tiling = value
             scale = value * 2 + 1
             self._background.set_scale(scale)
-            self._background.set_tex_scale(TextureStage.get_default(), scale)
+            self._background.set_tex_scale(TextureStage.default, scale)
         elif value_id == "show_on_models":
             self._background_on_models = value
             self.__show_background_on_models(value)
@@ -89,8 +89,8 @@ class Grid(BaseObject):
 
     def __show_background_on_models(self, show):
 
-        models = [obj for obj in Mgr.get("selection_top") if obj.get_type() == "model"
-                  and obj.get_geom_type() != "basic_geom"]
+        models = [obj for obj in Mgr.get("selection_top") if obj.type == "model"
+                  and obj.geom_type != "basic_geom"]
 
         if show:
 
@@ -98,8 +98,8 @@ class Grid(BaseObject):
                 self._material.strip()
             else:
                 for model in models:
-                    model.get_geom_object().reset_vertex_colors()
-                    origin = model.get_origin()
+                    model.geom_obj.reset_vertex_colors()
+                    origin = model.origin
                     origin.clear_material()
                     origin.clear_texture()
                     origin.clear_tex_transform()
@@ -227,8 +227,8 @@ class Grid(BaseObject):
 
     def update(self, force=False):
 
-        x, y, z = cam_pos = self.cam.get_pos(self._origin)
-        cam_scale = self.cam.get_sx() * .07
+        x, y, z = cam_pos = GD.uv_cam.get_pos(self._origin)
+        cam_scale = GD.uv_cam.get_sx() * .07
         a = 2. ** math.ceil(math.log(cam_scale, 2.))
         b = a * .5
         scale = b if b > cam_scale else a

@@ -5,19 +5,19 @@ class Icon(Widget):
 
     def __init__(self, parent, icon_id):
 
-        self._type = "widget"
-        self._widget_type = "icon"
+        self.type = "widget"
+        self.widget_type = "icon"
         self._parent = parent
         self._id = icon_id
-        self._node = parent.get_node().attach_new_node("icon_widget")
+        self.node = parent.node.attach_new_node("icon_widget")
         self._image_offset = (0, 0)
 
         self._image = img = self.__create_icon(icon_id)
-        self._size = self._min_size = (img.get_x_size(), img.get_y_size())
+        self._size = self._min_size = (w, h) = img.size
         self._sizer = None
         self._sizer_item = None
         self._stretch_dir = ""
-        self._mouse_region = None
+        self.mouse_region = None
         self._is_hidden = False
 
     def __create_icon(self, icon_id):
@@ -30,9 +30,9 @@ class Icon(Widget):
 
     def destroy(self):
 
-        if self._node:
-            self._node.remove_node()
-            self._node = None
+        if self.node:
+            self.node.remove_node()
+            self.node = None
 
         self._parent = None
         self._sizer_item = None
@@ -43,7 +43,7 @@ class Icon(Widget):
             return False
 
         self._image = img = self.__create_icon(icon_id)
-        self._size = (img.get_x_size(), img.get_y_size())
+        self._size = (w, h) = img.size
 
         self._id = icon_id
 
@@ -75,12 +75,12 @@ class LayeredIcon(Widget):
 
     def __init__(self, parent, icon_ids):
 
-        self._type = "widget"
-        self._widget_type = "layered_icon"
+        self.type = "widget"
+        self.widget_type = "layered_icon"
         self._parent = parent
         self._ids = icon_ids
         self._icons_shown = [icon_ids[0]]
-        self._node = parent.get_node().attach_new_node("layered_icon_widget")
+        self.node = parent.node.attach_new_node("layered_icon_widget")
         self._image_offset = (0, 0)
 
         self._icon_images = images = {}
@@ -90,11 +90,11 @@ class LayeredIcon(Widget):
             images[icon_id] = img
 
         self._image = img = images[icon_ids[0]]
-        self._size = self._min_size = (img.get_x_size(), img.get_y_size())
+        self._size = self._min_size = (w, h) = img.size
         self._sizer = None
         self._sizer_item = None
         self._stretch_dir = ""
-        self._mouse_region = None
+        self.mouse_region = None
         self._is_hidden = False
 
     def __create_icon(self, icon_id):
@@ -107,9 +107,9 @@ class LayeredIcon(Widget):
 
     def destroy(self):
 
-        if self._node:
-            self._node.remove_node()
-            self._node = None
+        if self.node:
+            self.node.remove_node()
+            self.node = None
 
         self._parent = None
         self._sizer_item = None

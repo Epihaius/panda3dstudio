@@ -1,16 +1,19 @@
 from ..base import *
 
 
-class Vertex(BaseObject):
+class Vertex:
+
+    __slots__ = ("type", "full_type", "id", "picking_color_id", "edge_ids", "polygon_id",
+                 "uv_data_obj", "_prev_prop_time", "_pos", "_data")
 
     def __init__(self, vert_id, picking_col_id, pos, uv_data_obj=None,
                  poly_id=None, edge_ids=None, data_copy=None):
 
-        self._type = "vert"
-        self._full_type = "single_vert"
-        self._id = vert_id
-        self._picking_col_id = picking_col_id
-        self._uv_data_obj = uv_data_obj
+        self.type = "vert"
+        self.full_type = "single_vert"
+        self.id = vert_id
+        self.picking_color_id = picking_col_id
+        self.uv_data_obj = uv_data_obj
         self._prev_prop_time = {"transform": None}
         self._pos = Point3(*pos)  # in local space
 
@@ -21,51 +24,29 @@ class Vertex(BaseObject):
         else:
             data = {"row": 0, "row_offset": 0}
 
-        self._poly_id = poly_id
-        self._edge_ids = edge_ids
+        self.polygon_id = poly_id
+        self.edge_ids = edge_ids
         self._data = data
 
     def copy(self):
 
         data_copy = {}
-        data_copy["poly_id"] = self._poly_id
-        data_copy["edge_ids"] = self._edge_ids[:]
+        data_copy["poly_id"] = self.polygon_id
+        data_copy["edge_ids"] = self.edge_ids[:]
         data_copy["data"] = self._data.copy()
-        vert = Vertex(self._id, self._picking_col_id, self._pos, data_copy=data_copy)
+        vert = Vertex(self.id, self.picking_color_id, self._pos, data_copy=data_copy)
 
         return vert
 
-    def get_type(self):
+    @property
+    def merged_subobj(self):
 
-        return self._type
+        return self.uv_data_obj.get_merged_vertex(self.id)
 
-    def get_full_type(self):
+    @property
+    def merged_vertex(self):
 
-        return self._full_type
-
-    def get_id(self):
-
-        return self._id
-
-    def get_picking_color_id(self):
-
-        return self._picking_col_id
-
-    def set_uv_data_object(self, uv_data_obj):
-
-        self._uv_data_obj = uv_data_obj
-
-    def get_uv_data_object(self):
-
-        return self._uv_data_obj
-
-    def get_merged_object(self):
-
-        return self._uv_data_obj.get_merged_vertex(self._id)
-
-    def get_merged_vertex(self):
-
-        return self._uv_data_obj.get_merged_vertex(self._id)
+        return self.uv_data_obj.get_merged_vertex(self.id)
 
     def set_previous_property_time(self, prop_id, time_id):
 
@@ -78,7 +59,7 @@ class Vertex(BaseObject):
     def set_pos(self, pos, ref_node=None):
 
         if ref_node:
-            origin = self._uv_data_obj.get_origin()
+            origin = self.uv_data_obj.origin
             self._pos = origin.get_relative_point(ref_node, pos)
         else:
             self._pos = pos
@@ -86,7 +67,7 @@ class Vertex(BaseObject):
     def get_pos(self, ref_node=None):
 
         if ref_node:
-            origin = self._uv_data_obj.get_origin()
+            origin = self.uv_data_obj.origin
             return ref_node.get_relative_point(origin, self._pos)
 
         return self._pos
@@ -94,20 +75,20 @@ class Vertex(BaseObject):
     def get_center_pos(self, ref_node=None):
 
         if ref_node:
-            origin = self._uv_data_obj.get_origin()
+            origin = self.uv_data_obj.origin
             return ref_node.get_relative_point(origin, self._pos)
 
         return self._pos
 
-    def get_polygon_id(self):
+    @property
+    def row_index(self):
 
-        return self._poly_id
+        data = self._data
 
-    def get_edge_ids(self):
+        return data["row"] + data["row_offset"]
 
-        return self._edge_ids
-
-    def set_row_index(self, index):
+    @row_index.setter
+    def row_index(self, index):
 
         self._data["row"] = index
 
@@ -115,20 +96,16 @@ class Vertex(BaseObject):
 
         self._data["row_offset"] += offset
 
-    def get_row_index(self):
-
-        data = self._data
-
-        return data["row"] + data["row_offset"]
-
 
 class MergedVertex:
 
+    __slots__ = ("type", "full_type", "_ids", "uv_data_obj")
+
     def __init__(self, uv_data_obj, vert_ids=None):
 
-        self._type = "vert"
-        self._full_type = "merged_vert"
-        self._uv_data_obj = uv_data_obj
+        self.type = "vert"
+        self.full_type = "merged_vert"
+        self.uv_data_obj = uv_data_obj
         self._ids = [] if vert_ids is None else vert_ids
 
     def copy(self):
@@ -160,84 +137,85 @@ class MergedVertex:
 
         self._ids.remove(vert_id)
 
-    def get_type(self):
+    @property
+    def id(self):
 
-        return self._type
+        vert = self.uv_data_obj.get_subobject("vert", self._ids[0])
 
-    def get_full_type(self):
+        return vert.id if vert else None
 
-        return self._full_type
+    @property
+    def picking_color_id(self):
 
-    def get_id(self):
+        vert = self.uv_data_obj.get_subobject("vert", self._ids[0])
 
-        vert = self._uv_data_obj.get_subobject("vert", self._ids[0])
+        return vert.picking_color_id if vert else None
 
-        return vert.get_id() if vert else None
+    @property
+    def picking_color_ids(self):
 
-    def get_picking_color_id(self):
+        verts = self.uv_data_obj.get_subobjects("vert")
 
-        vert = self._uv_data_obj.get_subobject("vert", self._ids[0])
+        return [verts[v_id].picking_color_id for v_id in self._ids]
 
-        return vert.get_picking_color_id() if vert else None
+    @property
+    def edge_ids(self):
 
-    def get_picking_color_ids(self):
+        verts = self.uv_data_obj.get_subobjects("vert")
+        edge_ids = []
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        for vert_id in self._ids:
+            edge_ids.extend(verts[vert_id].edge_ids)
 
-        return [verts[v_id].get_picking_color_id() for v_id in self._ids]
+        return edge_ids
 
-    def get_polygon_ids(self):
+    @property
+    def polygon_ids(self):
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        verts = self.uv_data_obj.get_subobjects("vert")
 
-        return [verts[v_id].get_polygon_id() for v_id in self._ids]
+        return [verts[v_id].polygon_id for v_id in self._ids]
 
-    def get_special_selection(self):
+    @property
+    def special_selection(self):
 
         return [self]
 
-    def get_row_indices(self):
+    @property
+    def row_indices(self):
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        verts = self.uv_data_obj.get_subobjects("vert")
 
-        return [verts[v_id].get_row_index() for v_id in self._ids]
-
-    def set_uv_data_object(self, uv_data_obj):
-
-        self._uv_data_obj = uv_data_obj
-
-    def get_uv_data_object(self):
-
-        return self._uv_data_obj
+        return [verts[v_id].row_index for v_id in self._ids]
 
     def set_previous_property_time(self, prop_id, time_id):
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        verts = self.uv_data_obj.get_subobjects("vert")
 
         for vert_id in self._ids:
             verts[vert_id].set_previous_property_time(prop_id, time_id)
 
     def get_previous_property_time(self, prop_id):
 
-        vert = self._uv_data_obj.get_subobject("vert", self._ids[0])
+        vert = self.uv_data_obj.get_subobject("vert", self._ids[0])
 
         return vert.get_previous_property_time(prop_id)
 
     def set_pos(self, pos, ref_node=None):
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        verts = self.uv_data_obj.get_subobjects("vert")
 
         for vert_id in self._ids:
             verts[vert_id].set_pos(pos, ref_node)
 
     def get_pos(self, ref_node=None):
 
-        vert = self._uv_data_obj.get_subobject("vert", self._ids[0])
+        vert = self.uv_data_obj.get_subobject("vert", self._ids[0])
 
         return vert.get_pos(ref_node)
 
     def get_center_pos(self, ref_node=None):
 
-        vert = self._uv_data_obj.get_subobject("vert", self._ids[0])
+        vert = self.uv_data_obj.get_subobject("vert", self._ids[0])
 
         return vert.get_center_pos(ref_node)

@@ -21,10 +21,10 @@ class ObjExporter:
 
     def __determine_objs_for_export(self):
 
-        self.objs = set(obj.get_root() for obj in Mgr.get("selection_top"))
+        self.objs = set(obj.root for obj in Mgr.get("selection_top"))
 
         if not self.objs:
-            self.objs = set(obj.get_root() for obj in Mgr.get("objects"))
+            self.objs = set(obj.root for obj in Mgr.get("objects"))
 
         self.objs = list(self.objs)
 
@@ -41,7 +41,7 @@ class ObjExporter:
         self.obj_file.write("# Created with Panda3D Studio\n\n\n")
         fname = os.path.basename(filename)
         mtllib_name = os.path.splitext(fname)[0]
-        self.obj_file.write("mtllib {}.mtl\n".format(mtllib_name))
+        self.obj_file.write(f"mtllib {mtllib_name}.mtl\n")
 
     def __parse_objects(self):
 
@@ -52,20 +52,20 @@ class ObjExporter:
 
     def __add_objects(self):
 
-        if self.obj.get_type() == "group":
+        if self.obj.type == "group":
             children = self.obj.get_members()
         else:
-            children = self.obj.get_children()
+            children = self.obj.children
 
         if children:
             self.objs.extend(children)
 
     def __parse_model(self):
 
-        if self.obj.get_type() == "model":
-            name = get_unique_name(self.obj.get_name().replace(" ", "_"), self.namelist)
+        if self.obj.type == "model":
+            name = get_unique_name(self.obj.name.replace(" ", "_"), self.namelist)
             self.namelist.append(name)
-            self.obj_file.write("\ng {}\n\n".format(name))
+            self.obj_file.write(f"\ng {name}\n\n")
             self.__set_geom_data()
             self.__check_material()
             self.__set_node_transform()
@@ -75,8 +75,8 @@ class ObjExporter:
 
     def __set_geom_data(self):
 
-        self.geom_obj = self.obj.get_geom_object()
-        self.geom_type = self.obj.get_geom_type()
+        self.geom_obj = self.obj.geom_obj
+        self.geom_type = self.obj.geom_type
         self.geom_data_obj = None
         self.__check_geom_type()
 
@@ -84,11 +84,11 @@ class ObjExporter:
 
         if self.geom_type == "basic_geom":
 
-            self.node = NodePath(self.geom_obj.get_geom().node().make_copy())
+            self.node = NodePath(self.geom_obj.geom.node().make_copy())
 
         else:
 
-            self.geom_data_obj = self.geom_obj.get_geom_data_object()
+            self.geom_data_obj = self.geom_obj.geom_data_obj
             self.node = self.vertex_merger.merge_duplicate_vertices(self.geom_data_obj)
 
             if self.geom_obj.has_flipped_normals():
@@ -105,7 +105,7 @@ class ObjExporter:
 
     def __add_material(self, material):
 
-        self.material_name = material.get_name()
+        self.material_name = material.name
 
         if not self.material_name:
             self.material_name = "<Unnamed>"
@@ -119,7 +119,7 @@ class ObjExporter:
 
         data = {}
         self.material_data[material] = data
-        self.material_alias = "material_{:03d}".format(len(self.material_data))
+        self.material_alias = f"material_{len(self.material_data) :03d}"
         data["name"] = self.material_name
         data["alias"] = self.material_alias
         data["is_flat_color"] = False
@@ -134,7 +134,7 @@ class ObjExporter:
 
         color_map = material.get_tex_map("color")
 
-        if color_map.is_active() and color_map.get_texture():
+        if color_map.active and color_map.get_texture():
 
             rgb_filename, alpha_filename = color_map.get_tex_filenames()
             data["diffuse_map"] = os.path.basename(rgb_filename)
@@ -151,11 +151,11 @@ class ObjExporter:
             self.material_alias = self.material_data[color]["alias"]
         else:
             self.flat_color_index += 1
-            self.material_name = "Flat color {:d}".format(self.flat_color_index)
+            self.material_name = f"Flat color {self.flat_color_index}"
             data = {}
             self.material_data[color] = data
             data["name"] = self.material_name
-            self.material_alias = "material_{:03d}".format(len(self.material_data))
+            self.material_alias = f"material_{len(self.material_data) :03d}"
             data["alias"] = self.material_alias
             data["is_flat_color"] = True
 
@@ -163,7 +163,7 @@ class ObjExporter:
 
         vertex_data = self.node.node().modify_geom(0).modify_vertex_data()
         convert_mat = Mat4.convert_mat(CS_default, CS_yup_right)
-        origin = self.obj.get_origin()
+        origin = self.obj.origin
         mat = origin.get_net_transform().get_mat() * convert_mat
         vertex_data.transform_vertices(mat)
 
@@ -180,14 +180,14 @@ class ObjExporter:
             x, y, z = pos_reader.get_data3()
             u, v = uv_reader.get_data2()
             xn, yn, zn = normal_reader.get_data3()
-            obj_file.write("v {:.6f} {:.6f} {:.6f}\n".format(x, y, z))
-            obj_file.write("vt {:.6f} {:.6f}\n".format(u, v))
-            obj_file.write("vn {:.6f} {:.6f} {:.6f}\n".format(xn, yn, zn))
+            obj_file.write(f"v {x :.6f} {y :.6f} {z :.6f}\n")
+            obj_file.write(f"vt {u :.6f} {v :.6f}\n")
+            obj_file.write(f"vn {xn :.6f} {yn :.6f} {zn :.6f}\n")
 
     def __write_material_id(self):
 
-        self.obj_file.write("\nusemtl {}\n".format(self.material_alias))
-        self.obj_file.write("# {}\n".format(self.material_name))
+        self.obj_file.write(f"\nusemtl {self.material_alias}\n")
+        self.obj_file.write(f"# {self.material_name}\n")
 
     def __write_triangle_data(self):
 
@@ -199,8 +199,7 @@ class ObjExporter:
 
         for i in range(0, index_count, 3):
             i1, i2, i3 = [j + row_offset for j in index_list[i:i+3]]
-            indices = (i1, i1, i1, i2, i2, i2, i3, i3, i3)
-            obj_file.write("f {:d}/{:d}/{:d} {:d}/{:d}/{:d} {:d}/{:d}/{:d}\n".format(*indices))
+            obj_file.write(f"f {i1}/{i1}/{i1} {i2}/{i2}/{i2} {i3}/{i3}/{i3}\n")
 
         self.row_offset += self.row_count
 
@@ -217,17 +216,17 @@ class ObjExporter:
         for material, data in self.material_data.items():
 
             material_alias = data["alias"]
-            mtl_file.write("\n\nnewmtl {}\n".format(material_alias))
+            mtl_file.write(f"\n\nnewmtl {material_alias}\n")
             material_name = data["name"]
-            mtl_file.write("# {}\n\n".format(material_name))
+            mtl_file.write(f"# {material_name}\n\n")
             r, g, b, a = material if data["is_flat_color"] else data["diffuse"]
-            mtl_file.write("Kd {:.6f} {:.6f} {:.6f}\n".format(r, g, b))
+            mtl_file.write(f"Kd {r :.6f} {g :.6f} {b :.6f}\n")
 
             if "dissolve" in data:
-                mtl_file.write("d {:.6f}\n".format(data["dissolve"]))
+                mtl_file.write(f"d {data['dissolve'] :.6f}\n")
 
             if "diffuse_map" in data:
-                mtl_file.write("map_Kd {}\n".format(data["diffuse_map"]))
+                mtl_file.write(f"map_Kd {data['diffuse_map']}\n")
 
             if "dissolve_map" in data:
-                mtl_file.write("map_d {}\n".format(data["dissolve_map"]))
+                mtl_file.write(f"map_d {data['dissolve_map']}\n")

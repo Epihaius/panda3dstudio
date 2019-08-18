@@ -1,30 +1,30 @@
 from ...base import *
-from .select import GeomSelectionBase
-from .transform import GeomTransformBase
-from .history import GeomHistoryBase
-from .vert_edit import VertexEditBase
-from .edge_edit import EdgeEditBase
-from .poly_edit import PolygonEditBase, SmoothingGroup
-from .normal_edit import NormalEditBase
-from .uv_edit import UVEditBase
+from .select import SelectionMixin
+from .transform import GeomTransformMixin
+from .history import HistoryMixin
+from .vert_edit import VertexEditMixin
+from .edge_edit import EdgeEditMixin
+from .poly_edit import PolygonEditMixin, SmoothingGroup
+from .normal_edit import NormalEditMixin
+from .uv_edit import UVEditMixin
 
 
-class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
-                     VertexEditBase, EdgeEditBase, PolygonEditBase,
-                     NormalEditBase, UVEditBase):
+class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
+                     VertexEditMixin, EdgeEditMixin, PolygonEditMixin,
+                     NormalEditMixin, UVEditMixin):
 
     def __getstate__(self):
 
         state = self.__dict__.copy()
-        state["_origin"] = NodePath(self._origin.node().make_copy())
+        state["_origin"] = NodePath(self.origin.node().make_copy())
         state["_origin"].clear_two_sided()
         del state["_vertex_data"]
-        del state["_owner"]
+        del state["owner"]
         del state["_toplvl_node"]
-        del state["_toplvl_geom"]
+        del state["toplevel_geom"]
         del state["_geoms"]
-        del state["_merged_verts"]
-        del state["_merged_edges"]
+        del state["merged_verts"]
+        del state["merged_edges"]
         del state["_shared_normals"]
         del state["_poly_smoothing"]
         del state["_ordered_polys"]
@@ -32,19 +32,24 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         del state["_indexed_subobjs"]
         del state["_is_tangent_space_initialized"]
 
-        GeomSelectionBase.__editstate__(self, state)
+        SelectionMixin._edit_state(self, state)
+
+        state["_id"] = state.pop("id")
+        del state["origin"]
 
         return state
 
     def __setstate__(self, state):
 
+        state["id"] = state.pop("_id")
+        state["origin"] = state.pop("_origin")
         self.__dict__ = state
 
-        GeomSelectionBase.__setstate__(self, state)
+        SelectionMixin.__setstate__(self, state)
 
         self._data_row_count = 0
-        self._merged_verts = {}
-        self._merged_edges = {}
+        self.merged_verts = {}
+        self.merged_edges = {}
         self._shared_normals = {}
         self._poly_smoothing = {}
         self._ordered_polys = []
@@ -70,19 +75,19 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def __init__(self, data_id, owner):
 
-        GeomSelectionBase.__init__(self)
-        GeomTransformBase.__init__(self)
-        GeomHistoryBase.__init__(self)
-        PolygonEditBase.__init__(self)
-        NormalEditBase.__init__(self)
-        UVEditBase.__init__(self)
+        SelectionMixin.__init__(self)
+        GeomTransformMixin.__init__(self)
+        HistoryMixin.__init__(self)
+        PolygonEditMixin.__init__(self)
+        NormalEditMixin.__init__(self)
+        UVEditMixin.__init__(self)
 
-        self._id = data_id
-        self._owner = owner
-        self._origin = None
+        self.id = data_id
+        self.owner = owner
+        self.origin = None
         self._data_row_count = 0
-        self._merged_verts = {}
-        self._merged_edges = {}
+        self.merged_verts = {}
+        self.merged_edges = {}
         self._ordered_polys = []
         self._is_tangent_space_initialized = False
 
@@ -93,7 +98,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                                          "normal__extra__", "normal_lock__extra__",
                                          "verts", "edges", "polys",
                                          "vert__extra__", "edge__extra__", "poly__extra__"]
-        self._unique_prop_ids = dict((k, "geom_data_{}_{}".format(data_id, k)) for k in prop_ids_ext)
+        self._unique_prop_ids = {k: f"geom_data_{data_id}_{k}" for k in prop_ids_ext}
         self._type_prop_ids = {"vert": [], "edge": [], "poly": [], "normal": ["normal_length"]}
 
         self._vertex_data = vertex_data = {}
@@ -115,7 +120,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         del geoms["poly"]["sel_state"]
         geoms["poly"]["selected"] = None
         geoms["poly"]["unselected"] = None
-        self._toplvl_geom = None
+        self.toplevel_geom = None
         self._toplvl_node = None
 
         self._tmp_geom_pickable = None
@@ -128,25 +133,25 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def cancel_creation(self):
 
-        logging.debug('GeomDataObject "{}" creation cancelled.'.format(self._id))
+        logging.debug(f'GeomDataObject "{self.id}" creation cancelled.')
 
-        if self._origin:
-            self._origin.remove_node()
+        if self.origin:
+            self.origin.remove_node()
 
         self.__dict__.clear()
 
     def destroy(self, unregister=True):
 
-        logging.debug('About to destroy GeomDataObject "{}"...'.format(self._id))
+        logging.debug(f'About to destroy GeomDataObject "{self.id}"...')
 
         if unregister:
             self.unregister()
 
-        self._origin.remove_node()
+        self.origin.remove_node()
 
-        logging.debug('GeomDataObject "{}" destroyed.'.format(self._id))
+        logging.debug(f'GeomDataObject "{self.id}" destroyed.')
         self.__dict__.clear()
-        self._origin = None
+        self.origin = None
 
     def register(self, restore=True, locally=False):
 
@@ -154,7 +159,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for subobj_type in ("vert", "edge", "poly"):
 
-            Mgr.do("register_{}_objs".format(subobj_type), iter(subobjs[subobj_type].values()), restore)
+            Mgr.do(f"register_{subobj_type}_objs", iter(subobjs[subobj_type].values()), restore)
 
             if locally:
                 self._subobjs[subobj_type].update(subobjs[subobj_type])
@@ -167,7 +172,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for subobj_type in ("vert", "edge", "poly"):
 
-            Mgr.do("unregister_{}_objs".format(subobj_type), iter(subobjs[subobj_type].values()))
+            Mgr.do(f"unregister_{subobj_type}_objs", iter(subobjs[subobj_type].values()))
 
             if locally:
 
@@ -177,10 +182,6 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                     del registered_subobjs[subobj_id]
 
         self._subobjs_to_unreg = None
-
-    def get_id(self):
-
-        return self._id
 
     def get_subobjects(self, subobj_type):
 
@@ -194,14 +195,6 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         return self._indexed_subobjs[subobj_type]
 
-    def get_toplevel_geom(self):
-
-        return self._toplvl_geom
-
-    def get_toplevel_node(self):
-
-        return self._toplvl_node
-
     def process_geom_data(self, data, gradual=False):
 
         subobjs = self._subobjs
@@ -209,8 +202,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         edges = subobjs["edge"]
         polys = subobjs["poly"]
         ordered_polys = self._ordered_polys
-        merged_verts = self._merged_verts
-        merged_edges = self._merged_edges
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
         self._poly_smoothing = poly_smoothing = {}
         smoothing_by_id = {}
 
@@ -251,15 +244,15 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                     else:
 
                         vertex = Mgr.do("create_vert", self, pos)
-                        vertex.set_row_index(row_index)
+                        vertex.row_index = row_index
                         row_index += 1
-                        vertex.set_normal(vert_data["normal"])
+                        vertex.normal = vert_data["normal"]
                         vertex.set_uvs(vert_data["uvs"])
 
                         if "color" in vert_data:
-                            vertex.set_color(vert_data["color"])
+                            vertex.color = vert_data["color"]
 
-                        vert_id = vertex.get_id()
+                        vert_id = vertex.id
                         verts[vert_id] = vertex
                         poly_verts_by_pos[pos] = vert_id
                         positions[vert_id] = pos
@@ -289,7 +282,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             vert2 = verts[vert2_id]
             poly_verts.append(vert1)
             edge = Mgr.do("create_edge", self, edge_vert_ids)
-            edge1_id = edge.get_id()
+            edge1_id = edge.id
             vert2.add_edge_id(edge1_id)
             edges[edge1_id] = edge
             poly_edges.append(edge)
@@ -304,7 +297,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 vert2_id = edge_vert_ids[1]
                 vert2 = verts[vert2_id]
                 edge = Mgr.do("create_edge", self, edge_vert_ids)
-                edge_id = edge.get_id()
+                edge_id = edge.id
                 vert1.add_edge_id(edge_id)
                 vert2.add_edge_id(edge_id)
                 edges[edge_id] = edge
@@ -318,8 +311,8 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             polygon = Mgr.do("create_poly", self, poly_tris, poly_edges, poly_verts)
             polygon.update_normal()
             ordered_polys.append(polygon)
-            poly_id = polygon.get_id()
-            normals[poly_id] = normal = V3D(polygon.get_normal().normalized())
+            poly_id = polygon.id
+            normals[poly_id] = normal = V3D(polygon.normal.normalized())
             polys[poly_id] = polygon
             verts_by_pos[poly_id] = poly_verts_by_pos
             edges_by_pos[poly_id] = poly_edges_by_pos
@@ -427,7 +420,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for poly in ordered_polys:
 
-            for edge_id in poly.get_edge_ids():
+            for edge_id in poly.edge_ids:
 
                 merged_edge = merged_edges[edge_id]
                 vert1_id, vert2_id = edges[edge_id]
@@ -494,13 +487,13 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
     def create_geometry(self, obj_type="", gradual=False, restore=False):
 
         if restore:
-            origin = self._origin
+            origin = self.origin
         else:
-            node_name = "{}_geom_origin".format(obj_type)
+            node_name = f"{obj_type}_geom_origin"
             origin = NodePath(node_name)
-            self._origin = origin
+            self.origin = origin
 
-        origin.node().set_final(True)
+        origin.node().final = True
         origin.hide()
 
         subobjs = self._subobjs
@@ -561,17 +554,17 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
                         if not restore:
                             pos_writer.add_data3(vert.get_pos())
-                            normal_writer.add_data3(vert.get_normal())
+                            normal_writer.add_data3(vert.normal)
 
                         processed_verts.append(vert)
 
-                    tris_prim.add_vertex(vert.get_row_index())
+                    tris_prim.add_vertex(vert.row_index)
 
-            for edge in poly.get_edges():
-                row1, row2 = (verts[v_id].get_row_index() for v_id in edge)
+            for edge in poly.edges:
+                row1, row2 = (verts[v_id].row_index for v_id in edge)
                 lines_prim.add_vertices(row1, row2 + count)
 
-            row_index_offset += poly.get_vertex_count()
+            row_index_offset += poly.vertex_count
 
             sel_data.extend(poly)
 
@@ -658,7 +651,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         edge_picking_geom = origin.attach_new_node(geom_node)
         edge_picking_geom.set_state(edge_state)
         edge_picking_geom.hide(all_masks)
-        edge_picking_geom.set_color(self.get_toplevel_object().get_color())
+        edge_picking_geom.set_color(self.toplevel_obj.get_color())
         geoms["edge"]["pickable"] = edge_picking_geom
 
         new_data = vertex_data_edge.set_color(sel_colors["edge"]["unselected"])
@@ -681,7 +674,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         self._toplvl_node = geom_node
         toplvl_geom = origin.attach_new_node(geom_node)
         toplvl_geom.hide(picking_mask)
-        self._toplvl_geom = toplvl_geom
+        self.toplevel_geom = toplvl_geom
         geoms["top"] = toplvl_geom
         origin.node().set_bounds(geom_node.get_bounds())
 
@@ -734,7 +727,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geom_node = GeomNode("normal_picking_geom")
         geom_node.add_geom(geom)
         geom_node.set_bounds(OmniBoundingVolume())
-        geom_node.set_final(True)
+        geom_node.final = True
         normal_picking_geom = origin.attach_new_node(geom_node)
         normal_picking_geom.set_shader_input("normal_length", 1.)
         normal_picking_geom.hide(all_masks)
@@ -747,17 +740,17 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         geom_node = GeomNode("normal_sel_state_geom")
         geom_node.add_geom(geom)
         geom_node.set_bounds(OmniBoundingVolume())
-        geom_node.set_final(True)
+        geom_node.final = True
         normal_sel_state_geom = origin.attach_new_node(geom_node)
         normal_sel_state_geom.set_state(normal_state)
         normal_sel_state_geom.set_shader_input("normal_length", 1.)
         normal_sel_state_geom.hide(all_masks)
         geoms["normal"]["sel_state"] = normal_sel_state_geom
 
-        model = self.get_toplevel_object()
+        model = self.toplevel_obj
         self.update_selection_state(model.is_selected())
 
-        render_mode = GlobalData["render_mode"]
+        render_mode = GD["render_mode"]
 
         if "shaded" in render_mode:
             toplvl_geom.show(render_mask)
@@ -772,7 +765,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         if render_mode == "wire":
             edge_picking_geom.show(picking_mask)
 
-        Mgr.notify("pickable_geom_altered", self.get_toplevel_object())
+        Mgr.notify("pickable_geom_altered", self.toplevel_obj)
 
         logging.debug('+++++++++++ Geometry created +++++++++++++++')
 
@@ -780,16 +773,18 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         self.init_picking_colors()
         self.init_uvs()
-        self._origin.reparent_to(self.get_toplevel_object().get_origin())
-        self._origin.show()
+        self.origin.reparent_to(self.toplevel_obj.origin)
+        self.origin.show()
 
-    def get_vertex_coords(self):
+    @property
+    def vertex_coords(self):
 
         verts = self._subobjs["vert"]
 
-        return dict((vert_id, vert.get_pos()) for vert_id, vert in verts.items())
+        return {vert_id: vert.get_pos() for vert_id, vert in verts.items()}
 
-    def set_vertex_coords(self, coords):
+    @vertex_coords.setter
+    def vertex_coords(self, coords):
 
         verts = self._subobjs["vert"]
         node = self._toplvl_node
@@ -797,20 +792,20 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
 
         for vert_id, pos in coords.items():
-            row = verts[vert_id].get_row_index()
+            row = verts[vert_id].row_index
             pos_writer.set_row(row)
             pos_writer.set_data3(pos)
 
     def bake_texture(self, texture):
 
         vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
-        geom_copy = self._toplvl_geom.copy_to(self.world)
+        geom_copy = self.toplevel_geom.copy_to(GD.world)
         geom_copy.detach_node()
-        geom_copy.set_texture(TextureStage.get_default(), texture)
+        geom_copy.set_texture(TextureStage.default, texture)
         geom_copy.flatten_light()
         geom_copy.apply_texture_colors()
         vertex_data_copy = geom_copy.node().modify_geom(0).modify_vertex_data()
-        index = vertex_data_copy.get_format().get_array_with("color")
+        index = vertex_data_copy.format.get_array_with("color")
         array = vertex_data_copy.modify_array(index)
         self._vertex_data["poly"].set_array(1, array)
         vertex_data.set_array(1, GeomVertexArrayData(array))
@@ -829,9 +824,9 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         col_writer = GeomVertexWriter(vertex_data_copy, "color")
 
         for vert in self._subobjs["vert"].values():
-            row = vert.get_row_index()
+            row = vert.row_index
             col_writer.set_row(row)
-            col_writer.set_data4(vert.get_color())
+            col_writer.set_data4(vert.color)
 
         array = vertex_data_copy.get_array(1)
         self._vertex_data["poly"].set_array(1, GeomVertexArrayData(array))
@@ -863,16 +858,16 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for poly in self._ordered_polys:
 
-            picking_color = get_color_vec(poly.get_picking_color_id(), pickable_id_poly)
-            verts = poly.get_vertices()
+            picking_color = get_color_vec(poly.picking_color_id, pickable_id_poly)
+            verts = poly.vertices
 
             for i in range(len(verts)):
                 col_writer_poly.add_data4(picking_color)
                 ind_writer_poly.add_data1i(poly_index)
 
             for vert in verts:
-                row = vert.get_row_index()
-                picking_color = get_color_vec(vert.get_picking_color_id(), pickable_id_vert)
+                row = vert.row_index
+                picking_color = get_color_vec(vert.picking_color_id, pickable_id_vert)
                 col_writer_vert.set_row(row)
                 col_writer_vert.set_data4(picking_color)
                 ind_writer_vert.set_row(row)
@@ -895,11 +890,11 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         count = self._data_row_count
 
         for edge in edge_subobjs.values():
-            picking_color = get_color_vec(edge.get_picking_color_id(), pickable_id_edge)
-            row_index = vert_subobjs[edge[0]].get_row_index()
+            picking_color = get_color_vec(edge.picking_color_id, pickable_id_edge)
+            row_index = vert_subobjs[edge[0]].row_index
             picking_colors[row_index] = picking_color
             indices[row_index] = edge_index
-            row_index = vert_subobjs[edge[1]].get_row_index() + count
+            row_index = vert_subobjs[edge[1]].row_index + count
             picking_colors[row_index] = picking_color
             indices[row_index] = edge_index
             indexed_edges[edge_index] = edge
@@ -941,7 +936,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         poly_index = 0
 
         for vert in verts.values():
-            row = vert.get_row_index()
+            row = vert.row_index
             ind_writer_vert.set_row(row)
             ind_writer_vert.set_data1i(vert_index)
             indexed_verts[vert_index] = vert
@@ -949,7 +944,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for edge in edges.values():
 
-            for row in edge.get_row_indices():
+            for row in edge.row_indices:
                 ind_writer_edge.set_row(row)
                 ind_writer_edge.set_data1i(edge_index)
 
@@ -958,7 +953,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         for poly in polys.values():
 
-            for row in poly.get_row_indices():
+            for row in poly.row_indices:
                 ind_writer_poly.set_row(row)
                 ind_writer_poly.set_data1i(poly_index)
 
@@ -980,11 +975,11 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             poly = polys[poly_id]
             poly.update_tangent_space(tangent_flip, bitangent_flip)
 
-            for vert in poly.get_vertices():
-                row = vert.get_row_index()
+            for vert in poly.vertices:
+                row = vert.row_index
                 tan_writer.set_row(row)
                 bitan_writer.set_row(row)
-                tangent, bitangent = vert.get_tangent_space()
+                tangent, bitangent = vert.tangent_space
                 tan_writer.set_data3(tangent)
                 bitan_writer.set_data3(bitangent)
 
@@ -999,7 +994,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
     def init_tangent_space(self):
 
         if not self._is_tangent_space_initialized:
-            tangent_flip, bitangent_flip = self.get_toplevel_object().get_tangent_space_flip()
+            tangent_flip, bitangent_flip = self.toplevel_obj.get_tangent_space_flip()
             self.update_tangent_space(tangent_flip, bitangent_flip)
 
     def is_tangent_space_initialized(self):
@@ -1014,7 +1009,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         geoms = self._geoms
         picking_mask = Mgr.get("picking_mask")
-        render_mode = GlobalData["render_mode"]
+        render_mode = GD["render_mode"]
 
         if is_selected:
 
@@ -1030,18 +1025,18 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 geoms["poly"]["pickable"].hide(picking_mask)
                 geoms["edge"]["pickable"].show(picking_mask)
 
-            self.set_wireframe_color(self.get_toplevel_object().get_color())
+            self.set_wireframe_color(self.toplevel_obj.get_color())
 
     def update_render_mode(self, is_selected):
 
-        render_mode = GlobalData["render_mode"]
+        render_mode = GD["render_mode"]
         render_mask = Mgr.get("render_mask")
         picking_mask = Mgr.get("picking_mask")
         geoms = self._geoms
 
         if is_selected:
 
-            obj_lvl = GlobalData["active_obj_level"]
+            obj_lvl = GD["active_obj_level"]
 
         else:
 
@@ -1064,7 +1059,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         elif is_selected:
             geoms["edge"]["sel_state"].set_color((1., 1., 1., 1.))
         else:
-            geoms["edge"]["sel_state"].set_color(self.get_toplevel_object().get_color())
+            geoms["edge"]["sel_state"].set_color(self.toplevel_obj.get_color())
 
         if "shaded" in render_mode:
             if obj_lvl == "poly" or (obj_lvl == "top" and self._has_poly_tex_proj):
@@ -1090,7 +1085,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             geoms[lvl]["pickable"].hide(picking_mask)
             geoms[lvl]["sel_state"].hide(render_mask)
 
-        if GlobalData["subobj_edit_options"]["pick_via_poly"]:
+        if GD["subobj_edit_options"]["pick_via_poly"]:
             self.restore_selection_backup("poly")
 
         self.set_normal_shader(False)
@@ -1103,7 +1098,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             geoms["poly"]["selected"].hide(render_mask)
             geoms["poly"]["unselected"].hide(render_mask)
 
-        self.update_render_mode(self.get_toplevel_object().is_selected())
+        self.update_render_mode(self.toplevel_obj.is_selected())
 
     def show_subobj_level(self, subobj_lvl):
 
@@ -1139,7 +1134,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
                 geoms[other_lvl]["pickable"].hide(all_masks)
                 geoms[other_lvl]["sel_state"].hide(all_masks)
 
-        if GlobalData["subobj_edit_options"]["pick_via_poly"]:
+        if GD["subobj_edit_options"]["pick_via_poly"]:
             if subobj_lvl in ("vert", "edge", "normal"):
                 self.create_selection_backup("poly")
             else:
@@ -1150,12 +1145,12 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
         else:
             self.set_normal_shader(False)
 
-        self.update_render_mode(self.get_toplevel_object().is_selected())
+        self.update_render_mode(self.toplevel_obj.is_selected())
 
     def set_pickable(self, pickable=True):
 
         geoms = self._geoms
-        active_obj_lvl = GlobalData["active_obj_level"]
+        active_obj_lvl = GD["active_obj_level"]
         picking_mask = Mgr.get("picking_mask")
 
         if pickable:
@@ -1180,7 +1175,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
     def make_polys_pickable(self, pickable=True):
 
-        if GlobalData["active_obj_level"] == "poly":
+        if GD["active_obj_level"] == "poly":
             return
 
         picking_mask = Mgr.get("picking_mask")
@@ -1207,7 +1202,7 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         geoms = self._geoms
 
-        if GlobalData["subobj_edit_options"]["pick_via_poly"]:
+        if GD["subobj_edit_options"]["pick_via_poly"]:
 
             self.create_selection_backup("poly")
             geoms["poly"]["selected"].set_state(Mgr.get("temp_poly_selection_state"))
@@ -1238,12 +1233,12 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
             self._tmp_geom_sel_state = None
             self._tmp_row_indices = {}
 
-            if GlobalData["subobj_edit_options"]["pick_by_aiming"]:
+            if GD["subobj_edit_options"]["pick_by_aiming"]:
                 aux_picking_root = Mgr.get("aux_picking_root")
                 tmp_geom_pickable = aux_picking_root.find("**/tmp_geom_pickable")
                 tmp_geom_pickable.remove_node()
                 aux_picking_cam = Mgr.get("aux_picking_cam")
-                aux_picking_cam.set_active(False)
+                aux_picking_cam.active = False
                 Mgr.do("end_drawing_aux_picking_viz")
 
         # Allow picking polys instead of the subobjects of the given type;
@@ -1290,41 +1285,22 @@ class GeomDataObject(GeomSelectionBase, GeomTransformBase, GeomHistoryBase,
 
         return True
 
-    def set_owner(self, owner):
-
-        self._owner = owner
-
-    def get_owner(self):
-
-        return self._owner
-
     def get_toplevel_object(self, get_group=False):
 
-        return self._owner.get_toplevel_object(get_group)
+        return self.owner.get_toplevel_object(get_group)
 
-    def set_origin(self, origin):
+    @property
+    def toplevel_obj(self):
 
-        self._origin = origin
-
-    def get_origin(self):
-
-        return self._origin
-
-    def get_merged_vertices(self):
-
-        return self._merged_verts
-
-    def get_merged_edges(self):
-
-        return self._merged_edges
+        return self.get_toplevel_object()
 
     def get_merged_vertex(self, vert_id):
 
-        return self._merged_verts.get(vert_id)
+        return self.merged_verts.get(vert_id)
 
     def get_merged_edge(self, edge_id):
 
-        return self._merged_edges.get(edge_id)
+        return self.merged_edges.get(edge_id)
 
     def get_property_ids(self, unique=False):
 
@@ -1365,7 +1341,7 @@ class GeomDataManager(ObjectManager):
             "edge_bridge_segments": 1
         }
         copier = dict.copy
-        GlobalData.set_default("subobj_edit_options", subobj_edit_options, copier)
+        GD.set_default("subobj_edit_options", subobj_edit_options, copier)
 
         # Define GeomVertexArrayFormats for the various vertex attributes.
 
@@ -1393,7 +1369,7 @@ class GeomDataManager(ObjectManager):
 
         for i in range(1, 8):
             uv_array = GeomVertexArrayFormat()
-            uv_array.add_column(InternalName.make("texcoord.{:d}".format(i)), 2, Geom.NT_float32, Geom.C_texcoord)
+            uv_array.add_column(InternalName.make(f"texcoord.{i}"), 2, Geom.NT_float32, Geom.C_texcoord)
             uv_arrays.append(uv_array)
 
         # Define a "basic" GeomVertexFormat that accommodates only position and color.
@@ -1536,27 +1512,27 @@ class GeomDataManager(ObjectManager):
 
     def __start_drawing_line(self, line, world_start_pos=None):
 
-        cam = self.cam()
-        cam_pos = cam.get_pos(self.world)
-        normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
+        cam = GD.cam()
+        cam_pos = cam.get_pos(GD.world)
+        normal = GD.world.get_relative_vector(cam, Vec3.forward()).normalized()
         plane = Plane(normal, cam_pos + normal * 10.)
         point = Point3()
 
         if world_start_pos is None:
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
+            screen_pos = GD.mouse_watcher.get_mouse()
             near_point = Point3()
             far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: GD.world.get_relative_point(cam, point)
             plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
 
         else:
 
-            p = cam_pos if self.cam.lens_type == "persp" else world_start_pos - normal * 100.
+            p = cam_pos if GD.cam.lens_type == "persp" else world_start_pos - normal * 100.
             plane.intersects_line(point, p, world_start_pos)
 
         line_node = line.node()
@@ -1567,7 +1543,7 @@ class GeomDataManager(ObjectManager):
             pos_writer.set_row(0)
             pos_writer.set_data3(point)
 
-        line.reparent_to(self.world)
+        line.reparent_to(GD.world)
         line_type = "rubber_band" if line is self._dashed_line else "aux_picking_viz"
         self._draw_start_pos[line_type] = point
         self._draw_plane = plane
@@ -1586,12 +1562,12 @@ class GeomDataManager(ObjectManager):
 
     def __set_dashed_line_start_pos(self, start_pos):
 
-        cam = self.cam()
-        cam_pos = cam.get_pos(self.world)
-        normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
+        cam = GD.cam()
+        cam_pos = cam.get_pos(GD.world)
+        normal = GD.world.get_relative_vector(cam, Vec3.forward()).normalized()
         plane = Plane(normal, cam_pos + normal * 10.)
         point = Point3()
-        p = cam_pos if self.cam.lens_type == "persp" else start_pos - normal * 100.
+        p = cam_pos if GD.cam.lens_type == "persp" else start_pos - normal * 100.
         plane.intersects_line(point, p, start_pos)
         self._draw_start_pos["rubber_band"] = point
         self._draw_plane = plane
@@ -1613,9 +1589,9 @@ class GeomDataManager(ObjectManager):
         elif not self._draw_plane:
             return
         else:
-            cam_pos = self.cam().get_pos(self.world)
+            cam_pos = GD.cam().get_pos(GD.world)
             normal = self._draw_plane.get_normal()
-            p = cam_pos if self.cam.lens_type == "persp" else end_pos - normal * 100.
+            p = cam_pos if GD.cam.lens_type == "persp" else end_pos - normal * 100.
             end_point = Point3()
             self._draw_plane.intersects_line(end_point, p, end_pos)
 
@@ -1627,13 +1603,13 @@ class GeomDataManager(ObjectManager):
             pos_writer.set_row(1)
             pos_writer.set_data3(end_point)
 
-        vp_data = GlobalData["viewport"]
+        vp_data = GD["viewport"]
         w, h = vp_data["size_aux" if vp_data[2] == "main" else "size"]
         s = max(w, h) / 800.
         length = (end_point - start_point).length() * s * 5.
 
-        if self.cam.lens_type == "ortho":
-            length /= 40. * self.cam.zoom
+        if GD.cam.lens_type == "ortho":
+            length /= 40. * GD.cam.zoom
 
         vertex_data = line_node.modify_geom(0).modify_vertex_data()
         uv_writer = GeomVertexWriter(vertex_data, "texcoord")
@@ -1642,15 +1618,15 @@ class GeomDataManager(ObjectManager):
 
     def __draw_line(self, line):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.mouse_watcher.has_mouse():
             return
 
-        screen_pos = self.mouse_watcher.get_mouse()
-        cam = self.cam()
+        screen_pos = GD.mouse_watcher.get_mouse()
+        cam = GD.cam()
         near_point = Point3()
         far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        GD.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.world.get_relative_point(cam, point)
         point = Point3()
         self._draw_plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
 

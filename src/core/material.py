@@ -8,18 +8,26 @@ class Material:
 
         state = self.__dict__.copy()
         state["_owner_ids"] = []
+        state["_id"] = state.pop("id")
+        state["_name"] = state.pop("name")
 
         return state
 
+    def __setstate__(self, state):
+
+        state["id"] = state.pop("_id")
+        state["name"] = state.pop("_name")
+        self.__dict__ = state
+
     def __str__(self):
 
-        return self._name
+        return self.name
 
     def __init__(self, material_id, name, shows_vert_colors=None, flat_color=None, base_material=None,
                  base_props=None, tex_maps=None, layers=None, uses_layers=None):
 
-        self._id = material_id
-        self._name = name
+        self.id = material_id
+        self.name = name
         self._shows_vert_colors = False if shows_vert_colors is None else shows_vert_colors
         self._flat_color = (1., 1., 1., 1.) if flat_color is None else flat_color
         self._base_mat = base_material if base_material else BaseMaterial(name)
@@ -29,8 +37,7 @@ class Material:
         if base_props:
             self._base_props = base_props
         else:
-            props = dict((prop_id, {"value": (0., 0., 0., 1.), "on": False})
-                         for prop_id in prop_ids)
+            props = {prop_id: {"value": (0., 0., 0., 1.), "on": False} for prop_id in prop_ids}
             props["diffuse"]["value"] = (1., 1., 1., 1.)
             props["ambient"]["value"] = (1., 1., 1., 1.)
             props["alpha"]["value"] = 1.
@@ -53,13 +60,12 @@ class Material:
             map_types = ("color", "normal", "height", "normal+height", "gloss",
                          "color+gloss", "normal+gloss", "glow", "color+glow",
                          "vertex color")
-            self._tex_maps = dict((t, Mgr.do("create_tex_map", t))
-                                  for t in map_types)
-            self._tex_maps["color"].set_active(True)
+            self._tex_maps = {t: Mgr.do("create_tex_map", t) for t in map_types}
+            self._tex_maps["color"].active = True
 
         self._owner_ids = []
         self._selected_map_type = "color"
-        self._selected_layer_id = self.get_layers()[0].get_id()
+        self._selected_layer_id = self.get_layers()[0].id
 
         Mgr.do("register_material", self)
 
@@ -102,7 +108,7 @@ class Material:
             return False
 
         other_base_mat = BaseMaterial(other.get_base_material())
-        other_base_mat.set_name(self._base_mat.get_name())
+        other_base_mat.name = self._base_mat.name
 
         if self._base_mat != other_base_mat:
             return False
@@ -129,28 +135,13 @@ class Material:
 
         return True
 
-    def get_id(self):
-
-        return self._id
-
-    def set_name(self, name):
-
-        if self._name == name:
-            return
-
-        self._name = name
-
-    def get_name(self):
-
-        return self._name
-
     def set_property(self, prop_id, value):
 
         base_props = self._base_props
 
         if prop_id == "name":
 
-            self.set_name(value)
+            self.name = value
 
         elif prop_id == "show_vert_colors":
 
@@ -180,7 +171,7 @@ class Material:
 
                     for owner_id in self._owner_ids:
                         owner = Mgr.get("model", owner_id)
-                        origin = owner.get_origin()
+                        origin = owner.origin
                         origin.set_transparency(attrib)
                         origin.set_alpha_scale(value)
 
@@ -190,14 +181,14 @@ class Material:
 
                     for owner_id in self._owner_ids:
                         owner = Mgr.get("model", owner_id)
-                        origin = owner.get_origin()
+                        origin = owner.origin
                         origin.set_transparency(attrib)
                         origin.clear_color_scale()
 
                 diffuse_props["value"] = tuple(diffuse_value)
 
                 if diffuse_props["on"]:
-                    bm.set_diffuse(tuple(diffuse_value))
+                    bm.diffuse = tuple(diffuse_value)
 
             if prop_id == "diffuse":
                 val = list(val)
@@ -212,7 +203,7 @@ class Material:
             elif prop_id == "specular":
                 bm.set_specular(tuple(val)) if on else bm.clear_specular()
             elif prop_id == "shininess":
-                bm.set_shininess(val)
+                bm.shininess = val
             elif prop_id == "alpha":
                 set_alpha(val, on)
 
@@ -232,17 +223,17 @@ class Material:
 
             self._selected_map_type = value
             tex_map = self._tex_maps[value]
-            on = tex_map.is_active()
+            on = tex_map.active
             rgb_filename, alpha_filename = tex_map.get_tex_filenames()
-            border_color = tex_map.get_border_color()
-            wrap_u = tex_map.get_wrap_mode("u")
-            wrap_v = tex_map.get_wrap_mode("v")
+            border_color = tex_map.border_color
+            wrap_u = tex_map.wrap_u
+            wrap_v = tex_map.wrap_v
             wrap_lock = tex_map.are_wrap_modes_locked()
-            filter_min = tex_map.get_filter_type("min")
-            filter_mag = tex_map.get_filter_type("mag")
-            degree = tex_map.get_anisotropic_degree()
+            filter_min = tex_map.minfilter
+            filter_mag = tex_map.magfilter
+            degree = tex_map.anisotropic_degree
             transform = tex_map.get_transform()
-            mat_id = self._id
+            mat_id = self.id
             Mgr.update_remotely("material_prop", mat_id, "tex_map_on", on)
             Mgr.update_remotely("material_prop", mat_id,
                                 "tex_map_file_main", rgb_filename)
@@ -267,29 +258,29 @@ class Material:
 
         elif prop_id == "tex_map_on":
 
-            self.set_map_active(self._selected_map_type, is_active=value)
+            self.set_map_active(self._selected_map_type, active=value)
 
         elif prop_id == "tex_map_border_color":
 
             tex_map = self._tex_maps[self._selected_map_type]
-            tex_map.set_border_color(value)
+            tex_map.border_color = value
 
         elif prop_id == "tex_map_wrap_u":
 
             tex_map = self._tex_maps[self._selected_map_type]
-            tex_map.set_wrap_mode("u", value)
+            tex_map.wrap_u = value
 
             if tex_map.are_wrap_modes_locked():
-                Mgr.update_remotely("material_prop", self._id,
+                Mgr.update_remotely("material_prop", self.id,
                                     "tex_map_wrap_v", value)
 
         elif prop_id == "tex_map_wrap_v":
 
             tex_map = self._tex_maps[self._selected_map_type]
-            tex_map.set_wrap_mode("v", value)
+            tex_map.wrap_v = value
 
             if tex_map.are_wrap_modes_locked():
-                Mgr.update_remotely("material_prop", self._id,
+                Mgr.update_remotely("material_prop", self.id,
                                     "tex_map_wrap_u", value)
 
         elif prop_id == "tex_map_wrap_lock":
@@ -298,25 +289,25 @@ class Material:
             tex_map.lock_wrap_modes(value)
 
             if value:
-                mode_id = tex_map.get_wrap_mode("u")
-                Mgr.update_remotely("material_prop", self._id,
+                mode_id = tex_map.wrap_u
+                Mgr.update_remotely("material_prop", self.id,
                                     "tex_map_wrap_v", mode_id)
 
         elif prop_id == "tex_map_filter_min":
 
             tex_map = self._tex_maps[self._selected_map_type]
-            tex_map.set_filter_type("min", value)
+            tex_map.minfilter = value
 
         elif prop_id == "tex_map_filter_mag":
 
             tex_map = self._tex_maps[self._selected_map_type]
-            tex_map.set_filter_type("mag", value)
+            tex_map.magfilter = value
 
         elif prop_id == "tex_map_anisotropic_degree":
 
             value = max(1, min(value, 16))
             tex_map = self._tex_maps[self._selected_map_type]
-            tex_map.set_anisotropic_degree(value)
+            tex_map.anisotropic_degree = value
 
         elif prop_id == "tex_map_offset_u":
 
@@ -342,8 +333,7 @@ class Material:
 
     def show_vertex_colors(self, shows_vert_colors=True):
 
-        origins = [Mgr.get("model", owner_id).get_origin()
-                   for owner_id in self._owner_ids]
+        origins = [Mgr.get("model", owner_id).origin for owner_id in self._owner_ids]
 
         if shows_vert_colors:
             for origin in origins:
@@ -360,8 +350,7 @@ class Material:
 
     def set_flat_color(self, color):
 
-        origins = [Mgr.get("model", owner_id).get_origin()
-                   for owner_id in self._owner_ids]
+        origins = [Mgr.get("model", owner_id).origin for owner_id in self._owner_ids]
 
         if not self._shows_vert_colors:
             for origin in origins:
@@ -425,14 +414,12 @@ class Material:
         if self._uses_layers == uses_layers:
             return
 
-        origins = [Mgr.get("model", owner_id).get_origin()
-                   for owner_id in self._owner_ids]
-        layers = [l for group in self._layers.values()
-                  for l in group if l.is_active()]
+        origins = [Mgr.get("model", owner_id).origin for owner_id in self._owner_ids]
+        layers = [l for group in self._layers.values() for l in group if l.active]
         color_map = self._tex_maps["color"]
 
-        if color_map.is_active():
-            color_tex_stage = color_map.get_tex_stage()
+        if color_map.active:
+            color_tex_stage = color_map.tex_stage
         else:
             color_map = None
 
@@ -446,7 +433,7 @@ class Material:
             for layer in layers:
 
                 texture = layer.get_texture()
-                tex_stage = layer.get_tex_stage()
+                tex_stage = layer.tex_stage
                 t = layer.get_transform()
                 tr_state = TransformState.make_pos_rotate_scale2d(VBase2(*t["offset"]),
                                                                   t["rotate"][0],
@@ -464,7 +451,7 @@ class Material:
 
             for layer in layers:
 
-                tex_stage = layer.get_tex_stage()
+                tex_stage = layer.tex_stage
 
                 for origin in origins:
                     origin.clear_texture(tex_stage)
@@ -506,22 +493,21 @@ class Material:
 
     def get_layers(self):
 
-        d = dict((l.get_sort(), l) for group in self._layers.values() for l in group)
+        d = {l.sort: l for group in self._layers.values() for l in group}
 
         return [d[i] for i in sorted(d)]
 
     def add_layer(self, layer):
 
         count = sum([len(group) for group in self._layers.values()])
-        layer.set_sort(count)
-        self._layers.setdefault(layer.get_uv_set_id(), []).append(layer)
+        layer.sort = count
+        self._layers.setdefault(layer.uv_set_id, []).append(layer)
 
-        if not (self._uses_layers and layer.is_active()):
+        if not (self._uses_layers and layer.active):
             return
 
-        origins = [Mgr.get("model", owner_id).get_origin()
-                   for owner_id in self._owner_ids]
-        tex_stage = layer.get_tex_stage()
+        origins = [Mgr.get("model", owner_id).origin for owner_id in self._owner_ids]
+        tex_stage = layer.tex_stage
         texture = layer.get_texture()
         t = layer.get_transform()
         tr_state = TransformState.make_pos_rotate_scale2d(VBase2(*t["offset"]),
@@ -538,7 +524,7 @@ class Material:
 
     def set_layer_uv_set_id(self, layer, uv_set_id):
 
-        old_id = layer.get_uv_set_id()
+        old_id = layer.uv_set_id
 
         if layer.set_uv_set_id(uv_set_id):
 
@@ -553,20 +539,20 @@ class Material:
 
     def reapply_layer(self, layer):
 
-        if not (self._uses_layers and layer.is_active()):
+        if not (self._uses_layers and layer.active):
             return
 
-        tex_stage = layer.get_tex_stage()
+        tex_stage = layer.tex_stage
         texture = layer.get_texture()
 
         if texture:
             for owner_id in self._owner_ids:
-                origin = Mgr.get("model", owner_id).get_origin()
+                origin = Mgr.get("model", owner_id).origin
                 origin.set_texture(tex_stage, texture)
 
     def remove_layer(self, layer):
 
-        uv_set_id = layer.get_uv_set_id()
+        uv_set_id = layer.uv_set_id
         self._layers[uv_set_id].remove(layer)
 
         if not self._layers[uv_set_id]:
@@ -575,15 +561,15 @@ class Material:
         layers = self.get_layers()
 
         for i, l in enumerate(layers):
-            l.set_sort(i)
+            l.sort = i
 
-        if not (self._uses_layers and layer.is_active()):
+        if not (self._uses_layers and layer.active):
             return
 
-        tex_stage = layer.get_tex_stage()
+        tex_stage = layer.tex_stage
 
         for owner_id in self._owner_ids:
-            origin = Mgr.get("model", owner_id).get_origin()
+            origin = Mgr.get("model", owner_id).origin
             origin.clear_texture(tex_stage)
             origin.clear_tex_transform(tex_stage)
 
@@ -592,7 +578,7 @@ class Material:
         if uv_set_id not in self._layers:
             return []
 
-        stages = [l.get_tex_stage() for l in self._layers[uv_set_id]]
+        stages = [l.tex_stage for l in self._layers[uv_set_id]]
 
         if uv_set_id == 0:
             map_types = ("color", "normal", "height", "normal+height", "gloss",
@@ -624,10 +610,10 @@ class Material:
 
         texture = tex_map.set_texture(rgb_filename, alpha_filename)
 
-        if not tex_map.is_active():
+        if not tex_map.active:
             return
 
-        tex_stage = tex_map.get_tex_stage()
+        tex_stage = tex_map.tex_stage
 
         is_color_map = map_type in ("color", "layer")
         is_color_map_used = self._uses_layers != (layer_id is None)
@@ -641,19 +627,19 @@ class Material:
 
                 if texture:
                     for owner in owners:
-                        owner.get_geom_object().bake_texture(texture)
+                        owner.geom_obj.bake_texture(texture)
                 else:
                     for owner in owners:
-                        owner.get_geom_object().reset_vertex_colors()
+                        owner.geom_obj.reset_vertex_colors()
 
                 return
 
             if texture:
 
                 for owner in owners:
-                    owner.get_origin().set_texture(tex_stage, texture)
+                    owner.origin.set_texture(tex_stage, texture)
 
-                if "normal" in map_type and tex_map.is_active():
+                if "normal" in map_type and tex_map.active:
                     for owner in owners:
                         if not owner.has_tangent_space():
                             owner.init_tangent_space()
@@ -661,7 +647,7 @@ class Material:
             else:
 
                 for owner in owners:
-                    owner.get_origin().clear_texture(tex_stage)
+                    owner.origin.clear_texture(tex_stage)
 
     def get_texture(self, map_type, layer_id=None):
 
@@ -704,11 +690,11 @@ class Material:
         tex_map.set_transform(transf_type, comp_index, value)
         transform = tex_map.get_transform(transf_type)
         transform = transform[0] if transf_type == "rotate" else VBase2(*transform)
-        tex_stage = tex_map.get_tex_stage()
+        tex_stage = tex_map.tex_stage
 
         for owner_id in self._owner_ids:
 
-            origin = Mgr.get("model", owner_id).get_origin()
+            origin = Mgr.get("model", owner_id).origin
 
             if transf_type == "offset":
                 origin.set_tex_offset(tex_stage, transform)
@@ -729,43 +715,43 @@ class Material:
 
         return tex_map.get_transform()
 
-    def set_map_active(self, map_type, layer_id=None, is_active=True):
+    def set_map_active(self, map_type, layer_id=None, active=True):
 
         if layer_id is None:
             tex_map = self._tex_maps[map_type]
         else:
             tex_map = Mgr.get("tex_layer", layer_id)
 
-        if not tex_map or tex_map.is_active() == is_active:
+        if not tex_map or tex_map.active == active:
             return
 
-        if is_active:
+        if active:
             if "+" in map_type:
                 for mtype in map_type.split("+"):
-                    self.set_map_active(mtype, is_active=False)
+                    self.set_map_active(mtype, active=False)
             if map_type == "color+gloss":
-                self.set_map_active("color+glow", is_active=False)
-                self.set_map_active("normal+gloss", is_active=False)
+                self.set_map_active("color+glow", active=False)
+                self.set_map_active("normal+gloss", active=False)
             elif map_type == "color+glow":
-                self.set_map_active("color+gloss", is_active=False)
+                self.set_map_active("color+gloss", active=False)
             elif map_type == "color":
-                self.set_map_active("color+gloss", is_active=False)
-                self.set_map_active("color+glow", is_active=False)
+                self.set_map_active("color+gloss", active=False)
+                self.set_map_active("color+glow", active=False)
             elif map_type in ("normal", "height"):
                 if map_type == "normal":
-                    self.set_map_active("normal+gloss", is_active=False)
-                self.set_map_active("normal+height", is_active=False)
+                    self.set_map_active("normal+gloss", active=False)
+                self.set_map_active("normal+height", active=False)
             elif map_type in ("glow", "gloss"):
                 if map_type == "gloss":
-                    self.set_map_active("normal+gloss", is_active=False)
-                self.set_map_active("color+" + map_type, is_active=False)
+                    self.set_map_active("normal+gloss", active=False)
+                self.set_map_active("color+" + map_type, active=False)
             elif map_type == "normal+gloss":
-                self.set_map_active("color+gloss", is_active=False)
-                self.set_map_active("normal+height", is_active=False)
+                self.set_map_active("color+gloss", active=False)
+                self.set_map_active("normal+height", active=False)
             elif map_type == "normal+height":
-                self.set_map_active("normal+gloss", is_active=False)
+                self.set_map_active("normal+gloss", active=False)
 
-        tex_map.set_active(is_active)
+        tex_map.active = active
 
         is_color_map = map_type in ("color", "layer")
         is_color_map_used = self._uses_layers != (layer_id is None)
@@ -778,18 +764,18 @@ class Material:
 
             if map_type == "vertex color":
 
-                if is_active:
+                if active:
                     for owner in owners:
-                        owner.get_geom_object().bake_texture(texture)
+                        owner.geom_obj.bake_texture(texture)
                 else:
                     for owner in owners:
-                        owner.get_geom_object().reset_vertex_colors()
+                        owner.geom_obj.reset_vertex_colors()
 
                 return
 
-            tex_stage = tex_map.get_tex_stage()
+            tex_stage = tex_map.tex_stage
 
-            if is_active:
+            if active:
                 t = tex_map.get_transform()
                 tr_state = TransformState.make_pos_rotate_scale2d(VBase2(*t["offset"]),
                                                                   t["rotate"][0],
@@ -802,11 +788,11 @@ class Material:
                 handle_transform = lambda origin: origin.clear_tex_transform(tex_stage)
 
             for owner in owners:
-                origin = owner.get_origin()
+                origin = owner.origin
                 handle_tex(origin)
                 handle_transform(origin)
 
-            if is_active and "normal" in map_type:
+            if active and "normal" in map_type:
                 for owner in owners:
                     if not owner.has_tangent_space():
                         owner.init_tangent_space()
@@ -821,7 +807,7 @@ class Material:
         if not tex_map:
             return False
 
-        return tex_map.is_active()
+        return tex_map.active
 
     def has_tex_maps(self):
 
@@ -835,7 +821,7 @@ class Material:
 
         change = False
         owners = [Mgr.get("model", owner_id) for owner_id in self._owner_ids]
-        origins = [owner.get_origin() for owner in owners]
+        origins = [owner.origin for owner in owners]
 
         for map_type, tex_map in self._tex_maps.items():
 
@@ -847,14 +833,14 @@ class Material:
                 if map_type == "vertex color":
 
                     for owner in owners:
-                        owner.get_geom_object().reset_vertex_colors()
+                        owner.geom_obj.reset_vertex_colors()
 
                     continue
 
                 if map_type == "color" and self._uses_layers:
                     continue
 
-                tex_stage = tex_map.get_tex_stage()
+                tex_stage = tex_map.tex_stage
 
                 for origin in origins:
                     origin.clear_texture(tex_stage)
@@ -864,12 +850,12 @@ class Material:
 
     def apply(self, owner, force=False):
 
-        owner_id = owner.get_id()
+        owner_id = owner.id
 
         if not force and owner_id in self._owner_ids:
             return False
 
-        origin = owner.get_origin()
+        origin = owner.origin
         origin.set_color_off() if self._shows_vert_colors else origin.set_color(self._flat_color)
         origin.set_material(self._base_mat)
 
@@ -882,7 +868,7 @@ class Material:
 
         for map_type, tex_map in self._tex_maps.items():
 
-            if not tex_map.is_active() or (map_type == "color" and self._uses_layers):
+            if not tex_map.active or (map_type == "color" and self._uses_layers):
                 continue
 
             texture = tex_map.get_texture()
@@ -890,13 +876,13 @@ class Material:
             if map_type == "vertex color":
 
                 if texture:
-                    owner.get_geom_object().bake_texture(texture)
+                    owner.geom_obj.bake_texture(texture)
                 else:
-                    owner.get_geom_object().reset_vertex_colors()
+                    owner.geom_obj.reset_vertex_colors()
 
                 continue
 
-            tex_stage = tex_map.get_tex_stage()
+            tex_stage = tex_map.tex_stage
             t = tex_map.get_transform()
             tr_state = TransformState.make_pos_rotate_scale2d(VBase2(*t["offset"]),
                                                               t["rotate"][0],
@@ -915,12 +901,12 @@ class Material:
         if self._uses_layers:
 
             layers = [l for group in self._layers.values()
-                      for l in group if l.is_active()]
+                      for l in group if l.active]
 
             for layer in layers:
 
                 texture = layer.get_texture()
-                tex_stage = layer.get_tex_stage()
+                tex_stage = layer.tex_stage
                 t = layer.get_transform()
                 tr_state = TransformState.make_pos_rotate_scale2d(VBase2(*t["offset"]),
                                                                   t["rotate"][0],
@@ -939,13 +925,13 @@ class Material:
 
     def remove(self, owner):
 
-        owner_id = owner.get_id()
+        owner_id = owner.id
 
         if not owner_id in self._owner_ids:
             return False
 
-        owner.get_geom_object().reset_vertex_colors()
-        origin = owner.get_origin()
+        owner.geom_obj.reset_vertex_colors()
+        origin = owner.origin
 
         if origin:
             origin.clear_material()
@@ -960,7 +946,7 @@ class Material:
         if not self._owner_ids:
             Mgr.do("unregister_material", self)
 
-        if owner.get_geom_type() != "basic_geom":
+        if owner.geom_type != "basic_geom":
             if owner.has_tangent_space():
                 owner.clear_tangent_space()
 
@@ -986,8 +972,8 @@ class Material:
 
         for owner in (Mgr.get("model", owner_id) for owner_id in self._owner_ids):
 
-            owner.get_geom_object().reset_vertex_colors()
-            origin = owner.get_origin()
+            owner.geom_obj.reset_vertex_colors()
+            origin = owner.origin
             origin.clear_material()
             origin.clear_texture()
             origin.clear_tex_transform()
@@ -995,7 +981,7 @@ class Material:
             origin.set_transparency(TransparencyAttrib.M_none)
             origin.set_color(owner.get_color())
 
-            if owner.get_geom_type() != "basic_geom":
+            if owner.geom_type != "basic_geom":
                 if owner.has_tangent_space():
                     owner.clear_tangent_space()
 
@@ -1060,7 +1046,7 @@ class MaterialManager:
         shininess = {"value": 10., "on": True}
         alpha = {"value": 1., "on": False}
         defaults = (white.copy(), white.copy(), black.copy(), black.copy(), shininess, alpha)
-        base_props = dict((prop_id, default) for prop_id, default in zip(prop_ids, defaults))
+        base_props = {prop_id: default for prop_id, default in zip(prop_ids, defaults)}
         self._base_props = base_props
 
         self.__init_new_material(base_props, select=True)
@@ -1073,8 +1059,7 @@ class MaterialManager:
 
             ready_defaults = (white.copy(), white.copy(), black.copy(), black.copy(),
                               shininess.copy(), alpha.copy())
-            self._ready_props = dict((prop_id, default)
-                                     for prop_id, default in zip(prop_ids, ready_defaults))
+            self._ready_props = {k: v for k, v in zip(prop_ids, ready_defaults)}
 
             for prop_id, default in reversed(list(zip(prop_ids, ready_defaults))):
                 Mgr.update_remotely("ready_material_prop", prop_id, default)
@@ -1098,11 +1083,11 @@ class MaterialManager:
              exit_owner_picking_mode)
         bind("material_owner_picking_mode", "cancel material owner picking", "mouse3",
              exit_owner_picking_mode)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("material_owner_picking_mode", "mat owner ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("material_owner_picking_mode", "mat owner ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         mode_text = "Pick material owner"
         info_text = "LMB to pick object; RMB to end"
         status_data["pick_material_owner"] = {"mode": mode_text, "info": info_text}
@@ -1114,27 +1099,27 @@ class MaterialManager:
         def get_grouped_models(group, models):
 
             for member in group.get_members():
-                if member.get_type() == "model":
+                if member.type == "model":
                     models.append(member)
-                elif member.get_type() == "group" and not member.is_open():
+                elif member.type == "group" and not member.is_open():
                     get_grouped_models(member, models)
 
         models = []
 
         for obj in objs:
-            if obj.get_type() == "model":
+            if obj.type == "model":
                 models.append(obj)
-            elif obj.get_type() == "group" and not obj.is_open():
+            elif obj.type == "group" and not obj.is_open():
                 get_grouped_models(obj, models)
 
         return models
 
-    def __enter_picking_mode(self, prev_state_id, is_active):
+    def __enter_picking_mode(self, prev_state_id, active):
 
         Mgr.add_task(self.__update_cursor, "update_matrl_owner_picking_cursor")
         Mgr.update_app("status", ["pick_material_owner"])
 
-        if not is_active:
+        if not active:
 
             def handler(obj_ids):
 
@@ -1145,9 +1130,9 @@ class MaterialManager:
             Mgr.update_remotely("selection_by_name", "", "Pick material owners",
                                 ["model", "group"], True, "Pick", handler)
 
-    def __exit_picking_mode(self, next_state_id, is_active):
+    def __exit_picking_mode(self, next_state_id, active):
 
-        if not is_active:
+        if not active:
             self._picking_op = ""
             Mgr.update_remotely("selection_by_name", "default")
 
@@ -1183,8 +1168,8 @@ class MaterialManager:
 
     def __start_material_owner_picking(self, picking_op):
 
-        if GlobalData["active_obj_level"] != "top":
-            GlobalData["active_obj_level"] = "top"
+        if GD["active_obj_level"] != "top":
+            GD["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
         self._picking_op = picking_op
@@ -1197,7 +1182,7 @@ class MaterialManager:
         if material and material in materials:
             materials.remove(material)
 
-        namelist = [m.get_name() for m in materials]
+        namelist = [m.name for m in materials]
         search_pattern = r"^Material\s*(\d+)$"
         naming_pattern = "Material {:04d}"
 
@@ -1228,7 +1213,7 @@ class MaterialManager:
 
     def __register_material(self, material, in_library=False):
 
-        material_id = material.get_id()
+        material_id = material.id
         self._materials[material_id] = material
 
         if in_library:
@@ -1236,7 +1221,7 @@ class MaterialManager:
 
     def __unregister_material(self, material, in_library=False):
 
-        material_id = material.get_id()
+        material_id = material.id
 
         if material_id not in self._materials:
             return
@@ -1270,7 +1255,7 @@ class MaterialManager:
             return
 
         self._materials = self._materials_backup
-        logging.info('Material registry backup restored;\ninfo: {}'.format(info))
+        logging.info(f'Material registry backup restored;\ninfo: {info}')
         self.__remove_registry_backup()
 
     def __remove_registry_backup(self):
@@ -1308,8 +1293,7 @@ class MaterialManager:
         Mgr.update_remotely("material_prop", material_id, prop_id, uses_layers)
 
         prop_id = "layers"
-        prop_data = tuple((layer.get_id(), layer.get_name())
-                          for layer in material.get_layers())
+        prop_data = tuple((layer.id, layer.name) for layer in material.get_layers())
         Mgr.update_remotely("material_prop", material_id, prop_id, prop_data)
 
         layer_id = material.get_selected_layer_id()
@@ -1322,14 +1306,14 @@ class MaterialManager:
             return
 
         source_material = self._library[source_material_id]
-        source_name = source_material.get_name()
+        source_name = source_material.name
         original_name = re.sub(r" - copy$| - copy \(\d+\)$", "", source_name, 1)
         copy_name = original_name + " - copy"
         copy_name = self.__get_unique_material_name(copy_name)
         material = source_material.copy()
-        material.set_name(copy_name)
+        material.name = copy_name
         material.register()
-        Mgr.update_remotely("new_material", material.get_id(), copy_name)
+        Mgr.update_remotely("new_material", material.id, copy_name)
 
     def __clear_scene(self):
 
@@ -1348,7 +1332,7 @@ class MaterialManager:
 
         for obj in owners:
             obj.set_material(None)
-            obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "material")
+            obj_data[obj.id] = obj.get_data_to_store("prop_change", "material")
 
         event_descr = 'Remove materials from scene'
         event_data = {"objects": obj_data}
@@ -1377,23 +1361,21 @@ class MaterialManager:
 
             if material:
 
-                if material.get_id() in self._library:
+                if material.id in self._library:
                     lib_material = material
                 else:
-                    material.set_name(self.__get_unique_material_name(material.get_name()))
+                    material.name = self.__get_unique_material_name(material.name)
                     material.register()
                     new_materials.append(material)
 
         for material in new_materials[:-1]:
-            name = material.get_name()
-            Mgr.update_remotely("new_material", material.get_id(), name, select=False)
+            Mgr.update_remotely("new_material", material.id, material.name, select=False)
 
         for material in new_materials[-1:]:
-            name = material.get_name()
-            Mgr.update_remotely("new_material", material.get_id(), name)
+            Mgr.update_remotely("new_material", material.id, material.name)
         else:
             if lib_material:
-                Mgr.update_remotely("material_selection", lib_material.get_id())
+                Mgr.update_remotely("material_selection", lib_material.id)
 
     def __apply_material(self, objs=None, clear_material=False):
 
@@ -1414,10 +1396,9 @@ class MaterialManager:
             if len(changed_objs) == 1:
 
                 if clear_material:
-                    event_descr = 'Remove material from "{}"'.format(changed_objs[0].get_name())
+                    event_descr = f'Remove material from "{changed_objs[0].name}"'
                 else:
-                    args = (changed_objs[0].get_name(), material)
-                    event_descr = 'Change material of "{}"\nto "{}"'.format(*args)
+                    event_descr = f'Change material of "{changed_objs[0].name}"\nto "{material}"'
 
             else:
 
@@ -1427,13 +1408,13 @@ class MaterialManager:
                     event_descr = 'Change material of objects:\n'
 
                 for obj in changed_objs:
-                    event_descr += '\n    "{}"'.format(obj.get_name())
+                    event_descr += f'\n    "{obj.name}"'
 
                 if not clear_material:
-                    event_descr += '\n\nto "{}"'.format(material)
+                    event_descr += f'\n\nto "{material}"'
 
             for obj in changed_objs:
-                obj_data[obj.get_id()] = obj.get_data_to_store("prop_change", "material")
+                obj_data[obj.id] = obj.get_data_to_store("prop_change", "material")
 
             Mgr.do("add_history", event_descr, event_data)
 
@@ -1452,8 +1433,8 @@ class MaterialManager:
 
         if library == "scene":
             from_scene = True
-            library = dict((m_id, m) for m_id, m in self._materials.items()
-                           if m.get_owner_ids())
+            library = {m_id: m for m_id, m in self._materials.items()
+                       if m.get_owner_ids()}
         elif not library:
             with open(filename, "rb") as lib_file:
                 library = pickle.load(lib_file)
@@ -1481,11 +1462,10 @@ class MaterialManager:
             def copy_material(material_id):
 
                 loaded_material = library[material_id]
-                name = loaded_material.get_name()
                 material = loaded_material.copy()
-                material.set_name(self.__get_unique_material_name(name))
+                material.name = self.__get_unique_material_name(loaded_material.name)
                 material.register()
-                self._materials[material.get_id()] = material
+                self._materials[material.id] = material
 
         elif dupe_handling == "replace":
 
@@ -1499,7 +1479,7 @@ class MaterialManager:
                     old_material.unregister()
 
                 material = library[material_id]
-                material.set_name(self.__get_unique_material_name(material.get_name()))
+                material.name = self.__get_unique_material_name(material.name)
                 material.register()
                 self._materials[material_id] = material
 
@@ -1517,7 +1497,7 @@ class MaterialManager:
             elif not from_scene and material_id in self._materials:
                 if dupe_handling == "skip":
                     material = self._materials[material_id]
-                    material.set_name(self.__get_unique_material_name(material.get_name()))
+                    material.name = self.__get_unique_material_name(material.name)
                     material.register()
                 elif dupe_handling == "copy":
                     copy_material(material_id)
@@ -1525,17 +1505,17 @@ class MaterialManager:
                     replace_material(material_id)
             else:
                 material = library[material_id]
-                material.set_name(self.__get_unique_material_name(material.get_name()))
+                material.name = self.__get_unique_material_name(material.name)
                 material.register()
                 self._materials[material_id] = material
 
         materials = list(self._library.values())
 
         for material in materials[:-1]:
-            Mgr.update_remotely("new_material", material.get_id(), material.get_name(), select=False)
+            Mgr.update_remotely("new_material", material.id, material.name, select=False)
 
         for material in materials[-1:]:
-            Mgr.update_remotely("new_material", material.get_id(), material.get_name())
+            Mgr.update_remotely("new_material", material.id, material.name)
 
     def __clear_library(self):
 
@@ -1585,8 +1565,8 @@ class MaterialManager:
 
     def __select_material_owners(self, material_id):
 
-        if GlobalData["active_obj_level"] != "top":
-            GlobalData["active_obj_level"] = "top"
+        if GD["active_obj_level"] != "top":
+            GD["active_obj_level"] = "top"
             Mgr.update_app("active_obj_level")
 
         material = self._library[material_id]
@@ -1640,11 +1620,11 @@ class MaterialManager:
 
         if prop_id in ("shininess", "alpha"):
             prop_name = prop_id
-            val_str = "{:.3f}".format(value["value"])
+            val_str = f'{value["value"] :.3f}'
         else:
-            prop_name = "{} color".format(prop_id)
+            prop_name = f"{prop_id} color"
             r, g, b = value["value"][:3]
-            val_str = "R:{:.3f} | G:{:.3f} | B:{:.3f}".format(r, g, b)
+            val_str = f"R:{r :.3f} | G:{g :.3f} | B:{b :.3f}"
 
         val_str = "None" if not value["on"] else val_str
 
@@ -1680,24 +1660,23 @@ class MaterialManager:
         obj_data = {}
 
         for obj in changed_objs:
-            obj_id = obj.get_id()
+            obj_id = obj.id
             material = obj.get_material()
             obj_data[obj_id] = {"material": {"main": material}}
 
         if len(changed_objs) == 1:
 
-            name = changed_objs[0].get_name()
-            event_descr = 'Change {} of "{}"\nto {}'.format(prop_name, name, val_str)
+            name = changed_objs[0].name
+            event_descr = f'Change {prop_name} of "{name}"\nto {val_str}'
 
         else:
 
-            event_descr = 'Change {} of objects:\n'.format(prop_name)
+            event_descr = f'Change {prop_name} of objects:\n'
 
             for obj in changed_objs:
-                name = obj.get_name()
-                event_descr += '\n    "{}"'.format(name)
+                event_descr += f'\n    "{obj.name}"'
 
-            event_descr += '\n\nto {}'.format(val_str)
+            event_descr += f'\n\nto {val_str}'
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data)
@@ -1748,22 +1727,21 @@ class MaterialManager:
         obj_data = {}
 
         for obj in changed_objs:
-            obj_id = obj.get_id()
+            obj_id = obj.id
             material = obj.get_material()
             obj_data[obj_id] = {"material": {"main": material}}
 
         if len(changed_objs) == 1:
 
-            name = changed_objs[0].get_name()
-            event_descr = 'Change material properties of "{}"'.format(name)
+            name = changed_objs[0].name
+            event_descr = f'Change material properties of "{name}"'
 
         else:
 
             event_descr = 'Change material properties of objects:\n'
 
             for obj in changed_objs:
-                name = obj.get_name()
-                event_descr += '\n    "{}"'.format(name)
+                event_descr += f'\n    "{obj.name}"'
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data)
@@ -1810,10 +1788,10 @@ class MaterialManager:
                     new_material.clear_tex_maps()
                 else:
                     new_material.set_texture(tex_data)
-                    new_material.set_map_active(map_type, is_active=False)
+                    new_material.set_map_active(map_type, active=False)
             else:
                 new_material.set_texture(tex_data)
-                new_material.set_map_active(map_type, is_active=True)
+                new_material.set_map_active(map_type, active=True)
 
             for owner in objects:
                 owner.replace_material(new_material)
@@ -1823,33 +1801,32 @@ class MaterialManager:
             return
 
         tex_str = "textures" if map_type == "all" else "texture"
-        filedescr = ("RGBA -> {}".format(rgb_filename)) if rgb_filename else "None"
+        filedescr = f"RGBA -> {rgb_filename}" if rgb_filename else "None"
 
         # make undo/redoable
         obj_data = {}
 
         for obj in changed_objs:
-            obj_id = obj.get_id()
+            obj_id = obj.id
             material = obj.get_material()
             obj_data[obj_id] = {"material": {"main": material}}
 
         if len(changed_objs) == 1:
 
-            name = changed_objs[0].get_name()
-            event_descr = 'Change {} {} of "{}"\nto {}'.format(map_type, tex_str, name, filedescr)
+            name = changed_objs[0].name
+            event_descr = f'Change {map_type} {tex_str} of "{name}"\nto {filedescr}'
 
         else:
 
-            event_descr = 'Change {} {} of objects:\n'.format(map_type, tex_str)
+            event_descr = f'Change {map_type} {tex_str} of objects:\n'
 
             for obj in changed_objs:
-                name = obj.get_name()
-                event_descr += '\n    "{}"'.format(name)
+                event_descr += f'\n    "{obj.name}"'
 
-            event_descr += '\n\nto {}'.format(filedescr)
+            event_descr += f'\n\nto {filedescr}'
 
         if alpha_filename:
-            event_descr += '\n+ ALPHA -> {}'.format(alpha_filename)
+            event_descr += f'\n+ ALPHA -> {alpha_filename}'
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data)

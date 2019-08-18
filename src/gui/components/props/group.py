@@ -95,24 +95,24 @@ class GroupProperties:
 
     def __update_group_options(self):
 
-        for option, value in GlobalData["group_options"]["main"].items():
+        for option, value in GD["group_options"]["main"].items():
             self._checkbuttons[option].check(value)
 
     def __toggle_recursive_open(self, recursive):
 
-        GlobalData["group_options"]["main"]["recursive_open"] = recursive
+        GD["group_options"]["main"]["recursive_open"] = recursive
 
     def __toggle_recursive_dissolve(self, recursive):
 
-        GlobalData["group_options"]["main"]["recursive_dissolve"] = recursive
+        GD["group_options"]["main"]["recursive_dissolve"] = recursive
 
     def __toggle_recursive_member_selection(self, recursive):
 
-        GlobalData["group_options"]["main"]["recursive_member_selection"] = recursive
+        GD["group_options"]["main"]["recursive_member_selection"] = recursive
 
     def __toggle_subgroup_selection(self, select):
 
-        GlobalData["group_options"]["main"]["subgroup_selection"] = select
+        GD["group_options"]["main"]["subgroup_selection"] = select
 
     def get_base_type(self):
 
@@ -136,7 +136,7 @@ class GroupProperties:
 
     def check_selection_count(self):
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
 
         if sel_count > 1:
             self._comboboxes["member_types"].select_none()

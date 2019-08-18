@@ -18,11 +18,11 @@ class MenuButton(Button):
 
         Button.__init__(self, parent, self._gfx, text, button_type="menu_button")
 
-        self.set_widget_type("menu_button")
+        self.widget_type = "menu_button"
 
         def command():
 
-            self.get_parent().set_mouse_region_sort(1001 if self._menu.is_hidden() else 0)
+            self.parent.set_mouse_region_sort(1001 if self._menu.is_hidden() else 0)
             self._menu.toggle()
 
         w, h = self.get_min_size()
@@ -77,18 +77,18 @@ class MenuButton(Button):
 
     def hide_menu(self):
 
-        self.get_parent().set_mouse_region_sort(0)
+        self.parent.set_mouse_region_sort(0)
         self._menu.hide()
-        mouse_watcher = self.get_mouse_watcher()
-        region = self.get_mouse_region()
+        mouse_watcher = self.mouse_watcher
+        region = self.mouse_region
         mouse_watcher.remove_region(region)
         mouse_watcher.add_region(region)
-        self.get_parent().set_active_button(None)
+        self.parent.set_active_button(None)
         Button.on_leave(self, force=True)
 
     def on_enter(self):
 
-        parent = self.get_parent()
+        parent = self.parent
         active_button = parent.get_active_button()
 
         if active_button:
@@ -102,7 +102,7 @@ class MenuButton(Button):
 
     def on_leave(self):
 
-        if self.get_parent().get_active_button() is not self:
+        if self.parent.get_active_button() is not self:
             Button.on_leave(self, force=True)
 
     def on_left_down(self):
@@ -111,7 +111,7 @@ class MenuButton(Button):
         self.press()
         self.set_pressed(False)
 
-        parent = self.get_parent()
+        parent = self.parent
         active_button = parent.get_active_button()
 
         if active_button:
@@ -193,10 +193,10 @@ class MenuBar(Widget):
 
     def get_docking_data(self, point):
 
-        if GlobalData["shift_down"]:
+        if GD["shift_down"]:
             return
 
-        l, r, b, t = self.get_mouse_region().get_frame()
+        l, r, b, t = self.mouse_region.frame
         x, y = point
 
         if l < x < r and b < -y < t:
@@ -205,4 +205,4 @@ class MenuBar(Widget):
     def set_mouse_region_sort(self, sort):
 
         for btn in self._client_sizer.get_widgets():
-            btn.get_mouse_region().set_sort(sort)
+            btn.mouse_region.sort = sort

@@ -19,10 +19,10 @@ class BamExporter:
 
     def __determine_objs_for_export(self):
 
-        self.objs = set(obj.get_root() for obj in Mgr.get("selection_top"))
+        self.objs = set(obj.root for obj in Mgr.get("selection_top"))
 
         if not self.objs:
-            self.objs = set(obj.get_root() for obj in Mgr.get("objects"))
+            self.objs = set(obj.root for obj in Mgr.get("objects"))
 
     def __set_initial_data(self, filename):
 
@@ -50,19 +50,21 @@ class BamExporter:
             self.data.append((self.child.get_members(), self.node, self.child_geom_node,
                              self.child_collision_node))
 
-        if self.child.get_children():
-            self.data.append((self.child.get_children(), self.node, None, None))
+        children = self.child.children
+
+        if children:
+            self.data.append((children, self.node, None, None))
 
     def __init_child_data(self, child):
 
         self.child = child
         self.child_geom_node = None
         self.child_collision_node = None
-        self.child_is_group = self.child.get_type() == "group"
+        self.child_is_group = self.child.type == "group"
 
     def __parse_child_data(self):
 
-        if self.child.get_type() == "model":
+        if self.child.type == "model":
             self.__parse_model_data()
         else:
             self.__parse_helper_data()
@@ -79,18 +81,18 @@ class BamExporter:
     def __parse_helper_data(self):
 
         if self.child_is_group and self.child.get_member_types_id() == "model":
-            self.child_geom_node = GeomNode(self.child.get_name())
-            self.child_geom_nodes[self.child.get_name()] = self.child_geom_node
+            self.child_geom_node = GeomNode(self.child.name)
+            self.child_geom_nodes[self.child.name] = self.child_geom_node
             self.node = self.parent_node.attach_new_node(self.child_geom_node)
         elif self.child_is_group and self.child.get_member_types_id() == "collision":
-            self.child_collision_node = CollisionNode(self.child.get_name())
-            self.child_collision_nodes[self.child.get_name()] = self.child_collision_node
+            self.child_collision_node = CollisionNode(self.child.name)
+            self.child_collision_nodes[self.child.name] = self.child_collision_node
             self.node = self.parent_node.attach_new_node(self.child_collision_node)
         else:
-            self.node = self.parent_node.attach_new_node(self.child.get_name())
+            self.node = self.parent_node.attach_new_node(self.child.name)
 
-        self.node.set_transform(self.child.get_pivot().get_transform(self.child.get_parent_pivot()))
-        self.node.node().copy_tags(self.child.get_origin().node())
+        self.node.set_transform(self.child.pivot.get_transform(self.child.parent_pivot))
+        self.node.node().copy_tags(self.child.origin.node())
 
     def __create_node(self):
 
@@ -105,7 +107,7 @@ class BamExporter:
 
         state = self.node.get_state()
         geom = self.node.node().modify_geom(0)
-        mat = self.pivot.get_mat(self.child.get_parent_pivot())
+        mat = self.pivot.get_mat(self.child.parent_pivot)
         vertex_data = geom.modify_vertex_data()
         vertex_data.transform_vertices(mat)
         self.geom_node.add_geom(geom, state)
@@ -116,7 +118,7 @@ class BamExporter:
         scale = self.pivot.get_scale()
         self.sx = scale[0]
         self.pivot.set_scale(self.sx)
-        self.group_pivot = self.child.get_group().get_pivot()
+        self.group_pivot = self.child.group.pivot
         coll_solid = self.__create_collision_solid(scale)
         self.__set_node_data(coll_solid, scale)
 
@@ -196,7 +198,7 @@ class BamExporter:
 
     def __process_quads(self, poly, verts, epsilon):
 
-        if poly.get_vertex_count() == 4:
+        if poly.vertex_count == 4:
 
             self.is_quad = True
             tri_vert_ids = poly[0]
@@ -297,8 +299,8 @@ class BamExporter:
 
     def __set_model_geom_data(self):
 
-        self.geom_obj = self.child.get_geom_object()
-        self.geom_type = self.child.get_geom_type()
+        self.geom_obj = self.child.geom_obj
+        self.geom_type = self.child.geom_type
         self.geom_data_obj = None
         self.__check_geom_type()
 
@@ -306,7 +308,7 @@ class BamExporter:
 
         if self.geom_type == "basic_geom":
 
-            self.node = NodePath(self.geom_obj.get_geom().node().make_copy())
+            self.node = NodePath(self.geom_obj.geom.node().make_copy())
             self.uv_set_names = self.geom_obj.get_uv_set_names()
 
             for key in self.node.get_tag_keys():
@@ -314,7 +316,7 @@ class BamExporter:
 
         else:
 
-            self.geom_data_obj = self.geom_obj.get_geom_data_object()
+            self.geom_data_obj = self.geom_obj.geom_data_obj
             self.node = self.vertex_merger.merge_duplicate_vertices(self.geom_data_obj)
             self.uv_set_names = self.geom_data_obj.get_uv_set_names()
 
@@ -325,9 +327,9 @@ class BamExporter:
 
         masks = Mgr.get("render_mask") | Mgr.get("picking_masks")
         self.node.show(masks)
-        self.origin = self.child.get_origin()
-        self.pivot = self.child.get_pivot()
-        self.node.set_name(self.child.get_name())
+        self.origin = self.child.origin
+        self.pivot = self.child.pivot
+        self.node.name = self.child.name
         self.node.set_state(self.origin.get_state())
         tex_stages = self.node.find_all_texture_stages()
         self.data_formatter.update_format(self.node, self.uv_set_names, tex_stages)
@@ -340,26 +342,26 @@ class BamExporter:
             texture = self.node.get_texture(tex_stage).make_copy()
             filename = Filename(texture.get_fullpath())
             filename.make_relative_to(self.directory)
-            texture.set_filename(filename)
-            texture.set_fullpath(filename)
+            texture.filename = filename
+            texture.fullpath = filename
             filename = Filename(texture.get_alpha_fullpath())
             filename.make_relative_to(self.directory)
-            texture.set_alpha_filename(filename)
-            texture.set_alpha_fullpath(filename)
+            texture.alpha_filename = filename
+            texture.alpha_fullpath = filename
             self.node.set_texture(tex_stage, texture)
 
     def __check_parent(self):
 
-        self.parent = self.child.get_parent()
+        self.parent = self.child.parent
 
-        if self.parent and self.parent.get_type() != "model":
+        if self.parent and self.parent.type != "model":
             self.parent = None
 
     def __set_model_material(self):
 
         material = self.child.get_material()
         parent_material = self.parent.get_material() if self.parent else None
-        parent_origin = self.parent.get_origin() if self.parent else None
+        parent_origin = self.parent.origin if self.parent else None
         self.__check_material_equality(material, parent_material, parent_origin)
 
     def __set_model_transform(self):
@@ -438,9 +440,9 @@ class VertexDataFormatter:
 
         if uv_set_names != self.default_uv_names:
             for tex_stage in tex_stages:
-                internal_name = tex_stage.get_texcoord_name()
-                uv_name = internal_name.get_name()
-                uv_name = "" if uv_name == "texcoord" else internal_name.get_basename()
+                internal_name = tex_stage.texcoord_name
+                uv_name = internal_name.name
+                uv_name = "" if uv_name == "texcoord" else internal_name.basename
                 self.stages_by_uv_name.setdefault(uv_name, []).append(tex_stage)
 
     def __create_array_formats(self):

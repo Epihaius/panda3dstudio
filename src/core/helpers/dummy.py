@@ -1,14 +1,28 @@
 from ..base import *
 
 
-class DummyEdge(BaseObject):
+class DummyEdge:
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        state["_axis"] = state.pop("axis")
+        state["_picking_col_id"] = state.pop("picking_color_id")
+
+        return state
+
+    def __setstate__(self, state):
+
+        state["axis"] = state.pop("_axis")
+        state["picking_color_id"] = state.pop("_picking_col_id")
+        self.__dict__ = state
 
     def __init__(self, dummy, axis, corner_index, picking_col_id):
 
         self._dummy = dummy
-        self._axis = axis
+        self.axis = axis
         self._corner_index = corner_index
-        self._picking_col_id = picking_col_id
+        self.picking_color_id = picking_col_id
 
     def __del__(self):
 
@@ -18,23 +32,20 @@ class DummyEdge(BaseObject):
 
         return self._dummy.get_toplevel_object(get_group)
 
-    def get_picking_color_id(self):
+    @property
+    def toplevel_obj(self):
 
-        return self._picking_col_id
-
-    def get_axis(self):
-
-        return self._axis
+        return self.get_toplevel_object()
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        cam = self.cam()
-        origin = self._dummy.get_origin()
+        cam = GD.cam()
+        origin = self._dummy.origin
         corner_pos = self._dummy.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
-        vec_coords["xyz".index(self._axis)] = 1.
-        edge_vec = V3D(self.world.get_relative_vector(origin, Vec3(*vec_coords)))
-        cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+        vec_coords["xyz".index(self.axis)] = 1.
+        edge_vec = V3D(GD.world.get_relative_vector(origin, Vec3(*vec_coords)))
+        cam_vec = V3D(GD.world.get_relative_vector(cam, Vec3.forward()))
         cross_vec = edge_vec ** cam_vec
 
         if not cross_vec.normalize():
@@ -47,8 +58,8 @@ class DummyEdge(BaseObject):
 
         near_point = Point3()
         far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        GD.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.world.get_relative_point(cam, point)
 
         intersection_point = Point3()
 
@@ -58,7 +69,7 @@ class DummyEdge(BaseObject):
         return intersection_point
 
 
-class TemporaryDummy(BaseObject):
+class TemporaryDummy:
 
     _original_geom = None
 
@@ -177,16 +188,6 @@ class TemporaryDummy(BaseObject):
         np.hide(Mgr.get("picking_mask"))
         np.hide()
 
-
-    @property
-    def original_geom(self):
-
-        if not self._original_geom:
-            TemporaryDummy.__create_original_geom()
-
-        return self._original_geom
-
-
     def __init__(self, pos, viz, cross_size, is_const_size, const_size, on_top):
 
         self._size = 0.
@@ -195,8 +196,9 @@ class TemporaryDummy(BaseObject):
         object_root = Mgr.get("object_root")
         self._temp_geom = tmp_geom = self.original_geom.copy_to(object_root)
 
-        active_grid_plane = Mgr.get(("grid", "plane"))
-        grid_origin = Mgr.get(("grid", "origin"))
+        grid = Mgr.get("grid")
+        active_grid_plane = grid.plane_id
+        grid_origin = grid.origin
 
         if active_grid_plane == "xz":
             tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
@@ -215,21 +217,21 @@ class TemporaryDummy(BaseObject):
 
         if is_const_size:
 
-            root = self.cam().attach_new_node("dummy_helper_root")
+            root = GD.cam().attach_new_node("dummy_helper_root")
             root.set_bin("fixed", 50)
             root.set_depth_test(False)
             root.set_depth_write(False)
             root.node().set_bounds(OmniBoundingVolume())
-            root.node().set_final(True)
+            root.node().final = True
             root.hide(Mgr.get("picking_mask"))
             self._root = root
             origin = NodePath("dummy_origin")
-            tmp_geom.get_children().reparent_to(origin)
-            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+            tmp_geom.children.reparent_to(origin)
+            w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
             scale = 800. / max(w, h)
             origin.set_scale(const_size * scale)
 
-            if self.cam.lens_type == "persp":
+            if GD.cam.lens_type == "persp":
                 dummy_base = root.attach_new_node("dummy_base")
                 dummy_base.set_billboard_point_world(tmp_geom, 2000.)
                 pivot = dummy_base.attach_new_node("dummy_pivot")
@@ -261,6 +263,14 @@ class TemporaryDummy(BaseObject):
             self._root.remove_node()
             self._root = None
 
+    @property
+    def original_geom(self):
+
+        if not self._original_geom:
+            TemporaryDummy.__create_original_geom()
+
+        return self._original_geom
+
     def set_size(self, size):
 
         s = max(size, .001)
@@ -277,7 +287,7 @@ class TemporaryDummy(BaseObject):
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos(Mgr.get(("grid", "origin")))
+        pos = self._temp_geom.get_pos(Mgr.get("grid").origin)
 
         for step in Mgr.do("create_dummy", pos, self._size):
             pass
@@ -397,10 +407,10 @@ class Dummy(TopLevelObject):
 
         geom = Geom(vertex_data)
         geom.add_primitive(lines)
-        node = GeomNode("box_geom_{}".format(state))
+        node = GeomNode(f"box_geom_{state}")
         node.add_geom(geom)
         np = parent.attach_new_node(node)
-        np.hide(Mgr.get("{}_mask".format("render" if state == "pickable" else "picking")))
+        np.hide(Mgr.get(f'{"render" if state == "pickable" else "picking"}_mask'))
         np.hide() if state == "selected" else np.show()
 
     @classmethod
@@ -456,30 +466,11 @@ class Dummy(TopLevelObject):
 
         geom = Geom(vertex_data)
         geom.add_primitive(lines)
-        node = GeomNode("cross_geom_{}".format(state))
+        node = GeomNode(f"cross_geom_{state}")
         node.add_geom(geom)
         np = parent.attach_new_node(node)
-        np.hide(Mgr.get("{}_mask".format("render" if state == "pickable" else "picking")))
+        np.hide(Mgr.get(f'{"render" if state == "pickable" else "picking"}_mask'))
         np.hide() if state == "selected" else np.show()
-
-    
-    @property
-    def corners(self):
-
-        if not self._corners:
-            Dummy.__define_corners()
-
-        return self._corners + [(0., 0., 0.)]
-
-
-    @property
-    def original(self):
-
-        if not self._original:
-            Dummy.__create_original()
-
-        return self._original
-
 
     def __getstate__(self):
 
@@ -502,21 +493,21 @@ class Dummy(TopLevelObject):
         TopLevelObject.__setstate__(self, state)
 
         root = self._root
-        root.reparent_to(self.get_origin())
+        root.reparent_to(self.origin)
         self._geom_roots = {}
         self._geoms = {"box": {}, "cross": {}}
         self._pickable_geoms = pickable_geoms = {}
 
         for geom_type, geoms in self._geoms.items():
-            self._geom_roots[geom_type] = root.find("**/{}_root".format(geom_type))
-            geoms["unselected"] = root.find("**/{}_geom_unselected".format(geom_type))
-            geoms["selected"] = root.find("**/{}_geom_selected".format(geom_type))
+            self._geom_roots[geom_type] = root.find(f"**/{geom_type}_root")
+            geoms["unselected"] = root.find(f"**/{geom_type}_geom_unselected")
+            geoms["selected"] = root.find(f"**/{geom_type}_geom_selected")
 
         pickable_type_id = PickableTypes.get_id("dummy_edge")
 
         for geom_type in ("box", "cross"):
 
-            pickable_geom = root.find("**/{}_geom_pickable".format(geom_type))
+            pickable_geom = root.find(f"**/{geom_type}_geom_pickable")
             pickable_geoms[geom_type] = pickable_geom
             vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
             col_rewriter = GeomVertexRewriter(vertex_data, "color")
@@ -543,7 +534,7 @@ class Dummy(TopLevelObject):
         self._const_size = 0.
         self._drawn_on_top = True
 
-        origin = self.get_origin()
+        origin = self.origin
         self._root = root = self.original.copy_to(origin)
         self._geom_roots = {}
         self._geoms = {"box": {}, "cross": {}}
@@ -551,9 +542,9 @@ class Dummy(TopLevelObject):
         self._pickable_geoms = pickable_geoms = {}
 
         for geom_type, geoms in self._geoms.items():
-            self._geom_roots[geom_type] = root.find("**/{}_root".format(geom_type))
-            geoms["unselected"] = root.find("**/{}_geom_unselected".format(geom_type))
-            geoms["selected"] = root.find("**/{}_geom_selected".format(geom_type))
+            self._geom_roots[geom_type] = root.find(f"**/{geom_type}_root")
+            geoms["unselected"] = root.find(f"**/{geom_type}_geom_unselected")
+            geoms["selected"] = root.find(f"**/{geom_type}_geom_selected")
 
         self._edges = {}
         pickable_type_id = PickableTypes.get_id("dummy_edge")
@@ -567,7 +558,7 @@ class Dummy(TopLevelObject):
         for i, corner in enumerate(self._corners):
             for axis in "xyz":
                 edge = Mgr.do("create_dummy_edge", self, axis, i)
-                color_id = edge.get_picking_color_id()
+                color_id = edge.picking_color_id
                 picking_color = get_color_vec(color_id, pickable_type_id)
                 col_writer.set_data4(picking_color)
                 col_writer.set_data4(picking_color)
@@ -581,7 +572,7 @@ class Dummy(TopLevelObject):
 
         for axis in "xyz":
             edge = Mgr.do("create_dummy_edge", self, axis, 4)
-            color_id = edge.get_picking_color_id()
+            color_id = edge.picking_color_id
             picking_color = get_color_vec(color_id, pickable_type_id)
             col_writer.set_data4(picking_color)
             col_writer.set_data4(picking_color)
@@ -611,7 +602,7 @@ class Dummy(TopLevelObject):
         TopLevelObject.register(self)
 
         obj_type = "dummy_edge"
-        Mgr.do("register_{}_objs".format(obj_type), iter(self._edges.values()), restore)
+        Mgr.do(f"register_{obj_type}_objs", iter(self._edges.values()), restore)
 
         if restore:
             Mgr.notify("pickable_geom_altered", self)
@@ -619,7 +610,23 @@ class Dummy(TopLevelObject):
     def unregister(self):
 
         obj_type = "dummy_edge"
-        Mgr.do("unregister_{}_objs".format(obj_type), iter(self._edges.values()))
+        Mgr.do(f"unregister_{obj_type}_objs", iter(self._edges.values()))
+
+    @property
+    def corners(self):
+
+        if not self._corners:
+            Dummy.__define_corners()
+
+        return self._corners + [(0., 0., 0.)]
+
+    @property
+    def original(self):
+
+        if not self._original:
+            Dummy.__create_original()
+
+        return self._original
 
     def set_geoms_for_ortho_lens(self, root=None):
         """
@@ -635,8 +642,8 @@ class Dummy(TopLevelObject):
         self._geoms_ortho = {"box": {}, "cross": {}}
 
         for geom_type, geoms in self._geoms_ortho.items():
-            geoms["unselected"] = root.find("**/{}_geom_unselected".format(geom_type))
-            geoms["selected"] = root.find("**/{}_geom_selected".format(geom_type))
+            geoms["unselected"] = root.find(f"**/{geom_type}_geom_unselected")
+            geoms["selected"] = root.find(f"**/{geom_type}_geom_selected")
 
     def get_geom_root(self):
 
@@ -646,11 +653,11 @@ class Dummy(TopLevelObject):
 
         corner_pos = Point3(self.corners[corner_index])
 
-        return self.world.get_relative_point(self._root, corner_pos)
+        return GD.world.get_relative_point(self._root, corner_pos)
 
     def get_center_pos(self, ref_node):
 
-        return self.get_origin().get_pos(ref_node)
+        return self.origin.get_pos(ref_node)
 
     def set_viz(self, viz):
 
@@ -663,7 +670,7 @@ class Dummy(TopLevelObject):
         for geom_type in viz - self._viz:
             self._geom_roots[geom_type].show()
 
-        group = self.get_group()
+        group = self.group
 
         if group:
 
@@ -672,7 +679,7 @@ class Dummy(TopLevelObject):
             viz_size_new = max(sizes[geom_type] for geom_type in viz)
 
             if viz_size_new != viz_size_old:
-                Mgr.do("update_group_bboxes", [group.get_id()])
+                Mgr.do("update_group_bboxes", [group.id])
 
         self._viz = viz
 
@@ -705,7 +712,7 @@ class Dummy(TopLevelObject):
 
         if "cross" in self._viz:
 
-            group = self.get_group()
+            group = self.group
 
             if group:
 
@@ -716,7 +723,7 @@ class Dummy(TopLevelObject):
                 viz_size_new = max(sizes[geom_type] for geom_type in self._viz)
 
                 if viz_size_new != viz_size_old:
-                    Mgr.do("update_group_bboxes", [group.get_id()])
+                    Mgr.do("update_group_bboxes", [group.id])
 
         self._cross_size = size
         self._geom_roots["cross"].set_scale(size * .01)
@@ -943,14 +950,14 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
     def setup(self):
 
-        self._dummy_root = dummy_root = self.cam().attach_new_node("dummy_helper_root")
+        self._dummy_root = dummy_root = GD.cam().attach_new_node("dummy_helper_root")
         dummy_root.set_light_off()
         dummy_root.set_shader_off()
         dummy_root.set_bin("fixed", 50)
         dummy_root.set_depth_test(False)
         dummy_root.set_depth_write(False)
         dummy_root.node().set_bounds(OmniBoundingVolume())
-        dummy_root.node().set_final(True)
+        dummy_root.node().final = True
         root_persp = dummy_root.attach_new_node("dummy_helper_root_persp")
         root_ortho = dummy_root.attach_new_node("dummy_helper_root_ortho")
         root_ortho.set_scale(20.)
@@ -971,7 +978,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
     def __handle_viewport_resize(self):
 
-        w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+        w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
         scale = 800. / max(w, h)
         const_sizes = self._const_sizes
         dummy_origins = self._dummy_origins
@@ -992,11 +999,11 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
             dummy_origins_ortho = dummy_origins["ortho"]
             for dummy_id in self._dummy_bases:
                 dummy = Mgr.get("dummy", dummy_id)
-                index = int(dummy.get_pivot().get_shader_input("index").get_vector().x)
+                index = int(dummy.pivot.get_shader_input("index").get_vector().x)
                 dummy_origins_persp[dummy_id].set_shader_input("index", index)
                 dummy_origins_ortho[dummy_id].set_shader_input("index", index)
         else:
-            self._dummy_root.reparent_to(self.cam())
+            self._dummy_root.reparent_to(GD.cam())
             self._dummy_root.clear_transform()
 
     def __show_root(self, lens_type):
@@ -1012,7 +1019,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
     def __show_pickable_dummy_geoms(self, dummy, mask_index=0, show=True, show_through=False):
 
-        dummy_id = dummy.get_id()
+        dummy_id = dummy.id
         dummy_origins = self._dummy_origins
 
         if dummy_id not in dummy_origins["persp"]:
@@ -1028,7 +1035,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         mask = Mgr.get("picking_mask", mask_index)
 
         if show:
-            if self.cam.lens_type == "persp":
+            if GD.cam.lens_type == "persp":
                 for geom in geoms_persp:
                     geom.show_through(mask) if show_through else geom.show(mask)
                 for geom in geoms_ortho:
@@ -1044,7 +1051,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
     def __make_dummy_const_size(self, dummy, const_size_state=True):
 
-        dummy_id = dummy.get_id()
+        dummy_id = dummy.id
         dummy_bases = self._dummy_bases
         dummy_origins = self._dummy_origins
         const_sizes = self._const_sizes
@@ -1054,22 +1061,22 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
             if dummy_id not in dummy_bases:
                 dummy_roots = self._dummy_roots
                 dummy_base = dummy_roots["persp"].attach_new_node("dummy_base")
-                dummy_base.set_billboard_point_world(dummy.get_origin(), 2000.)
+                dummy_base.set_billboard_point_world(dummy.origin, 2000.)
                 pivot = dummy_base.attach_new_node("dummy_pivot")
                 pivot.set_scale(100.)
                 origin_persp = pivot.attach_new_node("dummy_origin_persp")
                 dummy_origins["persp"][dummy_id] = origin_persp
-                dummy.get_geom_root().get_children().reparent_to(origin_persp)
+                dummy.get_geom_root().children.reparent_to(origin_persp)
                 const_size = dummy.get_const_size()
                 const_sizes[dummy_id] = const_size
-                w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+                w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
                 scale = 800. / max(w, h)
                 origin_persp.set_scale(const_size * scale)
                 origin_ortho = origin_persp.copy_to(dummy_roots["ortho"])
                 dummy_origins["ortho"][dummy_id] = origin_ortho
-                origin_persp.set_compass(dummy.get_origin())
+                origin_persp.set_compass(dummy.origin)
                 dummy_bases[dummy_id] = dummy_base
-                compass_effect = CompassEffect.make(dummy.get_origin(), self._compass_props)
+                compass_effect = CompassEffect.make(dummy.origin, self._compass_props)
                 origin_ortho.set_effect(compass_effect)
                 dummy.set_geoms_for_ortho_lens(origin_ortho)
                 change = True
@@ -1077,7 +1084,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
             if dummy_id in dummy_bases:
                 del const_sizes[dummy_id]
                 origin_persp = dummy_origins["persp"][dummy_id]
-                origin_persp.get_children().reparent_to(dummy.get_geom_root())
+                origin_persp.children.reparent_to(dummy.get_geom_root())
                 origin_persp.remove_node()
                 del dummy_origins["persp"][dummy_id]
                 origin_ortho = dummy_origins["ortho"][dummy_id]
@@ -1094,11 +1101,11 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
     def __set_dummy_const_size(self, dummy, const_size):
 
-        dummy_id = dummy.get_id()
+        dummy_id = dummy.id
 
         if dummy_id in self._dummy_bases:
 
-            w, h = GlobalData["viewport"]["size_aux" if GlobalData["viewport"][2] == "main" else "size"]
+            w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
             scale = 800. / max(w, h)
             self._const_sizes[dummy_id] = const_size
 
@@ -1150,7 +1157,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         dummy.draw_on_top(on_top)
 
         if transform:
-            dummy.get_pivot().set_transform(transform)
+            dummy.pivot.set_transform(transform)
 
         return dummy
 
@@ -1170,17 +1177,16 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         # Create the plane parallel to the camera and going through the dummy
         # origin, used to determine the size drawn by the user.
 
-        normal = self.world.get_relative_vector(self.cam(), Vec3.forward())
-        grid_origin = Mgr.get(("grid", "origin"))
-        point = self.world.get_relative_point(grid_origin, pos)
+        normal = GD.world.get_relative_vector(GD.cam(), Vec3.forward())
+        point = GD.world.get_relative_point(Mgr.get("grid").origin, pos)
         self._draw_plane = Plane(normal, point)
 
     def __creation_phase1(self):
         """ Draw out dummy """
 
         end_point = None
-        grid_origin = Mgr.get(("grid", "origin"))
-        snap_settings = GlobalData["snap"]
+        grid_origin = Mgr.get("grid").origin
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
@@ -1189,15 +1195,15 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
         if end_point is None:
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
-            cam = self.cam()
+            screen_pos = GD.mouse_watcher.get_mouse()
+            cam = GD.cam()
             near_point = Point3()
             far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: GD.world.get_relative_point(cam, point)
             near_point = rel_pt(near_point)
             far_point = rel_pt(far_point)
             end_point = Point3()
@@ -1205,9 +1211,9 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
         else:
 
-            end_point = self.world.get_relative_point(grid_origin, end_point)
+            end_point = GD.world.get_relative_point(grid_origin, end_point)
 
-        start_point = self.world.get_relative_point(grid_origin, self.get_origin_pos())
+        start_point = GD.world.get_relative_point(grid_origin, self.get_origin_pos())
         size = (end_point - start_point).length()
 
         if snap_on and snap_tgt_type == "increment":

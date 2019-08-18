@@ -44,9 +44,10 @@ class ProgressBar(Widget):
         self._rate = 0.
         self._progress = 0.
 
-    def get_frame(self):
+    @property
+    def frame(self):
 
-        return self.get_parent()
+        return self.parent
 
     def set_rate(self, rate):
 
@@ -59,7 +60,7 @@ class ProgressBar(Widget):
         x, y = self.get_pos()
         w, h = self.get_size()
         img = PNMImage(w, h, 4)
-        parent_img = self.get_parent().get_image(composed=False)
+        parent_img = self.parent.get_image(composed=False)
         img.copy_sub_image(parent_img, 0, 0, x, y, w, h)
         img.blend_sub_image(image, 0, 0, 0, 0)
         self.get_card().copy_sub_image(self, img, w, h)
@@ -102,7 +103,7 @@ class ProgressDialog(Dialog):
         client_sizer.add(text, borders=borders, alignment="center_h")
         self._progress_bar = bar = ProgressBar(self)
         borders = (50, 50, 30, 0)
-        client_sizer.add(bar.get_frame(), borders=borders, expand=True)
+        client_sizer.add(bar.frame, borders=borders, expand=True)
 
         self.finalize()
 

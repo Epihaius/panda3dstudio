@@ -16,7 +16,7 @@ class CylinderProperties:
         section.add(sizer, expand=True)
 
         for prop_id in ("radius", "height"):
-            text = "{}:".format(prop_id.title())
+            text = f"{prop_id.title()}:"
             sizer.add(PanelText(section, text), alignment_v="center_v")
             field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
             self._fields[prop_id] = field
@@ -27,8 +27,8 @@ class CylinderProperties:
         group.add(sizer, expand=True)
 
         for spec in ("circular", "height", "caps"):
-            prop_id = "segments_{}".format(spec)
-            text = "{}:".format(spec.title())
+            prop_id = f"segments_{spec}"
+            text = f"{spec.title()}:"
             sizer.add(PanelText(group, text), alignment_v="center_v")
             field = PanelInputField(group, prop_id, "int", self.__handle_value, 80)
             self._fields[prop_id] = field
@@ -54,9 +54,9 @@ class CylinderProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
-        in_creation_mode = GlobalData["active_creation_type"]
+        in_creation_mode = GD["active_creation_type"]
 
         if "segments" in value_id:
             prop_id, spec = value_id.split("_")
@@ -146,7 +146,7 @@ class CylinderProperties:
 
     def check_selection_count(self):
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 

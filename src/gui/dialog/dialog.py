@@ -19,7 +19,7 @@ class Dialog(WidgetCard):
     _dialogs = []
     _listener = None
     _mouse_region_mask = MouseWatcherRegion("dialog_mask", -100000., 100000., -100000., 100000.)
-    _mouse_region_mask.set_sort(200)
+    _mouse_region_mask.sort = 200
     _entered_suppressed_state = False
     _ignoring_events = False
     _default_btn_width = 0
@@ -48,7 +48,7 @@ class Dialog(WidgetCard):
 
         region = Mgr.get("mouse_watcher").get_over_region()
 
-        if region and region.get_name() == "dialog":
+        if region and region.name == "dialog":
             cls._dialogs[-1].init_dragging()
 
     @classmethod
@@ -69,15 +69,15 @@ class Dialog(WidgetCard):
         dialogs = cls._dialogs
 
         if dialogs:
-            sort = dialogs[-1].get_sort() + 10
+            sort = dialogs[-1].sort + 10
             dialogs[-1].ignore_extra_dialog_events()
         else:
             sort = 200
             ToolTip.hide()
 
         region_mask = cls._mouse_region_mask
-        region_mask.set_sort(sort)
-        dialog.set_sort(sort + 1)
+        region_mask.sort = sort
+        dialog.sort = sort + 1
         cls._background_overlay.set_bin("dialog", sort)
 
         if not dialogs:
@@ -87,11 +87,11 @@ class Dialog(WidgetCard):
 
             cls.__enter_suppressed_state()
 
-            for watcher in GlobalData["mouse_watchers"] + GlobalData["viewport"]["mouse_watchers2"]:
+            for watcher in GD["mouse_watchers"] + GD["viewport"]["mouse_watchers2"]:
 
                 watcher.add_region(region_mask)
 
-                if watcher.get_name() == "panel_stack":
+                if watcher.name == "panel_stack":
 
                     region = watcher.get_over_region()
 
@@ -111,13 +111,13 @@ class Dialog(WidgetCard):
 
         if dialogs:
             dialog = dialogs[-1]
-            sort = dialog.get_sort() - 1
+            sort = dialog.sort - 1
             dialog.accept_extra_dialog_events()
         else:
             sort = 200
 
         region_mask = cls._mouse_region_mask
-        region_mask.set_sort(sort)
+        region_mask.sort = sort
         cls._background_overlay.set_bin("dialog", sort)
 
         if not dialogs:
@@ -125,11 +125,11 @@ class Dialog(WidgetCard):
             cls._background_overlay.hide()
             cls.__exit_suppressed_state()
 
-            for watcher in GlobalData["mouse_watchers"] + GlobalData["viewport"]["mouse_watchers2"]:
+            for watcher in GD["mouse_watchers"] + GD["viewport"]["mouse_watchers2"]:
 
                 watcher.remove_region(region_mask)
 
-                if watcher.get_name() == "panel_stack":
+                if watcher.name == "panel_stack":
                     watcher.set_enter_pattern("gui_region_enter")
                     watcher.set_leave_pattern("gui_region_leave")
 
@@ -212,7 +212,7 @@ class Dialog(WidgetCard):
         cls.enable_listener()
         cm = CardMaker("dialog_background_overlay")
         cm.set_frame(-1., 1., -1., 1.)
-        overlay = Mgr.get("gui_root").get_parent().attach_new_node(cm.generate())
+        overlay = Mgr.get("gui_root").parent.attach_new_node(cm.generate())
         overlay.set_transparency(TransparencyAttrib.M_alpha)
         overlay.set_color(Skin["colors"]["dialog_background_overlay"])
         overlay.hide()
@@ -226,8 +226,8 @@ class Dialog(WidgetCard):
 
         WidgetCard.__init__(self, "dialog")
 
-        self._mouse_region = region = MouseWatcherRegion("dialog", 0., 0., 0., 0.)
-        self.get_mouse_watcher().add_region(region)
+        self.mouse_region = region = MouseWatcherRegion("dialog", 0., 0., 0., 0.)
+        self.mouse_watcher.add_region(region)
         self._sort = 0
         self._allows_escape = allow_escape
 
@@ -241,7 +241,7 @@ class Dialog(WidgetCard):
         sizer = Sizer("vertical")
         self.set_sizer(sizer)
         self._client_sizer = client_sizer = Sizer("vertical")
-        client_sizer.set_default_size((max(100, label.get_x_size()) + 20, 50))
+        client_sizer.set_default_size((max(100, label.size[0]) + 20, 50))
         sizer.add(client_sizer, expand=True)
         self._button_sizer = btn_sizer = Sizer("horizontal")
         h_b = Skin["options"]["dialog_bottom_height"]
@@ -298,6 +298,17 @@ class Dialog(WidgetCard):
         self._mouse_start_pos = None
         self._drag_offset = None
 
+    @property
+    def sort(self):
+
+        return self._sort
+
+    @sort.setter
+    def sort(self, sort):
+
+        self._sort = sort
+        self.mouse_region.sort = sort
+
     def close(self, answer=""):
 
         if self._drag_offset is not None:
@@ -334,15 +345,6 @@ class Dialog(WidgetCard):
 
         return self._allows_escape
 
-    def set_sort(self, sort):
-
-        self._sort = sort
-        self._mouse_region.set_sort(sort)
-
-    def get_sort(self):
-
-        return self._sort
-
     def update_widget_positions(self):
         """ Override in derived class """
 
@@ -364,7 +366,7 @@ class Dialog(WidgetCard):
         r = x + w
         b = -y - h
         t = -y + h_t
-        self._mouse_region.set_frame(l, r, b, t)
+        self.mouse_region.frame = (l, r, b, t)
 
         self.update_widget_positions()
 
@@ -372,8 +374,8 @@ class Dialog(WidgetCard):
 
         w_w, h_w = Mgr.get("window_size")
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = min(w_w, max(0, mouse_pointer.get_x()))
-        mouse_y = min(h_w, max(0, mouse_pointer.get_y()))
+        mouse_x = min(w_w, max(0, mouse_pointer.x))
+        mouse_y = min(h_w, max(0, mouse_pointer.y))
         pos = (mouse_x, mouse_y)
 
         if pos != self._mouse_start_pos:
@@ -392,8 +394,8 @@ class Dialog(WidgetCard):
         self._listener.accept("gui_mouse1-up", self.finalize_dragging)
         x, y = self.get_pos(from_root=True)
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = mouse_pointer.get_y()
+        mouse_x = mouse_pointer.x
+        mouse_y = mouse_pointer.y
         self._mouse_start_pos = (mouse_x, mouse_y)
         self._drag_offset = (mouse_x - x, mouse_y - y)
 
@@ -408,7 +410,7 @@ class Dialog(WidgetCard):
         r = x + w
         b = -y - h
         t = -y + Skin["options"]["dialog_title_height"]
-        self._mouse_region.set_frame(l, r, b, t)
+        self.mouse_region.frame = (l, r, b, t)
         self.get_sizer().update_mouse_region_frames()
         self._mouse_start_pos = None
         self._drag_offset = None
@@ -473,8 +475,7 @@ class Dialog(WidgetCard):
         label = self._title_label
 
         if label:
-            w_l = label.get_x_size()
-            h_l = label.get_y_size()
+            w_l, h_l = label.size
             h_title = Skin["options"]["dialog_title_height"]
             x = (width - w_l) // 2
             y = (h_title - h_l) // 2 + Skin["options"]["dialog_title_top"]
@@ -482,7 +483,7 @@ class Dialog(WidgetCard):
 
         self._background_image = bg_image = PNMImage(width - bl, height - bt, 4)
         bg_image.copy_sub_image(img, 0, 0, bl, bt)
-        ref_node = self.get_node()
+        ref_node = self.node
 
         for widget in self.get_sizer().get_widgets(include_children=False):
 
@@ -542,6 +543,6 @@ class Dialog(WidgetCard):
         r = x + w
         b = -y - h
         t = -y + Skin["options"]["dialog_title_height"]
-        self._mouse_region.set_frame(l, r, b, t)
+        self.mouse_region.frame = (l, r, b, t)
         sizer.update_mouse_region_frames()
         self.update_widget_positions()

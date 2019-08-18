@@ -58,12 +58,12 @@ class TextControl:
         bin_name, bin_sort = cull_bin
         quad.set_bin(bin_name, bin_sort)
         self._tex = tex = Texture("text_control")
-        tex.set_minfilter(SamplerState.FT_nearest)
-        tex.set_magfilter(SamplerState.FT_nearest)
+        tex.minfilter = SamplerState.FT_nearest
+        tex.magfilter = SamplerState.FT_nearest
         quad.set_texture(tex)
         root.hide()
         self._image = PNMImage(w, h, 4)
-        cm.set_name("input_caret")
+        cm.name = "input_caret"
         w_c = Skin["options"]["inputfield_caret_width"]
         h_c = Skin["options"]["inputfield_caret_height"]
         self._caret_offset_node = offset_node = root.attach_new_node("offset_node")
@@ -77,8 +77,8 @@ class TextControl:
         self._caret = caret = offset_node.attach_new_node(cm.generate())
         caret.set_bin(bin_name, bin_sort + 1)
         self._caret_tex = tex = Texture("caret_tex")
-        tex.set_minfilter(SamplerState.FT_nearest)
-        tex.set_magfilter(SamplerState.FT_nearest)
+        tex.minfilter = SamplerState.FT_nearest
+        tex.magfilter = SamplerState.FT_nearest
         caret.set_texture(tex)
         self._caret_pos = 0
         self.__update_image()
@@ -423,7 +423,7 @@ class TextControl:
         label = self._label
 
         if label:
-            w_l, h_l = label.get_x_size(), label.get_y_size()
+            w_l, h_l = label.size
             x = margin = Skin["options"]["inputfield_margin"]
             y = (h - h_l) // 2
             w_ = w - margin * 2
@@ -511,8 +511,8 @@ class SliderControl:
         bin_name, bin_sort = cull_bin
         quad.set_bin(bin_name, bin_sort)
         self._tex = tex = Texture("slider")
-        tex.set_minfilter(SamplerState.FT_nearest)
-        tex.set_magfilter(SamplerState.FT_nearest)
+        tex.minfilter = SamplerState.FT_nearest
+        tex.magfilter = SamplerState.FT_nearest
         quad.set_texture(tex)
         root.hide()
         self._image = None
@@ -595,8 +595,8 @@ class SliderControl:
         painter = PNMPainter(image)
         fill = PNMBrush.make_pixel(self._color)
         pen = PNMBrush.make_transparent()
-        painter.set_fill(fill)
-        painter.set_pen(pen)
+        painter.fill = fill
+        painter.pen = pen
         w_l, h_l = label.size
         x = (w - w_l) // 2
         y = (h - h_l) // 2
@@ -660,7 +660,7 @@ class InputField(Widget):
 
         d = 100000
         cls._mouse_region_mask = MouseWatcherRegion("inputfield_mask", -d, d, -d, d)
-        cls._mouse_region_mask.set_sort(90)
+        cls._mouse_region_mask.sort = 90
 
         cls._default_text_color = Skin["text"]["input"]["color"]
         cls._default_back_color = Skin["colors"]["inputfield_background"]
@@ -712,7 +712,7 @@ class InputField(Widget):
 
         def parse_from_float(value):
 
-            return "{:.5f}".format(value)
+            return f"{value :.5f}"
 
         cls._default_value_parsers["string"] = parse_from_string
         cls._default_value_parsers["int"] = parse_from_int
@@ -781,7 +781,7 @@ class InputField(Widget):
     def _get_mouse_watchers(cls):
 
         if cls._mouse_watchers is None:
-            return GlobalData["mouse_watchers"] 
+            return GD["mouse_watchers"] 
 
         return cls._mouse_watchers
 
@@ -795,8 +795,8 @@ class InputField(Widget):
         cls._listener.ignore_all()
 
         for watcher in cls._get_mouse_watchers():
-            region_mask = cls._get_mouse_region_mask(watcher.get_name())
-            region_mask.set_active(False)
+            region_mask = cls._get_mouse_region_mask(watcher.name)
+            region_mask.active = False
             watcher.remove_region(region_mask)
 
         active_field.accept_input()
@@ -811,8 +811,8 @@ class InputField(Widget):
         cls._listener.ignore_all()
 
         for watcher in cls._get_mouse_watchers():
-            region_mask = cls._get_mouse_region_mask(watcher.get_name())
-            region_mask.set_active(False)
+            region_mask = cls._get_mouse_region_mask(watcher.name)
+            region_mask.active = False
             watcher.remove_region(region_mask)
 
         active_field.reject_input()
@@ -825,7 +825,7 @@ class InputField(Widget):
 
         if mouse_watcher_name == "panel_stack":
             mouse_region_mask = MouseWatcherRegion(cls._mouse_region_mask)
-            mouse_region_mask.set_sort(105)
+            mouse_region_mask.sort = 105
         else:
             mouse_region_mask = cls._mouse_region_mask
 
@@ -862,7 +862,7 @@ class InputField(Widget):
         Widget.__init__(self, "input_field", parent, gfx_data={}, stretch_dir="horizontal")
 
         self.set_image_offset(image_offset)
-        self.get_mouse_region().set_sort(sort)
+        self.mouse_region.sort = sort
 
         self._text_color = text_color if text_color else self._default_text_color
         self._back_color = back_color if back_color else self._default_back_color
@@ -936,7 +936,7 @@ class InputField(Widget):
         width = w + borders_h
         height = h + borders_v
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.get_parent(), gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -1005,8 +1005,7 @@ class InputField(Widget):
         image = self.get_image(composed=False, draw_border=True, crop=True)
 
         if image:
-            w, h = image.get_x_size(), image.get_y_size()
-            self.get_card().copy_sub_image(self, image, w, h)
+            self.get_card().copy_sub_image(self, image, *image.size)
 
     def __update_card_image(self):
 
@@ -1026,8 +1025,9 @@ class InputField(Widget):
         if "" in self._images:
 
             img = self._images[""]
+            w_i, h_i = img.size
 
-            if img.get_x_size() == w and img.get_y_size() == h:
+            if w_i == w and h_i == h:
                 return
 
         Widget.update_images(self, recurse, size)
@@ -1100,9 +1100,8 @@ class InputField(Widget):
     def __set_caret_to_mouse_pos(self, select=False):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
         x, y = self.get_pos(ref_node=self._ref_node)
-        self._text_ctrl.move_caret(mouse_x - x, is_offset=False, select=select)
+        self._text_ctrl.move_caret(mouse_pointer.x - x, is_offset=False, select=select)
 
     def __select_text(self, task):
 
@@ -1231,7 +1230,7 @@ class InputField(Widget):
 
             Mgr.remove_task("select_text")
 
-            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+            if self.mouse_watcher.get_over_region() != self.mouse_region:
                 Mgr.set_cursor("input_commit")
 
             self._selecting_text = False
@@ -1244,8 +1243,8 @@ class InputField(Widget):
             self.set_active_input_field(self)
 
             for watcher in self._get_mouse_watchers():
-                region_mask = self._get_mouse_region_mask(watcher.get_name())
-                region_mask.set_active(True)
+                region_mask = self._get_mouse_region_mask(watcher.name)
+                region_mask.active = True
                 watcher.add_region(region_mask)
 
             txt_ctrl = self._text_ctrl
@@ -1258,7 +1257,7 @@ class InputField(Widget):
             listener.accept("focus_loss", lambda: Mgr.do("reject_field_input"))
             self.accept_events()
 
-            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+            if self.mouse_watcher.get_over_region() != self.mouse_region:
                 Mgr.set_cursor("input_commit")
             elif self.has_slider_control():
                 Mgr.set_cursor("caret")
@@ -1350,20 +1349,20 @@ class InputField(Widget):
 
         over_field = False
 
-        for watcher in GlobalData["mouse_watchers"]:
+        for watcher in GD["mouse_watchers"]:
 
             region = watcher.get_over_region()
 
             if region:
 
-                name = region.get_name()
+                name = region.name
 
                 if name.startswith("widget_"):
 
                     widget_id = int(name.replace("widget_", ""))
                     widget = Widget.registry.get(widget_id)
 
-                    if widget and "field" in widget.get_widget_type():
+                    if widget and "field" in widget.widget_type:
                         over_field = True
                         break
 
@@ -1410,10 +1409,10 @@ class InputField(Widget):
             if self._is_text_shown:
                 self.__update_card_image()
 
-            self._value_handler(self._value_id, value, "done")
-
             if text_handler:
                 text_handler(val_str)
+
+            self._value_handler(self._value_id, value, "done")
 
         else:
 
@@ -1470,11 +1469,11 @@ class InputField(Widget):
         if update_card_image and self._is_text_shown:
             self.__update_card_image()
 
-        if handle_value:
-            self._value_handler(self._value_id, value, state)
-
         if text_handler:
             text_handler(val_str)
+
+        if handle_value:
+            self._value_handler(self._value_id, value, state)
 
         return True
 
@@ -1630,8 +1629,7 @@ class SliderMixin:
     def __check_mouse_offset(self, task):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.x
-        mouse_y = mouse_pointer.y
+        mouse_x, mouse_y = mouse_pointer.x, mouse_pointer.y
         mouse_start_x, mouse_start_y = self._mouse_start_pos
 
         if max(abs(mouse_x - mouse_start_x), abs(mouse_y - mouse_start_y)) > 3:
@@ -1663,10 +1661,10 @@ class SliderMixin:
         Mgr.remove_task("check_mouse_offset")
 
         if event_id == "on_left_up":
-            if self.get_mouse_watcher().get_over_region() == self.get_mouse_region():
+            if self.mouse_watcher.get_over_region() == self.mouse_region:
                 self._is_clicked = True
         elif event_id == "on_right_up":
-            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+            if self.mouse_watcher.get_over_region() != self.mouse_region:
                 self._listener.ignore("gui_mouse1-up")
 
         if event_id in ("on_left_up", "on_right_down"):
@@ -1704,7 +1702,7 @@ class SliderMixin:
             x, _ = self.get_pos(ref_node=self._ref_node)
             self._slider_ctrl.update_value(mouse_x - x)
 
-            if self._clock.get_real_time() > delay:
+            if self._clock.real_time > delay:
 
                 value = self._slider_ctrl.get_value()
 
@@ -1715,7 +1713,7 @@ class SliderMixin:
 
             self._mouse_prev = mouse_x
 
-        elif prev_value != self.get_value() and self._clock.get_real_time() > delay:
+        elif prev_value != self.get_value() and self._clock.real_time > delay:
 
             InputField.set_value(self, prev_value, handle_value=True, state="continuous")
 
@@ -1734,7 +1732,7 @@ class SliderMixin:
         Mgr.remove_task("slide")
         self._slider_ctrl.hide()
 
-        if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+        if self.mouse_watcher.get_over_region() != self.mouse_region:
             Mgr.set_cursor("main")
 
         self._listener.ignore("gui_mouse3-up")
@@ -1754,14 +1752,14 @@ class SliderMixin:
 
         if event_id == "on_right_down":
 
-            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+            if self.mouse_watcher.get_over_region() != self.mouse_region:
                 Mgr.set_cursor("main")
 
             self._listener.ignore("gui_mouse3-up")
 
         elif event_id == "on_right_up":
 
-            if self.get_mouse_watcher().get_over_region() != self.get_mouse_region():
+            if self.mouse_watcher.get_over_region() != self.mouse_region:
                 Mgr.set_cursor("main")
                 self._listener.ignore("gui_mouse1-up")
 

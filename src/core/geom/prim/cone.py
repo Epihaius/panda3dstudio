@@ -313,7 +313,7 @@ class TemporaryCone(TemporaryPrimitive):
         self._height = 0.
         geom_data = _define_geom_data(segments, is_smooth, True)
         self.create_geometry(geom_data)
-        origin = self.get_origin()
+        origin = self.origin
         vs = shaders.cone.VERT_SHADER
         fs = shaders.prim.FRAG_SHADER
         shader = Shader.make(Shader.SL_GLSL, vs, fs)
@@ -324,7 +324,7 @@ class TemporaryCone(TemporaryPrimitive):
 
     def update_size(self, bottom_radius=None, top_radius=None, height=None):
 
-        origin = self.get_origin()
+        origin = self.origin
 
         if bottom_radius is not None:
 
@@ -447,17 +447,17 @@ class Cone(Primitive):
     def __update_size(self):
 
         self.reset_initial_coords()
-        self.get_geom_data_object().reposition_vertices(self.__set_new_vertex_position)
+        self.geom_data_obj.reposition_vertices(self.__set_new_vertex_position)
 
     def init_size(self, bottom_radius, top_radius, height):
 
-        origin = self.get_origin()
+        origin = self.origin
         self._bottom_radius = max(bottom_radius, .001)
         self._top_radius = max(top_radius, 0.)
         self._height = max(abs(height), .001) * (-1. if height < 0. else 1.)
 
         self.__update_size()
-        self.get_geom_data_object().update_vertex_normals()
+        self.geom_data_obj.update_vertex_normals()
 
     def set_bottom_radius(self, radius):
 
@@ -504,14 +504,14 @@ class Cone(Primitive):
 
             if prop_id == "segments":
                 data.update(self.get_geom_data_backup().get_data_to_store("deletion"))
-                data.update(self.get_geom_data_object().get_data_to_store("creation"))
+                data.update(self.geom_data_obj.get_data_to_store("creation"))
                 self.remove_geom_data_backup()
             elif prop_id == "smoothness":
-                data.update(self.get_geom_data_object().get_data_to_store())
+                data.update(self.geom_data_obj.get_data_to_store())
             elif prop_id in ("radius_bottom", "radius_top", "height"):
-                data.update(self.get_geom_data_object().get_property_to_store("subobj_transform",
+                data.update(self.geom_data_obj.get_property_to_store("subobj_transform",
                                                                               "prop_change", "all"))
-                data.update(self.get_geom_data_object().get_property_to_store("normals",
+                data.update(self.geom_data_obj.get_property_to_store("normals",
                                                                               "prop_change", "all"))
 
             return data
@@ -533,7 +533,7 @@ class Cone(Primitive):
             Mgr.update_remotely("selected_obj_prop", "cone", prop_id,
                                 self.get_property(prop_id, True))
 
-        obj_id = self.get_toplevel_object().get_id()
+        obj_id = self.toplevel_obj.id
 
         if prop_id == "segments":
 
@@ -564,11 +564,11 @@ class Cone(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
-                self.get_model().update_group_bbox()
+                self.model.update_group_bbox()
                 update_app()
 
                 if not restore:
-                    task = self.get_geom_data_object().update_vertex_normals
+                    task = self.geom_data_obj.update_vertex_normals
                     PendingTasks.add(task, "set_normals", "object", id_prefix=obj_id)
 
             return change
@@ -582,11 +582,11 @@ class Cone(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
-                self.get_model().update_group_bbox()
+                self.model.update_group_bbox()
                 update_app()
 
                 if not restore:
-                    task = self.get_geom_data_object().update_vertex_normals
+                    task = self.geom_data_obj.update_vertex_normals
                     PendingTasks.add(task, "set_normals", "object", id_prefix=obj_id)
 
             return change
@@ -600,11 +600,11 @@ class Cone(Primitive):
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
-                self.get_model().update_group_bbox()
+                self.model.update_group_bbox()
                 update_app()
 
                 if not restore:
-                    task = self.get_geom_data_object().update_vertex_normals
+                    task = self.geom_data_obj.update_vertex_normals
                     PendingTasks.add(task, "set_normals", "object", id_prefix=obj_id)
 
             return change
@@ -614,7 +614,7 @@ class Cone(Primitive):
             change = self.set_smooth(value)
 
             if change and not restore:
-                task = lambda: self.get_geom_data_object().set_smoothing(iter(self._smoothing.values())
+                task = lambda: self.geom_data_obj.set_smoothing(iter(self._smoothing.values())
                                                                          if value else None)
                 PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
 
@@ -651,7 +651,7 @@ class Cone(Primitive):
 
         Primitive.finalize(self)
 
-        self.get_geom_data_object().update_vertex_normals()
+        self.geom_data_obj.update_vertex_normals()
 
 
 class ConeManager(PrimitiveManager):
@@ -699,7 +699,7 @@ class ConeManager(PrimitiveManager):
 
         segs = self.get_property_defaults()["segments"]
         tmp_segs = self.get_property_defaults()["temp_segments"]
-        segments = dict((k, min(segs[k], tmp_segs[k])) for k in ("circular", "height", "caps"))
+        segments = {k: min(segs[k], tmp_segs[k]) for k in ("circular", "height", "caps")}
         is_smooth = self.get_property_defaults()["smoothness"]
         tmp_prim = TemporaryCone(segments, is_smooth, color, pos)
 
@@ -733,15 +733,15 @@ class ConeManager(PrimitiveManager):
         """ Start drawing out cone base """
 
         tmp_prim = self.get_temp_primitive()
-        origin = tmp_prim.get_origin()
-        self._height_axis = self.world.get_relative_vector(origin, V3D(0., 0., 1.))
+        origin = tmp_prim.origin
+        self._height_axis = GD.world.get_relative_vector(origin, V3D(0., 0., 1.))
 
     def __creation_phase1(self):
         """ Draw out cone base """
 
         point = None
-        grid_origin = Mgr.get(("grid", "origin"))
-        snap_settings = GlobalData["snap"]
+        grid = Mgr.get("grid")
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
 
@@ -753,16 +753,16 @@ class ConeManager(PrimitiveManager):
             if snap_on and snap_tgt_type != "increment":
                 Mgr.do("set_projected_snap_marker_pos", None)
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
-            point = Mgr.get(("grid", "point_at_screen_pos"), screen_pos, self.get_origin_pos())
+            screen_pos = GD.mouse_watcher.get_mouse()
+            point = grid.get_point_at_screen_pos(screen_pos, self.get_origin_pos())
 
         else:
 
-            point = Mgr.get(("grid", "projected_point"), point, self.get_origin_pos())
-            proj_point = self.world.get_relative_point(grid_origin, point)
+            point = grid.get_projected_point(point, self.get_origin_pos())
+            proj_point = GD.world.get_relative_point(grid.origin, point)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if not point:
@@ -776,14 +776,14 @@ class ConeManager(PrimitiveManager):
             radius = round(radius / offset_incr) * offset_incr
             point = self.get_origin_pos() + radius_vec.normalized() * radius
 
-        self._dragged_point = self.world.get_relative_point(grid_origin, point)
+        self._dragged_point = GD.world.get_relative_point(grid.origin, point)
         self.get_temp_primitive().update_size(radius, radius)
 
     def __start_creation_phase2(self):
         """ Start drawing out cone height """
 
-        cam = self.cam()
-        cam_forward_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+        cam = GD.cam()
+        cam_forward_vec = V3D(GD.world.get_relative_vector(cam, Vec3.forward()))
         normal = V3D(cam_forward_vec - cam_forward_vec.project(self._height_axis))
 
         # If the plane normal is the null vector, the axis must be parallel to
@@ -802,16 +802,16 @@ class ConeManager(PrimitiveManager):
 
         self._draw_plane = Plane(normal, self._dragged_point)
 
-        if self.cam.lens_type == "persp":
+        if GD.cam.lens_type == "persp":
 
-            cam_pos = cam.get_pos(self.world)
+            cam_pos = cam.get_pos(GD.world)
 
             if normal * V3D(self._draw_plane.project(cam_pos) - cam_pos) < .0001:
                 normal *= -1.
 
         self._draw_plane_normal = normal
 
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_2"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_2"]
 
@@ -821,14 +821,14 @@ class ConeManager(PrimitiveManager):
             # to zero, so a different grid plane needs to be set temporarily;
             # out of the two possible planes, choose the one that faces the camera most.
 
-            grid_origin = Mgr.get(("grid", "origin"))
-            active_plane_id = GlobalData["active_grid_plane"]
+            grid_origin = Mgr.get("grid").origin
+            active_plane_id = GD["active_grid_plane"]
             normal1 = Vec3()
             normal2 = Vec3()
             normal1["xyz".index(active_plane_id[0])] = 1.
             normal2["xyz".index(active_plane_id[1])] = 1.
-            normal1 = self.world.get_relative_vector(grid_origin, normal1)
-            normal2 = self.world.get_relative_vector(grid_origin, normal2)
+            normal1 = GD.world.get_relative_vector(grid_origin, normal1)
+            normal2 = GD.world.get_relative_vector(grid_origin, normal2)
             plane_id1 = "xyz".replace(active_plane_id[0], "")
             plane_id2 = "xyz".replace(active_plane_id[1], "")
 
@@ -837,7 +837,7 @@ class ConeManager(PrimitiveManager):
             else:
                 Mgr.update_app("active_grid_plane", plane_id2)
 
-            GlobalData["active_grid_plane"] = active_plane_id
+            GD["active_grid_plane"] = active_plane_id
 
         if snap_on and snap_tgt_type != "increment":
             self._top_point = self._dragged_point
@@ -846,7 +846,7 @@ class ConeManager(PrimitiveManager):
         """ Draw out cone height """
 
         self._dragged_point = None
-        snap_settings = GlobalData["snap"]
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_2"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_2"]
 
@@ -858,17 +858,17 @@ class ConeManager(PrimitiveManager):
             if snap_on and snap_tgt_type != "increment":
                 Mgr.do("set_projected_snap_marker_pos", None)
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
-            cam = self.cam()
-            lens_type = self.cam.lens_type
+            screen_pos = GD.mouse_watcher.get_mouse()
+            cam = GD.cam()
+            lens_type = GD.cam.lens_type
 
             near_point = Point3()
             far_point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
+            rel_pt = lambda point: GD.world.get_relative_point(cam, point)
             near_point = rel_pt(near_point)
             far_point = rel_pt(far_point)
             self._dragged_point = Point3()
@@ -884,20 +884,20 @@ class ConeManager(PrimitiveManager):
 
         else:
 
-            grid_origin = Mgr.get(("grid", "origin"))
-            self._dragged_point = self.world.get_relative_point(grid_origin, self._dragged_point)
+            grid_origin = Mgr.get("grid").origin
+            self._dragged_point = GD.world.get_relative_point(grid_origin, self._dragged_point)
             vec = self._dragged_point - self._top_point
             proj_point = self._top_point + vec.project(self._height_axis)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         tmp_prim = self.get_temp_primitive()
-        origin = tmp_prim.get_origin()
-        x, y, z = origin.get_relative_point(self.world, self._dragged_point)
+        origin = tmp_prim.origin
+        x, y, z = origin.get_relative_point(GD.world, self._dragged_point)
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_2"]
             z = round(z / offset_incr) * offset_incr
-            self._dragged_point = self.world.get_relative_point(origin, Point3(x, y, z))
+            self._dragged_point = GD.world.get_relative_point(origin, Point3(x, y, z))
 
         tmp_prim.update_size(height=z)
 
@@ -905,12 +905,12 @@ class ConeManager(PrimitiveManager):
         """ Start drawing out cone top """
 
         tmp_prim = self.get_temp_primitive()
-        origin = tmp_prim.get_origin()
+        origin = tmp_prim.origin
         height = tmp_prim.get_height()
-        self._top_point = origin.get_pos(self.world) + self._height_axis * height
-        cam = self.cam()
-        cam_pos = cam.get_pos(self.world)
-        cam_forward_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+        self._top_point = origin.get_pos(GD.world) + self._height_axis * height
+        cam = GD.cam()
+        cam_pos = cam.get_pos(GD.world)
+        cam_forward_vec = V3D(GD.world.get_relative_vector(cam, Vec3.forward()))
         self._draw_plane = Plane(cam_forward_vec, self._top_point)
         point = Point3()
         self._draw_plane.intersects_line(point, cam_pos, self._dragged_point)
@@ -920,8 +920,8 @@ class ConeManager(PrimitiveManager):
         """ Draw out cone top """
 
         point = None
-        grid_origin = Mgr.get(("grid", "origin"))
-        snap_settings = GlobalData["snap"]
+        grid = Mgr.get("grid")
+        snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_3"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_3"]
 
@@ -933,16 +933,16 @@ class ConeManager(PrimitiveManager):
             if snap_on and snap_tgt_type != "increment":
                 Mgr.do("set_projected_snap_marker_pos", None)
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            screen_pos = self.mouse_watcher.get_mouse()
+            screen_pos = GD.mouse_watcher.get_mouse()
             near_point = Point3()
             far_point = Point3()
             point = Point3()
-            self.cam.lens.extrude(screen_pos, near_point, far_point)
-            cam = self.cam()
-            rel_pt = lambda point: self.world.get_relative_point(cam, point)
+            GD.cam.lens.extrude(screen_pos, near_point, far_point)
+            cam = GD.cam()
+            rel_pt = lambda point: GD.world.get_relative_point(cam, point)
             near_point = rel_pt(near_point)
             far_point = rel_pt(far_point)
 
@@ -958,10 +958,10 @@ class ConeManager(PrimitiveManager):
 
         else:
 
-            point_in_plane = grid_origin.get_relative_point(self.world, self._top_point)
-            point = Mgr.get(("grid", "projected_point"), point, point_in_plane)
+            point_in_plane = grid.origin.get_relative_point(GD.world, self._top_point)
+            point = grid.get_projected_point(point, point_in_plane)
             top_radius = (point - point_in_plane).length()
-            proj_point = self.world.get_relative_point(grid_origin, point)
+            proj_point = GD.world.get_relative_point(grid.origin, point)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if snap_on and snap_tgt_type == "increment":

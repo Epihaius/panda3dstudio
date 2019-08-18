@@ -21,7 +21,7 @@ class VertexMerger:
 
         for vert1 in self.verts1:
 
-            row1 = vert1.get_row_index()
+            row1 = vert1.row_index
 
             if row1 not in self.dupes:
                 for vert2 in self.verts2[:]:
@@ -32,24 +32,24 @@ class VertexMerger:
         if vert2 is not vert1:
 
             pos1 = vert1.get_pos()
-            normal1 = vert1.get_normal()
+            normal1 = vert1.normal
             uv1 = vert1.get_uvs()
-            col1 = vert1.get_color()
+            col1 = vert1.color
 
             pos2 = vert2.get_pos()
-            normal2 = vert2.get_normal()
+            normal2 = vert2.normal
             uv2 = vert2.get_uvs()
-            col2 = vert2.get_color()
+            col2 = vert2.color
 
             if pos2 == pos1 and normal2 == normal1 and uv2 == uv1 and col2 == col1:
-                row2 = vert2.get_row_index()
+                row2 = vert2.row_index
                 self.rows.remove(row2)
                 self.verts2.remove(vert2)
                 self.dupes[row2] = row1
 
     def __create_vertex_data(self, geom_data_obj):
 
-        self.geom = geom_data_obj.get_toplevel_node().get_geom(0)
+        self.geom = geom_data_obj.toplevel_geom.node().get_geom(0)
         vdata_src = self.geom.get_vertex_data()
         self.vdata_dest = GeomVertexData(vdata_src)
         self.vdata_dest.unclean_set_num_rows(len(self.rows))
@@ -85,7 +85,7 @@ class VertexMerger:
     def __check_duplicate_verts(self, geom_data_obj):
 
         verts = geom_data_obj.get_subobjects("vert")
-        merged_verts = set(geom_data_obj.get_merged_vertices().values())
+        merged_verts = set(geom_data_obj.merged_verts.values())
         self.rows = list(range(len(verts)))
         self.dupes = {}
 

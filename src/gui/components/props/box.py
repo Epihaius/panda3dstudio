@@ -24,8 +24,8 @@ class BoxProperties:
             group.add(sizer, expand=True)
 
             for axis, dim in zip(axes, dimensions):
-                prop_id = "{}_{}".format(prop_type, axis)
-                text = "{} ({}):".format(axis.upper(), dim)
+                prop_id = f"{prop_type}_{axis}"
+                text = f"{axis.upper()} ({dim}):"
                 sizer.add(PanelText(group, text), alignment_v="center_v")
                 field = PanelInputField(group, prop_id, val_type, self.__handle_value, 80)
                 field.set_input_parser(parser)
@@ -43,9 +43,9 @@ class BoxProperties:
 
     def setup(self): pass
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
-        in_creation_mode = GlobalData["active_creation_type"]
+        in_creation_mode = GD["active_creation_type"]
 
         if "segments" in value_id:
             prop_id, axis = value_id.split("_")
@@ -89,7 +89,7 @@ class BoxProperties:
 
     def __replace_with_planes(self):
 
-        if GlobalData["active_creation_type"] != "":
+        if GD["active_creation_type"] != "":
             return
 
         Mgr.update_remotely("box_to_planes")
@@ -140,7 +140,7 @@ class BoxProperties:
 
     def check_selection_count(self):
 
-        sel_count = GlobalData["selection_count"]
+        sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 

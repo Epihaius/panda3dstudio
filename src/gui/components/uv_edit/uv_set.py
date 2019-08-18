@@ -32,7 +32,7 @@ class UVSetPanel(Panel):
 
         for i in range(8):
             text = str(i)
-            tooltip_text = "UV set {:d}".format(i)
+            tooltip_text = f"UV set {i}"
             btn = PanelButton(section, text, "", tooltip_text)
             toggle = (get_command(i), lambda: None)
             uv_set_btns.add_button(btn, str(i), toggle)
@@ -117,7 +117,7 @@ class UVSetPanel(Panel):
         obj_id = list(names.keys())[0]
         self.__select_uv_name_target(obj_id)
 
-    def __handle_value(self, value_id, value, state):
+    def __handle_value(self, value_id, value, state="done"):
 
         obj_id = self._comboboxes["uv_name_target"].get_selected_item()
         Mgr.update_interface_remotely("uv", value_id, obj_id, value)

@@ -1,29 +1,32 @@
 from ..base import *
 
 
-class Edge(BaseObject):
+class Edge:
+
+    __slots__ = ("type", "id", "picking_color_id", "_vert_ids",
+                 "polygon_id", "uv_data_obj")
 
     def __init__(self, edge_id, picking_col_id, uv_data_obj=None,
                  poly_id=None, vert_ids=None, data_copy=None):
 
-        self._type = "edge"
-        self._id = edge_id
-        self._picking_col_id = picking_col_id
-        self._uv_data_obj = uv_data_obj
+        self.type = "edge"
+        self.id = edge_id
+        self.picking_color_id = picking_col_id
+        self.uv_data_obj = uv_data_obj
 
         if data_copy:
             poly_id = data_copy["poly_id"]
             vert_ids = data_copy["vert_ids"]
 
-        self._poly_id = poly_id
+        self.polygon_id = poly_id
         self._vert_ids = vert_ids
 
     def copy(self):
 
         data_copy = {}
         data_copy["vert_ids"] = self._vert_ids[:]
-        data_copy["poly_id"] = self._poly_id
-        edge = Edge(self._id, self._picking_col_id, data_copy=data_copy)
+        data_copy["poly_id"] = self.polygon_id
+        edge = Edge(self.id, self.picking_color_id, data_copy=data_copy)
 
         return edge
 
@@ -36,76 +39,55 @@ class Edge(BaseObject):
         except TypeError:
             raise TypeError("Index must be an integer value.")
 
-    def get_type(self):
+    @property
+    def merged_subobj(self):
 
-        return self._type
+        return self.uv_data_obj.get_merged_edge(self.id)
 
-    def get_id(self):
+    @property
+    def merged_edge(self):
 
-        return self._id
+        return self.uv_data_obj.get_merged_edge(self.id)
 
-    def get_picking_color_id(self):
+    @property
+    def vertices(self):
 
-        return self._picking_col_id
-
-    def set_uv_data_object(self, uv_data_obj):
-
-        self._uv_data_obj = uv_data_obj
-
-    def get_uv_data_object(self):
-
-        return self._uv_data_obj
-
-    def get_merged_object(self):
-
-        return self._uv_data_obj.get_merged_edge(self._id)
-
-    def get_merged_edge(self):
-
-        return self._uv_data_obj.get_merged_edge(self._id)
-
-    def set_polygon_id(self, polygon_id):
-
-        self._poly_id = polygon_id
-
-    def get_polygon_id(self):
-
-        return self._poly_id
-
-    def get_vertices(self):
-
-        verts = self._uv_data_obj.get_subobjects("vert")
+        verts = self.uv_data_obj.get_subobjects("vert")
 
         return [verts[vert_id] for vert_id in self._vert_ids]
 
-    def get_start_row_index(self):
+    @property
+    def start_row_index(self):
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        verts = self.uv_data_obj.get_subobjects("vert")
 
-        return verts[self._vert_ids[0]].get_row_index()
+        return verts[self._vert_ids[0]].row_index
 
-    def get_row_indices(self):
+    @property
+    def row_indices(self):
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        verts = self.uv_data_obj.get_subobjects("vert")
         count = len(verts)
-        r1, r2 = (verts[vert_id].get_row_index() for vert_id in self._vert_ids)
+        r1, r2 = (verts[vert_id].row_index for vert_id in self._vert_ids)
 
         return [r1, r2 + count]
 
     def get_center_pos(self, ref_node=None):
 
-        verts = self._uv_data_obj.get_subobjects("vert")
+        verts = self.uv_data_obj.get_subobjects("vert")
 
         return sum([verts[v_id].get_pos(ref_node) for v_id in self._vert_ids], Point3()) * .5
 
 
 class MergedEdge:
 
+    __slots__ = ("type", "full_type", "_ids", "uv_data_obj")
+
     def __init__(self, uv_data_obj, edge_ids=None):
 
-        self._type = "edge"
-        self._full_type = "merged_edge"
-        self._uv_data_obj = uv_data_obj
+        self.type = "edge"
+        self.full_type = "merged_edge"
+        self.uv_data_obj = uv_data_obj
         self._ids = [] if edge_ids is None else edge_ids
 
     def copy(self):
@@ -137,73 +119,64 @@ class MergedEdge:
 
         self._ids.remove(edge_id)
 
-    def get_type(self):
+    @property
+    def id(self):
 
-        return self._type
+        edge = self.uv_data_obj.get_subobject("edge", self._ids[0])
 
-    def get_full_type(self):
+        return edge.id if edge else None
 
-        return self._full_type
+    @property
+    def picking_color_id(self):
 
-    def get_id(self):
+        edge = self.uv_data_obj.get_subobject("edge", self._ids[0])
 
-        edge = self._uv_data_obj.get_subobject("edge", self._ids[0])
+        return edge.picking_color_id if edge else None
 
-        return edge.get_id() if edge else None
+    @property
+    def picking_color_ids(self):
 
-    def get_picking_color_id(self):
+        edges = self.uv_data_obj.get_subobjects("edge")
 
-        edge = self._uv_data_obj.get_subobject("edge", self._ids[0])
+        return [edges[e_id].picking_color_id for e_id in self._ids]
 
-        return edge.get_picking_color_id() if edge else None
+    @property
+    def polygon_ids(self):
 
-    def get_picking_color_ids(self):
+        edges = self.uv_data_obj.get_subobjects("edge")
 
-        edges = self._uv_data_obj.get_subobjects("edge")
+        return [edges[e_id].polygon_id for e_id in self._ids]
 
-        return [edges[e_id].get_picking_color_id() for e_id in self._ids]
-
-    def get_polygon_ids(self):
-
-        edges = self._uv_data_obj.get_subobjects("edge")
-
-        return [edges[e_id].get_polygon_id() for e_id in self._ids]
-
-    def get_special_selection(self):
+    @property
+    def special_selection(self):
 
         edges = [self]
 
-        if GlobalData["uv_edit_options"]["sel_edges_by_seam"] and len(self._ids) == 1:
-            edges = self._uv_data_obj.get_seam_edges(self)
+        if GD["uv_edit_options"]["sel_edges_by_seam"] and len(self._ids) == 1:
+            edges = self.uv_data_obj.get_seam_edges(self)
 
         return edges
 
-    def get_start_row_indices(self):
+    @property
+    def start_row_indices(self):
 
-        edges = self._uv_data_obj.get_subobjects("edge")
+        edges = self.uv_data_obj.get_subobjects("edge")
 
-        return [edges[e_id].get_start_row_index() for e_id in self._ids]
+        return [edges[e_id].start_row_index for e_id in self._ids]
 
-    def get_row_indices(self):
+    @property
+    def row_indices(self):
 
-        edges = self._uv_data_obj.get_subobjects("edge")
+        edges = self.uv_data_obj.get_subobjects("edge")
         row_indices = []
 
         for e_id in self._ids:
-            row_indices.extend(edges[e_id].get_row_indices())
+            row_indices.extend(edges[e_id].row_indices)
 
         return row_indices
 
-    def set_uv_data_object(self, uv_data_obj):
-
-        self._uv_data_obj = uv_data_obj
-
-    def get_uv_data_object(self):
-
-        return self._uv_data_obj
-
     def get_center_pos(self, ref_node=None):
 
-        edge = self._uv_data_obj.get_subobject("edge", self._ids[0])
+        edge = self.uv_data_obj.get_subobject("edge", self._ids[0])
 
         return edge.get_center_pos(ref_node)

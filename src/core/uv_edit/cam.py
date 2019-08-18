@@ -1,7 +1,7 @@
 from .base import *
 
 
-class PickingCamera(BaseObject):
+class PickingCamera:
 
     def __init__(self):
 
@@ -24,27 +24,26 @@ class PickingCamera(BaseObject):
 
     def setup(self):
 
-        base = Mgr.get("base")
         self._tex = Texture("uv_picking_texture")
         props = FrameBufferProperties()
         props.set_rgba_bits(8, 8, 8, 8)
         props.set_depth_bits(8)
-        self._buffer = bfr = base.win.make_texture_buffer("uv_picking_buffer",
-                                                          15, 15,
-                                                          self._tex,
-                                                          to_ram=True,
-                                                          fbp=props)
+        self._buffer = bfr = GD.window.make_texture_buffer("uv_picking_buffer",
+                                                           15, 15,
+                                                           self._tex,
+                                                           to_ram=True,
+                                                           fbp=props)
 
-        bfr.set_clear_color(VBase4())
+        bfr.clear_color = (0., 0., 0., 0.)
         bfr.set_clear_color_active(True)
-        self._np = base.make_camera(bfr)
-        self._np.reparent_to(self.cam)
+        self._np = GD.showbase.make_camera(bfr)
+        self._np.reparent_to(GD.uv_cam)
         node = self._np.node()
         self._lens = lens = OrthographicLens()
-        lens.set_near(-10.)
-        lens.set_film_size(.06)
+        lens.near = -10.
+        lens.film_size = .06
         node.set_lens(lens)
-        node.set_camera_mask(self._mask)
+        node.camera_mask = self._mask
 
         state_np = NodePath("uv_vertex_color_state")
         state_np.set_texture_off(1)
@@ -55,15 +54,15 @@ class PickingCamera(BaseObject):
         state_np.set_color_scale_off(1)
         state_np.set_render_mode_thickness(5, 1)
         state_np.set_transparency(TransparencyAttrib.M_none, 1)
-        node.set_initial_state(state_np.get_state())
-        node.set_active(False)
+        node.initial_state = state_np.get_state()
+        node.active = False
 
         return "uv_picking_camera_ok"
 
     def __update_frustum(self):
 
-        w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
-        self._lens.set_film_size(.06 * 512. / min(w, h))
+        w, h = GD["viewport"]["size" if GD["viewport"][2] == "main" else "size_aux"]
+        self._lens.film_size = .06 * 512. / min(w, h)
 
     def restore_lens(self):
 
@@ -81,13 +80,19 @@ class PickingCamera(BaseObject):
 
         self._transformer = transformer
 
-    def set_active(self, is_active=True):
+    @property
+    def active(self):
 
-        self._buffer.set_active(is_active)
-        self._np.node().set_active(is_active)
+        return self._np.node().active
+
+    @active.setter
+    def active(self, active):
+
+        self._buffer.active = active
+        self._np.node().active = active
         Mgr.remove_task("get_uv_pixel_under_mouse")
 
-        if is_active:
+        if active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_uv_pixel_under_mouse", sort=0)
             Mgr.add_app_updater("viewport", self.__update_frustum, interface_id="uv")
             self.__update_frustum()
@@ -96,21 +101,21 @@ class PickingCamera(BaseObject):
 
     def __get_pixel_under_mouse(self, task):
 
-        if not self.mouse_watcher.has_mouse():
-            self._buffer.set_active(False)
-            self._np.node().set_active(False)
+        if not GD.uv_mouse_watcher.has_mouse():
+            self._buffer.active = False
+            self._np.node().active = False
             return task.cont
 
-        if not self._np.node().is_active():
-            self._buffer.set_active(True)
-            self._np.node().set_active(True)
+        if not self._np.node().active:
+            self._buffer.active = True
+            self._np.node().active = True
 
         if self._transformer:
             self._transformer(self._np)
         else:
-            screen_pos = self.mouse_watcher.get_mouse()
+            screen_pos = GD.uv_mouse_watcher.get_mouse()
             far_point = Point3()
-            self.cam_lens.extrude(screen_pos, Point3(), far_point)
+            GD.uv_cam_lens.extrude(screen_pos, Point3(), far_point)
             far_point.y = 0.
             self._np.set_pos(far_point)
 
@@ -123,7 +128,7 @@ class PickingCamera(BaseObject):
 
     def __get_picked_point(self):
 
-        pos = self._np.get_pos(self.uv_space)
+        pos = self._np.get_pos(GD.uv_space)
         pos.y = 0.
 
         return pos
@@ -131,32 +136,36 @@ class PickingCamera(BaseObject):
 
 # the following camera is used to detect temporary geometry created to allow subobject
 # picking via polygon
-class AuxiliaryPickingCamera(BaseObject):
+class AuxiliaryPickingCamera:
+
+    @property
+    def origin(self):
+
+        return self._np
 
     def __init__(self):
 
         self._pixel_color = VBase4()
         UVMgr.expose("aux_pixel_under_mouse", lambda: VBase4(self._pixel_color))
 
-        base = Mgr.get("base")
         self._tex = Texture("aux_picking_texture")
         self._tex_peeker = None
         props = FrameBufferProperties()
         props.set_rgba_bits(8, 8, 8, 8)
         props.set_depth_bits(8)
-        self._buffer = bfr = base.win.make_texture_buffer("aux_picking_buffer",
-                                                          1, 1,
-                                                          self._tex,
-                                                          to_ram=True,
-                                                          fbp=props)
+        self._buffer = bfr = GD.window.make_texture_buffer("aux_picking_buffer",
+                                                           1, 1,
+                                                           self._tex,
+                                                           to_ram=True,
+                                                           fbp=props)
 
-        bfr.set_clear_color(VBase4())
+        bfr.clear_color = (0., 0., 0., 0.)
         bfr.set_clear_color_active(True)
-        self._np = base.make_camera(bfr)
+        self._np = GD.showbase.make_camera(bfr)
         node = self._np.node()
         self._lens = lens = OrthographicLens()
-        lens.set_film_size(.75)
-        lens.set_near(0.)
+        lens.film_size = .75
+        lens.near = 0.
         node.set_lens(lens)
         UVMgr.expose("aux_picking_cam", lambda: self)
 
@@ -168,8 +177,8 @@ class AuxiliaryPickingCamera(BaseObject):
         state_np.set_color_scale_off(1)
         state_np.set_transparency(TransparencyAttrib.M_none, 1)
         state = state_np.get_state()
-        node.set_initial_state(state)
-        node.set_active(False)
+        node.initial_state = state
+        node.active = False
 
         self._plane = None
 
@@ -181,12 +190,8 @@ class AuxiliaryPickingCamera(BaseObject):
 
     def __update_frustum(self):
 
-        w, h = GlobalData["viewport"]["size" if GlobalData["viewport"][2] == "main" else "size_aux"]
-        self._lens.set_film_size(.75 * 512. / min(w, h))
-
-    def get_origin(self):
-
-        return self._np
+        w, h = GD["viewport"]["size" if GD["viewport"][2] == "main" else "size_aux"]
+        self._lens.film_size = .75 * 512. / min(w, h)
 
     def set_plane(self, plane):
 
@@ -194,26 +199,32 @@ class AuxiliaryPickingCamera(BaseObject):
 
     def update_pos(self):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.uv_mouse_watcher.has_mouse():
             return
 
-        cam = self.cam
-        screen_pos = self.mouse_watcher.get_mouse()
+        cam = GD.uv_cam
+        screen_pos = GD.uv_mouse_watcher.get_mouse()
         near_point = Point3()
         far_point = Point3()
-        self.cam_lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.uv_space.get_relative_point(cam, point)
+        GD.uv_cam_lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.uv_space.get_relative_point(cam, point)
         point = Point3()
         self._plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
         self._np.set_pos(point)
 
-    def set_active(self, is_active=True):
+    @property
+    def active(self):
 
-        self._buffer.set_active(is_active)
-        self._np.node().set_active(is_active)
+        return self._np.node().active
+
+    @active.setter
+    def active(self, active):
+
+        self._buffer.active = active
+        self._np.node().active = active
         Mgr.remove_task("get_aux_pixel_under_mouse")
 
-        if is_active:
+        if active:
             Mgr.add_task(self.__get_pixel_under_mouse, "get_aux_pixel_under_mouse", sort=0)
             Mgr.add_app_updater("viewport", self.__update_frustum, interface_id="uv")
             self.__update_frustum()
@@ -222,22 +233,22 @@ class AuxiliaryPickingCamera(BaseObject):
 
     def __get_pixel_under_mouse(self, task):
 
-        if not self.mouse_watcher.is_mouse_open():
-            self._buffer.set_active(False)
-            self._np.node().set_active(False)
+        if not GD.uv_mouse_watcher.is_mouse_open():
+            self._buffer.active = False
+            self._np.node().active = False
             self._pixel_color = VBase4()
             return task.cont
 
-        if not self._np.node().is_active():
-            self._buffer.set_active(True)
-            self._np.node().set_active(True)
+        if not self._np.node().active:
+            self._buffer.active = True
+            self._np.node().active = True
 
-        cam = self.cam
-        screen_pos = self.mouse_watcher.get_mouse()
+        cam = GD.uv_cam
+        screen_pos = GD.uv_mouse_watcher.get_mouse()
         near_point = Point3()
         far_point = Point3()
-        self.cam_lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.uv_space.get_relative_point(cam, point)
+        GD.uv_cam_lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.uv_space.get_relative_point(cam, point)
         point = Point3()
         self._plane.intersects_line(point, rel_pt(near_point), rel_pt(far_point))
         self._np.look_at(point)
@@ -251,7 +262,8 @@ class AuxiliaryPickingCamera(BaseObject):
         return task.cont
 
 
-class UVNavigationBase(BaseObject):
+class UVNavigationMixin:
+    """ UVEditor class mix-in """
 
     def __init__(self):
 
@@ -296,8 +308,8 @@ class UVNavigationBase(BaseObject):
 
     def _reset_view(self):
 
-        self.cam.set_pos(.5, -10., .5)
-        self.cam.set_scale(1.)
+        GD.uv_cam.set_pos(.5, -10., .5)
+        GD.uv_cam.set_scale(1.)
         self._grid.update()
         self._transf_gizmo.set_scale(1.)
 
@@ -305,7 +317,7 @@ class UVNavigationBase(BaseObject):
 
         Mgr.remove_task("transform_uv_cam")
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.uv_mouse_watcher.has_mouse():
             return
 
         self.__get_pan_pos(self._pan_start_pos)
@@ -318,14 +330,14 @@ class UVNavigationBase(BaseObject):
         if not self.__get_pan_pos(pan_pos):
             return task.cont
 
-        self.cam.set_pos(self.cam.get_pos() + (self._pan_start_pos - pan_pos))
+        GD.uv_cam.set_pos(GD.uv_cam.get_pos() + (self._pan_start_pos - pan_pos))
         self._grid.update()
 
         return task.cont
 
     def __get_pan_pos(self, pos):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.uv_mouse_watcher.has_mouse():
             return False
 
         pos.x, _, pos.z = UVMgr.get("picked_point")
@@ -336,18 +348,18 @@ class UVNavigationBase(BaseObject):
 
         Mgr.remove_task("transform_uv_cam")
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.uv_mouse_watcher.has_mouse():
             return
 
-        self._zoom_start = (self.cam.get_sx(), self.mouse_watcher.get_mouse_y())
+        self._zoom_start = (GD.uv_cam.get_sx(), GD.uv_mouse_watcher.get_mouse_y())
         Mgr.add_task(self.__zoom, "transform_uv_cam", sort=2)
 
     def __zoom(self, task):
 
-        if not self.mouse_watcher.has_mouse():
+        if not GD.uv_mouse_watcher.has_mouse():
             return task.cont
 
-        mouse_y = self.mouse_watcher.get_mouse_y()
+        mouse_y = GD.uv_mouse_watcher.get_mouse_y()
         start_scale, start_y = self._zoom_start
 
         if mouse_y < start_y:
@@ -359,7 +371,7 @@ class UVNavigationBase(BaseObject):
 
         zoom *= start_scale
         zoom = min(1000., max(.001, zoom))
-        self.cam.set_scale(zoom)
+        GD.uv_cam.set_scale(zoom)
         self._grid.update()
         self._transf_gizmo.set_scale(zoom)
 
@@ -367,22 +379,22 @@ class UVNavigationBase(BaseObject):
 
     def __zoom_step_in(self):
 
-        zoom = self.cam.get_sx() * .9
+        zoom = GD.uv_cam.get_sx() * .9
         zoom = max(.001, zoom)
-        self.cam.set_scale(zoom)
+        GD.uv_cam.set_scale(zoom)
         self._grid.update()
         self._transf_gizmo.set_scale(zoom)
 
     def __zoom_step_out(self):
 
-        zoom = self.cam.get_sx() * 1.1
+        zoom = GD.uv_cam.get_sx() * 1.1
         zoom = min(1000., zoom)
-        self.cam.set_scale(zoom)
+        GD.uv_cam.set_scale(zoom)
         self._grid.update()
         self._transf_gizmo.set_scale(zoom)
 
 
-class UVTemplateSaver(BaseObject):
+class UVTemplateSaver:
 
     def __init__(self):
 
@@ -392,7 +404,7 @@ class UVTemplateSaver(BaseObject):
         self._poly_color = VBase4(1., 1., 1., 0.)
         self._seam_color = VBase4(0., 1., 0., 1.)
         UVMgr.expose("template_mask", lambda: self._template_mask)
-        self.uv_space.hide(self._template_mask)
+        GD.uv_space.hide(self._template_mask)
 
         def update_remotely():
 
@@ -443,26 +455,25 @@ class UVTemplateSaver(BaseObject):
         UVMgr.do("clear_unselected_poly_state")
 
         res = self._size
-        base = Mgr.get("base")
         props = FrameBufferProperties()
         props.set_rgba_bits(8, 8, 8, 8)
         props.set_depth_bits(8)
-        tex_buffer = base.win.make_texture_buffer("uv_template_buffer",
-                                                  res, res,
-                                                  Texture("uv_template"),
-                                                  to_ram=True,
-                                                  fbp=props)
+        tex_buffer = GD.window.make_texture_buffer("uv_template_buffer",
+                                                   res, res,
+                                                   Texture("uv_template"),
+                                                   to_ram=True,
+                                                   fbp=props)
 
-        tex_buffer.set_clear_color(VBase4())
-        cam = base.make_camera(tex_buffer)
-        cam.reparent_to(self.uv_space)
+        tex_buffer.clear_color = (0., 0., 0., 0.)
+        cam = GD.showbase.make_camera(tex_buffer)
+        cam.reparent_to(GD.uv_space)
         cam.set_pos(.5, -10., .5)
         node = cam.node()
-        node.set_camera_mask(self._template_mask)
+        node.camera_mask = self._template_mask
         lens = OrthographicLens()
-        lens.set_film_size(1.)
+        lens.film_size = 1.
         node.set_lens(lens)
-        node.set_tag_state_key("uv_template")
+        node.tag_state_key = "uv_template"
 
         state_np = NodePath("uv_template_render_state")
         state_np.set_texture_off()
@@ -487,7 +498,7 @@ class UVTemplateSaver(BaseObject):
         Mgr.render_frame()
         tex_buffer.save_screenshot(Filename.from_os_specific(filename))
         cam.remove_node()
-        base.graphicsEngine.remove_window(tex_buffer)
+        GD.showbase.graphicsEngine.remove_window(tex_buffer)
 
         UVMgr.do("reset_unselected_poly_state")
 

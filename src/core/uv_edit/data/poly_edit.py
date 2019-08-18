@@ -3,19 +3,20 @@ from .vert import MergedVertex
 from .edge import MergedEdge
 
 
-class PolygonEditBase(BaseObject):
+class PolygonEditMixin:
+    """ UVDataObject class mix-in """
 
     def get_polygon_cluster(self, poly_id):
 
         polys = self._subobjs["poly"]
         poly = polys[poly_id]
         poly_ids = set([poly_id])
-        neighbor_ids = list(poly.get_neighbor_ids())
+        neighbor_ids = list(poly.neighbor_ids)
 
         while neighbor_ids:
             neighbor_id = neighbor_ids.pop()
             neighbor = polys[neighbor_id]
-            neighbor_ids.extend(neighbor.get_neighbor_ids() - poly_ids)
+            neighbor_ids.extend(neighbor.neighbor_ids - poly_ids)
             poly_ids.add(neighbor_id)
 
         return [polys[p_id] for p_id in poly_ids]
@@ -27,14 +28,14 @@ class PolygonEditBase(BaseObject):
         if not selected_poly_ids:
             return set()
 
-        merged_edges = self._merged_edges
+        merged_edges = self.merged_edges
         polys = self._subobjs["poly"]
         selected_polys = (polys[i] for i in selected_poly_ids)
         border_edges = []
 
         for poly in selected_polys:
 
-            for edge_id in poly.get_edge_ids():
+            for edge_id in poly.edge_ids:
 
                 merged_edge = merged_edges[edge_id]
 
@@ -62,27 +63,3 @@ class PolygonEditBase(BaseObject):
             return False
 
         return self.stitch_edges(edge_ids)
-
-
-class PolygonEditManager(BaseObject):
-
-    def setup(self):
-
-        Mgr.add_app_updater("poly_detach", self.__detach_polygons, interface_id="uv")
-        Mgr.add_app_updater("poly_stitch", self.__stitch_polygons, interface_id="uv")
-
-    def __detach_polygons(self):
-
-        selection = self._selections[self._uv_set_id]["poly"]
-        uv_data_objs = selection.get_uv_data_objects()
-
-        for data_obj in uv_data_objs:
-            data_obj.detach_polygons()
-
-    def __stitch_polygons(self):
-
-        selection = self._selections[self._uv_set_id]["poly"]
-        uv_data_objs = selection.get_uv_data_objects()
-
-        for data_obj in uv_data_objs:
-            data_obj.stitch_polygons()

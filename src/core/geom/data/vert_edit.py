@@ -1,7 +1,8 @@
 from ...base import *
 
 
-class VertexEditBase(BaseObject):
+class VertexEditMixin:
+    """ GeomDataObject class mix-in """
 
     def break_vertices(self):
 
@@ -11,10 +12,10 @@ class VertexEditBase(BaseObject):
             return False
 
         verts = self._subobjs["vert"]
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         verts_to_break = set(merged_verts[v_id] for v_id in selected_vert_ids)
         edge_ids = set(e_id for v in verts_to_break for v_id in v
-                       for e_id in verts[v_id].get_edge_ids())
+                       for e_id in verts[v_id].edge_ids)
 
         return self.split_edges(edge_ids)
 
@@ -25,7 +26,7 @@ class VertexEditBase(BaseObject):
         if not selected_vert_ids:
             return False, False
 
-        merged_verts = self._merged_verts
+        merged_verts = self.merged_verts
         shared_normals = self._shared_normals
         verts_to_update = set(merged_verts[v_id] for v_id in selected_vert_ids)
         merged_verts_to_resmooth = set()
@@ -57,7 +58,7 @@ class VertexEditBase(BaseObject):
                     continue
 
                 tmp_normal = Mgr.do("create_shared_normal", self, ids.difference(sel_ids))
-                tmp_id = tmp_normal.get_id()
+                tmp_id = tmp_normal.id
                 orig_normal = shared_normals[tmp_id]
                 shared_normals[tmp_id] = tmp_normal
                 self.update_selection("normal", [tmp_normal], [])
@@ -94,10 +95,10 @@ class VertexEditBase(BaseObject):
         # as soon as the mouse is released over a vertex, it gets picked and
         # polys become pickable again.
 
-        origin = self._origin
+        origin = self.origin
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        count = poly.get_vertex_count()
+        count = poly.vertex_count
 
         # create pickable geometry, specifically for the vertices of the
         # given polygon and belonging to the given category, if any
@@ -108,7 +109,7 @@ class VertexEditBase(BaseObject):
         col_writer = GeomVertexWriter(vertex_data, "color")
         pickable_id = PickableTypes.get_id("vert")
         rows = self._tmp_row_indices
-        by_aiming = GlobalData["subobj_edit_options"]["pick_by_aiming"]
+        by_aiming = GD["subobj_edit_options"]["pick_by_aiming"]
 
         if by_aiming:
 
@@ -124,9 +125,9 @@ class VertexEditBase(BaseObject):
 
             aux_picking_root = Mgr.get("aux_picking_root")
             aux_picking_cam = Mgr.get("aux_picking_cam")
-            cam = self.cam()
-            cam_pos = cam.get_pos(self.world)
-            normal = self.world.get_relative_vector(cam, Vec3.forward()).normalized()
+            cam = GD.cam()
+            cam_pos = cam.get_pos(GD.world)
+            normal = GD.world.get_relative_vector(cam, Vec3.forward()).normalized()
             plane = Plane(normal, cam_pos + normal * 10.)
             aux_picking_cam.set_plane(plane)
             aux_picking_cam.update_pos()
@@ -137,22 +138,22 @@ class VertexEditBase(BaseObject):
             col_writer_poly = GeomVertexWriter(vertex_data_poly, "color")
             tmp_poly_prim = GeomTriangles(Geom.UH_static)
             tmp_poly_prim.reserve_num_vertices(count * 12)
-            rel_pt = lambda point: self.world.get_relative_point(origin, point)
-            lens_is_ortho = self.cam.lens_type == "ortho"
+            rel_pt = lambda point: GD.world.get_relative_point(origin, point)
+            lens_is_ortho = GD.cam.lens_type == "ortho"
 
-        for i, vert_id in enumerate(poly.get_vertex_ids()):
+        for i, vert_id in enumerate(poly.vertex_ids):
 
             vertex = verts[vert_id]
             pos = vertex.get_pos()
             pos_writer.add_data3(pos)
-            color_id = vertex.get_picking_color_id()
+            color_id = vertex.picking_color_id
             picking_color = get_color_vec(color_id, pickable_id)
             col_writer.add_data4(picking_color)
             rows[color_id] = i
 
             if by_aiming:
 
-                edge1_id, edge2_id = vertex.get_edge_ids()
+                edge1_id, edge2_id = vertex.edge_ids
                 edge1_center = edges[edge1_id].get_center_pos()
                 edge2_center = edges[edge2_id].get_center_pos()
                 p1 = Point3()
@@ -195,7 +196,7 @@ class VertexEditBase(BaseObject):
         geom_pickable.set_depth_test(False)
         geom_pickable.set_depth_write(False)
         geom_sel_state = geom_pickable.copy_to(origin)
-        geom_sel_state.set_name("tmp_geom_sel_state")
+        geom_sel_state.name = "tmp_geom_sel_state"
         geom_sel_state.set_light_off()
         geom_sel_state.set_color_off()
         geom_sel_state.set_texture_off()
@@ -225,7 +226,7 @@ class VertexEditBase(BaseObject):
         pos_writer_poly = GeomVertexWriter(vertex_data_poly, "vertex")
         tmp_poly_prim = GeomTriangles(Geom.UH_static)
         tmp_poly_prim.reserve_num_vertices(len(poly))
-        vert_ids = poly.get_vertex_ids()
+        vert_ids = poly.vertex_ids
 
         for vert_id in vert_ids:
             vertex = verts[vert_id]
@@ -249,14 +250,14 @@ class VertexEditBase(BaseObject):
         geom_pickable.show_through(picking_mask)
 
         if by_aiming:
-            aux_picking_cam.set_active()
+            aux_picking_cam.active = True
             Mgr.do("start_drawing_aux_picking_viz")
 
         geoms = self._geoms
         geoms["poly"]["pickable"].show(picking_mask)
 
 
-class VertexEditManager(BaseObject):
+class VertexEditManager:
 
     def __init__(self):
 
@@ -270,10 +271,10 @@ class VertexEditManager(BaseObject):
 
         for model in selection:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
 
             if geom_data_obj.break_vertices():
-                changed_objs[model.get_id()] = geom_data_obj
+                changed_objs[model.id] = geom_data_obj
 
         if not changed_objs:
             return
@@ -297,15 +298,15 @@ class VertexEditManager(BaseObject):
 
         for model in selection:
 
-            geom_data_obj = model.get_geom_object().get_geom_data_object()
+            geom_data_obj = model.geom_obj.geom_data_obj
             change, normals_to_sel = geom_data_obj.smooth_vertices(smooth)
 
             if change:
 
-                changed_objs[model.get_id()] = geom_data_obj
+                changed_objs[model.id] = geom_data_obj
 
                 if normals_to_sel:
-                    changed_selections.append(model.get_id())
+                    changed_selections.append(model.id)
 
         if not changed_objs:
             return
@@ -320,7 +321,7 @@ class VertexEditManager(BaseObject):
             if obj_id in changed_selections:
                 obj_data[obj_id].update(geom_data_obj.get_property_to_store("subobj_selection"))
 
-        event_descr = "{} vertex selection".format("Smooth" if smooth else "Sharpen")
+        event_descr = f'{"Smooth" if smooth else "Sharpen"} vertex selection'
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 

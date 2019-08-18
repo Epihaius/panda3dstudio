@@ -5,8 +5,7 @@ class TranslationGizmo(TransformationGizmo):
 
     def _create_handles(self):
 
-        root = Mgr.get("transf_gizmo_root")
-        self._origin = root.attach_new_node("translation_gizmo")
+        self._origin = Mgr.get("transf_gizmo").root.attach_new_node("translation_gizmo")
         self._handle_root = self._origin.attach_new_node("handle_root")
 
         red = VBase4(.7, 0., 0., 1.)
@@ -28,8 +27,8 @@ class TranslationGizmo(TransformationGizmo):
             pos1[i] = .04
             pos2 = Point3()
             pos2[i] = .16
-            handle = self.__create_axis_handle(self._handle_root, color_vec, pos1, pos2,
-                                               "{}_axis_handle".format(axis))
+            handle = self.__create_axis_handle(self._handle_root, color_vec,
+                                               pos1, pos2, f"{axis}_axis_handle")
             color = self._axis_colors[axis]
             handle.set_color(color)
             self._handles["axes"][axis] = handle
@@ -42,7 +41,7 @@ class TranslationGizmo(TransformationGizmo):
             cone_vec[i] = -.05
             cone_vec[(i + 1) % 3] = .01
             cone, cap = self.__create_axis_arrow(self._handle_root, color_vec, pos, axis_vec,
-                                                 cone_vec, 6, "{}_axis_arrow".format(axis))
+                                                 cone_vec, 6, f"{axis}_axis_arrow")
             cone.set_color(color)
             cap.set_color(color * .5)
 
@@ -59,8 +58,8 @@ class TranslationGizmo(TransformationGizmo):
             pos2 = Point3()
             pos3 = Point3()
             pos1[index1] = pos2[index1] = pos2[index2] = pos3[index2] = .07
-            handle, quad = self.__create_plane_handle(self._handle_root, color_vec, pos1, pos2, pos3,
-                                                      "{}_plane_handle".format(plane))
+            handle, quad = self.__create_plane_handle(self._handle_root, color_vec, pos1,
+                                                      pos2, pos3, f"{plane}_plane_handle")
             self._handles["planes"][plane] = handle
             self._handles["quads"][plane] = quad
             handle[0].set_color(self._axis_colors[plane[0]])
@@ -383,12 +382,12 @@ class TranslationGizmo(TransformationGizmo):
 
     def get_point_at_screen_pos(self, screen_pos):
 
-        cam = self.cam()
-        point1 = Mgr.get("transf_gizmo_world_pos")
+        cam = GD.cam()
+        point1 = Mgr.get("transf_gizmo").pos
 
         if self._selected_axes == "view":
 
-            normal = self.world.get_relative_vector(cam, Vec3.forward())
+            normal = GD.world.get_relative_vector(cam, Vec3.forward())
             plane = Plane(normal, point1)
 
         else:
@@ -397,19 +396,19 @@ class TranslationGizmo(TransformationGizmo):
 
                 axis_vec = Vec3()
                 axis_vec["xyz".index(self._selected_axes[0])] = 1.
-                axis_vec = V3D(self.world.get_relative_vector(self._handle_root, axis_vec))
+                axis_vec = V3D(GD.world.get_relative_vector(self._handle_root, axis_vec))
                 point2 = point1 + axis_vec
                 axis_vec = Vec3()
                 axis_vec["xyz".index(self._selected_axes[1])] = 1.
-                axis_vec = V3D(self.world.get_relative_vector(self._handle_root, axis_vec))
+                axis_vec = V3D(GD.world.get_relative_vector(self._handle_root, axis_vec))
                 point3 = point1 + axis_vec
 
             else:
 
                 axis_vec = Vec3()
                 axis_vec["xyz".index(self._selected_axes)] = 1.
-                axis_vec = V3D(self.world.get_relative_vector(self._handle_root, axis_vec))
-                cam_vec = V3D(self.world.get_relative_vector(cam, Vec3.forward()))
+                axis_vec = V3D(GD.world.get_relative_vector(self._handle_root, axis_vec))
+                cam_vec = V3D(GD.world.get_relative_vector(cam, Vec3.forward()))
                 cross_vec = axis_vec ** cam_vec
 
                 if not cross_vec.normalize():
@@ -422,8 +421,8 @@ class TranslationGizmo(TransformationGizmo):
 
         near_point = Point3()
         far_point = Point3()
-        self.cam.lens.extrude(screen_pos, near_point, far_point)
-        rel_pt = lambda point: self.world.get_relative_point(cam, point)
+        GD.cam.lens.extrude(screen_pos, near_point, far_point)
+        rel_pt = lambda point: GD.world.get_relative_point(cam, point)
 
         intersection_point = Point3()
 

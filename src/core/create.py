@@ -1,11 +1,11 @@
 from .base import *
 
 
-class CreationManager(BaseObject):
+class CreationManager:
 
     def __init__(self):
 
-        GlobalData.set_default("active_creation_type", "")
+        GD.set_default("active_creation_type", "")
 
         self._creation_start_mouse = (0, 0)
         self._origin_pos = None
@@ -16,7 +16,7 @@ class CreationManager(BaseObject):
         handler = lambda: setattr(self, "_interactive_creation_ended", True)
         Mgr.add_notification_handler("creation_ended", "creation_mgr", handler)
 
-        status_data = GlobalData["status_data"]
+        status_data = GD["status"]
         status_data["create"] = {}
 
         Mgr.add_app_updater("interactive_creation", self.__update_creation)
@@ -25,7 +25,7 @@ class CreationManager(BaseObject):
         add_state = Mgr.add_state
         add_state("creation_mode", -10, self.__enter_creation_mode, self.__exit_creation_mode)
 
-        def enter_state(prev_state_id, is_active):
+        def enter_state(prev_state_id, active):
 
             Mgr.do("enable_view_gizmo", False)
             Mgr.set_cursor("create")
@@ -53,21 +53,21 @@ class CreationManager(BaseObject):
              "mouse1-up", cancel_creation)
         bind("creation_mode", "start object creation", "mouse1",
              self.__start_interactive_creation)
-        mod_ctrl = GlobalData["mod_key_codes"]["ctrl"]
-        bind("creation_mode", "create ctrl-right-click", "{:d}|mouse3".format(mod_ctrl),
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("creation_mode", "create ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
 
     def __update_creation(self, mode_status):
 
         if mode_status == "started":
 
-            creation_type = GlobalData["active_creation_type"]
+            creation_type = GD["active_creation_type"]
 
             if self._mode_status != "suspended" or self._creation_type != creation_type:
 
                 Mgr.update_app("selected_obj_types", (creation_type,))
                 Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", creation_type))
-                obj_prop_defaults = Mgr.get("{}_prop_defaults".format(creation_type))
+                obj_prop_defaults = Mgr.get(f"{creation_type}_prop_defaults")
 
                 for prop_id, value in obj_prop_defaults.items():
                     Mgr.update_app("obj_prop_default", creation_type, prop_id, value)
@@ -80,16 +80,12 @@ class CreationManager(BaseObject):
 
             selection = Mgr.get("selection")
             count = len(selection)
-            type_checker = lambda obj, main_type: obj.get_geom_type() if main_type == "model" else main_type
-            obj_types = set(type_checker(obj, obj.get_type()) for obj in selection)
+            type_checker = lambda obj, main_type: obj.geom_type if main_type == "model" else main_type
+            obj_types = set(type_checker(obj, obj.type) for obj in selection)
             Mgr.update_app("selected_obj_types", tuple(obj_types))
             Mgr.update_app("selection_count")
 
-            names = OrderedDict()
-
-            for obj in selection:
-                names[obj.get_id()] = obj.get_name()
-
+            names = {obj.id: obj.name for obj in selection}
             Mgr.update_remotely("selected_obj_names", names)
 
             sel_colors = set(obj.get_color() for obj in selection if obj.has_color())
@@ -113,7 +109,7 @@ class CreationManager(BaseObject):
 
         self._mode_status = mode_status
 
-    def __enter_creation_mode(self, prev_state_id, is_active):
+    def __enter_creation_mode(self, prev_state_id, active):
 
         Mgr.do("enable_view_gizmo")
 
@@ -123,27 +119,27 @@ class CreationManager(BaseObject):
 
         else:
 
-            if not is_active:
-                GlobalData["active_transform_type"] = ""
+            if not active:
+                GD["active_transform_type"] = ""
                 Mgr.update_app("active_transform_type", "")
 
             Mgr.update_app("interactive_creation", "started")
             Mgr.set_cursor("create")
 
-        creation_type = GlobalData["active_creation_type"]
+        creation_type = GD["active_creation_type"]
 
-        if GlobalData["snap"]["on"]["creation"]:
+        if GD["snap"]["on"]["creation"]:
             Mgr.update_app("status", ["create", creation_type, "snap_idle"])
         else:
             Mgr.update_app("status", ["create", creation_type, "idle"])
 
-        snap_on_settings = GlobalData["snap"]["on"]
+        snap_on_settings = GD["snap"]["on"]
 
         if snap_on_settings["creation"] and snap_on_settings["creation_start"]:
             Mgr.do("set_creation_start_snap")
             Mgr.do("init_snap_target_checking", "create")
 
-    def __exit_creation_mode(self, next_state_id, is_active):
+    def __exit_creation_mode(self, next_state_id, active):
 
         if self._interactive_creation_started:
 
@@ -153,15 +149,15 @@ class CreationManager(BaseObject):
 
             Mgr.set_cursor("main")
 
-            if is_active:
+            if active:
                 mode_status = "suspended"
             else:
                 mode_status = "ended"
-                GlobalData["active_creation_type"] = ""
+                GD["active_creation_type"] = ""
 
             Mgr.update_app("interactive_creation", mode_status)
 
-        snap_on_settings = GlobalData["snap"]["on"]
+        snap_on_settings = GD["snap"]["on"]
 
         if snap_on_settings["creation"] and snap_on_settings["creation_start"]:
             Mgr.do("end_snap_target_checking")
@@ -170,13 +166,12 @@ class CreationManager(BaseObject):
     def __check_creation_start(self, task):
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = mouse_pointer.get_y()
+        mouse_x, mouse_y = mouse_pointer.x, mouse_pointer.y
         mouse_start_x, mouse_start_y = self._creation_start_mouse
 
         if max(abs(mouse_x - mouse_start_x), abs(mouse_y - mouse_start_y)) > 3:
-            object_type = GlobalData["active_creation_type"]
-            Mgr.do("start_{}_creation".format(object_type), self._origin_pos)
+            object_type = GD["active_creation_type"]
+            Mgr.do(f"start_{object_type}_creation", self._origin_pos)
             return task.done
 
         return task.cont
@@ -184,7 +179,7 @@ class CreationManager(BaseObject):
     def __start_interactive_creation(self):
 
         self._origin_pos = None
-        snap_on_settings = GlobalData["snap"]["on"]
+        snap_on_settings = GD["snap"]["on"]
         snap_on = snap_on_settings["creation"] and snap_on_settings["creation_start"]
 
         if snap_on:
@@ -192,11 +187,11 @@ class CreationManager(BaseObject):
 
         if self._origin_pos is None:
 
-            if not self.mouse_watcher.has_mouse():
+            if not GD.mouse_watcher.has_mouse():
                 return
 
-            mouse_pos = self.mouse_watcher.get_mouse()
-            self._origin_pos = Mgr.get(("grid", "point_at_screen_pos"), mouse_pos)
+            mouse_pos = GD.mouse_watcher.get_mouse()
+            self._origin_pos = Mgr.get("grid").get_point_at_screen_pos(mouse_pos)
 
         if self._origin_pos is None:
             return
@@ -205,9 +200,7 @@ class CreationManager(BaseObject):
             Mgr.do("end_snap_target_checking")
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)
-        mouse_x = mouse_pointer.get_x()
-        mouse_y = mouse_pointer.get_y()
-        self._creation_start_mouse = (mouse_x, mouse_y)
+        self._creation_start_mouse = (mouse_pointer.x, mouse_pointer.y)
         self._interactive_creation_started = True
         self._interactive_creation_ended = False
 
@@ -219,14 +212,13 @@ class CreationManager(BaseObject):
         if pos_id == "grid_pos":
             origin_pos = Point3()
         elif pos_id == "cam_target_pos":
-            grid_origin = Mgr.get(("grid", "origin"))
-            origin_pos = self.cam.target.get_pos(grid_origin)
+            origin_pos = GD.cam.target.get_pos(Mgr.get("grid").origin)
 
-        object_type = GlobalData["active_creation_type"]
-        process = Mgr.do("create_{}".format(object_type), origin_pos)
+        object_type = GD["active_creation_type"]
+        process = Mgr.do(f"create_{object_type}", origin_pos)
 
         if next(process):
-            descr = "Creating {}...".format(object_type)
+            descr = f"Creating {object_type}..."
             Mgr.do_gradually(process, "creation", descr, cancellable=True)
 
 
