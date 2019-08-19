@@ -124,7 +124,8 @@ class TransformToolbar(Toolbar):
         self.add_hotkey(("q", 0), set_active_transform_off, "uv")
 
         borders = (0, 5, 0, 0)
-        get_handles_toggler = lambda transf_type: lambda shown: self.__toggle_transform_handles(transf_type, shown)
+        get_handles_toggler = lambda transf_type: lambda shown: \
+            self.__toggle_transform_handles(transf_type, shown)
 
         for transf_type in ("translate", "rotate", "scale"):
             checkbtn = ToolbarCheckButton(self, get_handles_toggler(transf_type))
@@ -139,8 +140,6 @@ class TransformToolbar(Toolbar):
         self._axis_btns = AxisButtons()
         self._fields = {}
 
-        get_rel_val_toggler = lambda field: lambda: self.__toggle_relative_values(field)
-        get_popup_handler = lambda field: lambda: self.__on_popup(field)
         get_value_handler = lambda axis: lambda value_id, value, state="done": \
             self.__handle_value(axis, value_id, value, state)
 
@@ -155,10 +154,6 @@ class TransformToolbar(Toolbar):
             field = ToolbarMultiValField(self, 80)
             self._fields[axis] = field
             self.add(field, borders=borders, alignment="center_v")
-            field.set_popup_handler(get_popup_handler(field))
-            menu = field.get_popup_menu()
-            menu.add("use_rel_values", "Use relative values", get_rel_val_toggler(field),
-                     item_type="check", update=True)
             handler = get_value_handler(axis)
 
             for transf_type in ("translate", "rotate", "scale"):
@@ -166,6 +161,14 @@ class TransformToolbar(Toolbar):
                 value_id = (transf_type, is_relative_value)
                 field.add_value(value_id, "float", handler, font)
                 field.set_value(value_id, 1. if transf_type == "scale" else 0.)
+
+        icon_id = "icon_offsets"
+        tooltip_text = "Use relative values (offsets)"
+        btn = ToolbarButton(self, "", icon_id, tooltip_text, self.__toggle_relative_values)
+        btn_disabler = lambda: not GD["active_uv_transform_type"]
+        btn.add_disabler("no_transf", btn_disabler)
+        self._offsets_btn = btn
+        self.add(btn, borders=borders, alignment="center_v")
 
     def setup(self):
 
@@ -176,6 +179,8 @@ class TransformToolbar(Toolbar):
         self._axis_btns.enable(False)
         self.__enable_fields(False)
         self.__show_field_text(False)
+        self._offsets_btn.active = False
+        self._offsets_btn.enable(False)
 
     def add_interface_updaters(self):
 
@@ -211,6 +216,8 @@ class TransformToolbar(Toolbar):
             for field in self._fields.values():
                 field.show_value(value_id)
 
+            self._offsets_btn.enable(True)
+            self._offsets_btn.active = is_rel_value
             self.__check_selection_count(transf_type)
 
         else:
@@ -219,6 +226,8 @@ class TransformToolbar(Toolbar):
             axis_btns.enable(False)
             self.__enable_fields(False)
             self.__show_field_text(False)
+            self._offsets_btn.active = False
+            self._offsets_btn.enable(False)
 
     def __update_axis_constraints(self, transf_type, axes):
 
@@ -229,16 +238,22 @@ class TransformToolbar(Toolbar):
 
         Mgr.update_interface_remotely("uv", "transform_handles", transf_type, shown)
 
+        if GD["ctrl_down"]:
+
+            other_transf_types = ["translate", "rotate", "scale"]
+            other_transf_types.remove(transf_type)
+            btns = self._checkbuttons
+
+            for other_type in other_transf_types:
+                if btns[other_type].is_checked() != shown:
+                    Mgr.update_interface_remotely("uv", "transform_handles", other_type, shown)
+                    btns[other_type].check(shown)
+
     def __show_transform_handles(self, transf_type, shown):
 
         self._checkbuttons[transf_type].check(shown)
 
-    def __on_popup(self, field):
-
-        transf_type, is_rel_value = field.get_value_id()
-        field.get_popup_menu().check_item("use_rel_values", is_rel_value)
-
-    def __toggle_relative_values(self, current_field):
+    def __toggle_relative_values(self):
 
         transf_type = self._transform_btns.get_active_button_id()
         uv_lvl = self._uv_lvl
@@ -251,6 +266,7 @@ class TransformToolbar(Toolbar):
         use_rel_values = not rel_values[transf_type]
         rel_values[transf_type] = use_rel_values
         value_id = (transf_type, use_rel_values)
+        self._offsets_btn.active = use_rel_values
 
         for field in self._fields.values():
 
@@ -259,9 +275,6 @@ class TransformToolbar(Toolbar):
             if use_rel_values:
                 value = 1. if transf_type == "scale" else 0.
                 field.set_value(value_id, value)
-
-            if field is not current_field:
-                field.get_popup_menu().check_item("use_rel_values", use_rel_values)
 
         self.__check_selection_count(transf_type)
 
@@ -372,3 +385,4 @@ class TransformToolbar(Toolbar):
             field.show_value(value_id)
 
         self.__check_selection_count(transf_type)
+        self._offsets_btn.active = use_rel_values
