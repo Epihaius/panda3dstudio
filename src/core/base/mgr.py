@@ -112,7 +112,7 @@ class CoreManager:
 
         if task_id not in cls._task_handlers:
 
-            logging.warning(f'CORE: task "{task_id}" is not defined.')
+            Notifiers.mgr.warning(f'CORE: task "{task_id}" is not defined.')
 
             if cls._verbose:
                 print(f'CORE warning: task "{task_id}" is not defined.')
@@ -146,7 +146,7 @@ class CoreManager:
 
         if data_id not in cls._data_retrievers:
 
-            logging.warning(f'CORE: data "{data_id}" is not defined.')
+            Notifiers.mgr.warning(f'CORE: data "{data_id}" is not defined.')
 
             if cls._verbose:
                 print(f'CORE warning: data "{data_id}" is not defined.')

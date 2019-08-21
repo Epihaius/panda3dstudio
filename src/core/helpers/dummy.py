@@ -26,7 +26,7 @@ class DummyEdge:
 
     def __del__(self):
 
-        logging.debug('DummyEdge garbage-collected.')
+        Notifiers.obj.debug('DummyEdge garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -252,7 +252,7 @@ class TemporaryDummy:
 
     def __del__(self):
 
-        logging.debug('TemporaryDummy garbage-collected.')
+        Notifiers.obj.debug('TemporaryDummy garbage-collected.')
 
     def destroy(self):
 
@@ -580,7 +580,7 @@ class Dummy(TopLevelObject):
 
     def __del__(self):
 
-        logging.info('Dummy garbage-collected.')
+        Notifiers.obj.info('Dummy garbage-collected.')
 
     def destroy(self, unregister=True, add_to_hist=True):
 

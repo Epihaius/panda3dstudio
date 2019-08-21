@@ -1,17 +1,36 @@
-from direct.showbase.DirectObject import DirectObject
-import logging
-import re
-import pickle
-
 try:
     from tkinter import Tk
     USING_TK = True
+    paste_emit_keystrokes = "true"
 except ImportError:
     USING_TK = False
+    paste_emit_keystrokes = "false"
 
-logging.basicConfig(filename='p3ds.log', filemode='w',
-                    format='%(asctime)s - %(levelname)s: %(message)s',
-                    datefmt='%Y/%m/%d %H:%M:%S', level=logging.DEBUG)
+from panda3d.core import load_prc_file_data, StreamWriter, Notify
+
+load_prc_file_data("",
+f"""
+sync-video false
+model-cache-dir
+geom-cache-size 0
+window-type none
+depth-bits 24
+notify-output p3ds.log
+notify-timestamp true
+notify-level-linmath error
+garbage-collect-states false
+load-file-type p3assimp
+paste-emit-keystrokes {paste_emit_keystrokes}
+
+"""
+)
+
+from direct.showbase.ShowBase import ShowBase
+from direct.showbase.DirectObject import DirectObject
+from direct.directnotify.DirectNotifyGlobal import directNotify
+from direct.directnotify.Notifier import Notifier
+import re
+import pickle
 
 
 class GlobalMeta(type):
@@ -82,7 +101,33 @@ class GlobalMeta(type):
 # retrieved through the following class.
 class GlobalData(metaclass=GlobalMeta):
 
-    pass
+    showbase = ShowBase()  # instancing ShowBase here ensures that setting up Panda3D's
+                           # notify system afterwards will work as expected
+
+
+# make sure that Panda3D's notify system redirects its output to the designated log file
+Notifier.streamWriter = StreamWriter(Notify.out(), False)
+
+
+# Panda3D's notifiers are made accessible through the following class
+class Notifiers:
+
+    @classmethod
+    def create(cls, name):
+
+        notifier = directNotify.newCategory(name)
+        notifier.setSeverity(2)  # "debug" level
+
+        return notifier
+
+
+# Create Panda3D notifiers for different categories
+Notifiers.imprt = Notifiers.create("Import")
+Notifiers.mgr = Notifiers.create("Manager")
+Notifiers.reg = Notifiers.create("Registry")
+Notifiers.hist = Notifiers.create("History")
+Notifiers.obj = Notifiers.create("Object")
+Notifiers.geom = Notifiers.create("Geometry")
 
 
 # Using the following class to set the name of an object allows updating the

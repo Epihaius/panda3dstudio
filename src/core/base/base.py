@@ -1,7 +1,6 @@
-from ...base import logging, re, pickle, ObjectName, get_unique_name, DirectObject
+from ...base import Notifiers, re, pickle, ObjectName, get_unique_name, DirectObject
 from ...base import GlobalData as GD
 from panda3d.core import *
-import weakref
 import sys
 import os
 import math
@@ -58,8 +57,8 @@ class MainObjects:
                     objs_to_setup.remove(obj)
 
             if not setup_successful:
-                msg = 'Setup failed for one or more main objects!'
-                logging.critical(msg)
+                msg = "Setup failed for one or more main objects!"
+                Notifiers.mgr.info("(error): " + msg)
                 raise AssertionError(msg)
 
         del cls._setup_results[interface_id]

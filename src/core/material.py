@@ -1247,7 +1247,7 @@ class MaterialManager:
         task_id = "remove_material_registry_backup"
         PendingTasks.add(task, task_id, "object", sort=100)
         self._registry_backup_created = True
-        logging.info('Material registry backup created.')
+        Notifiers.reg.info('Material registry backup created.')
 
     def __restore_registry_backup(self, info=""):
 
@@ -1255,7 +1255,7 @@ class MaterialManager:
             return
 
         self._materials = self._materials_backup
-        logging.info(f'Material registry backup restored;\ninfo: {info}')
+        Notifiers.reg.info(f'Material registry backup restored;\ninfo: {info}')
         self.__remove_registry_backup()
 
     def __remove_registry_backup(self):
@@ -1265,7 +1265,7 @@ class MaterialManager:
 
         self._materials_backup = None
         self._registry_backup_created = False
-        logging.info('Material registry backup removed.')
+        Notifiers.reg.info('Material registry backup removed.')
 
     def __select_material(self, material_id):
 

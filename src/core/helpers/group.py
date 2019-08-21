@@ -52,7 +52,7 @@ class Group(TopLevelObject):
 
     def __del__(self):
 
-        logging.info('Group garbage-collected.')
+        Notifiers.obj.info('Group garbage-collected.')
 
     def destroy(self, unregister=True, add_to_hist=True):
 

@@ -182,7 +182,7 @@ class BasicGeom:
 
     def __del__(self):
 
-        logging.debug('BasicGeom garbage-collected.')
+        Notifiers.geom.debug('BasicGeom garbage-collected.')
 
     def destroy(self, unregister=True):
 

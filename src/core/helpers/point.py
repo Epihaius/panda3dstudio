@@ -67,7 +67,7 @@ class TemporaryPointHelper:
 
     def __del__(self):
 
-        logging.debug('TemporaryPointHelper garbage-collected.')
+        Notifiers.obj.debug('TemporaryPointHelper garbage-collected.')
 
     def destroy(self):
 
@@ -109,7 +109,7 @@ class PointHelperViz:
 
     def __del__(self):
 
-        logging.debug('PointHelperViz garbage-collected.')
+        Notifiers.obj.debug('PointHelperViz garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -151,7 +151,7 @@ class PointHelper(TopLevelObject):
 
     def __del__(self):
 
-        logging.info('PointHelper garbage-collected.')
+        Notifiers.obj.info('PointHelper garbage-collected.')
 
     def destroy(self, unregister=True, add_to_hist=True):
 

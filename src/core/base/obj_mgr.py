@@ -453,7 +453,7 @@ class GeneralObjectManager:
         for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
             Mgr.do(f"reset_{obj_type}_registry")
 
-        logging.info('Registries reset.')
+        Notifiers.reg.info('Registries reset.')
 
     def __create_registry_backups(self):
 
@@ -467,7 +467,7 @@ class GeneralObjectManager:
         task_id = "remove_registry_backups"
         PendingTasks.add(task, task_id, "object", sort=100)
         self._registry_backups_created = True
-        logging.info('Registry backups created.')
+        Notifiers.reg.info('Registry backups created.')
 
     def __restore_registry_backups(self, info=""):
 
@@ -477,7 +477,7 @@ class GeneralObjectManager:
         for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
             Mgr.do(f"restore_{obj_type}_registry_backup")
 
-        logging.info(f'Registry backups restored;\ninfo: {info}')
+        Notifiers.reg.info(f'Registry backups restored;\ninfo: {info}')
         self.__remove_registry_backups()
 
     def __remove_registry_backups(self):
@@ -489,7 +489,7 @@ class GeneralObjectManager:
             Mgr.do(f"remove_{obj_type}_registry_backup")
 
         self._registry_backups_created = False
-        logging.info('Registry backups removed.')
+        Notifiers.reg.info('Registry backups removed.')
 
 
 class ObjectManager:

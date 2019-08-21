@@ -72,7 +72,7 @@ class TopLevelObject:
 
     def cancel_creation(self):
 
-        logging.info(f'Creation of object "{self.name}" has been cancelled.')
+        Notifiers.obj.info(f'Creation of object "{self.name}" has been cancelled.')
 
         self._name.remove_updater("global_obj_names", final_update=True)
         self.name = ""
@@ -456,15 +456,15 @@ class TopLevelObject:
 
     def restore_link(self, parent_id, group_id):
 
-        logging.debug(f'Restoring link for "{self.name}"...')
+        Notifiers.obj.debug(f'Restoring link for "{self.name}"...\n'
+                            f'Old parent ID: {self._parent_id}\n'
+                            f'Old group ID: {self._group_id}\n'
+                            f'New parent ID: {parent_id}\n'
+                            f'New group ID: {group_id}')
 
         old_parent = Mgr.get("object", self._parent_id)
         old_group = Mgr.get("group", self._group_id)
         link_restored = False
-        logging.debug(f'Old parent ID: {self._parent_id}')
-        logging.debug(f'Old group ID: {self._group_id}')
-        logging.debug(f'New parent ID: {parent_id}')
-        logging.debug(f'New group ID: {group_id}')
 
         if parent_id is None and group_id is None:
             restore_parent = self._parent_id != parent_id
@@ -495,7 +495,7 @@ class TopLevelObject:
                 Mgr.do("remove_obj_link_viz", self.id)
 
             link_restored = True
-            logging.debug(f'New parent for "{self.name}": "{parent_id}"')
+            Notifiers.obj.debug(f'New parent for "{self.name}": "{parent_id}"')
 
         if restore_group:
 
@@ -514,14 +514,14 @@ class TopLevelObject:
                 Mgr.do("remove_obj_link_viz", self.id)
 
             link_restored = True
-            logging.debug(f'New group for "{self.name}": "{group_id}"')
+            Notifiers.obj.debug(f'New group for "{self.name}": "{group_id}"')
 
         self._parent_id = parent_id
         self._group_id = group_id
 
         if link_restored:
 
-            logging.debug(f'Reparented "{self.name}"')
+            Notifiers.obj.debug(f'Reparented "{self.name}"')
 
             if old_parent:
                 old_parent.remove_child(self.id)

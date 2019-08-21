@@ -1,6 +1,5 @@
-from .base import PropertyPanel
+from .base import PropertyPanel, Notifiers
 import os
-import logging
 from importlib import import_module
 
 path = os.path.join("src", "gui", "components", "props")
@@ -14,5 +13,5 @@ for name in names:
     try:
         import_module(package_path + name)
     except ImportError:
-        logging.critical(f'Failed to load module "{name}"!')
+        Notifiers.imprt.info(f'(error): Failed to load module "{name}"!')
         raise ImportError(f'Failed to load module "{name}"!')

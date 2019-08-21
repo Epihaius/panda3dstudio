@@ -55,7 +55,7 @@ class Model(TopLevelObject):
 
     def __del__(self):
 
-        logging.info(f'Model "{self.id}" garbage-collected.')
+        Notifiers.obj.info(f'Model "{self.id}" garbage-collected.')
 
     def cancel_creation(self):
 

@@ -129,11 +129,11 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
     def __del__(self):
 
-        logging.debug('GeomDataObject garbage-collected.')
+        Notifiers.geom.debug('GeomDataObject garbage-collected.')
 
     def cancel_creation(self):
 
-        logging.debug(f'GeomDataObject "{self.id}" creation cancelled.')
+        Notifiers.geom.debug(f'GeomDataObject "{self.id}" creation cancelled.')
 
         if self.origin:
             self.origin.remove_node()
@@ -142,14 +142,14 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
     def destroy(self, unregister=True):
 
-        logging.debug(f'About to destroy GeomDataObject "{self.id}"...')
+        Notifiers.geom.debug(f'About to destroy GeomDataObject "{self.id}"...')
 
         if unregister:
             self.unregister()
 
         self.origin.remove_node()
 
-        logging.debug(f'GeomDataObject "{self.id}" destroyed.')
+        Notifiers.geom.debug(f'GeomDataObject "{self.id}" destroyed.')
         self.__dict__.clear()
         self.origin = None
 
@@ -767,7 +767,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         Mgr.notify("pickable_geom_altered", self.toplevel_obj)
 
-        logging.debug('+++++++++++ Geometry created +++++++++++++++')
+        Notifiers.geom.debug('+++++++++++ Geometry created +++++++++++++++')
 
     def finalize_geometry(self):
 

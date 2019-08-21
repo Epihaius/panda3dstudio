@@ -24,7 +24,7 @@ class BBoxEdge:
 
     def __del__(self):
 
-        logging.debug('BBoxEdge garbage-collected.')
+        Notifiers.obj.debug('BBoxEdge garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -197,7 +197,7 @@ class BoundingBox:
 
     def __del__(self):
 
-        logging.info('BoundingBox garbage-collected.')
+        Notifiers.obj.info('BoundingBox garbage-collected.')
 
     def destroy(self, unregister=True):
 

@@ -1,5 +1,5 @@
 from panda3d.core import *
-from ...base import logging, re, pickle, get_unique_name, DirectObject, USING_TK
+from ...base import Notifiers, re, pickle, get_unique_name, DirectObject, USING_TK
 from ...base import GlobalData as GD
 import platform
 import math

@@ -43,7 +43,7 @@ class GUIManager:
 
         if task_id not in cls._task_handlers:
 
-            logging.warning(f'GUI: task "{task_id}" is not defined.')
+            Notifiers.mgr.warning(f'GUI: task "{task_id}" is not defined.')
 
             if cls._verbose:
                 print(f'GUI warning: task "{task_id}" is not defined.')
@@ -68,7 +68,7 @@ class GUIManager:
 
         if data_id not in cls._data_retrievers:
 
-            logging.warning(f'GUI: data "{data_id}" is not defined.')
+            Notifiers.mgr.warning(f'GUI: data "{data_id}" is not defined.')
 
             if cls._verbose:
                 print(f'GUI warning: data "{data_id}" is not defined.')

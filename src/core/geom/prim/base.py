@@ -28,7 +28,7 @@ class TemporaryPrimitive:
 
     def __del__(self):
 
-        logging.debug('TemporaryPrimitive garbage-collected.')
+        Notifiers.obj.debug('TemporaryPrimitive garbage-collected.')
 
     def destroy(self, info=None):
 

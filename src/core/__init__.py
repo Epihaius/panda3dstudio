@@ -99,7 +99,7 @@ class Core:
 
             if progress_steps:
                 Mgr.update_remotely("progress", "set_rate", 1. / progress_steps)
-                logging.debug(f'Long-running process to be handled over {progress_steps} frames.')
+                Notifiers.mgr.debug(f'Long-running process to be handled over {progress_steps} frames.')
                 GD["progress_steps"] = 0
 
             if next(process):
@@ -107,10 +107,10 @@ class Core:
                 return task.cont
 
             self.__end_long_process()
-            logging.debug(f'****** Long-running process finished: {process_id}.')
+            Notifiers.mgr.debug(f'****** Long-running process finished: {process_id}.')
 
         task_mgr.add(progress, "progress")
-        logging.debug(f'****** Long-running process started: {process_id}.')
+        Notifiers.mgr.debug(f'****** Long-running process started: {process_id}.')
 
         return True
 
@@ -129,7 +129,7 @@ class Core:
         PendingTasks.suspend(False)
         PendingTasks.clear()
         Mgr.remove_task("progress")
-        logging.debug('****** Long-running process cancelled.')
+        Notifiers.mgr.debug('****** Long-running process cancelled.')
 
     def suppress_mouse_events(self, suppress=True, interface_id=None):
 

@@ -37,7 +37,7 @@ class GeomDataOwner:
 
     def cancel_creation(self):
 
-        logging.debug('GeomDataOwner creation cancelled.')
+        Notifiers.geom.debug('GeomDataOwner creation cancelled.')
         self.model = None
 
         if self.geom_data_obj:

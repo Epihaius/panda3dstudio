@@ -1,29 +1,5 @@
-from .base import (logging, GlobalData, EventBinder, StateManager, StateBinder,
-                   DirectObject, USING_TK)
-from panda3d.core import load_prc_file_data, MouseWatcherRegion, WindowProperties, Filename
-from direct.showbase.ShowBase import ShowBase
-
-if USING_TK:
-    from .base import Tk
-    paste_emit_keystrokes = "true"
-else:
-    paste_emit_keystrokes = "false"
-
-load_prc_file_data("",
-f"""
-sync-video false
-model-cache-dir
-geom-cache-size 0
-window-type none
-depth-bits 24
-notify-output p3ds.log
-garbage-collect-states false
-load-file-type p3assimp
-notify-level-linmath error
-paste-emit-keystrokes {paste_emit_keystrokes}
-
-"""
-)
+from .base import GlobalData, EventBinder, StateManager, StateBinder, DirectObject
+from panda3d.core import WindowProperties, Filename
 
 
 # the CursorManager class is used to set the mouse cursor image, but also to reset it to the image
@@ -94,7 +70,7 @@ class AppManager:
         self._state_mgrs = {}
         self._key_handlers = {}
         self._cursor_manager = None
-        GlobalData.showbase = showbase = ShowBase()
+        showbase = GlobalData.showbase
         GlobalData.world = showbase.render
         GlobalData.viewport_origin = showbase.pixel2d
         GlobalData["mod_key_codes"] = {"alt": 1, "ctrl": 2, "shift": 4}

@@ -1,4 +1,3 @@
-
 from .base import *
 
 COMPRESSION = 9
@@ -466,7 +465,7 @@ class HistoryManager:
 
     def __add_history(self, event_descr, event_data, update_time_id=True):
 
-        logging.debug(f"Adding history:\n{event_descr}")
+        Notifiers.hist.debug(f"Adding history:\n{event_descr}")
 
         if self._event_descr_to_store:
             if event_descr:
@@ -491,7 +490,7 @@ class HistoryManager:
         self._event_data_to_store = {"objects": {}}
         self._event_descr_to_store = ""
         self._update_time_id = True
-        logging.debug("Cleared previously added history.")
+        Notifiers.hist.debug("Cleared previously added history.")
 
     def __store_history(self, task):
 
@@ -504,7 +503,7 @@ class HistoryManager:
             return task.cont
 
         time_id = self.__update_time_id() if self._update_time_id else self._next_time_id
-        logging.debug(f"Storing history:\n{self._event_descr_to_store}\n... for time ID {time_id}")
+        Notifiers.hist.debug(f"Storing history:\n{self._event_descr_to_store}\n... for time ID {time_id}")
 
         if "object_ids" not in event_data:
             event_data["object_ids"] = None
@@ -656,7 +655,7 @@ class HistoryManager:
 
         if subfile_index == -1:
             msg = f"Couldn't load '{prop_id}' property of '{obj_id}' for time ID {time_id}"
-            logging.critical(msg)
+            Notifiers.hist.info("(error): " + msg)
             raise RuntimeError(msg)
 
         prop_val_pickled = hist_file.read_subfile(subfile_index)
@@ -691,8 +690,8 @@ class HistoryManager:
         obj_data = event.get_object_data()
         prev_event = event.get_previous_event()
 
-        logging.debug(f'\n\n==================== Undoing event:\n{event.get_description_start()}'
-                      f'\n... and restoring event:\n{prev_event.get_description_start()}\n\n')
+        Notifiers.hist.debug(f'\n\n==================== Undoing event:\n{event.get_description_start()}'
+                             f'\n... and restoring event:\n{prev_event.get_description_start()}\n\n')
 
         time_ids = {}
 
@@ -731,8 +730,8 @@ class HistoryManager:
 
         old_time_id = self._prev_time_id
         new_time_id = prev_event.get_time_id()
-        logging.debug(f'Undoing event with time ID {old_time_id} and '
-                      f'restoring event with time ID {new_time_id}')
+        Notifiers.hist.debug(f'Undoing event with time ID {old_time_id} and '
+                             f'restoring event with time ID {new_time_id}')
 
         for obj, data_ids in props_to_restore.items():
             obj.restore_data(data_ids, restore_type="undo", old_time_id=old_time_id,
@@ -763,8 +762,8 @@ class HistoryManager:
 
         old_time_id = self._prev_time_id
         new_time_id = next_event.get_time_id()
-        logging.debug('\n\n==================== Redoing event with time ID '
-                      f'{new_time_id}:\n{next_event.get_description_start()}\n\n')
+        Notifiers.hist.debug('\n\n==================== Redoing event with time ID '
+                             f'{new_time_id}:\n{next_event.get_description_start()}\n\n')
 
         self._prev_time_id = new_time_id
 
@@ -1074,8 +1073,8 @@ class HistoryManager:
 
         if to_undo or to_redo:
 
-            logging.debug(f'\n\n==================== Restoring event with time ID'
-                          f' {time_to_restore} (current event time ID: {old_time_id}).\n\n')
+            Notifiers.hist.debug('\n\n==================== Restoring event with time ID'
+                                 f' {time_to_restore} (current event time ID: {old_time_id}).\n\n')
 
             for obj, data_ids in props_to_restore.items():
                 obj.restore_data(data_ids, restore_type="undo_redo", old_time_id=old_time_id,

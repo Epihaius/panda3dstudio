@@ -153,7 +153,7 @@ class TemporaryTexProjector:
 
     def __del__(self):
 
-        logging.debug('TemporaryTexProjector garbage-collected.')
+        Notifiers.obj.debug('TemporaryTexProjector garbage-collected.')
 
     def destroy(self):
 
@@ -215,7 +215,7 @@ class TexProjectorEdge:
 
     def __del__(self):
 
-        logging.debug('TexProjectorEdge garbage-collected.')
+        Notifiers.obj.debug('TexProjectorEdge garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -517,7 +517,7 @@ class TexProjector(TopLevelObject):
 
     def __del__(self):
 
-        logging.info('TexProjector garbage-collected.')
+        Notifiers.obj.info('TexProjector garbage-collected.')
 
     def destroy(self, unregister=True, add_to_hist=True):
 

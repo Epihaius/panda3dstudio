@@ -1,6 +1,6 @@
-import os
-import logging
+from .base import Notifiers
 from importlib import import_module
+import os
 
 path = os.path.join("src", "core", "geom", "prim")
 
@@ -13,5 +13,5 @@ for name in names:
     try:
         import_module(package_path + name)
     except ImportError:
-        logging.critical(f'Failed to load module "{name}"!')
+        Notifiers.imprt.info(f'(error): Failed to load module "{name}"!')
         raise ImportError(f'Failed to load module "{name}"!')

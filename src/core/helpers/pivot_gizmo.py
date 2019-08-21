@@ -11,7 +11,7 @@ class PivotAxis:
 
     def __del__(self):
 
-        logging.debug('PivotAxis garbage-collected.')
+        Notifiers.obj.debug('PivotAxis garbage-collected.')
 
     def get_toplevel_object(self, get_group=False):
 
@@ -231,7 +231,7 @@ class PivotGizmo:
 
     def __del__(self):
 
-        logging.info('PivotGizmo garbage-collected.')
+        Notifiers.obj.info('PivotGizmo garbage-collected.')
 
     def destroy(self, unregister=True):
 
