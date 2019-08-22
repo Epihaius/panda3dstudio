@@ -7,3 +7,4 @@ from . import pivot_gizmo
 from . import point
 from . import tex_projector
 from . import view_gizmo
+from . import zoom_indicator

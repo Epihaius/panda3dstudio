@@ -35,22 +35,8 @@ class MainCamera:
         projector_node = LensNode("projector", lenses["persp"])
         self.projector = self._cam_np.attach_new_node(projector_node)
 
-        self._zoom_indicator = GD.viewport_origin.attach_new_node("zoom_indicator")
-        cm = CardMaker("zoom_indicator_part")
-        cm.set_frame(-16, 16, -16, 16)
-        cm.set_has_normals(False)
-        zoom_indicator_ring = self._zoom_indicator.attach_new_node(cm.generate())
-        zoom_indicator_ring.set_texture(Mgr.load_tex(GFX_PATH + "zoom_indic_ring.png"))
-        zoom_indicator_ring.set_transparency(TransparencyAttrib.M_alpha)
-        zoom_indicator_ring.set_alpha_scale(.5)
-        self._zoom_indicator_dot = self._zoom_indicator.attach_new_node(cm.generate())
-        self._zoom_indicator_dot.set_texture(Mgr.load_tex(GFX_PATH + "zoom_indic_dot.png"))
-        self._zoom_indicator_dot.set_transparency(TransparencyAttrib.M_alpha)
-        self._zoom_indicator_dot.set_alpha_scale(.5)
-
         Mgr.expose("render_mask", lambda: self._mask)
         Mgr.expose("cam", lambda: self)
-        Mgr.accept("update_zoom_indicator", self.__update_zoom_indicator)
 
         # Create a secondary camera and DisplayRegion to render gizmos on top of the
         # 3D scene.
@@ -70,7 +56,7 @@ class MainCamera:
         self._gizmo_cam = gizmo_cam
         Mgr.expose("gizmo_render_mask", lambda: gizmo_cam_mask)
         Mgr.expose("gizmo_cam", lambda: gizmo_cam)
-        Mgr.add_app_updater("viewport", self.__update_lens_aspect_ratio)
+        Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
 
     def __call__(self):
 
@@ -86,9 +72,8 @@ class MainCamera:
 
         return "main_camera_ok"
 
-    def __update_lens_aspect_ratio(self):
+    def __update_lens_aspect_ratio(self, w, h):
 
-        w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
         lens_persp = self._lenses["persp"]
         fov_h, fov_v = lens_persp.fov
 
@@ -114,8 +99,11 @@ class MainCamera:
 
         lens_ortho.film_size = (size_h, size_v)
 
-        self._zoom_indicator.set_pos(w * .5, 0., -h * .5)
-        GD.viewport_origin.set_scale(2./w, 1., 2./h)
+    def __handle_viewport_resize(self):
+
+        w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
+        self.__update_lens_aspect_ratio(w, h)
+        GD.viewport_origin.set_scale(2. / w, 1., 2. / h)
 
     @property
     def origin(self):
@@ -303,16 +291,6 @@ class MainCamera:
         self.projector.node().set_lens(self.projector_lenses[lens_type])
         Mgr.update_app("lens_type", lens_type)
         Mgr.notify("lens_type_changed", lens_type)
-
-    def __update_zoom_indicator(self):
-
-        if self.lens_type == "persp":
-            scale = (1. / -self.origin.get_y()) ** .2
-        else:
-            target_scale = self.target.get_sx()
-            scale = (.0004 / max(.0004, min(100000., target_scale))) ** .13
-
-        self._zoom_indicator_dot.set_scale(scale)
 
 
 class PickingCamera:
