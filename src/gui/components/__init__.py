@@ -12,13 +12,13 @@ from ..panel import PanelStack
 from ..dialog import *
 from ..menu import Menu
 from .aux_viewport import AuxiliaryViewport
-from .transform import TransformToolbar
+from .transform_toolbar import TransformToolbar
 from .align import SnapAlignToolbar
 from .select import SelectionManager, SelectionToolbar, SelectionPanel
 from .material import MaterialPanel, MaterialToolbar
 from .hierarchy import HierarchyPanel
 from .props import PropertyPanel
-from .history import HistoryToolbar
+from .history_toolbar import HistoryToolbar
 from .grid import GridToolbar
 from .statusbar import StatusBar
 from .menubar import MenuBar

@@ -726,7 +726,7 @@ class SnapManager:
             if self._snap_target_point:
                 pos = GD.world.get_relative_point(Mgr.get("grid").origin, self._snap_target_point)
                 Mgr.do("set_custom_transf_center_transform", pos)
-                Mgr.update_app("transf_center", "snap_pt")
+                Mgr.update_app("transf_center", "custom")
             else:
                 cancel_snap()
 
@@ -765,7 +765,7 @@ class SnapManager:
             if self._snap_target_point:
                 pos = GD.world.get_relative_point(Mgr.get("grid").origin, self._snap_target_point)
                 Mgr.do("set_custom_coord_sys_transform", pos)
-                Mgr.update_app("coord_sys", "snap_pt")
+                Mgr.update_app("coord_sys", "custom")
             else:
                 cancel_snap()
 

@@ -647,10 +647,10 @@ class TransformMixin:
     def update_center_pos(self):
 
         if not self._objs:
-            return
-
-        self._center_pos = sum([obj.get_center_pos(GD.world)
-                               for obj in self._objs], Point3()) / len(self._objs)
+            self._center_pos = Point3()
+        else:
+            self._center_pos = sum([obj.get_center_pos(GD.world)
+                                   for obj in self._objs], Point3()) / len(self._objs)
 
     def get_center_pos(self):
 

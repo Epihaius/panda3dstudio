@@ -373,6 +373,10 @@ class ComboBox(Button):
 
         return True
 
+    def get_text(self):
+
+        return self._field_text
+
     def set_item_text(self, item_id, text):
 
         if item_id not in self._item_ids:

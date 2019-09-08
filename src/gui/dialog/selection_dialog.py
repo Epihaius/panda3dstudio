@@ -1,154 +1,22 @@
 from .dialog import *
+from .list_dialog import ListEntry, ListPane, ListDialog
 
 
-class NameInputField(DialogInputField):
-
-    _field_borders = ()
-    _img_offset = (0, 0)
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
-
-    def __init__(self, parent, value_id, handler, width, dialog=None,
-                 font=None, text_color=None, back_color=None,
-                 on_key_enter=None, on_key_escape=None):
-
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogInputField.__init__(self, parent, value_id, "string", handler, width,
-                                  INSET1_BORDER_GFX_DATA, self._img_offset,
-                                  dialog, font, text_color, back_color,
-                                  on_key_enter=on_key_enter, on_key_escape=on_key_escape)
-
-    def get_outer_borders(self):
-
-        return self._field_borders
-
-
-class EntryText(Widget):
-
-    def __init__(self, parent, entry, text_list):
-
-        Widget.__init__(self, "entry_text", parent, gfx_data={}, stretch_dir="both")
-
-        self.mouse_region.sort = parent.sort + 1
-        self.node.reparent_to(parent.get_widget_root_node())
-
-        sizer = Sizer("horizontal")
-        self.set_sizer(sizer)
-        self._entry = entry
-        self._image = None
-
-        if len(text_list) == 1:
-
-            text_widget = DialogText(self, text_list[0])
-            sizer.add((50, 0))
-            borders = (0, 5, 2, 2)
-            sizer.add(text_widget, borders=borders)
-
-        else:
-
-            borders = (0, 0, 2, 2)
-            text1, text2 = text_list
-            subsizer = Sizer("horizontal")
-            subsizer.set_default_size((20, 0))
-            sizer.add(subsizer, borders=borders)
-
-            if text1:
-                text_widget = DialogText(self, text1)
-                subsizer.add((0, 0), proportion=1.)
-                subsizer.add(text_widget)
-                subsizer.add((0, 0), proportion=1.)
-
-            text_widget = DialogText(self, text2)
-            sizer.add(text_widget, proportion=1., borders=borders)
-
-    def destroy(self):
-
-        if Widget.destroy(self):
-            self._entry.destroy()
-            self._entry = None
-
-    def update_images(self, recurse=True, size=None):
-
-        w, h = self.get_size()
-        self._image = image = PNMImage(w, h, 4)
-        color = self._entry.get_color()
-        image.fill(*color)
-        image.alpha_fill(1.)
-
-        if recurse:
-            self.get_sizer().update_images()
-
-    def get_image(self, state=None, composed=True):
-
-        image = PNMImage(self._image)
-
-        if composed:
-            image = self.get_sizer().get_composed_image(image)
-
-        return image
-
-    def update(self):
-
-        self.update_images()
-        w, h = self.get_size()
-
-        if not self.is_hidden():
-            self.get_card().copy_sub_image(self, self.get_image(), w, h, 0, 0)
-
-    def on_left_down(self):
-
-        ctrl_down = Mgr.get("mouse_watcher").is_button_down("control")
-        shift_down = Mgr.get("mouse_watcher").is_button_down("shift")
-
-        if ctrl_down and shift_down:
-            return
-
-        entry = self._entry
-
-        if ctrl_down:
-            self.parent.toggle_selected_entry(entry)
-        elif shift_down:
-            self.parent.set_selected_entry_range(entry)
-        else:
-            self.parent.set_selected_entry(entry)
-
-
-class Entry:
-
-    colors = None
+class SelectionEntry(ListEntry):
 
     def __init__(self, parent, obj_data):
 
-        self._is_selected = False
+        ListEntry.__init__(self, parent)
+
         obj_id, obj_sel_state, obj_name, obj_type = obj_data
         self._obj_id = obj_id
-        self._obj_name = obj_name
-        self._obj_type = obj_type
 
-        if obj_sel_state:
-            text_list = ["*", obj_name]
-        else:
-            text_list = ["", obj_name]
-
-        self._components = components = []
-        component = EntryText(parent, self, text_list)
-        components.append(component)
-        component = EntryText(parent, self, [obj_type.title()])
-        components.append(component)
-
-    def destroy(self):
-
-        if not self._components:
-            return
-
-        self._components = []
+        data = (
+            ("", "*", "center", 20) if obj_sel_state else ("", "", "left", 20),
+            ("name", obj_name, "left", 0),
+            ("type", obj_type.title(), "right", 0)
+        )
+        self.set_data(data)
 
     def get_object_id(self):
 
@@ -156,57 +24,20 @@ class Entry:
 
     def get_object_name(self):
 
-        return self._obj_name
+        return self.get_text("name")
 
     def get_object_type(self):
 
-        return self._obj_type
-
-    def get_components(self):
-
-        return self._components
-
-    def set_selected(self, is_selected=True):
-
-        if self._is_selected == is_selected:
-            return
-
-        self._is_selected = is_selected
-
-        for component in self._components:
-            component.update()
-
-    def is_selected(self):
-
-        return self._is_selected
-
-    def get_color(self):
-
-        return self.colors["selected" if self._is_selected else "unselected"]
-
-    def hide(self):
-
-        for component in self._components:
-            component.hide()
-
-    def show(self):
-
-        for component in self._components:
-            component.show()
+        return self.get_text("type").lower()
 
 
-class EntryPane(DialogScrollPane):
+class SelectionPane(ListPane):
 
-    def __init__(self, dialog, object_types, obj_data):
+    def __init__(self, dialog, object_types, obj_data, multi_select):
 
-        DialogScrollPane.__init__(self, dialog, "entry_pane", "vertical", (300, 300), "both")
+        column_data = (("sel_state", 0.), ("name", 1.), ("type", 0.))
 
-        if not Entry.colors:
-            colors = Skin["colors"]
-            Entry.colors = {
-                "unselected": colors["list_entry_unselected"][:3],
-                "selected": colors["list_entry_selected"][:3]
-            }
+        ListPane.__init__(self, dialog, column_data, multi_select=multi_select)
 
         sel_dialog_config = GD["config"]["sel_dialog"]
         obj_types = object_types if object_types else sel_dialog_config["obj_types"]
@@ -214,19 +45,15 @@ class EntryPane(DialogScrollPane):
         self._entries_by_type = entries_by_type = {}
         self._entries_sorted_by_name = by_name = []
         self._entries_sorted_by_type = by_type = []
-        self._entry_list = by_name if sel_dialog_config["sort"] == "name" else by_type
-        # when a range is set, the following variable is used to determine the starting entry
-        self._sel_start_entry = None
-        self._entry_sizer = entry_sizer = GridSizer(columns=2)
-        self.get_sizer().add(entry_sizer, proportion=1., expand=True)
+        self.entry_list = by_name if sel_dialog_config["sort"] == "name" else by_type
+
         shown_entries = []
         shown_by_type = {}
 
         for obj_type, value in obj_data.items():
-            for data in value:
-                obj_id, obj_sel_state, obj_name = data
+            for obj_id, obj_sel_state, obj_name in value:
                 data_ext = (obj_id, obj_sel_state, obj_name, obj_type)
-                entry = Entry(self, data_ext)
+                entry = SelectionEntry(self, data_ext)
                 if obj_type in obj_types:
                     shown_entries.append(entry)
                 entries_by_type.setdefault(obj_type, []).append(entry)
@@ -246,41 +73,14 @@ class EntryPane(DialogScrollPane):
             sorted_names = sorted(names) if sort_case else sorted(names, key=str.casefold)
             by_type.extend([entries_by_name[name] for name in sorted_names])
 
-        for entry in self._entry_list:
-            component1, component2 = entry.get_components()
-            entry_sizer.add(component1, proportion_h=1.)
-            entry_sizer.add(component2, stretch_h=True)
-
     def destroy(self):
 
-        DialogScrollPane.destroy(self)
+        ListPane.destroy(self)
 
         self._entries_by_name = {}
         self._entries_by_type = {}
         self._entries_sorted_by_name = []
         self._entries_sorted_by_type = []
-        self._entry_list = []
-        self._sel_start_entry = None
-
-    def _copy_widget_images(self, pane_image): 
-
-        root_node = self.get_widget_root_node()
-
-        for entry in self._entry_list:
-            for component in entry.get_components():
-                x, y = component.get_pos(ref_node=root_node)
-                pane_image.copy_sub_image(component.get_image(), x, y, 0, 0)
-
-    def __update_selection_start_entry(self, entry_list=None):
-
-        entries = self._entry_list if entry_list is None else entry_list
-
-        for entry in entries:
-            if entry.is_selected():
-                self._sel_start_entry = entry
-                break
-        else:
-            self._sel_start_entry = None
 
     def show_object_types(self, obj_types):
 
@@ -288,15 +88,9 @@ class EntryPane(DialogScrollPane):
         entries_by_type = self._entries_by_type
         by_name = self._entries_sorted_by_name
         by_type = self._entries_sorted_by_type
-        entry_list = self._entry_list
+        entry_list = self.entry_list
         old_entries = set(entry_list)
-        entry_sizer = self._entry_sizer
-
-        for entry in entry_list:
-            for component in entry.get_components():
-                entry_sizer.remove(component, rebuild=False)
-
-        entry_sizer.rebuild()
+        self.clear_entries()
         del by_name[:]
         del by_type[:]
 
@@ -321,10 +115,9 @@ class EntryPane(DialogScrollPane):
             sorted_names = sorted(names) if sort_case else sorted(names, key=str.casefold)
             by_type.extend([entries_by_name[name] for name in sorted_names])
 
+        self.add_entries()
+
         for entry in entry_list:
-            component1, component2 = entry.get_components()
-            entry_sizer.add(component1, proportion_h=1.)
-            entry_sizer.add(component2, stretch_h=True)
             entry.show()
 
         for entry in old_entries.difference(entry_list):
@@ -332,144 +125,57 @@ class EntryPane(DialogScrollPane):
             entry.set_selected(False)
 
         self.get_ancestor("dialog").update_layout()
+        self.check_selection_start_entry()
 
-        if self._sel_start_entry and not self._sel_start_entry.is_selected():
-            self.__update_selection_start_entry()
-
-        self.get_ancestor("dialog").hide_set_name()
+        if self.multi_select:
+            self.get_ancestor("dialog").hide_set_name()
 
     def sort_entries(self, sort_by):
 
-        entry_sizer = self._entry_sizer
+        self.entry_list = self._entries_sorted_by_name \
+            if sort_by == "name" else self._entries_sorted_by_type
 
-        for entry in self._entry_list:
-            for component in entry.get_components():
-                entry_sizer.remove(component, rebuild=False)
-
-        entry_sizer.rebuild()
-        entry_list = self._entries_sorted_by_name if sort_by == "name" else self._entries_sorted_by_type
-        self._entry_list = entry_list
-
-        for entry in entry_list:
-            component1, component2 = entry.get_components()
-            entry_sizer.add(component1, proportion_h=1.)
-            entry_sizer.add(component2, stretch_h=True)
+        self.clear_entries()
+        self.add_entries()
 
         self.get_ancestor("dialog").update_layout()
 
-    def search_entries(self, substring, in_selection):
-
-        search_config = GD["config"]["sel_dialog"]["search"]
-        match_case = search_config["match_case"]
-        part = search_config["part"]
-
-        if in_selection:
-            entry_list = [e for e in self._entry_list if e.is_selected()]
-        else:
-            entry_list = self._entry_list
-
-        for entry in entry_list:
-
-            obj_name = entry.get_object_name()
-
-            if part == "start":
-                if match_case:
-                    selected = obj_name.startswith(substring)
-                else:
-                    selected = obj_name.casefold().startswith(substring.casefold())
-            elif part == "end":
-                if match_case:
-                    selected = obj_name.endswith(substring)
-                else:
-                    selected = obj_name.casefold().endswith(substring.casefold())
-            elif part == "sub":
-                if match_case:
-                    selected = substring in obj_name
-                else:
-                    selected = substring.casefold() in obj_name.casefold()
-            elif part == "whole":
-                if match_case:
-                    selected = substring == obj_name
-                else:
-                    selected = substring.casefold() == obj_name.casefold()
-
-            entry.set_selected(selected)
-
-        self.__update_selection_start_entry(entry_list)
-
-        self.get_ancestor("dialog").hide_set_name()
-
     def set_selected_entry(self, entry):
 
-        for e in self._entry_list:
-            e.set_selected(False)
+        ListPane.set_selected_entry(self, entry)
 
-        entry.set_selected()
-        self._sel_start_entry = entry
-
-        self.get_ancestor("dialog").hide_set_name()
+        if self.multi_select:
+            self.get_ancestor("dialog").hide_set_name()
 
     def toggle_selected_entry(self, entry):
 
-        entry.set_selected(not entry.is_selected())
-
-        if entry.is_selected():
-            self._sel_start_entry = entry
-        elif self._sel_start_entry:
-            if self._sel_start_entry is entry:
-                for e in self._entry_list:
-                    if e.is_selected():
-                        self._sel_start_entry = e
-                        break
-                else:
-                    self._sel_start_entry = None
-
-        self.get_ancestor("dialog").hide_set_name()
+        if ListPane.toggle_selected_entry(self, entry):
+            self.get_ancestor("dialog").hide_set_name()
 
     def set_selected_entry_range(self, end_entry):
 
-        for entry in self._entry_list:
-            entry.set_selected(False)
-
-        if not self._sel_start_entry:
-            self._sel_start_entry = end_entry
-
-        i1 = self._entry_list.index(self._sel_start_entry)
-        i2 = self._entry_list.index(end_entry)
-        i1, i2 = min(i1, i2), max(i1, i2)
-
-        for entry in self._entry_list[i1:i2+1]:
-            entry.set_selected()
-
-        self.get_ancestor("dialog").hide_set_name()
+        if ListPane.set_selected_entry_range(self, end_entry):
+            self.get_ancestor("dialog").hide_set_name()
 
     def modify_selection(self, mod):
 
-        if mod == "all":
-            for entry in self._entry_list:
-                entry.set_selected()
-        elif mod == "none":
-            for entry in self._entry_list:
-                entry.set_selected(False)
-        elif mod == "invert":
-            for entry in self._entry_list:
-                entry.set_selected(not entry.is_selected())
-
-        self.__update_selection_start_entry()
+        if ListPane.modify_selection(self, mod):
+            self.get_ancestor("dialog").hide_set_name()
 
     def select_from_set(self, selection_set):
 
-        for entry in self._entry_list:
-            entry.set_selected(entry.get_object_id() in selection_set)
+        if not self.multi_select:
+            return
 
-        self.__update_selection_start_entry()
+        entries = [e for e in self.entry_list if e.get_object_id() in selection_set]
+        self.select(entries)
 
     def get_selection(self):
 
-        return [e.get_object_id() for e in self._entry_list if e.is_selected()]
+        return [e.get_object_id() for e in self.entry_list if e.is_selected()]
 
 
-class SelectionDialog(Dialog):
+class SelectionDialog(ListDialog):
 
     def __init__(self, title="Select objects", object_types=None, multi_select=True,
                  ok_alias="Select", handler=None):
@@ -479,11 +185,10 @@ class SelectionDialog(Dialog):
         else:
             on_yes = lambda: handler(self._selection_ids)
 
-        Dialog.__init__(self, title, "okcancel", ok_alias, on_yes)
+        ListDialog.__init__(self, title, "okcancel", ok_alias, on_yes, multi_select)
 
         self._selection_ids = []
         self._checkbuttons = {}
-        self._fields = fields = {}
         self._search_in_selection = False
         self._obj_types = ["model", "helper", "group", "light", "camera"]
         client_sizer = self.get_client_sizer()
@@ -494,66 +199,25 @@ class SelectionDialog(Dialog):
         subsizer.add(column1_sizer, proportion=1., expand=True, borders=borders)
 
         sel_dialog_config = GD["config"]["sel_dialog"]
+        match_case = sel_dialog_config["search"]["match_case"]
+        part = sel_dialog_config["search"]["part"]
 
-        group = DialogWidgetGroup(self, "Find")
+        group = self.create_find_group(self.__search_entries,
+            self.__set_search_option, match_case, part)
         borders = (0, 0, 10, 0)
         column1_sizer.add(group, expand=True, borders=borders)
-
-        grp_subsizer = Sizer("horizontal")
-        borders = (0, 0, 2, 0)
-        group.add(grp_subsizer, borders=borders)
-
-        checkbtn_sizer = Sizer("vertical")
-        borders = (0, 20, 0, 0)
-        grp_subsizer.add(checkbtn_sizer, borders=borders)
-
-        text = "In selection"
-        checkbtn = DialogCheckButton(group, lambda on:
-            self.__set_search_option("in_sel", on), text)
-        borders = (0, 0, 2, 0)
-        checkbtn_sizer.add(checkbtn, borders=borders)
-
-        text = "Match case"
-        checkbtn = DialogCheckButton(group, lambda on:
-            self.__set_search_option("match_case", on), text)
-        checkbtn.check(sel_dialog_config["search"]["match_case"])
-        checkbtn_sizer.add(checkbtn, borders=borders)
-
-        radio_btns = DialogRadioButtonGroup(group, columns=2, gap_h=5)
-        btn_ids = ("start", "end", "sub", "whole")
-        texts = ("Start of name", "End of name", "Substring", "Whole name")
-        get_command = lambda value: lambda: self.__set_search_option("part", value)
-
-        for btn_id, text in zip(btn_ids, texts):
-            radio_btns.add_button(btn_id, text)
-            radio_btns.set_button_command(btn_id, get_command(btn_id))
-
-        radio_btns.set_selected_button(sel_dialog_config["search"]["part"])
-        grp_subsizer.add(radio_btns.get_sizer(), alignment="center_v")
-
-        name_handler = lambda *args: self.__search_entries(args[1])
-        field = NameInputField(group, "name", name_handler, 100)
-        field.set_input_parser(self.__parse_substring)
-        fields["name"] = field
-        group.add(field, expand=True)
 
         obj_data = {}
         sel_set_data = {}
         Mgr.update_remotely("object_selection", "get_data", obj_data, sel_set_data)
-        self._entry_pane = pane = EntryPane(self, object_types, obj_data)
+        self.pane = pane = SelectionPane(self, object_types, obj_data, multi_select)
         frame = pane.frame
         borders = (0, 0, 5, 0)
         column1_sizer.add(frame, proportion=1., expand=True, borders=borders)
 
-        btn_sizer = Sizer("horizontal")
-        column1_sizer.add(btn_sizer, expand=True)
-        btn = DialogButton(self, "All", command=lambda: self.__modify_selection("all"))
-        borders = (0, 5, 0, 0)
-        btn_sizer.add(btn, proportion=1., borders=borders)
-        btn = DialogButton(self, "None", command=lambda: self.__modify_selection("none"))
-        btn_sizer.add(btn, proportion=1., borders=borders)
-        btn = DialogButton(self, "Invert", command=lambda: self.__modify_selection("invert"))
-        btn_sizer.add(btn, proportion=1.)
+        if multi_select:
+            btn_sizer = self.create_selection_buttons()
+            column1_sizer.add(btn_sizer, expand=True)
 
         column2_sizer = Sizer("vertical")
         borders = (0, 20, 0, 20)
@@ -624,43 +288,48 @@ class SelectionDialog(Dialog):
             for btn in btns:
                 btn.enable(False)
 
-        group = DialogWidgetGroup(self, "Selection set")
-        column2_sizer.add(group, expand=True)
+        if multi_select:
 
-        combobox = DialogComboBox(group, 150, tooltip_text="Selection set")
-        self._set_combobox = combobox
-        group.add(combobox, expand=True)
-        sets = sel_set_data["sets"]
-        get_command = lambda set_id: lambda: self.__select_from_set(sets, set_id)
+            group = DialogWidgetGroup(self, "Selection set")
+            column2_sizer.add(group, expand=True)
 
-        for set_id, set_name in sel_set_data["names"].items():
-            combobox.add_item(set_id, set_name, get_command(set_id), select_initial=False)
+            combobox = DialogComboBox(group, 150, tooltip_text="Selection set")
+            self._set_combobox = combobox
+            group.add(combobox, expand=True)
+            sets = sel_set_data["sets"]
+            get_command = lambda set_id: lambda: self.__select_from_set(sets, set_id)
 
-        combobox.update_popup_menu()
+            for set_id, set_name in sel_set_data["names"].items():
+                combobox.add_item(set_id, set_name, get_command(set_id), select_initial=False)
 
-        info = "Shift-click to select range; Ctrl-click to toggle selection state."
+            combobox.update_popup_menu()
 
-        if not multi_select:
-            info += "\nIf multiple names are selected, only the top one will be accepted."
+        info = ""
 
-        info += "\nNames of currently selected objects are preceded by an asterisk (*)."
+        if multi_select:
+            info += "Shift-click to select range; Ctrl-click to toggle selection state.\n"
+
+        info += "Names of currently selected objects are preceded by an asterisk (*)."
         text = DialogText(self, info)
         borders = (20, 20, 20, 20)
         client_sizer.add(text, expand=True, borders=borders)
 
+        # the following code is necessary to update the width of the list entries
+        client_sizer.update_min_size()
+        client_sizer.set_size(client_sizer.get_size())
+        self.pane.finalize()
         self.finalize()
 
     def close(self, answer=""):
 
         self._checkbuttons = None
-        self._fields = None
 
         if answer == "yes":
-            self._selection_ids = self._entry_pane.get_selection()
+            self._selection_ids = self.pane.get_selection()
 
-        self._entry_pane = None
+        self.pane = None
 
-        Dialog.close(self, answer)
+        ListDialog.close(self, answer)
 
         self._selection_ids = []
 
@@ -677,7 +346,7 @@ class SelectionDialog(Dialog):
             with open("config", "wb") as config_file:
                 pickle.dump(config_data, config_file, -1)
 
-        self._entry_pane.show_object_types(obj_types)
+        self.pane.show_object_types(obj_types)
 
     def __modify_types(self, mod):
 
@@ -700,7 +369,7 @@ class SelectionDialog(Dialog):
         with open("config", "wb") as config_file:
             pickle.dump(config_data, config_file, -1)
 
-        self._entry_pane.show_object_types(obj_types)
+        self.pane.show_object_types(obj_types)
 
     def __set_case_sort(self, on, object_types):
 
@@ -720,7 +389,7 @@ class SelectionDialog(Dialog):
         with open("config", "wb") as config_file:
             pickle.dump(config_data, config_file, -1)
 
-        self._entry_pane.sort_entries(sort_by)
+        self.pane.sort_entries(sort_by)
 
     def __set_search_option(self, option, value):
 
@@ -736,21 +405,20 @@ class SelectionDialog(Dialog):
 
     def __search_entries(self, name):
 
-        self._entry_pane.search_entries(name, self._search_in_selection)
+        in_selection = self._search_in_selection
+        search_config = GD["config"]["sel_dialog"]["search"]
+        match_case = search_config["match_case"]
+        part = search_config["part"]
+        self.pane.search_entries("name", name, in_selection, match_case, part)
 
-    def __parse_substring(self, input_text):
-
-        return input_text if input_text else None
-
-    def __modify_selection(self, mod):
-
-        self._entry_pane.modify_selection(mod)
+        if self.multi_select:
+            self.hide_set_name()
 
     def __select_from_set(self, sets, set_id):
 
         selection_set = sets[set_id]
         self._set_combobox.select_item(set_id)
-        self._entry_pane.select_from_set(selection_set)
+        self.pane.select_from_set(selection_set)
 
     def __set_selection(self):
 
@@ -759,13 +427,3 @@ class SelectionDialog(Dialog):
     def hide_set_name(self):
 
         self._set_combobox.select_none()
-
-    def update_layout(self):
-
-        self._entry_pane.reset_sub_image_index()
-        Dialog.update_layout(self)
-
-    def update_widget_positions(self):
-
-        self._entry_pane.update_quad_pos()
-        self._entry_pane.update_widget_root_node()

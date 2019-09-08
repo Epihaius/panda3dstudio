@@ -39,7 +39,7 @@ class InputDialog(Dialog):
 
         Dialog.__init__(self, title, choices, ok_alias, command, on_no, on_cancel)
 
-        self._input = ""
+        self._input = default_input
         client_sizer = self.get_client_sizer()
         borders = (50, 50, 30, 30)
         text = DialogMessageText(self, message)

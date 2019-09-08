@@ -6,10 +6,11 @@ class TransformCenterManager:
     def __init__(self):
 
         self._tc_custom_pos = None
+        self._stored_pos = {}
         self._tc_obj = None
+        self._tc_obj_id = None
         self._tc_obj_picked = None
         self._tc_transformed = False
-        self._user_obj_id = None
         self._pixel_under_mouse = None
 
         GD.set_default("transf_center_type", "adaptive")
@@ -18,8 +19,11 @@ class TransformCenterManager:
         Mgr.expose("transf_center_obj", self.__get_transform_center_object)
         Mgr.expose("transf_center_pos", self.__get_transform_center_pos)
         Mgr.expose("custom_transf_center_transform", lambda: [self._tc_custom_pos])
-        Mgr.accept("set_custom_transf_center_transform", self.__set_custom_transform_center_pos)
+        Mgr.expose("stored_transf_center_transforms", lambda: self._stored_pos)
+        Mgr.accept("set_custom_transf_center_transform", self.__set_custom_pos)
+        Mgr.accept("set_stored_transf_center_transforms", self.__set_stored_pos)
         Mgr.add_app_updater("transf_center", self.__set_transform_center)
+        Mgr.add_app_updater("custom_transf_center_transform", self.__update_custom_pos)
 
         add_state = Mgr.add_state
         add_state("transf_center_picking_mode", -80,
@@ -91,11 +95,11 @@ class TransformCenterManager:
         if _tc_type != "object":
 
             self._tc_obj_picked = None
-            user_obj = Mgr.get("object", self._user_obj_id)
-            self._user_obj_id = None
+            tc_obj = Mgr.get("object", self._tc_obj_id)
+            self._tc_obj_id = None
 
-            if user_obj:
-                user_obj.name_obj.remove_updater("transf_center")
+            if tc_obj:
+                tc_obj.name_obj.remove_updater("transf_center")
 
         tc_pos = self.__get_transform_center_pos()
         Mgr.get("transf_gizmo").pos = tc_pos
@@ -108,7 +112,7 @@ class TransformCenterManager:
             pos = Mgr.get("selection").get_center_pos()
         elif self._tc_obj:
             pos = self._tc_obj.pivot.get_pos(GD.world)
-        elif tc_type == "snap_pt":
+        elif tc_type == "custom":
             pos = self._tc_custom_pos
         elif tc_type == "cs_origin":
             pos = Mgr.get("grid").origin.get_pos()
@@ -117,9 +121,59 @@ class TransformCenterManager:
 
         return pos
 
-    def __set_custom_transform_center_pos(self, pos=None):
+    def __set_custom_pos(self, pos=None):
 
         self._tc_custom_pos = pos
+
+    def __set_stored_pos(self, stored_pos):
+
+        self._stored_pos = stored_pos
+
+    def __update_custom_pos(self, update_type, *args):
+
+        if update_type == "init":
+            pos = self.__get_transform_center_pos()
+            x, y, z = Mgr.get("grid").origin.get_relative_point(GD.world, pos)
+            current_pos = args[0]
+            current_pos["x"] = x
+            current_pos["y"] = y
+            current_pos["z"] = z
+        elif update_type == "set":
+            pos = args[0]
+            x, y, z = GD.world.get_relative_point(Mgr.get("grid").origin, pos)
+            self._tc_custom_pos = Point3(x, y, z)
+            Mgr.update_app("transf_center", "custom")
+        elif update_type == "cancel":
+            tc_type_prev = GD["transf_center_type"]
+            obj = self._tc_obj
+            name_obj = obj.name_obj if obj else None
+            Mgr.update_locally("transf_center", tc_type_prev, obj)
+            Mgr.update_remotely("transf_center", tc_type_prev, name_obj)
+        elif update_type == "get_stored_names":
+            names = args[0]
+            names[:] = self._stored_pos
+        elif update_type == "store":
+            name = args[0]
+            self._stored_pos[name] = self.__get_transform_center_pos()
+        elif update_type == "restore":
+            name = args[0]
+            self._tc_custom_pos = self._stored_pos[name]
+            Mgr.update_app("transf_center", "custom")
+        elif update_type == "rename_stored":
+            old_name, new_name = args
+            pos = self._stored_pos[old_name]
+            del self._stored_pos[old_name]
+            self._stored_pos[new_name] = pos
+        elif update_type == "delete_stored":
+            name = args[0]
+            del self._stored_pos[name]
+        elif update_type == "clear_stored":
+            self._stored_pos = {}
+
+        if update_type in ("store", "rename_stored", "delete_stored", "clear_stored"):
+            GD["unsaved_scene"] = True
+            Mgr.update_app("unsaved_scene")
+            Mgr.do("require_scene_save")
 
     def __enter_picking_mode(self, prev_state_id, active):
 
@@ -167,15 +221,14 @@ class TransformCenterManager:
 
         if obj:
 
-            obj_id = self._user_obj_id
+            obj_id = self._tc_obj_id
 
-            if obj_id == obj.id:
-                return
-            elif obj_id:
-                user_obj = Mgr.get("object", obj_id)
-                user_obj.name_obj.remove_updater("transf_center")
+            if obj_id and obj_id != obj.id:
+                tc_obj = Mgr.get("object", obj_id)
+                tc_obj.name_obj.remove_updater("transf_center")
 
             self._tc_obj_picked = obj
+            self._tc_obj_id = obj.id
             Mgr.exit_state("transf_center_picking_mode")
             Mgr.update_locally("transf_center", "object", obj)
             Mgr.update_remotely("transf_center", "object", obj.name_obj)

@@ -5,6 +5,8 @@ class AlignmentManager:
 
     def __init__(self):
 
+        self._align_grid = False
+        self._grid_xform_backup = {}
         self._pixel_under_mouse = None
         self._picked_point = None
         self._target_type = None
@@ -28,11 +30,18 @@ class AlignmentManager:
         lens.fov = .1
 
         Mgr.add_app_updater("object_alignment", self.__update_alignment)
+        Mgr.add_app_updater("grid_alignment", self.__update_grid_alignment)
 
         add_state = Mgr.add_state
-        add_state("alignment_target_picking_mode", -10, self.__enter_target_picking_mode,
+        add_state("alignment_target_picking_mode", -80, self.__enter_target_picking_mode,
                   self.__exit_target_picking_mode)
-        add_state("surface_alignment_mode", -10, self.__enter_surface_align_mode,
+        # instead of simply exiting the "alignment_target_picking_mode" state, the state defined
+        # below ("alignment_target_picking_end") needs to be entered when aligning the grid, to
+        # make it possible to check in the former's exit handler whether it has been exited
+        # explicitly, or implicitly by entering some other state (in which case grid alignment
+        # needs to be cancelled)
+        add_state("alignment_target_picking_end", -80)
+        add_state("surface_alignment_mode", -80, self.__enter_surface_align_mode,
                   self.__exit_surface_align_mode)
 
         mod_ctrl = GD["mod_key_codes"]["ctrl"]
@@ -134,6 +143,9 @@ class AlignmentManager:
 
         if not active:
 
+            if self._align_grid and next_state_id != "alignment_target_picking_end":
+                self.__update_grid_alignment("cancel")
+
             models = set(Mgr.get("model_objs"))
             selection = Mgr.get("selection_top")
 
@@ -174,22 +186,34 @@ class AlignmentManager:
     def __pick(self, picked_obj=None):
 
         obj = picked_obj if picked_obj else Mgr.get("object", pixel_color=self._pixel_under_mouse)
-        Mgr.exit_state("alignment_target_picking_mode")
+        Mgr.enter_state("alignment_target_picking_end")
+        Mgr.exit_state("alignment_target_picking_end")
 
         if obj and (obj.type != "group" or not obj.is_open()):
             self._target_id = obj.id
             if self._target_type == "surface":
                 Mgr.enter_state("surface_alignment_mode")
             else:
-                Mgr.update_remotely("object_alignment", "align", self._target_type, obj.name)
+                updater_id = f"{'grid' if self._align_grid else 'object'}_alignment"
+                Mgr.update_remotely(updater_id, "align", self._target_type, obj.name)
         elif self._target_type == "surface":
             Mgr.update_remotely("object_alignment", "msg", "invalid_surface")
+            if self._align_grid:
+                self.__restore_coord_sys()
+                self._align_grid = False
         else:
             Mgr.update_remotely("object_alignment", "msg", "invalid_target")
+            if self._align_grid:
+                self.__restore_coord_sys()
+                self._align_grid = False
 
     def __cancel_target_picking(self):
 
         Mgr.exit_state("alignment_target_picking_mode")
+
+        if self._align_grid:
+            self.__restore_coord_sys()
+            self._align_grid = False
 
     def __create_normal_viz(self):
 
@@ -347,47 +371,82 @@ class AlignmentManager:
         Mgr.exit_state("surface_alignment_mode")
         self._normal_viz.detach_node()
 
+        if self._align_grid:
+            self.__restore_coord_sys()
+            self._align_grid = False
+
     def __align_to_surface(self):
 
         if self._normal_viz.has_parent():
             Mgr.exit_state("surface_alignment_mode")
             model = Mgr.get("model", self._target_id)
-            Mgr.update_remotely("object_alignment", "align", "surface", model.name)
+            updater_id = f"{'grid' if self._align_grid else 'object'}_alignment"
+            Mgr.update_remotely(updater_id, "align", "surface", model.name)
+
+    def __create_grid_xform_backup(self):
+
+        grid_origin = Mgr.get("grid").origin
+        self._grid_xform_backup = {"pos": grid_origin.get_pos(), "hpr": grid_origin.get_hpr()}
+
+    def __restore_grid_xform_backup(self):
+
+        if self._grid_xform_backup:
+            grid = Mgr.get("grid")
+            grid.origin.set_pos(self._grid_xform_backup["pos"])
+            grid.origin.set_hpr(self._grid_xform_backup["hpr"])
+            grid.update()
+            Mgr.get("transf_gizmo").hpr = self._grid_xform_backup["hpr"]
 
     def __align(self, options, preview=True, end_preview=False):
 
-        backup = Mgr.get("xform_backup")
+        if self._align_grid:
+            backup = self._grid_xform_backup
+        else:
+            backup = Mgr.get("xform_backup")
 
         if end_preview:
-            Mgr.do("restore_xform_backup")
+            if self._align_grid:
+                self.__restore_grid_xform_backup()
+            else:
+                Mgr.do("restore_xform_backup")
             return
 
         if preview and not backup:
-            Mgr.do("create_xform_backup")
+            if self._align_grid:
+                self.__create_grid_xform_backup()
+            else:
+                Mgr.do("create_xform_backup")
 
         target_type = self._target_type
-        obj_axis_point = target_type == "obj_axis_point"
+        obj_point = target_type == "obj_point"
 
         obj_lvl = GD["active_obj_level"]
         xform_target_type = GD["transform_target_type"]
         cs_type = GD["coord_sys_type"]
         tc_type = GD["transf_center_type"]
+        grid = Mgr.get("grid")
 
         if obj_lvl != "top":
             Mgr.do("restore_xform_backup", clear=False)
 
-        if obj_lvl == "top" and tc_type != "pivot":
+        if obj_lvl == "top" and tc_type != "pivot" and not self._align_grid:
             GD["transf_center_type"] = "pivot"
 
-        if target_type == "view":
+        if self._align_grid and target_type != "view":
+            grid_origin = grid.origin
+        elif target_type == "view":
             grid_origin = GD.cam.target.attach_new_node("view_center")
             grid_origin.set_p(90.)
         else:
-            grid_origin = None if cs_type == "local" else Mgr.get("grid").origin
+            grid_origin = None if cs_type == "local" else grid.origin
 
         target_obj = None if target_type == "view" else Mgr.get("object", self._target_id)
 
-        if obj_lvl == "top":
+        if self._align_grid:
+
+            selection = None
+
+        elif obj_lvl == "top":
 
             selection = Mgr.get("sorted_hierarchy", Mgr.get("selection_top"))
 
@@ -415,7 +474,7 @@ class AlignmentManager:
                 tgt_quat = target_obj.pivot.get_quat(GD.world)
             tgt_vecs = {"x": tgt_quat.get_right(), "y": tgt_quat.get_forward(), "z": tgt_quat.get_up()}
 
-        if obj_lvl == "top" and target_obj in selection:
+        if not self._align_grid and obj_lvl == "top" and target_obj in selection:
             target_obj.pivot.set_transform(GD.world, cur_pivot_xform)
             target_obj.origin.set_transform(GD.world, cur_origin_xform)
 
@@ -430,7 +489,7 @@ class AlignmentManager:
                 if axis_opts[axis_id]["inv"]:
                     vec = vec * -1.
                 axis_vecs[axis_opts[axis_id]["tgt"]] = vec
-        elif target_type != "obj_axis_point":
+        elif target_type != "obj_point":
             for axis_id in "xyz":
                 if axis_opts[axis_id]["align"]:
                     axis_vecs[axis_id] = vec = tgt_vecs[axis_opts[axis_id]["tgt"]]
@@ -473,7 +532,7 @@ class AlignmentManager:
             elif target_type == "surface":
                 return ref_node.get_relative_point(GD.world, self._surface_pos)
 
-            if obj_lvl == "top" and target_obj in selection:
+            if not self._align_grid and obj_lvl == "top" and target_obj in selection:
                 xform1, xform2 = self._target_start_xforms
                 pivot = NodePath("tmp_pivot")
                 pivot.set_transform(xform1)
@@ -502,7 +561,7 @@ class AlignmentManager:
                     target_obj.origin.wrt_reparent_to(pivot)
                 point = point_min if point_type == "min" else point_max
 
-            if obj_lvl == "top" and target_obj in selection:
+            if not self._align_grid and obj_lvl == "top" and target_obj in selection:
                 origin.reparent_to(target_obj.pivot)
                 origin.set_transform(origin_xform)
 
@@ -512,6 +571,26 @@ class AlignmentManager:
             return point
 
         tgt_points = {}
+
+        def get_rel_grid_target_pos():
+
+            point = grid.origin.get_pos(grid_origin)
+
+            for i, axis_id in enumerate("xyz"):
+
+                if axis_id not in tgt_points:
+                    continue
+
+                tgt_point = tgt_points[axis_id]
+
+                if tgt_point:
+                    point[i] = tgt_point[i]
+                else:
+                    point[i] = get_target_point(axis_id, grid.origin)[i]
+
+            point = GD.world.get_relative_point(grid_origin, point)
+
+            return point
 
         def get_rel_target_pos(obj):
 
@@ -586,18 +665,96 @@ class AlignmentManager:
 
             return point
 
-        if target_type == "obj_axis_point":
+        if self._align_grid and backup:
+            self.__restore_grid_xform_backup()
+
+        if target_type == "obj_point":
             tgt_point = get_target_point("y", GD.world) if grid_origin else None
-        elif obj_lvl != "normal":
+        elif self._align_grid or obj_lvl != "normal":
             for axis_id in "xyz":
                 if point_opts[axis_id]["align"]:
                     tgt_point = get_target_point(axis_id, grid_origin) if grid_origin else None
                     tgt_points[axis_id] = tgt_point
 
-        change = False
-        lock_normals = not preview
+        if self._align_grid:
 
-        for obj in (selection if obj_lvl == "top" else Mgr.get("selection_top")):
+            grid_pos = grid_hpr = None
+
+            if tgt_points:
+                grid_pos = get_rel_grid_target_pos()
+                grid.origin.set_pos(grid_pos)
+
+            if target_type == "obj_point":
+                vec = (tgt_point - grid.origin.get_pos()).normalized()
+                if axis_opts["y"]["inv"]:
+                    vec = vec * -1.
+                axis_vecs[axis_opts["y"]["tgt"]] = vec
+
+            if len(axis_vecs) == 1:
+
+                axis_id, vec = list(axis_vecs.items())[0]
+
+                old_quat = grid.origin.get_quat()
+                old_vecs = {
+                    "x": old_quat.get_right(),
+                    "y": old_quat.get_forward(),
+                    "z": old_quat.get_up()
+                }
+                new_quat = Quat()
+
+                if vec.dot(old_vecs[axis_id]) < .9999:
+
+                    if axis_id == "x":
+                        if vec == old_vecs["z"]:
+                            fwd_vec = old_vecs["y"]
+                            up_vec = -old_vecs["x"]
+                        elif vec == -old_vecs["z"]:
+                            fwd_vec = old_vecs["y"]
+                            up_vec = old_vecs["x"]
+                        else:
+                            fwd_vec = old_vecs["z"].cross(vec)
+                            up_vec = vec.cross(fwd_vec)
+                    elif axis_id == "y":
+                        fwd_vec = vec
+                        if vec == old_vecs["z"]:
+                            up_vec = -old_vecs["y"]
+                        elif vec == -old_vecs["z"]:
+                            up_vec = old_vecs["y"]
+                        else:
+                            up_vec = old_vecs["z"]
+                    elif axis_id == "z":
+                        up_vec = vec
+                        if vec == -old_vecs["z"]:
+                            fwd_vec = old_vecs["y"]
+                        else:
+                            right_vec = old_vecs["z"].cross(vec)
+                            if old_vecs["x"].dot(right_vec) < 0.:
+                                right_vec *= -1.
+                            fwd_vec = vec.cross(right_vec)
+
+                    look_at(new_quat, fwd_vec, up_vec)
+                    grid_hpr = new_quat.get_hpr()
+
+            elif len(axis_vecs) == 2:
+
+                grid_hpr = quat.get_hpr()
+
+            if preview and grid_hpr:
+                grid.origin.set_hpr(grid_hpr)
+                Mgr.get("transf_gizmo").hpr = grid_hpr
+
+            if preview and (grid_pos or grid_hpr):
+                grid.update()
+
+            sel = ()
+
+        else:
+
+            change = False
+            lock_normals = not preview
+            sel = selection if obj_lvl == "top" else Mgr.get("selection_top")
+
+        for obj in sel:
 
             if obj_lvl == "top":
                 if backup:
@@ -608,7 +765,7 @@ class AlignmentManager:
 
             node = obj.origin if xform_target_type == "geom" else obj.pivot
 
-            if target_type == "obj_axis_point":
+            if target_type == "obj_point":
                 sel_point = node.get_pos(GD.world)
                 if not tgt_point:
                     ref_node = obj.pivot if point_opts["y"]["tgt"] == "pivot" else node
@@ -624,7 +781,7 @@ class AlignmentManager:
 
                 if obj_lvl == "normal":
 
-                    if target_type == "obj_axis_point":
+                    if target_type == "obj_point":
                         toward = not axis_opts["y"]["inv"]
                         selection.aim_at_point(tgt_point, GD.world, toward, add_to_hist=False,
                                                objects=[obj], lock_normals=lock_normals)
@@ -744,12 +901,16 @@ class AlignmentManager:
 
                 change = True
 
-        if obj_lvl == "top" and tc_type != "pivot":
+        if obj_lvl == "top" and tc_type != "pivot" and not self._align_grid:
+
             GD["transf_center_type"] = tc_type
+
+            if tc_type in ("cs_origin", "custom"):
+                Mgr.update_locally("transf_center", tc_type)
 
         if target_type == "view":
 
-            if options["planar"]:
+            if not self._align_grid and options["planar"]:
                 point = grid_origin.get_relative_point(GD.world, selection.get_center_pos())
                 mat = Mat4.scale_mat(1., 1., 0.) * Mat4.translate_mat(0., 0., point.z)
                 data = {"mats": [(mat, "custom")], "ref_node": grid_origin}
@@ -763,8 +924,14 @@ class AlignmentManager:
             if target_type == "surface":
                 self._normal_viz.detach_node()
 
-            backup.clear()
             self._target_start_xforms = None
+            backup.clear()
+
+            if self._align_grid:
+                Mgr.do("set_custom_coord_sys_transform", grid_pos, grid_hpr)
+                Mgr.update_app("coord_sys", "custom")
+                self._align_grid = False
+                return
 
             if change:
 
@@ -774,9 +941,9 @@ class AlignmentManager:
 
                 else:
 
-                    event_descr = "Aim {}" if obj_axis_point else "Align {}"
+                    event_descr = "Aim {}" if obj_point else "Align {}"
 
-                    if obj_axis_point:
+                    if obj_point:
                         obj = Mgr.get("object", self._target_id)
                         point_type = point_opts["y"]["tgt"]
                         target_descr = f'"{obj.name}" {point_type}'
@@ -789,7 +956,7 @@ class AlignmentManager:
                         obj = Mgr.get("object", self._target_id)
                         target_descr = f'"{obj.name}"'
 
-                    event_descr += f'\n\n{"at" if obj_axis_point else "to"} {target_descr}'
+                    event_descr += f'\n\n{"at" if obj_point else "to"} {target_descr}'
                     selection.add_history("custom", descr=event_descr)
 
     def __add_history(self, objs_to_align, point_opts):
@@ -799,10 +966,10 @@ class AlignmentManager:
         Mgr.do("update_history_time")
 
         target_type = self._target_type
-        obj_axis_point = target_type == "obj_axis_point"
+        obj_point = target_type == "obj_point"
         obj_count = len(objs_to_align)
         xform_target_type = GD["transform_target_type"]
-        event_descr = "Aim " if obj_axis_point else "Align "
+        event_descr = "Aim " if obj_point else "Align "
 
         if obj_count > 1:
 
@@ -829,7 +996,7 @@ class AlignmentManager:
             elif xform_target_type == "no_children":
                 event_descr += f'"{objs_to_align[0].name}" without children'
 
-        if obj_axis_point:
+        if obj_point:
             obj = Mgr.get("object", self._target_id)
             point_type = point_opts["y"]["tgt"]
             target_descr = f'"{obj.name}" {point_type}'
@@ -842,7 +1009,7 @@ class AlignmentManager:
             obj = Mgr.get("object", self._target_id)
             target_descr = f'"{obj.name}"'
 
-        event_descr += f'\n\n{"at" if obj_axis_point else "to"} {target_descr}'
+        event_descr += f'\n\n{"at" if obj_point else "to"} {target_descr}'
 
         if xform_target_type == "all":
 
@@ -880,6 +1047,9 @@ class AlignmentManager:
 
     def __update_alignment(self, update_type="", *args):
 
+        if self._align_grid:
+            self.__update_grid_alignment("cancel")
+
         if GD["transform_target_type"] == "links":
             Mgr.update_remotely("object_alignment", "msg", "links")
             return
@@ -894,8 +1064,8 @@ class AlignmentManager:
 
         if update_type == "pick_target":
             target_type = args[0]
+            Mgr.exit_states(min_persistence=-99)
             if target_type == "view":
-                Mgr.exit_states(min_persistence=-99)
                 Mgr.update_remotely("object_alignment", "align", target_type)
                 self._target_type = target_type
             else:
@@ -911,9 +1081,45 @@ class AlignmentManager:
         else:
             self.__align(*args)
 
+    def __update_grid_alignment(self, update_type="", *args):
+
+        if update_type == "cancel" and self._align_grid:
+            Mgr.exit_state("alignment_target_picking_mode")
+
+        self._align_grid = True
+
+        if update_type == "pick_target":
+            target_type = args[0]
+            if target_type == "view":
+                Mgr.update_remotely("grid_alignment", "align", target_type)
+                self._target_type = target_type
+            else:
+                if Mgr.get_state_id() == "alignment_target_picking_mode":
+                    Mgr.enter_state("alignment_target_picking_end")
+                self._target_type = target_type
+                Mgr.enter_state("alignment_target_picking_mode")
+        elif update_type == "cancel":
+            if self._target_type == "surface":
+                self._normal_viz.detach_node()
+            self.__restore_grid_xform_backup()
+            self._grid_xform_backup.clear()
+            self._target_start_xforms = None
+            self.__restore_coord_sys()
+            self._align_grid = False
+        else:
+            self.__align(*args)
+
+    def __restore_coord_sys(self):
+
+        cs_type_prev = GD["coord_sys_type"]
+        obj = Mgr.get("coord_sys_obj")
+        name_obj = obj.name_obj if obj else None
+        Mgr.update_locally("coord_sys", cs_type_prev, obj)
+        Mgr.update_remotely("coord_sys", cs_type_prev, name_obj)
+
     def __update_cursor(self, task):
 
-        if not Mgr.get("selection"):
+        if not (self._align_grid or Mgr.get("selection")):
             Mgr.exit_state("alignment_target_picking_mode")
 
         pixel_under_mouse = Mgr.get("pixel_under_mouse")

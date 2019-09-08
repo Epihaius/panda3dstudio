@@ -25,10 +25,10 @@ class TransformMixin:
     def update_center_pos(self):
 
         if not self._objs:
-            return
-
-        self._center_pos = sum([obj.get_center_pos(GD.world)
-                               for obj in self._objs], Point3()) / len(self._objs)
+            self._center_pos = Point3()
+        else:
+            self._center_pos = sum([obj.get_center_pos(GD.world)
+                                   for obj in self._objs], Point3()) / len(self._objs)
 
     def get_center_pos(self):
 
@@ -1171,7 +1171,11 @@ class TransformationManager:
                     backup[obj], False, [obj], False, True, NodePath.set_transform)
 
             if tc_type != "pivot":
+
                 GD["transf_center_type"] = tc_type
+
+                if tc_type in ("cs_origin", "custom"):
+                    Mgr.update_locally("transf_center", tc_type)
 
         else:
 

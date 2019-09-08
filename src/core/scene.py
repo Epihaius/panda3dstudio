@@ -40,6 +40,7 @@ class SceneManager:
 
             selection = Mgr.get("selection_top")
             selection.update_ui()
+            selection.update_center_pos()
             selection.update_obj_props(force=True)
 
         PendingTasks.add(task, "update_selection", "ui")
@@ -53,17 +54,20 @@ class SceneManager:
             GD["transform_target_type"] = "all"
             Mgr.update_app("transform_target_type")
 
-        Mgr.update_app("view", "clear")
         Mgr.update_remotely("material_library", "clear")
         Mgr.update_locally("material_library", "clear")
         Mgr.update_locally("object_selection", "reset_sets")
-        Mgr.update_app("view", "reset_all")
-        Mgr.update_app("view", "reset_backgrounds")
-        Mgr.do("set_custom_coord_sys_transform")
-        Mgr.do("set_custom_transf_center_transform")
+
+        for x in ("coord_sys", "transf_center"):
+            Mgr.update_locally(f"custom_{x}_transform", "clear_stored")
+            Mgr.do(f"set_custom_{x}_transform")
+
         Mgr.update_app("coord_sys", "world")
         Mgr.update_app("transf_center", "adaptive")
         Mgr.update_app("active_transform_type", "")
+        Mgr.update_app("view", "clear")
+        Mgr.update_app("view", "reset_all")
+        Mgr.update_app("view", "reset_backgrounds")
         Mgr.update_app("status", ["select", ""])
 
         GD.reset()
@@ -177,6 +181,8 @@ class SceneManager:
                 name_obj = obj.name_obj if obj else None
                 transform = scene_data[x].get("custom_transform", [])
                 Mgr.do(f"set_custom_{x}_transform", *transform)
+                stored_transforms = scene_data[x].get("stored_transforms", {})
+                Mgr.do(f"set_stored_{x}_transforms", stored_transforms)
                 Mgr.update_locally(x, x_type, obj)
                 Mgr.update_remotely(x, x_type, name_obj)
 
@@ -198,6 +204,7 @@ class SceneManager:
         for x in ("coord_sys", "transf_center"):
             scene_data[x] = {}
             scene_data[x]["custom_transform"] = Mgr.get(f"custom_{x}_transform")
+            scene_data[x]["stored_transforms"] = Mgr.get(f"stored_{x}_transforms")
             scene_data[x]["type"] = GD[f"{x}_type"]
             obj = Mgr.get(f"{x}_obj")
             scene_data[x]["obj_id"] = obj.id if obj else None

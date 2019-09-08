@@ -163,7 +163,7 @@ class TransformToolbar(Toolbar):
                 field.set_value(value_id, 1. if transf_type == "scale" else 0.)
 
         icon_id = "icon_offsets"
-        tooltip_text = "Use relative values (offsets)"
+        tooltip_text = "Input relative values (offsets)"
         btn = ToolbarButton(self, "", icon_id, tooltip_text, self.__toggle_relative_values)
         btn_disabler = lambda: not GD["active_uv_transform_type"]
         btn.add_disabler("no_transf", btn_disabler)

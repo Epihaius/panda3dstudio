@@ -759,6 +759,9 @@ class TexProjector(TopLevelObject):
             Mgr.do("unregister_texproj_targets", old_target_ids - new_target_ids)
             Mgr.do("register_texproj_targets", new_target_ids - old_target_ids, self.id, True)
 
+        for target_id in old_target_ids - new_target_ids:
+            Mgr.update_locally("remove_texproj_target", target_id, False)
+
         if self._is_on and self.is_selected():
 
             for target_id in old_target_ids - new_target_ids:
@@ -771,8 +774,6 @@ class TexProjector(TopLevelObject):
                     toplvl = target_data["toplvl"]
                     target = model.geom_obj.geom_data_obj
                     target.project_uvs(uv_set_ids, False, toplvl=toplvl)
-
-        if self._is_on and self.is_selected():
 
             for target_id in new_target_ids - old_target_ids:
 
@@ -944,6 +945,9 @@ class TexProjector(TopLevelObject):
                            target_id, "add")
 
     def remove_target(self, target_id, add_to_hist=True):
+
+        if target_id not in self._targets:
+            return
 
         targets = {k: v.copy() for k, v in self._targets.items()}
 
@@ -1145,8 +1149,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         Mgr.add_app_updater("texproj_prop", self.__set_projector_property,
                             kwargs=["target_id", "target_prop"])
         Mgr.add_app_updater("uv_projection", self.__apply_uvs)
-        Mgr.add_app_updater("remove_texproj_target",
-                            self.__remove_projection_target)
+        Mgr.add_app_updater("remove_texproj_target", self.__remove_projection_target)
         Mgr.add_app_updater("object_removal", self.__remove_projection_target)
 
     def setup(self):
