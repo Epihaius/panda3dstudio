@@ -21,7 +21,6 @@ class HierarchyPanel(Panel):
 
         text = "Show links"
         checkbtn = PanelCheckButton(section, self.__toggle_link_visibility, text)
-        checkbtn.check(False)
         self._checkbuttons["show_links"] = checkbtn
         section.add(checkbtn)
 

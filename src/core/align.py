@@ -29,6 +29,7 @@ class AlignmentManager:
         lens = cam.get_lens()
         lens.fov = .1
 
+        Mgr.expose("surface_point_normal", self.__get_surface_point_normal)
         Mgr.add_app_updater("object_alignment", self.__update_alignment)
         Mgr.add_app_updater("grid_alignment", self.__update_grid_alignment)
 
@@ -189,7 +190,7 @@ class AlignmentManager:
         Mgr.enter_state("alignment_target_picking_end")
         Mgr.exit_state("alignment_target_picking_end")
 
-        if obj and (obj.type != "group" or not obj.is_open()):
+        if obj and (obj.type != "group" or not obj.is_open() or self._align_grid):
             self._target_id = obj.id
             if self._target_type == "surface":
                 Mgr.enter_state("surface_alignment_mode")
@@ -242,54 +243,83 @@ class AlignmentManager:
         self._normal_viz_size = max(.01, self._normal_viz_size - max(.01, self._normal_viz_size * .1))
         self._normal_viz.set_scale(self._normal_viz_size)
 
+    def __compute_surface_normal(self, normal_viz, model):
+
+        if not self._normal_peeker:
+            return
+
+        pixel = VBase4()
+        self._normal_peeker.lookup(pixel, .5, .5)
+        x, y, z, _ = (pixel - Vec3(.5, .5, .5)) * 2.
+
+        if x == y == z == -1.:
+            normal_viz.detach_node()
+            return
+
+        normal_viz.reparent_to(model.origin)
+        normal_viz.set_pos(0., 0., 0.)
+        normal_viz.look_at(x, y, z)
+        # the normal is computed as the cross product of the vectors tangent to the
+        # surface (the local "right" and "up" vectors of normal_viz), as the model
+        # transform might have a non-zero shear component, in which case the local
+        # "forward" vector of normal_viz would not be perpendicular to the surface
+        x_vec = GD.world.get_relative_vector(normal_viz, Vec3.right())
+        z_vec = GD.world.get_relative_vector(normal_viz, Vec3.up())
+        normal_viz.detach_node()
+
+        return z_vec.cross(x_vec).normalized()
+
+    def __compute_surface_point(self):
+
+        if not self._depth_peeker:
+            return
+
+        surf_align_cam = self._surf_align_cam
+        pixel = VBase4()
+        self._depth_peeker.lookup(pixel, .5, .5)
+        lens = surf_align_cam.node().get_lens()
+        point = Point3()
+        lens.extrude_depth(Point3(0., 0., pixel[0]), point)
+        depth = point[1] * .5
+        screen_pos = GD.mouse_watcher.get_mouse()
+        far_point = Point3()
+        GD.cam.lens.extrude(screen_pos, Point3(), far_point)
+        dir_vec = surf_align_cam.get_relative_vector(GD.cam(), Vec3(*far_point)).normalized()
+        dist_vec = GD.world.get_relative_vector(surf_align_cam, dir_vec * depth)
+
+        return surf_align_cam.get_pos(GD.world) + dist_vec
+
     def __draw_normal_viz(self, task):
 
         if not GD.mouse_watcher.has_mouse():
             return task.cont
 
         model = Mgr.get("model", self._target_id)
-        origin = model.origin
         normal_viz = self._normal_viz
 
         if self._normal_peeker:
-            pixel = VBase4()
-            self._normal_peeker.lookup(pixel, .5, .5)
-            x, y, z, _ = (pixel - Vec3(.5, .5, .5)) * 2.
-            if x == y == z == -1.:
-                normal_viz.detach_node()
+
+            normal = self.__compute_surface_normal(normal_viz, model)
+
+            if normal is None:
                 Mgr.set_cursor("main")
                 return task.cont
-            Mgr.set_cursor("select")
-            normal_viz.reparent_to(origin)
-            normal_viz.set_pos(0., 0., 0.)
-            normal_viz.look_at(x, y, z)
-            x_vec = GD.world.get_relative_vector(normal_viz, Vec3.right())
-            z_vec = GD.world.get_relative_vector(normal_viz, Vec3.up())
-            x, y, z = self._surface_normal = z_vec.cross(x_vec).normalized()
+
+            x, y, z = self._surface_normal = normal
             array = normal_viz.node().modify_geom(0).modify_vertex_data().modify_array(0)
             stride = array.array_format.stride
             memview = memoryview(array).cast("B")
             memview[stride:] = struct.pack("fff", x, y, z)
             normal_viz.set_hpr(0., 0., 0.)
-            normal_viz.detach_node()
+            Mgr.set_cursor("select")
+
         else:
+
             self._normal_peeker = self._normal_tex.peek()
             return task.cont
 
         if self._depth_peeker:
-            surf_align_cam = self._surf_align_cam
-            pixel = VBase4()
-            self._depth_peeker.lookup(pixel, .5, .5)
-            lens = surf_align_cam.node().get_lens()
-            point = Point3()
-            lens.extrude_depth(Point3(0., 0., pixel[0]), point)
-            depth = point[1] * .5
-            screen_pos = GD.mouse_watcher.get_mouse()
-            far_point = Point3()
-            GD.cam.lens.extrude(screen_pos, Point3(), far_point)
-            dir_vec = surf_align_cam.get_relative_vector(GD.cam(), Vec3(*far_point)).normalized()
-            dist_vec = GD.world.get_relative_vector(surf_align_cam, dir_vec * depth)
-            self._surface_pos = pos = surf_align_cam.get_pos(GD.world) + dist_vec
+            self._surface_pos = pos = self.__compute_surface_point()
             normal_viz.reparent_to(GD.world)
             normal_viz.set_pos(pos)
         else:
@@ -297,7 +327,7 @@ class AlignmentManager:
 
         return task.cont
 
-    def __enter_surface_align_mode(self, prev_state_id, active):
+    def __init_surface_alignment(self, model):
 
         cam = self._surf_align_cam
         cam_node = cam.node()
@@ -334,12 +364,27 @@ class AlignmentManager:
         state_np.set_transparency(TransparencyAttrib.M_none, 1)
         state = state_np.get_state()
         cam_node.initial_state = state
-        model = Mgr.get("model", self._target_id)
 
         if model.geom_type == "basic_geom":
             cam_node.scene = model.geom_obj.geom
         else:
             cam_node.scene = model.geom_obj.geom_data_obj.toplevel_geom
+
+    def __finalize_surface_alignment(self):
+
+        GD.graphics_engine.remove_window(self._normal_buffer)
+        self._normal_buffer = None
+        cam = self._surf_align_cam
+        cam_node = cam.node()
+        cam_node.active = False
+        cam_node.scene = Mgr.get("object_root")
+        cam_node.initial_state = RenderState.make_empty()
+        self._normal_peeker = None
+        self._depth_peeker = None
+
+    def __enter_surface_align_mode(self, prev_state_id, active):
+
+        self.__init_surface_alignment(Mgr.get("model", self._target_id))
 
         self._listener.accept("+", self.__incr_normal_viz_size)
         self._listener.accept("+-repeat", self.__incr_normal_viz_size)
@@ -356,15 +401,20 @@ class AlignmentManager:
 
         self._listener.ignore_all()
         Mgr.remove_task("draw_normal_viz")
-        GD.graphics_engine.remove_window(self._normal_buffer)
-        self._normal_buffer = None
-        cam = self._surf_align_cam
-        cam_node = cam.node()
-        cam_node.active = False
-        cam_node.scene = Mgr.get("object_root")
-        cam_node.initial_state = RenderState.make_empty()
-        self._normal_peeker = None
-        self._depth_peeker = None
+        self.__finalize_surface_alignment()
+
+    def __get_surface_point_normal(self, model):
+
+        self.__init_surface_alignment(model)
+        Mgr.render_frame()
+        self._depth_peeker = self._depth_tex.peek()
+        x, y, z = self.__compute_surface_point()
+        point = Point3(x, y, z)
+        self._normal_peeker = self._normal_tex.peek()
+        normal = self.__compute_surface_normal(self._normal_viz, model)
+        self.__finalize_surface_alignment()
+
+        return point, normal
 
     def __cancel_surface_align(self):
 

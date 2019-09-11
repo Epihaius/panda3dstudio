@@ -56,6 +56,7 @@ class SnapManager:
         GD.set_default("snap", snap_settings, copier)
 
         self._pixel_under_mouse = None
+        self._snap_target_subobj = None
         self._snap_target_point = None
         self._transf_start_pos = Point3()
         self._start_creation = False
@@ -70,11 +71,13 @@ class SnapManager:
         self._projected_snap_target_marker = proj_marker
         self._rubber_band = rubber_band
 
+        Mgr.expose("snap_target_subobj", lambda: self._snap_target_subobj)
         Mgr.expose("snap_target_point", lambda: self._snap_target_point)
         Mgr.accept("set_creation_start_snap", self.__set_creation_start)
         Mgr.accept("init_snap_target_checking", self.__init_target_checking)
         Mgr.accept("end_snap_target_checking", self.__end_target_checking)
         Mgr.accept("set_projected_snap_marker_pos", self.__set_projected_snap_marker_pos)
+        Mgr.accept("force_snap_cursor_update", self.__force_cursor_update)
         Mgr.add_app_updater("object_snap", self.__update_snapping)
         Mgr.add_notification_handler("pickable_geom_altered", "snap_mgr",
                                      self.__handle_pickable_geom_change)
@@ -397,6 +400,7 @@ class SnapManager:
     def __init_target_checking(self, default_cursor="main"):
 
         if Mgr.get_state_id() != "transforming":
+            self._snap_target_subobj = None
             self._snap_target_point = None
 
         self._default_cursor = default_cursor
@@ -554,6 +558,10 @@ class SnapManager:
         else:
             self.__make_subobjs_pickable(tgt_type, False)
 
+    def __force_cursor_update(self):
+
+        self._pixel_under_mouse = None
+
     def __update_cursor(self, task):
 
         pixel_under_mouse = Mgr.get("pixel_under_mouse")
@@ -573,14 +581,17 @@ class SnapManager:
             grid_origin = grid.origin
 
             if tgt_type == "grid_point":
+                self._snap_target_subobj = None
                 self._snap_target_point = grid.get_snap_point(pixel_under_mouse)
             elif "obj" in tgt_type:
+                self._snap_target_subobj = None
                 self._snap_target_point = None
                 r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
                 pickable_type = PickableTypes.get(a)
                 if pickable_type:
                     color_id = r << 16 | g << 8 | b
                     subobj = Mgr.get(pickable_type, color_id)
+                    self._snap_target_subobj = subobj
                     if subobj:
                         obj = subobj.get_toplevel_object(get_group=True)
                         if tgt_type == "obj_pivot":
@@ -593,8 +604,10 @@ class SnapManager:
                 if pickable_type == tgt_type:
                     color_id = r << 16 | g << 8 | b
                     subobj = Mgr.get(tgt_type, color_id)
+                    self._snap_target_subobj = subobj
                     self._snap_target_point = subobj.get_center_pos(grid_origin)
                 else:
+                    self._snap_target_subobj = None
                     self._snap_target_point = None
 
             if self._snap_target_point:

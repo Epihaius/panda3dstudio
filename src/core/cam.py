@@ -449,13 +449,13 @@ class PickingCamera:
         else:
             self._pixel_color = VBase4()
 
-    def __get_pixel_under_mouse(self, task):
+    def __get_pixel_under_mouse(self, task=None):
 
         if not GD.mouse_watcher.is_mouse_open():
             self._buffer.active = False
             self._np.node().active = False
             self._pixel_color = VBase4()
-            return task.cont
+            return task.cont if task else None
 
         if not self._np.node().active:
             self._buffer.active = True
@@ -482,7 +482,18 @@ class PickingCamera:
         else:
             self._tex_peeker = self._tex.peek()
 
-        return task.cont
+        return task.cont if task else None
+
+    def update_pixel_under_mouse(self):
+        """ 
+        Force this camera to immediately determine the color of the pixel currently
+        under the mouse cursor.
+
+        """
+
+        self.__get_pixel_under_mouse()
+
+        return self._pixel_color
 
 
 # the following camera is used to detect temporary geometry created to allow subobject

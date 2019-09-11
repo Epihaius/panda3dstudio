@@ -6,6 +6,7 @@ class CreationManager:
     def __init__(self):
 
         GD.set_default("active_creation_type", "")
+        GD.set_default("auto_grid_align", False)
 
         self._creation_start_mouse = (0, 0)
         self._origin_pos = None
@@ -13,6 +14,8 @@ class CreationManager:
         self._interactive_creation_ended = False
         self._mode_status = ""
         self._creation_type = ""
+        self._grid_xform_backup = {}
+        self._restore_view = False
         handler = lambda: setattr(self, "_interactive_creation_ended", True)
         Mgr.add_notification_handler("creation_ended", "creation_mgr", handler)
 
@@ -115,6 +118,19 @@ class CreationManager:
 
         if self._interactive_creation_ended:
 
+            def task():
+
+                self.__restore_grid_transform()
+                Mgr.do("force_snap_cursor_update")
+
+                if self._restore_view:
+                    plane_id = GD["active_grid_plane"]
+                    Mgr.update_locally("active_grid_plane", "xy")
+                    GD["coord_sys_type"] = "view"
+                    GD["active_grid_plane"] = plane_id
+                    self._restore_view = False
+
+            PendingTasks.add(task, "restore_grid_transform", "ui")
             self._interactive_creation_ended = False
 
         else:
@@ -176,14 +192,134 @@ class CreationManager:
 
         return task.cont
 
+    def __restore_grid_transform(self):
+
+        if self._grid_xform_backup:
+            grid = Mgr.get("grid")
+            grid.origin.set_pos(self._grid_xform_backup["pos"])
+            grid.origin.set_hpr(self._grid_xform_backup["hpr"])
+            grid.update()
+            Mgr.get("transf_gizmo").hpr = self._grid_xform_backup["hpr"]
+            self._grid_xform_backup = {}
+
+    def __align_grid(self):
+
+        grid = Mgr.get("grid")
+        grid_origin = grid.origin
+        grid_plane_id = GD["active_grid_plane"]
+
+        if grid_plane_id == "xy":
+            grid_vec = Vec3.up()
+        elif grid_plane_id == "xz":
+            grid_vec = Vec3.forward()
+        elif grid_plane_id == "yz":
+            grid_vec = Vec3.right()
+
+        def normal_to_hpr(normal):
+
+            mat = Mat4()
+            rotate_to(mat, grid_vec, normal)
+            quat = Quat()
+            quat.set_from_matrix(mat)
+
+            return quat.get_hpr()
+
+        pos = None
+        snap_settings = GD["snap"]
+        snap_on_settings = snap_settings["on"]
+        snap_on = snap_on_settings["creation"] and snap_on_settings["creation_start"]
+
+        if snap_on:
+
+            tgt_type = snap_settings["tgt_type"]["creation_start"]
+
+            if tgt_type == "grid_point":
+                return False
+
+            pos = Mgr.get("snap_target_point")
+
+            if pos:
+                pos = GD.world.get_relative_point(grid_origin, pos)
+                subobj = Mgr.get("snap_target_subobj")
+                if tgt_type == "poly":
+                    normal = subobj.get_normal(GD.world).normalized()
+                    hpr = normal_to_hpr(normal)
+                elif tgt_type in ("vert", "edge"):
+                    normals = [poly.get_normal(GD.world) for poly in
+                               subobj.merged_subobj.connected_polys]
+                    normal = (sum(normals, Vec3()) / len(normals)).normalized()
+                    hpr = normal_to_hpr(normal)
+                else:
+                    obj = subobj.get_toplevel_object(get_group=True)
+                    hpr = obj.pivot.get_hpr(GD.world)
+            else:
+                Mgr.do("end_snap_target_checking")
+                Mgr.render_frame()
+
+        if not pos:
+
+            pixel_under_mouse = Mgr.get("picking_cam").update_pixel_under_mouse()
+            obj = None
+            r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
+            pickable_type = PickableTypes.get(a)
+
+            if pickable_type:
+
+                color_id = r << 16 | g << 8 | b
+                subobj = Mgr.get(pickable_type, color_id)
+
+                if subobj:
+                    obj = subobj.get_toplevel_object(get_group=True)
+
+            if obj:
+
+                obj_type = obj.type
+
+                if obj_type == "model":
+                    pos, normal = Mgr.get("surface_point_normal", obj)
+                    hpr = normal_to_hpr(normal) if normal else None
+                else:
+                    mouse_pos = GD.mouse_watcher.get_mouse()
+                    pos = subobj.get_point_at_screen_pos(mouse_pos)
+                    hpr = obj.pivot.get_hpr(GD.world)
+
+            elif snap_on:
+
+                Mgr.do("init_snap_target_checking", "create")
+                return False
+
+        if not (pos and hpr):
+            return False
+
+        self._restore_view = view = GD["coord_sys_type"] == "view"
+
+        if view:
+            GD["coord_sys_type"] = "world"
+            Mgr.update_locally("active_grid_plane", GD["active_grid_plane"])
+
+        self._grid_xform_backup = {"pos": grid_origin.get_pos(),
+                                   "hpr": grid_origin.get_hpr()}
+        grid_origin.set_pos(pos)
+        grid_origin.set_hpr(hpr)
+        grid.update()
+        Mgr.get("transf_gizmo").hpr = hpr
+
+        return True
+
     def __start_interactive_creation(self):
+
+        auto_grid_align = GD["auto_grid_align"] and self.__align_grid()
 
         self._origin_pos = None
         snap_on_settings = GD["snap"]["on"]
         snap_on = snap_on_settings["creation"] and snap_on_settings["creation_start"]
 
         if snap_on:
+
             self._origin_pos = Mgr.get("snap_target_point")
+
+            if self._origin_pos and auto_grid_align:
+                self._origin_pos = Point3()
 
         if self._origin_pos is None:
 
@@ -194,9 +330,10 @@ class CreationManager:
             self._origin_pos = Mgr.get("grid").get_point_at_screen_pos(mouse_pos)
 
         if self._origin_pos is None:
+            self.__restore_grid_transform()
             return
 
-        if snap_on:
+        if snap_on and not auto_grid_align:
             Mgr.do("end_snap_target_checking")
 
         mouse_pointer = Mgr.get("mouse_pointer", 0)

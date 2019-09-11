@@ -54,7 +54,6 @@ class BasicGeomProperties:
         command = lambda on: Mgr.update_remotely("normal_viz", on)
         text = "Show"
         checkbtn = PanelCheckButton(group, command, text)
-        checkbtn.check(False)
         self._checkbuttons["normal_viz"] = checkbtn
         sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)

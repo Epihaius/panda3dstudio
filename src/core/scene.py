@@ -73,6 +73,7 @@ class SceneManager:
         GD.reset()
         Mgr.update_remotely("two_sided")
         Mgr.update_remotely("object_snap", "reset")
+        Mgr.update_remotely("auto_grid_align_reset")
         Mgr.update_app("group_options")
         Mgr.update_app("subobj_edit_options")
 

@@ -222,12 +222,16 @@ class PanelSection(Widget):
 
         self._client_sizer.add(*args, **kwargs)
 
-    def add_group(self, label=""):
+    def add_group(self, label="", add_top_border=True):
 
         group = PanelWidgetGroup(self, label)
-        l, r, b, t = TextureAtlas["inner_borders"]["section"]
-        borders = (0, 0, 0, t)
-        self._client_sizer.add(group, expand=True, borders=borders)
+
+        if add_top_border:
+            l, r, b, t = TextureAtlas["inner_borders"]["section"]
+            borders = (0, 0, 0, t)
+            self._client_sizer.add(group, expand=True, borders=borders)
+        else:
+            self._client_sizer.add(group, expand=True)
 
         return group
 

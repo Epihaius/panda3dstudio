@@ -92,18 +92,37 @@ class PropertyPanel(Panel):
 
         section = self.add_section("create", "Creation", hidden=True)
 
-        group = section.add_group("Position")
-        radio_btns = PanelRadioButtonGroup(group, columns=1)
+        group = section.add_group("Interactive", add_top_border=False)
+
+        def command(on):
+
+            GD["auto_grid_align"] = on
+
+        text = "Auto-align grid"
+        checkbtn = PanelCheckButton(group, command, text)
+        self._auto_grid_align_btn = checkbtn
+        group.add(checkbtn)
+
+        text = "(No effect if creation start\nsnaps to grid points)"
+        borders = (30, 0, 0, 0)
+        group.add(PanelText(group, text), borders=borders)
+
+        group = section.add_group("Non-interactive")
+
+        subgroup = group.add_group("Position", add_top_border=False)
+        radio_btns = PanelRadioButtonGroup(subgroup, columns=1)
         radio_btns.add_button("grid_pos", "Coord. system origin")
         radio_btns.add_button("cam_target_pos", "Camera target")
         radio_btns.set_selected_button("grid_pos")
         self._radio_btns["creation"] = radio_btns
-        group.add(radio_btns.get_sizer())
+        subgroup.add(radio_btns.get_sizer())
 
         text = "Create object"
-        btn = PanelButton(section, text, command=self.__create_object)
+        btn = PanelButton(group, text, command=self.__create_object)
         borders = (0, 0, 0, 10)
-        section.add(btn, alignment="center_h", borders=borders)
+        group.add(btn, alignment="center_h", borders=borders)
+
+        # **********************************************************************
 
         for obj_type, prop_cls in self._property_classes.items():
             self._properties[obj_type] = prop_cls(self)
@@ -115,7 +134,6 @@ class PropertyPanel(Panel):
         command = lambda on: Mgr.update_remotely("normal_flip", on)
         text = "Invert (render inside-out)"
         checkbtn = PanelCheckButton(section, command, text)
-        checkbtn.check(False)
         self._checkbuttons["normal_flip"] = checkbtn
         borders = (2, 2, 2, 6)
         section.add(checkbtn, borders=borders)
@@ -127,14 +145,12 @@ class PropertyPanel(Panel):
         command = lambda on: Mgr.update_remotely("tangent_flip", on)
         text = "Flip tangent vectors"
         checkbtn = PanelCheckButton(group, command, text)
-        checkbtn.check(False)
         self._checkbuttons["tangent_flip"] = checkbtn
         group.add(checkbtn)
 
         command = lambda on: Mgr.update_remotely("bitangent_flip", on)
         text = "Flip bitangent vectors"
         checkbtn = PanelCheckButton(group, command, text)
-        checkbtn.check(False)
         self._checkbuttons["bitangent_flip"] = checkbtn
         group.add(checkbtn)
 
@@ -172,11 +188,10 @@ class PropertyPanel(Panel):
         Mgr.add_app_updater("selection_count", self.__check_selection_count)
         Mgr.add_app_updater("sel_color_count", self.__check_selection_color_count)
         Mgr.add_app_updater("next_obj_name", self.__set_next_object_name)
+        Mgr.add_app_updater("auto_grid_align_reset", self.__reset_auto_grid_align)
         Mgr.accept("display_next_obj_color", self.__set_next_object_color)
 
     def setup(self):
-
-        self._radio_btns["creation"].set_bullet_color((1., 1., 0., 1.), update=True)
 
         for props in self._properties.values():
             props.setup()
@@ -189,6 +204,10 @@ class PropertyPanel(Panel):
     def __unlock_geometry(self):
 
         Mgr.update_remotely("geometry_access")
+
+    def __reset_auto_grid_align(self):
+
+        self._auto_grid_align_btn.check(False)
 
     def __update_sections(self, creation_status):
 
