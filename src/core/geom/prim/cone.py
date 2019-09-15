@@ -741,6 +741,8 @@ class ConeManager(PrimitiveManager):
 
         point = None
         grid = Mgr.get("grid")
+        grid_origin = grid.origin
+        origin_pos = grid_origin.get_relative_point(GD.world, self.get_origin_pos())
         snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
@@ -757,26 +759,26 @@ class ConeManager(PrimitiveManager):
                 return
 
             screen_pos = GD.mouse_watcher.get_mouse()
-            point = grid.get_point_at_screen_pos(screen_pos, self.get_origin_pos())
+            point = grid.get_point_at_screen_pos(screen_pos, origin_pos)
 
         else:
 
-            point = grid.get_projected_point(point, self.get_origin_pos())
-            proj_point = GD.world.get_relative_point(grid.origin, point)
+            point = grid.get_projected_point(point, origin_pos)
+            proj_point = GD.world.get_relative_point(grid_origin, point)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if not point:
             return
 
-        radius_vec = point - self.get_origin_pos()
+        radius_vec = point - origin_pos
         radius = radius_vec.length()
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_1"]
             radius = round(radius / offset_incr) * offset_incr
-            point = self.get_origin_pos() + radius_vec.normalized() * radius
+            point = origin_pos + radius_vec.normalized() * radius
 
-        self._dragged_point = GD.world.get_relative_point(grid.origin, point)
+        self._dragged_point = GD.world.get_relative_point(grid_origin, point)
         self.get_temp_primitive().update_size(radius, radius)
 
     def __start_creation_phase2(self):

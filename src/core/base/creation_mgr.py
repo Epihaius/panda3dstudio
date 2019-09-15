@@ -15,6 +15,7 @@ class CreationPhaseManager:
         self._custom_obj_name = ""
 
         self._origin_pos = Point3()
+        self._creation_start_func = None
         self._creation_handlers = []
         self._current_creation_phase = 0
 
@@ -44,17 +45,22 @@ class CreationPhaseManager:
             main_starter, main_handler = phase_data
 
             if i == 0:
-                creation_starter = self.__get_creation_starter(main_starter)
+                self._creation_start_func = main_starter
+                creation_starter = self.__get_creation_starter()
                 Mgr.accept(f"start_{self._obj_type}_creation", creation_starter)
-                on_enter_state = None
+                on_enter_state = self.__enter_creation_start_phase
             else:
                 on_enter_state = self.__get_creation_phase_starter(main_starter)
 
+            on_exit_state = self.__exit_creation_phase
+
             state_id = f"{self._obj_type}_creation_phase_{i + 1}"
-            add_state(state_id, state_persistence, on_enter_state)
+            add_state(state_id, state_persistence, on_enter_state, on_exit_state)
 
             self._creation_handlers.append(self.__get_creation_phase_handler(main_handler))
 
+            binding_id = f"{self._obj_type} creation -> navigate"
+            bind(state_id, binding_id, "space", lambda: Mgr.enter_state("navigation_mode"))
             binding_id = f"quit {self._obj_type} creation"
             bind(state_id, binding_id, "escape", self.__end_creation)
             binding_id = f"abort {self._obj_type} creation"
@@ -76,7 +82,7 @@ class CreationPhaseManager:
                 bind(state_id, binding_id, "mouse1-up", get_command(next_state_id))
                 info_text += " release LMB to set;"
 
-            info_text += " RMB to cancel"
+            info_text += " RMB to cancel; <Space> to navigate"
             creation_status[f"phase{i + 1}"] = {"mode": mode_text, "info": info_text}
 
         status_data = GD["status"]["create"]
@@ -84,29 +90,46 @@ class CreationPhaseManager:
 
         return True
 
-    def __get_creation_starter(self, main_creation_func):
+    def __enter_creation_start_phase(self, prev_state_id, active):
+
+        if active:
+            Mgr.do("enable_view_gizmo", False)
+            Mgr.do("set_view_gizmo_mouse_region_sort", 0)
+            Mgr.update_remotely("interactive_creation", "resumed")
+
+        snap_settings = GD["snap"]
+
+        if snap_settings["on"]["creation"]:
+
+            snap_type = "creation_phase_1"
+            snap_on = snap_settings["on"][snap_type]
+            snap_tgt_type = snap_settings["tgt_type"][snap_type]
+
+            if snap_on and snap_tgt_type != "increment":
+                snap_settings["type"] = snap_type
+                Mgr.do("init_snap_target_checking", "create")
+
+        self._creation_start_func()
+        Mgr.add_task(self._creation_handlers[0], "draw_object", sort=3)
+        Mgr.update_app("status", ["create", self._obj_type, "phase1"])
+
+    def __exit_creation_phase(self, next_state_id, active):
+
+        if active:
+            Mgr.remove_task("draw_object")
+            Mgr.do("enable_view_gizmo", True)
+            Mgr.do("set_view_gizmo_mouse_region_sort", 210)
+
+        self.__disable_snap()
+
+    def __get_creation_starter(self):
 
         def start_creation(origin_pos):
 
             self._origin_pos = origin_pos
-            main_creation_func()
             self._current_creation_phase = 1
 
-            snap_settings = GD["snap"]
-
-            if snap_settings["on"]["creation"]:
-
-                snap_type = "creation_phase_1"
-                snap_on = snap_settings["on"][snap_type]
-                snap_tgt_type = snap_settings["tgt_type"][snap_type]
-
-                if snap_on and snap_tgt_type != "increment":
-                    snap_settings["type"] = snap_type
-                    Mgr.do("init_snap_target_checking", "create")
-
             Mgr.enter_state(f"{self._obj_type}_creation_phase_1")
-            Mgr.add_task(self._creation_handlers[0], "draw_object", sort=3)
-            Mgr.update_app("status", ["create", self._obj_type, "phase1"])
 
         return start_creation
 
@@ -115,8 +138,14 @@ class CreationPhaseManager:
         def start_creation_phase(prev_state_id, active):
 
             phase_id = self._current_creation_phase
-            phase_id += 1
-            self._current_creation_phase = phase_id
+
+            if active:
+                Mgr.do("enable_view_gizmo", False)
+                Mgr.do("set_view_gizmo_mouse_region_sort", 0)
+                Mgr.update_remotely("interactive_creation", "resumed")
+            else:
+                phase_id += 1
+                self._current_creation_phase = phase_id
 
             snap_settings = GD["snap"]
 
@@ -130,7 +159,7 @@ class CreationPhaseManager:
                     if snap_tgt_type != "increment":
                         Mgr.do("end_snap_target_checking")
                         Mgr.set_cursor("create")
-                    if snap_tgt_type == "grid_point":
+                    if snap_tgt_type == "grid_point" and not active:
                         Mgr.update_app("active_grid_plane", GD["active_grid_plane"])
 
                 snap_type = f"creation_phase_{phase_id}"
@@ -207,7 +236,7 @@ class CreationPhaseManager:
         event_data["object_ids"] = set(Mgr.get("object_ids"))
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-    def __end_creation(self, cancel=True):
+    def __disable_snap(self, reset_grid=False):
 
         snap_settings = GD["snap"]
 
@@ -221,10 +250,14 @@ class CreationPhaseManager:
                 if snap_tgt_type != "increment":
                     Mgr.do("end_snap_target_checking")
                     Mgr.set_cursor("create")
-                if snap_tgt_type == "grid_point":
+                if snap_tgt_type == "grid_point" and reset_grid:
                     Mgr.update_app("active_grid_plane", GD["active_grid_plane"])
 
         snap_settings["type"] = "creation"
+
+    def __end_creation(self, cancel=True):
+
+        self.__disable_snap(reset_grid=True)
 
         Mgr.remove_task("draw_object")
         process = None
@@ -269,9 +302,6 @@ class CreationPhaseManager:
                 if self._add_to_hist:
                     self.add_history(self._obj.toplevel_obj)
 
-        self._obj = None
-        self._current_creation_phase = 0
-
         Mgr.notify("creation_ended")
         Mgr.enter_state("creation_mode")
 
@@ -279,3 +309,6 @@ class CreationPhaseManager:
             Mgr.update_remotely("screenshot", "create")
             descr = f"Creating {self._obj_type}..."
             Mgr.do_gradually(process, "creation", descr, cancellable=True)
+
+        self._obj = None
+        self._current_creation_phase = 0

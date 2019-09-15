@@ -194,20 +194,20 @@ class TemporaryDummy:
         self._is_const_size = is_const_size
         self._drawn_on_top = on_top
         object_root = Mgr.get("object_root")
-        self._temp_geom = tmp_geom = self.original_geom.copy_to(object_root)
+        self.geom = geom = self.original_geom.copy_to(object_root)
 
         grid = Mgr.get("grid")
         active_grid_plane = grid.plane_id
         grid_origin = grid.origin
 
         if active_grid_plane == "xz":
-            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
+            geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
         elif active_grid_plane == "yz":
-            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 90.))
+            geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 90.))
         else:
-            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
+            geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
 
-        geoms = {"box": tmp_geom.find("**/box_geom"), "cross": tmp_geom.find("**/cross_geom")}
+        geoms = {"box": geom.find("**/box_geom"), "cross": geom.find("**/cross_geom")}
 
         for geom_type in viz:
             geoms[geom_type].show()
@@ -226,29 +226,29 @@ class TemporaryDummy:
             root.hide(Mgr.get("picking_mask"))
             self._root = root
             origin = NodePath("dummy_origin")
-            tmp_geom.children.reparent_to(origin)
+            geom.children.reparent_to(origin)
             w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
             scale = 800. / max(w, h)
             origin.set_scale(const_size * scale)
 
             if GD.cam.lens_type == "persp":
                 dummy_base = root.attach_new_node("dummy_base")
-                dummy_base.set_billboard_point_world(tmp_geom, 2000.)
+                dummy_base.set_billboard_point_world(geom, 2000.)
                 pivot = dummy_base.attach_new_node("dummy_pivot")
                 pivot.set_scale(100.)
                 origin.reparent_to(pivot)
-                origin.set_compass(tmp_geom)
+                origin.set_compass(geom)
             else:
                 root.set_scale(20.)
                 origin.reparent_to(root)
                 compass_props = CompassEffect.P_pos | CompassEffect.P_rot
-                compass_effect = CompassEffect.make(tmp_geom, compass_props)
+                compass_effect = CompassEffect.make(geom, compass_props)
                 origin.set_effect(compass_effect)
 
         if on_top:
-            tmp_geom.set_bin("fixed", 50)
-            tmp_geom.set_depth_test(False)
-            tmp_geom.set_depth_write(False)
+            geom.set_bin("fixed", 50)
+            geom.set_depth_test(False)
+            geom.set_depth_write(False)
 
     def __del__(self):
 
@@ -256,8 +256,8 @@ class TemporaryDummy:
 
     def destroy(self):
 
-        self._temp_geom.remove_node()
-        self._temp_geom = None
+        self.geom.remove_node()
+        self.geom = None
 
         if self._is_const_size:
             self._root.remove_node()
@@ -279,7 +279,7 @@ class TemporaryDummy:
             return
 
         self._size = s
-        self._temp_geom.set_scale(s)
+        self.geom.set_scale(s)
 
     def is_valid(self):
 
@@ -287,7 +287,7 @@ class TemporaryDummy:
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos(Mgr.get("grid").origin)
+        pos = self.geom.get_pos(Mgr.get("grid").origin)
 
         for step in Mgr.do("create_dummy", pos, self._size):
             pass
@@ -1138,6 +1138,10 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         dummy.make_const_size(prop_defaults["const_size_state"])
         dummy.set_const_size(prop_defaults["const_size"] if const_size is None else const_size)
         dummy.draw_on_top(prop_defaults["on_top"])
+
+        if self.get_object():
+            dummy.pivot.set_hpr(self.get_object().geom.get_hpr())
+
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(dummy)
@@ -1164,15 +1168,18 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
     def __start_creation_phase1(self):
         """ Start drawing out dummy """
 
-        pos = self.get_origin_pos()
-        prop_defaults = self.get_property_defaults()
-        viz = prop_defaults["viz"]
-        cross_size = prop_defaults["cross_size"]
-        is_const_size = prop_defaults["const_size_state"]
-        const_size = prop_defaults["const_size"]
-        on_top = prop_defaults["on_top"]
-        tmp_dummy = TemporaryDummy(pos, viz, cross_size, is_const_size, const_size, on_top)
-        self.init_object(tmp_dummy)
+        grid_origin = Mgr.get("grid").origin
+        pos = grid_origin.get_relative_point(GD.world, self.get_origin_pos())
+
+        if not self.get_object():
+            prop_defaults = self.get_property_defaults()
+            viz = prop_defaults["viz"]
+            cross_size = prop_defaults["cross_size"]
+            is_const_size = prop_defaults["const_size_state"]
+            const_size = prop_defaults["const_size"]
+            on_top = prop_defaults["on_top"]
+            tmp_dummy = TemporaryDummy(pos, viz, cross_size, is_const_size, const_size, on_top)
+            self.init_object(tmp_dummy)
 
         # Create the plane parallel to the camera and going through the dummy
         # origin, used to determine the size drawn by the user.
@@ -1213,8 +1220,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
             end_point = GD.world.get_relative_point(grid_origin, end_point)
 
-        start_point = GD.world.get_relative_point(grid_origin, self.get_origin_pos())
-        size = (end_point - start_point).length()
+        size = (end_point - self.get_origin_pos()).length()
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_1"]

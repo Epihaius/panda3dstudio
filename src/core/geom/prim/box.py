@@ -477,6 +477,7 @@ class BoxManager(PrimitiveManager):
 
         point = None
         grid_origin = Mgr.get("grid").origin
+        origin_pos = grid_origin.get_relative_point(GD.world, self.get_origin_pos())
         snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
@@ -493,11 +494,11 @@ class BoxManager(PrimitiveManager):
                 return
 
             screen_pos = GD.mouse_watcher.get_mouse()
-            point = Mgr.get("grid").get_point_at_screen_pos(screen_pos, self.get_origin_pos())
+            point = Mgr.get("grid").get_point_at_screen_pos(screen_pos, origin_pos)
 
         else:
 
-            proj_point = Mgr.get("grid").get_projected_point(point, self.get_origin_pos())
+            proj_point = Mgr.get("grid").get_projected_point(point, origin_pos)
             proj_point = GD.world.get_relative_point(grid_origin, proj_point)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 

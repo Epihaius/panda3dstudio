@@ -69,6 +69,8 @@ class CreationManager:
         data = creation_data["point_helper"]
         menu.add("point_helper", f'Create {data["name"]}', data["handler"])
 
+        Mgr.add_app_updater("interactive_creation", self.__update_viewport_border_color)
+
     def setup(self):
 
         def enter_creation_mode(prev_state_id, active):
@@ -94,3 +96,8 @@ class CreationManager:
         add_state("creation_mode", -10, enter_creation_mode, exit_creation_mode)
         add_state("checking_creation_start", -11, lambda prev_state_id, active:
                   Mgr.do("enable_gui", False))
+
+    def __update_viewport_border_color(self, update_type):
+
+        if update_type == "resumed":
+            Mgr.do("set_viewport_border_color", "viewport_frame_create_objects")

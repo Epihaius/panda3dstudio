@@ -135,20 +135,20 @@ class TemporaryTexProjector:
 
         self._size = 0.
         object_root = Mgr.get("object_root")
-        self._temp_geom = tmp_geom = self.original_geom.copy_to(object_root)
+        self.geom = geom = self.original_geom.copy_to(object_root)
 
         grid = Mgr.get("grid")
         active_grid_plane = grid.plane_id
         grid_origin = grid.origin
 
         if active_grid_plane == "xz":
-            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
+            geom.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
         elif active_grid_plane == "yz":
-            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 90.))
+            geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 90.))
         else:
-            tmp_geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
+            geom.set_pos_hpr(grid_origin, pos, VBase3(0., 0., 0.))
 
-        lens_viz = tmp_geom.find(f"**/tex_proj_lens_{projection_type}_viz")
+        lens_viz = geom.find(f"**/tex_proj_lens_{projection_type}_viz")
         lens_viz.show()
 
     def __del__(self):
@@ -157,8 +157,8 @@ class TemporaryTexProjector:
 
     def destroy(self):
 
-        self._temp_geom.remove_node()
-        self._temp_geom = None
+        self.geom.remove_node()
+        self.geom = None
 
     @property
     def original_geom(self):
@@ -176,7 +176,7 @@ class TemporaryTexProjector:
             return
 
         self._size = s
-        self._temp_geom.set_scale(s)
+        self.geom.set_scale(s)
 
     def is_valid(self):
 
@@ -184,7 +184,7 @@ class TemporaryTexProjector:
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos(Mgr.get("grid").origin)
+        pos = self.geom.get_pos(Mgr.get("grid").origin)
 
         for step in Mgr.do("create_tex_projector", pos, self._size):
             pass
@@ -1291,6 +1291,10 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         projector = self.__create_object(projector_id, name, origin_pos)
         prop_defaults = self.get_property_defaults()
         projector.set_size(prop_defaults["size"] if size is None else size)
+
+        if self.get_object():
+            projector.pivot.set_hpr(self.get_object().geom.get_hpr())
+
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(projector)
@@ -1300,10 +1304,13 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
     def __start_creation_phase1(self):
         """ start drawing out texture projector """
 
-        origin_pos = self.get_origin_pos()
-        projection_type = self.get_property_defaults()["projection_type"]
-        tmp_projector = TemporaryTexProjector(origin_pos, projection_type)
-        self.init_object(tmp_projector)
+        grid_origin = Mgr.get("grid").origin
+        origin_pos = grid_origin.get_relative_point(GD.world, self.get_origin_pos())
+
+        if not self.get_object():
+            projection_type = self.get_property_defaults()["projection_type"]
+            tmp_projector = TemporaryTexProjector(origin_pos, projection_type)
+            self.init_object(tmp_projector)
 
         # Create the plane parallel to the camera and going through the projector
         # origin, used to determine the size drawn by the user.
@@ -1344,8 +1351,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
             end_point = GD.world.get_relative_point(grid_origin, end_point)
 
-        start_point = GD.world.get_relative_point(grid_origin, self.get_origin_pos())
-        size = (end_point - start_point).length()
+        size = (end_point - self.get_origin_pos()).length()
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_1"]

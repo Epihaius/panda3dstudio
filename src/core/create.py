@@ -6,6 +6,7 @@ class CreationManager:
     def __init__(self):
 
         GD.set_default("active_creation_type", "")
+        GD.set_default("interactive_creation", False)
         GD.set_default("auto_grid_align", False)
 
         self._creation_start_mouse = (0, 0)
@@ -112,25 +113,31 @@ class CreationManager:
 
         self._mode_status = mode_status
 
+    def __handle_interactive_creation_end(self):
+
+        def task():
+
+            self.__restore_grid_transform()
+            Mgr.do("force_snap_cursor_update")
+
+            if self._restore_view:
+                plane_id = GD["active_grid_plane"]
+                Mgr.update_locally("active_grid_plane", "xy")
+                GD["coord_sys_type"] = "view"
+                GD["active_grid_plane"] = plane_id
+                Mgr.do("update_coord_sys")
+                self._restore_view = False
+
+        PendingTasks.add(task, "restore_grid_transform", "ui")
+        GD["interactive_creation"] = False
+
     def __enter_creation_mode(self, prev_state_id, active):
 
         Mgr.do("enable_view_gizmo")
 
         if self._interactive_creation_ended:
 
-            def task():
-
-                self.__restore_grid_transform()
-                Mgr.do("force_snap_cursor_update")
-
-                if self._restore_view:
-                    plane_id = GD["active_grid_plane"]
-                    Mgr.update_locally("active_grid_plane", "xy")
-                    GD["coord_sys_type"] = "view"
-                    GD["active_grid_plane"] = plane_id
-                    self._restore_view = False
-
-            PendingTasks.add(task, "restore_grid_transform", "ui")
+            self.__handle_interactive_creation_end()
             self._interactive_creation_ended = False
 
         else:
@@ -159,6 +166,7 @@ class CreationManager:
 
         if self._interactive_creation_started:
 
+            GD["interactive_creation"] = True
             self._interactive_creation_started = False
 
         else:
@@ -310,32 +318,33 @@ class CreationManager:
 
         auto_grid_align = GD["auto_grid_align"] and self.__align_grid()
 
-        self._origin_pos = None
+        self._origin_pos = origin_pos = None
         snap_on_settings = GD["snap"]["on"]
         snap_on = snap_on_settings["creation"] and snap_on_settings["creation_start"]
 
         if snap_on:
 
-            self._origin_pos = Mgr.get("snap_target_point")
+            origin_pos = Mgr.get("snap_target_point")
 
-            if self._origin_pos and auto_grid_align:
-                self._origin_pos = Point3()
+            if origin_pos and auto_grid_align:
+                origin_pos = Point3()
 
-        if self._origin_pos is None:
+        if origin_pos is None:
 
             if not GD.mouse_watcher.has_mouse():
                 return
 
             mouse_pos = GD.mouse_watcher.get_mouse()
-            self._origin_pos = Mgr.get("grid").get_point_at_screen_pos(mouse_pos)
+            origin_pos = Mgr.get("grid").get_point_at_screen_pos(mouse_pos)
 
-        if self._origin_pos is None:
+        if origin_pos is None:
             self.__restore_grid_transform()
             return
 
         if snap_on and not auto_grid_align:
             Mgr.do("end_snap_target_checking")
 
+        self._origin_pos = GD.world.get_relative_point(Mgr.get("grid").origin, origin_pos)
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         self._creation_start_mouse = (mouse_pointer.x, mouse_pointer.y)
         self._interactive_creation_started = True

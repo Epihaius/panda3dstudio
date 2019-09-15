@@ -77,6 +77,7 @@ class ViewGizmo:
         Mgr.accept("start_view_gizmo_transition", self.__start_transition)
         Mgr.accept("start_updating_view_cube", self.__init_update)
         Mgr.accept("stop_updating_view_cube", self.__end_update)
+        Mgr.accept("set_view_gizmo_mouse_region_sort", self.__set_mouse_region_sort)
         Mgr.accept("enable_view_gizmo", self.__enable)
         Mgr.add_app_updater("viewport", self.__update_region_size)
         Mgr.add_app_updater("viewport_region_sort_incr", self.__increment_region_sort)
@@ -847,6 +848,10 @@ class ViewGizmo:
     def __end_update(self):
 
         Mgr.remove_task("update_view_cube")
+
+    def __set_mouse_region_sort(self, sort):
+
+        self._mouse_region.sort = sort
 
     def __enable(self, enable=True, affect_mouse_region=True):
 

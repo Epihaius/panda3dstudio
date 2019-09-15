@@ -36,7 +36,7 @@ class TemporaryPointHelper:
 
         self._size = size
         object_root = Mgr.get("object_root")
-        self._temp_geom = tmp_geom = self._original_geom.copy_to(object_root)
+        self.geom = tmp_geom = self._original_geom.copy_to(object_root)
 
         grid = Mgr.get("grid")
         active_grid_plane = grid.plane_id
@@ -71,8 +71,8 @@ class TemporaryPointHelper:
 
     def destroy(self):
 
-        self._temp_geom.remove_node()
-        self._temp_geom = None
+        self.geom.remove_node()
+        self.geom = None
 
     def is_valid(self):
 
@@ -80,7 +80,7 @@ class TemporaryPointHelper:
 
     def finalize(self):
 
-        pos = self._temp_geom.get_pos(Mgr.get("grid").origin)
+        pos = self.geom.get_pos(Mgr.get("grid").origin)
 
         for step in Mgr.do("create_point_helper", pos):
             pass
@@ -518,6 +518,10 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         obj_type = self.get_object_type()
         name = Mgr.get("next_obj_name", obj_type)
         point_helper = self.__create_object(name, origin_pos)
+
+        if self.get_object():
+            point_helper.pivot.set_hpr(self.get_object().geom.get_hpr())
+
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(point_helper)
@@ -541,13 +545,15 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
 
     def __start_creation_phase(self):
 
-        origin_pos = self.get_origin_pos()
-        prop_defaults = self.get_property_defaults()
-        color = prop_defaults["unselected_color"]
-        size = prop_defaults["size"]
-        on_top = prop_defaults["on_top"]
-        tmp_point_helper = TemporaryPointHelper(origin_pos, color, size, on_top)
-        self.init_object(tmp_point_helper)
+        if not self.get_object():
+            grid_origin = Mgr.get("grid").origin
+            origin_pos = grid_origin.get_relative_point(GD.world, self.get_origin_pos())
+            prop_defaults = self.get_property_defaults()
+            color = prop_defaults["unselected_color"]
+            size = prop_defaults["size"]
+            on_top = prop_defaults["on_top"]
+            tmp_point_helper = TemporaryPointHelper(origin_pos, color, size, on_top)
+            self.init_object(tmp_point_helper)
 
     def __rebuild_geoms(self):
 

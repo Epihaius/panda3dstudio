@@ -192,7 +192,7 @@ class Components:
         self._screenshot = None
         d = 100000.
         self._gui_region_mask = mask = MouseWatcherRegion("viewport_mask", -d, d, -d, d)
-        mask.sort = 100000
+        mask.sort = 200
         cm = CardMaker("black_card")
         cm.set_frame(0., 1., -1., 0.)
         cm.set_color((0., 0., 0., 1.))
@@ -296,7 +296,11 @@ class Components:
         add_state("selection_mode", 0, enter_selection_mode)
         add_state("navigation_mode", -100, enter_navigation_mode)
         enter_state = lambda prev_state_id, active: self.__enable(False)
-        exit_state = lambda next_state_id, active: self.__enable()
+
+        def exit_state(next_state_id, active):
+
+            if not GD["interactive_creation"]:
+                self.__enable()
 
         for state in nav_states:
             add_state(state, -110, enter_state, exit_state)

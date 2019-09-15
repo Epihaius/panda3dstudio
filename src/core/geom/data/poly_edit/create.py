@@ -986,9 +986,9 @@ class CreationManager:
 
     def __init__(self):
 
-        self._vert_positions = []
         self._pixel_under_mouse = None
         self._picked_verts = []
+        self._positions = []
         self._geom_data_objs = []
         self._active_geom_data_obj = None
         self._interactive_creation_started = False
@@ -997,7 +997,8 @@ class CreationManager:
         add_state = Mgr.add_state
         add_state("poly_creation_mode", -10,
                   self.__enter_creation_mode, self.__exit_creation_mode)
-        add_state("poly_creation", -11)
+        add_state("poly_creation", -11,
+                  self.__enter_poly_creation, self.__exit_poly_creation)
 
         def cancel_creation():
 
@@ -1023,6 +1024,8 @@ class CreationManager:
              "shift", self.__switch_start_vertex)
         bind("poly_creation", "flip poly normal",
              "control", self.__flip_poly_normal)
+        bind("poly_creation", "poly creation -> navigate", "space",
+             lambda: Mgr.enter_state("navigation_mode"))
         bind("poly_creation", "quit poly creation", "escape", cancel_creation)
         bind("poly_creation", "cancel poly creation", "mouse3", cancel_creation)
         bind("poly_creation", "abort poly creation", "focus_loss", cancel_creation)
@@ -1033,13 +1036,17 @@ class CreationManager:
         status_data["create_poly"] = {"mode": mode_text, "info": info_text}
         info_text = "LMB to add vertex; <Backspace> to undo; " \
                     "click a previously added vertex to finalize; " \
-                    "<Ctrl> to flip normal; <Shift> to turn diagonal; RMB to cancel"
+                    "<Ctrl> to flip normal; <Shift> to turn diagonal; " \
+                    "RMB to cancel; <Space> to navigate"
         status_data["start_poly_creation"] = {"mode": mode_text, "info": info_text}
 
     def __enter_creation_mode(self, prev_state_id, active):
 
+        Mgr.do("enable_view_gizmo")
+
         if self._interactive_creation_ended:
 
+            GD["interactive_creation"] = False
             self._interactive_creation_ended = False
 
         else:
@@ -1054,7 +1061,6 @@ class CreationManager:
 
             GD["active_transform_type"] = ""
             Mgr.update_app("active_transform_type", "")
-            Mgr.do("enable_view_gizmo", False)
             Mgr.set_cursor("create")
             Mgr.add_task(self.__check_vertex_under_mouse, "check_vertex_under_mouse", sort=3)
 
@@ -1064,6 +1070,7 @@ class CreationManager:
 
         if self._interactive_creation_started:
 
+            GD["interactive_creation"] = True
             self._interactive_creation_started = False
 
         else:
@@ -1077,6 +1084,25 @@ class CreationManager:
 
             Mgr.remove_task("check_vertex_under_mouse")
             Mgr.do("enable_view_gizmo")
+
+    def __enter_poly_creation(self, prev_state_id, active):
+
+        if active:
+            Mgr.do("enable_view_gizmo", False)
+            Mgr.do("set_view_gizmo_mouse_region_sort", 0)
+            Mgr.update_remotely("interactive_creation", "resumed")
+
+        Mgr.add_task(self.__update_polygon, "update_polygon", sort=4)
+        Mgr.update_app("status", ["start_poly_creation"])
+
+    def __exit_poly_creation(self, next_state_id, active):
+
+        if active:
+            Mgr.remove_task("update_polygon")
+            pos = Mgr.get("grid").origin.get_relative_point(GD.world, self._positions[-1])
+            self._active_geom_data_obj.update_new_polygon(pos)
+            Mgr.do("enable_view_gizmo", True)
+            Mgr.do("set_view_gizmo_mouse_region_sort", 210)
 
     def __check_vertex_under_mouse(self, task):
 
@@ -1118,6 +1144,7 @@ class CreationManager:
 
             vertex = None
             geom_data_obj = self._geom_data_objs[0]
+            pos = GD.world.get_relative_point(Mgr.get("grid").origin, point)
 
         else:
 
@@ -1129,6 +1156,7 @@ class CreationManager:
             vertex = vertex.merged_vertex
             point = None
             geom_data_obj = vertex.geom_data_obj
+            pos = vertex.get_pos(GD.world)
 
         geom_data_obj.init_poly_creation()
         geom_data_obj.add_new_poly_vertex(vertex, point)
@@ -1139,9 +1167,8 @@ class CreationManager:
         self._interactive_creation_started = True
         self._interactive_creation_ended = False
 
-        Mgr.update_app("status", ["start_poly_creation"])
+        self._positions.append(pos)
         Mgr.enter_state("poly_creation")
-        Mgr.add_task(self.__update_polygon, "update_polygon", sort=4)
 
     def __update_polygon(self, task):
 
@@ -1175,6 +1202,7 @@ class CreationManager:
                 return
 
             vertex = None
+            pos = GD.world.get_relative_point(Mgr.get("grid").origin, point)
 
         else:
 
@@ -1195,13 +1223,16 @@ class CreationManager:
                 return
 
             point = None
+            pos = vertex.get_pos(GD.world)
 
         self._picked_verts.append(vertex)
         self._active_geom_data_obj.add_new_poly_vertex(vertex, point)
+        self._positions.append(pos)
 
     def __remove_poly_vertex(self):
 
         del self._picked_verts[-1]
+        del self._positions[-1]
 
         if self._picked_verts:
             self._active_geom_data_obj.remove_new_poly_vertex()
@@ -1225,6 +1256,7 @@ class CreationManager:
 
         self._active_geom_data_obj = None
         self._picked_verts = []
+        self._positions = []
         self._interactive_creation_started = False
         self._interactive_creation_ended = True
 

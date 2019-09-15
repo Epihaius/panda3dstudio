@@ -495,6 +495,8 @@ class TorusManager(PrimitiveManager):
 
         point = None
         grid = Mgr.get("grid")
+        grid_origin = grid.origin
+        origin_pos = grid_origin.get_relative_point(GD.world, self.get_origin_pos())
         snap_settings = GD["snap"]
         snap_on = snap_settings["on"]["creation"] and snap_settings["on"]["creation_phase_1"]
         snap_tgt_type = snap_settings["tgt_type"]["creation_phase_1"]
@@ -511,34 +513,33 @@ class TorusManager(PrimitiveManager):
                 return
 
             screen_pos = GD.mouse_watcher.get_mouse()
-            point = grid.get_point_at_screen_pos(screen_pos, self.get_origin_pos())
+            point = grid.get_point_at_screen_pos(screen_pos, origin_pos)
 
         else:
 
-            point = grid.get_projected_point(point, self.get_origin_pos())
-            proj_point = GD.world.get_relative_point(grid.origin, point)
+            point = grid.get_projected_point(point, origin_pos)
+            proj_point = GD.world.get_relative_point(grid_origin, point)
             Mgr.do("set_projected_snap_marker_pos", proj_point)
 
         if not point:
             return
 
-        radius_vec = point - self.get_origin_pos()
+        radius_vec = point - origin_pos
         ring_radius = radius_vec.length()
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_1"]
             ring_radius = round(ring_radius / offset_incr) * offset_incr
-            point = self.get_origin_pos() + radius_vec.normalized() * ring_radius
+            point = origin_pos + radius_vec.normalized() * ring_radius
 
-        self._dragged_point = GD.world.get_relative_point(grid.origin, point)
+        self._dragged_point = GD.world.get_relative_point(grid_origin, point)
         self.get_temp_primitive().update_size(ring_radius)
 
     def __start_creation_phase2(self):
         """ Start drawing out torus cross section """
 
         cam = GD.cam()
-        origin_pos = self.get_temp_primitive().origin.get_pos(GD.world)
-        ring_radius_vec = V3D(self._dragged_point - origin_pos)
+        ring_radius_vec = V3D(self._dragged_point - self.get_origin_pos())
         cam_forward_vec = V3D(GD.world.get_relative_vector(cam, Vec3.forward()))
         plane = Plane(cam_forward_vec, Point3())
         self._section_radius_vec = plane.project(ring_radius_vec).normalized()
@@ -579,8 +580,9 @@ class TorusManager(PrimitiveManager):
 
         else:
 
-            origin_pos = self.get_origin_pos()
-            proj_point = Mgr.get("grid").get_projected_point(point, origin_pos)
+            grid = Mgr.get("grid")
+            origin_pos = grid.origin.get_relative_point(GD.world, self.get_origin_pos())
+            proj_point = grid.get_projected_point(point, origin_pos)
             vec = proj_point - origin_pos
             ring_point = origin_pos + vec.normalized() * tmp_prim.get_size()[0]
             radius_vec = point - ring_point

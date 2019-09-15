@@ -483,8 +483,7 @@ class SphereManager(PrimitiveManager):
         # center, used to determine the radius drawn out by the user.
 
         normal = GD.world.get_relative_vector(GD.cam(), Vec3.forward())
-        point = GD.world.get_relative_point(Mgr.get("grid").origin, self.get_origin_pos())
-        self._draw_plane = Plane(normal, point)
+        self._draw_plane = Plane(normal, self.get_origin_pos())
 
     def __creation_phase1(self):
         """ Draw out sphere """
@@ -517,8 +516,7 @@ class SphereManager(PrimitiveManager):
 
             end_point = GD.world.get_relative_point(grid_origin, end_point)
 
-        start_point = GD.world.get_relative_point(grid_origin, self.get_origin_pos())
-        radius = (end_point - start_point).length()
+        radius = (end_point - self.get_origin_pos()).length()
 
         if snap_on and snap_tgt_type == "increment":
             offset_incr = snap_settings["increment"]["creation_phase_1"]

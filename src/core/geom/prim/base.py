@@ -9,12 +9,15 @@ class TemporaryPrimitive:
         pivot = Mgr.get("object_root").attach_new_node("temp_prim_pivot")
         origin = pivot.attach_new_node("temp_prim_origin")
         origin.set_color(color)
+        origin.node().set_bounds(OmniBoundingVolume())
+        origin.node().set_final(True)
         self.pivot = pivot
         self.origin = origin
 
         grid = Mgr.get("grid")
         active_grid_plane = grid.plane_id
         grid_origin = grid.origin
+        pos = grid_origin.get_relative_point(GD.world, pos)
 
         if active_grid_plane == "xz":
             pivot.set_pos_hpr(grid_origin, pos, VBase3(0., -90., 0.))
@@ -414,9 +417,10 @@ class PrimitiveManager(CreationPhaseManager, ObjPropDefaultsManager):
 
         def start_primitive_creation():
 
-            next_color = self.get_next_object_color()
-            tmp_prim = self.create_temp_primitive(next_color, self.get_origin_pos())
-            self.init_object(tmp_prim)
+            if not self.get_object():
+                next_color = self.get_next_object_color()
+                tmp_prim = self.create_temp_primitive(next_color, self.get_origin_pos())
+                self.init_object(tmp_prim)
 
             main_creation_func()
 
@@ -466,6 +470,10 @@ class PrimitiveManager(CreationPhaseManager, ObjPropDefaultsManager):
         self.set_next_object_color()
         Mgr.exit_state("processing")
         model.register(restore=False)
+
+        if self.get_object():
+            model.pivot.set_hpr(self.get_object().pivot.get_hpr())
+
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(model)
