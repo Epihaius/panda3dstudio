@@ -315,7 +315,8 @@ class PlaneManager(PrimitiveManager):
     def setup(self):
 
         creation_phases = []
-        creation_phase = (lambda: None, self.__creation_phase1)
+        creation_phase = (lambda: None, self.__creation_phase1,
+                          self.__finish_creation_phase1)
         creation_phases.append(creation_phase)
 
         status_text = {}
@@ -400,6 +401,14 @@ class PlaneManager(PrimitiveManager):
             x = round(x / offset_incr) * offset_incr
             y = round(y / offset_incr) * offset_incr
 
+        tmp_prim.update_size(x, y)
+
+    def __finish_creation_phase1(self):
+        """ End creation phase 1 by setting default plane size """
+
+        prop_defaults = self.get_property_defaults()
+        x, y = [prop_defaults[f"size_{axis}"] for axis in "xy"]
+        tmp_prim = self.get_temp_primitive()
         tmp_prim.update_size(x, y)
 
     def create_custom_primitive(self, name, x, y, segments, pos, inverted=False,

@@ -584,9 +584,11 @@ class CylinderManager(PrimitiveManager):
     def setup(self):
 
         creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1,
+                          self.__finish_creation_phase1)
         creation_phases.append(creation_phase)
-        creation_phase = (self.__start_creation_phase2, self.__creation_phase2)
+        creation_phase = (self.__start_creation_phase2, self.__creation_phase2,
+                          self.__finish_creation_phase2)
         creation_phases.append(creation_phase)
 
         status_text = {}
@@ -680,6 +682,13 @@ class CylinderManager(PrimitiveManager):
 
         self._dragged_point = GD.world.get_relative_point(grid_origin, point)
         self.get_temp_primitive().update_size(radius)
+
+    def __finish_creation_phase1(self):
+        """ End creation phase 1 by setting default cylinder radius """
+
+        prop_defaults = self.get_property_defaults()
+        tmp_prim = self.get_temp_primitive()
+        tmp_prim.update_size(prop_defaults["radius"])
 
     def __start_creation_phase2(self):
         """ Start drawing out cylinder height """
@@ -798,6 +807,13 @@ class CylinderManager(PrimitiveManager):
             z = round(z / offset_incr) * offset_incr
 
         tmp_prim.update_size(height=z)
+
+    def __finish_creation_phase2(self):
+        """ End creation phase 2 by setting default cylinder height """
+
+        prop_defaults = self.get_property_defaults()
+        tmp_prim = self.get_temp_primitive()
+        tmp_prim.update_size(height=prop_defaults["height"])
 
     def create_custom_primitive(self, name, radius, height, segments, pos, rel_to_grid=False,
                                 smooth=True, gradual=False):

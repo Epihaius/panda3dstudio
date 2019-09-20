@@ -420,9 +420,11 @@ class BoxManager(PrimitiveManager):
     def setup(self):
 
         creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1,
+                          self.__finish_creation_phase1)
         creation_phases.append(creation_phase)
-        creation_phase = (self.__start_creation_phase2, self.__creation_phase2)
+        creation_phase = (self.__start_creation_phase2, self.__creation_phase2,
+                          self.__finish_creation_phase2)
         creation_phases.append(creation_phase)
 
         status_text = {}
@@ -517,6 +519,14 @@ class BoxManager(PrimitiveManager):
         else:
             self._dragged_point = GD.world.get_relative_point(grid_origin, point)
 
+        tmp_prim.update_size(x, y)
+
+    def __finish_creation_phase1(self):
+        """ End creation phase 1 by setting default box base size """
+
+        prop_defaults = self.get_property_defaults()
+        x, y, z = [prop_defaults[f"size_{axis}"] for axis in "xyz"]
+        tmp_prim = self.get_temp_primitive()
         tmp_prim.update_size(x, y)
 
     def __start_creation_phase2(self):
@@ -635,6 +645,14 @@ class BoxManager(PrimitiveManager):
             offset_incr = snap_settings["increment"]["creation_phase_2"]
             z = round(z / offset_incr) * offset_incr
 
+        tmp_prim.update_size(z=z)
+
+    def __finish_creation_phase2(self):
+        """ End creation phase 2 by setting default box height """
+
+        prop_defaults = self.get_property_defaults()
+        x, y, z = [prop_defaults[f"size_{axis}"] for axis in "xyz"]
+        tmp_prim = self.get_temp_primitive()
         tmp_prim.update_size(z=z)
 
     def create_custom_primitive(self, name, x, y, z, segments, pos, inverted=False,

@@ -437,7 +437,8 @@ class SphereManager(PrimitiveManager):
     def setup(self):
 
         creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1,
+                          self.__finish_creation_phase1)
         creation_phases.append(creation_phase)
 
         status_text = {}
@@ -523,6 +524,13 @@ class SphereManager(PrimitiveManager):
             radius = round(radius / offset_incr) * offset_incr
 
         self.get_temp_primitive().update_radius(radius)
+
+    def __finish_creation_phase1(self):
+        """ End creation phase 1 by setting default sphere radius """
+
+        prop_defaults = self.get_property_defaults()
+        tmp_prim = self.get_temp_primitive()
+        tmp_prim.update_radius(prop_defaults["radius"])
 
     def create_custom_primitive(self, name, radius, segments, pos, inverted=False,
                                 rel_to_grid=False, smooth=True, gradual=False):

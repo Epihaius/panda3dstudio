@@ -407,9 +407,16 @@ class PrimitiveManager(CreationPhaseManager, ObjPropDefaultsManager):
 
     def setup(self, creation_phases, status_text):
 
-        phase_starter, phase_handler = creation_phases.pop(0)
+        phase_data = creation_phases.pop(0)
+
+        if len(phase_data) == 3:
+            phase_starter, phase_handler, phase_finisher = phase_data
+        else:
+            phase_starter, phase_handler = phase_data
+            phase_finisher = lambda: None
+
         creation_starter = self.__get_prim_creation_starter(phase_starter)
-        creation_phases.insert(0, (creation_starter, phase_handler))
+        creation_phases.insert(0, (creation_starter, phase_handler, phase_finisher))
 
         return CreationPhaseManager.setup(self, creation_phases, status_text)
 

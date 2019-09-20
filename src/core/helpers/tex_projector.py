@@ -1155,7 +1155,8 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
     def setup(self):
 
         creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1,
+                          self.__finish_creation_phase1)
         creation_phases.append(creation_phase)
 
         status_text = {}
@@ -1358,6 +1359,12 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
             size = round(size / offset_incr) * offset_incr
 
         self.get_object().set_size(size)
+
+    def __finish_creation_phase1(self):
+        """ End creation phase 1 by setting default texture projector size """
+
+        prop_defaults = self.get_property_defaults()
+        self.get_object().set_size(prop_defaults["size"])
 
     def __set_projector_property(self, prop_id, value, projector_id=None,
                                  add_to_hist=True, target_id=None, target_prop=""):

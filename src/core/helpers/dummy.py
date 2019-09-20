@@ -965,7 +965,8 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         self._dummy_roots["ortho"] = root_ortho
 
         creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1,
+                          self.__finish_creation_phase1)
         creation_phases.append(creation_phase)
 
         status_text = {}
@@ -1227,6 +1228,12 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
             size = round(size / offset_incr) * offset_incr
 
         self.get_object().set_size(size)
+
+    def __finish_creation_phase1(self):
+        """ End creation phase 1 by setting default dummy size """
+
+        prop_defaults = self.get_property_defaults()
+        self.get_object().set_size(prop_defaults["size"])
 
 
 MainObjects.add_class(DummyEdgeManager)

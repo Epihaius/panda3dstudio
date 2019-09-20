@@ -39,10 +39,28 @@ class CreationPhaseManager:
         add_state = Mgr.add_state
         bind = Mgr.bind_state
         state_persistence = -12
+        phase_finishers = []
 
         for i, phase_data in enumerate(creation_phases):
 
-            main_starter, main_handler = phase_data
+            if len(phase_data) == 3:
+                main_starter, main_handler, finisher = phase_data
+            else:
+                main_starter, main_handler = phase_data
+                finisher = lambda: None
+
+            phase_finishers.append(finisher)
+
+            def get_completion_command(index):
+
+                def complete_creation():
+
+                    for finisher in phase_finishers[index:]:
+                        finisher()
+
+                    self.__end_creation(cancel=False)
+
+                return complete_creation
 
             if i == 0:
                 self._creation_start_func = main_starter
@@ -67,18 +85,34 @@ class CreationPhaseManager:
             bind(state_id, binding_id, "focus_loss", self.__end_creation)
             binding_id = f"cancel {self._obj_type} creation"
             bind(state_id, binding_id, "mouse3", self.__end_creation)
+            binding_id = f"complete {self._obj_type} creation {i}"
+            bind(state_id, binding_id, "enter", get_completion_command(i))
 
-            info_text = f"move mouse to {status_text[f'phase{i + 1}']};"
+            def get_finish_command(finisher, state_id=None):
+
+                def finish_phase():
+
+                    finisher()
+                    Mgr.enter_state(state_id) if state_id else self.__end_creation(cancel=False)
+
+                return finish_phase
+
+            info_text = f"move mouse to {status_text[f'phase{i + 1}']};" \
+                        + " <Tab> to skip phase; <Enter> to complete;"
             get_command = lambda state_id: lambda: Mgr.enter_state(state_id)
 
             if i == len(creation_phases) - 1:
+                binding_id = f"skip {self._obj_type} creation phase {i}"
+                bind(state_id, binding_id, "tab", get_finish_command(finisher))
                 binding_id = f"finalize {self._obj_type} creation"
                 bind(state_id, binding_id, "mouse1-up",
                      lambda: self.__end_creation(cancel=False))
                 info_text += " release LMB to finalize;"
             else:
-                binding_id = f"start {self._obj_type} creation phase {i + 2}"
                 next_state_id = f"{self._obj_type}_creation_phase_{i + 2}"
+                binding_id = f"skip {self._obj_type} creation phase {i}"
+                bind(state_id, binding_id, "tab", get_finish_command(finisher, next_state_id))
+                binding_id = f"start {self._obj_type} creation phase {i + 2}"
                 bind(state_id, binding_id, "mouse1-up", get_command(next_state_id))
                 info_text += " release LMB to set;"
 

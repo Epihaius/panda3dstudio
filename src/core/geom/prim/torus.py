@@ -427,9 +427,11 @@ class TorusManager(PrimitiveManager):
     def setup(self):
 
         creation_phases = []
-        creation_phase = (self.__start_creation_phase1, self.__creation_phase1)
+        creation_phase = (self.__start_creation_phase1, self.__creation_phase1,
+                          self.__finish_creation_phase1)
         creation_phases.append(creation_phase)
-        creation_phase = (self.__start_creation_phase2, self.__creation_phase2)
+        creation_phase = (self.__start_creation_phase2, self.__creation_phase2,
+                          self.__finish_creation_phase2)
         creation_phases.append(creation_phase)
 
         status_text = {}
@@ -535,6 +537,13 @@ class TorusManager(PrimitiveManager):
         self._dragged_point = GD.world.get_relative_point(grid_origin, point)
         self.get_temp_primitive().update_size(ring_radius)
 
+    def __finish_creation_phase1(self):
+        """ End creation phase 1 by setting default torus ring radius """
+
+        prop_defaults = self.get_property_defaults()
+        tmp_prim = self.get_temp_primitive()
+        tmp_prim.update_size(prop_defaults["radius_ring"])
+
     def __start_creation_phase2(self):
         """ Start drawing out torus cross section """
 
@@ -594,6 +603,13 @@ class TorusManager(PrimitiveManager):
             section_radius = round(section_radius / offset_incr) * offset_incr
 
         tmp_prim.update_size(section_radius=section_radius)
+
+    def __finish_creation_phase2(self):
+        """ End creation phase 2 by setting default torus cross section radius """
+
+        prop_defaults = self.get_property_defaults()
+        tmp_prim = self.get_temp_primitive()
+        tmp_prim.update_size(section_radius=prop_defaults["radius_section"])
 
 
 MainObjects.add_class(TorusManager)
