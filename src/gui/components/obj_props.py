@@ -176,7 +176,9 @@ class TagPane(DialogScrollPane):
         field = TagField(self, "tag_val", self.__get_tag_value_handler(index),
                          100, dialog)
 
-        if value is not None:
+        if value is None:
+            field.set_value("")
+        else:
             field.set_value(value)
 
         field.set_scissor_effect(self._scissor_effect)

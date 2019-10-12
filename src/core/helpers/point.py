@@ -56,7 +56,7 @@ class TemporaryPointHelper:
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.add_data4(color)
         size_writer = GeomVertexWriter(vertex_data, "size")
-        size_writer.add_data1f(size)
+        size_writer.add_data1(size)
         prim = geom.modify_primitive(0)
         prim.add_vertex(0)
 
@@ -496,7 +496,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             col_writer.add_data4(colors[geom_type])
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
-            size_writer.add_data1f(sizes[geom_type])
+            size_writer.add_data1(sizes[geom_type])
             index_writer = GeomVertexWriter(vertex_data, "index")
             index_writer.set_row(count)
             index_writer.add_data1i(count)
@@ -688,7 +688,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             col_writer.add_data4(colors[geom_type])
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
-            size_writer.add_data1f(sizes[geom_type])
+            size_writer.add_data1(sizes[geom_type])
             index_writer = GeomVertexWriter(vertex_data, "index")
             index_writer.set_row(count)
             index_writer.add_data1i(count)
@@ -793,7 +793,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             vertex_data = geom_node.modify_geom(0).modify_vertex_data()
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(row_index)
-            size_writer.add_data1f(sizes[geom_type])
+            size_writer.add_data1(sizes[geom_type])
 
     def __set_point_helper_color(self, point_helper):
 
@@ -874,7 +874,7 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
             col_writer.add_data4(colors[geom_type])
             size_writer = GeomVertexWriter(vertex_data, "size")
             size_writer.set_row(count)
-            size_writer.add_data1f(sizes[geom_type])
+            size_writer.add_data1(sizes[geom_type])
             index_writer = GeomVertexWriter(vertex_data, "index")
             index_writer.set_row(count)
             index_writer.add_data1i(count)
