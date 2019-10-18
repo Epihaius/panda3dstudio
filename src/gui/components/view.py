@@ -26,7 +26,8 @@ class BackgroundInputField(DialogInputField):
         DialogInputField.__init__(self, parent, value_id, value_type, handler, width,
                                   INSET1_BORDER_GFX_DATA, self._img_offset)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -44,7 +45,8 @@ class AlphaField(DialogSliderField):
 
         self.set_input_parser(self.__parse_alpha_input)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -589,7 +591,7 @@ class ViewManager:
 
         menu = self._user_view_menu
 
-        for item in list(menu.get_items().values()):
+        for item in list(menu.items.values()):
 
             if item.widget_type == "menu_separator":
                 continue
@@ -654,9 +656,9 @@ class ViewTileCard(WidgetCard):
 
     def __init__(self, parent):
 
-        WidgetCard.__init__(self, "view_tile_card", parent, stretch_dir="both")
+        WidgetCard.__init__(self, "view_tile_card", parent)
 
-        self.set_sizer(Sizer("vertical"))
+        self.sizer = Sizer("vertical")
 
     @property
     def sort(self):
@@ -665,8 +667,8 @@ class ViewTileCard(WidgetCard):
 
     def update_images(self):
 
-        sizer = self.get_sizer()
-        self.get_sizer().update_images()
+        sizer = self.sizer
+        self.sizer.update_images()
         w, h = self.get_size()
         l = 0
         r = w
@@ -690,7 +692,7 @@ class ViewTileCard(WidgetCard):
             if widget_img:
                 img.copy_sub_image(widget_img, x_w, y_w, 0, 0)
 
-        tex = self._tex
+        tex = self.texture
         tex.load(img)
         quad.set_texture(tex)
         self._image = img
@@ -710,7 +712,7 @@ class ViewTileButton(Button):
         command = lambda: self.set_active(Mgr.do("toggle_view_tiles"))
 
         Button.__init__(self, parent, self._gfx, "", "", "Toggle view tiles", command,
-                        button_type="view_tile_button", stretch_dir="")
+                        button_type="view_tile_button")
 
         self._menu = main_menu = Menu()
         item = main_menu.add("std_views", "Standard views", item_type="submenu")
@@ -760,7 +762,7 @@ class ViewTileButton(Button):
 
         menu = self._user_view_menu
 
-        for item in list(menu.get_items().values()):
+        for item in list(menu.items.values()):
             item_id = item.id
             menu.remove(item_id, update=False, destroy=True)
 
@@ -982,16 +984,16 @@ class ViewPane(ScrollPane):
         ScrollPane.__init__(self, card, pane_id, scroll_dir, cull_bin, frame_gfx_data, bar_gfx_data,
              thumb_gfx_data, bar_inner_border_id, frame_has_mouse_region=False, append_scrollbar=False)
 
-        self.get_sizer().ignore_stretch()
+        self.sizer.ignore_stretch = True
         self._tile_sizers = tile_sizers = {}
         sizer = GridSizer(columns=2)
         tile_sizers["std"] = sizer
         borders = (5, 5, 5, 5)
-        self.get_sizer().add(sizer, borders=borders)
+        self.sizer.add(sizer, borders=borders)
         sizer = GridSizer(columns=2)
         tile_sizers["user"] = sizer
         borders = (5, 5, 5, 0)
-        self.get_sizer().add(sizer, borders=borders)
+        self.sizer.add(sizer, borders=borders)
         self.set_transparent()
         task = self.setup
         task_id = "setup"
@@ -1019,7 +1021,7 @@ class ViewPane(ScrollPane):
 
         for tile in self._tiles:
             x, y = tile.get_pos(ref_node=root_node)
-            offset_x, offset_y = tile.get_image_offset()
+            offset_x, offset_y = tile.image_offset
             pane_image.copy_sub_image(tile.get_image(), x + offset_x, y + offset_y, 0, 0)
 
     def _can_scroll(self):
@@ -1054,7 +1056,7 @@ class ViewPane(ScrollPane):
     def remove_tile(self, tile):
 
         self._tiles.remove(tile)
-        self._tile_sizers["user"].remove(tile, destroy=True)
+        self._tile_sizers["user"].remove_item(tile.sizer_item, destroy=True)
         self.reset_sub_image_index()
 
     def clear_tiles(self):
@@ -1072,7 +1074,7 @@ class ViewTileManager:
         self._sizer = sizer = Sizer("horizontal")
         sizer.add(card, proportion=1., expand=True)
         self._pane = pane = ViewPane(card)
-        card_sizer = card.get_sizer()
+        card_sizer = card.sizer
         subsizer = Sizer("horizontal")
         card_sizer.add(subsizer)
         btn = ViewTileButton(card)
@@ -1100,7 +1102,7 @@ class ViewTileManager:
 
         node = GD.viewport_origin.attach_new_node("scrollthumb_offset")
         self._scrollthumb_offset_node = node
-        pane.get_scrollthumb().get_quad().reparent_to(node)
+        pane.get_scrollthumb().quad.reparent_to(node)
 
         menu_std = Menu()
         menu_user = Menu()
@@ -1158,9 +1160,9 @@ class ViewTileManager:
         def task():
 
             self.__update_sizer()
-            sizer = pane.get_sizer()
-            sizer.lock_item_size()
-            sizer.lock_mouse_regions()
+            sizer = pane.sizer
+            sizer.item_size_locked = True
+            sizer.mouse_regions_locked = True
 
         PendingTasks.add(task, "lock_tiles")
 
@@ -1177,8 +1179,8 @@ class ViewTileManager:
 
         if shown:
 
-            pane.get_quad().show()
-            scrollthumb.get_quad().show()
+            pane.quad.show()
+            scrollthumb.quad.show()
             gui_mouse_watcher.add_region(scrollbar.mouse_region)
             gui_mouse_watcher.add_region(scrollthumb.mouse_region)
 
@@ -1187,8 +1189,8 @@ class ViewTileManager:
 
         else:
 
-            pane.get_quad().hide()
-            scrollthumb.get_quad().hide()
+            pane.quad.hide()
+            scrollthumb.quad.hide()
             gui_mouse_watcher.remove_region(scrollbar.mouse_region)
             gui_mouse_watcher.remove_region(scrollthumb.mouse_region)
 
@@ -1270,15 +1272,15 @@ class ViewTileManager:
         w, h = GD["viewport"]["size_aux" if viewport_id == "main" else "size"]
         sizer = self._sizer
         h_min = sizer.update_min_size()[1]
-        size = (w, min(h, h_min + self._pane.get_sizer().get_virtual_size()[1]))
+        size = (w, min(h, h_min + self._pane.sizer.virtual_size[1]))
         sizer.set_size(size)
         sizer.calculate_positions(pos)
         sizer.update_images()
         sizer.update_mouse_region_frames()
-        quad = self._card.get_quad()
+        quad = self._card.quad
         quad.reparent_to(GD.viewport_origin)
         quad.set_pos(quad, -x, 0., y)
-        quad = self._pane.get_quad()
+        quad = self._pane.quad
         quad.reparent_to(GD.viewport_origin)
         quad.set_pos(quad, -x, 0., y)
 
@@ -1304,12 +1306,12 @@ class ViewTileManager:
         region = tile.mouse_region
         self._view_tile_regions.append(region)
         self.__set_active_view(view_id)
-        sizer = pane.get_sizer()
-        sizer.lock_item_size(False)
-        sizer.lock_mouse_regions(False)
+        sizer = pane.sizer
+        sizer.item_size_locked = False
+        sizer.mouse_regions_locked = False
         self.__update_sizer()
-        sizer.lock_item_size()
-        sizer.lock_mouse_regions()
+        sizer.item_size_locked = True
+        sizer.mouse_regions_locked = True
 
         if not self._view_tiles_shown:
             pane.mouse_watcher.remove_region(region)
@@ -1322,12 +1324,12 @@ class ViewTileManager:
         region = tile.mouse_region
         self._view_tile_regions.remove(region)
         self._pane.remove_tile(tile)
-        sizer = self._pane.get_sizer()
-        sizer.lock_item_size(False)
-        sizer.lock_mouse_regions(False)
+        sizer = self._pane.sizer
+        sizer.item_size_locked = False
+        sizer.mouse_regions_locked = False
         self.__update_sizer()
-        sizer.lock_item_size()
-        sizer.lock_mouse_regions()
+        sizer.item_size_locked = True
+        sizer.mouse_regions_locked = True
 
     def __clear_user_views(self):
 
@@ -1339,12 +1341,12 @@ class ViewTileManager:
 
         self._user_view_ids = []
         self._pane.clear_tiles()
-        sizer = self._pane.get_sizer()
-        sizer.lock_item_size(False)
-        sizer.lock_mouse_regions(False)
+        sizer = self._pane.sizer
+        sizer.item_size_locked = False
+        sizer.mouse_regions_locked = False
         self.__update_sizer()
-        sizer.lock_item_size()
-        sizer.lock_mouse_regions()
+        sizer.item_size_locked = True
+        sizer.mouse_regions_locked = True
 
     def __rename_user_view(self, lens_type, view_id, view_name):
 

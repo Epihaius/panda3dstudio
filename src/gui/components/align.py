@@ -236,7 +236,7 @@ class AlignmentDialog(Dialog):
             color = None if enable else (.5, .5, .5, 1.)
             radio_btns.set_bullet_color(color, update=True)
             borders = (5, 0, 0, 0)
-            group.add(radio_btns.get_sizer(), expand=True, borders=borders)
+            group.add(radio_btns.sizer, expand=True, borders=borders)
             radio_btn_groups["axis"] = radio_btns
 
         def add_inverted_dir_option(top_border):
@@ -263,11 +263,11 @@ class AlignmentDialog(Dialog):
                 group_sizer.add((10, 0))
                 group_sizer.add(subgroup, proportion=1., expand=True, borders=borders)
                 radio_btns = DialogRadioButtonGroup(subgroup, columns=1, gap_v=2)
-                subgroup.add(radio_btns.get_sizer())
+                subgroup.add(radio_btns.sizer)
             else:
                 group_sizer.add(subgroup, proportion=1., expand=True, borders=borders)
                 radio_btns = DialogRadioButtonGroup(subgroup, columns=2, gap_h=5, gap_v=2, stretch=True)
-                subgroup.add(radio_btns.get_sizer(), expand=True)
+                subgroup.add(radio_btns.sizer, expand=True)
 
             def get_command(point_id):
 
@@ -592,10 +592,10 @@ class AlignmentDialog(Dialog):
 
                 if target_type == "object":
                     radio_btns = DialogRadioButtonGroup(subgroup, columns=1, gap_v=2)
-                    subgroup.add(radio_btns.get_sizer())
+                    subgroup.add(radio_btns.sizer)
                 else:
                     radio_btns = DialogRadioButtonGroup(subgroup, columns=2, gap_h=10, gap_v=2, stretch=True)
-                    subgroup.add(radio_btns.get_sizer(), expand=True)
+                    subgroup.add(radio_btns.sizer, expand=True)
 
                 def get_command(point_id):
 
@@ -838,7 +838,7 @@ class GridAlignmentDialog(Dialog):
             color = None if enable else (.5, .5, .5, 1.)
             radio_btns.set_bullet_color(color, update=True)
             borders = (5, 0, 0, 0)
-            group.add(radio_btns.get_sizer(), expand=True, borders=borders)
+            group.add(radio_btns.sizer, expand=True, borders=borders)
             radio_btn_groups["axis"] = radio_btns
 
         def add_inverted_dir_option(top_border):
@@ -865,11 +865,11 @@ class GridAlignmentDialog(Dialog):
                 group_sizer.add((10, 0))
                 group_sizer.add(subgroup, proportion=1., expand=True, borders=borders)
                 radio_btns = DialogRadioButtonGroup(subgroup, columns=1, gap_v=2)
-                subgroup.add(radio_btns.get_sizer())
+                subgroup.add(radio_btns.sizer)
             else:
                 group_sizer.add(subgroup, proportion=1., expand=True, borders=borders)
                 radio_btns = DialogRadioButtonGroup(subgroup, columns=2, gap_h=5, gap_v=2, stretch=True)
-                subgroup.add(radio_btns.get_sizer(), expand=True)
+                subgroup.add(radio_btns.sizer, expand=True)
 
             def get_command(point_id):
 

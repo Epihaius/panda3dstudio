@@ -13,17 +13,16 @@ class ProgressBarFrame(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "progress_bar_frame", parent, self._gfx, stretch_dir="both",
-                        has_mouse_region=False)
+        Widget.__init__(self, "progress_bar_frame", parent, self._gfx, has_mouse_region=False)
 
     def set_progress_bar(self, progress_bar):
 
         sizer = Sizer("horizontal")
-        self.set_sizer(sizer)
+        self.sizer = sizer
         x, y, w, h = TextureAtlas["regions"]["progress_bar_left"]
-        l, r, b, t = borders = self.get_gfx_inner_borders()
+        l, r, b, t = borders = self.gfx_inner_borders
         h += b + t
-        sizer.set_default_size((500, h))
+        sizer.default_size = (500, h)
         self._bar_sizer = bar_sizer = Sizer("horizontal")
         sizer.add(bar_sizer, borders=borders, proportion=1.)
         self._bar_item = bar_sizer.add(progress_bar)
@@ -37,8 +36,7 @@ class ProgressBar(Widget):
     def __init__(self, dialog):
 
         frame = ProgressBarFrame(dialog)
-        Widget.__init__(self, "progress_bar", frame, self._gfx, stretch_dir="horizontal",
-                        has_mouse_region=False)
+        Widget.__init__(self, "progress_bar", frame, self._gfx, has_mouse_region=False)
         frame.set_progress_bar(self)
 
         self._rate = 0.
@@ -63,17 +61,17 @@ class ProgressBar(Widget):
         parent_img = self.parent.get_image(composed=False)
         img.copy_sub_image(parent_img, 0, 0, x, y, w, h)
         img.blend_sub_image(image, 0, 0, 0, 0)
-        self.get_card().copy_sub_image(self, img, w, h)
+        self.card.copy_sub_image(self, img, w, h)
 
     def advance(self):
 
         if self._rate:
             self._progress = min(1., self._progress + self._rate)
-            sizer_item = self.get_sizer_item()
-            sizer_item.set_proportion(self._progress)
-            sizer = sizer_item.get_sizer()
-            space_item = sizer.get_item(1)
-            space_item.set_proportion(1. - self._progress)
+            sizer_item = self.sizer_item
+            sizer_item.proportion = self._progress
+            sizer = sizer_item.sizer
+            space_item = sizer.items[1]
+            space_item.proportion = 1. - self._progress
             sizer.set_min_size_stale()
             sizer.update_min_size()
             sizer.set_size(sizer.get_size())

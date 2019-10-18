@@ -8,8 +8,7 @@ class MenuSeparator(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "menu_separator", parent, self._gfx, stretch_dir="horizontal",
-                        has_mouse_region=False)
+        Widget.__init__(self, "menu_separator", parent, self._gfx, has_mouse_region=False)
 
     def get_submenu(self):
 
@@ -75,7 +74,7 @@ class MenuItem(Button):
                         button_type="menu_item")
 
         self.widget_type = "menu_item"
-        w, h = self.get_min_size()
+        w, h = self.min_size
         self.set_size((w + 20, h), is_min=True)
         self.mouse_region.sort = parent.sort + 1
         self.id = item_id
@@ -168,7 +167,7 @@ class MenuItem(Button):
         x_old, y_old = menu.get_pos(from_root=True)
         x_new = x_old + w_m
         y_new = y_old + h_m
-        quad = menu.get_quad()
+        quad = menu.quad
 
         if x_new > w_w or y_new > h_w:
 
@@ -205,7 +204,7 @@ class MenuItem(Button):
         if not image:
             image = PNMImage(width, height, 4)
 
-        l, r, b, t = self.get_gfx_inner_borders()
+        l, r, b, t = self.gfx_inner_borders
 
         if self.get_hotkey_text():
             label = self._hotkey_label if self.is_enabled() else self._hotkey_label_disabled
@@ -229,7 +228,7 @@ class MenuItem(Button):
         if not Button.set_text(self, text):
             return False
 
-        w, h = self.get_min_size()
+        w, h = self.min_size
         self.set_size((w + 20, h), is_min=True)
 
         return True
@@ -434,7 +433,7 @@ class Menu(WidgetCard):
         self._hotkey_label_sizer = hotkey_label_sizer = Sizer("vertical")
         subsizer.add(label_sizer)
         subsizer.add(hotkey_label_sizer)
-        self.set_sizer(sizer)
+        self.sizer = sizer
         self.mouse_region = mouse_region = MouseWatcherRegion("menu", 0., 0., 0., 0.)
         self.mouse_watcher.add_region(mouse_region)
         mouse_region.suppress_flags = MouseWatcherRegion.SF_mouse_button
@@ -457,7 +456,7 @@ class Menu(WidgetCard):
 
     def update(self, update_initial_pos=True):
 
-        sizer = self.get_sizer()
+        sizer = self.sizer
         size = sizer.update_min_size()
         sizer.set_size(size)
         sizer.calculate_positions()
@@ -495,7 +494,7 @@ class Menu(WidgetCard):
         self.sort = self.parent.parent.sort + 1 if self._is_submenu else 1001
         self.mouse_region.sort = self.sort
 
-        quad = self.get_quad()
+        quad = self.quad
 
         if quad:
             quad.set_bin("menu", self.sort)
@@ -530,11 +529,11 @@ class Menu(WidgetCard):
 
         if item.set_text(text):
 
-            sizer_item = item.get_sizer_item()
-            index = self._item_sizer.get_item_index(sizer_item)
-            sizer_item = self._label_sizer.get_item(index)
+            sizer_item = item.sizer_item
+            index = self._item_sizer.items.index(sizer_item)
+            sizer_item = self._label_sizer.items[index]
             self._label_sizer.remove_item(sizer_item)
-            self._label_sizer.add((item.get_min_size()[0], 0), index=index)
+            self._label_sizer.add((item.min_size[0], 0), index=index)
 
             if update:
                 self._item_sizer.set_min_size_stale()
@@ -546,9 +545,9 @@ class Menu(WidgetCard):
 
         if item.set_hotkey(hotkey, hotkey_text, interface_id):
 
-            sizer_item = item.get_sizer_item()
-            index = self._item_sizer.get_item_index(sizer_item)
-            sizer_item = self._hotkey_label_sizer.get_item(index)
+            sizer_item = item.sizer_item
+            index = self._item_sizer.items.index(sizer_item)
+            sizer_item = self._hotkey_label_sizer.items[index]
             self._hotkey_label_sizer.remove_item(sizer_item)
             hotkey_label = item.get_hotkey_label()
             w = hotkey_label.size[0] if hotkey_label else 0
@@ -612,7 +611,7 @@ class Menu(WidgetCard):
 
         self._items[item_id] = item
         self._item_sizer.add(item, expand=True, index=index)
-        self._label_sizer.add((item.get_min_size()[0], 0), index=index)
+        self._label_sizer.add((item.min_size[0], 0), index=index)
         self._hotkey_label_sizer.add((0, 0), index=index)
 
         if item_type == "radio":
@@ -637,8 +636,8 @@ class Menu(WidgetCard):
 
         item.set_parent(self)
         self._items[item_id] = item
-        self._item_sizer.add_item(item.get_sizer_item(), index)
-        self._label_sizer.add((item.get_min_size()[0], 0), index=index)
+        self._item_sizer.add_item(item.sizer_item, index)
+        self._label_sizer.add((item.min_size[0], 0), index=index)
         hotkey_label = item.get_hotkey_label()
         w = hotkey_label.size[0] if hotkey_label else 0
         self._hotkey_label_sizer.add((w, 0), index=index)
@@ -679,12 +678,12 @@ class Menu(WidgetCard):
             radio_group = menu_item.get_radio_group()
             self._radio_items[radio_group].remove(menu_item)
 
-        sizer_item = menu_item.get_sizer_item()
-        index = self._item_sizer.get_item_index(sizer_item)
+        sizer_item = menu_item.sizer_item
+        index = self._item_sizer.items.index(sizer_item)
         self._item_sizer.remove_item(sizer_item)
-        sizer_item = self._label_sizer.get_item(index)
+        sizer_item = self._label_sizer.items[index]
         self._label_sizer.remove_item(sizer_item)
-        sizer_item = self._hotkey_label_sizer.get_item(index)
+        sizer_item = self._hotkey_label_sizer.items[index]
         self._hotkey_label_sizer.remove_item(sizer_item)
 
         if destroy:
@@ -706,24 +705,17 @@ class Menu(WidgetCard):
 
         return True
 
-    def get_item(self, item_id):
-
-        return self._items[item_id]
-
-    def get_items(self):
+    @property
+    def items(self):
 
         return self._items
 
     def get_item_index(self, item_id):
 
         item = self._items[item_id]
-        sizer_item = item.get_sizer_item()
+        sizer_item = item.sizer_item
 
-        return self._item_sizer.get_item_index(sizer_item)
-
-    def get_item_count(self):
-
-        return len(self._items)
+        return self._item_sizer.items.index(sizer_item)
 
     def is_empty(self):
 
@@ -746,7 +738,7 @@ class Menu(WidgetCard):
 
         self.set_pos((x, y))
         x, y = self.get_pos(from_root=True)
-        self.get_quad().set_pos(x, 0, -y)
+        self.quad.set_pos(x, 0, -y)
         self.update_mouse_region_frames()
 
         return "xy" if x != x_old and y != y_old else ("x" if x != x_old else "y")
@@ -763,7 +755,7 @@ class Menu(WidgetCard):
         if not self._items:
             return False
 
-        quad = self.get_quad()
+        quad = self.quad
 
         if not quad.is_hidden():
             return False
@@ -833,7 +825,7 @@ class Menu(WidgetCard):
 
     def hide(self, call_custom_handler=True):
 
-        quad = self.get_quad()
+        quad = self.quad
 
         if not quad or quad.is_hidden():
             return False
@@ -870,11 +862,11 @@ class Menu(WidgetCard):
 
     def toggle(self):
 
-        self.show() if self.get_quad().is_hidden() else self.hide()
+        self.show() if self.quad.is_hidden() else self.hide()
 
     def is_hidden(self, check_ancestors=False):
 
-        return self.get_quad().is_hidden() if self.get_quad() else False
+        return self.quad.is_hidden() if self.quad else False
 
     def update_images(self):
 
@@ -932,7 +924,7 @@ class Menu(WidgetCard):
             x, y = item.get_pos()
             img.copy_sub_image(item.get_image(), x + w_tl, y + h_tl, 0, 0)
 
-        tex = self._tex
+        tex = self.texture
         tex.load(img)
 
         l = -w_tl

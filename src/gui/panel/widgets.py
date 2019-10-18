@@ -91,8 +91,7 @@ class PanelCheckButton(CheckButton):
 
         x, y, w, h = TextureAtlas["regions"]["panel_checkbox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
-                            has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -145,8 +144,8 @@ class PanelColorBox(ColorBox):
         if not self._border_image:
             self.__create_border_image()
 
-        self.set_image_offset(self._img_offset)
-        self.set_outer_borders(self._box_borders)
+        self.image_offset = self._img_offset
+        self.outer_borders = self._box_borders
 
     def __create_border_image(self):
 
@@ -155,8 +154,7 @@ class PanelColorBox(ColorBox):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
-                            has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -212,8 +210,7 @@ class PanelRadioButton(RadioButton):
 
         x, y, w, h = TextureAtlas["regions"]["panel_radiobox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
-                            has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -272,7 +269,8 @@ class GfxMixin:
         if not self._field_borders:
             self.__set_field_borders()
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -352,7 +350,8 @@ class ComboBoxInputField(InputField):
             scissor_effect = panel_stack.get_scissor_effect()
             self.set_scissor_effect(scissor_effect)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -429,7 +428,8 @@ class PanelComboBox(ComboBox):
                                              handler, field_width)
             self.set_input_field(input_field)
 
-    def get_inner_borders(self):
+    @property
+    def inner_borders(self):
 
         return self._box_borders
 
@@ -453,7 +453,7 @@ class PanelComboBox(ComboBox):
 
         width, height = ComboBox.set_size(self, size, includes_borders, is_min)
 
-        l, r, b, t = self.get_inner_borders()
+        l, r, b, t = self.inner_borders
         width -= l + r
         x, y, w, h = TextureAtlas["regions"]["panel_combobox_field_back"]
         tmp_img = PNMImage(w, h, 4)

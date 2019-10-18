@@ -23,7 +23,7 @@ class BackgroundPanel(Panel):
         text = "Load"
         tooltip_text = "Load background texture"
         btn = PanelButton(top_container, text, "", tooltip_text, self.__load_tex)
-        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        sizer.add(btn, expand_h=True, alignment_v="center_v")
 
         val_id = "tex_filename"
         handler = lambda *args: self.__set_tex(args[1])

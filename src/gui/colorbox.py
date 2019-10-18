@@ -57,8 +57,8 @@ class ColorBox(Widget):
 
         if image:
             w, h = image.size
-            img_offset_x, img_offset_y = self.get_image_offset()
-            self.get_card().copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
+            img_offset_x, img_offset_y = self.image_offset
+            self.card.copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
 
     def __update_card_image(self):
 
@@ -66,7 +66,7 @@ class ColorBox(Widget):
 
         if self._delay_card_update:
             task_id = "update_card_image"
-            PendingTasks.add(task, task_id, sort=1, id_prefix=self.get_widget_id(),
+            PendingTasks.add(task, task_id, sort=1, id_prefix=self.widget_id,
                              batch_id="widget_card_update")
         else:
             task()
@@ -92,7 +92,7 @@ class ColorBox(Widget):
         border_img = self.get_border_image()
         w, h = border_img.size
         img = PNMImage(w, h, 4)
-        img_offset_x, img_offset_y = self.get_image_offset()
+        img_offset_x, img_offset_y = self.image_offset
         img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)
         img.blend_sub_image(border_img, 0, 0, 0, 0)
 

@@ -32,7 +32,8 @@ class NameField(DialogInputField):
 
         self._connection_index = connection_index
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -45,7 +46,7 @@ class ObjectPane(DialogScrollPane):
 
     def __init__(self, dialog, hierarchy, new_obj_names):
 
-        DialogScrollPane.__init__(self, dialog, "object_pane", "vertical", (700, 300), "both")
+        DialogScrollPane.__init__(self, dialog, "object_pane", "vertical", (700, 300))
 
         self._hierarchy = hierarchy
         self._obj_names = new_obj_names
@@ -55,7 +56,7 @@ class ObjectPane(DialogScrollPane):
         self._rect_sizers = rect_sizers = {}
 
         root_node = self.get_widget_root_node()
-        sizer = self.get_sizer()
+        sizer = self.sizer
         get_name_parser = lambda index: lambda name: self.__parse_name(name, index)
         get_name_handler = lambda index: lambda *args: self.__handle_name(args[1], index)
         margin = Skin["options"]["inputfield_margin"]
@@ -120,10 +121,10 @@ class ObjectPane(DialogScrollPane):
         for field in self._fields:
 
             x, y = field.get_pos(ref_node=root_node)
-            offset_x, offset_y = field.get_image_offset()
+            offset_x, offset_y = field.image_offset
             pane_image.copy_sub_image(field.get_image(), x + offset_x, y + offset_y, 0, 0)
 
-            subsizer = field.get_sizer_item().get_sizer().owner
+            subsizer = field.sizer_item.sizer.owner
             x, y = subsizer.get_pos()
             w, h = subsizer.get_size()
             painter.draw_rectangle(x, y, x + w, y + h)

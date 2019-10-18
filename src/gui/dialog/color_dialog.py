@@ -21,8 +21,8 @@ class ColorSwatchGroup(Widget):
         if not self._group_borders:
             self.__set_borders()
 
-        self.set_image_offset(self._img_offset)
-        self.set_outer_borders(self._group_borders)
+        self.image_offset = self._img_offset
+        self.outer_borders = self._group_borders
         self.mouse_region.sort = parent.sort + 1
 
         self._command = command
@@ -43,7 +43,7 @@ class ColorSwatchGroup(Widget):
 
         border_img = self._border_image
         img = PNMImage(*border_img.size, 4)
-        offset_x, offset_y = self.get_image_offset()
+        offset_x, offset_y = self.image_offset
         img.copy_sub_image(image, -offset_x, -offset_y, 0, 0)
         img.blend_sub_image(border_img, 0, 0, 0, 0)
 
@@ -136,7 +136,7 @@ class BasicColorGroup(ColorSwatchGroup):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -193,7 +193,7 @@ class CustomColorGroup(ColorSwatchGroup):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -229,8 +229,8 @@ class CustomColorGroup(ColorSwatchGroup):
 
         if image:
             w, h = image.size
-            x, y = self.get_image_offset()
-            self.get_card().copy_sub_image(self, image, w, h, x, y)
+            x, y = self.image_offset
+            self.card.copy_sub_image(self, image, w, h, x, y)
 
 
 class HueSatControl(WidgetCard):
@@ -326,7 +326,7 @@ class HueSatControl(WidgetCard):
             self.__create_border_image()
             self.__create_marker()
 
-        self.set_outer_borders(self._gradient_borders)
+        self.outer_borders = self._gradient_borders
         gradient = self._gradient
         w, h = gradient.size
         self.set_size((w, h), is_min=True)
@@ -400,7 +400,7 @@ class HueSatControl(WidgetCard):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -432,7 +432,7 @@ class HueSatControl(WidgetCard):
         x = .5 - (x / w_b) * w_b / w_m
         y -= offset_y
         y = .5 - (1. - y / h_b) * h_b / h_m
-        self.get_quad().set_tex_offset(self._ts2, x, y)
+        self.quad.set_tex_offset(self._ts2, x, y)
 
     def set_hue_sat(self, hue, saturation):
 
@@ -448,7 +448,7 @@ class HueSatControl(WidgetCard):
         y = int(h * saturation)
         y -= offset_y
         y = .5 - (y / h_b) * h_b / h_m
-        self.get_quad().set_tex_offset(self._ts2, x, y)
+        self.quad.set_tex_offset(self._ts2, x, y)
 
     def __pick_color(self, task):
 
@@ -574,7 +574,7 @@ class LuminanceControl(WidgetCard):
             self.__create_border_image()
             self.__create_marker()
 
-        self.set_outer_borders(self._gradient_borders)
+        self.outer_borders = self._gradient_borders
         gradient = self._gradient
         w, h = gradient.size
         self.set_size((w, h), is_min=True)
@@ -622,7 +622,7 @@ class LuminanceControl(WidgetCard):
 
         quad = self.create_quad((offset_x, w_b + offset_x, -h_b - offset_y, -offset_y))
         quad.set_bin("dialog", sort)
-        quad.set_texture(ts1, self._tex)
+        quad.set_texture(ts1, self.texture)
         quad.set_texture(ts2, gradient_tex)
         quad.set_texture(ts3, marker_tex)
         quad.set_tex_scale(ts3, w_b / w_m, h_b / h_m)
@@ -657,7 +657,7 @@ class LuminanceControl(WidgetCard):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -688,7 +688,7 @@ class LuminanceControl(WidgetCard):
         y = int(h * luminance)
         y -= offset_y
         y = .5 - (y / h_b) * h_b / h_m
-        self.get_quad().set_tex_offset(self._ts3, self._marker_x, y)
+        self.quad.set_tex_offset(self._ts3, self._marker_x, y)
         self._luminance = luminance
 
     def __apply_luminance(self, continuous, update_fields):
@@ -779,7 +779,7 @@ class NewColorSwatch(WidgetCard):
 
     def __init__(self, parent):
 
-        WidgetCard.__init__(self, "new_swatch", parent, stretch_dir="vertical")
+        WidgetCard.__init__(self, "new_swatch", parent)
 
         w = Skin["options"]["large_colorswatch_width"]
         h = Skin["options"]["large_colorswatch_height"]
@@ -788,7 +788,7 @@ class NewColorSwatch(WidgetCard):
         if not self._swatch_borders:
             self.__set_borders()
 
-        self.set_outer_borders(self._swatch_borders)
+        self.outer_borders = self._swatch_borders
         self._ts1 = TextureStage("flat_color")
 
     def __create_border_image(self):
@@ -798,7 +798,7 @@ class NewColorSwatch(WidgetCard):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -829,7 +829,7 @@ class NewColorSwatch(WidgetCard):
         w_b, h_b = self._border_image.size
         offset_x, offset_y = self._img_offset
         quad = self.create_quad((offset_x, w_b + offset_x, -h_b - offset_y, -offset_y))
-        quad.set_texture(ts1, self._tex)
+        quad.set_texture(ts1, self.texture)
         quad.set_texture(ts2, tex)
         quad.set_bin("dialog", sort)
 
@@ -874,7 +874,7 @@ class CurrentColorSwatch(Widget):
 
     def __init__(self, parent, color, command):
 
-        Widget.__init__(self, "current_swatch", parent, gfx_data={}, stretch_dir="vertical")
+        Widget.__init__(self, "current_swatch", parent, gfx_data={})
 
         self.mouse_region.sort = parent.sort + 1
         w = Skin["options"]["large_colorswatch_width"]
@@ -884,8 +884,8 @@ class CurrentColorSwatch(Widget):
         if not self._swatch_borders:
             self.__set_borders()
 
-        self.set_image_offset(self._img_offset)
-        self.set_outer_borders(self._swatch_borders)
+        self.image_offset = self._img_offset
+        self.outer_borders = self._swatch_borders
         self._color = color
         self._command = command
 
@@ -896,7 +896,7 @@ class CurrentColorSwatch(Widget):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -959,7 +959,8 @@ class ComponentField(DialogSliderField):
 
         self.set_input_parser(self.__parse_color_component_input)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 

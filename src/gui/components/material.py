@@ -95,7 +95,7 @@ class MaterialPanel(Panel):
 
         radio_btns.set_selected_button("file")
         self._radio_btns["lib_load_src"] = radio_btns
-        group.add(radio_btns.get_sizer())
+        group.add(radio_btns.sizer)
 
         group.add((0, 5))
 
@@ -116,7 +116,7 @@ class MaterialPanel(Panel):
 
         radio_btns.set_selected_button("skip")
         self._radio_btns["dupe_mat_load"] = radio_btns
-        group.add(radio_btns.get_sizer())
+        group.add(radio_btns.sizer)
 
         # ************************* Material section **************************
 
@@ -238,7 +238,7 @@ class MaterialPanel(Panel):
 
         radio_btns.set_selected_button("replace")
         self._radio_btns["owner_sel"] = radio_btns
-        group.add(radio_btns.get_sizer())
+        group.add(radio_btns.sizer)
 
         # *********************** Basic props section *************************
 
@@ -337,7 +337,7 @@ class MaterialPanel(Panel):
         text = "Main"
         tooltip_text = "Load main texture for selected map"
         btn = PanelButton(group, text, "", tooltip_text, self.__load_texture_map_main)
-        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        sizer.add(btn, expand_h=True, alignment_v="center_v")
         val_id = "tex_map_file_main"
         handler = lambda *args: self.__set_texture_map_main(args[1])
         field = PanelInputField(group, val_id, "string", handler, 100)
@@ -350,7 +350,7 @@ class MaterialPanel(Panel):
         text = "Alpha"
         tooltip_text = "Load alpha texture for selected map"
         btn = PanelButton(group, text, "", tooltip_text, self.__load_texture_map_alpha)
-        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        sizer.add(btn, expand_h=True, alignment_v="center_v")
         val_id = "tex_map_file_alpha"
         handler = lambda *args: self.__set_texture_map_alpha(args[1])
         field = PanelInputField(group, val_id, "string", handler, 100)
@@ -647,7 +647,7 @@ class MaterialPanel(Panel):
                 radio_btns.set_button_command(btn_id, get_command(channels, btn_id))
 
             self._radio_btns[f"layer_{channels}_scale"] = radio_btns
-            sizer.add(radio_btns.get_sizer(), alignment_v="center_v")
+            sizer.add(radio_btns.sizer, alignment_v="center_v")
 
         # *************************** Layer texture section *******************
 
@@ -660,7 +660,7 @@ class MaterialPanel(Panel):
         text = "Main"
         tooltip_text = "Load main texture for selected layer"
         btn = PanelButton(group, text, "", tooltip_text, self.__load_layer_main)
-        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        sizer.add(btn, expand_h=True, alignment_v="center_v")
         val_id = "layer_file_main"
         handler = lambda *args: self.__set_layer_main(args[1])
         field = PanelInputField(group, val_id, "string", handler, 100)
@@ -673,7 +673,7 @@ class MaterialPanel(Panel):
         text = "Alpha"
         tooltip_text = "Load alpha texture for selected layer"
         btn = PanelButton(group, text, "", tooltip_text, self.__load_layer_alpha)
-        sizer.add(btn, stretch_h=True, alignment_v="center_v")
+        sizer.add(btn, expand_h=True, alignment_v="center_v")
         val_id = "layer_file_alpha"
         handler = lambda *args: self.__set_layer_alpha(args[1])
         field = PanelInputField(group, val_id, "string", handler, 100)
@@ -964,7 +964,7 @@ class MaterialPanel(Panel):
             radio_btns.set_button_command(btn_id, get_command(btn_id))
 
         self._radio_btns["layer_combine_source_channels"] = radio_btns
-        subgroup.add(radio_btns.get_sizer())
+        subgroup.add(radio_btns.sizer)
 
         group.add((0, 5))
 

@@ -148,7 +148,7 @@ class FileButton(Button):
 
         Button.set_text(self, filename)
 
-        self.get_sizer().set_min_size(self.get_min_size(ignore_sizer=True))
+        self.sizer.min_size = self.get_min_size(ignore_sizer=True)
         self._filename = filename
 
     def get_filename(self):
@@ -209,8 +209,8 @@ class FileButton(Button):
             sizer = Sizer("horizontal")
             sizer.add(field, proportion=1.)
             size = self.get_size()
-            self.set_sizer(sizer)
-            sizer.set_default_size(size)
+            self.sizer = sizer
+            sizer.default_size = size
             sizer.set_size(size)
             sizer.calculate_positions()
             sizer.update_images()
@@ -221,10 +221,10 @@ class FileButton(Button):
 
         else:
 
-            sizer = self.get_sizer()
-            sizer.remove_item(sizer.get_item(0))
+            sizer = self.sizer
+            sizer.remove_item(sizer.items[0])
             sizer.destroy()
-            self.set_sizer(None)
+            self.sizer = None
             field.set_parent(None)
 
         self._is_name_field_shown = show
@@ -325,7 +325,8 @@ class FileDialogInputField(DialogInputField):
                                   text_color, back_color, on_key_enter=on_key_enter,
                                   on_key_escape=on_key_escape)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -367,7 +368,8 @@ class FileButtonInputField(DialogInputField):
 
         FileButton.selected_btn.show_name_field(False)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -413,7 +415,7 @@ class FilePane(DialogScrollPane):
 
         for btn in self._btns:
             x, y = btn.get_pos(ref_node=root_node)
-            offset_x, offset_y = btn.get_image_offset()
+            offset_x, offset_y = btn.image_offset
             pane_image.copy_sub_image(btn.get_image(), x + offset_x, y + offset_y, 0, 0)
 
     def _can_scroll(self):
@@ -464,7 +466,7 @@ class FilePane(DialogScrollPane):
                     subdirnames.append(item.get_filename().get_basename())
 
         self._btns = btns = []
-        sizer = self.get_sizer()
+        sizer = self.sizer
         sizer.clear(destroy_items=True)
 
         FileButton.set_selected_filebutton(None)
@@ -566,21 +568,21 @@ class FilePane(DialogScrollPane):
                           icon_id="icon_exclamation")
             return False
 
-        sizer = self.get_sizer()
-        sizer_item = button.get_sizer_item()
-        column_sizer = sizer_item.get_sizer()
+        sizer = self.sizer
+        sizer_item = button.sizer_item
+        column_sizer = sizer_item.sizer
         column_sizer.remove_item(sizer_item)
         prev_cs = column_sizer
-        index = sizer.get_item_index(column_sizer.get_sizer_item())
+        index = sizer.items.index(column_sizer.sizer_item)
 
-        for column_sizer_item in sizer.get_items()[index + 1:]:
-            column_sizer = column_sizer_item.get_object()
+        for column_sizer_item in sizer.items[index + 1:]:
+            column_sizer = column_sizer_item.object
             sizer_item = column_sizer.pop_item(0)
             prev_cs.add_item(sizer_item)
             prev_cs = column_sizer
 
-        if column_sizer.get_item_count() == 0:
-            sizer.remove_item(column_sizer.get_sizer_item(), destroy=True)
+        if len(column_sizer.items) == 0:
+            sizer.remove_item(column_sizer.sizer_item, destroy=True)
 
         self._btns.remove(button)
         button.destroy()
@@ -616,21 +618,21 @@ class FilePane(DialogScrollPane):
         command = lambda: self.set_directory(dir_path)
         btn = FileButton(self, dir_name, command=command, is_dir=True)
         self._btns.append(btn)
-        sizer = self.get_sizer()
+        sizer = self.sizer
 
-        if sizer.get_item_count() == 0:
+        if len(sizer.items) == 0:
             column_sizer = Sizer("vertical")
             sizer.add(column_sizer)
         else:
-            column_sizer = sizer.get_items()[-1].get_object()
+            column_sizer = sizer.items[-1].object
 
-        if column_sizer.get_item_count() == Skin["options"]["file_row_count"]:
+        if len(column_sizer.items) == Skin["options"]["file_row_count"]:
             column_sizer = Sizer("vertical")
             sizer.add(column_sizer)
 
         column_sizer.add(btn, expand=True)
         self.update_layout()
-        w_virt = sizer.get_virtual_size()[0]
+        w_virt = sizer.virtual_size[0]
         self.get_scrollthumb().set_offset(w_virt)
         btn.show_name_field()
 

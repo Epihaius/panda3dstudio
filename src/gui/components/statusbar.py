@@ -113,7 +113,7 @@ class StatusBar(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "statusbar", parent, self._gfx, stretch_dir="horizontal")
+        Widget.__init__(self, "statusbar", parent, self._gfx)
 
         sizer = Sizer("horizontal")
         sizer.add((170, 0))
@@ -122,9 +122,9 @@ class StatusBar(Widget):
         sizer.add(separator)
         sizer.add((0, 0), proportion=1.)
         x, y, w, h = TextureAtlas["regions"]["statusbar_fader"]
-        sizer.add((w + self.get_gfx_inner_borders()[1], 0))
-        sizer.set_default_size(self.get_min_size())
-        self.set_sizer(sizer)
+        sizer.add((w + self.gfx_inner_borders[1], 0))
+        sizer.default_size = self.min_size
+        self.sizer = sizer
         img = PNMImage(w, h, 4)
         img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
         self._text_fader = img
@@ -192,9 +192,9 @@ class StatusBar(Widget):
         if self.is_hidden():
             return
 
-        x = self.get_gfx_inner_borders()[0]
+        x = self.gfx_inner_borders[0]
         w = self._separator.get_pos()[0] - x
-        h = self.get_min_size()[1]
+        h = self.min_size[1]
         img = PNMImage(w, h, 4)
         img.copy_sub_image(self.get_image(composed=False), 0, 0, x, 0, w, h)
         y = 1 + int(h - label.size[1]) // 2
@@ -202,7 +202,7 @@ class StatusBar(Widget):
         fader = self._text_fader
         w_f = fader.size[0]
         img.blend_sub_image(fader, w - w_f, 0, 0, 0, w_f, h)
-        self.get_card().copy_sub_image(self, img, w, h, x)
+        self.card.copy_sub_image(self, img, w, h, x)
 
     def __set_info_text(self, text):
 
@@ -216,10 +216,10 @@ class StatusBar(Widget):
             return
 
         x_d = self._separator.get_pos()[0]
-        w_d, h_d = self._separator.get_min_size()
+        w_d, h_d = self._separator.min_size
         x = x_d + w_d
-        w = self.get_size()[0] - x - self.get_gfx_inner_borders()[1]
-        h = self.get_min_size()[1]
+        w = self.get_size()[0] - x - self.gfx_inner_borders[1]
+        h = self.min_size[1]
         img = PNMImage(w, h, 4)
         img.copy_sub_image(self.get_image(composed=False), 0, 0, x, 0, w, h)
         y = 1 + int(h - label.size[1]) // 2
@@ -227,7 +227,7 @@ class StatusBar(Widget):
         fader = self._text_fader
         w_f = fader.size[0]
         img.blend_sub_image(fader, w - w_f, 0, 0, 0)
-        self.get_card().copy_sub_image(self, img, w, h, x)
+        self.card.copy_sub_image(self, img, w, h, x)
 
     def get_image(self, state=None, composed=True):
 
@@ -238,7 +238,7 @@ class StatusBar(Widget):
             return image
 
         width, height = self.get_size()
-        l, r, b, t = self.get_gfx_inner_borders()
+        l, r, b, t = self.gfx_inner_borders
         x = l
         x_d = self._separator.get_pos()[0]
         w = x_d - x
@@ -252,7 +252,7 @@ class StatusBar(Widget):
         image.blend_sub_image(fader, x + w - w_f, 0, 0, 0)
 
         label = self._info_label
-        w_d, h_d = self._separator.get_min_size()
+        w_d, h_d = self._separator.min_size
         x = x_d + w_d
         w = width - x - r
         truncated_img = PNMImage(w, h, 4)
@@ -265,16 +265,16 @@ class StatusBar(Widget):
     def offset_separator(self, offset):
 
         w, h = size = self.get_size()
-        w_sep = self._separator.get_min_size()[0]
-        sizer = self.get_sizer()
+        w_sep = self._separator.min_size[0]
+        sizer = self.sizer
         sizer_item = sizer.pop_item(0)
-        x = sizer_item.get_object()[0]
-        d = sizer.get_item(3).get_object()[0]
+        x = sizer_item.object[0]
+        d = sizer.items[3].object[0]
 
         if x == 400:
-            x += (w - 400 - w_sep - d) * sizer.get_item(0).get_proportion()
+            x += (w - 400 - w_sep - d) * sizer.items[0].proportion
 
-        l, r, b, t = self.get_gfx_inner_borders()
+        l, r, b, t = self.gfx_inner_borders
         x += offset
         x_min = self._text_fader.size[0] + l + 1
         x_max = w - w_sep - d
@@ -284,14 +284,14 @@ class StatusBar(Widget):
             p = float(w - 400 - w_sep - d)
             proportion1 = (x - 400) / p
             proportion2 = (p - (x - 400)) / p
-            sizer.get_item(0).set_proportion(proportion1)
-            sizer.get_item(2).set_proportion(proportion2)
+            sizer.items[0].proportion = proportion1
+            sizer.items[2].proportion = proportion2
             x = 400
         else:
-            sizer.get_item(0).set_proportion(0.)
-            sizer.get_item(2).set_proportion(1.)
+            sizer.items[0].proportion = 0.
+            sizer.items[2].proportion = 1.
 
         sizer.add((x, 0), index=0)
         sizer.update(size)
         sizer.update_mouse_region_frames(exclude="bt")
-        self.get_card().copy_sub_image(self, self.get_image(), w, h)
+        self.card.copy_sub_image(self, self.get_image(), w, h)

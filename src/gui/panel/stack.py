@@ -162,8 +162,8 @@ class PanelStack(ScrollPane):
 
         self._menu.update()
 
-        self._sizer.lock_item_size()
-        self._sizer.lock_mouse_regions()
+        self._sizer.item_size_locked = True
+        self._sizer.mouse_regions_locked = True
         self._is_contents_locked = True
 
     def destroy(self):
@@ -209,8 +209,8 @@ class PanelStack(ScrollPane):
 
         heights = self._panel_heights
         new_heights = heights[:]
-        sizer = self.get_sizer()
-        h_virt_new = h_virt = sizer.get_virtual_size()[1]
+        sizer = self.sizer
+        h_virt_new = h_virt = sizer.virtual_size[1]
         regions_to_copy = []
         prev_i = 0
         w = 0
@@ -258,12 +258,12 @@ class PanelStack(ScrollPane):
         for panel in self._panels_to_resize:
             img_new.copy_sub_image(panel.get_image(), 0, panel.get_pos(from_root=True)[1], 0, 0)
 
-        tex = self.get_texture()
+        tex = self.texture
         tex.load(img_new)
         self._image = img_new
-        sizer.set_virtual_size((w, h_virt_new))
+        sizer.virtual_size = (w, h_virt_new)
 
-        tex_offset_y = self.get_quad().get_tex_offset(TextureStage.default)[1]
+        tex_offset_y = self.quad.get_tex_offset(TextureStage.default)[1]
 
         width, height = self.get_size()
         tex_scale = (1., min(1., height / h_virt_new))
@@ -309,7 +309,7 @@ class PanelStack(ScrollPane):
 
         heights = self._panel_heights
         new_heights = heights[:]
-        h_virt_new = h_virt = self._sizer.get_virtual_size()[1]
+        h_virt_new = h_virt = self._sizer.virtual_size[1]
         regions_to_copy = []
         prev_i = 0
 
@@ -363,10 +363,10 @@ class PanelStack(ScrollPane):
         for panel in self._panels_to_show:
             img_new.copy_sub_image(panel.get_image(), 0, panel.get_pos(from_root=True)[1], 0, 0)
 
-        tex = self.get_texture()
+        tex = self.texture
         tex.load(img_new)
         self._image = img_new
-        self._sizer.set_virtual_size((w, h_virt_new))
+        self._sizer.virtual_size = (w, h_virt_new)
 
         tex_offset_y = self._quad.get_tex_offset(TextureStage.default)[1]
         self._quad.remove_node()
@@ -434,7 +434,7 @@ class PanelStack(ScrollPane):
     def hide(self):
 
         self._quad.detach_node()
-        self._scrollthumb.get_quad().detach_node()
+        self._scrollthumb.quad.detach_node()
         self._scrollthumb.hide()
         self.frame.get_scrollbar().hide()
         mw = self.get_mouse_watcher_nodepath()
@@ -445,7 +445,7 @@ class PanelStack(ScrollPane):
 
         gui_root = Mgr.get("gui_root")
         self._quad.reparent_to(gui_root)
-        self._scrollthumb.get_quad().reparent_to(gui_root)
+        self._scrollthumb.quad.reparent_to(gui_root)
         self._scrollthumb.show()
         self.frame.get_scrollbar().show()
         mw = self.get_mouse_watcher_nodepath()

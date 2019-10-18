@@ -13,10 +13,10 @@ class PanelHeader(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "panel_header", parent, self._gfx, stretch_dir="horizontal")
+        Widget.__init__(self, "panel_header", parent, self._gfx)
 
         if not self.height:
-            PanelHeader.height = self.get_min_size()[1]
+            PanelHeader.height = self.min_size[1]
 
         self.node.name = "panel_header"
 
@@ -26,6 +26,8 @@ class PanelHeader(Widget):
 
         parent = self.parent
         parent.get_collapsed_header().set_size(size)
+        width, height = size
+        size = (width, CollapsedPanelBottom.height)
         parent.get_collapsed_bottom().set_size(size)
 
     def set_pos(self, pos): pass
@@ -73,7 +75,7 @@ class PanelBottom(Button):
         self.widget_type = "panel_bottom"
 
         if not self.height:
-            PanelBottom.height = self.get_min_size()[1]
+            PanelBottom.height = self.min_size[1]
 
         l, r, b, t = TextureAtlas["inner_borders"]["panel"]
         node = self.node
@@ -142,7 +144,7 @@ class CollapsedPanelHeader(Widget):
         Widget.__init__(self, "panel_header", parent, self._gfx, "", "horizontal")
 
         if not self.height:
-            CollapsedPanelHeader.height = self.get_min_size()[1]
+            CollapsedPanelHeader.height = self.min_size[1]
 
         self.node.name = "collapsed_panel_header"
 
@@ -180,7 +182,7 @@ class CollapsedPanelBottom(Button):
         self.widget_type = "panel_bottom"
 
         if not self.height:
-            CollapsedPanelBottom.height = self.get_min_size()[1]
+            CollapsedPanelBottom.height = self.min_size[1]
 
         node = self.node
         node.name = "collapsed_panel_bottom"
@@ -213,7 +215,7 @@ class CollapsedPanelBottom(Button):
                 img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
                 image = self._images[state]
                 x = (width - w) // 2
-                y = height - h
+                y = self.height - h
                 image.blend_sub_image(img, x, y, 0, 0, w, h)
 
             CollapsedPanelBottom.images = self._images
@@ -242,10 +244,10 @@ class PanelContainer(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "panel_container", parent, self._gfx, "", "both", has_mouse_region=False)
+        Widget.__init__(self, "panel_container", parent, self._gfx, "", has_mouse_region=False)
 
         sizer = Sizer("vertical")
-        self.set_sizer(sizer)
+        self.sizer = sizer
         self._mouse_region_group = set()
 
         l, r, b, t = TextureAtlas["inner_borders"]["panel"]
@@ -260,7 +262,7 @@ class PanelContainer(Widget):
 
         mouse_region_group = self._mouse_region_group
 
-        for widget in self.get_sizer().get_widgets():
+        for widget in self.sizer.get_widgets():
 
             mouse_region = widget.mouse_region
 
@@ -311,7 +313,7 @@ class PanelContainer(Widget):
 
     def add(self, *args, **kwargs):
 
-        self.get_sizer().add(*args, **kwargs)
+        self.sizer.add(*args, **kwargs)
 
     def hide(self):
 
@@ -361,12 +363,12 @@ class Panel(Widget):
 
     def __init__(self, stack, panel_id, name=""):
 
-        Widget.__init__(self, "panel", stack, self._gfx, stretch_dir="both")
+        Widget.__init__(self, "panel", stack, self._gfx)
 
         self.id = panel_id
         self.name = name
         sizer = Sizer("vertical")
-        Widget.set_sizer(self, sizer)
+        Widget.sizer.fset(self, sizer)
         self._top_container = None
         self._bottom_container = None
         self._header = header = PanelHeader(self)
@@ -486,7 +488,13 @@ class Panel(Widget):
 
         return (int(x), int(y))
 
-    def set_sizer(self, sizer): pass
+    @property
+    def sizer(self):
+
+        return Widget.sizer.fget(self)
+
+    @sizer.setter
+    def sizer(self, sizer): pass
 
     def __offset_mouse_region_frames(self):
 
@@ -554,7 +562,7 @@ class Panel(Widget):
             h_new = h_old - h_c - t
 
         size = (w, h_new)
-        self.get_sizer().set_size(size, force=True)
+        self.sizer.set_size(size, force=True)
 
         widgets_to_update = self._widgets_to_update
         widgets_to_update.append(self)
@@ -622,7 +630,7 @@ class Panel(Widget):
             changed_section.update_mouse_region_frames(exclude="lr")
 
         size = (w, h_new)
-        self.get_sizer().set_size(size, force=True)
+        self.sizer.set_size(size, force=True)
 
         widgets_to_update = self._widgets_to_update
         widgets_to_update.append(self)
@@ -653,7 +661,7 @@ class Panel(Widget):
             return
 
         self._is_expanded = expand
-        self.set_contents_hidden(not expand)
+        self.contents_hidden = not expand
         mouse_watcher = self.parent.mouse_watcher
         mouse_region_groups = self._mouse_region_groups
 

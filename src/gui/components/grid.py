@@ -51,8 +51,8 @@ class GridSpacingBox(Widget):
         self._font = skin_text["font"]
         self._text_color = skin_text["color"]
 
-        self.set_image_offset(self._img_offset)
-        self.set_outer_borders(self._box_borders)
+        self.image_offset = self._img_offset
+        self.outer_borders = self._box_borders
         self._grid_spacing = str(0.)
         self._grid_spacing_label = None
 
@@ -65,7 +65,7 @@ class GridSpacingBox(Widget):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -82,8 +82,8 @@ class GridSpacingBox(Widget):
 
         if image:
             w, h = image.size
-            img_offset_x, img_offset_y = self.get_image_offset()
-            self.get_card().copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
+            img_offset_x, img_offset_y = self.image_offset
+            self.card.copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
 
     def update_images(self, recurse=True, size=None): pass
 
@@ -103,7 +103,7 @@ class GridSpacingBox(Widget):
         border_img = self._border_image
         w, h = border_img.size
         img = PNMImage(w, h, 4)
-        img_offset_x, img_offset_y = self.get_image_offset()
+        img_offset_x, img_offset_y = self.image_offset
         img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)
         img.blend_sub_image(border_img, 0, 0, 0, 0)
 
@@ -115,7 +115,7 @@ class GridSpacingBox(Widget):
             self._grid_spacing = grid_spacing
             self._grid_spacing_label = self._font.create_image(grid_spacing, self._text_color)
             self.__update_card_image()
-            offset_x, offset_y = self.get_image_offset()
+            offset_x, offset_y = self.image_offset
             self.parent.update_composed_image(self, None, offset_x, offset_y)
 
 

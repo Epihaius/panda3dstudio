@@ -22,7 +22,8 @@ class InputDialogField(DialogInputField):
                                   INSET1_BORDER_GFX_DATA, self._img_offset,
                                   on_key_enter=on_key_enter, on_key_escape=on_key_escape)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 

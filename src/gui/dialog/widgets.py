@@ -39,14 +39,14 @@ class DialogInset(Widget):
         )
     }
 
-    def __init__(self, parent, stretch_dir="both"):
+    def __init__(self, parent):
 
-        Widget.__init__(self, "dialog_inset", parent, self._gfx, "", stretch_dir, has_mouse_region=False)
+        Widget.__init__(self, "dialog_inset", parent, self._gfx, "", has_mouse_region=False)
 
         sizer = Sizer("horizontal")
-        self.set_sizer(sizer)
+        self.sizer = sizer
         self._client_sizer = client_sizer = Sizer("vertical")
-        sizer.add(client_sizer, proportion=1., expand=True, borders=self.get_gfx_inner_borders())
+        sizer.add(client_sizer, proportion=1., expand=True, borders=self.gfx_inner_borders)
 
     def get_client_sizer(self):
 
@@ -65,11 +65,11 @@ class DialogText(Text):
 
 class DialogLabel(Label):
 
-    def __init__(self, parent, back_color, border_color, text, borders=None, stretch_dir=""):
+    def __init__(self, parent, back_color, border_color, text, borders=None):
 
         skin_text = Skin["text"]["dialog"]
         Label.__init__(self, parent, skin_text["font"], skin_text["color"], back_color,
-                       border_color, text, borders, stretch_dir)
+                       border_color, text, borders)
 
         self.widget_type = "dialog_label"
 
@@ -274,8 +274,7 @@ class DialogCheckButton(CheckButton):
 
         x, y, w, h = TextureAtlas["regions"]["dialog_checkbox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
-                            has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -337,8 +336,7 @@ class DialogRadioButton(RadioButton):
 
         x, y, w, h = TextureAtlas["regions"]["dialog_radiobox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both",
-                            has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -556,7 +554,8 @@ class ComboBoxInputField(DialogInputField):
 
         self.widget_type = "dialog_combo_field"
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders if self.parent.has_icon() else self._field_borders2
 
@@ -667,7 +666,7 @@ class DialogComboBox(ComboBox):
 
         width, height = ComboBox.set_size(self, size, includes_borders, is_min)
 
-        l, r, b, t = self.get_inner_borders()
+        l, r, b, t = self.inner_borders
         field_width = width - l + r
         x, y, w, h = TextureAtlas["regions"]["dialog_combobox_field_back"]
         tmp_img = PNMImage(w, h, 4)
@@ -678,7 +677,8 @@ class DialogComboBox(ComboBox):
 
         return width, height
 
-    def get_inner_borders(self):
+    @property
+    def inner_borders(self):
 
         if self.has_icon():
             return self._box_borders
@@ -710,7 +710,7 @@ class DialogComboBox(ComboBox):
 
 class DialogScrollPane(ScrollPane):
 
-    def __init__(self, dialog, pane_id, scroll_dir, frame_client_size, stretch_dir=""):
+    def __init__(self, dialog, pane_id, scroll_dir, frame_client_size):
 
         frame_gfx_data = {
             "": (
@@ -758,7 +758,7 @@ class DialogScrollPane(ScrollPane):
         bar_inner_border_id = f'dialog_scrollbar_{"h" if scroll_dir == "horizontal" else "v"}'
         ScrollPane.__init__(self, dialog, pane_id, scroll_dir, "dialog", frame_gfx_data,
                             bar_gfx_data, thumb_gfx_data, bar_inner_border_id, "dialog_main",
-                            frame_client_size, stretch_dir, frame_has_mouse_region=False)
+                            frame_client_size, frame_has_mouse_region=False)
 
         self.setup()
         mouse_watcher = self.mouse_watcher

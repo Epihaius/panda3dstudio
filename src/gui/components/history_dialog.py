@@ -102,7 +102,7 @@ class HistoryEntry(Widget):
 
     def __init__(self, parent, event, index, is_on):
 
-        Widget.__init__(self, "hist_entry", parent, gfx_data={}, stretch_dir="both")
+        Widget.__init__(self, "hist_entry", parent, gfx_data={})
 
         sort = parent.sort + 1
         self.sort = sort
@@ -122,9 +122,9 @@ class HistoryEntry(Widget):
         }
         timestamp = event.get_timestamp()
         sizer = Sizer("horizontal")
-        self.set_sizer(sizer)
+        self.sizer = sizer
         self._subsizer = subsizer = Sizer("horizontal")
-        subsizer.set_default_size((260, 0))
+        subsizer.default_size = (260, 0)
         sizer.add(subsizer)
         icon_ids = ["icon_hist_entry_off", "icon_hist_entry_on", "icon_hist_entry_merge",
                     "icon_hist_entry_delete"]
@@ -178,7 +178,7 @@ class HistoryEntry(Widget):
     def add_timeline_item(self, item):
 
         self._subsizer.add_item(item)
-        item.get_object().set_parent(self)
+        item.object.set_parent(self)
 
     def pop_timeline_item(self):
 
@@ -198,7 +198,7 @@ class HistoryEntry(Widget):
             self._icon.show_icon("icon_hist_entry_delete", False)
             menu = self.get_ancestor("dialog").get_rejected_history_button().get_menu()
 
-            if self in menu.get_items():
+            if self in menu.items:
                 menu.remove(self, destroy=True, update=True)
 
         self._icon.show_icon("icon_hist_entry_on", is_on)
@@ -207,7 +207,7 @@ class HistoryEntry(Widget):
         w, h = self.get_size()
 
         if not self.is_hidden():
-            self.get_card().copy_sub_image(self, self.get_image(), w, h, 0, 0)
+            self.card.copy_sub_image(self, self.get_image(), w, h, 0, 0)
 
     def is_selected(self):
 
@@ -233,7 +233,7 @@ class HistoryEntry(Widget):
         w, h = self.get_size()
 
         if not self.is_hidden():
-            self.get_card().copy_sub_image(self, self.get_image(), w, h, 0, 0)
+            self.card.copy_sub_image(self, self.get_image(), w, h, 0, 0)
 
         return True
 
@@ -252,7 +252,7 @@ class HistoryEntry(Widget):
         w, h = self.get_size()
 
         if not self.is_hidden():
-            self.get_card().copy_sub_image(self, self.get_image(), w, h, 0, 0)
+            self.card.copy_sub_image(self, self.get_image(), w, h, 0, 0)
 
         return True
 
@@ -270,12 +270,12 @@ class HistoryEntry(Widget):
 
         if descr.set_text(text):
 
-            descr.get_sizer_item().get_sizer().set_min_size_stale()
+            descr.sizer_item.sizer.set_min_size_stale()
             self.get_ancestor("dialog").update_layout()
-            item = self._subsizer.get_items()[-1]
+            item = self._subsizer.items[-1]
 
             if item.type == "widget":
-                menu = item.get_object().get_menu()
+                menu = item.object.get_menu()
                 timestamp = event.get_timestamp()
                 text = timestamp + "  |  " + event.get_description_start()
                 menu.set_item_text(self, text, update=True)
@@ -288,7 +288,7 @@ class HistoryEntry(Widget):
 
         if descr.set_text(text):
 
-            descr.get_sizer_item().get_sizer().set_min_size_stale()
+            descr.sizer_item.sizer.set_min_size_stale()
 
             if update:
                 self.get_ancestor("dialog").update_layout()
@@ -301,7 +301,7 @@ class HistoryEntry(Widget):
         descr = self._description
         descr.set_font(text_attr["font"], update=False)
         descr.set_color(text_attr["color"])
-        descr.get_sizer_item().get_sizer().set_min_size_stale()
+        descr.sizer_item.sizer.set_min_size_stale()
         self.get_ancestor("dialog").update_layout()
 
     def update_images(self, recurse=True, size=None):
@@ -321,14 +321,14 @@ class HistoryEntry(Widget):
             painter.draw_rectangle(262, 2, w - 3, h - 3)
 
         if recurse:
-            self.get_sizer().update_images()
+            self.sizer.update_images()
 
     def get_image(self, state=None, composed=True):
 
         image = PNMImage(self._image)
 
         if composed:
-            image = self.get_sizer().get_composed_image(image)
+            image = self.sizer.get_composed_image(image)
 
         return image
 
@@ -399,8 +399,8 @@ class HistoryPanel(Widget):
 
     def __init__(self, parent, prev_panel, events, entry_offset, past):
 
-        Widget.__init__(self, "history_panel", parent, gfx_data={}, stretch_dir="both",
-                        has_mouse_region=False, hidden=True)
+        Widget.__init__(self, "history_panel", parent, gfx_data={}, hidden=True,
+                        has_mouse_region=False)
 
         self.node.reparent_to(parent.get_widget_root_node())
 
@@ -411,7 +411,7 @@ class HistoryPanel(Widget):
         self._entries = entries = []
 
         sizer = Sizer("vertical")
-        self.set_sizer(sizer)
+        self.sizer = sizer
 
         for i, event in enumerate(events):
 
@@ -444,23 +444,23 @@ class HistoryPanel(Widget):
 
     def add_timeline_button(self, entries, commands):
 
-        entry = self.get_sizer().get_items()[-1].get_object()
+        entry = self.sizer.items[-1].object
         entry.add_timeline_button(entries, commands)
 
     def add_timeline_item(self, item):
 
-        entry = self.get_sizer().get_items()[-1].get_object()
+        entry = self.sizer.items[-1].object
         entry.add_timeline_item(item)
 
     def pop_timeline_item(self):
 
-        entry = self.get_sizer().get_items()[-1].get_object()
+        entry = self.sizer.items[-1].object
         return entry.pop_timeline_item()
 
     def update_images(self, recurse=True, size=None):
 
         if recurse:
-            self.get_sizer().update_images()
+            self.sizer.update_images()
 
     def get_image(self, state=None, composed=True):
 
@@ -468,7 +468,7 @@ class HistoryPanel(Widget):
         image = PNMImage(w, h, 4)
 
         if composed:
-            image = self.get_sizer().get_composed_image(image)
+            image = self.sizer.get_composed_image(image)
 
         return image
 
@@ -501,7 +501,7 @@ class HistoryPane(DialogScrollPane):
 
     def __init__(self, dialog, history, past, current_time_id):
 
-        DialogScrollPane.__init__(self, dialog, "history_pane", "vertical", (700, 300), "both")
+        DialogScrollPane.__init__(self, dialog, "history_pane", "vertical", (700, 300))
         mouse_watcher = self.mouse_watcher
         mouse_watcher.remove_region(DialogInputField.get_mouse_region_mask())
 
@@ -544,9 +544,9 @@ class HistoryPane(DialogScrollPane):
                     self.__show_panel(panel)
                     panel.add_timeline_item(item)
                     scrollthumb = self.get_scrollthumb()
-                    h = self.get_sizer().get_virtual_size()[1] - scrollthumb.get_offset()
+                    h = self.sizer.virtual_size[1] - scrollthumb.get_offset()
                     self.get_dialog().update_layout()
-                    scrollthumb.set_offset(self.get_sizer().get_virtual_size()[1] - h)
+                    scrollthumb.set_offset(self.sizer.virtual_size[1] - h)
 
             return command
 
@@ -628,7 +628,7 @@ class HistoryPane(DialogScrollPane):
         if prev_panel:
             panel = HistoryPanel(self, prev_panel, events, event_index % 2, past)
             self._panels.append(panel)
-            self.get_sizer().add(panel, expand=True, index=0)
+            self.sizer.add(panel, expand=True, index=0)
             next_panels = prev_panel.get_next_panels()
             next_panels.append(panel)
         else:
@@ -647,7 +647,7 @@ class HistoryPane(DialogScrollPane):
         for panel in self._panels:
             if not panel.is_hidden():
                 x, y = panel.get_pos(ref_node=root_node)
-                offset_x, offset_y = panel.get_image_offset()
+                offset_x, offset_y = panel.image_offset
                 pane_image.copy_sub_image(panel.get_image(), x + offset_x, y + offset_y, 0, 0)
 
     def destroy(self):
@@ -677,7 +677,7 @@ class HistoryPane(DialogScrollPane):
                 item = prev_panel.get_next_panel().pop_timeline_item()
                 panel.add_timeline_item(item)
                 prev_panel.set_next_panel(panel)
-                menu = item.get_object().get_menu()
+                menu = item.object.get_menu()
                 menu.check_radio_item(panel.get_entries()[0])
                 layout_stale = True
 
@@ -828,7 +828,7 @@ class HistoryPane(DialogScrollPane):
 
                 menu = self.get_dialog().get_rejected_history_button().get_menu()
 
-                if entry in menu.get_items():
+                if entry in menu.items:
                     menu.set_item_text(entry, text, update=True)
 
         InputDialog(title="Custom description",
@@ -1035,7 +1035,7 @@ class HistoryPane(DialogScrollPane):
         entries = panel.get_entries()
         index = entries.index(entry)
         menu = self.get_dialog().get_rejected_history_button().get_menu()
-        menu_items = menu.get_items()
+        menu_items = menu.items
 
         if reject:
 
@@ -1284,7 +1284,7 @@ class HistoryPane(DialogScrollPane):
 
     def get_history_to_delete(self):
 
-        entries = iter(self.get_dialog().get_rejected_history_button().get_menu().get_items().keys())
+        entries = iter(self.get_dialog().get_rejected_history_button().get_menu().items.keys())
 
         return [entry.get_event() for entry in entries]
 

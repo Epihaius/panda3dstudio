@@ -26,7 +26,8 @@ class ValueInputField(DialogInputField):
                                   INSET1_BORDER_GFX_DATA, self._img_offset,
                                   on_key_enter=on_key_enter, on_key_escape=on_key_escape)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -46,7 +47,8 @@ class AngleField(DialogSliderField):
         self.set_input_parser(self.__parse_angle_input)
         self.set_value(0.)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -735,7 +737,7 @@ class TransformOptionsDialog(Dialog):
             radio_btns.set_button_command(center_id, get_command(center_id))
 
         radio_btns.set_selected_button(old_rot_options["circle_center"])
-        subsizer.add(radio_btns.get_sizer(), proportion=1.)
+        subsizer.add(radio_btns.sizer, proportion=1.)
 
         subgroup = DialogWidgetGroup(group, "Display")
         borders = (5, 5, 0, 10)
@@ -837,7 +839,7 @@ class TransformOptionsDialog(Dialog):
             radio_btns.set_button_command(method_id, get_command(method_id))
 
         radio_btns.set_selected_button(old_rot_options["alt_method"])
-        subsizer.add(radio_btns.get_sizer(), proportion=1.)
+        subsizer.add(radio_btns.sizer, proportion=1.)
 
         subsizer = Sizer("horizontal")
         borders = (5, 5, 5, 10)

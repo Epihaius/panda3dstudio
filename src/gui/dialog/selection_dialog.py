@@ -240,7 +240,7 @@ class SelectionDialog(ListDialog):
             radio_btns.set_button_command(btn_id, get_command(btn_id))
 
         radio_btns.set_selected_button(sel_dialog_config["sort"])
-        grp_subsizer.add(radio_btns.get_sizer())
+        grp_subsizer.add(radio_btns.sizer)
 
         text = "Case-sensitive"
         checkbtn = DialogCheckButton(group, lambda on:

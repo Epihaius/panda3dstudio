@@ -50,16 +50,16 @@ class ComboBox(Button):
             self._combo_icon = self._combo_icon_disabled = None
 
         self._popup_menu = Menu(on_hide=self.__on_hide)
-        l, r, b, t = self.get_inner_borders()
-        w, h = self.get_min_size()
+        l, r, b, t = self.inner_borders
+        w, h = self.min_size
         w = field_width + l + r
         size = (w, h)
         self.set_size(size, is_min=True)
 
         if editable:
             sizer = Sizer("horizontal")
-            sizer.set_default_size(size)
-            self.set_sizer(sizer)
+            sizer.default_size = size
+            self.sizer = sizer
 
     def destroy(self):
 
@@ -84,7 +84,7 @@ class ComboBox(Button):
 
     def __show_menu(self):
 
-        if not self._popup_menu.get_item_count():
+        if not self._popup_menu.items:
             return
 
         self.active = True
@@ -124,9 +124,10 @@ class ComboBox(Button):
         width, height = Button.set_size(self, size, includes_borders, is_min)
 
         if self._input_field:
-            l, r, b, t = self.get_inner_borders()
+            l, r, b, t = self.inner_borders
             w = width - l - r
-            size = (w, height)
+            h = height - b - t
+            size = (w, h)
             self._input_field.set_size(size, includes_borders, is_min)
 
         return width, height
@@ -297,7 +298,7 @@ class ComboBox(Button):
             img.copy_sub_image(parent_img, 0, 0, x, y, w, h)
 
         img.blend_sub_image(image, 0, 0, 0, 0)
-        self.get_card().copy_sub_image(self, img, w, h)
+        self.card.copy_sub_image(self, img, w, h)
 
     def __update_card_image(self):
 
@@ -305,7 +306,7 @@ class ComboBox(Button):
 
         if self.is_card_update_delayed():
             task_id = "update_card_image"
-            PendingTasks.add(task, task_id, sort=1, id_prefix=self.get_widget_id(),
+            PendingTasks.add(task, task_id, sort=1, id_prefix=self.widget_id,
                              batch_id="widget_card_update")
         else:
             task()
@@ -416,7 +417,7 @@ class ComboBox(Button):
     def set_input_field(self, input_field):
 
         self._input_field = input_field
-        self.get_sizer().add(input_field)
+        self.sizer.add(input_field)
 
     def get_input_field(self):
 

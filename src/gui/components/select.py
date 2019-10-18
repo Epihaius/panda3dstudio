@@ -128,7 +128,7 @@ class SetsComboBox(ToolbarComboBox):
 
     def __clear_sets(self):
 
-        item_ids = list(self.get_popup_menu().get_items().keys())
+        item_ids = list(self.get_popup_menu().items.keys())
         item_id = self.get_selected_item()
 
         if item_id is not None:
@@ -385,7 +385,7 @@ class SelectionPanel(Panel):
             radio_btns.add_button(btn_id, text)
 
         self._radio_btns["result"] = radio_btns
-        group.add(radio_btns.get_sizer())
+        group.add(radio_btns.sizer)
         radio_btns.set_selected_button("in_place")
 
         # **************************************************************************
@@ -508,7 +508,7 @@ class SelectionPanel(Panel):
             return
 
         Mgr.update_remotely("object_selection", "remove_set", set_id)
-        item_ids = list(combobox.get_popup_menu().get_items().keys())
+        item_ids = list(combobox.get_popup_menu().items.keys())
         item_ids.append(set_id)
 
         for combobox_id in ("set1", "set2"):
@@ -542,7 +542,7 @@ class SelectionPanel(Panel):
     def __clear_sets(self, update_remotely=True):
 
         combobox = self._comboboxes["set1"]
-        item_ids = list(combobox.get_popup_menu().get_items().keys())
+        item_ids = list(combobox.get_popup_menu().items.keys())
         item_id = combobox.get_selected_item()
 
         if item_id is not None:

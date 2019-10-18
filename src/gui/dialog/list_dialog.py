@@ -26,7 +26,8 @@ class SearchField(DialogInputField):
                                   dialog, font, text_color, back_color,
                                   on_key_enter=on_key_enter, on_key_escape=on_key_escape)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -37,13 +38,13 @@ class ListEntry(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "list_entry", parent, gfx_data={}, stretch_dir="both")
+        Widget.__init__(self, "list_entry", parent, gfx_data={})
 
         self.mouse_region.sort = parent.sort + 1
         self.node.reparent_to(parent.get_widget_root_node())
 
         sizer = Sizer("horizontal")
-        self.set_sizer(sizer)
+        self.sizer = sizer
         self._image = None
         self._is_selected = False
         self._text = {}
@@ -52,7 +53,7 @@ class ListEntry(Widget):
 
     def set_data(self, data, borders=(5, 5, 2, 2)):
 
-        sizer = self.get_sizer()
+        sizer = self.sizer
         min_default_widths = self._min_default_widths
 
         for text_id, text, alignment, width in data:
@@ -74,7 +75,7 @@ class ListEntry(Widget):
             if alignment == "center":
                 subsizer.add((0, 0), proportion=1.)
 
-            subsizer.set_default_size((width, 0))
+            subsizer.default_size = (width, 0)
             min_default_widths[text_id] = width
 
         sizer.update_min_size()
@@ -88,31 +89,31 @@ class ListEntry(Widget):
         self._text[text_id] = text
         sizer = self._text_sizers[text_id]
 
-        for i, item in enumerate(sizer.get_items()[:]):
+        for i, item in enumerate(sizer.items[:]):
             if item.type == "widget":
                 sizer.remove_item(item)
                 sizer.add(DialogText(self, text), index=i)
 
         min_def_w = self._min_default_widths[text_id]
-        sizer.set_default_size((max(min_def_w, 0), 0))
+        sizer.default_size = (max(min_def_w, 0), 0)
 
     def get_widths(self):
 
         widths = []
-        sizer = self.get_sizer()
+        sizer = self.sizer
 
-        for item in sizer.get_items():
-            widths.append(item.get_object().get_min_size()[0])
+        for item in sizer.items:
+            widths.append(item.object.min_size[0])
 
         return widths
 
     def set_widths(self, widths):
 
-        sizer = self.get_sizer()
+        sizer = self.sizer
         min_default_widths = self._min_default_widths.values()
 
-        for item, width, min_def_w in zip(sizer.get_items(), widths, min_default_widths):
-            item.get_object().set_default_size((max(min_def_w, width), 0))
+        for item, width, min_def_w in zip(sizer.items, widths, min_default_widths):
+            item.object.default_size = (max(min_def_w, width), 0)
 
         sizer.update_min_size()
 
@@ -126,7 +127,7 @@ class ListEntry(Widget):
         w, h = self.get_size()
 
         if not self.is_hidden():
-            self.get_card().copy_sub_image(self, self.get_image(), w, h, 0, 0)
+            self.card.copy_sub_image(self, self.get_image(), w, h, 0, 0)
 
     def is_selected(self):
 
@@ -145,14 +146,14 @@ class ListEntry(Widget):
         image.alpha_fill(1.)
 
         if recurse:
-            self.get_sizer().update_images()
+            self.sizer.update_images()
 
     def get_image(self, state=None, composed=True):
 
         image = PNMImage(self._image)
 
         if composed:
-            image = self.get_sizer().get_composed_image(image)
+            image = self.sizer.get_composed_image(image)
 
         return image
 
@@ -177,7 +178,7 @@ class ListPane(DialogScrollPane):
     def __init__(self, dialog, column_data, borders=(5, 5, 0, 0), frame_client_size=(300, 300),
                  multi_select=True):
 
-        DialogScrollPane.__init__(self, dialog, "list_pane", "vertical", frame_client_size, "both")
+        DialogScrollPane.__init__(self, dialog, "list_pane", "vertical", frame_client_size)
 
         if not ListEntry.colors:
             colors = Skin["colors"]
@@ -198,9 +199,9 @@ class ListPane(DialogScrollPane):
 
         self._column_sizers = column_sizers = {}
         self._entry_sizer = Sizer("vertical")
-        self.get_sizer().add(self._entry_sizer, proportion=1., expand=True)
+        self.sizer.add(self._entry_sizer, proportion=1., expand=True)
         self._width_sizer = width_sizer = Sizer("horizontal")
-        self.get_sizer().add(width_sizer, expand=True)
+        self.sizer.add(width_sizer, expand=True)
 
         for column_id, proportion in column_data:
             column_sizer = Sizer("vertical")
@@ -228,7 +229,7 @@ class ListPane(DialogScrollPane):
 
         sizer = self.get_ancestor("dialog").get_client_sizer()
         sizer.update_min_size()
-        widths = [sizer.get_min_size()[0] for sizer in self._column_sizers.values()]
+        widths = [sizer.min_size[0] for sizer in self._column_sizers.values()]
 
         for entry in self.entry_list:
             entry.set_widths(widths)
@@ -266,7 +267,7 @@ class ListPane(DialogScrollPane):
             index = self.entry_list.index(entry)
 
             for width, column_sizer in zip(entry.get_widths(), self._column_sizers.values()):
-                item = column_sizer.get_item(index)
+                item = column_sizer.items[index]
                 column_sizer.remove_item(item)
                 column_sizer.add((width, 0), index=index)
 
@@ -286,10 +287,10 @@ class ListPane(DialogScrollPane):
             return
 
         index = self.entry_list.index(self._sel_start_entry)
-        self._entry_sizer.remove_item(self._sel_start_entry.get_sizer_item())
+        self._entry_sizer.remove_item(self._sel_start_entry.sizer_item)
 
         for column_sizer in self._column_sizers.values():
-            item = column_sizer.get_item(index)
+            item = column_sizer.items[index]
             column_sizer.remove_item(item, destroy=True)
 
         self.entry_list.remove(self._sel_start_entry)
@@ -545,7 +546,7 @@ class ListDialog(Dialog):
             radio_btns.set_button_command(btn_id, get_command(btn_id))
 
         radio_btns.set_selected_button(part)
-        subsizer.add(radio_btns.get_sizer(), alignment="center_v")
+        subsizer.add(radio_btns.sizer, alignment="center_v")
 
         if not self.multi_select:
             next_btn = DialogButton(group, "Next", command=lambda: self.pane.find_next())

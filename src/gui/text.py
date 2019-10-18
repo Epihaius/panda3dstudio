@@ -12,13 +12,13 @@ class Text(Widget):
         self._color = color
         self._text = text
         self.node = parent.node.attach_new_node("text_widget")
-        self._image_offset = (0, 0)
+        self.image_offset = (0, 0)
+        self.outer_borders = (0, 0, 0, 0)
 
         self._image = img = self.__create_image(text)
         self._size = self._min_size = (w, h) = img.size
         self._sizer = None
-        self._sizer_item = None
-        self._stretch_dir = ""
+        self.sizer_item = None
         self.mouse_region = None
         self._is_hidden = False
 
@@ -30,7 +30,7 @@ class Text(Widget):
 
         self._parent = None
         self._sizer = None
-        self._sizer_item = None
+        self.sizer_item = None
 
     def post_process_image(self, image):
         """ Override in derived class """
@@ -90,10 +90,6 @@ class Text(Widget):
 
         return size
 
-    def get_outer_borders(self):
-
-        return (0, 0, 0, 0)
-
     def update_images(self, recurse=True, size=None): pass
 
     def get_image(self, state=None, composed=True):
@@ -106,7 +102,7 @@ class Text(Widget):
 class Label(Widget):
 
     def __init__(self, parent, font, text_color, back_color, edge_color, text,
-                 text_borders=None, edge_borders=None, stretch_dir=""):
+                 text_borders=None, edge_borders=None):
 
         self.type = "widget"
         self.widget_type = "label"
@@ -118,15 +114,15 @@ class Label(Widget):
         self._text = text
         self.node = parent.node.attach_new_node("label_widget")
         self._size = self._min_size = (0, 0)
-        self._image_offset = (0, 0)
+        self.image_offset = (0, 0)
+        self.outer_borders = (0, 0, 0, 0)
         self._text_borders = text_borders if text_borders else (0, 0, 0, 0)
         self._edge_borders = edge_borders if edge_borders else (0, 0, 0, 0)
 
         self._image = img = self.__create_image(text)
         self._size = self._min_size = (w, h) = img.size
         self._sizer = None
-        self._sizer_item = None
-        self._stretch_dir = stretch_dir
+        self.sizer_item = None
 
         self.mouse_region = None
         self._is_hidden = False
@@ -139,7 +135,7 @@ class Label(Widget):
 
         self._parent = None
         self._sizer = None
-        self._sizer_item = None
+        self.sizer_item = None
 
     def post_process_image(self, image):
         """ Override in derived class """
@@ -228,10 +224,6 @@ class Label(Widget):
             self._min_size = size
 
         return size
-
-    def get_outer_borders(self):
-
-        return (0, 0, 0, 0)
 
     def update_images(self, recurse=True, size=None):
 

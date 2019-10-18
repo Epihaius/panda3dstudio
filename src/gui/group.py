@@ -13,7 +13,7 @@ class WidgetGroup(Widget):
 
     def __init__(self, parent, label_bg_tex_id, text_id, label=""):
 
-        Widget.__init__(self, "group", parent, self._gfx, stretch_dir="both", has_mouse_region=False)
+        Widget.__init__(self, "group", parent, self._gfx, has_mouse_region=False)
 
         x, y, w, h = TextureAtlas["regions"][label_bg_tex_id]
         img = PNMImage(w, h, 4)
@@ -29,7 +29,7 @@ class WidgetGroup(Widget):
         self._label = scaled_img
 
         sizer = Sizer("vertical")
-        self.set_sizer(sizer)
+        self.sizer = sizer
         self._client_sizer = client_sizer = Sizer("vertical")
         l, r, b, t = TextureAtlas["inner_borders"]["widget_group"]
         borders = (l, r, b, t + h)
@@ -62,7 +62,7 @@ class WidgetGroup(Widget):
         tex_atlas = TextureAtlas["image"]
         tex_atlas_regions = TextureAtlas["regions"]
         images = self._images
-        l, r, b, t = self.get_gfx_inner_borders()
+        l, r, b, t = self.gfx_inner_borders
         borders_h = l + r
         borders_v = b + t
         h_half = self._label.size[1] // 2
@@ -73,7 +73,6 @@ class WidgetGroup(Widget):
             img = PNMImage(width, height, 4)
             images[state] = img
             y_offset = h_half
-            stretch_dir = self._stretch_dir
             i_middle = len(part_rows) // 2
 
             for i, part_row in enumerate(part_rows):
@@ -85,7 +84,7 @@ class WidgetGroup(Widget):
 
                     x, y, w, h = tex_atlas_regions[part_id]
 
-                    if stretch_dir == "both" and i == i_middle and j == j_middle:
+                    if i == i_middle and j == j_middle:
                         scaled_w = width - borders_h
                         scaled_h = height2 - borders_v
                         center_img = PNMImage(w, h, 4)
@@ -95,7 +94,7 @@ class WidgetGroup(Widget):
                         img.copy_sub_image(scaled_img, x_offset, y_offset, 0, 0, scaled_w, scaled_h)
                         w = scaled_w
                         h = scaled_h
-                    elif stretch_dir in ("both", "horizontal") and j == j_middle:
+                    elif j == j_middle:
                         scaled_w = width - borders_h
                         center_img = PNMImage(w, h, 4)
                         center_img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
@@ -103,7 +102,7 @@ class WidgetGroup(Widget):
                         scaled_img.unfiltered_stretch_from(center_img)
                         img.copy_sub_image(scaled_img, x_offset, y_offset, 0, 0, scaled_w, h)
                         w = scaled_w
-                    elif stretch_dir in ("both", "vertical") and i == i_middle:
+                    elif i == i_middle:
                         scaled_h = height2 - borders_v
                         center_img = PNMImage(w, h, 4)
                         center_img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
@@ -128,7 +127,7 @@ class WidgetGroup(Widget):
         image = Widget.get_image(self, state, composed)
 
         if composed:
-            x = self.get_gfx_inner_borders()[0] + 3
+            x = self.gfx_inner_borders[0] + 3
             image.blend_sub_image(self._label, x, 0, 0, 0, *self._label.size)
         else:
             parent_img = self.parent.get_image(composed=False)

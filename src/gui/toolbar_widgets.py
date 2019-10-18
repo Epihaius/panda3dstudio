@@ -55,13 +55,13 @@ class ToolbarButton(Button):
             return False
 
         if not active:
-            state = self.get_state()
-            self.set_state("normal")
+            state = self.state
+            self.state = "normal"
 
         self.parent.update_composed_image(self)
 
         if not active:
-            self.set_state(state)
+            self.state = state
 
         return True
 
@@ -102,9 +102,9 @@ class ToolbarSpinButton(Button):
         self._listener = DirectObject()
 
         if not self.width:
-            ToolbarSpinButton.width = self.get_min_size()[0]
+            ToolbarSpinButton.width = self.min_size[0]
 
-        self.set_always_enabled()
+        self.always_enabled = True
 
     def destroy(self):
 
@@ -221,7 +221,7 @@ class ToolbarCheckButton(CheckButton):
 
         x, y, w, h = TextureAtlas["regions"]["toolbar_checkbox"]
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -241,14 +241,14 @@ class ToolbarCheckButton(CheckButton):
 
         CheckButton.set_checkmark_color(self, color)
 
-        offset_x, offset_y = self.get_image_offset()
+        offset_x, offset_y = self.image_offset
         self.parent.update_composed_image(self, None, offset_x, offset_y)
 
     def check(self, check=True):
 
         CheckButton.check(self, check)
 
-        offset_x, offset_y = self.get_image_offset()
+        offset_x, offset_y = self.image_offset
         self.parent.update_composed_image(self, None, offset_x, offset_y)
 
     def enable(self, enable=True):
@@ -256,7 +256,7 @@ class ToolbarCheckButton(CheckButton):
         if not CheckButton.enable(self, enable):
             return False
 
-        offset_x, offset_y = self.get_image_offset()
+        offset_x, offset_y = self.image_offset
         self.parent.update_composed_image(self, None, offset_x, offset_y)
 
         return True
@@ -294,8 +294,8 @@ class ToolbarColorBox(ColorBox):
         if not self._border_image:
             self.__create_border_image()
 
-        self.set_image_offset(self._img_offset)
-        self.set_outer_borders(self._box_borders)
+        self.image_offset = self._img_offset
+        self.outer_borders = self._box_borders
 
     def __create_border_image(self):
 
@@ -304,7 +304,7 @@ class ToolbarColorBox(ColorBox):
         width = w + l + r
         height = h + b + t
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -320,14 +320,14 @@ class ToolbarColorBox(ColorBox):
 
         ColorBox.set_color_type(self, color_type)
 
-        offset_x, offset_y = self.get_image_offset()
+        offset_x, offset_y = self.image_offset
         self.parent.update_composed_image(self, None, offset_x, offset_y)
 
     def set_color(self, color):
 
         ColorBox.set_color(self, color)
 
-        offset_x, offset_y = self.get_image_offset()
+        offset_x, offset_y = self.image_offset
         self.parent.update_composed_image(self, None, offset_x, offset_y)
 
 
@@ -350,7 +350,8 @@ class GfxMixin:
         if not self._field_borders:
             self.__set_field_borders()
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -576,7 +577,8 @@ class ComboBoxInputField(InputField):
 
         self.widget_type = "toolbar_combo_field"
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders if self.parent.has_icon() else self._field_borders2
 
@@ -716,7 +718,8 @@ class ToolbarComboBox(ComboBox):
                                              handler, field_width)
             self.set_input_field(input_field)
 
-    def get_inner_borders(self):
+    @property
+    def inner_borders(self):
 
         if self.has_icon():
             return self._box_borders
@@ -777,7 +780,7 @@ class ToolbarComboBox(ComboBox):
 
         width, height = ComboBox.set_size(self, size, includes_borders, is_min)
 
-        l, r, b, t = self.get_inner_borders()
+        l, r, b, t = self.inner_borders
         width -= l + r
         x, y, w, h = TextureAtlas["regions"]["toolbar_combobox_field_back"]
         tmp_img = PNMImage(w, h, 4)

@@ -7,26 +7,26 @@ class ScrollThumb(Widget):
 
     def __init__(self, parent, pane, gfx_data, cull_bin, scroll_dir, inner_border_id):
 
-        Widget.__init__(self, "scrollthumb", parent, gfx_data, "normal", stretch_dir="both")
+        Widget.__init__(self, "scrollthumb", parent, gfx_data, "normal")
 
         self._pane = pane
         self._dir = scroll_dir
         self._inner_border_id = inner_border_id
         sort = parent.sort + 1
         self.mouse_region.sort = sort
-        self._tex = tex = Texture("scrollthumb")
+        self.texture = tex = Texture("scrollthumb")
         tex.minfilter = SamplerState.FT_nearest
         tex.magfilter = SamplerState.FT_nearest
         cm = CardMaker("scrollthumb")
         cm.set_frame(0., 1., -1., 0.)
         self._quad = quad = Mgr.get("gui_root").attach_new_node(cm.generate())
         quad.set_bin(cull_bin, sort)
-        quad.set_texture(self._tex)
+        quad.set_texture(self.texture)
         quad.set_transparency(TransparencyAttrib.M_alpha)
         thickness = Skin["options"]["scrollthumb_thickness"]
         min_size = (0, thickness) if scroll_dir == "horizontal" else (thickness, 0)
         self.set_size(min_size, is_min=True)
-        w, h = self.get_min_size()
+        w, h = self.min_size
         l_s, r_s, b_s, t_s = TextureAtlas["inner_borders"][inner_border_id]
         self.set_pos((l_s, t_s))
         size = (0, h + b_s + t_s) if scroll_dir == "horizontal" else (w + l_s + r_s, 0)
@@ -52,7 +52,8 @@ class ScrollThumb(Widget):
 
         return self._dir
 
-    def get_quad(self):
+    @property
+    def quad(self):
 
         return self._quad
 
@@ -62,8 +63,8 @@ class ScrollThumb(Widget):
         d = self._dir
         dim = 0 if d == "horizontal" else 1
         size = pane.get_size()[dim]
-        size_virt = pane.get_sizer().get_virtual_size()[dim]
-        l, r, b, t = self.get_gfx_inner_borders()
+        size_virt = pane.sizer.virtual_size[dim]
+        l, r, b, t = self.gfx_inner_borders
 
         if d == "horizontal":
             border = l + r
@@ -71,7 +72,7 @@ class ScrollThumb(Widget):
             border = b + t
 
         if Skin["options"]["integrate_scrollbar_in_frame"]:
-            l_f, r_f, b_f, t_f = pane.frame.get_gfx_inner_borders()
+            l_f, r_f, b_f, t_f = pane.frame.gfx_inner_borders
         else:
             l_f = r_f = b_f = t_f = 0
 
@@ -89,15 +90,9 @@ class ScrollThumb(Widget):
         else:
             self.set_size((0, size_thumb))
 
-    def update_offset(self):
+    def get_offset(self):
 
-        pane = self._pane
-        d = self._dir
-        dim = 0 if d == "horizontal" else 1
-        size = pane.get_size()[dim]
-        size_virt = pane.get_sizer().get_virtual_size()[dim]
-        self._scroll_offset = offset = max(0, min(self._scroll_offset, size_virt - min(size_virt, size)))
-        pane.update_scroll_offset(offset)
+        return self._scroll_offset
 
     def set_offset(self, offset):
 
@@ -117,9 +112,15 @@ class ScrollThumb(Widget):
             z = root_node.get_z()
             root_node.set_z(z - start_scroll_offset + self._scroll_offset)
 
-    def get_offset(self):
+    def update_offset(self):
 
-        return self._scroll_offset
+        pane = self._pane
+        d = self._dir
+        dim = 0 if d == "horizontal" else 1
+        size = pane.get_size()[dim]
+        size_virt = pane.sizer.virtual_size[dim]
+        self._scroll_offset = offset = max(0, min(self._scroll_offset, size_virt - min(size_virt, size)))
+        pane.update_scroll_offset(offset)
 
     def get_page_size(self):
 
@@ -135,7 +136,7 @@ class ScrollThumb(Widget):
         pane = self._pane
         d = self._dir
         dim = 0 if d == "horizontal" else 1
-        size_virt = pane.get_sizer().get_virtual_size()[dim]
+        size_virt = pane.sizer.virtual_size[dim]
         incr = int((self._scroll_offset / size_virt) * self._scroll_size)
 
         if d == "horizontal":
@@ -153,8 +154,8 @@ class ScrollThumb(Widget):
 
     def update_images(self):
 
-        img = Widget.update_images(self)[self.get_state()]
-        self._tex.load(img)
+        img = Widget.update_images(self)[self.state]
+        self.texture.load(img)
 
     def update_mouse_region_frames(self, exclude=""):
 
@@ -162,7 +163,7 @@ class ScrollThumb(Widget):
         pane = self._pane
         d = self._dir
         dim = 0 if d == "horizontal" else 1
-        size_virt = pane.get_sizer().get_virtual_size()[dim]
+        size_virt = pane.sizer.virtual_size[dim]
         offset = int((self._scroll_offset / size_virt) * self._scroll_size)
         # temporarily update the thumb position with the scroll offset
         self.set_pos((x + offset, y) if d == "horizontal" else (x, y + offset))
@@ -199,7 +200,7 @@ class ScrollThumb(Widget):
         d_crd = mouse_crd - self._start_mouse_crd
         pane = self._pane
         dim = 0 if d == "horizontal" else 1
-        size_virt = pane.get_sizer().get_virtual_size()[dim]
+        size_virt = pane.sizer.virtual_size[dim]
         offset = int(size_virt * d_crd / self._scroll_size)
         self._scroll_offset = self._start_scroll_offset + offset
         self.update_offset()
@@ -210,13 +211,13 @@ class ScrollThumb(Widget):
 
     def on_enter(self):
 
-        self.set_state("hilited")
+        self.state = "hilited"
         self.update_images()
 
     def on_leave(self):
 
         if not self._scrolling:
-            self.set_state("normal")
+            self.state = "normal"
             self.update_images()
 
     def on_left_down(self):
@@ -253,10 +254,9 @@ class ScrollThumb(Widget):
 
 class ScrollBar(Widget):
 
-    def __init__(self, parent, pane, gfx_data, thumb_gfx_data, cull_bin, scroll_dir,
-                 inner_border_id):
+    def __init__(self, parent, pane, gfx_data, thumb_gfx_data, cull_bin, scroll_dir, inner_border_id):
 
-        Widget.__init__(self, "scrollbar", parent, gfx_data, stretch_dir="both")
+        Widget.__init__(self, "scrollbar", parent, gfx_data)
 
         self._dir = scroll_dir
         self.sort = sort = parent.sort + 1
@@ -314,7 +314,7 @@ class ScrollBar(Widget):
         thumb = self._thumb
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         mouse_crd = mouse_pointer.x if d == "horizontal" else mouse_pointer.y
-        quad = thumb.get_quad()
+        quad = thumb.quad
         crd = quad.get_x() if d == "horizontal" else -quad.get_z()
         thumb_size = quad.get_sx() if d == "horizontal" else quad.get_sz()
         page_size = thumb.get_page_size()
@@ -356,14 +356,14 @@ class ScrollPaneFrame(Widget):
     def __init__(self, parent, pane, gfx_data, bar_gfx_data, thumb_gfx_data, cull_bin,
                  scroll_dir, inner_border_id, has_mouse_region=True):
 
-        Widget.__init__(self, "scroll_pane_frame", parent, gfx_data, stretch_dir="both",
+        Widget.__init__(self, "scroll_pane_frame", parent, gfx_data,
                         has_mouse_region=has_mouse_region)
 
         self._pane = pane
         self._scrollbar = self._create_bar(pane, bar_gfx_data, thumb_gfx_data, cull_bin,
                                            scroll_dir, inner_border_id)
         sizer = Sizer("horizontal" if scroll_dir == "vertical" else "vertical")
-        self.set_sizer(sizer)
+        self.sizer = sizer
 
     @property
     def sort(self):
@@ -380,28 +380,28 @@ class ScrollPaneFrame(Widget):
 
         scrollbar = self._scrollbar
         scroll_dir = scrollbar.get_direction()
-        l, r, b, t = borders = self.get_gfx_inner_borders()
+        l, r, b, t = borders = self.gfx_inner_borders
         w, h = client_size
         w += l + r
         h += b + t
 
         if scroll_dir == "vertical":
 
-            w += scrollbar.get_min_size()[0]
+            w += scrollbar.min_size[0]
 
             if Skin["options"]["integrate_scrollbar_in_frame"]:
                 w -= r if append_bar else l
 
         else:
 
-            h += scrollbar.get_min_size()[1]
+            h += scrollbar.min_size[1]
 
             if Skin["options"]["integrate_scrollbar_in_frame"]:
                 h -= b if append_bar else t
 
         default_size = (w, h)
-        sizer = self.get_sizer()
-        sizer.set_default_size(default_size)
+        sizer = self.sizer
+        sizer.default_size = default_size
 
         if append_bar:
             borders = (l, 0, b, t) if scroll_dir == "vertical" else (l, r, 0, t)
@@ -439,11 +439,11 @@ class ScrollPane(WidgetCard):
 
     def __init__(self, frame_parent, pane_id, scroll_dir, cull_bin, frame_gfx_data, bar_gfx_data,
                  thumb_gfx_data, bar_inner_border_id, bg_tex_id="", frame_client_size=(0, 0),
-                 stretch_dir="", frame_has_mouse_region=True, append_scrollbar=True):
+                 frame_has_mouse_region=True, append_scrollbar=True):
 
         frame = self._create_frame(frame_parent, scroll_dir, cull_bin, frame_gfx_data,
             bar_gfx_data, thumb_gfx_data, bar_inner_border_id, frame_has_mouse_region)
-        WidgetCard.__init__(self, pane_id, frame, stretch_dir if stretch_dir else scroll_dir)
+        WidgetCard.__init__(self, pane_id, frame)
         frame.setup(frame_client_size, append_scrollbar)
 
         self._background_tex_id = bg_tex_id
@@ -457,8 +457,8 @@ class ScrollPane(WidgetCard):
         self._subimg_w = 0
         self._subimg_h = 0
         sizer = ScrollSizer(scroll_dir)
-        self.set_sizer(sizer)
-        sizer.set_default_size((1, 1))
+        self.sizer = sizer
+        sizer.default_size = (1, 1)
 
         self._mouse_region_mask = mask = MouseWatcherRegion(f"{pane_id}_mask", 0., 0., 0., 0.)
         mask.suppress_flags = MouseWatcherRegion.SF_mouse_button
@@ -594,9 +594,9 @@ class ScrollPane(WidgetCard):
     def update_scroll_offset(self, scroll_offset):
 
         width, height = self.get_size()
-        sizer = self.get_sizer()
-        w_virt, h_virt = w_subimg, h_subimg = sizer.get_virtual_size()
-        scroll_dir = sizer.get_stretch_dir()
+        sizer = self.sizer
+        w_virt, h_virt = w_subimg, h_subimg = sizer.virtual_size
+        scroll_dir = sizer.scroll_dir
         dim = 0 if scroll_dir == "horizontal" else 1
         max_size_exceeded = False
 
@@ -626,7 +626,7 @@ class ScrollPane(WidgetCard):
         size = width if scroll_dir == "horizontal" else height
         size_subimg = w_subimg if scroll_dir == "horizontal" else h_subimg
         tex_scale = min(1., size / size_subimg)
-        quad = self.get_quad()
+        quad = self.quad
 
         if max_size_exceeded:
 
@@ -640,7 +640,7 @@ class ScrollPane(WidgetCard):
                 if self._image:
                     sub_image = PNMImage(w, h, 4)
                     sub_image.copy_sub_image(self._image, 0, 0, x, y, w, h)
-                    self._tex.load(sub_image)
+                    self.texture.load(sub_image)
 
                 sx = tex_scale if scroll_dir == "horizontal" else 1.
                 sy = 1. if scroll_dir == "horizontal" else tex_scale
@@ -674,9 +674,9 @@ class ScrollPane(WidgetCard):
     def update_images(self):
 
         width, height = self.get_size()
-        sizer = self.get_sizer()
-        w_virt, h_virt = w_subimg, h_subimg = sizer.get_virtual_size()
-        scroll_dir = sizer.get_stretch_dir()
+        sizer = self.sizer
+        w_virt, h_virt = w_subimg, h_subimg = sizer.virtual_size
+        scroll_dir = sizer.scroll_dir
 
         if self._subimg_index > -1:
             x_subimg = self._subimg_x
@@ -685,13 +685,13 @@ class ScrollPane(WidgetCard):
             h_subimg = self._subimg_h
 
         if scroll_dir == "horizontal":
-            tex_offset = (self.get_quad().get_tex_offset(TextureStage.default)[0], 1.)
+            tex_offset = (self.quad.get_tex_offset(TextureStage.default)[0], 1.)
             tex_scale = (min(1., width / w_subimg), 1.)
         else:
-            tex_offset = (1., self.get_quad().get_tex_offset(TextureStage.default)[1])
+            tex_offset = (1., self.quad.get_tex_offset(TextureStage.default)[1])
             tex_scale = (1., min(1., height / h_subimg))
 
-        tex = self._tex
+        tex = self.texture
 
         if self._contents_needs_redraw():
 
@@ -757,22 +757,22 @@ class ScrollPane(WidgetCard):
 
         if self._subimg_index > -1:
             width, height = self.get_size()
-            scroll_dir = self.get_sizer().get_stretch_dir()
+            scroll_dir = self.sizer.scroll_dir
             w = self._subimg_w if scroll_dir == "horizontal" else width
             h = height if scroll_dir == "horizontal" else self._subimg_h
             x = self._subimg_x if scroll_dir == "horizontal" else 0
             y = 0 if scroll_dir == "horizontal" else self._subimg_y
             sub_image = PNMImage(w, h, 4)
             sub_image.copy_sub_image(img, 0, 0, x, y, w, h)
-            self._tex.load(sub_image)
+            self.texture.load(sub_image)
         else:
-            self._tex.load(img)
+            self.texture.load(img)
 
     def update_mouse_region_frames(self, exclude="", recurse=True):
 
-        sizer = self.get_sizer()
-        scroll_dir = sizer.get_stretch_dir()
-        w_virt, h_virt = sizer.get_virtual_size()
+        sizer = self.sizer
+        scroll_dir = sizer.scroll_dir
+        w_virt, h_virt = sizer.virtual_size
         w, h = self.get_size()
         x, y = self.get_pos(from_root=True)
         l = x
@@ -791,9 +791,9 @@ class ScrollPane(WidgetCard):
 
     def update_display_region(self):
 
-        sizer = self.get_sizer()
-        scroll_dir = sizer.get_stretch_dir()
-        w_virt, h_virt = sizer.get_virtual_size()
+        sizer = self.sizer
+        scroll_dir = sizer.scroll_dir
+        w_virt, h_virt = sizer.virtual_size
         w_ref, h_ref = Mgr.get("window_size")
         w, h = self.get_size()
         x, y = self.get_pos(from_root=True)
@@ -811,9 +811,9 @@ class ScrollPane(WidgetCard):
 
     def update_mouse_watcher_frame(self):
 
-        sizer = self.get_sizer()
-        scroll_dir = sizer.get_stretch_dir()
-        w_virt, h_virt = sizer.get_virtual_size()
+        sizer = self.sizer
+        scroll_dir = sizer.scroll_dir
+        w_virt, h_virt = sizer.virtual_size
         width, height = self.get_size()
 
         if scroll_dir == "horizontal":
@@ -844,7 +844,7 @@ class ScrollPane(WidgetCard):
 
     def update_widget_root_node(self):
 
-        scroll_dir = self.get_sizer().get_stretch_dir()
+        scroll_dir = self.sizer.scroll_dir
 
         if scroll_dir == "horizontal":
             self._widget_root_node.set_x(-self._scrollthumb.get_offset())
@@ -854,7 +854,7 @@ class ScrollPane(WidgetCard):
     def update_layout(self):
 
         self._subimg_index = -1
-        sizer = self.parent.get_sizer()
+        sizer = self.parent.sizer
         size = sizer.update_min_size()
         sizer.set_size(size)
         sizer.calculate_positions()
@@ -959,7 +959,7 @@ class ScrollPane(WidgetCard):
         ctrl_down = self._mouse_watcher.is_button_down("control")
 
         if ctrl_down and self._can_scroll():
-            sizer = self.get_sizer()
-            scroll_dir = sizer.get_stretch_dir()
-            offset = sizer.get_virtual_size()[0 if scroll_dir == "horizontal" else 1]
+            sizer = self.sizer
+            scroll_dir = sizer.scroll_dir
+            offset = sizer.virtual_size[0 if scroll_dir == "horizontal" else 1]
             self._scrollthumb.set_offset(offset)

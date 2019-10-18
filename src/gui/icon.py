@@ -10,13 +10,13 @@ class Icon(Widget):
         self._parent = parent
         self._id = icon_id
         self.node = parent.node.attach_new_node("icon_widget")
-        self._image_offset = (0, 0)
+        self.image_offset = (0, 0)
+        self.outer_borders = (0, 0, 0, 0)
 
         self._image = img = self.__create_icon(icon_id)
         self._size = self._min_size = (w, h) = img.size
         self._sizer = None
-        self._sizer_item = None
-        self._stretch_dir = ""
+        self.sizer_item = None
         self.mouse_region = None
         self._is_hidden = False
 
@@ -35,7 +35,7 @@ class Icon(Widget):
             self.node = None
 
         self._parent = None
-        self._sizer_item = None
+        self.sizer_item = None
 
     def set_icon(self, icon_id):
 
@@ -58,10 +58,6 @@ class Icon(Widget):
 
         return size
 
-    def get_outer_borders(self):
-
-        return (0, 0, 0, 0)
-
     def update_images(self, recurse=True, size=None): pass
 
     def get_image(self, state=None, composed=True):
@@ -81,7 +77,8 @@ class LayeredIcon(Widget):
         self._ids = icon_ids
         self._icons_shown = [icon_ids[0]]
         self.node = parent.node.attach_new_node("layered_icon_widget")
-        self._image_offset = (0, 0)
+        self.image_offset = (0, 0)
+        self.outer_borders = (0, 0, 0, 0)
 
         self._icon_images = images = {}
 
@@ -92,8 +89,7 @@ class LayeredIcon(Widget):
         self._image = img = images[icon_ids[0]]
         self._size = self._min_size = (w, h) = img.size
         self._sizer = None
-        self._sizer_item = None
-        self._stretch_dir = ""
+        self.sizer_item = None
         self.mouse_region = None
         self._is_hidden = False
 
@@ -112,7 +108,7 @@ class LayeredIcon(Widget):
             self.node = None
 
         self._parent = None
-        self._sizer_item = None
+        self.sizer_item = None
 
     def update(self):
 
@@ -152,10 +148,6 @@ class LayeredIcon(Widget):
             self._min_size = size
 
         return size
-
-    def get_outer_borders(self):
-
-        return (0, 0, 0, 0)
 
     def update_images(self, recurse=True, size=None): pass
 

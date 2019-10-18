@@ -54,7 +54,7 @@ class PropertyPanel(Panel):
         radio_btns.add_button("deselect_others", "Deselect others")
         radio_btns.add_button("center", "Center in view")
         radio_btns.set_selected_button("deselect_others")
-        group.add(radio_btns.get_sizer())
+        group.add(radio_btns.sizer)
         self._radio_btns["selection"] = radio_btns
 
         # **************************** ID section ******************************
@@ -115,7 +115,7 @@ class PropertyPanel(Panel):
         radio_btns.add_button("cam_target_pos", "Camera target")
         radio_btns.set_selected_button("grid_pos")
         self._radio_btns["creation"] = radio_btns
-        subgroup.add(radio_btns.get_sizer())
+        subgroup.add(radio_btns.sizer)
 
         text = "Create object"
         btn = PanelButton(group, text, command=self.__create_object)

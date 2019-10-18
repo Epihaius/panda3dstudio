@@ -35,7 +35,8 @@ class TagField(DialogInputField):
 
         self.node.reparent_to(parent.get_widget_root_node())
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -44,7 +45,7 @@ class TagPane(DialogScrollPane):
 
     def __init__(self, dialog, tags):
 
-        DialogScrollPane.__init__(self, dialog, "tag_pane", "vertical", (500, 300), "both")
+        DialogScrollPane.__init__(self, dialog, "tag_pane", "vertical", (500, 300))
 
         self._tags = tags
         self._fields = []
@@ -65,7 +66,7 @@ class TagPane(DialogScrollPane):
 
         for field in self._fields:
             x, y = field.get_pos(ref_node=root_node)
-            offset_x, offset_y = field.get_image_offset()
+            offset_x, offset_y = field.image_offset
             pane_image.copy_sub_image(field.get_image(), x + offset_x, y + offset_y, 0, 0)
 
     def destroy(self):
@@ -155,7 +156,7 @@ class TagPane(DialogScrollPane):
 
         index = len(self._tag_key_fields)
         tag_sizer = Sizer("horizontal")
-        self.get_sizer().add(tag_sizer, expand=True)
+        self.sizer.add(tag_sizer, expand=True)
         allow_reject = key is not None
         dialog = self.get_dialog()
         get_popup_handler = lambda index: lambda: self.__on_popup(index)
@@ -189,7 +190,7 @@ class TagPane(DialogScrollPane):
 
         if update:
             self.update_layout()
-            h_virt = self.get_sizer().get_virtual_size()[1]
+            h_virt = self.sizer.virtual_size[1]
             self.get_scrollthumb().set_offset(h_virt)
 
         if key is None:
@@ -215,11 +216,11 @@ class TagPane(DialogScrollPane):
         if key in self._tags:
             del self._tags[key]
 
-        sizer_item = key_field.get_sizer_item().get_sizer().get_sizer_item()
+        sizer_item = key_field.sizer_item.sizer.sizer_item
 
         def task():
 
-            self.get_sizer().remove_item(sizer_item, destroy=True)
+            self.sizer.remove_item(sizer_item, destroy=True)
             self.update_layout()
 
         task_id = "remove_tag"
@@ -234,7 +235,7 @@ class TagPane(DialogScrollPane):
         self._tag_val_fields = []
         self._fields = []
         self._tags = {}
-        self.get_sizer().clear(destroy_items=True)
+        self.sizer.clear(destroy_items=True)
         self.update_layout()
 
     def __on_popup(self, index):

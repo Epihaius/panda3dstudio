@@ -33,7 +33,7 @@ class TexProjectorProperties:
 
         group = section.add_group("Projection type")
         radio_btns = PanelRadioButtonGroup(group, columns=1)
-        group.add(radio_btns.get_sizer())
+        group.add(radio_btns.sizer)
 
         get_command = lambda projection_type: lambda: self.__set_projection_type(projection_type)
 

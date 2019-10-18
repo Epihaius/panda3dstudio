@@ -148,13 +148,13 @@ class Dialog(WidgetCard):
     def hide_dialogs(cls):
 
         for dialog in cls._dialogs:
-            dialog.get_quad().hide()
+            dialog.quad.hide()
 
     @classmethod
     def show_dialogs(cls):
 
         for dialog in cls._dialogs:
-            dialog.get_quad().show()
+            dialog.quad.show()
 
     @classmethod
     def enable_listener(cls):
@@ -239,9 +239,9 @@ class Dialog(WidgetCard):
         self._title_label = label = font.create_image(title, color) if title else None
         self._choices = choices
         sizer = Sizer("vertical")
-        self.set_sizer(sizer)
+        self.sizer = sizer
         self._client_sizer = client_sizer = Sizer("vertical")
-        client_sizer.set_default_size((max(100, label.size[0]) + 20, 50))
+        client_sizer.default_size = (max(100, label.size[0]) + 20, 50)
         sizer.add(client_sizer, expand=True)
         self._button_sizer = btn_sizer = Sizer("horizontal")
         h_b = Skin["options"]["dialog_bottom_height"]
@@ -251,7 +251,7 @@ class Dialog(WidgetCard):
 
         for text, tooltip_text, command, btn_width, gap_multiplier in extra_button_data:
             btn = DialogStandardButton(self, text, tooltip_text, command)
-            w, h = btn.get_min_size()
+            w, h = btn.min_size
             w = max(w, width if btn_width is None else btn_width)
             btn.set_size((w, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
@@ -260,7 +260,7 @@ class Dialog(WidgetCard):
         if "yes" in choices:
             command = lambda: self.close("yes")
             btn = DialogStandardButton(self, "Yes", command=command)
-            w, h = btn.get_min_size()
+            w, h = btn.min_size
             btn.set_size((width, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
             btn_sizer.add((width // 5, 0))
@@ -268,7 +268,7 @@ class Dialog(WidgetCard):
         if "no" in choices:
             command = lambda: self.close("no")
             btn = DialogStandardButton(self, "No", command=command)
-            w, h = btn.get_min_size()
+            w, h = btn.min_size
             btn.set_size((width, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
             btn_sizer.add((width // 5, 0))
@@ -276,14 +276,14 @@ class Dialog(WidgetCard):
         if "ok" in choices:
             command = lambda: self.close("yes")
             btn = DialogStandardButton(self, ok_alias, command=command)
-            w, h = btn.get_min_size()
+            w, h = btn.min_size
             btn.set_size((width, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
             btn_sizer.add((width // 5, 0))
 
         if "cancel" in choices:
             btn = DialogStandardButton(self, "Cancel", command=self.close)
-            w, h = btn.get_min_size()
+            w, h = btn.min_size
             btn.set_size((width, h), is_min=True)
             btn_sizer.add(btn, alignment="center_v")
             btn_sizer.add((width // 5, 0))
@@ -359,7 +359,7 @@ class Dialog(WidgetCard):
         y = (h_w - h + h_t) // 2
         pos = (x, y)
         self.set_pos(pos)
-        self.get_sizer().update_mouse_region_frames()
+        self.sizer.update_mouse_region_frames()
 
         x, y = self.get_pos(from_root=True)
         l = x
@@ -383,7 +383,7 @@ class Dialog(WidgetCard):
             x = mouse_x - offset_x
             y = mouse_y - offset_y
             self.set_pos((x, y))
-            self.get_quad().set_pos(x, 0, -y)
+            self.quad.set_pos(x, 0, -y)
             self.update_widget_positions()
 
         return task.cont
@@ -404,20 +404,20 @@ class Dialog(WidgetCard):
         Mgr.remove_task("drag_dialog")
         self._listener.ignore("gui_mouse1-up")
         x, y = self.get_pos(from_root=True)
-        self.get_quad().set_pos(x, 0, -y)
+        self.quad.set_pos(x, 0, -y)
         w, h = self.get_size()
         l = x
         r = x + w
         b = -y - h
         t = -y + Skin["options"]["dialog_title_height"]
         self.mouse_region.frame = (l, r, b, t)
-        self.get_sizer().update_mouse_region_frames()
+        self.sizer.update_mouse_region_frames()
         self._mouse_start_pos = None
         self._drag_offset = None
 
     def update_images(self):
 
-        self.get_sizer().update_images()
+        self.sizer.update_images()
         width, height = self.get_size()
         h_b = Skin["options"]["dialog_bottom_height"]
         height -= h_b
@@ -485,18 +485,18 @@ class Dialog(WidgetCard):
         bg_image.copy_sub_image(img, 0, 0, bl, bt)
         ref_node = self.node
 
-        for widget in self.get_sizer().get_widgets(include_children=False):
+        for widget in self.sizer.get_widgets(include_children=False):
 
             widget_img = widget.get_image()
 
             if widget_img:
                 x, y = widget.get_pos(ref_node=ref_node)
-                img_offset_x, img_offset_y = widget.get_image_offset()
+                img_offset_x, img_offset_y = widget.image_offset
                 x += bl + img_offset_x
                 y += bt + img_offset_y
                 img.blend_sub_image(widget_img, x, y, 0, 0)
 
-        tex = self._tex
+        tex = self.texture
         tex.load(img)
 
         l = -bl
@@ -522,7 +522,7 @@ class Dialog(WidgetCard):
 
     def finalize(self):
 
-        sizer = self.get_sizer()
+        sizer = self.sizer
         size = sizer.update_min_size()
         sizer.set_size(size)
         sizer.calculate_positions()
@@ -531,13 +531,13 @@ class Dialog(WidgetCard):
 
     def update_layout(self):
 
-        sizer = self.get_sizer()
+        sizer = self.sizer
         size = sizer.update_min_size()
         sizer.set_size(size)
         sizer.calculate_positions()
         self.update_images()
         x, y = self.get_pos(from_root=True)
-        self.get_quad().set_pos(x, 0, -y)
+        self.quad.set_pos(x, 0, -y)
         w, h = self.get_size()
         l = x
         r = x + w

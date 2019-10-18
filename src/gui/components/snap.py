@@ -171,7 +171,8 @@ class SnapInputField(DialogInputField):
         DialogInputField.__init__(self, parent, value_id, "float", handler, width,
                                   INSET1_BORDER_GFX_DATA, self._img_offset)
 
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._field_borders
 
@@ -256,7 +257,7 @@ class SnapDialog(Dialog):
 
             radio_btns.set_selected_button(old_options["src_type"][snap_type])
             borders = (5, 0, 0, 0)
-            group.add(radio_btns.get_sizer(), expand=True, borders=borders)
+            group.add(radio_btns.sizer, expand=True, borders=borders)
 
         def add_target_options(parent, parent_sizer, borders, for_creation_phase=False):
 
@@ -322,14 +323,14 @@ class SnapDialog(Dialog):
                 h_subsizer = Sizer("horizontal")
                 borders = (5, 0, 0, 0)
                 group.add(h_subsizer, expand=True, proportion=1., borders=borders)
-                h_subsizer.add(radio_btns.get_sizer(), proportion=1., borders=borders)
+                h_subsizer.add(radio_btns.sizer, proportion=1., borders=borders)
                 subsizer = Sizer("vertical")
                 borders = (50, 0, 0, 0)
                 h_subsizer.add(subsizer, expand=True, proportion=1., borders=borders)
                 parent_sizer.add((0, 5))
             else:
                 borders = (5, 0, 0, 0)
-                group.add(radio_btns.get_sizer(), expand=True, borders=borders)
+                group.add(radio_btns.sizer, expand=True, borders=borders)
                 subsizer = Sizer("horizontal")
                 borders = (5, 0, 0, 10)
                 group.add(subsizer, expand=True, borders=borders)

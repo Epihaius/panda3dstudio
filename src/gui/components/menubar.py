@@ -25,7 +25,7 @@ class MenuButton(Button):
             self.parent.set_mouse_region_sort(1001 if self._menu.is_hidden() else 0)
             self._menu.toggle()
 
-        w, h = self.get_min_size()
+        w, h = self.min_size
         self.set_size((w + 20, h), is_min=True)
         self._menu = Menu(self)
         self.set_command(command)
@@ -68,7 +68,7 @@ class MenuButton(Button):
         x = max(0, min(x_old, w_w - w))
 
         if x != x_old:
-            menu.get_quad().set_x(x)
+            menu.quad.set_x(x)
             dx = x - x_old
             x, y = menu.get_pos()
             x += dx
@@ -132,11 +132,11 @@ class MenuBar(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "menubar", parent, self._gfx, stretch_dir="horizontal")
+        Widget.__init__(self, "menubar", parent, self._gfx)
 
         sizer = Sizer("horizontal")
-        sizer.set_default_size((0, self.get_min_size()[1]))
-        self.set_sizer(sizer)
+        sizer.default_size = (0, self.min_size[1])
+        self.sizer = sizer
         self._client_sizer = client_sizer = Sizer("horizontal")
         borders = (1, 1, 1, 1)
         sizer.add(client_sizer, borders=borders)
@@ -175,13 +175,13 @@ class MenuBar(Widget):
 
         btn = self._btns[menu_id]
         btn.hide()
-        self._client_sizer.remove_item(btn.get_sizer_item())
+        self._client_sizer.remove_item(btn.sizer_item)
 
     def show_menu(self, menu_id, index=None):
 
         btn = self._btns[menu_id]
         btn.show()
-        self._client_sizer.add_item(btn.get_sizer_item(), index=index)
+        self._client_sizer.add_item(btn.sizer_item, index=index)
 
     def set_active_button(self, button):
 

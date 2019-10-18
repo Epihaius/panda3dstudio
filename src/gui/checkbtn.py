@@ -66,8 +66,8 @@ class CheckButton(Widget):
             btn_borders = self._btn_borders
             img_offset = self._img_offset
 
-        self.set_outer_borders(btn_borders)
-        self.set_image_offset(img_offset)
+        self.outer_borders = btn_borders
+        self.image_offset = img_offset
 
     def destroy(self):
 
@@ -98,7 +98,7 @@ class CheckButton(Widget):
 
             x, y = self.get_pos()
             w, h = self.get_size()
-            img_offset_x, img_offset_y = self.get_image_offset()
+            img_offset_x, img_offset_y = self.image_offset
             w -= img_offset_x
             h -= img_offset_y
             y += img_offset_y
@@ -109,13 +109,13 @@ class CheckButton(Widget):
                 img.copy_sub_image(parent_img, 0, 0, x, y, w, h)
 
             img.blend_sub_image(image, 0, 0, 0, 0)
-            self.get_card().copy_sub_image(self, img, w, h, img_offset_x, img_offset_y)
+            self.card.copy_sub_image(self, img, w, h, img_offset_x, img_offset_y)
 
         else:
 
             w, h = image.size
-            img_offset_x, img_offset_y = self.get_image_offset()
-            self.get_card().copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
+            img_offset_x, img_offset_y = self.image_offset
+            self.card.copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
 
     def __update_card_image(self):
 
@@ -123,7 +123,7 @@ class CheckButton(Widget):
 
         if self._delay_card_update:
             task_id = "update_card_image"
-            PendingTasks.add(task, task_id, sort=1, id_prefix=self.get_widget_id(),
+            PendingTasks.add(task, task_id, sort=1, id_prefix=self.widget_id,
                              batch_id="widget_card_update")
         else:
             task()

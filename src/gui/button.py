@@ -5,8 +5,7 @@ from .tooltip import ToolTip
 class Button(Widget, HotkeyManager):
 
     def __init__(self, parent, gfx_data, text="", icon_id="", tooltip_text="", command=None,
-                 text_alignment="center", icon_alignment="center", button_type="",
-                 stretch_dir="horizontal", hidden=False):
+                 text_alignment="center", icon_alignment="center", button_type="", hidden=False):
 
         if gfx_data["normal"] and gfx_data["normal"][0][0] not in TextureAtlas["regions"]:
             gfx_data["normal"] = ()
@@ -15,8 +14,7 @@ class Button(Widget, HotkeyManager):
             if gfx_data["disabled"][0][0] not in TextureAtlas["regions"]:
                 del gfx_data["disabled"]
 
-        Widget.__init__(self, "button", parent, gfx_data, initial_state="normal",
-                        stretch_dir=stretch_dir, hidden=hidden)
+        Widget.__init__(self, "button", parent, gfx_data, initial_state="normal", hidden=hidden)
 
         self._hotkey = None
         self._hotkey_text = ""
@@ -38,7 +36,7 @@ class Button(Widget, HotkeyManager):
 
         if icon_id:
 
-            width, height = self.get_min_size()
+            width, height = self.min_size
 
             if width < height:
                 self.set_size((height, height), is_min=True)
@@ -173,7 +171,7 @@ class Button(Widget, HotkeyManager):
         if not image:
             image = PNMImage(width, height, 4)
 
-        l, r, b, t = self.get_gfx_inner_borders()
+        l, r, b, t = self.gfx_inner_borders
 
         if self._text:
 
@@ -228,7 +226,7 @@ class Button(Widget, HotkeyManager):
 
     def __card_update_task(self):
 
-        prev_state = self.get_state()
+        prev_state = self.state
         active_state = "active" if self.has_state("active") else ""
         pressed_state = "pressed" if self.has_state("pressed") else ""
         hilited_state = "hilited" if self.has_state("hilited") else ""
@@ -237,11 +235,11 @@ class Button(Widget, HotkeyManager):
                  (active_state if active_state and self._active else
                  (hilited_state if hilited_state and self._has_mouse else "normal")))
                  if self.is_enabled() else disabled_state)
-        self.set_state(state)
+        self.state = state
         image = self.get_image(composed=False)
 
         if not image:
-            self.set_state(prev_state)
+            self.state = prev_state
             return
 
         parent = self.parent
@@ -258,7 +256,7 @@ class Button(Widget, HotkeyManager):
             img.copy_sub_image(parent_img, 0, 0, x, y, w, h)
 
         img.blend_sub_image(image, 0, 0, 0, 0)
-        self.get_card().copy_sub_image(self, img, w, h)
+        self.card.copy_sub_image(self, img, w, h)
 
     def __update_card_image(self):
 
@@ -266,7 +264,7 @@ class Button(Widget, HotkeyManager):
 
         if self._delay_card_update:
             task_id = "update_card_image"
-            PendingTasks.add(task, task_id, sort=1, id_prefix=self.get_widget_id(),
+            PendingTasks.add(task, task_id, sort=1, id_prefix=self.widget_id,
                              batch_id="widget_card_update")
         else:
             task()
@@ -357,12 +355,12 @@ class Button(Widget, HotkeyManager):
             disabled_state = "disabled" if self.has_state("disabled") else "normal"
             state = ((active_state if self._active else "normal") if self.is_enabled()
                      else disabled_state)
-            self.set_state(state)
+            self.state = state
             self._is_pressed = False
 
     def enable(self, enable=True, check_group_disablers=True):
 
-        if enable and not self.is_always_enabled() and self._group and check_group_disablers:
+        if enable and not self.always_enabled and self._group and check_group_disablers:
             for disabler in self._group.get_disablers().values():
                 if disabler():
                     return False

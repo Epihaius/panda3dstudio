@@ -7,8 +7,8 @@ class Widget:
     registry = {}
     _count = 0
 
-    def __init__(self, widget_type, parent, gfx_data, initial_state="", stretch_dir="",
-                 hidden=False, has_mouse_region=True):
+    def __init__(self, widget_type, parent, gfx_data, initial_state="", hidden=False,
+                 has_mouse_region=True):
 
         self.type = "widget"
         self.widget_type = widget_type
@@ -16,13 +16,13 @@ class Widget:
         self.node = parent.node.attach_new_node("widget") if parent else NodePath("widget")
         self._gfx_data = gfx_data
         self._current_state = initial_state
-        self._stretch_dir = stretch_dir
         self._is_hidden = hidden or not parent
-        self._is_contents_hidden = False
+        # this flag is relevant only for container widgets like panels
+        self.contents_hidden = False
         self._is_enabled = True
         self._is_always_enabled = False
         self._disablers = {}
-        self._image_offset = (0, 0)
+        self.image_offset = (0, 0)
         self._images = {}
 
         tex_atlas_regions = TextureAtlas["regions"]
@@ -30,41 +30,31 @@ class Widget:
         v_sizes = []
 
         for parts in gfx_data.values():
-
             if parts:
-
                 for part_id in parts[0]:
                     x, y, w, h = tex_atlas_regions[part_id]
                     h_sizes.append(w)
-
                 for part_row in parts:
                     x, y, w, h = tex_atlas_regions[part_row[0]]
                     v_sizes.append(h)
-
                 break
 
         w = sum(h_sizes)
         h = sum(v_sizes)
 
-        if stretch_dir in ("both", "horizontal"):
-            index = len(h_sizes) // 2
-            w -= h_sizes[index] if index else 0
-            border_left = sum(h_sizes[:index])
-            border_right = sum(h_sizes[index+1:])
-        else:
-            border_left = border_right = 0
+        index = len(h_sizes) // 2
+        w -= h_sizes[index] if index else 0
+        border_left = sum(h_sizes[:index])
+        border_right = sum(h_sizes[index+1:])
 
-        if stretch_dir in ("both", "vertical"):
-            index = len(v_sizes) // 2
-            h -= v_sizes[index] if index else 0
-            border_bottom = sum(v_sizes[index+1:])
-            border_top = sum(v_sizes[:index])
-        else:
-            border_bottom = border_top = 0
+        index = len(v_sizes) // 2
+        h -= v_sizes[index] if index else 0
+        border_bottom = sum(v_sizes[index+1:])
+        border_top = sum(v_sizes[:index])
 
         self._size = self._min_size = self._gfx_size = (w, h)
         self._sizer = None
-        self._sizer_item = None
+        self.sizer_item = None
         # inner borders are derived from the widget graphics
         self._gfx_inner_borders = (border_left, border_right, border_bottom, border_top)
         # custom inner borders are specified by the user in the texture atlas;
@@ -100,7 +90,7 @@ class Widget:
             self._sizer.destroy()
             self._sizer = None
 
-        self._sizer_item = None
+        self.sizer_item = None
 
         if self._parent:
 
@@ -116,15 +106,8 @@ class Widget:
 
         return True
 
-    def get_ancestor(self, widget_type):
-
-        if self.widget_type == widget_type:
-            return self
-
-        if self._parent:
-            return self._parent.get_ancestor(widget_type)
-
-    def get_widget_id(self):
+    @property
+    def widget_id(self):
 
         return self._widget_id
 
@@ -132,6 +115,11 @@ class Widget:
     def parent(self):
 
         return self._parent
+
+    @parent.setter
+    def parent(self, parent):
+
+        self.set_parent(parent)
 
     def set_parent(self, parent, show=True):
 
@@ -149,52 +137,53 @@ class Widget:
             self.hide()
             self._parent = parent
 
-    @parent.setter
-    def parent(self, parent):
+    def get_ancestor(self, widget_type):
 
-        self.set_parent(parent)
+        if self.widget_type == widget_type:
+            return self
 
-    def get_card(self):
+        if self._parent:
+            return self._parent.get_ancestor(widget_type)
 
-        return self._parent.get_card()
+    @property
+    def card(self):
 
-    def get_gfx_inner_borders(self):
+        return self._parent.card
+
+    @property
+    def gfx_inner_borders(self):
 
         return self._gfx_inner_borders
 
-    def set_inner_borders(self, borders):
-
-        self._inner_borders = borders
-
-    def get_inner_borders(self):
+    @property
+    def inner_borders(self):
 
         return self._inner_borders
 
-    def set_outer_borders(self, borders):
-
-        self._outer_borders = borders
-
-    def get_outer_borders(self):
+    @property
+    def outer_borders(self):
 
         return self._outer_borders
+
+    @outer_borders.setter
+    def outer_borders(self, borders):
+
+        self._outer_borders = borders
 
     def has_state(self, state):
 
         return state in self._gfx_data
 
-    def set_state(self, state):
-
-        if state in self._gfx_data:
-            self._current_state = state
-
-    def get_state(self):
+    @property
+    def state(self):
 
         return self._current_state
 
-    def set_pos(self, pos):
+    @state.setter
+    def state(self, state):
 
-        x, y = pos
-        self.node.set_pos(x, 0, -y)
+        if state in self._gfx_data:
+            self._current_state = state
 
     def get_pos(self, ref_node=None, from_root=False):
 
@@ -211,39 +200,44 @@ class Widget:
 
         return (int(x), int(y))
 
-    def set_sizer(self, sizer):
+    def set_pos(self, pos):
+
+        x, y = pos
+        self.node.set_pos(x, 0, -y)
+
+    @property
+    def sizer(self):
+
+        return self._sizer
+
+    @sizer.setter
+    def sizer(self, sizer):
 
         if sizer:
             sizer.owner = self
 
         self._sizer = sizer
 
-    def get_sizer(self):
+    @property
+    def min_size(self):
 
-        return self._sizer
-
-    def set_sizer_item(self, sizer_item):
-
-        self._sizer_item = sizer_item
-
-    def get_sizer_item(self):
-
-        return self._sizer_item
-
-    def get_stretch_dir(self):
-
-        return self._stretch_dir
+        return self.get_min_size()
 
     def get_min_size(self, ignore_sizer=False):
 
         if ignore_sizer:
             return self._min_size
 
-        return self._sizer.get_min_size() if self._sizer else self._min_size
+        return self._sizer.min_size if self._sizer else self._min_size
 
-    def get_gfx_size(self):
+    @property
+    def gfx_size(self):
 
         return self._gfx_size
+
+    def get_size(self):
+
+        return self._sizer.get_size() if self._sizer else self._size
 
     def set_size(self, size, includes_borders=True, is_min=False):
 
@@ -263,20 +257,15 @@ class Widget:
         if is_min:
             w_new, h_new = width, height
         else:
-            w_new, h_new = self.get_min_size()
-            width, height = (max(w_new, width), max(h_new, height))
+            w_min, h_min = self.min_size
+            w_new, h_new = (max(w_min, width), max(h_min, height))
 
-        if self._stretch_dir in ("both", "horizontal"):
-            if includes_borders:
-                w_new = max(width, borders_h)
-            else:
-                w_new = width + borders_h
-
-        if self._stretch_dir in ("both", "vertical"):
-            if includes_borders:
-                h_new = max(height, borders_v)
-            else:
-                h_new = height + borders_v
+        if includes_borders:
+            w_new = max(w_new, borders_h)
+            h_new = max(h_new, borders_v)
+        else:
+            w_new += borders_h
+            h_new += borders_v
 
         new_size = (w_new, h_new)
 
@@ -290,9 +279,17 @@ class Widget:
 
         return new_size
 
-    def get_size(self):
+    def get_image(self, state=None, composed=True):
 
-        return self._sizer.get_size() if self._sizer else self._size
+        image = self._images.get(state if state else self._current_state)
+
+        if image:
+            image = PNMImage(image)
+
+        if image and composed and self._sizer:
+            image = self._sizer.get_composed_image(image)
+
+        return image
 
     def update_images(self, recurse=True, size=None):
 
@@ -307,7 +304,6 @@ class Widget:
         l, r, b, t = self._gfx_inner_borders
         borders_h = l + r
         borders_v = b + t
-        stretch_dir = self._stretch_dir
 
         def create_center_image(x, y, width, height, scaled_width, scaled_height):
 
@@ -348,19 +344,19 @@ class Widget:
 
                     x, y, w, h = tex_atlas_regions[part_id]
 
-                    if stretch_dir == "both" and i == i_middle and j == j_middle:
+                    if i == i_middle and j == j_middle:
                         scaled_w = width - borders_h
                         scaled_h = height - borders_v
                         center_img = create_center_image(x, y, w, h, scaled_w, scaled_h)
                         img.copy_sub_image(center_img, offset_x, offset_y, 0, 0)
                         w = scaled_w
                         h = scaled_h
-                    elif stretch_dir in ("both", "horizontal") and j == j_middle:
+                    elif j == j_middle:
                         scaled_w = width - borders_h
                         center_img = create_center_image(x, y, w, h, scaled_w, h)
                         img.copy_sub_image(center_img, offset_x, offset_y, 0, 0)
                         w = scaled_w
-                    elif stretch_dir in ("both", "vertical") and i == i_middle:
+                    elif i == i_middle:
                         scaled_h = height - borders_v
                         center_img = create_center_image(x, y, w, h, w, scaled_h)
                         img.copy_sub_image(center_img, offset_x, offset_y, 0, 0)
@@ -376,26 +372,6 @@ class Widget:
             self._sizer.update_images()
 
         return images
-
-    def get_image(self, state=None, composed=True):
-
-        image = self._images.get(state if state else self._current_state)
-
-        if image:
-            image = PNMImage(image)
-
-        if image and composed and self._sizer:
-            image = self._sizer.get_composed_image(image)
-
-        return image
-
-    def set_image_offset(self, offset):
-
-        self._image_offset = offset
-
-    def get_image_offset(self):
-
-        return self._image_offset
 
     def update_mouse_region_frames(self, exclude="", recurse=True):
 
@@ -430,15 +406,14 @@ class Widget:
 
         return self._parent.mouse_watcher
 
-    def set_contents_hidden(self, hidden=True):
-        """ This method is relevant only for container widgets like panels """
+    def is_hidden(self, check_ancestors=True):
 
-        self._is_contents_hidden = hidden
+        hidden = self._is_hidden
 
-    def is_contents_hidden(self):
-        """ This method is relevant only for container widgets like panels """
+        if not hidden and check_ancestors and self._parent:
+            return self._parent.contents_hidden or self._parent.is_hidden()
 
-        return self._is_contents_hidden
+        return hidden
 
     def hide(self, recurse=True):
 
@@ -486,15 +461,6 @@ class Widget:
 
         return True
 
-    def is_hidden(self, check_ancestors=True):
-
-        hidden = self._is_hidden
-
-        if not hidden and check_ancestors and self._parent:
-            return self._parent.is_contents_hidden() or self._parent.is_hidden()
-
-        return hidden
-
     def add_disabler(self, disabler_id, disabler):
 
         self._disablers[disabler_id] = disabler
@@ -503,16 +469,18 @@ class Widget:
 
         del self._disablers[disabler_id]
 
-    def set_always_enabled(self, always_enabled=True):
+    @property
+    def always_enabled(self):
+
+        return self._is_always_enabled
+
+    @always_enabled.setter
+    def always_enabled(self, always_enabled=True):
 
         self._is_always_enabled = always_enabled
 
         if always_enabled:
             self.enable()
-
-    def is_always_enabled(self):
-
-        return self._is_always_enabled
 
     def enable(self, enable=True, ignore_parent=False):
 
@@ -558,25 +526,27 @@ class Widget:
 
 class WidgetCard:
 
-    def __init__(self, widget_type, parent=None, stretch_dir=""):
+    def __init__(self, widget_type, parent=None):
 
         self.type = "widget"
         self.widget_type = widget_type
         self._parent = parent if parent else Mgr.get("window")
         self.node = self._parent.node.attach_new_node("card")
-        self._stretch_dir = stretch_dir
         self._size = self._min_size = (0, 0)
         self._sizer = None
-        self._sizer_item = None
+        self.sizer_item = None
         self._transparent = False
         self._quad = None
         self.create_quad()
-        self._tex = tex = Texture("card_tex")
+        self.texture = tex = Texture("card_tex")
         tex.minfilter = SamplerState.FT_nearest
         tex.magfilter = SamplerState.FT_nearest
         self._image = None
+        self.image_offset = (0, 0)
+        self.outer_borders = (0, 0, 0, 0)
         self.mouse_region = None
-        self._outer_borders = (0, 0, 0, 0)
+        # this flag is relevant only for container widgets like panels
+        self.contents_hidden = False
 
     def destroy(self):
 
@@ -588,7 +558,7 @@ class WidgetCard:
             self._sizer.destroy()
             self._sizer = None
 
-        self._sizer_item = None
+        self.sizer_item = None
 
         if self._quad:
             self._quad.remove_node()
@@ -599,6 +569,11 @@ class WidgetCard:
             self.mouse_region = None
 
         self._image = None
+
+    @property
+    def card(self):
+
+        return self
 
     @property
     def parent(self):
@@ -641,19 +616,10 @@ class WidgetCard:
 
         return quad
 
-    def get_quad(self):
+    @property
+    def quad(self):
 
         return self._quad
-
-    def get_card(self):
-
-        return self
-
-    def set_pos(self, pos):
-
-        x, y = pos
-        self.node.set_pos(x, 0, -y)
-        self.update_quad_pos()
 
     def update_quad_pos(self):
 
@@ -674,34 +640,36 @@ class WidgetCard:
 
         return (int(x), int(y))
 
-    def set_sizer(self, sizer):
+    def set_pos(self, pos):
+
+        x, y = pos
+        self.node.set_pos(x, 0, -y)
+        self.update_quad_pos()
+
+    @property
+    def sizer(self):
+
+        return self._sizer
+
+    @sizer.setter
+    def sizer(self, sizer):
 
         sizer.owner = self
         self._sizer = sizer
 
-    def get_sizer(self):
+    @property
+    def min_size(self):
 
-        return self._sizer
+        return self._sizer.min_size if self._sizer else self._min_size
 
-    def set_sizer_item(self, sizer_item):
-
-        self._sizer_item = sizer_item
-
-    def get_sizer_item(self):
-
-        return self._sizer_item
-
-    def get_stretch_dir(self):
-
-        return self._stretch_dir
-
-    def get_min_size(self):
-
-        return self._sizer.get_min_size() if self._sizer else self._min_size
-
-    def get_gfx_size(self):
+    @property
+    def gfx_size(self):
 
         return (0, 0)
+
+    def get_size(self):
+
+        return self._sizer.get_size() if self._sizer else self._size
 
     def set_size(self, size, is_min=False):
 
@@ -710,14 +678,8 @@ class WidgetCard:
         if is_min:
             w_new, h_new = width, height
         else:
-            w_new, h_new = self.get_min_size()
-            width, height = (max(w_new, width), max(h_new, height))
-
-        if self._stretch_dir in ("both", "horizontal"):
-            w_new = width
-
-        if self._stretch_dir in ("both", "vertical"):
-            h_new = height
+            w_min, h_min = self.min_size
+            w_new, h_new = (max(w_min, width), max(h_min, height))
 
         new_size = (w_new, h_new)
 
@@ -729,30 +691,14 @@ class WidgetCard:
         if is_min:
             self._min_size = new_size
 
-    def get_size(self):
+    def get_image(self, composed=False):
 
-        return self._sizer.get_size() if self._sizer else self._size
+        return None
 
     def update_images(self):
 
         if self._sizer:
             self._sizer.update_images()
-
-    def get_image(self, composed=False):
-
-        return None
-
-    def set_outer_borders(self, borders):
-
-        self._outer_borders = borders
-
-    def get_outer_borders(self):
-
-        return self._outer_borders
-
-    def get_image_offset(self):
-
-        return (0, 0)
 
     def copy_sub_image(self, widget, sub_image, width, height, offset_x=0, offset_y=0):
 
@@ -765,13 +711,9 @@ class WidgetCard:
         x += offset_x
         y += offset_y
         img.copy_sub_image(sub_image, x, y, 0, 0, width, height)
-        self._tex.load(img)
+        self.texture.load(img)
 
         return True
-
-    def get_texture(self):
-
-        return self._tex
 
     @property
     def mouse_watcher(self):
@@ -805,11 +747,6 @@ class WidgetCard:
             t = -y
 
         self.mouse_region.frame = (l, r, b, t)
-
-    def is_contents_hidden(self):
-        """ This method is meaningful only for container widgets like panels """
-
-        return False
 
     def is_hidden(self, check_ancestors=True):
 

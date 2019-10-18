@@ -429,7 +429,7 @@ class TextControl:
             w_ = w - margin * 2
             image.blend_sub_image(label, x, y, self._label_offset, 0, w_, h_l)
 
-        img_offset_x, img_offset_y = self._field.get_image_offset()
+        img_offset_x, img_offset_y = self._field.image_offset
         image.blend_sub_image(self._field.get_border_image(), img_offset_x, img_offset_y, 0, 0)
         self._image = image
         self._tex.load(image)
@@ -609,7 +609,7 @@ class SliderControl:
         self._image = image
 
         image = PNMImage(image)
-        img_offset_x, img_offset_y = self._field.get_image_offset()
+        img_offset_x, img_offset_y = self._field.image_offset
         image.blend_sub_image(self._field.get_border_image(), img_offset_x, img_offset_y, 0, 0)
         self._tex.load(image)
 
@@ -859,9 +859,9 @@ class InputField(Widget):
                  on_accept=None, on_reject=None, on_key_enter=None, on_key_escape=None,
                  allow_reject=True):
 
-        Widget.__init__(self, "input_field", parent, gfx_data={}, stretch_dir="horizontal")
+        Widget.__init__(self, "input_field", parent, gfx_data={})
 
-        self.set_image_offset(image_offset)
+        self.image_offset = image_offset
         self.mouse_region.sort = sort
 
         self._text_color = text_color if text_color else self._default_text_color
@@ -930,13 +930,13 @@ class InputField(Widget):
     def __create_border_image(self):
 
         w, h = self.get_size()
-        l, r, b, t = self.get_outer_borders()
+        l, r, b, t = self.outer_borders
         borders_h = l + r
         borders_v = b + t
         width = w + borders_h
         height = h + borders_v
         gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, stretch_dir="both", has_mouse_region=False)
+        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -1005,7 +1005,7 @@ class InputField(Widget):
         image = self.get_image(composed=False, draw_border=True, crop=True)
 
         if image:
-            self.get_card().copy_sub_image(self, image, *image.size)
+            self.card.copy_sub_image(self, image, *image.size)
 
     def __update_card_image(self):
 
@@ -1013,7 +1013,7 @@ class InputField(Widget):
 
         if self._delay_card_update:
             task_id = "update_card_image"
-            PendingTasks.add(task, task_id, sort=1, id_prefix=self.get_widget_id(),
+            PendingTasks.add(task, task_id, sort=1, id_prefix=self.widget_id,
                              batch_id="widget_card_update")
         else:
             task()
@@ -1075,7 +1075,7 @@ class InputField(Widget):
         if draw_border:
 
             border_img = self._border_image
-            img_offset_x, img_offset_y = self.get_image_offset()
+            img_offset_x, img_offset_y = self.image_offset
 
             if crop:
                 image.blend_sub_image(border_img, img_offset_x, img_offset_y, 0, 0)

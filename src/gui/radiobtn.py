@@ -55,8 +55,8 @@ class RadioButton(Widget):
             btn_borders = self._btn_borders
             img_offset = self._img_offset
 
-        self.set_outer_borders(btn_borders)
-        self.set_image_offset(img_offset)
+        self.outer_borders = btn_borders
+        self.image_offset = img_offset
 
     def destroy(self):
 
@@ -78,7 +78,7 @@ class RadioButton(Widget):
 
         x, y = self.get_pos()
         w, h = self.get_size()
-        img_offset_x, img_offset_y = self.get_image_offset()
+        img_offset_x, img_offset_y = self.image_offset
         w -= img_offset_x
         h -= img_offset_y
         y += img_offset_y
@@ -89,7 +89,7 @@ class RadioButton(Widget):
             img.copy_sub_image(parent_img, 0, 0, x, y, w, h)
 
         img.blend_sub_image(image, 0, 0, 0, 0)
-        self.get_card().copy_sub_image(self, img, w, h, img_offset_x, img_offset_y)
+        self.card.copy_sub_image(self, img, w, h, img_offset_x, img_offset_y)
 
     def __update_card_image(self):
 
@@ -97,7 +97,7 @@ class RadioButton(Widget):
 
         if self._group.is_card_update_delayed():
             task_id = "update_card_image"
-            PendingTasks.add(task, task_id, sort=1, id_prefix=self.get_widget_id(),
+            PendingTasks.add(task, task_id, sort=1, id_prefix=self.widget_id,
                              batch_id="widget_card_update")
         else:
             task()
@@ -195,7 +195,7 @@ class RadioButton(Widget):
 
     def enable(self, enable=True, check_group_disablers=True):
 
-        if enable and not self.is_always_enabled() and check_group_disablers:
+        if enable and not self.always_enabled and check_group_disablers:
             for disabler in self._group.get_disablers().values():
                 if disabler():
                     return False
@@ -231,7 +231,8 @@ class RadioButtonGroup:
         self._btns.clear()
         self._disablers.clear()
 
-    def get_sizer(self):
+    @property
+    def sizer(self):
 
         return self._sizer
 

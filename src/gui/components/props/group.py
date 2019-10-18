@@ -29,7 +29,7 @@ class GroupProperties:
         tooltip_text = "Make members inaccessible"
         command = lambda: Mgr.update_remotely("group", "open", False)
         btn = PanelButton(section, text, "", tooltip_text, command)
-        sizer.add(btn, stretch_h=True)
+        sizer.add(btn, expand_h=True)
 
         sizer.add((0, 0))
 

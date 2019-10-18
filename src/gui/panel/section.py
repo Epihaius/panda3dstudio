@@ -32,7 +32,7 @@ class SectionHeader(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "section_header", parent, self._gfx, stretch_dir="horizontal")
+        Widget.__init__(self, "section_header", parent, self._gfx)
 
     def set_size(self, size, includes_borders=True, is_min=False):
 
@@ -49,7 +49,7 @@ class SectionHeader(Widget):
             images = Widget.update_images(self)
             image = images[""]
             x, y, w, h = TextureAtlas["regions"]["section_header_minus"]
-            l = self.get_gfx_inner_borders()[0]
+            l = self.gfx_inner_borders[0]
             height = self.get_size()[1]
             tex_atlas = TextureAtlas["image"]
             image.blend_sub_image(tex_atlas, l, (height - h) // 2, x, y, w, h)
@@ -83,10 +83,10 @@ class CollapsedSectionHeader(Widget):
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "section_header", parent, self._gfx, stretch_dir="horizontal")
+        Widget.__init__(self, "section_header", parent, self._gfx)
 
         if not self.height:
-            CollapsedSectionHeader.height = self.get_min_size()[1]
+            CollapsedSectionHeader.height = self.min_size[1]
 
         l, r, b, t = TextureAtlas["inner_borders"]["panel"]
         self._hook_node = hook_node = self.node.attach_new_node("hook_node")
@@ -106,7 +106,7 @@ class CollapsedSectionHeader(Widget):
             images = Widget.update_images(self)
             image = images[""]
             x, y, w, h = TextureAtlas["regions"]["section_header_plus"]
-            l = self.get_gfx_inner_borders()[0]
+            l = self.gfx_inner_borders[0]
             height = self.get_size()[1]
             tex_atlas = TextureAtlas["image"]
             image.blend_sub_image(tex_atlas, l, (height - h) // 2, x, y, w, h)
@@ -133,14 +133,14 @@ class PanelSection(Widget):
 
     def __init__(self, parent, section_id, name="", hidden=False):
 
-        Widget.__init__(self, "panel_section", parent, self._gfx, stretch_dir="both",
-                        hidden=hidden, has_mouse_region=False)
+        Widget.__init__(self, "panel_section", parent, self._gfx, hidden=hidden,
+                        has_mouse_region=False)
 
         self.registry[section_id] = self
         self.id = section_id
 
         sizer = Sizer("vertical")
-        Widget.set_sizer(self, sizer)
+        Widget.sizer.fset(self, sizer)
         self._header = header = SectionHeader(self)
         self._collapsed_header = collapsed_header = CollapsedSectionHeader(self)
         sizer.add(header, expand=True)
@@ -205,7 +205,13 @@ class PanelSection(Widget):
 
     def set_pos(self, pos): pass
 
-    def set_sizer(self, sizer): pass
+    @property
+    def sizer(self):
+
+        return Widget.sizer.fget(self)
+
+    @sizer.setter
+    def sizer(self, sizer): pass
 
     def get_client_sizer(self):
 
@@ -241,7 +247,7 @@ class PanelSection(Widget):
             return
 
         self._is_expanded = expand
-        self.set_contents_hidden(not expand)
+        self.contents_hidden = not expand
 
         if self.is_hidden(check_ancestors=False):
             return
