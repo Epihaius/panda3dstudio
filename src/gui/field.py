@@ -495,7 +495,7 @@ class SliderControl:
         cls._default_text_color = Skin["text"]["slider"]["color"]
         cls._color = Skin["colors"]["slider"]
 
-    def __init__(self, field, value_range=(0., 1.), value_type="float", cull_bin=("gui", 3)):
+    def __init__(self, field, value_type="float", value_range=(0., 1.), cull_bin=("gui", 3)):
 
         self._field = field
         self._text_color = self._default_text_color
@@ -546,39 +546,71 @@ class SliderControl:
         self._value = self._range[0]
         self.__update_image()
 
+    def get_text_color(self):
+
+        return self._text_color
+
     def set_text_color(self, color=None):
 
         self._text_color = self._default_text_color if color is None else color
 
-    def get_text_color(self):
+    def get_value(self):
 
-        return self._text_color
+        return self._value
+
+    def set_value(self, value):
+
+        if self._value == value:
+            return
+
+        if self._value_type == "int":
+            value = int(value)
+
+        start, end = self._range
+        self._value = max(start, min(end, value))
+        self.__update_image()
 
     def update_value(self, slide_amount):
 
         w, _ = self._field.get_size()
         offset = slide_amount / w
         start, end = self._range
-        self._value = max(start, min(end, start + offset * (end - start)))
+        value = start + offset * (end - start)
 
         if self._value_type == "int":
-            self._value = int(self._value)
+            value = int(value)
 
+        self._value = max(start, min(end, value))
         self.__update_image()
-
-    def set_value(self, value):
-
-        if self._value != value:
-            self._value = value
-            self.__update_image()
-
-    def get_value(self):
-
-        return self._value
 
     def get_value_range(self):
 
         return self._range
+
+    def set_value_range(self, value_range, rescale_value=True, value_type=None):
+
+        if rescale_value:
+            start, end = self._range
+            rel_val = (self._value - start) / (end - start)
+            start, end = value_range
+            value = start + rel_val * (end - start)
+        else:
+            value = self._value
+
+        if value_type is not None:
+            self._value_type = value_type
+
+        if self._value_type == "int":
+            value = int(value)
+
+        start, end = value_range
+        self._value = max(start, min(end, value))
+        self._range = value_range
+        self.__update_image()
+
+    def get_image(self):
+
+        return self._image
 
     def __update_image(self):
 
@@ -612,10 +644,6 @@ class SliderControl:
         img_offset_x, img_offset_y = self._field.image_offset
         image.blend_sub_image(self._field.get_border_image(), img_offset_x, img_offset_y, 0, 0)
         self._tex.load(image)
-
-    def get_image(self):
-
-        return self._image
 
     def hide(self):
 
@@ -1775,13 +1803,13 @@ class SliderMixin:
         if self._slider_ctrl:
             self._slider_ctrl.set_size(size)
 
-    def set_slider_value(self, value):
-
-        self._slider_ctrl.set_value(value)
-
     def get_slider_value(self):
 
         return self._slider_ctrl.get_value()
+
+    def set_slider_value(self, value):
+
+        self._slider_ctrl.set_value(value)
 
     def get_value_range(self):
 
@@ -1805,7 +1833,7 @@ class SliderInputField(SliderMixin, InputField):
                             image_offset, font, text_color, back_color, sort, cull_bin, on_accept,
                             on_reject, on_key_enter, on_key_escape, allow_reject)
 
-        self._slider_ctrl = SliderControl(self, value_range, value_type, cull_bin)
+        self._slider_ctrl = SliderControl(self, value_type, value_range, cull_bin)
         self.set_value(self._slider_ctrl.get_value())
 
     def destroy(self):
@@ -1836,6 +1864,11 @@ class SliderInputField(SliderMixin, InputField):
         self._slider_ctrl.set_value(value)
 
         return InputField.set_value(self, value, text_handler, handle_value, state)
+
+    def set_value_range(self, value_range, rescale_value=True, value_type=None):
+
+        self._slider_ctrl.set_value_range(value_range, rescale_value, value_type)
+        InputField.set_value(self, self._slider_ctrl.get_value())
 
 
 class MultiValInputField(SliderMixin, InputField):
@@ -1951,7 +1984,7 @@ class MultiValInputField(SliderMixin, InputField):
             self._value_handlers[value_id] = lambda value_id, value, state: None
 
         if value_range:
-            slider_ctrl = SliderControl(self, value_range, value_type, self._cull_bin)
+            slider_ctrl = SliderControl(self, value_type, value_range, self._cull_bin)
             slider_ctrl.set_scissor_effect(self._scissor_effect)
             self._slider_ctrls[value_id] = slider_ctrl
             self._values[value_id] = value_range[0]
@@ -1961,6 +1994,16 @@ class MultiValInputField(SliderMixin, InputField):
     def add_slider_value(self, value_id, value_type, value_range, handler, font=None):
 
         self.add_value(value_id, value_type, handler, font, value_range)
+
+    def set_value_range(self, value_id, value_range, rescale_value=True, value_type=None):
+
+        if value_id in self._slider_ctrls:
+
+            slider_ctrl = self._slider_ctrls[value_id]
+            slider_ctrl.set_value_range(value_range, rescale_value, value_type)
+
+            if InputField.set_value(self, slider_ctrl.get_value()):
+                self._texts[value_id] = self._text
 
     def accept_input(self, text_handler=None):
 

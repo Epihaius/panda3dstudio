@@ -379,6 +379,7 @@ class HueSatControl(WidgetCard):
         listener.accept("gui_mouse1", self.__on_left_down)
 
         self._picking_color = False
+        self._marker_start_pos = (0., 0.)
         self._prev_mouse_pos = (0, 0)
         self._command = command
         r, g, b = self._gradient.get_xel(0, 0)
@@ -420,34 +421,46 @@ class HueSatControl(WidgetCard):
         t = -y
         self.mouse_region.frame = (l, r, b, t)
 
+    def __get_marker_pos(self):
+
+        w, h = self.get_size()
+        w_b, h_b = self._border_image.size
+        marker = self._marker
+        w_m, h_m = marker.size
+        offset_x, offset_y = self._img_offset
+        x, y = self.quad.get_tex_offset(self._ts2)
+        x = (.5 - x) * w_m
+        x += offset_x
+        y = h_b - (.5 - y) * h_m
+        y += offset_y
+
+        return x, y
+
     def __set_marker_pos(self, x, y):
 
-        border_img = self._border_image
         w, h = self.get_size()
-        w_b, h_b = border_img.size
+        w_b, h_b = self._border_image.size
         marker = self._marker
         w_m, h_m = marker.size
         offset_x, offset_y = self._img_offset
         x -= offset_x
-        x = .5 - (x / w_b) * w_b / w_m
+        x = .5 - x / w_m
         y -= offset_y
-        y = .5 - (1. - y / h_b) * h_b / h_m
+        y = .5 - (h_b - y) / h_m
         self.quad.set_tex_offset(self._ts2, x, y)
 
     def set_hue_sat(self, hue, saturation):
 
-        border_img = self._border_image
         w, h = self.get_size()
-        w_b, h_b = border_img.size
         marker = self._marker
         w_m, h_m = marker.size
         offset_x, offset_y = self._img_offset
         x = int(w * hue)
         x -= offset_x
-        x = .5 - (x / w_b) * w_b / w_m
+        x = .5 - x / w_m
         y = int(h * saturation)
         y -= offset_y
-        y = .5 - (y / h_b) * h_b / h_m
+        y = .5 - y / h_m
         self.quad.set_tex_offset(self._ts2, x, y)
 
     def __pick_color(self, task):
@@ -470,17 +483,26 @@ class HueSatControl(WidgetCard):
 
         return task.cont
 
-    def __end_color_picking(self):
+    def __end_color_picking(self, cancel=False):
 
         if self._picking_color:
 
             self._listener.ignore("gui_mouse1-up")
+            self._listener.ignore("gui_mouse3")
             Mgr.remove_task("pick_color")
             w, h = self.get_size()
-            mouse_pointer = Mgr.get("mouse_pointer", 0)
-            x, y = self.get_pos(from_root=True)
-            x = max(0, min(int(mouse_pointer.x - x), w - 1))
-            y = max(0, min(int(mouse_pointer.y - y), h - 1))
+
+            if cancel:
+                x, y = self._marker_start_pos
+                self.__set_marker_pos(x, y)
+                x = int(x)
+                y = int(y)
+            else:
+                mouse_pointer = Mgr.get("mouse_pointer", 0)
+                x, y = self.get_pos(from_root=True)
+                x = max(0, min(int(mouse_pointer.x - x), w - 1))
+                y = max(0, min(int(mouse_pointer.y - y), h - 1))
+
             self._picking_color = False
             r, g, b = self._gradient.get_xel(x, y)
             color = (r, g, b)
@@ -508,8 +530,10 @@ class HueSatControl(WidgetCard):
 
         if region == self.mouse_region:
             self._picking_color = True
+            self._marker_start_pos = self.__get_marker_pos()
             Mgr.add_task(self.__pick_color, "pick_color")
             self._listener.accept("gui_mouse1-up", self.__end_color_picking)
+            self._listener.accept("gui_mouse3", lambda: self.__end_color_picking(cancel=True))
 
 
 class LuminanceControl(WidgetCard):
@@ -640,7 +664,7 @@ class LuminanceControl(WidgetCard):
         self._prev_mouse_pos = (0, 0)
         self._command = command
         self._main_color = (1., 0., 0.)
-        self._luminance = .5
+        self._luminance = self._luminance_start = .5
 
     def destroy(self):
 
@@ -723,12 +747,17 @@ class LuminanceControl(WidgetCard):
 
         return task.cont
 
-    def __end_color_picking(self):
+    def __end_color_picking(self, cancel=False):
 
         if self._picking_color:
 
             self._listener.ignore("gui_mouse1-up")
+            self._listener.ignore("gui_mouse3")
             Mgr.remove_task("pick_color")
+
+            if cancel:
+                self.set_luminance(self._luminance_start)
+
             self.__apply_luminance(continuous=False, update_fields=True)
 
             if self.mouse_watcher.get_over_region() != self.mouse_region:
@@ -755,8 +784,10 @@ class LuminanceControl(WidgetCard):
 
         if region == self.mouse_region:
             self._picking_color = True
+            self._luminance_start = self._luminance
             Mgr.add_task(self.__pick_color, "pick_color")
             self._listener.accept("gui_mouse1-up", self.__end_color_picking)
+            self._listener.accept("gui_mouse3", lambda: self.__end_color_picking(cancel=True))
 
 
 class NewColorSwatch(WidgetCard):
@@ -947,13 +978,13 @@ class ComponentField(DialogSliderField):
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, value_id, handler, width, dialog=None, font=None,
-                 text_color=None, back_color=None):
+    def __init__(self, parent, value_id, value_range, handler, width, dialog=None,
+                 font=None, text_color=None, back_color=None):
 
         if not self._field_borders:
             self.__set_field_borders()
 
-        DialogSliderField.__init__(self, parent, value_id, "int", (0, 255), handler,
+        DialogSliderField.__init__(self, parent, value_id, "float", value_range, handler,
                                    width, INSET1_BORDER_GFX_DATA, self._img_offset,
                                    dialog, font, text_color, back_color)
 
@@ -966,8 +997,10 @@ class ComponentField(DialogSliderField):
 
     def __parse_color_component_input(self, input_text):
 
+        start, end = self.get_value_range()
+
         try:
-            return min(255, max(0, abs(int(eval(input_text)))))
+            return min(end, max(start, eval(input_text)))
         except:
             return None
 
@@ -975,6 +1008,16 @@ class ComponentField(DialogSliderField):
 class ColorDialog(Dialog):
 
     _clock = ClockObject()
+    _rgb_range_id = "255"
+
+    @classmethod
+    def __set_rgb_range(cls, range_id, fields):
+
+        cls._rgb_range_id = range_id
+        value_range = (0., 255.) if range_id == "255" else (0., 1.)
+
+        for field in fields:
+            field.set_value_range(value_range)
 
     def __init__(self, title="", color=(1., 1., 1.), choices="okcancel", ok_alias="OK",
                  on_yes=None, on_no=None, on_cancel=None):
@@ -1007,7 +1050,7 @@ class ColorDialog(Dialog):
         gradient_sizer = Sizer("horizontal")
         control_subsizer = Sizer("horizontal")
         control_sizer.add(gradient_sizer, expand=True, borders=borders)
-        borders = (20, 20, 30, 0)
+        borders = (20, 20, 10, 0)
         control_sizer.add(control_subsizer, expand=True, borders=borders)
         subsizer.add(control_sizer, expand=True)
         client_sizer.add(subsizer, expand=True)
@@ -1052,26 +1095,47 @@ class ColorDialog(Dialog):
         hsl_field_sizer.add(l_sizer, expand=True)
 
         borders = (5, 0, 0, 0)
+        rgb_fields = []
 
-        field = ComponentField(self, "red", self.__handle_color_component, 100)
+        val_rng = (0., 255.) if self._rgb_range_id == "255" else (0., 1.)
+        field = ComponentField(self, "red", val_rng, self.__handle_color_component, 100)
         r_sizer.add(field, proportion=1., borders=borders)
+        rgb_fields.append(field)
         fields["red"] = field
-        field = ComponentField(self, "green", self.__handle_color_component, 100)
+        field = ComponentField(self, "green", val_rng, self.__handle_color_component, 100)
         g_sizer.add(field, proportion=1., borders=borders)
+        rgb_fields.append(field)
         fields["green"] = field
-        field = ComponentField(self, "blue", self.__handle_color_component, 100)
+        field = ComponentField(self, "blue", val_rng, self.__handle_color_component, 100)
         b_sizer.add(field, proportion=1., borders=borders)
+        rgb_fields.append(field)
         fields["blue"] = field
 
-        field = ComponentField(self, "hue", self.__handle_color_component, 100)
+        val_rng = (0., 1.)
+        field = ComponentField(self, "hue", val_rng, self.__handle_color_component, 100)
         h_sizer.add(field, proportion=1., borders=borders)
         fields["hue"] = field
-        field = ComponentField(self, "sat", self.__handle_color_component, 100)
+        field = ComponentField(self, "sat", val_rng, self.__handle_color_component, 100)
         s_sizer.add(field, proportion=1., borders=borders)
         fields["sat"] = field
-        field = ComponentField(self, "lum", self.__handle_color_component, 100)
+        field = ComponentField(self, "lum", val_rng, self.__handle_color_component, 100)
         l_sizer.add(field, proportion=1., borders=borders)
         fields["lum"] = field
+
+        range_sizer = Sizer("horizontal")
+        borders = (20, 20, 20, 0)
+        control_sizer.add(range_sizer, expand=True, borders=borders)
+        range_sizer.add(DialogText(self, "RGB range:"), alignment="center_v")
+        radio_btns = DialogRadioButtonGroup(self, columns=2, gap_h=10)
+        radio_btns.add_button("255", "0-255")
+        command = lambda: self.__set_rgb_range("255", rgb_fields)
+        radio_btns.set_button_command("255", command)
+        radio_btns.add_button("1", "0-1")
+        command = lambda: self.__set_rgb_range("1", rgb_fields)
+        radio_btns.set_button_command("1", command)
+        radio_btns.set_selected_button(self._rgb_range_id)
+        borders = (5, 0, 0, 0)
+        range_sizer.add(radio_btns.sizer, alignment="center_v", borders=borders)
 
         self.finalize()
         self.__set_color(color, update_gradients=True)
@@ -1106,14 +1170,15 @@ class ColorDialog(Dialog):
 
             if update_fields:
 
-                r, g, b = [int(c * 255.) for c in color]
+                rgb_scale = 255. if self._rgb_range_id == "255" else 1.
+                r, g, b = [c * rgb_scale for c in color]
                 fields["red"].set_value(r)
                 fields["green"].set_value(g)
                 fields["blue"].set_value(b)
                 h, l, s = colorsys.rgb_to_hls(*color)
-                fields["hue"].set_value(int(h * 255.))
-                fields["sat"].set_value(int(s * 255.))
-                fields["lum"].set_value(int(l * 255.))
+                fields["hue"].set_value(h)
+                fields["sat"].set_value(s)
+                fields["lum"].set_value(l)
 
                 if update_gradients:
                     lum_ctrl = self._controls["luminance"]
@@ -1127,14 +1192,15 @@ class ColorDialog(Dialog):
         fields = self._fields
         rgb_components = ["red", "green", "blue"]
         hsl_components = ["hue", "sat", "lum"]
+        rgb_scale = 255. if self._rgb_range_id == "255" else 1.
 
         if component_id in rgb_components:
 
-            r, g, b = [fields[c].get_value() / 255. for c in rgb_components]
+            r, g, b = [fields[c].get_value() / rgb_scale for c in rgb_components]
             h, l, s = colorsys.rgb_to_hls(r, g, b)
-            fields["hue"].set_value(int(h * 255.))
-            fields["sat"].set_value(int(s * 255.))
-            fields["lum"].set_value(int(l * 255.))
+            fields["hue"].set_value(h)
+            fields["sat"].set_value(s)
+            fields["lum"].set_value(l)
             self._controls["luminance"].set_luminance(l)
             r_, g_, b_ = colorsys.hls_to_rgb(h, .5, s)
             self._controls["luminance"].set_main_color((r_, g_, b_), continuous=False)
@@ -1142,11 +1208,11 @@ class ColorDialog(Dialog):
 
         else:
 
-            h, s, l = [fields[c].get_value() / 255. for c in hsl_components]
+            h, s, l = [fields[c].get_value() for c in hsl_components]
             r, g, b = colorsys.hls_to_rgb(h, l, s)
-            fields["red"].set_value(int(r * 255.))
-            fields["green"].set_value(int(g * 255.))
-            fields["blue"].set_value(int(b * 255.))
+            fields["red"].set_value(r * rgb_scale)
+            fields["green"].set_value(g * rgb_scale)
+            fields["blue"].set_value(b * rgb_scale)
 
             if component_id == "lum":
                 self._controls["luminance"].set_luminance(l)
