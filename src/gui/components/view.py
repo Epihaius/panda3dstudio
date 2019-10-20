@@ -43,19 +43,10 @@ class AlphaField(DialogSliderField):
         DialogSliderField.__init__(self, parent, "alpha", "float", (0., 1.), handler,
                                    width, INSET1_BORDER_GFX_DATA, img_offset)
 
-        self.set_input_parser(self.__parse_alpha_input)
-
     @property
     def outer_borders(self):
 
         return self._field_borders
-
-    def __parse_alpha_input(self, input_text):
-
-        try:
-            return min(1., max(0., float(eval(input_text))))
-        except:
-            return None
 
 
 class BackgroundDialog(Dialog):

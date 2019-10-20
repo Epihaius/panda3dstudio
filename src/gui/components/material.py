@@ -293,7 +293,6 @@ class MaterialPanel(Panel):
         sizer.add(checkbtn, alignment_v="center_v")
         field = PanelSliderField(section, val_id, "float", (0., 1.),
                                  self.__handle_value, 60)
-        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -622,7 +621,6 @@ class MaterialPanel(Panel):
         val_id = "layer_alpha"
         handler = lambda *args: self.__handle_layer_alpha(args[1])
         field = PanelSliderField(group, val_id, "float", (0., 1.), handler, 60)
-        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -1245,13 +1243,6 @@ class MaterialPanel(Panel):
 
         try:
             return abs(float(eval(input_text)))
-        except:
-            return None
-
-    def __parse_alpha_input(self, input_text):
-
-        try:
-            return min(1., max(0., abs(float(eval(input_text)))))
         except:
             return None
 

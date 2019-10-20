@@ -51,7 +51,6 @@ class ExportPanel(Panel):
         val_id = "edge_alpha"
         field = PanelSliderField(group, val_id, "float", (0., 1.),
                                  self.__handle_value, 45)
-        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
@@ -76,7 +75,6 @@ class ExportPanel(Panel):
         val_id = "poly_alpha"
         field = PanelSliderField(group, val_id, "float", (0., 1.),
                                  self.__handle_value, 45)
-        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
@@ -101,7 +99,6 @@ class ExportPanel(Panel):
         val_id = "seam_alpha"
         field = PanelSliderField(group, val_id, "float", (0., 1.),
                                  self.__handle_value, 45)
-        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
@@ -130,13 +127,6 @@ class ExportPanel(Panel):
 
         try:
             return max(1, abs(int(eval(input_text))))
-        except:
-            return None
-
-    def __parse_alpha_input(self, input_text):
-
-        try:
-            return min(1., max(0., float(eval(input_text))))
         except:
             return None
 

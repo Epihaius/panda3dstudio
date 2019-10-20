@@ -176,7 +176,6 @@ class SubobjectPanel(Panel):
         val_id = "unselected_poly_alpha"
         field = PanelSliderField(group, val_id, "float", (0., 1.),
                                  self.__handle_value, 50)
-        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -205,7 +204,6 @@ class SubobjectPanel(Panel):
         val_id = "selected_poly_alpha"
         field = PanelSliderField(group, val_id, "float", (0., 1.),
                                  self.__handle_value, 50)
-        field.set_input_parser(self.__parse_alpha_input)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -293,13 +291,6 @@ class SubobjectPanel(Panel):
 
         r, g, b = color
         Mgr.update_interface_remotely("uv", "poly_color", sel_state, "rgb", (r, g, b, 1.))
-
-    def __parse_alpha_input(self, input_text):
-
-        try:
-            return min(1., max(0., float(eval(input_text))))
-        except:
-            return None
 
     def __handle_value(self, value_id, value, state="done"):
 

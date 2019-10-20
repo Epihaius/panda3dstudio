@@ -38,7 +38,6 @@ class BackgroundPanel(Panel):
         sizer.add(PanelText(top_container, text), alignment_v="center_v")
         val_id = "brightness"
         field = PanelSliderField(top_container, val_id, "float", (0., 1.), self.__handle_value, 80)
-        field.set_input_parser(self.__parse_brightness_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
@@ -114,13 +113,6 @@ class BackgroundPanel(Panel):
     def __parse_texture_filename(self, filename):
 
         return os.path.basename(filename) if filename else "<None>"
-
-    def __parse_brightness_input(self, input_text):
-
-        try:
-            return min(1., max(0., float(eval(input_text))))
-        except:
-            return None
 
     def __parse_tiling_input(self, input_text):
 

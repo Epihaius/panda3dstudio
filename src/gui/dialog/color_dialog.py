@@ -433,6 +433,8 @@ class HueSatControl(WidgetCard):
         x += offset_x
         y = h_b - (.5 - y) * h_m
         y += offset_y
+        x = min(w - 1, max(0, int(round(x))))
+        y = min(h - 1, max(0, int(round(y))))
 
         return x, y
 
@@ -495,8 +497,6 @@ class HueSatControl(WidgetCard):
             if cancel:
                 x, y = self._marker_start_pos
                 self.__set_marker_pos(x, y)
-                x = int(x)
-                y = int(y)
             else:
                 mouse_pointer = Mgr.get("mouse_pointer", 0)
                 x, y = self.get_pos(from_root=True)
@@ -988,21 +988,10 @@ class ComponentField(DialogSliderField):
                                    width, INSET1_BORDER_GFX_DATA, self._img_offset,
                                    dialog, font, text_color, back_color)
 
-        self.set_input_parser(self.__parse_color_component_input)
-
     @property
     def outer_borders(self):
 
         return self._field_borders
-
-    def __parse_color_component_input(self, input_text):
-
-        start, end = self.get_value_range()
-
-        try:
-            return min(end, max(start, eval(input_text)))
-        except:
-            return None
 
 
 class ColorDialog(Dialog):

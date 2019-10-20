@@ -1351,12 +1351,23 @@ class InputField(Widget):
 
         self._input_parser = parser
 
+    def handle_parsed_input(self, value):
+        """
+        This method is provided to enable further processing of the value obtained
+        by parsing the input text.
+        Override in derived class.
+
+        """
+
+        return value
+
     def __parse_input(self, input_text):
 
         default_parser = self._default_input_parsers.get(self._value_type)
         parser = self._input_parser if self._input_parser else default_parser
+        value = parser(input_text) if parser else None
 
-        return parser(input_text) if parser else None
+        return self.handle_parsed_input(value)
 
     def set_value_parser(self, parser):
 
@@ -1803,6 +1814,16 @@ class SliderMixin:
         if self._slider_ctrl:
             self._slider_ctrl.set_size(size)
 
+    def handle_parsed_input(self, value):
+
+        if not self._slider_ctrl:
+            return value
+
+        start, end = self._slider_ctrl.get_value_range()
+        new_value = max(start, min(end, value))
+
+        return new_value
+
     def get_slider_value(self):
 
         return self._slider_ctrl.get_value()
@@ -1866,6 +1887,9 @@ class SliderInputField(SliderMixin, InputField):
         return InputField.set_value(self, value, text_handler, handle_value, state)
 
     def set_value_range(self, value_range, rescale_value=True, value_type=None):
+
+        if value_type is not None:
+            self._value_type = value_type
 
         self._slider_ctrl.set_value_range(value_range, rescale_value, value_type)
         InputField.set_value(self, self._slider_ctrl.get_value())
@@ -1954,8 +1978,9 @@ class MultiValInputField(SliderMixin, InputField):
         val_type = self._value_types[value_id]
         default_parser = self._default_input_parsers.get(val_type)
         parser = self._input_parsers.get(value_id, default_parser)
+        value = parser(input_text) if parser else None
 
-        return parser(input_text) if parser else None
+        return self.handle_parsed_input(value)
 
     def set_value_parser(self, value_id, parser):
 
@@ -1996,6 +2021,9 @@ class MultiValInputField(SliderMixin, InputField):
         self.add_value(value_id, value_type, handler, font, value_range)
 
     def set_value_range(self, value_id, value_range, rescale_value=True, value_type=None):
+
+        if value_type is not None:
+            self._value_types[value_id] = value_type
 
         if value_id in self._slider_ctrls:
 

@@ -43,8 +43,10 @@ class AngleField(DialogSliderField):
         DialogSliderField.__init__(self, parent, value_id, "float", value_range, handler,
                                    width, INSET1_BORDER_GFX_DATA, img_offset)
 
-        self._parser = parser
-        self.set_input_parser(self.__parse_angle_input)
+        if parser:
+            self._parser = parser
+            self.set_input_parser(self.__parse_angle_input)
+
         self.set_value(0.)
 
     @property
@@ -849,8 +851,7 @@ class TransformOptionsDialog(Dialog):
         borders = (0, 5, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
 
-        parser = lambda input_text: max(0., min(91., float(eval(input_text))))
-        field = AngleField(subgroup, "threshold", (0., 91.), self.__handle_value, parser, 100)
+        field = AngleField(subgroup, "threshold", (0., 91.), self.__handle_value, None, 100)
         field.set_value(old_rot_options["method_switch_threshold"])
         subsizer.add(field, proportion=1., alignment="center_v")
 
