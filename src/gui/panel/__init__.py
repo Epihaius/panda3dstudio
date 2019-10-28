@@ -4,4 +4,5 @@ from .widgets import *
 
 
 __all__ = ["Panel", "PanelStack", "PanelText", "PanelButton", "PanelCheckButton", "PanelColorBox",
-           "PanelRadioButtonGroup", "PanelInputField", "PanelSliderField", "PanelComboBox"]
+           "PanelRadioButtonGroup", "PanelInputField", "PanelSliderField", "PanelSpinnerField",
+           "PanelComboBox"]

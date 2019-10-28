@@ -455,7 +455,8 @@ class MaterialPanel(Panel):
         text = "Anisotropic level:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "tex_map_anisotropic_degree"
-        field = PanelSliderField(group, val_id, "int", (1, 16), self.__handle_value, 60)
+        field = PanelSpinnerField(group, val_id, "int", (1, 16), 1,
+                                  self.__handle_value, 40, has_slider=True)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -472,7 +473,8 @@ class MaterialPanel(Panel):
         text = "U:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "tex_map_offset_u"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 55)
+        field = PanelSpinnerField(group, val_id, "float", None, .001,
+                                  self.__handle_value, 35)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -481,7 +483,8 @@ class MaterialPanel(Panel):
         text = "V:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "tex_map_offset_v"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 55)
+        field = PanelSpinnerField(group, val_id, "float", None, .001,
+                                  self.__handle_value, 35)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -492,7 +495,8 @@ class MaterialPanel(Panel):
         text = "Rotation:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         val_id = "tex_map_rotate"
-        field = PanelSliderField(section, val_id, "float", (-180., 180.), self.__handle_value, 90)
+        field = PanelSpinnerField(section, val_id, "float", (-180., 180.), .1,
+                                  self.__handle_value, 50, has_slider=True)
         field.set_input_parser(self.__parse_angle_input)
         field.set_value(0.)
         self._fields[val_id] = field
@@ -505,7 +509,8 @@ class MaterialPanel(Panel):
         text = "U:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "tex_map_scale_u"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 55)
+        field = PanelSpinnerField(group, val_id, "float", None, .01,
+                                  self.__handle_value, 35)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -514,7 +519,8 @@ class MaterialPanel(Panel):
         text = "V:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "tex_map_scale_v"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 55)
+        field = PanelSpinnerField(group, val_id, "float", None, .01,
+                                  self.__handle_value, 35)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -595,7 +601,8 @@ class MaterialPanel(Panel):
         text = "Priority:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         val_id = "layer_priority"
-        field = PanelInputField(section, val_id, "int", self.__handle_layer_value, 40)
+        field = PanelSpinnerField(section, val_id, "int", None, 1,
+                                  self.__handle_layer_value, 30)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -778,7 +785,8 @@ class MaterialPanel(Panel):
         text = "Anisotropic level:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "layer_anisotropic_degree"
-        field = PanelSliderField(group, val_id, "int", (1, 16), self.__handle_layer_value, 60)
+        field = PanelSpinnerField(group, val_id, "int", (1, 16), 1,
+                                  self.__handle_layer_value, 40, has_slider=True)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -789,7 +797,8 @@ class MaterialPanel(Panel):
         text = "UV set:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         val_id = "layer_uv_set"
-        field = PanelSliderField(section, val_id, "int", (0, 7), self.__handle_layer_value, 60)
+        field = PanelSpinnerField(section, val_id, "int", (0, 7), 1,
+                                  self.__handle_layer_value, 40, has_slider=True)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -806,7 +815,8 @@ class MaterialPanel(Panel):
         text = "U:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "layer_offset_u"
-        field = PanelInputField(group, val_id, "float", self.__handle_layer_value, 55)
+        field = PanelSpinnerField(group, val_id, "float", None, .001,
+                                  self.__handle_layer_value, 35)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -815,7 +825,8 @@ class MaterialPanel(Panel):
         text = "V:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "layer_offset_v"
-        field = PanelInputField(group, val_id, "float", self.__handle_layer_value, 55)
+        field = PanelSpinnerField(group, val_id, "float", None, .001,
+                                  self.__handle_layer_value, 35)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -826,7 +837,8 @@ class MaterialPanel(Panel):
         text = "Rotation:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         val_id = "layer_rotate"
-        field = PanelSliderField(section, val_id, "float", (-180., 180.), self.__handle_layer_value, 90)
+        field = PanelSpinnerField(section, val_id, "float", (-180., 180.), .1,
+                                  self.__handle_layer_value, 50, has_slider=True)
         field.set_input_parser(self.__parse_angle_input)
         field.set_value(0.)
         self._fields[val_id] = field
@@ -839,7 +851,8 @@ class MaterialPanel(Panel):
         text = "U:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "layer_scale_u"
-        field = PanelInputField(group, val_id, "float", self.__handle_layer_value, 55)
+        field = PanelSpinnerField(group, val_id, "float", None, .01,
+                                  self.__handle_layer_value, 35)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -848,7 +861,8 @@ class MaterialPanel(Panel):
         text = "V:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "layer_scale_v"
-        field = PanelInputField(group, val_id, "float", self.__handle_layer_value, 55)
+        field = PanelSpinnerField(group, val_id, "float", None, .01,
+                                  self.__handle_layer_value, 35)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
 
@@ -1738,7 +1752,8 @@ class MaterialToolbar(Toolbar):
 
         self.add(ToolbarText(self, "Shininess: "), borders=borders, alignment="center_v")
         val_id = "shininess"
-        field = ToolbarInputField(self, val_id, "float", self.__handle_value, 70)
+        field = ToolbarSpinnerField(self, val_id, "float", (0., None), .1,
+                                    self.__handle_value, 70)
         self.add(field, borders=borders, alignment="center_v")
         field.set_input_parser( self.__parse_shininess_input)
         self._fields[val_id] = field

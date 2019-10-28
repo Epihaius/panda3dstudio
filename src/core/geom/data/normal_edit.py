@@ -917,17 +917,20 @@ class NormalEditMixin:
         self._geoms["normal"]["sel_state"].set_shader_input("normal_length", normal_length)
         self._normal_length = normal_length
 
-    def set_normal_length(self, normal_length):
+    def set_normal_length(self, normal_length, state="done"):
 
-        if self._normal_length == normal_length:
+        if self._normal_length == normal_length and state == "done":
             return False
 
         polys = self._subobjs["poly"]
         self._geoms["normal"]["pickable"].set_shader_input("normal_length", normal_length)
         self._geoms["normal"]["sel_state"].set_shader_input("normal_length", normal_length)
-        self._normal_length = normal_length
 
-        return True
+        if state == "done":
+            self._normal_length = normal_length
+            return True
+
+        return False
 
     def set_normal_shader(self, set_shader=True):
 
@@ -1452,13 +1455,13 @@ class NormalManager:
         info_text = "LMB-drag over normal to pick it; RMB to cancel"
         status_data["normal_picking_via_poly"] = {"mode": "Pick normal", "info": info_text}
 
-    def __set_normal_length(self, normal_length):
+    def __set_normal_length(self, normal_length, state="done"):
 
         selection = Mgr.get("selection_top")
         changed_objs = []
 
         for obj in selection:
-            if obj.geom_obj.set_normal_length(normal_length):
+            if obj.geom_obj.set_normal_length(normal_length, state):
                 changed_objs.append(obj)
 
         if not changed_objs:

@@ -67,7 +67,8 @@ class BasicGeomProperties:
         text = "Length:"
         sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
         val_id = "normal_length"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
+        field = PanelSpinnerField(group, val_id, "float", (.001, None), .01,
+                                  self.__handle_value, 80)
         field.set_input_parser(self.__parse_length_input)
         self._fields[val_id] = field
         sizer.add(field, alignment="center_v")
@@ -150,7 +151,7 @@ class BasicGeomProperties:
 
     def __handle_value(self, value_id, value, state="done"):
 
-        Mgr.update_remotely(value_id, value)
+        Mgr.update_remotely(value_id, value, state)
 
     def __parse_uv_name(self, input_text):
 

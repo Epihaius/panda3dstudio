@@ -2,7 +2,7 @@ from ..base import *
 from ..text import Text
 from ..button import Button
 from ..combobox import ComboBox
-from ..field import InputField, SliderInputField
+from ..field import InputField, SliderInputField, SpinnerInputField, SpinnerButton
 from ..checkbtn import CheckButton
 from ..colorbox import ColorBox
 from ..radiobtn import RadioButton, RadioButtonGroup
@@ -264,13 +264,18 @@ class GfxMixin:
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self):
+    def __init__(self, alt_field_borders=None):
 
-        if not self._field_borders:
-            self.__set_field_borders()
+        self._alt_field_borders = alt_field_borders
+
+        if not GfxMixin._field_borders:
+            GfxMixin.__set_field_borders()
 
     @property
     def outer_borders(self):
+
+        if self._alt_field_borders:
+            return self._alt_field_borders
 
         return self._field_borders
 
@@ -278,12 +283,13 @@ class GfxMixin:
 class PanelInputField(GfxMixin, InputField):
 
     def __init__(self, parent, value_id, value_type, handler, width,
-                 font=None, text_color=None, back_color=None):
+                 font=None, text_color=None, back_color=None,
+                 alt_field_borders=None, alt_border_gfx_data=None):
 
-        GfxMixin.__init__(self)
+        GfxMixin.__init__(self, alt_field_borders)
+        gfx_data = alt_border_gfx_data if alt_border_gfx_data else self._border_gfx_data
         InputField.__init__(self, parent, value_id, value_type, handler, width,
-                            self._border_gfx_data, self._img_offset, font,
-                            text_color, back_color)
+                            gfx_data, self._img_offset, font, text_color, back_color)
 
         self.widget_type = "panel_input_field"
         self.delay_card_update()
@@ -297,12 +303,14 @@ class PanelInputField(GfxMixin, InputField):
 
 class PanelSliderField(GfxMixin, SliderInputField):
 
-    def __init__(self, parent, value_id, value_type, value_range, handler, width,
-                 font=None, text_color=None, back_color=None):
+    def __init__(self, parent, value_id, value_type, value_range, handler,
+                 width, font=None, text_color=None, back_color=None,
+                 alt_field_borders=None, alt_border_gfx_data=None):
 
-        GfxMixin.__init__(self)
+        GfxMixin.__init__(self, alt_field_borders)
+        gfx_data = alt_border_gfx_data if alt_border_gfx_data else self._border_gfx_data
         SliderInputField.__init__(self, parent, value_id, value_type, value_range,
-                                  handler, width, self._border_gfx_data, self._img_offset,
+                                  handler, width, gfx_data, self._img_offset,
                                   font, text_color, back_color)
 
         self.widget_type = "panel_input_field"
@@ -313,6 +321,82 @@ class PanelSliderField(GfxMixin, SliderInputField):
         if panel_stack:
             scissor_effect = panel_stack.get_scissor_effect()
             self.set_scissor_effect(scissor_effect)
+
+
+class PanelSpinnerButton(SpinnerButton):
+
+    def __init__(self, parent, gfx_data):
+
+        SpinnerButton.__init__(self, parent, gfx_data)
+
+        self.widget_type = "panel_spinner_button"
+        self.delay_card_update()
+
+
+class PanelSpinnerField(SpinnerInputField):
+
+    _border_image = None
+
+    @classmethod
+    def __create_border_image(cls):
+
+        x, y, w, h = TextureAtlas["regions"]["panel_spin_up_button_normal"]
+        l, r, b, t = TextureAtlas["outer_borders"]["panel_inset"]
+        # spinner border image should not contain left border parts, so these are replaced with
+        # central parts
+        border_gfx_data = (
+            ("panel_inset_border_top", "panel_inset_border_top", "panel_inset_border_topright"),
+            ("panel_inset_border_center", "panel_inset_border_center", "panel_inset_border_right"),
+            ("panel_inset_border_bottom", "panel_inset_border_bottom", "panel_inset_border_bottomright")
+        )
+        gfx_data = {"": border_gfx_data}
+        tmp_widget = Widget("tmp", None, gfx_data, has_mouse_region=False)
+        tmp_widget.set_size((w + r, h * 2 + b + t), is_min=True)
+        tmp_widget.update_images()
+        cls._border_image = tmp_widget.get_image()
+        tmp_widget.destroy()
+
+    def __init__(self, parent, value_id, value_type, value_range, step, handler, width,
+                 font=None, text_color=None, back_color=None, has_slider=False):
+
+        if not self._border_image:
+            self.__create_border_image()
+
+        incr_btn_gfx_data = {
+            "normal": (("panel_spin_up_button_normal",),),
+            "hilited": (("panel_spin_up_button_hilited",),),
+            "pressed": (("panel_spin_up_button_pressed",),)
+        }
+        decr_btn_gfx_data = {
+            "normal": (("panel_spin_down_button_normal",),),
+            "hilited": (("panel_spin_down_button_hilited",),),
+            "pressed": (("panel_spin_down_button_pressed",),)
+        }
+        # field border image should not contain right border parts, so these are replaced with
+        # central parts
+        border_gfx_data = (
+            ("panel_inset_border_topleft", "panel_inset_border_top", "panel_inset_border_top"),
+            ("panel_inset_border_left", "panel_inset_border_center", "panel_inset_border_center"),
+            ("panel_inset_border_bottomleft", "panel_inset_border_bottom", "panel_inset_border_bottom")
+        )
+        l, r, b, t = TextureAtlas["outer_borders"]["panel_inset"]
+        borders = (l, 0, b, t)  # right field border offset must be zero
+
+        if has_slider:
+            field = PanelSliderField(parent, value_id, value_type, value_range, handler, width,
+                                     font, text_color, back_color, borders, border_gfx_data)
+        else:
+            field = PanelInputField(parent, value_id, value_type, handler, width, font,
+                                    text_color, back_color, borders, border_gfx_data)
+
+        incr_btn = PanelSpinnerButton(parent, incr_btn_gfx_data)
+        decr_btn = PanelSpinnerButton(parent, decr_btn_gfx_data)
+        borders = (0, r, b, t)  # left spinner border offset must be zero
+        SpinnerInputField.__init__(self, parent, value_range, step, field, incr_btn, decr_btn, borders)
+
+    def get_border_image(self):
+
+        return self._border_image
 
 
 class ComboBoxInputField(InputField):
@@ -464,4 +548,5 @@ class PanelComboBox(ComboBox):
 
 
 __all__ = ("PanelText", "PanelButton", "PanelCheckButton", "PanelRadioButtonGroup",
-           "PanelColorBox", "PanelInputField", "PanelSliderField", "PanelComboBox")
+           "PanelColorBox", "PanelInputField", "PanelSliderField", "PanelSpinnerField",
+           "PanelComboBox")

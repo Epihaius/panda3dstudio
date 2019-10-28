@@ -151,32 +151,6 @@ class SnapToolbar(Toolbar):
             Mgr.update_remotely("object_snap")
 
 
-class SnapInputField(DialogInputField):
-
-    _field_borders = ()
-    _img_offset = (0, 0)
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
-
-    def __init__(self, parent, value_id, handler, width):
-
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogInputField.__init__(self, parent, value_id, "float", handler, width,
-                                  INSET1_BORDER_GFX_DATA, self._img_offset)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
-
-
 class SnapDialog(Dialog):
 
     def __init__(self):
@@ -341,14 +315,17 @@ class SnapDialog(Dialog):
                     incr_type = "Angle"
                     incr_unit_descr = " (degr.)"
                     input_parser = self.__parse_angle_incr_input
+                    val_rng = (.001, 180.)
                 elif snap_type == "scale":
                     incr_type = "Scale"
                     incr_unit_descr = " (%)"
                     input_parser = self.__parse_input
+                    val_rng = (.001, None)
                 else:
                     incr_type = "Offset"
                     incr_unit_descr = ""
                     input_parser = self.__parse_input
+                    val_rng = (.001, None)
 
                 text = DialogText(group, f"{incr_type} increment{incr_unit_descr}:")
                 borders = (5, 0, 0, 0)
@@ -362,7 +339,8 @@ class SnapDialog(Dialog):
                     handler = self.__handle_value
                     incr = old_options[val_id][snap_type]
 
-                field = SnapInputField(group, val_id, handler, 100)
+                field = DialogSpinnerField(group, val_id, "float", val_rng,
+                                           .001, handler, 100)
 
                 if for_creation_phase:
                     fields[val_id] = field
@@ -387,7 +365,8 @@ class SnapDialog(Dialog):
                 handler = self.__handle_value
                 size = old_options[val_id][snap_type]
 
-            field = SnapInputField(group, val_id, handler, 100)
+            field = DialogSpinnerField(group, val_id, "float", (.001, None),
+                                       .001, handler, 100)
 
             if for_creation_phase:
                 fields[val_id] = field
@@ -433,7 +412,8 @@ class SnapDialog(Dialog):
                 handler = self.__handle_value
                 size = old_options[val_id][snap_type]
 
-            field = SnapInputField(group, val_id, handler, 100)
+            field = DialogSpinnerField(group, val_id, "float", (.001, None), .001,
+                                       handler, 100)
             field.set_value(size)
             field.set_input_parser(self.__parse_input)
             widgets.append(field)
@@ -569,7 +549,8 @@ class SnapDialog(Dialog):
             text = DialogText(subgroup, "Size:")
             subsizer.add(text, alignment_v="center_v")
             val_id = "proj_marker_size"
-            field = SnapInputField(subgroup, val_id, self.__get_value_handler(), 100)
+            field = DialogSpinnerField(subgroup, val_id, "float", (.001, None), .001,
+                                       self.__get_value_handler(), 100)
             fields[val_id] = field
             field.set_value(old_options[val_id][self._creation_phase_id])
             field.set_input_parser(self.__parse_input)
@@ -640,7 +621,8 @@ class SnapDialog(Dialog):
                 text = DialogText(group, "Size:")
                 subsizer.add(text, alignment_v="center_v")
                 val_id = "proj_marker_size"
-                field = SnapInputField(group, val_id, self.__handle_value, 100)
+                field = DialogSpinnerField(group, val_id, "float", (.001, None), .001,
+                                           self.__handle_value, 100)
                 field.set_value(old_options[val_id][snap_type])
                 field.set_input_parser(self.__parse_input)
                 subsizer.add(field, alignment_v="center_v")

@@ -2,18 +2,6 @@ from .widgets import *
 from ..tooltip import ToolTip
 
 
-INSET1_BORDER_GFX_DATA = (
-    ("dialog_inset1_border_topleft", "dialog_inset1_border_top", "dialog_inset1_border_topright"),
-    ("dialog_inset1_border_left", "dialog_inset1_border_center", "dialog_inset1_border_right"),
-    ("dialog_inset1_border_bottomleft", "dialog_inset1_border_bottom", "dialog_inset1_border_bottomright")
-)
-INSET2_BORDER_GFX_DATA = (
-    ("dialog_inset2_border_topleft", "dialog_inset2_border_top", "dialog_inset2_border_topright"),
-    ("dialog_inset2_border_left", "dialog_inset2_border_center", "dialog_inset2_border_right"),
-    ("dialog_inset2_border_bottomleft", "dialog_inset2_border_bottom", "dialog_inset2_border_bottomright")
-)
-
-
 class Dialog(WidgetCard):
 
     _dialogs = []

@@ -2,36 +2,6 @@ from .dialog import *
 from .input_dialog import InputDialog
 
 
-class SearchField(DialogInputField):
-
-    _field_borders = ()
-    _img_offset = (0, 0)
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
-
-    def __init__(self, parent, value_id, handler, width, dialog=None,
-                 font=None, text_color=None, back_color=None,
-                 on_key_enter=None, on_key_escape=None):
-
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogInputField.__init__(self, parent, value_id, "string", handler, width,
-                                  INSET1_BORDER_GFX_DATA, self._img_offset,
-                                  dialog, font, text_color, back_color,
-                                  on_key_enter=on_key_enter, on_key_escape=on_key_escape)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
-
-
 class ListEntry(Widget):
 
     colors = None
@@ -559,7 +529,7 @@ class ListDialog(Dialog):
             if not self.multi_select:
                 next_btn.enable()
 
-        field = SearchField(group, "search", name_handler, 100)
+        field = DialogInputField(group, "search", "string", name_handler, 100)
         field.set_input_parser(self.__parse_substring)
 
         if self.multi_select:

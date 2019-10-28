@@ -6,49 +6,6 @@ from ..dialog import *
 from ..scroll import *
 
 
-class BackgroundInputField(DialogInputField):
-
-    _field_borders = ()
-    _img_offset = (0, 0)
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
-
-    def __init__(self, parent, value_id, value_type, handler, width):
-
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogInputField.__init__(self, parent, value_id, value_type, handler, width,
-                                  INSET1_BORDER_GFX_DATA, self._img_offset)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
-
-
-class AlphaField(DialogSliderField):
-
-    def __init__(self, parent, handler, width):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        self._field_borders = (l, r, b, t)
-        img_offset = (-l, -t)
-
-        DialogSliderField.__init__(self, parent, "alpha", "float", (0., 1.), handler,
-                                   width, INSET1_BORDER_GFX_DATA, img_offset)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
-
-
 class BackgroundDialog(Dialog):
 
     def __init__(self):
@@ -77,7 +34,7 @@ class BackgroundDialog(Dialog):
         btn = DialogButton(self, text, "", tooltip_text, self.__load_image)
         subsizer.add(btn, alignment="center_v")
         val_id = "filename"
-        field = BackgroundInputField(self, val_id, "string", self.__handle_value, 100)
+        field = DialogInputField(self, val_id, "string", self.__handle_value, 100)
         filename = data[val_id]
         field.set_text(os.path.basename(filename) if filename else "<None>")
         field.set_input_init(self.__init_filename_input)
@@ -115,7 +72,8 @@ class BackgroundDialog(Dialog):
         text = DialogText(self, "Opacity:")
         subsizer.add(text, alignment="center_v")
         val_id = "alpha"
-        field = AlphaField(self, self.__handle_value, 100)
+        field = DialogSpinnerField(self, "alpha", "float", (0., 1.), .001,
+                                   self.__handle_value, 100, has_slider=True)
         field.set_value(data[val_id])
         fields[val_id] = field
         borders = (10, 0, 0, 0)
@@ -132,7 +90,8 @@ class BackgroundDialog(Dialog):
         borders = (0, 10, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
         val_id = "x"
-        field = BackgroundInputField(group, val_id, "float", self.__handle_value, 100)
+        field = DialogSpinnerField(group, val_id, "float", None, .01,
+                                   self.__handle_value, 100)
         field.set_value(data[val_id])
         fields[val_id] = field
         subsizer.add(field, proportion=1., alignment="center_v")
@@ -141,7 +100,8 @@ class BackgroundDialog(Dialog):
         borders = (20, 10, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
         val_id = "y"
-        field = BackgroundInputField(group, val_id, "float", self.__handle_value, 100)
+        field = DialogSpinnerField(group, val_id, "float", None, .01,
+                                   self.__handle_value, 100)
         field.set_value(data[val_id])
         fields[val_id] = field
         subsizer.add(field, proportion=1., alignment="center_v")
@@ -157,7 +117,8 @@ class BackgroundDialog(Dialog):
         borders = (0, 10, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
         val_id = "width"
-        field = BackgroundInputField(group, val_id, "float", self.__handle_value, 100)
+        field = DialogSpinnerField(group, val_id, "float", (.001, None), .001,
+                                   self.__handle_value, 100)
         field.set_value(data[val_id])
         field.set_input_parser(self.__parse_size_input)
         fields[val_id] = field
@@ -167,7 +128,8 @@ class BackgroundDialog(Dialog):
         borders = (20, 10, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
         val_id = "height"
-        field = BackgroundInputField(group, val_id, "float", self.__handle_value, 100)
+        field = DialogSpinnerField(group, val_id, "float", (.001, None), .001,
+                                   self.__handle_value, 100)
         field.set_value(data[val_id])
         field.set_input_parser(self.__parse_size_input)
         fields[val_id] = field

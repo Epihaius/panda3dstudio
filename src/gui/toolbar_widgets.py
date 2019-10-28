@@ -2,7 +2,8 @@ from .base import *
 from .text import Text
 from .button import Button
 from .tooltip import ToolTip
-from .field import InputField, SliderInputField, MultiValInputField
+from .field import (InputField, SliderInputField, MultiValInputField,
+                    SpinnerInputField, SpinnerButton)
 from .checkbtn import CheckButton
 from .combobox import ComboBox
 from .colorbox import ColorBox
@@ -111,6 +112,7 @@ class ToolbarSpinButton(Button):
         Button.destroy(self)
 
         self._toolbar_bundle = None
+        self._listener.ignore_all()
         self._listener = None
 
     def __spin_toolbar_rows(self, task):
@@ -171,7 +173,8 @@ class ToolbarSpinButton(Button):
 
     def on_right_up(self):
 
-        self._toolbar_bundle.show_menu()
+        if not self._is_spinning:
+            self._toolbar_bundle.show_menu()
 
 
 class ToolbarCheckButton(CheckButton):
@@ -345,13 +348,18 @@ class GfxMixin:
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self):
+    def __init__(self, alt_field_borders=None):
 
-        if not self._field_borders:
-            self.__set_field_borders()
+        self._alt_field_borders = alt_field_borders
+
+        if not GfxMixin._field_borders:
+            GfxMixin.__set_field_borders()
 
     @property
     def outer_borders(self):
+
+        if self._alt_field_borders:
+            return self._alt_field_borders
 
         return self._field_borders
 
@@ -359,121 +367,166 @@ class GfxMixin:
 class ToolbarInputField(GfxMixin, InputField):
 
     def __init__(self, parent, value_id, value_type, handler, width,
-                 font=None, text_color=None, back_color=None):
+                 font=None, text_color=None, back_color=None,
+                 alt_field_borders=None, alt_border_gfx_data=None):
 
-        GfxMixin.__init__(self)
+        GfxMixin.__init__(self, alt_field_borders)
+        gfx_data = alt_border_gfx_data if alt_border_gfx_data else self._border_gfx_data
         InputField.__init__(self, parent, value_id, value_type, handler, width,
-                            self._border_gfx_data, self._img_offset, font,
-                            text_color, back_color)
+                            gfx_data, self._img_offset, font, text_color, back_color)
 
         self.widget_type = "toolbar_input_field"
 
     def accept_input(self, text_handler=None):
 
         if InputField.accept_input(self, text_handler):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
 
-    def set_value(self, value, text_handler=None, handle_value=False):
+        return False
 
-        if InputField.set_value(self, value, text_handler, handle_value):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+    def set_value(self, value, text_handler=None, handle_value=False, state="done"):
+
+        if InputField.set_value(self, value, text_handler, handle_value, state):
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
+
+        return False
 
     def set_text(self, text, text_handler=None):
 
         if InputField.set_text(self, text, text_handler):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
+
+        return False
 
     def show_text(self, show=True):
 
         if InputField.show_text(self, show):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
+
+        return False
 
     def set_text_color(self, color=None):
 
         if InputField.set_text_color(self, color):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
+
+        return False
 
     def clear(self, forget=True):
 
         InputField.clear(self, forget)
 
-        image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.parent.update_composed_image(self, image)
+        if self.parent.widget_type == "toolbar":
+            image = self.get_image(composed=False, draw_border=True, crop=True)
+            self.parent.update_composed_image(self, image)
 
     def enable(self, enable=True):
 
-        if not InputField.enable(self, enable):
-            return False
+        if InputField.enable(self, enable):
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
 
-        image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.parent.update_composed_image(self, image)
-
-        return True
+        return False
 
 
 class ToolbarSliderField(GfxMixin, SliderInputField):
 
     def __init__(self, parent, value_id, value_type, value_range, handler,
-                 width, font=None, text_color=None, back_color=None):
+                 width, font=None, text_color=None, back_color=None,
+                 alt_field_borders=None, alt_border_gfx_data=None):
 
-        GfxMixin.__init__(self)
+        GfxMixin.__init__(self, alt_field_borders)
+        gfx_data = alt_border_gfx_data if alt_border_gfx_data else self._border_gfx_data
         SliderInputField.__init__(self, parent, value_id, value_type, value_range,
-                                  handler, width, self._border_gfx_data,
-                                  self._img_offset, font, text_color, back_color)
+                                  handler, width, gfx_data, self._img_offset,
+                                  font, text_color, back_color)
 
         self.widget_type = "toolbar_input_field"
 
     def accept_input(self, text_handler=None):
 
         if SliderInputField.accept_input(self, text_handler):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
 
-    def set_value(self, value, text_handler=None, handle_value=False):
+        return False
 
-        if SliderInputField.set_value(self, value, text_handler, handle_value):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+    def set_value(self, value, text_handler=None, handle_value=False, state="done"):
+
+        if SliderInputField.set_value(self, value, text_handler, handle_value, state):
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
+
+        return False
 
     def set_text(self, text, text_handler=None):
 
         if SliderInputField.set_text(self, text, text_handler):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
+
+        return False
 
     def show_text(self, show=True):
 
         if SliderInputField.show_text(self, show):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
+
+        return False
 
     def set_text_color(self, color=None):
 
         if SliderInputField.set_text_color(self, color):
-            image = self.get_image(composed=False, draw_border=True, crop=True)
-            self.parent.update_composed_image(self, image)
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
+
+        return False
 
     def clear(self, forget=True):
 
         SliderInputField.clear(self, forget)
 
-        image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.parent.update_composed_image(self, image)
+        if self.parent.widget_type == "toolbar":
+            image = self.get_image(composed=False, draw_border=True, crop=True)
+            self.parent.update_composed_image(self, image)
 
     def enable(self, enable=True):
 
-        if not SliderInputField.enable(self, enable):
-            return False
+        if SliderInputField.enable(self, enable):
+            if self.parent.widget_type == "toolbar":
+                image = self.get_image(composed=False, draw_border=True, crop=True)
+                self.parent.update_composed_image(self, image)
+            return True
 
-        image = self.get_image(composed=False, draw_border=True, crop=True)
-        self.parent.update_composed_image(self, image)
-
-        return True
+        return False
 
 
 class ToolbarMultiValField(GfxMixin, MultiValInputField):
@@ -492,9 +545,9 @@ class ToolbarMultiValField(GfxMixin, MultiValInputField):
             image = self.get_image(composed=False, draw_border=True, crop=True)
             self.parent.update_composed_image(self, image)
 
-    def set_value(self, value_id, value, text_handler=None, handle_value=False):
+    def set_value(self, value_id, value, text_handler=None, handle_value=False, state="done"):
 
-        if MultiValInputField.set_value(self, value_id, value, text_handler, handle_value):
+        if MultiValInputField.set_value(self, value_id, value, text_handler, handle_value, state):
             image = self.get_image(composed=False, draw_border=True, crop=True)
             self.parent.update_composed_image(self, image)
 
@@ -537,6 +590,123 @@ class ToolbarMultiValField(GfxMixin, MultiValInputField):
 
         image = self.get_image(composed=False, draw_border=True, crop=True)
         self.parent.update_composed_image(self, image)
+
+        return True
+
+
+class ToolbarSpinnerButton(SpinnerButton):
+
+    def __init__(self, parent, gfx_data):
+
+        SpinnerButton.__init__(self, parent, gfx_data)
+
+        self.widget_type = "toolbar_spinner_button"
+
+
+class ToolbarSpinnerField(SpinnerInputField):
+
+    _border_image = None
+    _img_offset = (0, 0)
+
+    @classmethod
+    def __create_border_image(cls):
+
+        x, y, w, h = TextureAtlas["regions"]["toolbar_spin_up_button_normal"]
+        l, r, b, t = TextureAtlas["outer_borders"]["small_toolbar_inset"]
+        cls._img_offset = (l, t)
+        # spinner border image should not contain left border parts, so these are replaced with
+        # central parts
+        border_gfx_data = (("small_toolbar_inset_border_center", "small_toolbar_inset_border_center",
+                            "small_toolbar_inset_border_right"),)
+        gfx_data = {"": border_gfx_data}
+        tmp_widget = Widget("tmp", None, gfx_data, has_mouse_region=False)
+        tmp_widget.set_size((w + r, h * 2 + b + t), is_min=True)
+        tmp_widget.update_images()
+        cls._border_image = tmp_widget.get_image()
+        tmp_widget.destroy()
+
+    def __init__(self, parent, value_id, value_type, value_range, step, handler, width,
+                 font=None, text_color=None, back_color=None, has_slider=False):
+
+        if not self._border_image:
+            self.__create_border_image()
+
+        incr_btn_gfx_data = {
+            "normal": (("toolbar_spin_up_button_normal",),),
+            "hilited": (("toolbar_spin_up_button_hilited",),),
+            "pressed": (("toolbar_spin_up_button_pressed",),)
+        }
+        decr_btn_gfx_data = {
+            "normal": (("toolbar_spin_down_button_normal",),),
+            "hilited": (("toolbar_spin_down_button_hilited",),),
+            "pressed": (("toolbar_spin_down_button_pressed",),)
+        }
+        # field border image should not contain right border parts, so these are replaced with
+        # central parts
+        border_gfx_data = (("small_toolbar_inset_border_left", "small_toolbar_inset_border_center",
+                            "small_toolbar_inset_border_center"),)
+        l, r, b, t = TextureAtlas["outer_borders"]["small_toolbar_inset"]
+        borders = (l, 0, b, t)  # right field border offset must be zero
+
+        if has_slider:
+            field = ToolbarSliderField(parent, value_id, value_type, value_range, handler, width,
+                                       font, text_color, back_color, borders, border_gfx_data)
+        else:
+            field = ToolbarInputField(parent, value_id, value_type, handler, width, font,
+                                      text_color, back_color, borders, border_gfx_data)
+
+        incr_btn = ToolbarSpinnerButton(parent, incr_btn_gfx_data)
+        decr_btn = ToolbarSpinnerButton(parent, decr_btn_gfx_data)
+        borders = (0, r, b, t)  # left spinner border offset must be zero
+        SpinnerInputField.__init__(self, parent, value_range, step, field, incr_btn, decr_btn, borders)
+
+    def get_border_image(self):
+
+        return self._border_image
+
+    def accept_input(self, text_handler=None):
+
+        if self.field.accept_input(text_handler):
+            image = self.field.get_image(composed=False, draw_border=True, crop=True)
+            self.parent.update_composed_image(self, image, *self._img_offset)
+
+    def set_value(self, value, text_handler=None, handle_value=False, state="done"):
+
+        if self.field.set_value(value, text_handler, handle_value, state):
+            image = self.field.get_image(composed=False, draw_border=True, crop=True)
+            self.parent.update_composed_image(self, image, *self._img_offset)
+
+    def set_text(self, text, text_handler=None):
+
+        if self.field.set_text(text, text_handler):
+            image = self.field.get_image(composed=False, draw_border=True, crop=True)
+            self.parent.update_composed_image(self, image, *self._img_offset)
+
+    def show_text(self, show=True):
+
+        if self.field.show_text(show):
+            image = self.field.get_image(composed=False, draw_border=True, crop=True)
+            self.parent.update_composed_image(self, image, *self._img_offset)
+
+    def set_text_color(self, color=None):
+
+        if self.field.set_text_color(color):
+            image = self.field.get_image(composed=False, draw_border=True, crop=True)
+            self.parent.update_composed_image(self, image, *self._img_offset)
+
+    def clear(self, forget=True):
+
+        self.field.clear(forget)
+        image = self.field.get_image(composed=False, draw_border=True, crop=True)
+        self.parent.update_composed_image(self, image, *self._img_offset)
+
+    def enable(self, enable=True):
+
+        if not self.field.enable(enable):
+            return False
+
+        image = self.field.get_image(composed=False, draw_border=True, crop=True)
+        self.parent.update_composed_image(self, image, *self._img_offset)
 
         return True
 
@@ -592,10 +762,10 @@ class ComboBoxInputField(InputField):
             combobox = self.parent
             combobox.parent.update_composed_image(combobox)
 
-    def set_value(self, value, text_handler=None, handle_value=False):
+    def set_value(self, value, text_handler=None, handle_value=False, state="done"):
 
         if InputField.set_value(self, value, text_handler=self.parent.set_text,
-                handle_value=handle_value):
+                handle_value=handle_value, state=state):
             combobox = self.parent
             combobox.parent.update_composed_image(combobox)
 

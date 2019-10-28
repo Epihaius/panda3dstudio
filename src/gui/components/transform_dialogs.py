@@ -4,55 +4,18 @@ from ..toolbar import *
 from ..dialog import *
 
 
-class ValueInputField(DialogInputField):
-
-    _field_borders = ()
-    _img_offset = (0, 0)
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
-
-    def __init__(self, parent, value_id, value_type, handler, width,
-                 on_key_enter=None, on_key_escape=None):
-
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogInputField.__init__(self, parent, value_id, value_type, handler, width,
-                                  INSET1_BORDER_GFX_DATA, self._img_offset,
-                                  on_key_enter=on_key_enter, on_key_escape=on_key_escape)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
-
-
 class AngleField(DialogSliderField):
 
     def __init__(self, parent, value_id, value_range, handler, parser, width):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        self._field_borders = (l, r, b, t)
-        img_offset = (-l, -t)
-
-        DialogSliderField.__init__(self, parent, value_id, "float", value_range, handler,
-                                   width, INSET1_BORDER_GFX_DATA, img_offset)
+        DialogSliderField.__init__(self, parent, value_id, "float", value_range,
+                                   handler, width)
 
         if parser:
             self._parser = parser
             self.set_input_parser(self.__parse_angle_input)
 
         self.set_value(0.)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
 
     def __parse_angle_input(self, input_text):
 
@@ -200,7 +163,8 @@ class TransformDialog(Dialog):
 
                 text = DialogText(group, f"{axis_id.upper()}:")
                 subsizer.add(text, alignment="center_v")
-                field = ValueInputField(group, axis_id, "float", self.__handle_value, 100)
+                field = DialogSpinnerField(group, axis_id, "float", None,
+                                           .01, self.__handle_value, 100)
                 field.set_value(value)
                 borders = (5, 0, 0, 0)
                 subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
@@ -302,7 +266,7 @@ class CoordSysDialog(Dialog):
             borders = (0, 5, 0, 0)
             text = DialogText(group, f"{axis_id.upper()}:")
             subsizer.add(text, alignment="center_v", borders=borders)
-            field = ValueInputField(group, axis_id, "float", handler, 100)
+            field = DialogSpinnerField(group, axis_id, "float", None, .01, handler, 100)
             field.set_value(pos_hpr[axis_id])
             borders = (0, 10, 0, 0)
             subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
@@ -376,7 +340,7 @@ class TransfCenterDialog(Dialog):
             borders = (0, 5, 0, 0)
             text = DialogText(group, f"{axis_id.upper()}:")
             subsizer.add(text, alignment="center_v", borders=borders)
-            field = ValueInputField(group, axis_id, "float", handler, 100)
+            field = DialogSpinnerField(group, axis_id, "float", None, .01, handler, 100)
             field.set_value(pos[axis_id])
             borders = (0, 10, 0, 0)
             subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
@@ -492,7 +456,7 @@ class StoredTransformDialog(ListDialog):
 
         if store:
             on_key_enter = lambda: self.close(answer="yes")
-            field = ValueInputField(self, "name", "string", self.__handle_value, 100,
+            field = DialogInputField(self, "name", "string", self.__handle_value, 100,
                                     on_key_enter=on_key_enter, on_key_escape=self.close)
             field.set_input_parser(self.__parse_name)
             borders = (20, 20, 20, 0)
@@ -762,7 +726,8 @@ class TransformOptionsDialog(Dialog):
         borders = (20, 5, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
 
-        field = ValueInputField(subgroup, "radius", "int", self.__handle_value, 50)
+        field = DialogSpinnerField(subgroup, "radius", "int", (1, None), 1,
+                                   self.__handle_value, 50)
         field.set_input_parser(self.__parse_input)
         field.set_value(old_rot_options["circle_radius"])
         subsizer.add(field, alignment="center_v")
@@ -805,7 +770,8 @@ class TransformOptionsDialog(Dialog):
         subsizer.add(text, alignment="center_v", borders=borders)
 
         option_id = "full_roll_dist"
-        field = ValueInputField(subgroup, option_id, "int", self.__handle_value, 50)
+        field = DialogSpinnerField(subgroup, option_id, "int", (1, None), 1,
+                                   self.__handle_value, 50)
         field.set_input_parser(self.__parse_input)
         field.set_value(old_rot_options[option_id])
         subsizer.add(field, alignment="center_v")
@@ -851,7 +817,8 @@ class TransformOptionsDialog(Dialog):
         borders = (0, 5, 0, 0)
         subsizer.add(text, alignment="center_v", borders=borders)
 
-        field = AngleField(subgroup, "threshold", (0., 91.), self.__handle_value, None, 100)
+        field = DialogSpinnerField(subgroup, "threshold", "float", (0., 91.), 1.,
+                                   self.__handle_value, 100, has_slider=True)
         field.set_value(old_rot_options["method_switch_threshold"])
         subsizer.add(field, proportion=1., alignment="center_v")
 

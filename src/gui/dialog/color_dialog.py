@@ -966,34 +966,6 @@ class CurrentColorSwatch(Widget):
         self._command(self._color, update_gradients=True)
 
 
-class ComponentField(DialogSliderField):
-
-    _field_borders = ()
-    _img_offset = (0, 0)
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
-
-    def __init__(self, parent, value_id, value_range, handler, width, dialog=None,
-                 font=None, text_color=None, back_color=None):
-
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogSliderField.__init__(self, parent, value_id, "float", value_range, handler,
-                                   width, INSET1_BORDER_GFX_DATA, self._img_offset,
-                                   dialog, font, text_color, back_color)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
-
-
 class ColorDialog(Dialog):
 
     _clock = ClockObject()
@@ -1004,9 +976,11 @@ class ColorDialog(Dialog):
 
         cls._rgb_range_id = range_id
         value_range = (0., 255.) if range_id == "255" else (0., 1.)
+        step = 1. if range_id == "255" else .001
 
         for field in fields:
             field.set_value_range(value_range)
+            field.set_step(step)
 
     def __init__(self, title="", color=(1., 1., 1.), choices="okcancel", ok_alias="OK",
                  on_yes=None, on_no=None, on_cancel=None):
@@ -1085,29 +1059,38 @@ class ColorDialog(Dialog):
 
         borders = (5, 0, 0, 0)
         rgb_fields = []
+        handler = self.__handle_color_component
 
         val_rng = (0., 255.) if self._rgb_range_id == "255" else (0., 1.)
-        field = ComponentField(self, "red", val_rng, self.__handle_color_component, 100)
+        step = 1. if self._rgb_range_id == "255" else .001
+        field = DialogSpinnerField(self, "red", "float", val_rng, step,
+                                  handler, 100, has_slider=True)
         r_sizer.add(field, proportion=1., borders=borders)
         rgb_fields.append(field)
         fields["red"] = field
-        field = ComponentField(self, "green", val_rng, self.__handle_color_component, 100)
+        field = DialogSpinnerField(self, "green", "float", val_rng, step,
+                                  handler, 100, has_slider=True)
         g_sizer.add(field, proportion=1., borders=borders)
         rgb_fields.append(field)
         fields["green"] = field
-        field = ComponentField(self, "blue", val_rng, self.__handle_color_component, 100)
+        field = DialogSpinnerField(self, "blue", "float", val_rng, step,
+                                  handler, 100, has_slider=True)
         b_sizer.add(field, proportion=1., borders=borders)
         rgb_fields.append(field)
         fields["blue"] = field
 
         val_rng = (0., 1.)
-        field = ComponentField(self, "hue", val_rng, self.__handle_color_component, 100)
+        step = .001
+        field = DialogSpinnerField(self, "hue", "float", val_rng, step,
+                                   handler, 100, has_slider=True)
         h_sizer.add(field, proportion=1., borders=borders)
         fields["hue"] = field
-        field = ComponentField(self, "sat", val_rng, self.__handle_color_component, 100)
+        field = DialogSpinnerField(self, "sat", "float", val_rng, step,
+                                   handler, 100, has_slider=True)
         s_sizer.add(field, proportion=1., borders=borders)
         fields["sat"] = field
-        field = ComponentField(self, "lum", val_rng, self.__handle_color_component, 100)
+        field = DialogSpinnerField(self, "lum", "float", val_rng, step,
+                                   handler, 100, has_slider=True)
         l_sizer.add(field, proportion=1., borders=borders)
         fields["lum"] = field
 

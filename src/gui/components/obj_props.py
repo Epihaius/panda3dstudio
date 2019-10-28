@@ -6,16 +6,7 @@ from ..dialog import *
 
 class TagField(DialogInputField):
 
-    _field_borders = ()
-    _img_offset = (0, 0)
     _ref_node = NodePath("reference_node")
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
 
     @classmethod
     def set_ref_node_pos(cls, pos):
@@ -25,20 +16,11 @@ class TagField(DialogInputField):
     def __init__(self, parent, value_id, handler, width, dialog=None, font=None, text_color=None,
                  back_color=None, on_key_enter=None, on_key_escape=None, allow_reject=True):
 
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogInputField.__init__(self, parent, value_id, "string", handler, width,
-                                  INSET1_BORDER_GFX_DATA, self._img_offset, dialog,
+        DialogInputField.__init__(self, parent, value_id, "string", handler, width, dialog,
                                   font, text_color, back_color, on_key_enter=on_key_enter,
                                   on_key_escape=on_key_escape, allow_reject=allow_reject)
 
         self.node.reparent_to(parent.get_widget_root_node())
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
 
 
 class TagPane(DialogScrollPane):

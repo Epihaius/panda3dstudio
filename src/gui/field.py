@@ -1,4 +1,5 @@
 from .base import *
+from .button import Button
 from .menu import Menu
 
 
@@ -1046,29 +1047,6 @@ class InputField(Widget):
         else:
             task()
 
-    def update_images(self, recurse=True, size=None):
-
-        w, h = self.get_size()
-
-        if "" in self._images:
-
-            img = self._images[""]
-            w_i, h_i = img.size
-
-            if w_i == w and h_i == h:
-                return
-
-        Widget.update_images(self, recurse, size)
-
-        self._border_image = self.__create_border_image()
-        image = PNMImage(w, h, 4)
-        r, g, b, a = self._back_color
-        image.fill(r, g, b)
-        image.alpha_fill(a)
-        self._images = {"": image}
-
-        return self._images
-
     def get_border_image(self):
 
         return self._border_image
@@ -1119,6 +1097,29 @@ class InputField(Widget):
             img = image
 
         return img
+
+    def update_images(self, recurse=True, size=None):
+
+        w, h = self.get_size()
+
+        if "" in self._images:
+
+            img = self._images[""]
+            w_i, h_i = img.size
+
+            if w_i == w and h_i == h:
+                return
+
+        Widget.update_images(self, recurse, size)
+
+        self._border_image = self.__create_border_image()
+        image = PNMImage(w, h, 4)
+        r, g, b, a = self._back_color
+        image.fill(r, g, b)
+        image.alpha_fill(a)
+        self._images = {"": image}
+
+        return self._images
 
     def update_text_pos(self):
 
@@ -1487,6 +1488,10 @@ class InputField(Widget):
         if self._on_reject:
             self._on_reject()
 
+    def get_value(self):
+
+        return self._value
+
     def set_value(self, value, text_handler=None, handle_value=False, state="done"):
 
         val_str = self.__parse_value(value)
@@ -1499,7 +1504,7 @@ class InputField(Widget):
         txt_ctrl = self._text_ctrl
         update_card_image = False
 
-        if state != "done":
+        if state != "done" and self.has_slider_control():
             update_card_image = True
         elif txt_ctrl.get_text() != val_str:
             txt_ctrl.set_text(val_str)
@@ -1516,13 +1521,13 @@ class InputField(Widget):
 
         return True
 
-    def get_value(self):
-
-        return self._value
-
     def set_input_text(self, text):
 
         self._text_ctrl.set_text(text)
+
+    def get_text(self):
+
+        return self._text
 
     def set_text(self, text, text_handler=None):
 
@@ -1540,10 +1545,6 @@ class InputField(Widget):
 
         return True
 
-    def get_text(self):
-
-        return self._text
-
     def show_text(self, show=True):
 
         if self._is_text_shown == show:
@@ -1553,6 +1554,10 @@ class InputField(Widget):
         self.__update_card_image()
 
         return True
+
+    def get_text_color(self):
+
+        return self._text_ctrl.get_color()
 
     def set_text_color(self, color=None):
 
@@ -1568,10 +1573,6 @@ class InputField(Widget):
             self.__update_card_image()
 
         return True
-
-    def get_text_color(self):
-
-        return self._text_ctrl.get_color()
 
     def clear(self, forget=True):
 
@@ -1599,12 +1600,6 @@ class InputField(Widget):
         if self._is_text_shown:
             self.__update_card_image()
 
-    def set_popup_menu(self, menu, manage=True):
-
-        self._popup_menu = menu
-        self._manage_popup_menu = manage
-        self._popup_handler = menu.show_at_mouse_pos
-
     def get_popup_menu(self):
 
         if not self._popup_menu:
@@ -1612,6 +1607,12 @@ class InputField(Widget):
             self._popup_handler = self._popup_menu.show_at_mouse_pos
 
         return self._popup_menu
+
+    def set_popup_menu(self, menu, manage=True):
+
+        self._popup_menu = menu
+        self._manage_popup_menu = manage
+        self._popup_handler = menu.show_at_mouse_pos
 
     def set_popup_handler(self, on_popup):
 
@@ -1635,6 +1636,263 @@ class InputField(Widget):
         return True
 
 
+class SpinnerButton(Button):
+
+    def __init__(self, parent, gfx_data):
+
+        Button.__init__(self, parent, gfx_data)
+
+        self.field = None
+        self.direction = 1  # 1 for increment, -1 for decrement
+        self.value_range = (None, None)
+        self.step = 0
+        self._step_mult = 0
+        self._spin_accel = 1
+        self._start_value = 0
+        self._mouse_start_y = 0
+        self._is_spinning = False
+        self._command = self.__command
+        self._listener = DirectObject()
+
+    def destroy(self):
+
+        Mgr.remove_task("start_spin")
+
+        Button.destroy(self)
+
+        self._listener.ignore_all()
+        self._listener = None
+
+    def __decelerate_spin(self):
+
+        self._spin_accel = max(1, self._spin_accel - 1)
+
+    def __accelerate_spin(self):
+
+        self._spin_accel += 1
+
+    def __clamp_value(self, value):
+
+        val_min, val_max = self.value_range
+
+        if val_min is not None:
+            value = max(val_min, value)
+        if val_max is not None:
+            value = min(val_max, value)
+
+        return value
+
+    def __command(self, state="done"):
+
+        value = self.field.get_value() + self.direction * self.step * self._spin_accel
+        self.field.set_value(self.__clamp_value(value), handle_value=True, state=state)
+
+    def __spin_drag_value(self, task):
+
+        mouse_pointer = Mgr.get("mouse_pointer", 0)
+        step_mult = int(self._mouse_start_y - mouse_pointer.y) * self._spin_accel
+
+        if self._step_mult != step_mult:
+            value = self.__clamp_value(self._start_value + self.step * step_mult)
+            self.field.set_value(value, handle_value=True, state="continuous")
+            self._step_mult = step_mult
+
+        return task.cont
+
+    def __spin_value(self, task):
+
+        self.__command("continuous")
+
+        return task.again
+
+    def __accept_events(self):
+
+        self._listener.accept_once("gui_mouse1-up", self.on_left_up)
+        self._listener.accept_once("gui_mouse3-up", self.__cancel_spin)
+        self._listener.accept("shift", self.__decelerate_spin)
+        self._listener.accept("shift-repeat", self.__decelerate_spin)
+        self._listener.accept("control", self.__accelerate_spin)
+        self._listener.accept("control-repeat", self.__accelerate_spin)
+
+    def __start_spin(self, task):
+
+        def accelerate_spin(task):
+
+            self._spin_accel *= 2
+
+            return task.again
+
+        self._on_spin_start()
+        self._start_value = self.field.get_value()
+        Mgr.add_task(.1, self.__spin_value, "spin_value")
+        Mgr.add_task(1., accelerate_spin, "accelerate_spin")
+        self.set_pressed(False)
+        self.__accept_events()
+        self._is_spinning = True
+
+    def __finalize_spin(self, cancelled=False):
+
+        Mgr.remove_task("spin_value")
+        Mgr.remove_task("accelerate_spin")
+        self._listener.ignore_all()
+
+        if cancelled:
+            self.field.set_value(self._start_value, handle_value=True, state="cancelled")
+        else:
+            self.field.set_value(self.field.get_value(), handle_value=True, state="done")
+
+        self._start_value = 0
+        self._mouse_start_y = 0
+        self._step_mult = 0
+        self._spin_accel = 1
+        self._is_spinning = False
+
+        if self.mouse_watcher.get_over_region() == self.mouse_region:
+            Button.on_enter(self)
+        else:
+            Button.on_leave(self, force=True)
+
+        self._on_spin_end()
+
+    def __cancel_spin(self):
+
+        if self._is_spinning:
+            self.__finalize_spin(cancelled=True)
+
+        self._on_spin_end(cancelled=True)
+
+    def _on_spin_start(self):
+        """ Override in derived class """
+
+        pass
+
+    def _on_spin_end(self, cancelled=False):
+        """ Override in derived class """
+
+        pass
+
+    def on_enter(self):
+
+        if not self._is_spinning:
+            Button.on_enter(self)
+
+    def on_leave(self):
+
+        Mgr.remove_task("start_spin")
+
+        if self.is_pressed() and not self._is_spinning:
+            self._on_spin_start()
+            mouse_pointer = Mgr.get("mouse_pointer", 0)
+            self._start_value = self.field.get_value()
+            self._mouse_start_y = mouse_pointer.y
+            Mgr.add_task(self.__spin_drag_value, "spin_value")
+            self.set_pressed(False)
+            self.__accept_events()
+            self._is_spinning = True
+
+        if not self._is_spinning:
+            Button.on_leave(self, force=True)
+
+    def on_left_down(self):
+
+        Button.on_left_down(self)
+
+        if not self._is_spinning:
+            Mgr.add_task(.5, self.__start_spin, "start_spin")
+
+    def on_left_up(self):
+
+        if self._is_spinning:
+            self.__finalize_spin()
+        else:
+            Button.on_left_up(self)
+            Mgr.remove_task("start_spin")
+            self._listener.ignore_all()
+
+
+class SpinnerInputField(Widget):
+
+    def __init__(self, parent, value_range, step, field, incr_btn, decr_btn, borders):
+
+        Widget.__init__(self, "input_field", parent, gfx_data={}, has_mouse_region=False)
+
+        self.field = field
+        field.parent = self
+
+        if not value_range:
+            value_range = (None, None)
+
+        sizer = Sizer("horizontal")
+        self.sizer = sizer
+        sizer.add(field, alignment="center_v", proportion=1.)
+        btn_sizer = Sizer("vertical")
+        sizer.add(btn_sizer, alignment="right", borders=borders)
+        incr_btn.parent = self
+        incr_btn.field = field
+        incr_btn.direction = 1
+        incr_btn.value_range = value_range
+        incr_btn.step = step
+        btn_sizer.add(incr_btn)
+        decr_btn.parent = self
+        decr_btn.field = field
+        decr_btn.direction = -1
+        decr_btn.value_range = value_range
+        decr_btn.step = step
+        btn_sizer.add(decr_btn)
+
+    def __getattr__(self, attrib):
+
+        if attrib not in self.__dict__:
+            return getattr(self.field, attrib)
+
+    def get_image(self, state=None, composed=True):
+
+        w, h = self.get_size()
+        image = PNMImage(w, h, 4)
+        border_img = self.get_border_image()
+        img_offset_x = w - border_img.size[0]
+        image.copy_sub_image(border_img, img_offset_x, 0, 0, 0)
+        img = Widget.get_image(self, state, composed)
+        image.blend_sub_image(img, 0, 0, 0, 0)
+
+        return image
+
+    def update_images(self, recurse=True, size=None):
+
+        w, h = self.get_size()
+
+        if "" in self._images:
+
+            img = self._images[""]
+            w_i, h_i = img.size
+
+            if w_i == w and h_i == h:
+                return
+
+        Widget.update_images(self, recurse, size)
+
+        image = PNMImage(w, h, 4)
+        self._images = {"": image}
+
+        return self._images
+
+    def set_value_range(self, value_range, rescale_value=True, value_type=None):
+
+        if not value_range:
+            value_range = (None, None)
+
+        if self.field.has_slider_control():
+            self.field.set_value_range(value_range, rescale_value, value_type)
+
+        for item in self.sizer.items[1].object.items:
+            item.object.value_range = value_range
+
+    def set_step(self, step):
+
+        for item in self.sizer.items[1].object.items:
+            item.object.step = step
+
+
 class SliderMixin:
 
     _clock = ClockObject()
@@ -1650,6 +1908,8 @@ class SliderMixin:
         self._handler_delay = 0.
 
     def destroy(self):
+
+        Mgr.remove_task("check_mouse_offset")
 
         if self._slider_ctrl:
             self._slider_ctrl.destroy()

@@ -1075,5 +1075,5 @@ class ToolbarBundle:
 
 __all__ = ("Toolbar", "ToolbarRow", "ToolbarText", "ToolbarInsertionMarker",
            "ToolbarSeparator", "ToolbarButton", "ToolbarInputField",
-           "ToolbarSliderField", "ToolbarMultiValField", "ToolbarComboBox",
-           "ToolbarCheckButton", "ToolbarColorBox")
+           "ToolbarSliderField", "ToolbarSpinnerField", "ToolbarMultiValField",
+           "ToolbarComboBox", "ToolbarCheckButton", "ToolbarColorBox")

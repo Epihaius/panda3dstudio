@@ -181,9 +181,15 @@ class RadioButton(Widget):
 
             self._is_clicked = False
 
-    def set_command(self, command):
+    @property
+    def command(self):
 
-        self._command = command
+        return self._command
+
+    @command.setter
+    def command(self, command):
+
+        self._command = command if command else lambda: None
 
     def set_selected(self, is_selected=True):
 
@@ -273,7 +279,7 @@ class RadioButtonGroup:
 
     def set_button_command(self, btn_id, command):
 
-        self._btns[btn_id].set_command(command)
+        self._btns[btn_id].command = command
 
     def set_bullet_color(self, color=None, update=False):
 

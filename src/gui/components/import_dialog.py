@@ -4,16 +4,7 @@ from ..dialog import *
 
 class NameField(DialogInputField):
 
-    _field_borders = ()
-    _img_offset = (0, 0)
     _ref_node = NodePath("reference_node")
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
 
     @classmethod
     def set_ref_node_pos(cls, pos):
@@ -22,20 +13,11 @@ class NameField(DialogInputField):
 
     def __init__(self, parent, value_id, handler, width, connection_index):
 
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogInputField.__init__(self, parent, value_id, "string", handler, width,
-                                  INSET1_BORDER_GFX_DATA, self._img_offset)
+        DialogInputField.__init__(self, parent, value_id, "string", handler, width)
 
         self.node.reparent_to(parent.get_widget_root_node())
 
         self._connection_index = connection_index
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
 
     def get_connection_index(self):
 

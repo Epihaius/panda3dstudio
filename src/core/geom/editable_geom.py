@@ -61,9 +61,9 @@ class EditableGeom(GeomDataOwner):
         if prop_id == "geom_data":
             val.restore_data(["self"], restore_type, old_time_id, new_time_id)
 
-    def set_normal_length(self, normal_length):
+    def set_normal_length(self, normal_length, state="done"):
 
-        return self.geom_data_obj.set_normal_length(normal_length)
+        return self.geom_data_obj.set_normal_length(normal_length, state)
 
     def get_initial_vertex_colors(self):
 

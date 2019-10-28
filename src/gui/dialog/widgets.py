@@ -5,9 +5,21 @@ from ..button import Button
 from ..combobox import ComboBox
 from ..checkbtn import CheckButton
 from ..radiobtn import RadioButton, RadioButtonGroup
-from ..field import InputField, SliderInputField
+from ..field import InputField, SliderInputField, SpinnerInputField, SpinnerButton
 from ..menu import Menu
 from ..scroll import ScrollPane
+
+
+INSET1_BORDER_GFX_DATA = (
+    ("dialog_inset1_border_topleft", "dialog_inset1_border_top", "dialog_inset1_border_topright"),
+    ("dialog_inset1_border_left", "dialog_inset1_border_center", "dialog_inset1_border_right"),
+    ("dialog_inset1_border_bottomleft", "dialog_inset1_border_bottom", "dialog_inset1_border_bottomright")
+)
+INSET2_BORDER_GFX_DATA = (
+    ("dialog_inset2_border_topleft", "dialog_inset2_border_top", "dialog_inset2_border_topright"),
+    ("dialog_inset2_border_left", "dialog_inset2_border_center", "dialog_inset2_border_right"),
+    ("dialog_inset2_border_bottomleft", "dialog_inset2_border_bottom", "dialog_inset2_border_bottomright")
+)
 
 
 class DialogWidgetGroup(WidgetGroup):
@@ -32,11 +44,7 @@ class DialogWidgetGroup(WidgetGroup):
 class DialogInset(Widget):
 
     _gfx = {
-        "": (
-            ("dialog_inset2_border_topleft", "dialog_inset2_border_top", "dialog_inset2_border_topright"),
-            ("dialog_inset2_border_left", "dialog_inset2_border_center", "dialog_inset2_border_right"),
-            ("dialog_inset2_border_bottomleft", "dialog_inset2_border_bottom", "dialog_inset2_border_bottomright")
-        )
+        "": INSET2_BORDER_GFX_DATA
     }
 
     def __init__(self, parent):
@@ -415,20 +423,51 @@ class MouseWatcherMixin:
             self.__create_mouse_region_mask()
 
 
-class DialogInputField(MouseWatcherMixin, InputField):
+class GfxMixin:
 
-    def __init__(self, parent, value_id, value_type, handler, width, border_gfx_data,
-                 image_offset, dialog=None, font=None, text_color=None, back_color=None,
-                 on_accept=None, on_reject=None, on_key_enter=None, on_key_escape=None,
-                 allow_reject=True):
+    _field_borders = ()
+    _img_offset = (0, 0)
+
+    @classmethod
+    def __set_field_borders(cls):
+
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
+        cls._field_borders = (l, r, b, t)
+        cls._img_offset = (-l, -t)
+
+    def __init__(self, alt_field_borders=None):
+
+        self._alt_field_borders = alt_field_borders
+
+        if not GfxMixin._field_borders:
+            GfxMixin.__set_field_borders()
+
+    @property
+    def outer_borders(self):
+
+        if self._alt_field_borders:
+            return self._alt_field_borders
+
+        return self._field_borders
+
+
+class DialogInputField(MouseWatcherMixin, GfxMixin, InputField):
+
+    def __init__(self, parent, value_id, value_type, handler, width, dialog=None,
+                 font=None, text_color=None, back_color=None, on_accept=None, on_reject=None,
+                 on_key_enter=None, on_key_escape=None, allow_reject=True,
+                 alt_field_borders=None, alt_border_gfx_data=None, alt_image_offset=None):
 
         self._dialog = dialog if dialog else parent
         sort = self._dialog.sort + 8
         cull_bin = ("dialog", sort)
 
         MouseWatcherMixin.__init__(self)
-        InputField.__init__(self, parent, value_id, value_type, handler, width, border_gfx_data,
-                            image_offset, font, text_color, back_color, sort, cull_bin, on_accept,
+        GfxMixin.__init__(self, alt_field_borders)
+        gfx_data = alt_border_gfx_data if alt_border_gfx_data else INSET1_BORDER_GFX_DATA
+        img_offset = alt_image_offset if alt_image_offset else self._img_offset
+        InputField.__init__(self, parent, value_id, value_type, handler, width, gfx_data,
+                            img_offset, font, text_color, back_color, sort, cull_bin, on_accept,
                             on_reject, on_key_enter, on_key_escape, allow_reject)
 
         self.widget_type = "dialog_input_field"
@@ -461,21 +500,24 @@ class DialogInputField(MouseWatcherMixin, InputField):
         Mgr.do("accept_dialog_events")
 
 
-class DialogSliderField(MouseWatcherMixin, SliderInputField):
+class DialogSliderField(MouseWatcherMixin, GfxMixin, SliderInputField):
 
     def __init__(self, parent, value_id, value_type, value_range, handler, width,
-                 border_gfx_data, image_offset, dialog=None, font=None, text_color=None,
-                 back_color=None, on_accept=None, on_reject=None, on_key_enter=None,
-                 on_key_escape=None, allow_reject=True):
+                 dialog=None, font=None, text_color=None, back_color=None, on_accept=None,
+                 on_reject=None, on_key_enter=None, on_key_escape=None, allow_reject=True,
+                 alt_field_borders=None, alt_border_gfx_data=None, alt_image_offset=None):
 
         self._dialog = dialog if dialog else parent
         sort = self._dialog.sort + 8
         cull_bin = ("dialog", sort)
 
         MouseWatcherMixin.__init__(self)
+        GfxMixin.__init__(self, alt_field_borders)
+        gfx_data = alt_border_gfx_data if alt_border_gfx_data else INSET1_BORDER_GFX_DATA
+        img_offset = alt_image_offset if alt_image_offset else self._img_offset
         SliderInputField.__init__(self, parent, value_id, value_type, value_range, handler,
-                                  width, border_gfx_data, image_offset, font, text_color,
-                                  back_color, sort, cull_bin, on_accept, on_reject, on_key_enter,
+                                  width, gfx_data, img_offset, font, text_color, back_color,
+                                  sort, cull_bin, on_accept, on_reject, on_key_enter,
                                   on_key_escape, allow_reject)
 
         self.widget_type = "dialog_input_field"
@@ -518,46 +560,135 @@ class DialogSliderField(MouseWatcherMixin, SliderInputField):
         Mgr.do("accept_dialog_events")
 
 
+class DialogSpinnerButton(SpinnerButton):
+
+    def __init__(self, parent, gfx_data):
+
+        SpinnerButton.__init__(self, parent, gfx_data)
+
+        self.widget_type = "dialog_spinner_button"
+
+        self.mouse_region.sort = parent.sort + 1
+
+    def _on_spin_start(self):
+
+        Mgr.do("ignore_dialog_events")
+
+    def _on_spin_end(self, cancelled=False):
+
+        Mgr.do("accept_dialog_events")
+
+
+class DialogSpinnerField(SpinnerInputField):
+
+    _border_image = None
+
+    @classmethod
+    def __create_border_image(cls):
+
+        x, y, w, h = TextureAtlas["regions"]["dialog_spin_up_button_normal"]
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
+        # spinner border image should not contain left border parts, so these are replaced with
+        # central parts
+        border_gfx_data = (
+            ("dialog_inset1_border_top", "dialog_inset1_border_top", "dialog_inset1_border_topright"),
+            ("dialog_inset1_border_center", "dialog_inset1_border_center", "dialog_inset1_border_right"),
+            ("dialog_inset1_border_bottom", "dialog_inset1_border_bottom", "dialog_inset1_border_bottomright")
+        )
+        gfx_data = {"": border_gfx_data}
+        tmp_widget = Widget("tmp", None, gfx_data, has_mouse_region=False)
+        tmp_widget.set_size((w + r, h * 2 + b + t), is_min=True)
+        tmp_widget.update_images()
+        cls._border_image = tmp_widget.get_image()
+        tmp_widget.destroy()
+
+    def __init__(self, parent, value_id, value_type, value_range, step, handler, width,
+                 dialog=None, font=None, text_color=None, back_color=None, on_accept=None,
+                 on_reject=None, on_key_enter=None, on_key_escape=None, allow_reject=True,
+                 has_slider=False):
+
+        if not self._border_image:
+            self.__create_border_image()
+
+        incr_btn_gfx_data = {
+            "normal": (("dialog_spin_up_button_normal",),),
+            "hilited": (("dialog_spin_up_button_hilited",),),
+            "pressed": (("dialog_spin_up_button_pressed",),)
+        }
+        decr_btn_gfx_data = {
+            "normal": (("dialog_spin_down_button_normal",),),
+            "hilited": (("dialog_spin_down_button_hilited",),),
+            "pressed": (("dialog_spin_down_button_pressed",),)
+        }
+        # field border image should not contain right border parts, so these are replaced with
+        # central parts
+        border_gfx_data = (
+            ("dialog_inset1_border_topleft", "dialog_inset1_border_top", "dialog_inset1_border_top"),
+            ("dialog_inset1_border_left", "dialog_inset1_border_center", "dialog_inset1_border_center"),
+            ("dialog_inset1_border_bottomleft", "dialog_inset1_border_bottom", "dialog_inset1_border_bottom")
+        )
+        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
+        borders = (l, 0, b, t)  # right field border offset must be zero
+
+        if not dialog:
+            dialog = parent
+
+        if has_slider:
+            field = DialogSliderField(parent, value_id, value_type, value_range, handler, width, dialog,
+                                      font, text_color, back_color, on_accept, on_reject, on_key_enter,
+                                      on_key_escape, allow_reject, borders, border_gfx_data)
+        else:
+            field = DialogInputField(parent, value_id, value_type, handler, width, dialog, font,
+                                     text_color, back_color, on_accept, on_reject, on_key_enter,
+                                     on_key_escape, allow_reject, borders, border_gfx_data)
+
+        incr_btn = DialogSpinnerButton(parent, incr_btn_gfx_data)
+        decr_btn = DialogSpinnerButton(parent, decr_btn_gfx_data)
+        borders = (0, r, b, t)  # left spinner border offset must be zero
+        SpinnerInputField.__init__(self, parent, value_range, step, field, incr_btn, decr_btn, borders)
+
+    def get_border_image(self):
+
+        return self._border_image
+
+
 class ComboBoxInputField(DialogInputField):
 
     _border_gfx_data = (("dialog_combobox_normal_left", "dialog_combobox_normal_center",
                          "dialog_combobox_normal_right"),)
     _border_gfx_data2 = (("dialog_combobox2_normal_left", "dialog_combobox_normal_center",
                          "dialog_combobox_normal_right"),)
-    _field_borders = ()
-    _img_offset = (0, 0)
-    _field_borders2 = ()
-    _img_offset2 = (0, 0)
+    _alt_borders = ()
+    _alt_offset = (0, 0)
+    _alt_borders2 = ()
+    _alt_offset2 = (0, 0)
     _height = 0
 
     @classmethod
-    def __set_field_borders(cls):
+    def __set_alt_borders(cls):
 
         l, r, b, t = TextureAtlas["outer_borders"]["dialog_combobox_field"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
+        cls._alt_borders = (l, r, b, t)
+        cls._alt_offset = (-l, -t)
         l, r, b, t = TextureAtlas["outer_borders"]["dialog_combobox2_field"]
-        cls._field_borders2 = (l, r, b, t)
-        cls._img_offset2 = (-l, -t)
+        cls._alt_borders2 = (l, r, b, t)
+        cls._alt_offset2 = (-l, -t)
         cls._height = Skin["options"]["combobox_field_height"]
 
     def __init__(self, parent, dialog, value_id, value_type, handler, width,
                  font=None, text_color=None, back_color=None):
 
-        if not self._field_borders:
-            self.__set_field_borders()
+        if not self._alt_borders:
+            self.__set_alt_borders()
 
+        borders = self._alt_borders if parent.has_icon() else self._alt_borders2
         gfx_data = self._border_gfx_data if parent.has_icon() else self._border_gfx_data2
-        img_offset = self._img_offset if parent.has_icon() else self._img_offset2
-        DialogInputField.__init__(self, parent, value_id, value_type, handler, width,
-                                  gfx_data, img_offset, dialog, font, text_color, back_color)
+        img_offset = self._alt_offset if parent.has_icon() else self._alt_offset2
+        DialogInputField.__init__(self, parent, value_id, value_type, handler, width, dialog,
+                                  font, text_color, back_color, alt_field_borders=borders,
+                                  alt_border_gfx_data=gfx_data, alt_image_offset=img_offset)
 
         self.widget_type = "dialog_combo_field"
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders if self.parent.has_icon() else self._field_borders2
 
     def get_image(self, state=None, composed=True, draw_border=False, crop=True):
 
@@ -713,11 +844,7 @@ class DialogScrollPane(ScrollPane):
     def __init__(self, dialog, pane_id, scroll_dir, frame_client_size):
 
         frame_gfx_data = {
-            "": (
-                ("dialog_inset2_border_topleft", "dialog_inset2_border_top", "dialog_inset2_border_topright"),
-                ("dialog_inset2_border_left", "dialog_inset2_border_center", "dialog_inset2_border_right"),
-                ("dialog_inset2_border_bottomleft", "dialog_inset2_border_bottom", "dialog_inset2_border_bottomright")
-            )
+            "": INSET2_BORDER_GFX_DATA
         }
 
         if scroll_dir == "horizontal":

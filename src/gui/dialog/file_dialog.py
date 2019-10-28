@@ -304,74 +304,50 @@ class FileButton(Button):
 
 class FileDialogInputField(DialogInputField):
 
-    _field_borders = ()
-    _img_offset = (0, 0)
-
-    @classmethod
-    def __set_field_borders(cls):
-
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset1"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
-
     def __init__(self, parent, width, dialog=None, font=None, text_color=None,
                  back_color=None, on_key_enter=None, on_key_escape=None):
 
-        if not self._field_borders:
-            self.__set_field_borders()
-
-        DialogInputField.__init__(self, parent, "filename", "string", None, width,
-                                  INSET1_BORDER_GFX_DATA, self._img_offset, dialog, font,
-                                  text_color, back_color, on_key_enter=on_key_enter,
+        DialogInputField.__init__(self, parent, "filename", "string", None, width, dialog,
+                                  font, text_color, back_color, on_key_enter=on_key_enter,
                                   on_key_escape=on_key_escape)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
 
 
 class FileButtonInputField(DialogInputField):
 
-    _gfx = (
+    _alt_gfx = (
             ("filename_field_topleft", "filename_field_top", "filename_field_topright"),
             ("filename_field_left", "filename_field_center", "filename_field_right"),
             ("filename_field_bottomleft", "filename_field_bottom", "filename_field_bottomright")
     )
-    _field_borders = ()
-    _img_offset = (0, 0)
+    _alt_borders = ()
+    _alt_offset = (0, 0)
     _ref_node = NodePath("reference_node")
 
     @classmethod
-    def __set_field_borders(cls):
+    def __set_alt_borders(cls):
 
         l, r, b, t = TextureAtlas["outer_borders"]["filename_field"]
-        cls._field_borders = (l, r, b, t)
-        cls._img_offset = (-l, -t)
+        cls._alt_borders = (l, r, b, t)
+        cls._alt_offset = (-l, -t)
 
     @classmethod
     def set_ref_node_pos(cls, pos):
 
         cls._ref_node.set_pos(pos)
 
-    def __init__(self, handler, width, dialog=None,
-                 font=None, text_color=None, back_color=None):
+    def __init__(self, handler, width, dialog=None, font=None, text_color=None, back_color=None):
 
-        if not self._field_borders:
-            self.__set_field_borders()
+        if not self._alt_borders:
+            self.__set_alt_borders()
 
-        DialogInputField.__init__(self, None, "filename", "string", handler, width,
-                                  self._gfx, self._img_offset, dialog, font, text_color,
-                                  back_color, self.__hide_name_field, self.__hide_name_field)
+        DialogInputField.__init__(self, None, "filename", "string", handler, width, dialog,
+                                  font, text_color, back_color, self.__hide_name_field,
+                                  self.__hide_name_field, alt_field_borders=self._alt_borders,
+                                  alt_border_gfx_data=self._alt_gfx, alt_image_offset=self._alt_offset)
 
     def __hide_name_field(self, *args):
 
         FileButton.selected_btn.show_name_field(False)
-
-    @property
-    def outer_borders(self):
-
-        return self._field_borders
 
 
 class FilePane(DialogScrollPane):
@@ -546,7 +522,7 @@ class FilePane(DialogScrollPane):
 
         if file_type == "folder":
             dir_path = join(self._current_path, filename)
-            button.set_command(lambda: self.set_directory(dir_path))
+            button.command = lambda: self.set_directory(dir_path)
 
         self.update_layout()
 

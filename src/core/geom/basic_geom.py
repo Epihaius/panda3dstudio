@@ -514,18 +514,20 @@ class BasicGeom:
 
         return True
 
-    def set_normal_length(self, length):
+    def set_normal_length(self, normal_length, state="done"):
 
-        if self._normal_length == length:
+        if self._normal_length == normal_length and state == "done":
             return False
 
         if self._normals_shown:
             normals_geom = self.geom.find("**/normals_geom")
-            normals_geom.set_shader_input("normal_length", length)
+            normals_geom.set_shader_input("normal_length", normal_length)
 
-        self._normal_length = length
+        if state == "done":
+            self._normal_length = normal_length
+            return True
 
-        return True
+        return False
 
     def get_data_to_store(self, event_type, prop_id=""):
 

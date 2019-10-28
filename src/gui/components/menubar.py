@@ -28,7 +28,7 @@ class MenuButton(Button):
         w, h = self.min_size
         self.set_size((w + 20, h), is_min=True)
         self._menu = Menu(self)
-        self.set_command(command)
+        self.command = command
 
     def destroy(self):
 

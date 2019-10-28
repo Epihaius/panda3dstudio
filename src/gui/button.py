@@ -85,6 +85,10 @@ class Button(Widget, HotkeyManager):
 
         self._group = group
 
+    def get_text(self):
+
+        return self._text
+
     def set_text(self, text=""):
 
         if self._text == text:
@@ -107,17 +111,15 @@ class Button(Widget, HotkeyManager):
 
         return True
 
-    def get_text(self):
-
-        return self._text
-
-    def set_command(self, command):
-
-        self._command = command if command else lambda: None
-
-    def get_command(self):
+    @property
+    def command(self):
 
         return self._command
+
+    @command.setter
+    def command(self, command):
+
+        self._command = command if command else lambda: None
 
     def set_hotkey(self, hotkey=None, hotkey_text="", interface_id="main"):
 
@@ -473,7 +475,7 @@ class ToggleButtonGroup(ButtonGroup):
 
         ButtonGroup.add_button(self, button, toggle_id)
 
-        button.set_command(lambda: self.__toggle(toggle_id))
+        button.command = lambda: self.__toggle(toggle_id)
         self._activators[toggle_id], self._deactivators[toggle_id] = toggle
 
     def deactivate(self):

@@ -37,14 +37,16 @@ class BackgroundPanel(Panel):
         text = "Brightness:"
         sizer.add(PanelText(top_container, text), alignment_v="center_v")
         val_id = "brightness"
-        field = PanelSliderField(top_container, val_id, "float", (0., 1.), self.__handle_value, 80)
+        field = PanelSpinnerField(top_container, val_id, "float", (0., 1.), .01,
+                                  self.__handle_value, 80, has_slider=True)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         text = "Tiling:"
         sizer.add(PanelText(top_container, text), alignment_v="center_v")
         val_id = "tiling"
-        field = PanelInputField(top_container, val_id, "int", self.__handle_value, 40)
+        field = PanelSpinnerField(top_container, val_id, "int", (0, None), 1,
+                                  self.__handle_value, 40)
         field.set_input_parser(self.__parse_tiling_input)
         self._fields[val_id] = field
         sizer.add(field, proportion_h=1., alignment_v="center_v")

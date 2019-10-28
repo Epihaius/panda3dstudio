@@ -120,7 +120,8 @@ class EditableGeomProperties:
         text = "Length:"
         sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         prop_id = "normal_length"
-        field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
+        field = PanelSpinnerField(section, prop_id, "float", (.001, None), .001,
+                                  self.__handle_value, 80)
         field.set_input_parser(self.__parse_length_input)
         self._fields[prop_id] = field
         sizer.add(field, alignment="center_v")
@@ -267,7 +268,7 @@ class EditableGeomProperties:
 
         section = panel.add_section("poly_props", "Polygons", hidden=True)
 
-        text = "Create"
+        text = "Create..."
         tooltip_text = "Create single polygon"
         btn = PanelButton(section, text, "", tooltip_text, self.__toggle_poly_creation)
         self._btns["create_poly"] = btn
@@ -583,7 +584,7 @@ class EditableGeomProperties:
 
     def __handle_value(self, value_id, value, state="done"):
 
-        Mgr.update_remotely(value_id, value)
+        Mgr.update_remotely(value_id, value, state)
 
     def __parse_length_input(self, input_text):
 
@@ -685,6 +686,8 @@ class EditableGeomProperties:
 
     def __invert_poly_surfaces(self):
 
+        # exit any subobject modes
+        Mgr.exit_states(min_persistence=-99)
         Mgr.update_remotely("poly_surface_inversion")
 
     def __turn_diagonals(self):
