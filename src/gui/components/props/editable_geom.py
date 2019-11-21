@@ -268,27 +268,28 @@ class EditableGeomProperties:
 
         section = panel.add_section("poly_props", "Polygons", hidden=True)
 
-        text = "Create..."
-        tooltip_text = "Create single polygon"
-        btn = PanelButton(section, text, "", tooltip_text, self.__toggle_poly_creation)
-        self._btns["create_poly"] = btn
-        section.add(btn)
+        text = "Auto-lock border normals"
+        checkbtn = PanelCheckButton(section, self.__handle_normal_preserve, text)
+        self._checkbuttons["poly_normal_preserve"] = checkbtn
+        section.add(checkbtn)
 
         section.add((0, 5))
 
         sizer = Sizer("horizontal")
         section.add(sizer, expand=True)
 
+        text = "Create..."
+        tooltip_text = "Create single polygon"
+        btn = PanelButton(section, text, "", tooltip_text, self.__toggle_poly_creation)
+        self._btns["create_poly"] = btn
+        sizer.add(btn, alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+
         text = "Detach"
         tooltip_text = "Detach selected polygons"
         btn = PanelButton(section, text, "", tooltip_text, self.__detach_polygons)
         self._btns["detach_poly"] = btn
         sizer.add(btn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-        text = "Lock normals"
-        checkbtn = PanelCheckButton(section, self.__handle_normal_preserve, text)
-        self._checkbuttons["poly_normal_preserve"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
         sizer.add((0, 0), proportion=1.)
 
         section.add((0, 5))
@@ -318,6 +319,85 @@ class EditableGeomProperties:
         self._btns["invert_surfaces"] = btn
         group.add(btn)
 
+        group = section.add_group("Extrusion/inset")
+
+        text = "Extrusion vector type:"
+        borders = (0, 0, 5, 0)
+        group.add(PanelText(group, text), borders=borders)
+
+        combobox = PanelComboBox(group, 100, tooltip_text="Extrusion vector type")
+        group.add(combobox, expand=True, borders=borders)
+
+        vec_types = ("avg_poly_normal1", "avg_poly_normal2", "vert_normal")
+        vec_type_descr = (
+            "per-vertex averaged poly normal",
+            "per-region averaged poly normal",
+            "vertex normal"
+        )
+
+        def get_command(vec_type_id, vec_type):
+
+            def set_vec_type():
+
+                combobox.select_item(vec_type)
+                Mgr.update_remotely("poly_extr_inset", "extr_vec_type", vec_type_id)
+
+            return set_vec_type
+
+        for i, (vec_type, descr) in enumerate(zip(vec_types, vec_type_descr)):
+            combobox.add_item(vec_type, descr, get_command(i, vec_type))
+
+        combobox.update_popup_menu()
+
+        subsizer = GridSizer(columns=2, gap_h=5)
+        subsizer.set_column_proportion(1, 1.)
+        group.add(subsizer, expand=True)
+
+        borders = (0, 5, 0, 0)
+
+        prop_id = "poly_extrusion"
+        text = "Extrusion:"
+        subsizer.add(PanelText(group, text), alignment_v="center_v", borders=borders)
+        handler = lambda *args: Mgr.update_remotely("poly_extr_inset", "extrusion", args[1])
+        field = PanelSpinnerField(group, prop_id, "float", None, .1, handler, 80)
+        field.set_value(0.)
+        self._fields[prop_id] = field
+        subsizer.add(field, expand_h=True, alignment_v="center_v")
+
+        prop_id = "poly_inset"
+        text = "Inset:"
+        subsizer.add(PanelText(group, text), alignment_v="center_v", borders=borders)
+        handler = lambda *args: Mgr.update_remotely("poly_extr_inset", "inset", args[1])
+        field = PanelSpinnerField(group, prop_id, "float", None, .01, handler, 80)
+        field.set_value(0.)
+        self._fields[prop_id] = field
+        subsizer.add(field, expand_h=True, alignment_v="center_v")
+
+        borders = (0, 0, 0, 5)
+
+        text = "Individual polygons"
+        command = lambda arg: Mgr.update_remotely("poly_extr_inset", "individual", arg)
+        checkbtn = PanelCheckButton(group, command, text)
+        self._checkbuttons["inset_individual"] = checkbtn
+        group.add(checkbtn, borders=borders)
+
+        subsizer = Sizer("horizontal")
+        group.add(subsizer, expand=True, borders=borders)
+
+        tooltip_text = "Preview extrusion and inset"
+        btn = PanelButton(group, "Preview", "", tooltip_text)
+        btn.command = self.__preview_poly_extr_inset
+        self._btns["preview_inset"] = btn
+        subsizer.add(btn, proportion=1.)
+
+        subsizer.add((10, 0))
+
+        tooltip_text = "Extrude/inset selected polygons"
+        btn = PanelButton(group, "Apply", "", tooltip_text)
+        btn.command = lambda: Mgr.update_remotely("poly_extr_inset", "apply")
+        self._btns["apply_inset"] = btn
+        subsizer.add(btn, proportion=1.)
+
         group = section.add_group("Polygon smoothing")
 
         def handler(by_smoothing):
@@ -338,6 +418,8 @@ class EditableGeomProperties:
         group.add(btn, alignment="center_h")
 
         group.add((0, 10))
+
+        borders = (0, 5, 0, 0)
 
         btn_sizer = Sizer("horizontal")
         group.add(btn_sizer, expand=True)
@@ -511,6 +593,16 @@ class EditableGeomProperties:
             if not active:
                 self._btns["turn_diagonals"].active = False
 
+        def enter_extr_inset_preview_mode(prev_state_id, active):
+
+            Mgr.do("set_viewport_border_color", "viewport_frame_create_objects")
+            self._btns["preview_inset"].active = True
+
+        def exit_extr_inset_preview_mode(next_state_id, active):
+
+            if not active:
+                self._btns["preview_inset"].active = False
+
         add_state = Mgr.add_state
         add_state("normal_dir_copy_mode", -10,
                   enter_normal_dir_copy_mode, exit_normal_dir_copy_mode)
@@ -532,6 +624,8 @@ class EditableGeomProperties:
                   exit_unsmoothing_poly_picking_mode)
         add_state("diagonal_turning_mode", -10, enter_diagonal_turning_mode,
                   exit_diagonal_turning_mode)
+        add_state("poly_extr_inset_preview_mode", -10, enter_extr_inset_preview_mode,
+                  exit_extr_inset_preview_mode)
 
         self._panel.get_section("geometry").expand(False)
 
@@ -686,8 +780,6 @@ class EditableGeomProperties:
 
     def __invert_poly_surfaces(self):
 
-        # exit any subobject modes
-        Mgr.exit_states(min_persistence=-99)
         Mgr.update_remotely("poly_surface_inversion")
 
     def __turn_diagonals(self):
@@ -698,6 +790,15 @@ class EditableGeomProperties:
             Mgr.exit_state("diagonal_turning_mode")
         else:
             Mgr.update_remotely("diagonal_turn")
+
+    def __preview_poly_extr_inset(self):
+
+        preview_btn = self._btns["preview_inset"]
+
+        if preview_btn.active:
+            Mgr.exit_state("poly_extr_inset_preview_mode")
+        else:
+            Mgr.update_remotely("poly_extr_inset", "preview")
 
     def get_base_type(self):
 
@@ -741,7 +842,8 @@ class EditableGeomProperties:
         color = (.5, .5, .5, 1.) if multi_sel else None
 
         for prop_id, field in self._fields.items():
-            if prop_id not in ("normal_length", "edge_bridge_segments"):
+            if prop_id not in ("normal_length", "edge_bridge_segments",
+                    "poly_extrusion", "poly_inset"):
                 field.set_text_color(color)
                 field.show_text(not multi_sel)
 

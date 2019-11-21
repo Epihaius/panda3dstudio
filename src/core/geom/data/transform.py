@@ -87,7 +87,7 @@ class GeomTransformMixin:
         else:
             return Mgr.get("transf_center_pos")
 
-    def update_vertex_positions(self, vertex_ids):
+    def update_vertex_positions(self, vertex_ids, update_bounds=True):
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
@@ -139,10 +139,11 @@ class GeomTransformMixin:
 
         self.update_vertex_normals(verts_to_resmooth)
 
-        bounds = geom_node_top.get_bounds()
-        self.origin.node().set_bounds(bounds)
-        model = self.toplevel_obj
-        model.bbox.update(*self.origin.get_tight_bounds())
+        if update_bounds:
+            bounds = geom_node_top.get_bounds()
+            self.origin.node().set_bounds(bounds)
+            model = self.toplevel_obj
+            model.bbox.update(*self.origin.get_tight_bounds())
 
     def reposition_vertices(self, computation):
         """ Change the positions of all vertices using the given computation """

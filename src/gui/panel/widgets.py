@@ -394,6 +394,9 @@ class PanelSpinnerField(SpinnerInputField):
         borders = (0, r, b, t)  # left spinner border offset must be zero
         SpinnerInputField.__init__(self, parent, value_range, step, field, incr_btn, decr_btn, borders)
 
+        self.widget_type = "panel_input_field"
+        self.delay_card_update()
+
     def get_border_image(self):
 
         return self._border_image

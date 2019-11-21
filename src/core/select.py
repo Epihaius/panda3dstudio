@@ -1472,7 +1472,7 @@ class SelectionManager:
 
     def __inverse_select(self):
 
-        if Mgr.get_state_id() == "uv_edit_mode":
+        if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             Mgr.do("inverse_select_uvs")
         elif GD["active_obj_level"] == "top":
             old_sel = set(self._selection)
@@ -1485,7 +1485,7 @@ class SelectionManager:
 
     def __select_all(self):
 
-        if Mgr.get_state_id() == "uv_edit_mode":
+        if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             Mgr.do("select_all_uvs")
         elif GD["active_obj_level"] == "top":
             self._selection.replace(Mgr.get("objects", "top"))
@@ -1496,7 +1496,7 @@ class SelectionManager:
 
     def __select_none(self):
 
-        if Mgr.get_state_id() == "uv_edit_mode":
+        if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             Mgr.do("clear_uv_selection")
         elif GD["active_obj_level"] == "top":
             self._selection.clear()
@@ -1747,6 +1747,10 @@ class SelectionManager:
             self.__apply_selection_set(*args)
         elif update_type == "reset_sets":
             self.__reset_selection_sets(*args)
+
+        if update_type in ("replace", "remove", "invert", "all", "clear", "apply_set"):
+            if "uv" not in (GD["viewport"][1], GD["viewport"][2]):
+                Mgr.exit_states(min_persistence=-99)
 
         if update_type in ("add_set", "copy_set", "remove_set", "clear_sets",
                            "rename_set", "combine_sets"):

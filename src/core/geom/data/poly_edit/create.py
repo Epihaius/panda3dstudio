@@ -449,19 +449,11 @@ class CreationMixin:
         verts = subobjs["vert"]
         edges = subobjs["edge"]
         polys = subobjs["poly"]
-        indexed_subobjs = self._indexed_subobjs
-        indexed_verts = indexed_subobjs["vert"]
-        indexed_edges = indexed_subobjs["edge"]
-        indexed_polys = indexed_subobjs["poly"]
         ordered_polys = self._ordered_polys
         merged_verts = self.merged_verts
         merged_verts_by_pos = {}
         merged_edges = self.merged_edges
         merged_edges_tmp = {}
-        sel_vert_ids = self._selected_subobj_ids["vert"]
-        sel_edge_ids = self._selected_subobj_ids["edge"]
-        subobjs_to_select = {"vert": [], "edge": []}
-        subobj_change = self._subobj_change
 
         owned_verts = tmp_data["owned_verts"]
         indices = tmp_data["vert_indices"]
@@ -480,10 +472,6 @@ class CreationMixin:
         poly_verts = []
         poly_edges = []
         poly_tris = []
-
-        normal_change = self._normal_change
-        normal_lock_change = self._normal_lock_change
-        shared_normals = self._shared_normals
 
         for tri_data in indices:
 
@@ -512,8 +500,6 @@ class CreationMixin:
 
                     if pos_index in owned_verts:
                         merged_vert = owned_verts[pos_index]
-                        if merged_vert.id in sel_vert_ids:
-                            subobjs_to_select["vert"].append(vert_id)
                     elif pos_index in merged_verts_by_pos:
                         merged_vert = merged_verts_by_pos[pos_index]
                     else:
@@ -522,9 +508,6 @@ class CreationMixin:
 
                     merged_vert.append(vert_id)
                     merged_verts[vert_id] = merged_vert
-                    normal_change.add(vert_id)
-                    normal_lock_change.add(vert_id)
-                    shared_normals[vert_id] = Mgr.do("create_shared_normal", self, [vert_id])
 
                 tri_vert_ids.append(vert_id)
 
@@ -580,9 +563,6 @@ class CreationMixin:
                 # triple edge; needs fix
                 verts_to_unmerge.update(edge_vert_ids)
 
-            if merged_edge[0] in sel_edge_ids:
-                subobjs_to_select["edge"].append(edge1_id)
-
         else:
 
             merged_edge = Mgr.do("create_merged_edge", self)
@@ -614,9 +594,6 @@ class CreationMixin:
                     # triple edge; needs fix
                     verts_to_unmerge.update(edge_vert_ids)
 
-                if merged_edge[0] in sel_edge_ids:
-                    subobjs_to_select["edge"].append(edge_id)
-
             else:
 
                 merged_edge = Mgr.do("create_merged_edge", self)
@@ -627,15 +604,9 @@ class CreationMixin:
         vert2.add_edge_id(edge1_id)
 
         polygon = Mgr.do("create_poly", self, poly_tris, poly_edges, poly_verts)
-        Mgr.do("register_vert_objs", poly_verts, restore=False)
-        Mgr.do("register_edge_objs", poly_edges, restore=False)
-        Mgr.do("register_poly", polygon, restore=False)
         ordered_polys.append(polygon)
         poly_id = polygon.id
         polys[poly_id] = polygon
-        subobj_change["vert"]["created"] = poly_verts
-        subobj_change["edge"]["created"] = poly_edges
-        subobj_change["poly"]["created"] = [polygon]
 
         # Check surface normal discontinuity
 
@@ -660,314 +631,27 @@ class CreationMixin:
         # or triple edges
 
         while verts_to_unmerge:
-
             vert_id = verts_to_unmerge.pop()
             merged_vert = merged_verts[vert_id]
             merged_vert.remove(vert_id)
             merged_verts[vert_id] = Mgr.do("create_merged_vert", self, vert_id)
             vert = verts[vert_id]
-
-            if vert_id in subobjs_to_select["vert"]:
-                subobjs_to_select["vert"].remove(vert_id)
-
             edges_to_unmerge.update(vert.edge_ids)
 
         while edges_to_unmerge:
-
             edge_id = edges_to_unmerge.pop()
             merged_edge = merged_edges[edge_id]
             merged_edge.remove(edge_id)
             merged_edges[edge_id] = Mgr.do("create_merged_edge", self, edge_id)
 
-            if edge_id in subobjs_to_select["edge"]:
-                subobjs_to_select["edge"].remove(edge_id)
-
         # also undo vertex merging where it leads to self-intersecting borders
         border_edges = (merged_edges[edge.id] for edge in poly_edges)
         self.fix_borders(border_edges)
 
-        # Update geometry structures
-
-        vert_count = polygon.vertex_count
-        old_count = self._data_row_count
-        count = old_count + vert_count
-        self._data_row_count = count
-
-        geoms = self._geoms
-        geom_node_top = self._toplvl_node
-        vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
-        vertex_data_top.reserve_num_rows(count)
-        vertex_data_poly_picking = self._vertex_data["poly_picking"]
-        vertex_data_poly_picking.reserve_num_rows(count)
-        vertex_data_poly_picking.set_num_rows(count)
-
-        pos_writer = GeomVertexWriter(vertex_data_top, "vertex")
-        pos_writer.set_row(old_count)
-        col_writer = GeomVertexWriter(vertex_data_poly_picking, "color")
-        col_writer.set_row(old_count)
-        ind_writer_poly = GeomVertexWriter(vertex_data_poly_picking, "index")
-        ind_writer_poly.set_row(old_count)
-        normal_writer = GeomVertexWriter(vertex_data_top, "normal")
-        normal_writer.set_row(old_count)
-        sign = -1. if self.owner.has_flipped_normals() else 1.
-
-        pickable_type_id = PickableTypes.get_id("poly")
-        picking_col_id = polygon.picking_color_id
-        picking_color = get_color_vec(picking_col_id, pickable_type_id)
-        poly_index = len(polys)
-        indexed_polys[poly_index] = polygon
-
-        verts_by_row = {}
-
-        for vert in poly_verts:
-            vert.offset_row_index(old_count)
-            row = vert.row_index
-            verts_by_row[row] = vert
-
-        for row in sorted(verts_by_row):
-            vert = verts_by_row[row]
-            pos = vert.get_pos()
-            pos_writer.add_data3(pos)
-            col_writer.add_data4(picking_color)
-            ind_writer_poly.add_data1i(poly_index)
-            normal_writer.add_data3(normal * sign)
-
-        vertex_data_vert1 = geoms["vert"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_vert1.set_num_rows(count)
-        vertex_data_vert2 = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_vert2.set_num_rows(count)
-        vertex_data_normal1 = geoms["normal"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_normal1.set_num_rows(count)
-        vertex_data_normal2 = geoms["normal"]["sel_state"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_normal2.set_num_rows(count)
-        col_writer1 = GeomVertexWriter(vertex_data_vert1, "color")
-        col_writer1.set_row(old_count)
-        col_writer2 = GeomVertexWriter(vertex_data_vert2, "color")
-        col_writer2.set_row(old_count)
-        col_writer3 = GeomVertexWriter(vertex_data_normal2, "color")
-        col_writer3.set_row(old_count)
-        ind_writer_vert = GeomVertexWriter(vertex_data_vert1, "index")
-        ind_writer_vert.set_row(old_count)
-
-        sel_colors = Mgr.get("subobj_selection_colors")
-        color_vert = sel_colors["vert"]["unselected"]
-        color_normal = sel_colors["normal"]["unselected"]
-        pickable_type_id = PickableTypes.get_id("vert")
-
-        for row in sorted(verts_by_row):
-            vert = verts_by_row[row]
-            picking_color = get_color_vec(vert.picking_color_id, pickable_type_id)
-            col_writer1.add_data4(picking_color)
-            col_writer2.add_data4(color_vert)
-            col_writer3.add_data4(color_normal)
-            ind_writer_vert.add_data1i(row)
-            indexed_verts[row] = vert
-
-        col_array = GeomVertexArrayData(vertex_data_vert1.get_array(1))
-        vertex_data_normal1.set_array(1, col_array)
-
-        sel_data = self._poly_selection_data
-        sel_data["unselected"].extend(polygon)
-
-        picking_colors1 = {}
-        picking_colors2 = {}
-        pickable_type_id = PickableTypes.get_id("edge")
-        indices1 = {}
-        indices2 = {}
-        edge_index = len(edges)
-
-        for edge in poly_edges:
-            row1, row2 = [verts[v_id].row_index for v_id in edge]
-            picking_color = get_color_vec(edge.picking_color_id, pickable_type_id)
-            picking_colors1[row1] = picking_color
-            picking_colors2[row2 + count] = picking_color
-            indices1[row1] = edge_index
-            indices2[row2 + count] = edge_index
-            indexed_edges[edge_index] = edge
-            edge_index += 1
-
-        vertex_data_edge1 = geoms["edge"]["pickable"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_edge2 = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_edge2.set_num_rows(count * 2)
-        vertex_data_tmp = GeomVertexData(vertex_data_edge1)
-        vertex_data_tmp.set_num_rows(count)
-        col_writer1 = GeomVertexWriter(vertex_data_tmp, "color")
-        col_writer1.set_row(old_count)
-        col_writer2 = GeomVertexWriter(vertex_data_edge2, "color")
-        col_writer2.set_row(old_count)
-        ind_writer_edge = GeomVertexWriter(vertex_data_tmp, "index")
-        ind_writer_edge.set_row(old_count)
-        color = sel_colors["edge"]["unselected"]
-
-        for row_index in sorted(picking_colors1):
-            picking_color = picking_colors1[row_index]
-            col_writer1.add_data4(picking_color)
-            col_writer2.add_data4(color)
-            ind_writer_edge.add_data1i(indices1[row_index])
-
-        from_array = vertex_data_tmp.get_array(1)
-        size = from_array.data_size_bytes
-        from_view = memoryview(from_array).cast("B")
-
-        vertex_data_tmp = GeomVertexData(vertex_data_edge1)
-        stride = vertex_data_tmp.get_array(1).array_format.stride
-        vertex_data_tmp.set_num_rows(old_count + count)
-        col_writer1 = GeomVertexWriter(vertex_data_tmp, "color")
-        col_writer1.set_row(old_count * 2)
-        col_writer2.set_row(old_count + count)
-        ind_writer_edge = GeomVertexWriter(vertex_data_tmp, "index")
-        ind_writer_edge.set_row(old_count * 2)
-
-        for row_index in sorted(picking_colors2):
-            picking_color = picking_colors2[row_index]
-            col_writer1.add_data4(picking_color)
-            col_writer2.add_data4(color)
-            ind_writer_edge.add_data1i(indices2[row_index])
-
-        vertex_data_edge1.set_num_rows(count * 2)
-        to_array = vertex_data_edge1.modify_array(1)
-        to_view = memoryview(to_array).cast("B")
-        to_view[:size] = from_view
-
-        from_array = vertex_data_tmp.get_array(1)
-        from_view = memoryview(from_array).cast("B")
-        to_view[size:] = from_view[-size:]
-
-        lines_prim = GeomLines(Geom.UH_static)
-        lines_prim.reserve_num_vertices(count * 2)
-
-        for poly in ordered_polys:
-            for edge in poly.edges:
-                row1, row2 = [verts[v_id].row_index for v_id in edge]
-                lines_prim.add_vertices(row1, row2 + count)
-
-        self.clear_selection("edge", update_verts_to_transf=False)
-        subobjs_to_select["edge"].extend(sel_edge_ids)
-
-        geom_node = geoms["edge"]["pickable"].node()
-        geom_node.modify_geom(0).set_primitive(0, lines_prim)
-        geom_node = geoms["edge"]["sel_state"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomLines(lines_prim))
-
-        vertex_data_poly = self._vertex_data["poly"]
-        vertex_data_poly.set_num_rows(count)
-
-        vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
-        pos_array = vertex_data_top.get_array(0)
-        size = pos_array.data_size_bytes
-        from_view = memoryview(pos_array).cast("B")
-        normal_array = vertex_data_top.get_array(2)
-        tan_array = vertex_data_top.get_array(3)
-        vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_vert1.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_vert2.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_normal1.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_normal2.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_normal1.set_array(2, GeomVertexArrayData(normal_array))
-        vertex_data_normal2.set_array(2, GeomVertexArrayData(normal_array))
-        vertex_data_poly.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_poly.set_array(2, GeomVertexArrayData(normal_array))
-        vertex_data_poly.set_array(3, GeomVertexArrayData(tan_array))
-        pos_array_edge = GeomVertexArrayData(pos_array.array_format, pos_array.usage_hint)
-        pos_array_edge.unclean_set_num_rows(pos_array.get_num_rows() * 2)
-        to_view = memoryview(pos_array_edge).cast("B")
-        to_view[:size] = from_view
-        to_view[size:] = from_view
-        vertex_data_edge1.set_array(0, pos_array_edge)
-        vertex_data_edge2.set_array(0, pos_array_edge)
-
-        tris_prim = geom_node_top.modify_geom(0).modify_primitive(0)
-        from_size = tris_prim.get_num_vertices()
-
-        for vert_ids in poly_tris:
-            tris_prim.add_vertices(*[verts[v_id].row_index for v_id in vert_ids])
-
-        from_array = tris_prim.get_vertices()
-        stride = from_array.array_format.stride
-        from_size *= stride
-        poly_size = len(polygon)
-        size = poly_size * stride
-        from_view = memoryview(from_array).cast("B")
-        geom_node = geoms["poly"]["unselected"].node()
-        prim = geom_node.modify_geom(0).modify_primitive(0)
-        to_array = prim.modify_vertices()
-        to_size = to_array.data_size_bytes
-        to_array.set_num_rows(to_array.get_num_rows() + poly_size)
-        to_view = memoryview(to_array).cast("B")
-        to_view[to_size:to_size+size] = from_view[from_size:from_size+size]
-        geom_node = geoms["poly"]["pickable"].node()
-        prim = geom_node.modify_geom(0).modify_primitive(0)
-        to_array = prim.modify_vertices()
-        to_size = to_array.data_size_bytes
-        to_array.set_num_rows(to_array.get_num_rows() + poly_size)
-        to_view = memoryview(to_array).cast("B")
-        to_view[to_size:to_size+size] = from_view[from_size:from_size+size]
-
-        tmp_prim = GeomPoints(Geom.UH_static)
-        tmp_prim.reserve_num_vertices(vert_count)
-        tmp_prim.add_next_vertices(vert_count)
-        tmp_prim.offset_vertices(old_count)
-        from_array = tmp_prim.get_vertices()
-        size = from_array.data_size_bytes
-        from_view = memoryview(from_array).cast("B")
-        geom_node = geoms["vert"]["pickable"].node()
-        prim = geom_node.modify_geom(0).modify_primitive(0)
-        to_array = prim.modify_vertices()
-        to_size = to_array.data_size_bytes
-        to_array.set_num_rows(count)
-        to_view = memoryview(to_array).cast("B")
-        to_view[to_size:to_size+size] = from_view
-        geom_node = geoms["vert"]["sel_state"].node()
-        prim = geom_node.modify_geom(0).modify_primitive(0)
-        to_array = prim.modify_vertices()
-        to_size = to_array.data_size_bytes
-        to_array.set_num_rows(count)
-        to_view = memoryview(to_array).cast("B")
-        to_view[to_size:to_size+size] = from_view
-        geom_node = geoms["normal"]["pickable"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomPoints(prim))
-        geom_node = geoms["normal"]["sel_state"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomPoints(prim))
-
-        # Miscellaneous updates
-
         polygon.update_center_pos()
         polygon.update_normal()
 
-        merged_subobjs = {"vert": merged_verts, "edge": merged_edges}
-
-        for subobj_type in ("vert", "edge"):
-            if subobjs_to_select[subobj_type]:
-                subobj_id = subobjs_to_select[subobj_type][0]
-                merged_subobj = merged_subobjs[subobj_type][subobj_id]
-                # since update_selection(...) processes *all* subobjects referenced by the
-                # merged subobject, it is replaced by a temporary merged subobject that
-                # only references newly created subobjects;
-                # as an optimization, one temporary merged subobject references all newly
-                # created subobjects, so self.update_selection() needs to be called only
-                # once
-                tmp_merged_subobj = Mgr.do(f"create_merged_{subobj_type}", self)
-                for s_id in subobjs_to_select[subobj_type]:
-                    tmp_merged_subobj.append(s_id)
-                merged_subobjs[subobj_type][subobj_id] = tmp_merged_subobj
-                subobj = subobjs[subobj_type][subobj_id]
-                self.update_selection(subobj_type, [subobj], [], False)
-                # the original merged subobject can now be restored
-                merged_subobjs[subobj_type][subobj_id] = merged_subobj
-                self._update_verts_to_transform(subobj_type)
-
-        self._update_verts_to_transform("poly")
-        self.origin.node().set_bounds(geom_node_top.get_bounds())
-        model = self.toplevel_obj
-        model.bbox.update(*self.origin.get_tight_bounds())
-
-        self._normal_sharing_change = True
-
-        if model.has_tangent_space():
-            tangent_flip, bitangent_flip = model.get_tangent_space_flip()
-            self.update_tangent_space(tangent_flip, bitangent_flip, [poly_id])
-        else:
-            self._is_tangent_space_initialized = False
+        self._create_new_geometry(poly_verts, poly_edges, [polygon])
 
         return True
 
@@ -983,6 +667,7 @@ class CreationMixin:
 
 
 class CreationManager:
+    """ PolygonEditManager class mix-in """
 
     def __init__(self):
 

@@ -404,9 +404,9 @@ def id_generator():
 
 def get_color_vec(color_id, alpha):
 
-    r = (color_id >> 16)
+    r = color_id >> 16
     g = (color_id ^ (r << 16)) >> 8
-    b = (color_id ^ (r << 16) ^ (g << 8))
+    b = color_id ^ (r << 16) ^ (g << 8)
 
     return VBase4(r, g, b, alpha) / 255.
 

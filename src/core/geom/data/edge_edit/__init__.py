@@ -7,14 +7,154 @@ import copy
 class EdgeEditMixin(EdgeMergeMixin, EdgeBridgeMixin):
     """ GeomDataObject class mix-in """
 
-    def get_border_edges(self, start_edge):
+    def get_region_border_edges(self, poly_region):
+        """
+        Return the edges that form the borders (including the borders of holes,
+        if any) of the given poly_region, in counter-clockwise order, as well
+        as data that can help in dealing with self-intersecting borders.
+
+        The format of the data returned is as follows:
+
+            [
+                (border_edge_loop_0, intersection_data_0),
+                ...,
+                (border_edge_loop_n, intersection_data_n)
+            ];
+
+            border_edge_loop:
+
+                [edge_0, edge_1, ..., edge_n];
+
+            intersection_data:
+
+                [
+                    (index_0, split_merged_vert_0),
+                    ...,
+                    (index_n, split_merged_vert_n)
+                ];
+
+                this data needs to be applied to a list of merged vertices generated
+                as follows:
+                border_merged_verts = [merged_verts[e[1]] for e in border_edge_loop]
+
+                index:
+                    the index of a merged vertex in border_merged_verts at which a
+                    self-intersection occurs;
+                split_merged_vert:
+                    a new merged vertex that refers to only the vertices that belong
+                    to polygons sharing an edge in between two border edges sharing
+                    the original merged vertex at which a self-intersection occurs.
+
+        """
+
+        verts = self._subobjs["vert"]
+        edges = self._subobjs["edge"]
+        border_edge_ids = []
+        border_merged_edges = []
+
+        for poly in poly_region:
+
+            for edge in poly.edges:
+
+                merged_edge = edge.merged_edge
+
+                if merged_edge in border_merged_edges:
+                    index = border_merged_edges.index(merged_edge)
+                    border_merged_edges.remove(merged_edge)
+                    del border_edge_ids[index]
+                else:
+                    border_merged_edges.append(merged_edge)
+                    border_edge_ids.append(edge.id)
+
+        del border_merged_edges
+
+        def get_adjacent_edge(edge):
+
+            edge1_id, edge2_id = edge.merged_edge
+            edge_id = edge1_id if edge2_id == edge.id else edge2_id
+
+            return edges[edge_id]
+
+        def get_next_border_edge(edge):
+
+            # collect the IDs of all vertices at the corner of both edges;
+            # they are needed to split a merged vertex at which the border
+            # self-intersects
+            vert_ids = []
+
+            while True:
+
+                vert_id = edge[1]
+                vert_ids.append(vert_id)
+                vert = verts[vert_id]
+                edge_id = vert.edge_ids[1]
+                edge = edges[edge_id]
+
+                if edge_id in border_edge_ids:
+                    border_edge_ids.remove(edge_id)
+                    return edge, vert_ids
+                else:
+                    edge = get_adjacent_edge(edge)
+
+        border_edges = []
+        merged_verts = self.merged_verts
+
+        while border_edge_ids:
+
+            start_edge = edges[border_edge_ids[0]]
+            next_edge, vert_ids = get_next_border_edge(start_edge)
+            border_edge_loop = [start_edge]
+            border_vert_ids = [vert_ids]
+            border_merged_verts = [merged_verts[next_edge[0]]]
+            merged_vert_indices = {}
+            intersection_data = []
+
+            while next_edge is not start_edge:
+
+                border_edge_loop.append(next_edge)
+                next_edge, vert_ids = get_next_border_edge(next_edge)
+                border_vert_ids.append(vert_ids)
+                merged_vert = merged_verts[next_edge[0]]
+
+                if merged_vert in border_merged_verts:
+                    # if the same merged vertex is encountered more than once, the
+                    # border self-intersects at that vertex; the indices at which it
+                    # appears in the border vertex list must be stored, so it can be
+                    # replaced later with split merged vertices
+                    index = border_merged_verts.index(merged_vert)
+                    merged_vert_indices.setdefault(merged_vert, []).append(index)
+                    border_merged_verts[index] = None
+
+                border_merged_verts.append(merged_vert)
+
+            for old_merged_vert, index_list in merged_vert_indices.items():
+
+                # complete the index list with the index at which the merged vertex
+                # appears one last time
+                index_list.append(border_merged_verts.index(old_merged_vert))
+
+                for index in index_list:
+                    split_merged_vert = Mgr.do("create_merged_vert", self)
+                    split_merged_vert.extend(border_vert_ids[index])
+                    intersection_data.append((index, split_merged_vert))
+
+            border_edges.append((border_edge_loop, intersection_data))
+
+        return border_edges
+
+    def get_containing_surface_border(self, start_merged_edge):
+        """
+        Return the surface border containing the given start_merged_edge
+        as a list of merged edges.
+
+        """
 
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        border_edges = [start_edge]
-        border_edge = start_edge
+        border_edges = [start_merged_edge]
+        border_edge = start_merged_edge
 
         while True:
 
@@ -31,7 +171,7 @@ class EdgeEditMixin(EdgeMergeMixin, EdgeBridgeMixin):
                     border_edge = merged_edge
                     break
 
-            if border_edge is start_edge:
+            if border_edge is start_merged_edge:
                 break
             else:
                 border_edges.append(border_edge)

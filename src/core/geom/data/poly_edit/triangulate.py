@@ -420,6 +420,7 @@ class TriangulationMixin:
 
 
 class TriangulationManager:
+    """ PolygonEditManager class mix-in """
 
     def __init__(self):
 

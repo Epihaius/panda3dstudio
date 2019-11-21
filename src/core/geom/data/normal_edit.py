@@ -1490,6 +1490,7 @@ class NormalManager:
 
     def __flip_normals(self, flip=True):
 
+        Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
         changed_objs = []
 

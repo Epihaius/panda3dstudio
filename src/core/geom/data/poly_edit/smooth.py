@@ -612,6 +612,7 @@ class SmoothingMixin:
 
 
 class SmoothingManager:
+    """ PolygonEditManager class mix-in """
 
     def __init__(self):
 
@@ -660,6 +661,8 @@ class SmoothingManager:
 
     def __set_smooth_shaded(self, smooth=True):
 
+        # exit any subobject modes
+        Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
         geom_data_objs = {obj.id: obj.geom_obj.geom_data_obj for obj in selection}
         changed_objs = {}
@@ -695,6 +698,8 @@ class SmoothingManager:
 
     def __smooth_polygons(self, smooth=True, poly_id=None):
 
+        # exit any subobject modes
+        Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
         changed_objs = {}
         changed_selections = []
@@ -730,6 +735,8 @@ class SmoothingManager:
 
     def __update_polygon_smoothing(self):
 
+        # exit any subobject modes
+        Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
         changed_objs = {}
 

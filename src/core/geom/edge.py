@@ -126,6 +126,18 @@ class Edge:
 
         return intersection_point
 
+    def get_direction_vector(self, origin_vertex_id):
+
+        verts = self.geom_data_obj.get_subobjects("vert")
+        v1_id, v2_id = self._vert_ids
+        v1 = verts[v1_id]
+        v2 = verts[v2_id]
+
+        if origin_vertex_id == v1_id:
+            return (v2.get_pos() - v1.get_pos()).normalized()
+        else:
+            return (v1.get_pos() - v2.get_pos()).normalized()
+
 
 class MergedEdge:
 
@@ -250,7 +262,7 @@ class MergedEdge:
         edges = [self]
 
         if GD["subobj_edit_options"]["sel_edges_by_border"] and len(self._ids) == 1:
-            edges = self.geom_data_obj.get_border_edges(self)
+            edges = self.geom_data_obj.get_containing_surface_border(self)
 
         return edges
 
@@ -292,6 +304,19 @@ class MergedEdge:
         edge = self.geom_data_obj.get_subobject("edge", self._ids[0])
 
         return edge.get_point_at_screen_pos(screen_pos)
+
+    def get_direction_vector(self, origin_vertex_id):
+
+        merged_verts = self.geom_data_obj.merged_verts
+        edge = self.geom_data_obj.get_subobject("edge", self._ids[0])
+        v1_id, v2_id = edge
+        mv1 = merged_verts[v1_id]
+        mv2 = merged_verts[v2_id]
+
+        if origin_vertex_id in mv1:
+            return (mv2.get_pos() - mv1.get_pos()).normalized()
+        else:
+            return (mv1.get_pos() - mv2.get_pos()).normalized()
 
     def is_facing_camera(self):
 

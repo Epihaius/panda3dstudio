@@ -408,6 +408,7 @@ class SurfaceMixin:
 
 
 class SurfaceManager:
+    """ PolygonEditManager class mix-in """
 
     def __init__(self):
 
@@ -415,6 +416,8 @@ class SurfaceManager:
 
     def __invert_poly_surfaces(self):
 
+        # exit any subobject modes
+        Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
         changed_objs = {}
         changed_triangulations = []
