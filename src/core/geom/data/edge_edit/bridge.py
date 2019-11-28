@@ -19,7 +19,6 @@ class EdgeBridgeMixin:
         poly_tris = []
 
         merged_vert1, merged_vert2, merged_vert3, merged_vert4 = ordered_verts
-        row_index = 0
 
         # Create the vertices
 
@@ -47,8 +46,6 @@ class EdgeBridgeMixin:
             merged_vert1.append(vert1_id)
             merged_verts[vert1_id] = merged_vert1
 
-        vert1.row_index = row_index
-        row_index += 1
         poly_verts.append(vert1)
 
         if merged_vert2 is merged_vert1:
@@ -68,8 +65,6 @@ class EdgeBridgeMixin:
                 merged_vert2.append(vert2_id)
                 merged_verts[vert2_id] = merged_vert2
 
-            vert2.row_index = row_index
-            row_index += 1
             poly_verts.append(vert2)
 
         pos3 = merged_vert3.get_pos()
@@ -82,8 +77,6 @@ class EdgeBridgeMixin:
             merged_vert3.append(vert3_id)
             merged_verts[vert3_id] = merged_vert3
 
-        vert3.row_index = row_index
-        row_index += 1
         poly_verts.append(vert3)
 
         if merged_vert4 is merged_vert3:
@@ -103,7 +96,6 @@ class EdgeBridgeMixin:
                 merged_vert4.append(vert4_id)
                 merged_verts[vert4_id] = merged_vert4
 
-            vert4.row_index = row_index
             poly_verts.append(vert4)
 
         # Define triangulation
@@ -558,7 +550,7 @@ class EdgeBridgeManager:
         Mgr.do("update_active_selection")
         Mgr.do("update_history_time")
 
+        event_descr = f'Bridge edges of "{model.name}"'
         obj_data = {model.id: geom_data_obj.get_data_to_store("subobj_change")}
-        event_descr = "Bridge edges"
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

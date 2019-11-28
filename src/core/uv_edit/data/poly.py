@@ -110,19 +110,26 @@ class Polygon:
 
         return polys
 
+    def get_center_pos(self, ref_node=None):
+
+        if ref_node:
+            origin = self.uv_data_obj.origin
+            return ref_node.get_relative_point(origin, self._center_pos)
+
+        return self._center_pos
+
+    @property
+    def center_pos(self):
+
+        return self.get_center_pos()
+
+    @center_pos.setter
+    def center_pos(self, center_pos):
+
+        self._center_pos = center_pos
+
     def update_center_pos(self):
 
         verts = self.vertices
         positions = [vert.get_pos() for vert in verts]
         self._center_pos = sum(positions, Point3()) / len(positions)
-
-    def set_center_pos(self, center_pos):
-
-        self._center_pos = center_pos
-
-    def get_center_pos(self, ref_node):
-
-        origin = self.uv_data_obj.origin
-        pos = ref_node.get_relative_point(origin, self._center_pos)
-
-        return pos

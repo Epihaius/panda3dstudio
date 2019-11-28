@@ -146,6 +146,30 @@ class Polygon:
 
         return [verts[vert_id].row_index for vert_id in self.vertex_ids]
 
+    def get_center_pos(self, ref_node=None):
+
+        if ref_node:
+            origin = self.geom_data_obj.origin
+            return ref_node.get_relative_point(origin, self._center_pos)
+
+        return self._center_pos
+
+    @property
+    def center_pos(self):
+
+        return self.get_center_pos()
+
+    @center_pos.setter
+    def center_pos(self, center_pos):
+
+        self._center_pos = center_pos
+
+    def update_center_pos(self):
+
+        verts = self.vertices
+        positions = [vert.get_pos() for vert in verts]
+        self._center_pos = sum(positions, Point3()) / len(positions)
+
     def get_triangle_normal(self, triangle_index):
 
         verts = self.geom_data_obj.get_subobjects("vert")
@@ -153,16 +177,6 @@ class Polygon:
         pos1, pos2, pos3 = [vert.get_pos() for vert in tri_verts]
 
         return V3D(pos2 - pos1) ** V3D(pos3 - pos2)
-
-    def update_normal(self):
-
-        tri_count = len(self._tri_data)
-        normals = [self.get_triangle_normal(i) for i in range(tri_count)]
-        self._normal = sum(normals, Vec3()) / tri_count
-
-    def reverse_normal(self):
-
-        self._normal *= -1.
 
     def get_normal(self, ref_node=None):
 
@@ -176,6 +190,21 @@ class Polygon:
     def normal(self):
 
         return self.get_normal()
+
+    @normal.setter
+    def normal(self, normal):
+
+        self._normal = normal
+
+    def update_normal(self):
+
+        tri_count = len(self._tri_data)
+        normals = [self.get_triangle_normal(i) for i in range(tri_count)]
+        self._normal = sum(normals, Vec3()) / tri_count
+
+    def reverse_normal(self):
+
+        self._normal *= -1.
 
     @property
     def connected_verts(self):
@@ -231,24 +260,6 @@ class Polygon:
             polys = list(poly_set)
 
         return polys
-
-    def update_center_pos(self):
-
-        verts = self.vertices
-        positions = [vert.get_pos() for vert in verts]
-        self._center_pos = sum(positions, Point3()) / len(positions)
-
-    def set_center_pos(self, center_pos):
-
-        self._center_pos = center_pos
-
-    def get_center_pos(self, ref_node=None):
-
-        if ref_node:
-            origin = self.geom_data_obj.origin
-            return ref_node.get_relative_point(origin, self._center_pos)
-
-        return self._center_pos
 
     def get_point_at_screen_pos(self, screen_pos):
 

@@ -173,8 +173,6 @@ class SurfaceMixin:
             # switch vertices by swapping their properties
             for vert1_id, vert2_id in zip(vert_ids1, vert_ids2):
 
-                # TODO: swap vertex colors
-
                 vert1 = verts[vert1_id]
                 vert2 = verts[vert2_id]
                 verts_to_swap.extend((vert1, vert2))
@@ -182,6 +180,8 @@ class SurfaceMixin:
                 merged_vert2 = merged_verts[vert2_id]
                 pos1 = vert1.get_pos()
                 pos2 = vert2.get_pos()
+                col1 = vert1.color
+                col2 = vert2.color
                 uvs1 = vert1.get_uvs()
                 uvs2 = vert2.get_uvs()
                 vert1_selected = vert1_id in selected_vert_ids
@@ -204,6 +204,8 @@ class SurfaceMixin:
                 xformed_verts.add(merged_vert2)
                 vert1.set_pos(pos2)
                 vert2.set_pos(pos1)
+                vert1.color = col2
+                vert2.color = col1
                 vert1.set_uvs(uvs2)
                 vert2.set_uvs(uvs1)
 
@@ -403,8 +405,168 @@ class SurfaceMixin:
             self._is_tangent_space_initialized = False
 
         self._update_verts_to_transform("poly")
+        self.update_vertex_colors()
 
         return tri_change, uv_change, sel_change
+
+    def doubleside_polygon_surfaces(self):
+        """
+        Create inverted duplicates of the surfaces that the currently
+        selected polygons belong to and merge their borders with the
+        corresponding borders of the originals.
+
+        """
+
+        selected_poly_ids = self._selected_subobj_ids["poly"]
+
+        if not selected_poly_ids:
+            return False
+
+        poly_ids = set(selected_poly_ids)
+        polys_to_doubleside = set()
+
+        # determine the contiguous surfaces that the selected polys belong to
+        while poly_ids:
+            poly_id = poly_ids.pop()
+            surface = self.get_polygon_surface(poly_id)
+            polys_to_doubleside.update(surface)
+            poly_ids.difference_update([poly.id for poly in surface])
+
+        verts = self._subobjs["vert"]
+        edges = self._subobjs["edge"]
+        polys = self._subobjs["poly"]
+        merged_verts = self.merged_verts
+        merged_edges = self.merged_edges
+        shared_normals = self._shared_normals
+        locked_normal_ids = []
+        uv_set_ids = set()
+        new_vert_ids = {}
+        new_edge_ids = {}
+        new_merged_verts = {}
+        new_merged_edges = {}
+        new_shared_normals = {}
+        new_verts = []
+        new_edges = []
+        new_polys = []
+
+        border_merged_edges = [me for me in (merged_edges[e_id] for p in
+            polys_to_doubleside for e_id in p.edge_ids) if len(me) == 1]
+        border_merged_verts = [merged_verts[edges[me[0]][0]]
+            for me in border_merged_edges]
+
+        for poly in polys_to_doubleside:
+
+            poly_verts = []
+            poly_edges = []
+            poly_tris = []
+            new_poly_edges = []
+
+            for vert in poly.vertices[::-1]:
+
+                new_vert = Mgr.do("create_vert", self, vert.get_pos())
+                uvs = vert.get_uvs()
+                uv_set_ids.update(uvs)
+                new_vert.set_uvs(uvs)
+                new_vert.color = vert.color
+                new_vert.normal = vert.normal * -1.
+
+                if vert.has_locked_normal():
+                    new_vert.lock_normal()
+                    locked_normal_ids.append(new_vert.id)
+
+                new_vert_ids[vert.id] = new_vert.id
+                verts[new_vert.id] = new_vert
+                poly_verts.append(new_vert)
+                merged_vert = merged_verts[vert.id]
+                shared_normal = shared_normals[vert.id]
+                new_shared_normals[shared_normal] = Mgr.do("create_shared_normal", self)
+
+                if merged_vert in border_merged_verts:
+                    merged_vert.append(new_vert.id)
+                    merged_verts[new_vert.id] = merged_vert
+                else:
+                    new_merged_verts[merged_vert] = Mgr.do("create_merged_vert", self)
+
+            for edge in poly.edges[::-1]:
+
+                v1_id, v2_id = edge
+                new_v1_id = new_vert_ids[v1_id]
+                new_v2_id = new_vert_ids[v2_id]
+                new_edge = Mgr.do("create_edge", self, (new_v2_id, new_v1_id))
+                edges[new_edge.id] = new_edge
+                poly_edges.append(new_edge)
+                new_poly_edges.append(new_edge)
+                merged_edge = merged_edges[edge.id]
+
+                if merged_edge in border_merged_edges:
+                    merged_edge.append(new_edge.id)
+                    merged_edges[new_edge.id] = merged_edge
+                else:
+                    new_edge_ids[edge.id] = new_edge.id
+                    new_merged_edges[merged_edge] = Mgr.do("create_merged_edge", self)
+
+            for i, edge in enumerate(new_poly_edges):
+                vert = verts[edge[0]]
+                vert.add_edge_id(new_poly_edges[i - 1].id)
+                vert.add_edge_id(edge.id)
+
+            for tri_vert_ids in poly:
+                poly_tris.append(tuple(new_vert_ids[v_id] for v_id in tri_vert_ids[::-1]))
+
+            new_poly = Mgr.do("create_poly", self, poly_tris, poly_edges, poly_verts)
+            polys[new_poly.id] = new_poly
+            new_verts.extend(poly_verts)
+            new_edges.extend(poly_edges)
+            new_polys.append(new_poly)
+            self._ordered_polys.append(new_poly)
+
+            new_poly.center_pos = Point3(poly.center_pos)
+            new_poly.normal = poly.normal * -1.
+
+        for merged_vert, new_merged_vert in new_merged_verts.items():
+            new_merged_vert.extend(new_vert_ids[v_id] for v_id in merged_vert)
+            for vert_id in new_merged_vert:
+                merged_verts[vert_id] = new_merged_vert
+
+        for merged_edge, new_merged_edge in new_merged_edges.items():
+            new_merged_edge.extend(new_edge_ids[e_id] for e_id in merged_edge)
+            for edge_id in new_merged_edge:
+                merged_edges[edge_id] = new_merged_edge
+
+        for shared_normal, new_shared_normal in new_shared_normals.items():
+            new_shared_normal.extend(new_vert_ids[v_id] for v_id in shared_normal)
+            for vert_id in new_shared_normal:
+                shared_normals[vert_id] = new_shared_normal
+
+        self._create_new_geometry(new_verts, new_edges, new_polys, create_normals=False)
+        self.update_locked_normal_selection(None, None, locked_normal_ids, ())
+
+        vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        uv_writers = {}
+
+        for uv_set_id in uv_set_ids:
+            column = "texcoord" if uv_set_id == 0 else f"texcoord.{uv_set_id}"
+            uv_writers[uv_set_id] = GeomVertexWriter(vertex_data_top, column)
+
+        for vert_id in new_vert_ids.values():
+
+            vert = verts[vert_id]
+            row = vert.row_index
+
+            for uv_set_id, uv in vert.get_uvs().items():
+                uv_writer = uv_writers[uv_set_id]
+                uv_writer.set_row(row)
+                uv_writer.set_data2(*uv)
+
+        vertex_data_poly = self._vertex_data["poly"]
+
+        for uv_set_id in uv_set_ids:
+            uv_array = vertex_data_top.get_array(4 + uv_set_id)
+            vertex_data_poly.set_array(4 + uv_set_id, GeomVertexArrayData(uv_array))
+
+        self.update_vertex_colors()
+
+        return True
 
 
 class SurfaceManager:
@@ -413,6 +575,7 @@ class SurfaceManager:
     def __init__(self):
 
         Mgr.add_app_updater("poly_surface_inversion", self.__invert_poly_surfaces)
+        Mgr.add_app_updater("poly_surface_doublesiding", self.__doubleside_poly_surfaces)
 
     def __invert_poly_surfaces(self):
 
@@ -466,6 +629,50 @@ class SurfaceManager:
 
             obj_data[obj_id] = data
 
-        event_descr = "Invert polygon surfaces"
+        objs = [geom_data_obj.toplevel_obj for geom_data_obj in changed_objs.values()]
+
+        if len(objs) == 1:
+            obj = objs[0]
+            event_descr = f'Invert surfaces of "{obj.name}"'
+        else:
+            event_descr = 'Invert surfaces of objects:\n'
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in objs])
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __doubleside_poly_surfaces(self):
+
+        # exit any subobject modes
+        Mgr.exit_states(min_persistence=-99)
+        selection = Mgr.get("selection_top")
+        changed_objs = {}
+
+        for model in selection:
+
+            model_id = model.id
+            geom_data_obj = model.geom_obj.geom_data_obj
+
+            if geom_data_obj.doubleside_polygon_surfaces():
+                changed_objs[model_id] = geom_data_obj
+
+        if not changed_objs:
+            return
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj_id, geom_data_obj in changed_objs.items():
+            obj_data[obj_id] = geom_data_obj.get_data_to_store("subobj_change")
+
+        objs = [geom_data_obj.toplevel_obj for geom_data_obj in changed_objs.values()]
+
+        if len(objs) == 1:
+            obj = objs[0]
+            event_descr = f'Doubleside surfaces of "{obj.name}"'
+        else:
+            event_descr = 'Doubleside surfaces of objects:\n'
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in objs])
+
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

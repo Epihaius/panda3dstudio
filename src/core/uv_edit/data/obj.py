@@ -326,8 +326,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
 
             sel_data.extend(poly)
 
-            poly_center = sum(poly_corners, Point3()) / len(poly_corners)
-            poly.set_center_pos(poly_center)
+            poly.center_pos = sum(poly_corners, Point3()) / len(poly_corners)
             indexed_polys[poly_index] = poly
             poly_index += 1
 

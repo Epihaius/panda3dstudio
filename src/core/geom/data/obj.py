@@ -798,9 +798,11 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
     def bake_texture(self, texture):
 
-        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
         geom_copy = self.toplevel_geom.copy_to(GD.world)
         geom_copy.detach_node()
+        vertex_data_copy = geom_copy.node().modify_geom(0).get_vertex_data()
+        vertex_data_copy = vertex_data_copy.set_color((1., 1., 1., 1.))
+        geom_copy.node().modify_geom(0).set_vertex_data(vertex_data_copy)
         geom_copy.set_texture(TextureStage.default, texture)
         geom_copy.flatten_light()
         geom_copy.apply_texture_colors()
@@ -808,7 +810,20 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         index = vertex_data_copy.format.get_array_with("color")
         array = vertex_data_copy.modify_array(index)
         self._vertex_data["poly"].set_array(1, array)
+        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data.set_array(1, GeomVertexArrayData(array))
+
+    def update_vertex_colors(self):
+
+        material = self.toplevel_obj.get_material()
+
+        if material:
+
+            vert_color_map = material.get_tex_map("vertex color")
+            texture = vert_color_map.get_texture()
+
+            if vert_color_map.active and texture:
+                self.bake_texture(texture)
 
     def clear_vertex_colors(self):
 

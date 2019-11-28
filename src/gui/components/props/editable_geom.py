@@ -313,11 +313,24 @@ class EditableGeomProperties:
 
         group.add((0, 6))
 
-        text = "Invert surfaces"
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        text = "Invert"
         tooltip_text = "Invert surfaces containing selected polygons"
         btn = PanelButton(group, text, "", tooltip_text, self.__invert_poly_surfaces)
         self._btns["invert_surfaces"] = btn
-        group.add(btn)
+        sizer.add(btn)
+
+        sizer.add((0, 0), proportion=1.)
+
+        text = "Doubleside"
+        tooltip_text = "Doubleside surfaces containing selected polygons"
+        btn = PanelButton(group, text, "", tooltip_text, self.__doubleside_poly_surfaces)
+        self._btns["invert_surfaces"] = btn
+        sizer.add(btn)
+
+        sizer.add((0, 0), proportion=1.)
 
         group = section.add_group("Extrusion/inset")
 
@@ -781,6 +794,10 @@ class EditableGeomProperties:
     def __invert_poly_surfaces(self):
 
         Mgr.update_remotely("poly_surface_inversion")
+
+    def __doubleside_poly_surfaces(self):
+
+        Mgr.update_remotely("poly_surface_doublesiding")
 
     def __turn_diagonals(self):
 

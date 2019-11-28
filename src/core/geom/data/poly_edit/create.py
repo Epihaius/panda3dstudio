@@ -464,7 +464,6 @@ class CreationMixin:
         if tmp_data["flip_normal"]:
             normal *= -1.
 
-        row_index = 0
         verts_by_pos = {}
         tmp_edges = []
         poly_edges_by_vert_id = {}
@@ -491,8 +490,6 @@ class CreationMixin:
 
                     pos = positions[pos_index]
                     vertex = Mgr.do("create_vert", self, pos)
-                    vertex.row_index = row_index
-                    row_index += 1
                     vertex.normal = normal
                     vert_id = vertex.id
                     verts[vert_id] = vertex

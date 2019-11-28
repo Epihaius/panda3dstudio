@@ -493,16 +493,7 @@ class UVEditMixin:
             self._is_tangent_space_initialized = False
 
         if 0 in uv_set_ids:
-
-            material = model.get_material()
-
-            if material:
-
-                vert_color_map = material.get_tex_map("vertex color")
-                texture = vert_color_map.get_texture()
-
-                if vert_color_map.active and texture:
-                    self.bake_texture(texture)
+            self.update_vertex_colors()
 
     def apply_uv_edits(self, vert_ids, uv_set_id):
 
@@ -535,15 +526,7 @@ class UVEditMixin:
             else:
                 self._is_tangent_space_initialized = False
 
-            material = model.get_material()
-
-            if material:
-
-                vert_color_map = material.get_tex_map("vertex color")
-                texture = vert_color_map.get_texture()
-
-                if vert_color_map.active and texture:
-                    self.bake_texture(texture)
+            self.update_vertex_colors()
 
     def copy_uvs(self, uv_set_id):
 
@@ -578,15 +561,7 @@ class UVEditMixin:
             else:
                 self._is_tangent_space_initialized = False
 
-            material = model.get_material()
-
-            if material:
-
-                vert_color_map = material.get_tex_map("vertex color")
-                texture = vert_color_map.get_texture()
-
-                if vert_color_map.active and texture:
-                    self.bake_texture(texture)
+            self.update_vertex_colors()
 
     def clear_copied_uvs(self):
 
@@ -746,13 +721,4 @@ class UVEditMixin:
             self._vertex_data["poly"].set_array(4 + uv_set_id, GeomVertexArrayData(array))
 
         if 0 in uv_sets_to_restore:
-
-            material = self.toplevel_obj.get_material()
-
-            if material:
-
-                vert_color_map = material.get_tex_map("vertex color")
-                texture = vert_color_map.get_texture()
-
-                if vert_color_map.active and texture:
-                    self.bake_texture(texture)
+            self.update_vertex_colors()

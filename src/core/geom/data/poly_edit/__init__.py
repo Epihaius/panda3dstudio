@@ -52,7 +52,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
 
         return self.split_edges(edge_ids)
 
-    def _create_new_geometry(self, new_verts, new_edges, new_polys):
+    def _create_new_geometry(self, new_verts, new_edges, new_polys, create_normals=True):
 
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
@@ -79,28 +79,33 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
 
         normal_change = self._normal_change
         normal_lock_change = self._normal_lock_change
-        shared_normals = self._shared_normals
 
         tmp_merged_vert = Mgr.do("create_merged_vert", self)
         tmp_merged_edge = Mgr.do("create_merged_edge", self)
         tmp_merged_edge.extend(selected_edge_ids)
 
-        for vert_id in (vert.id for vert in new_verts):
+        for vert in new_verts:
 
-            normal_change.add(vert_id)
-            normal_lock_change.add(vert_id)
-            shared_normals[vert_id] = Mgr.do("create_shared_normal", self, [vert_id])
-            id_set = set(merged_verts[vert_id])
+            normal_change.add(vert.id)
+            normal_lock_change.add(vert.id)
+            id_set = set(merged_verts[vert.id])
 
             if not (id_set.isdisjoint(selected_vert_ids) or id_set.issubset(selected_vert_ids)):
                 tmp_merged_vert.extend(id_set.difference(selected_vert_ids))
 
-        for edge_id in (edge.id for edge in new_edges):
+        for edge in new_edges:
 
-            id_set = set(merged_edges[edge_id])
+            id_set = set(merged_edges[edge.id])
 
             if not (id_set.isdisjoint(selected_edge_ids) or id_set.issubset(selected_edge_ids)):
                 tmp_merged_edge.extend(id_set.difference(selected_edge_ids))
+
+        if create_normals:
+
+            shared_normals = self._shared_normals
+
+            for vert in new_verts:
+                shared_normals[vert.id] = Mgr.do("create_shared_normal", self, [vert.id])
 
         self.clear_selection("edge", update_verts_to_transf=False)
 
@@ -140,10 +145,10 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
 
         for poly in new_polys:
 
-            for vert in poly.vertices:
+            for i, vert in enumerate(poly.vertices):
+                vert.row_index = i
                 vert.offset_row_index(prev_count)
-                row = vert.row_index
-                verts_by_row[row] = vert
+                verts_by_row[vert.row_index] = vert
 
             prev_count += poly.vertex_count
 
