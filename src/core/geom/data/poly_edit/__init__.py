@@ -73,9 +73,9 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         Mgr.do("register_poly_objs", new_polys, restore=False)
 
         subobj_change = self._subobj_change
-        subobj_change["vert"]["created"] = new_verts
-        subobj_change["edge"]["created"] = new_edges
-        subobj_change["poly"]["created"] = new_polys
+        subobj_change["vert"].setdefault("created", []).extend(new_verts)
+        subobj_change["edge"].setdefault("created", []).extend(new_edges)
+        subobj_change["poly"].setdefault("created", []).extend(new_polys)
 
         normal_change = self._normal_change
         normal_lock_change = self._normal_lock_change
@@ -315,6 +315,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
             for vert_ids in poly:
                 tris_prim.add_vertices(*[verts[v_id].row_index for v_id in vert_ids])
 
+        tris_prim.make_indexed()
         from_array = tris_prim.get_vertices()
         stride = from_array.array_format.stride
         new_row_count = sum([len(poly) for poly in new_polys])
@@ -339,6 +340,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         tmp_prim.reserve_num_vertices(vert_count)
         tmp_prim.add_next_vertices(vert_count)
         tmp_prim.offset_vertices(old_count)
+        tmp_prim.make_indexed()
         from_array = tmp_prim.get_vertices()
         from_size = from_array.data_size_bytes
         from_view = memoryview(from_array).cast("B")

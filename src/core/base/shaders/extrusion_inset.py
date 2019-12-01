@@ -108,6 +108,7 @@ GEOM_SHADER = """
         vec3 tri2_normal;
         vec3 normal;
 
+        // generate side quads
         for (int i = 0; i < 3; ++i)
         {
             for (int j = 0; j < sides[i]; ++j)
@@ -138,6 +139,8 @@ GEOM_SHADER = """
 
             }
         }
+
+        // Generate top triangle
 
         g_color = vec4(1., 0., 0., 1.);
 

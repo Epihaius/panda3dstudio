@@ -572,7 +572,7 @@ class NormalEditMixin:
         if not verts_to_process:
             return
 
-        self._normal_change = verts_to_process
+        self._normal_change.update(verts_to_process)
 
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
@@ -1348,7 +1348,7 @@ class NormalEditMixin:
                 vert.normal = normal
 
             if lock_normals:
-                self._normal_change = set(sel_ids)
+                self._normal_change.update(sel_ids)
 
             model = self.toplevel_obj
 
@@ -1396,7 +1396,7 @@ class NormalEditMixin:
         vertex_data = self._vertex_data["poly"]
         vertex_data.set_array(2, normal_array)
 
-        self._normal_change = set(sel_ids)
+        self._normal_change.update(sel_ids)
         model = self.toplevel_obj
 
         if model.has_tangent_space():

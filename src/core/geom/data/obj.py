@@ -665,6 +665,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         edge_sel_state_geom.hide(all_masks)
         geoms["edge"]["sel_state"] = edge_sel_state_geom
 
+        tris_prim.make_indexed()
         vertices = tris_prim.get_vertices()
         vertex_data_top = GeomVertexData(vertex_data_poly)
         tris_geom = Geom(vertex_data_top)

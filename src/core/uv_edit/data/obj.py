@@ -445,6 +445,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
             tmp_merged_edge.append(edge_id)
 
         row_indices = tmp_merged_edge.start_row_indices
+        edge_prim.make_indexed()
         edge_array = edge_prim.get_vertices()
         stride = edge_array.array_format.stride
         edge_view = memoryview(edge_array).cast("B")
@@ -480,6 +481,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
 
         edge_geom = geoms["edge"]["pickable"]
         edge_prim = edge_geom.node().get_geom(0).get_primitive(0)
+        edge_prim.make_indexed()
         edge_array = edge_prim.get_vertices()
         rows = edge_prim.get_vertex_list()[::2]
         stride = edge_array.array_format.stride

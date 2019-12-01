@@ -433,6 +433,7 @@ class GeneralObjectManager:
         # the current subobject level, depending on the change in toplevel object
         # selection.
 
+        Mgr.exit_states(min_persistence=-99)
         obj_lvl = GD["active_obj_level"]
 
         if obj_lvl == "top":
@@ -446,7 +447,6 @@ class GeneralObjectManager:
         GD["active_obj_level"] = "top"
         GD["temp_toplevel"] = True
         Mgr.update_locally("active_obj_level", restore=True)
-        Mgr.exit_states(min_persistence=-99)
 
     def __reset_registries(self):
 

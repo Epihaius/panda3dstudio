@@ -409,32 +409,40 @@ class SurfaceMixin:
 
         return tri_change, uv_change, sel_change
 
-    def doubleside_polygon_surfaces(self):
+    def doubleside_polygon_surfaces(self, all_surfaces=False):
         """
-        Create inverted duplicates of the surfaces that the currently
-        selected polygons belong to and merge their borders with the
-        corresponding borders of the originals.
+        Create inverted duplicates of the surfaces (either all of them if
+        all_surfaces is True, or those that the selected polygons belong
+        to) and merge their borders with the corresponding borders of the
+        originals.
 
         """
-
-        selected_poly_ids = self._selected_subobj_ids["poly"]
-
-        if not selected_poly_ids:
-            return False
-
-        poly_ids = set(selected_poly_ids)
-        polys_to_doubleside = set()
-
-        # determine the contiguous surfaces that the selected polys belong to
-        while poly_ids:
-            poly_id = poly_ids.pop()
-            surface = self.get_polygon_surface(poly_id)
-            polys_to_doubleside.update(surface)
-            poly_ids.difference_update([poly.id for poly in surface])
 
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         polys = self._subobjs["poly"]
+
+        if all_surfaces:
+
+            polys_to_doubleside = list(polys.values())
+
+        else:
+
+            selected_poly_ids = self._selected_subobj_ids["poly"]
+
+            if not selected_poly_ids:
+                return False
+
+            poly_ids = set(selected_poly_ids)
+            polys_to_doubleside = set()
+
+            # determine the contiguous surfaces that the selected polys belong to
+            while poly_ids:
+                poly_id = poly_ids.pop()
+                surface = self.get_polygon_surface(poly_id)
+                polys_to_doubleside.update(surface)
+                poly_ids.difference_update([poly.id for poly in surface])
+
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
         shared_normals = self._shared_normals

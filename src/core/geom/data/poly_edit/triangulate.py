@@ -233,6 +233,7 @@ class TriangulationMixin:
             rows = [verts[vert_id].row_index for vert_id in new_tri_vert_ids]
             tris_prim.reserve_num_vertices(3)
             tris_prim.add_vertices(*rows)
+            tris_prim.make_indexed()
             view_tmp = memoryview(tris_prim.get_vertices()).cast("B")
             index = new_tri_data.index(vert_ids_to_replace)
             start_row = index * 3 + poly_start
@@ -384,8 +385,6 @@ class TriangulationMixin:
                     continue
 
                 prim = GeomTriangles(Geom.UH_static)
-                # if the following is not done, adding only a single triangle to the
-                # primitive will make prim.get_vertices() return None
                 prim.reserve_num_vertices(len(tri_data) * 3)
 
                 for tri_verts in tri_data:
@@ -393,6 +392,7 @@ class TriangulationMixin:
 
                 offset = row_offset * stride
                 size = len(poly) * stride
+                prim.make_indexed()
                 from_view = memoryview(prim.get_vertices()).cast("B")
                 view_top[offset:offset+size] = from_view
 

@@ -13,17 +13,6 @@ class EditableGeomProperties:
         toggle = (self.__set_topobj_level, lambda: None)
         self._subobj_btns.set_default_toggle("top", toggle)
 
-        # **************************** Geometry section ************************
-
-        section = panel.add_section("geometry", "Geometry", hidden=True)
-
-        text = "Merge object..."
-        tooltip_text = "Not implemented"
-        btn = PanelButton(section, text, "", tooltip_text, lambda: None)
-        self._btns["merge_obj"] = btn
-        borders = (0, 0, 10, 10)
-        section.add(btn, alignment="center_h", borders=borders)
-
         # ************************* Subobject level section *******************
 
         section = panel.add_section("subobj_lvl", "Subobject level", hidden=True)
@@ -488,6 +477,56 @@ class EditableGeomProperties:
         self._btns["unsmooth_with"] = btn
         group.add(btn, expand=True)
 
+        # **************************** Geometry section ************************
+
+        section = panel.add_section("geometry", "Geometry", hidden=True)
+
+        group = section.add_group("Solidification")
+
+        subsizer = GridSizer(columns=2, gap_h=5)
+        subsizer.set_column_proportion(1, 1.)
+        group.add(subsizer, expand=True)
+
+        borders = (0, 5, 0, 0)
+
+        prop_id = "solidification_thickness"
+        text = "Thickness:"
+        subsizer.add(PanelText(group, text), alignment_v="center_v", borders=borders)
+        handler = lambda *args: Mgr.update_remotely("solidification", "thickness", args[1])
+        field = PanelSpinnerField(group, prop_id, "float", (0., None), .1, handler, 80)
+        field.set_input_parser(self.__parse_solidification_thickness)
+        field.set_value(0.)
+        self._fields[prop_id] = field
+        subsizer.add(field, expand_h=True, alignment_v="center_v")
+
+        prop_id = "solidification_offset"
+        text = "Offset:"
+        subsizer.add(PanelText(group, text), alignment_v="center_v", borders=borders)
+        handler = lambda *args: Mgr.update_remotely("solidification", "offset", args[1])
+        field = PanelSpinnerField(group, prop_id, "float", None, .01, handler, 80)
+        field.set_value(0.)
+        self._fields[prop_id] = field
+        subsizer.add(field, expand_h=True, alignment_v="center_v")
+
+        borders = (0, 0, 0, 5)
+
+        subsizer = Sizer("horizontal")
+        group.add(subsizer, expand=True, borders=borders)
+
+        tooltip_text = "Preview solidification of model surface"
+        btn = PanelButton(group, "Preview", "", tooltip_text)
+        btn.command = self.__preview_solidification
+        self._btns["preview_solidification"] = btn
+        subsizer.add(btn, proportion=1.)
+
+        subsizer.add((10, 0))
+
+        tooltip_text = "Solidify model surface"
+        btn = PanelButton(group, "Apply", "", tooltip_text)
+        btn.command = lambda: Mgr.update_remotely("solidification", "apply")
+        self._btns["apply_solidification"] = btn
+        subsizer.add(btn, proportion=1.)
+
         # **************************************************************************
 
         Mgr.add_app_updater("subobj_edit_options", self.__update_subobj_edit_options)
@@ -616,6 +655,16 @@ class EditableGeomProperties:
             if not active:
                 self._btns["preview_inset"].active = False
 
+        def enter_solidification_preview_mode(prev_state_id, active):
+
+            Mgr.do("set_viewport_border_color", "viewport_frame_create_objects")
+            self._btns["preview_solidification"].active = True
+
+        def exit_solidification_preview_mode(next_state_id, active):
+
+            if not active:
+                self._btns["preview_solidification"].active = False
+
         add_state = Mgr.add_state
         add_state("normal_dir_copy_mode", -10,
                   enter_normal_dir_copy_mode, exit_normal_dir_copy_mode)
@@ -639,8 +688,8 @@ class EditableGeomProperties:
                   exit_diagonal_turning_mode)
         add_state("poly_extr_inset_preview_mode", -10, enter_extr_inset_preview_mode,
                   exit_extr_inset_preview_mode)
-
-        self._panel.get_section("geometry").expand(False)
+        add_state("solidification_preview_mode", -10, enter_solidification_preview_mode,
+                  exit_solidification_preview_mode)
 
     def __update_object_level(self):
 
@@ -663,11 +712,15 @@ class EditableGeomProperties:
                 Mgr.do("disable_selection_dialog")
                 Mgr.do("disable_transform_targets")
                 self._subobj_btns.set_active_button(obj_lvl)
+                self._panel.get_section("geometry").hide()
                 self._panel.get_section(f"{obj_lvl}_props").show()
 
             for subobj_lvl in ("vert", "edge", "poly", "normal"):
                 if subobj_lvl != obj_lvl:
                     self._panel.get_section(f"{subobj_lvl}_props").hide()
+
+            if obj_lvl == "top" and not Mgr.is_state_active("creation_mode"):
+                self._panel.get_section("geometry").show()
 
         task_id = "update_obj_level"
         PendingTasks.add(task, task_id, sort=0)
@@ -817,6 +870,22 @@ class EditableGeomProperties:
         else:
             Mgr.update_remotely("poly_extr_inset", "preview")
 
+    def __preview_solidification(self):
+
+        preview_btn = self._btns["preview_solidification"]
+
+        if preview_btn.active:
+            Mgr.exit_state("solidification_preview_mode")
+        else:
+            Mgr.update_remotely("solidification", "preview")
+
+    def __parse_solidification_thickness(self, input_text):
+
+        try:
+            return max(0., float(eval(input_text)))
+        except:
+            return None
+
     def get_base_type(self):
 
         return "editable_geom"
@@ -854,13 +923,16 @@ class EditableGeomProperties:
 
     def check_selection_count(self):
 
+        return  # there's currently no property handling affected by selection size
+
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
         color = (.5, .5, .5, 1.) if multi_sel else None
 
         for prop_id, field in self._fields.items():
             if prop_id not in ("normal_length", "edge_bridge_segments",
-                    "poly_extrusion", "poly_inset"):
+                    "poly_extrusion", "poly_inset", "solidification_thickness",
+                    "solidification_offset"):
                 field.set_text_color(color)
                 field.show_text(not multi_sel)
 

@@ -5,7 +5,7 @@ from math import sin, cos, acos
 class ExtrusionInsetMixin:
     """ PolygonEditMixin class mix-in """
 
-    def __compute_extr_inset_data(self, extrusion, inset):
+    def __compute_extr_inset_data(self, main_extr_vec_only=False, poly_ids=None):
         """
         Compute the data for previewing or creating extrusions and insets.
         This data includes direction vectors for each of these operations, needed
@@ -18,8 +18,8 @@ class ExtrusionInsetMixin:
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
         polys = self._subobjs["poly"]
-        selected_poly_ids = set(self._selected_subobj_ids["poly"])
-        selected_polys = set(polys[p_id] for p_id in selected_poly_ids)
+        target_poly_ids = set(poly_ids if poly_ids else self._selected_subobj_ids["poly"])
+        target_polys = set(polys[p_id] for p_id in target_poly_ids)
 
         # a polygon region is a collection of polygons, each of which shares at
         # least one edge with at least one other polygon in that collection
@@ -72,12 +72,12 @@ class ExtrusionInsetMixin:
 
             poly = polys[poly_id]
             poly_ids = set([poly_id])
-            neighbor_ids = list(get_poly_neighbor_ids(poly) & selected_poly_ids)
+            neighbor_ids = list(get_poly_neighbor_ids(poly) & target_poly_ids)
 
             while neighbor_ids:
                 neighbor_id = neighbor_ids.pop()
                 neighbor = polys[neighbor_id]
-                neighbor_ids.extend(get_poly_neighbor_ids(neighbor) & selected_poly_ids - poly_ids)
+                neighbor_ids.extend(get_poly_neighbor_ids(neighbor) & target_poly_ids - poly_ids)
                 poly_ids.add(neighbor_id)
 
             return set(polys[p_id] for p_id in poly_ids)
@@ -253,10 +253,10 @@ class ExtrusionInsetMixin:
 
             return avg_poly_normal * scale_vec.length() * sign
 
-        # Process all selected polygons; compute the extrusion and inset vectors for
+        # Process all target polygons; compute the extrusion and inset vectors for
         # all of their vertices.
 
-        for poly_id in selected_poly_ids:
+        for poly_id in target_poly_ids:
 
             poly = polys[poly_id]
 
@@ -265,7 +265,7 @@ class ExtrusionInsetMixin:
                 if poly in region:
                     edge_mvs = edge_vert_ids1[i]
                     tmp_extr_vecs = computed_extr1_vecs[i]
-                    extr3_vec = computed_extr3_vecs[i]
+                    extr3_vec = Vec3() if main_extr_vec_only else computed_extr3_vecs[i]
                     break
 
             else:
@@ -281,14 +281,17 @@ class ExtrusionInsetMixin:
 
                 tmp_extr_vecs = {}
                 computed_extr1_vecs.append(tmp_extr_vecs)
-                # compute the vector used to extrude the polygon region at every
-                # vertex; it is the per-region averaged polygon normal
-                extr3_vec = sum((p.normal.normalized() for p in region),
-                                Vec3()).normalized()
-                computed_extr3_vecs.append(extr3_vec)
 
-                for border_data in border_edges:
-                    compute_inset_vectors(region, border_data)
+                if not main_extr_vec_only:
+
+                    # compute the vector used to extrude the polygon region at every
+                    # vertex; it is the per-region averaged polygon normal
+                    extr3_vec = sum((p.normal.normalized() for p in region),
+                                    Vec3()).normalized()
+                    computed_extr3_vecs.append(extr3_vec)
+
+                    for border_data in border_edges:
+                        compute_inset_vectors(region, border_data)
 
             poly_verts = poly.vertices
 
@@ -304,12 +307,18 @@ class ExtrusionInsetMixin:
 
                     extr1_vec = compute_per_vertex_extrusion_vector(merged_vert, region)
 
-                    # As an alternative, compute the averaged vertex normal
+                    if main_extr_vec_only:
 
-                    verts_in_sel = (v for v in merged_vert.connected_verts
-                                    if polys[v.polygon_id] in region)
-                    avg_normal = sum((v.normal for v in verts_in_sel),
-                                     Vec3()).normalized() * sign
+                        avg_normal = Vec3()
+
+                    else:
+
+                        # As an alternative, compute the averaged vertex normal
+
+                        verts_in_sel = (v for v in merged_vert.connected_verts
+                                        if polys[v.polygon_id] in region)
+                        avg_normal = sum((v.normal for v in verts_in_sel),
+                                         Vec3()).normalized() * sign
 
                     tmp_extr_vecs[merged_vert] = (extr1_vec, avg_normal)
 
@@ -317,37 +326,39 @@ class ExtrusionInsetMixin:
                 avg_normals[vert.id] = avg_normal
 
             # the vector used to extrude an individual poly is just its normalized normal
-            extr2_vec = poly.normal.normalized()
+            extr2_vec = Vec3() if main_extr_vec_only else poly.normal.normalized()
             extr2_vecs[poly_id] = extr2_vec
             # store the per-region averaged polygon normal
-            extr3_vecs[poly_id] = extr3_vec
+            extr3_vecs[poly_id] = Vec3() if main_extr_vec_only else extr3_vec
 
-            # Compute the vectors used to inset individual polys
+            if not main_extr_vec_only:
 
-            poly_verts.append(poly_verts[0])
+                # Compute the vectors used to inset individual polys
 
-            for i in range(len(poly_verts) - 1):
+                poly_verts.append(poly_verts[0])
 
-                v0 = poly_verts[i - (2 if i == 0 else 1)]
-                v1 = poly_verts[i]
-                v2 = poly_verts[i + 1]
-                vec1 = (v0.get_pos() - v1.get_pos()).normalized()
-                vec2 = (v2.get_pos() - v1.get_pos()).normalized()
-                cosine = vec1.dot(vec2)
+                for i in range(len(poly_verts) - 1):
 
-                if cosine < -.999:
-                    inset_scale = 1.
-                    inset2_vec = vec1.cross(extr2_vec).normalized()
-                else:
-                    sine = sin(acos(min(1., cosine)) * .5)
-                    inset_scale = 1. / sine if sine > .0001 else 0.
-                    inset2_vec = (vec1 + vec2).normalized()
-                    cross_vec = vec2.cross(vec1).normalized()
-                    # reverse inset vector when inner corner angle > 180 degrees
-                    # (i.e. where the polygon is concave)
-                    inset2_vec *= -1. if cross_vec.dot(extr2_vec) < 0. else 1.
+                    v0 = poly_verts[i - (2 if i == 0 else 1)]
+                    v1 = poly_verts[i]
+                    v2 = poly_verts[i + 1]
+                    vec1 = (v0.get_pos() - v1.get_pos()).normalized()
+                    vec2 = (v2.get_pos() - v1.get_pos()).normalized()
+                    cosine = vec1.dot(vec2)
 
-                inset2_vecs[v1.id] = Vec4(*inset2_vec, inset_scale)
+                    if cosine < -.999:
+                        inset_scale = 1.
+                        inset2_vec = vec1.cross(extr2_vec).normalized()
+                    else:
+                        sine = sin(acos(min(1., cosine)) * .5)
+                        inset_scale = 1. / sine if sine > .0001 else 0.
+                        inset2_vec = (vec1 + vec2).normalized()
+                        cross_vec = vec2.cross(vec1).normalized()
+                        # reverse inset vector when inner corner angle > 180 degrees
+                        # (i.e. where the polygon is concave)
+                        inset2_vec *= -1. if cross_vec.dot(extr2_vec) < 0. else 1.
+
+                    inset2_vecs[v1.id] = Vec4(*inset2_vec, inset_scale)
 
             # Determine which sides of each triangle should be extruded/inset
 
@@ -380,14 +391,14 @@ class ExtrusionInsetMixin:
 
         """
 
-        selected_poly_ids = set(self._selected_subobj_ids["poly"])
+        target_poly_ids = set(self._selected_subobj_ids["poly"])
 
-        if not selected_poly_ids:
+        if not target_poly_ids:
             return False
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
-        selected_polys = set(polys[p_id] for p_id in selected_poly_ids)
+        target_polys = set(polys[p_id] for p_id in target_poly_ids)
 
         render_mask = Mgr.get("render_mask")
         picking_mask = Mgr.get("picking_mask")
@@ -416,10 +427,10 @@ class ExtrusionInsetMixin:
         vertex_format = GeomVertexFormat.register_format(vertex_format)
 
         vertex_data = GeomVertexData("poly_data", vertex_format, Geom.UH_dynamic)
-        vertex_data.reserve_num_rows(sum(p.vertex_count for p in selected_polys))
+        vertex_data.reserve_num_rows(sum(p.vertex_count for p in target_polys))
 
         prim = GeomTriangles(Geom.UH_static)
-        prim.reserve_num_vertices(sum(len(p) for p in selected_polys))
+        prim.reserve_num_vertices(sum(len(p) for p in target_polys))
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         normal_writer = GeomVertexWriter(vertex_data, "normal")
         avg_normal_writer = GeomVertexWriter(vertex_data, "averaged_normal")
@@ -432,9 +443,9 @@ class ExtrusionInsetMixin:
 
         count = 0
         sign = -1 if self.owner.has_flipped_normals() else 1
-        data = self.__compute_extr_inset_data(extrusion, inset)
+        data = self.__compute_extr_inset_data()
 
-        for poly_id in selected_poly_ids:
+        for poly_id in target_poly_ids:
 
             avg_normals = data["avg_normals"]
             extr1_vecs = data["extr1_vecs"]
@@ -521,7 +532,7 @@ class ExtrusionInsetMixin:
         if self._tmp_geom:
             self._tmp_geom.set_shader_input("extr_inset_type", extr_inset_type)
 
-    def __detach_polys_to_extr_inset(self, regions, merged_verts_to_resmooth):
+    def __detach_polys_to_extr_inset(self, regions, merged_verts_to_resmooth, poly_ids=None):
         """
         Split merged edges (and merged vertices connecting them) that form the
         borders of the given polygon regions.
@@ -534,9 +545,9 @@ class ExtrusionInsetMixin:
         polys = subobjs["poly"]
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
-        selected_poly_ids = self._selected_subobj_ids["poly"]
+        target_poly_ids = poly_ids if poly_ids else self._selected_subobj_ids["poly"]
 
-        for poly_id in selected_poly_ids:
+        for poly_id in target_poly_ids:
 
             poly = polys[poly_id]
 
@@ -603,7 +614,6 @@ class ExtrusionInsetMixin:
             merged_vert = ordered_verts[i]
             merged_vert.append(vert_id)
             merged_verts[vert_id] = merged_vert
-            vert.row_index = i
             poly_verts.append(vert)
 
         poly_verts_ = poly_verts[1:] + [poly_verts[0]]
@@ -682,10 +692,10 @@ class ExtrusionInsetMixin:
 
         return poly, poly_edges, poly_verts
 
-    def extrude_inset_polygons(self, extrusion, inset, extr_inset_type):
+    def extrude_inset_polygons(self, extrusion, inset, extr_inset_type, poly_ids=None, data=None):
         """
-        Extrude and/or inset the selected polygons.
-        The selected polygons are detached and new polygons are created to connect
+        Extrude and/or inset the target polygons.
+        The target polygons are detached and new polygons are created to connect
         their borders with those of the polygons they were detached from.
 
         """
@@ -696,14 +706,17 @@ class ExtrusionInsetMixin:
         verts = subobjs["vert"]
         edges = subobjs["edge"]
         polys = subobjs["poly"]
-        selected_poly_ids = set(self._selected_subobj_ids["poly"])
-        selected_polys = set(polys[p_id] for p_id in selected_poly_ids)
+        target_poly_ids = set(poly_ids if poly_ids else self._selected_subobj_ids["poly"])
+        target_polys = set(polys[p_id] for p_id in target_poly_ids)
 
-        if not selected_poly_ids:
+        if not target_poly_ids:
             return False
 
         sign = -1 if self.owner.has_flipped_normals() else 1
-        data = self.__compute_extr_inset_data(extrusion, inset)
+
+        if not data:
+            data = self.__compute_extr_inset_data()
+
         regions = data["regions"]
 
         borders = []
@@ -768,7 +781,7 @@ class ExtrusionInsetMixin:
         border_vert_ids = set()
         merged_verts_to_resmooth = set()
 
-        for poly_id in selected_poly_ids:
+        for poly_id in target_poly_ids:
 
             poly = polys[poly_id]
             extr_vert_ids.extend(poly.vertex_ids)
@@ -802,7 +815,7 @@ class ExtrusionInsetMixin:
                             avg_normal, vert.normal * sign)[extr_inset_type]
                 x, y, z, s = inset1_vecs.get(vert.id, Vec4())
                 inset1_vec = Vec3(x, y, z) * s
-                x, y, z, s = inset2_vecs[vert.id]
+                x, y, z, s = inset2_vecs.get(vert.id, Vec4())
                 inset2_vec = Vec3(x, y, z) * s
                 inset_vec = (inset1_vec, inset2_vec)[extr_inset_type % 2]
                 pos = old_pos + extr_vec * extrusion + inset_vec * inset
@@ -835,7 +848,7 @@ class ExtrusionInsetMixin:
         if extr_inset_type % 2 == 0:  # poly region
             merged_verts.update(old_merged_verts)
 
-        # Detach the selected polygons
+        # Detach the target polygons
 
         if extr_inset_type % 2 == 0:  # poly region
 
@@ -850,13 +863,13 @@ class ExtrusionInsetMixin:
                             merged_verts[v_id] = split_merged_vert
                             old_merged_vert.remove(v_id)
 
-            self.__detach_polys_to_extr_inset(regions, merged_verts_to_resmooth)
+            self.__detach_polys_to_extr_inset(regions, merged_verts_to_resmooth, poly_ids)
 
         else:  # individual polys
 
-            for poly in selected_polys:
+            for poly in target_polys:
 
-                # completely detach every polygon in the selection
+                # completely detach every target polygon
                 for edge_id in poly.edge_ids:
 
                     merged_edge = merged_edges[edge_id]
@@ -966,6 +979,142 @@ class ExtrusionInsetMixin:
 
         return True
 
+    def initialize_solidification_preview(self, thickness, offset):
+        """
+        Create a temporary geom for previewing surface solidification.
+
+        """
+
+        self.toplevel_geom.detach_node()
+
+        verts = self._subobjs["vert"]
+        polys = self._subobjs["poly"]
+
+        # Define a GeomVertexFormat that accommodates custom "sides" and "extrusion_vec"
+        # attributes.
+
+        array_format = GeomVertexArrayFormat()
+        array_format.add_column(InternalName.make("vertex"), 3, Geom.NT_float32, Geom.C_point)
+        array_format.add_column(InternalName.make("normal"), 3, Geom.NT_float32, Geom.C_normal)
+        array_format.add_column(InternalName.make("sides"), 1, Geom.NT_int32, Geom.C_other)
+        array_format.add_column(InternalName.make("extrusion_vec"), 3, Geom.NT_float32, Geom.C_vector)
+
+        vertex_format = GeomVertexFormat()
+        vertex_format.add_array(array_format)
+        vertex_format = GeomVertexFormat.register_format(vertex_format)
+
+        vertex_data = GeomVertexData("poly_data", vertex_format, Geom.UH_dynamic)
+        vertex_data.reserve_num_rows(sum(p.vertex_count for p in polys.values()))
+
+        prim = GeomTriangles(Geom.UH_static)
+        prim.reserve_num_vertices(sum(len(p) for p in polys.values()))
+        pos_writer = GeomVertexWriter(vertex_data, "vertex")
+        normal_writer = GeomVertexWriter(vertex_data, "normal")
+        sides_writer = GeomVertexWriter(vertex_data, "sides")
+        extr_writer = GeomVertexWriter(vertex_data, "extrusion_vec")
+
+        count = 0
+        sign = -1 if self.owner.has_flipped_normals() else 1
+        poly_ids = list(polys)
+        data = self.__compute_extr_inset_data(main_extr_vec_only=True, poly_ids=poly_ids)
+
+        for poly_id, poly in polys.items():
+
+            extr_vecs = data["extr1_vecs"]
+
+            for tri_vert_ids, sides in zip(poly, data["sides"][poly_id]):
+
+                for vi in tri_vert_ids[::sign]:
+                    vert = verts[vi]
+                    pos_writer.add_data3(vert.get_pos())
+                    normal_writer.add_data3(vert.normal * sign)
+                    extr_writer.add_data3(extr_vecs[vi])
+
+                i1 = count
+                i2 = count + 1
+                i3 = count + 2
+                prim.add_vertices(i1, i2, i3)
+
+                for i in (i1, i2, i3):
+                    sides_writer.set_row(i)
+                    # write the visible outer edges to the "sides" vertex data column;
+                    # this will prevent the geometry shader from generating unwanted
+                    # internal polygons (extruded from inner diagonals or shared edges)
+                    sides_writer.add_data2i(sides[0])
+
+                count += 3
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(prim)
+        geom_node = GeomNode("solidify_geom")
+        geom_node.add_geom(geom)
+        solidify_geom = self.origin.attach_new_node(geom_node)
+        sh = shaders.solidify
+        vs = sh.VERT_SHADER
+        fs = sh.FRAG_SHADER
+        gs = sh.GEOM_SHADER
+        shader = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+        solidify_geom.set_shader(shader)
+        solidify_geom.set_shader_input("thickness", thickness)
+        solidify_geom.set_shader_input("offset", offset)
+        self._tmp_geom = solidify_geom
+
+        if self.owner.has_flipped_normals():
+            state = solidify_geom.get_state()
+            cull_attr = CullFaceAttrib.make(CullFaceAttrib.M_cull_counter_clockwise)
+            state = state.add_attrib(cull_attr)
+            solidify_geom.set_state(state)
+
+    def clear_solidification_preview(self):
+
+        self.toplevel_geom.reparent_to(self.origin)
+
+        if self._tmp_geom:
+            self._tmp_geom.clear_shader()
+            self._tmp_geom.remove_node()
+            self._tmp_geom = None
+
+    def set_solidification_thickness(self, thickness):
+
+        if self._tmp_geom:
+            self._tmp_geom.set_shader_input("thickness", thickness)
+
+    def set_solidification_offset(self, offset):
+
+        if self._tmp_geom:
+            self._tmp_geom.set_shader_input("offset", offset)
+
+    def solidify(self, thickness, offset):
+        """
+        Turn each contiguous polygon surface of the entire model into a "shell" with a
+        given thickness and offset.
+        When offset is zero, the inner and outer shell surfaces are at the same distance
+        (equal to half the thickness) from the original surface; a negative offset will
+        move the shell "inwards" (in the opposite direction of the original surface
+        normals), while a positive offset will move it "outwards" (in the direction of
+        the original surface normals).
+
+        """
+
+        poly_ids = list(self._subobjs["poly"])
+        data = self.__compute_extr_inset_data(main_extr_vec_only=True, poly_ids=poly_ids)
+        vert_offset = offset - thickness * .5
+
+        if vert_offset:
+
+            verts = self._subobjs["vert"]
+            extr_vecs = data["extr1_vecs"]
+
+            for vert_id, vert in verts.items():
+                extr_vec = extr_vecs[vert_id]
+                vert.set_pos(vert.get_pos() + extr_vec * vert_offset)
+
+            self.update_vertex_positions(verts, update_bounds=False)
+
+        self.doubleside_polygon_surfaces(all_surfaces=True)
+        self.extrude_inset_polygons(thickness, 0., 0, poly_ids, data)
+        self._transformed_verts.update(self.merged_verts.values())
+
 
 class ExtrusionInsetManager:
     """ PolygonEditManager class mix-in """
@@ -976,15 +1125,20 @@ class ExtrusionInsetManager:
         self._poly_extr_vec_type = 0
         self._poly_extrusion = 0.
         self._poly_inset = 0.
+        self._solidification_thickness = 0.
+        self._solidification_offset = 0.
         self._geom_data_objs = []
-        self._excluded_geom_data_objs = []
 
         Mgr.add_app_updater("poly_extr_inset", self.__update_extrusion_inset)
+        Mgr.add_app_updater("solidification", self.__update_solidification)
 
         add_state = Mgr.add_state
         add_state("poly_extr_inset_preview_mode", -10,
                   self.__enter_poly_extr_inset_preview_mode,
                   self.__exit_poly_extr_inset_preview_mode)
+        add_state("solidification_preview_mode", -10,
+                  self.__enter_solidification_preview_mode,
+                  self.__exit_solidification_preview_mode)
 
         bind = Mgr.bind_state
         bind("poly_extr_inset_preview_mode", "extr/inset preview -> navigate", "space",
@@ -997,11 +1151,27 @@ class ExtrusionInsetManager:
         bind("poly_extr_inset_preview_mode", "extr/inset preview ctrl-right-click",
              f"{mod_ctrl}|mouse3", lambda: Mgr.update_remotely("main_context"))
 
+        bind("solidification_preview_mode", "solidification preview -> navigate", "space",
+             lambda: Mgr.enter_state("navigation_mode"))
+        bind("solidification_preview_mode", "quit solidification preview", "escape",
+             lambda: Mgr.exit_state("solidification_preview_mode"))
+        bind("solidification_preview_mode", "cancel solidification preview", "mouse3",
+             lambda: Mgr.exit_state("solidification_preview_mode"))
+        mod_ctrl = GD["mod_key_codes"]["ctrl"]
+        bind("solidification_preview_mode", "solidification preview ctrl-right-click",
+             f"{mod_ctrl}|mouse3", lambda: Mgr.update_remotely("main_context"))
+
         status_data = GD["status"]
+
         mode_text = "Extrude/inset polygons"
         info_text = "Use control panel to extrude/inset selected polygons; RMB to cancel;"
         info_text += " <Space> to navigate"
         status_data["extr_inset_polys"] = {"mode": mode_text, "info": info_text}
+
+        mode_text = "Solidify surfaces"
+        info_text = "Use control panel to solidify model surfaces; RMB to cancel;"
+        info_text += " <Space> to navigate"
+        status_data["solidify"] = {"mode": mode_text, "info": info_text}
 
     def __init_poly_extr_inset_preview_mode(self):
 
@@ -1014,19 +1184,9 @@ class ExtrusionInsetManager:
             if data_obj.initialize_extr_inset_preview(self._poly_extrusion,
                     self._poly_inset, extr_inset_type):
                 self._geom_data_objs.append(data_obj)
-            else:
-                self._excluded_geom_data_objs.append(data_obj)
 
         if self._geom_data_objs:
-
-            for data_obj in self._excluded_geom_data_objs:
-                data_obj.set_pickable(False)
-
             Mgr.enter_state("poly_extr_inset_preview_mode")
-
-        else:
-
-            self._excluded_geom_data_objs = []
 
     def __enter_poly_extr_inset_preview_mode(self, prev_state_id, active):
 
@@ -1041,11 +1201,7 @@ class ExtrusionInsetManager:
             for data_obj in self._geom_data_objs:
                 data_obj.clear_extr_inset_preview()
 
-            for data_obj in self._excluded_geom_data_objs:
-                data_obj.set_pickable()
-
             self._geom_data_objs = []
-            self._excluded_geom_data_objs = []
 
     def __update_extrusion_inset(self, update_type, *args):
 
@@ -1117,6 +1273,86 @@ class ExtrusionInsetManager:
         else:
             event_descr = 'Extrude/inset polys of objects:\n'
             event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __init_solidification_preview_mode(self):
+
+        selection = Mgr.get("selection_top")
+        self._geom_data_objs = [obj.geom_obj.geom_data_obj for obj in selection]
+
+        for data_obj in self._geom_data_objs:
+            data_obj.initialize_solidification_preview(self._solidification_thickness,
+                self._solidification_offset)
+
+        if self._geom_data_objs:
+            Mgr.enter_state("solidification_preview_mode")
+
+    def __enter_solidification_preview_mode(self, prev_state_id, active):
+
+        GD["active_transform_type"] = ""
+        Mgr.update_app("active_transform_type", "")
+        Mgr.update_app("status", ["solidify"])
+
+    def __exit_solidification_preview_mode(self, next_state_id, active):
+
+        if not active:
+
+            for data_obj in self._geom_data_objs:
+                data_obj.clear_solidification_preview()
+
+            self._geom_data_objs = []
+
+    def __update_solidification(self, update_type, *args):
+
+        if update_type == "preview":
+            self.__init_solidification_preview_mode()
+        elif update_type == "thickness":
+            self._solidification_thickness = args[0]
+            for data_obj in self._geom_data_objs:
+                data_obj.set_solidification_thickness(args[0])
+        elif update_type == "offset":
+            self._solidification_offset = args[0]
+            for data_obj in self._geom_data_objs:
+                data_obj.set_solidification_offset(args[0])
+        elif update_type == "apply":
+            self.__solidify()
+
+    def __solidify(self):
+
+        preview_mode = Mgr.is_state_active("solidification_preview_mode")
+
+        if preview_mode:
+            for data_obj in self._geom_data_objs:
+                data_obj.clear_solidification_preview()
+
+        selection = Mgr.get("selection_top")
+
+        for obj in selection:
+            obj.geom_obj.geom_data_obj.solidify(self._solidification_thickness,
+                    self._solidification_offset)
+
+        if preview_mode:
+            for data_obj in self._geom_data_objs:
+                data_obj.initialize_solidification_preview(self._solidification_thickness,
+                    self._solidification_offset)
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj in selection:
+            geom_data_obj = obj.geom_obj.geom_data_obj
+            obj_data[obj.id] = geom_data_obj.get_data_to_store("subobj_change")
+            data = geom_data_obj.get_data_to_store("prop_change", "subobj_transform", "check")
+            obj_data[obj.id].update(data)
+
+        if len(selection) == 1:
+            obj = selection[0]
+            event_descr = f'Solidify "{obj.name}"'
+        else:
+            event_descr = 'Solidify objects:\n'
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in selection])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
