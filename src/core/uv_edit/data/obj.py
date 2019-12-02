@@ -437,7 +437,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         seam_prim = seam_geom.node().modify_geom(0).modify_primitive(0)
 
         edge_geom = geoms["edge"]["pickable"]
-        edge_prim = edge_geom.node().get_geom(0).get_primitive(0)
+        edge_prim = edge_geom.node().modify_geom(0).modify_primitive(0)
 
         tmp_merged_edge = Mgr.do("create_merged_edge", self)
 
@@ -480,7 +480,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         seam_prim = seam_geom.node().modify_geom(0).modify_primitive(0)
 
         edge_geom = geoms["edge"]["pickable"]
-        edge_prim = edge_geom.node().get_geom(0).get_primitive(0)
+        edge_prim = edge_geom.node().modify_geom(0).modify_primitive(0)
         edge_prim.make_indexed()
         edge_array = edge_prim.get_vertices()
         rows = edge_prim.get_vertex_list()[::2]
