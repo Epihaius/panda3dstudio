@@ -413,7 +413,7 @@ class EdgeEditMixin(EdgeMergeMixin, EdgeBridgeMixin):
         merged_edges = self.merged_edges
         verts = self._subobjs["vert"]
         edges = self._subobjs["edge"]
-        normal_sharing = self._shared_normals
+        normal_sharing = self.shared_normals
         tmp_normal_sharing = copy.deepcopy(normal_sharing)
         selected_edges = set(merged_edges[i] for i in selected_edge_ids)
         normals_to_sel = False
@@ -584,7 +584,7 @@ class EdgeEditMixin(EdgeMergeMixin, EdgeBridgeMixin):
         else:
             return False, False
 
-        self._shared_normals = tmp_normal_sharing
+        self.shared_normals = tmp_normal_sharing
         self._normal_sharing_change = True
         merged_verts_to_resmooth = set(verts_to_update)
         self.update_vertex_normals(merged_verts_to_resmooth)

@@ -25,7 +25,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         del state["_geoms"]
         del state["merged_verts"]
         del state["merged_edges"]
-        del state["_shared_normals"]
+        del state["shared_normals"]
         del state["_poly_smoothing"]
         del state["_ordered_polys"]
         del state["_subobjs"]
@@ -50,7 +50,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         self._data_row_count = 0
         self.merged_verts = {}
         self.merged_edges = {}
-        self._shared_normals = {}
+        self.shared_normals = {}
         self._poly_smoothing = {}
         self._ordered_polys = []
         self._is_tangent_space_initialized = False

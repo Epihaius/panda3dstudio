@@ -51,7 +51,7 @@ class SurfaceMixin:
         verts = self._subobjs["vert"]
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         combined_subobjs = {"vert": merged_verts, "edge": merged_edges, "normal": shared_normals}
         tmp_combined_subobjs = {}
         xformed_verts = self._transformed_verts
@@ -445,7 +445,7 @@ class SurfaceMixin:
 
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         locked_normal_ids = []
         uv_set_ids = set()
         new_vert_ids = {}

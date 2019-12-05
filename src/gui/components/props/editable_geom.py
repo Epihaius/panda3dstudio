@@ -9,6 +9,7 @@ class EditableGeomProperties:
         self._fields = {}
         self._btns = {}
         self._checkbuttons = {}
+        self._radio_btns = {}
         self._subobj_btns = ToggleButtonGroup()
         toggle = (self.__set_topobj_level, lambda: None)
         self._subobj_btns.set_default_toggle("top", toggle)
@@ -32,6 +33,31 @@ class EditableGeomProperties:
             self._subobj_btns.add_button(btn, subobj_type, toggle)
 
         Mgr.add_app_updater("active_obj_level", self.__update_object_level)
+
+        # ******************* Selection conversion section ********************
+
+        section = panel.add_section("sel_conversion", "Selection conversion", hidden=True)
+
+        group = section.add_group("Conversion type:")
+
+        radio_btns = PanelRadioButtonGroup(group, columns=2, gap_h=10, gap_v=5)
+        btn_ids = texts = ("touching", "containing", "bordering")
+
+        for btn_id, text in zip(btn_ids, texts):
+            radio_btns.add_button(btn_id, text)
+
+        radio_btns.set_selected_button("touching")
+        self._radio_btns["sel_conversion_type"] = radio_btns
+        group.add(radio_btns.sizer)
+
+        section.add((0, 10))
+
+        text = "Auto-convert selection"
+        tooltip_text = "Convert sel. when switching to other subobj. level"
+        btn = PanelButton(section, text, "", tooltip_text)
+        btn.command = self.__toggle_auto_selection_conversion
+        self._btns["sel_conversion"] = btn
+        section.add(btn, alignment="center_h")
 
         # ************************* Vertex section ****************************
 
@@ -691,6 +717,8 @@ class EditableGeomProperties:
         add_state("solidification_preview_mode", -10, enter_solidification_preview_mode,
                   exit_solidification_preview_mode)
 
+        self._panel.get_section("sel_conversion").expand(False)
+
     def __update_object_level(self):
 
         if self._panel.get_active_object_type() != "editable_geom":
@@ -708,19 +736,21 @@ class EditableGeomProperties:
                 self._subobj_btns.deactivate()
                 Mgr.do("enable_transform_targets")
                 Mgr.do("enable_selection_dialog")
+                self._btns["sel_conversion"].active = False
+                self._panel.get_section("sel_conversion").hide()
+                if not self._panel.get_section("subobj_lvl").is_hidden():
+                    self._panel.get_section("geometry").show()
             else:
                 Mgr.do("disable_selection_dialog")
                 Mgr.do("disable_transform_targets")
                 self._subobj_btns.set_active_button(obj_lvl)
                 self._panel.get_section("geometry").hide()
                 self._panel.get_section(f"{obj_lvl}_props").show()
+                self._panel.get_section("sel_conversion").show()
 
             for subobj_lvl in ("vert", "edge", "poly", "normal"):
                 if subobj_lvl != obj_lvl:
                     self._panel.get_section(f"{subobj_lvl}_props").hide()
-
-            if obj_lvl == "top" and not Mgr.is_state_active("creation_mode"):
-                self._panel.get_section("geometry").show()
 
         task_id = "update_obj_level"
         PendingTasks.add(task, task_id, sort=0)
@@ -739,6 +769,7 @@ class EditableGeomProperties:
             GD["transform_target_type"] = "all"
             Mgr.update_app("transform_target_type")
 
+        self.__convert_selection(subobj_lvl)
         GD["active_obj_level"] = subobj_lvl
         Mgr.update_app("active_obj_level")
 
@@ -766,6 +797,20 @@ class EditableGeomProperties:
             Mgr.exit_state("poly_creation_mode")
         else:
             Mgr.enter_state("poly_creation_mode")
+
+    def __toggle_auto_selection_conversion(self):
+
+        if self._btns["sel_conversion"].active:
+            self._btns["sel_conversion"].active = False
+        else:
+            self._btns["sel_conversion"].active = True
+
+    def __convert_selection(self, next_subobj_lvl):
+
+        if self._btns["sel_conversion"].active:
+            conversion_type = self._radio_btns["sel_conversion_type"].get_selected_button()
+            Mgr.update_remotely("subobj_sel_conversion", next_subobj_lvl, conversion_type)
+            self._btns["sel_conversion"].active = False
 
     def __break_vertices(self):
 

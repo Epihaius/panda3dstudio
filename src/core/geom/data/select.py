@@ -137,7 +137,7 @@ class SelectionMixin:
             elif subobj_type == "edge":
                 combined_subobjs = self.merged_edges
             elif subobj_type == "normal":
-                combined_subobjs = self._shared_normals
+                combined_subobjs = self.shared_normals
 
             selected_subobjs = set(combined_subobjs[subobj.id] for subobj in selected_subobjs)
             deselected_subobjs = set(combined_subobjs[subobj.id] for subobj in deselected_subobjs)
@@ -206,7 +206,7 @@ class SelectionMixin:
         elif subobj_lvl == "edge":
             combined_subobjs = self.merged_edges
         elif subobj_lvl == "normal":
-            combined_subobjs = self._shared_normals
+            combined_subobjs = self.shared_normals
 
         return list(set(combined_subobjs[subobj_id] for subobj_id in selected_subobj_ids))
 
@@ -333,7 +333,7 @@ class SelectionMixin:
 
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         row_ranges_to_keep = SparseArray()
         row_ranges_to_keep.set_range(0, self._data_row_count)
 
@@ -638,7 +638,7 @@ class SelectionMixin:
         sel_normal_ids = new_sel_normal_ids - old_sel_normal_ids
         unsel_normal_ids = old_sel_normal_ids - new_sel_normal_ids
         unsel_normal_ids.intersection_update(verts)
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         original_shared_normals = {}
 
         if unsel_normal_ids:
@@ -1003,6 +1003,7 @@ class SelectionManager:
         self._color_id = None
         self._selections = {}
         self._prev_obj_lvl = None
+        self._next_selection = None
         self._selection_op = "replace"
 
         # the following variables are used to pick a subobject using its polygon
@@ -1076,6 +1077,7 @@ class SelectionManager:
         Mgr.accept("init_selection_via_poly", self.__init_selection_via_poly)
         Mgr.add_app_updater("active_obj_level", lambda: self.__clear_prev_selection(True))
         Mgr.add_app_updater("picking_via_poly", self.__set_subobj_picking_via_poly)
+        Mgr.add_app_updater("subobj_sel_conversion", self.__convert_subobj_selection)
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
 
         add_state = Mgr.add_state
@@ -1132,6 +1134,11 @@ class SelectionManager:
             subobjs.extend(obj.get_subobj_selection(obj_lvl))
 
         self._selections[obj_lvl] = sel = Selection(obj_lvl, subobjs)
+
+        if self._next_selection is not None:
+            sel.replace(self._next_selection)
+            self._next_selection = None
+
         sel.update()
         self._prev_obj_lvl = obj_lvl
         Mgr.update_remotely("selection_set", "hide_name")
@@ -1149,7 +1156,7 @@ class SelectionManager:
                 subobjs.extend(geom_data_obj.merged_edges.values())
         elif obj_lvl == "normal":
             for geom_data_obj in geom_data_objs:
-                subobjs.extend(geom_data_obj.get_shared_normals().values())
+                subobjs.extend(geom_data_obj.shared_normals.values())
         elif obj_lvl == "poly":
             for geom_data_obj in geom_data_objs:
                 subobjs.extend(geom_data_obj.get_subobjects("poly").values())
@@ -1204,7 +1211,7 @@ class SelectionManager:
                 combined_subobjs.update(geom_data_obj.merged_edges)
         elif obj_lvl == "normal":
             for geom_data_obj in geom_data_objs:
-                combined_subobjs.update(geom_data_obj.get_shared_normals())
+                combined_subobjs.update(geom_data_obj.shared_normals)
         elif obj_lvl == "poly":
             for geom_data_obj in geom_data_objs:
                 combined_subobjs.update(geom_data_obj.get_subobjects("poly"))
@@ -1736,6 +1743,110 @@ class SelectionManager:
 
         if GD["active_transform_type"]:
             Mgr.get("transf_gizmo").set_pickable()
+
+    def __convert_subobj_selection_touching(self, next_subobj_lvl):
+
+        subobj_lvl = GD["active_obj_level"]
+        self._next_selection = next_sel = set()
+        selection = self._selections[subobj_lvl]
+
+        if not selection:
+            return
+
+        if next_subobj_lvl == "normal":
+            for subobj in selection:
+                next_sel.update(v.shared_normal for v in
+                    iter(subobj.get_connected_subobjs("vert")))
+        else:
+            for subobj in selection:
+                next_sel.update(s.merged_subobj for s in
+                    iter(subobj.get_connected_subobjs(next_subobj_lvl)))
+
+    def __convert_subobj_selection_containing(self, next_subobj_lvl):
+
+        lvls = {"vert": 0, "normal": 0, "edge": 1, "poly": 2}
+        subobj_lvl = GD["active_obj_level"]
+        self._next_selection = next_sel = set()
+        selection = self._selections[subobj_lvl]
+
+        if not selection:
+            return
+
+        if subobj_lvl == "edge" and next_subobj_lvl == "normal":
+            for merged_edge in selection:
+                next_sel.update(v.shared_normal for v in merged_edge.vertices)
+        elif subobj_lvl == "poly" and next_subobj_lvl == "normal":
+            for poly in selection:
+                next_sel.update(v.shared_normal for v in poly.vertices)
+        elif subobj_lvl == "poly" and next_subobj_lvl == "edge":
+            for poly in selection:
+                next_sel.update(e.merged_edge for e in poly.edges)
+        elif lvls[next_subobj_lvl] > lvls[subobj_lvl]:
+            if next_subobj_lvl == "edge":
+                for subobj in selection:
+                    if subobj_lvl == "vert":
+                        next_sel.update(e.merged_edge for e in iter(subobj.connected_edges)
+                            if all(v.merged_vertex in selection for v in e.vertices))
+                    else:  # subobj_lvl == "normal"
+                        next_sel.update(e.merged_edge for e in iter(subobj.connected_edges)
+                            if all(v.shared_normal in selection for v in e.vertices))
+            else:  # next_subobj_lvl == "poly"
+                for subobj in selection:
+                    if subobj_lvl == "vert":
+                        next_sel.update(p for p in iter(subobj.connected_polys)
+                            if all(v.merged_vertex in selection for v in p.vertices))
+                    elif subobj_lvl == "normal":
+                        next_sel.update(p for p in iter(subobj.connected_polys)
+                            if all(v.shared_normal in selection for v in p.vertices))
+                    else:  # subobj_lvl == "edge"
+                        next_sel.update(p for p in iter(subobj.connected_polys)
+                            if all(e.merged_edge in selection for e in p.edges))
+        else:
+            self.__convert_subobj_selection_touching(next_subobj_lvl)
+
+    def __convert_subobj_selection_bordering(self, next_subobj_lvl):
+
+        lvls = {"vert": 0, "normal": 0, "edge": 1, "poly": 2}
+        subobj_lvl = GD["active_obj_level"]
+        selection = self._selections[subobj_lvl]
+
+        if not selection:
+            return
+
+        if subobj_lvl == "poly":
+            poly_set = set(selection)
+        else:
+            self.__convert_subobj_selection_containing("poly")
+            poly_set = self._next_selection
+
+        def is_border_edge(edge):
+
+            polys = edge.geom_data_obj.get_subobjects("poly")
+
+            return len(set(polys[p_id] for p_id in edge.merged_edge.polygon_ids)
+                    & poly_set) == 1
+
+        border_edges = (e for p in poly_set for e in p.edges if is_border_edge(e))
+
+        if next_subobj_lvl == "normal":
+            self._next_selection = set(v.shared_normal for e in border_edges
+                for v in e.vertices)
+        elif next_subobj_lvl == "vert":
+            self._next_selection = set(v.merged_vertex for e in border_edges
+                for v in e.vertices)
+        elif next_subobj_lvl == "edge":
+            self._next_selection = set(e.merged_edge for e in border_edges)
+        else:  # next_subobj_lvl == "poly"
+            self._next_selection = set(e.polygon for e in border_edges)
+
+    def __convert_subobj_selection(self, next_subobj_lvl, conversion_type):
+
+        if conversion_type == "touching":
+            self.__convert_subobj_selection_touching(next_subobj_lvl)
+        elif conversion_type == "containing":
+            self.__convert_subobj_selection_containing(next_subobj_lvl)
+        elif conversion_type == "bordering":
+            self.__convert_subobj_selection_bordering(next_subobj_lvl)
 
 
 MainObjects.add_class(SelectionManager)

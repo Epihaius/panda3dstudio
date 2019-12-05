@@ -122,27 +122,62 @@ class SharedNormal:
         return self._ids.issubset(vert_ids)
 
     @property
-    def connected_verts(self):
+    def vertex_ids(self):
+
+        return list(self._ids)
+
+    @property
+    def edge_ids(self):
+
+        return [e_id for v in self.vertices for e_id in v.edge_ids]
+
+    @property
+    def polygon_ids(self):
+
+        return [v.polygon_id for v in self.vertices]
+
+    @property
+    def vertices(self):
 
         verts = self.geom_data_obj.get_subobjects("vert")
 
-        return set(verts[v_id] for v_id in self._ids)
+        return [verts[v_id] for v_id in self._ids]
+
+    @property
+    def edges(self):
+
+        edges = self.geom_data_obj.get_subobjects("edge")
+
+        return [edges[e_id] for e_id in self.edge_ids]
+
+    @property
+    def polygons(self):
+
+        polys = self.geom_data_obj.get_subobjects("poly")
+
+        return [polys[p_id] for p_id in self.polygon_ids]
+
+    @property
+    def connected_verts(self):
+
+        verts = self.geom_data_obj.get_subobjects("vert")
+        merged_verts = self.geom_data_obj.merged_verts
+
+        return set(verts[v_id] for v_id in merged_verts[list(self._ids)[0]])
 
     @property
     def connected_edges(self):
 
-        verts = self.geom_data_obj.get_subobjects("vert")
         edges = self.geom_data_obj.get_subobjects("edge")
 
-        return set(edges[e_id] for v_id in self._ids for e_id in verts[v_id].edge_ids)
+        return set(edges[e_id] for vert in self.connected_verts for e_id in vert.edge_ids)
 
     @property
     def connected_polys(self):
 
-        verts = self.geom_data_obj.get_subobjects("vert")
         polys = self.geom_data_obj.get_subobjects("poly")
 
-        return set(polys[verts[v_id].polygon_id] for v_id in self._ids)
+        return set(polys[vert.polygon_id] for vert in self.connected_verts)
 
     def get_connected_subobjs(self, subobj_type):
 
@@ -203,7 +238,7 @@ class NormalEditMixin:
 
     def __init__(self):
 
-        self._shared_normals = {}
+        self.shared_normals = {}
         self._normal_sharing_change = False
         self._normal_lock_change = set()
         self._normal_change = set()
@@ -211,7 +246,7 @@ class NormalEditMixin:
 
     def _reset_normal_sharing(self, share=False):
 
-        self._shared_normals = shared_normals = {}
+        self.shared_normals = shared_normals = {}
         self._normal_sharing_change = True
 
         for merged_vert in set(self.merged_verts.values()):
@@ -238,7 +273,7 @@ class NormalEditMixin:
             return
 
         verts = self._subobjs["vert"]
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
 
         for merged_vert in set(self.merged_verts.values()):
 
@@ -271,7 +306,7 @@ class NormalEditMixin:
         """
 
         verts = self._subobjs["vert"]
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         change = False
 
         if from_smoothing_groups:
@@ -438,7 +473,7 @@ class NormalEditMixin:
         if len(sel_ids) < 2:
             return False
 
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         merged_verts = self.merged_verts
         merged_verts_to_update = set()
         change = False
@@ -504,7 +539,7 @@ class NormalEditMixin:
             return False
 
         verts = self._subobjs["vert"]
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         merged_verts = self.merged_verts
         merged_verts_to_update = set()
         lock_change = self._normal_lock_change
@@ -547,13 +582,9 @@ class NormalEditMixin:
 
         return normals
 
-    def get_shared_normals(self):
-
-        return self._shared_normals
-
     def get_shared_normal(self, normal_id):
 
-        return self._shared_normals.get(normal_id)
+        return self.shared_normals.get(normal_id)
 
     def update_vertex_normals(self, merged_verts=None, update_tangent_space=True):
         """ Update the normals of the given merged vertices """
@@ -564,7 +595,7 @@ class NormalEditMixin:
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
 
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         verts_to_process = set(v_id for merged_vert in merged_verts for v_id in merged_vert)
         locked_normals = set(v_id for v_id in verts_to_process if verts[v_id].has_locked_normal())
         verts_to_process.difference_update(locked_normals)
@@ -635,7 +666,7 @@ class NormalEditMixin:
         obj_id = self.toplevel_obj.id
         prop_id = self._unique_prop_ids["normal_sharing"]
         shared_normals = Mgr.do("load_last_from_history", obj_id, prop_id, time_id)
-        self._shared_normals = shared_normals
+        self.shared_normals = shared_normals
 
         for shared_normal in set(shared_normals.values()):
             shared_normal.geom_data_obj = self

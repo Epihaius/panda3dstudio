@@ -75,6 +75,11 @@ class Edge:
         return [verts[vert_id] for vert_id in self._vert_ids]
 
     @property
+    def polygon(self):
+
+        return self.geom_data_obj.get_subobject("poly", self.polygon_id)
+
+    @property
     def start_row_index(self):
 
         verts = self.geom_data_obj.get_subobjects("vert")
@@ -213,11 +218,33 @@ class MergedEdge:
         return [edges[e_id].picking_color_id for e_id in self._ids]
 
     @property
+    def vertex_ids(self):
+
+        return [v_id for e in self.edges for v_id in e]
+
+    @property
     def polygon_ids(self):
+
+        return [e.polygon_id for e in self.edges]
+
+    @property
+    def vertices(self):
+
+        return [v for e in self.edges for v in e.vertices]
+
+    @property
+    def edges(self):
 
         edges = self.geom_data_obj.get_subobjects("edge")
 
-        return [edges[e_id].polygon_id for e_id in self._ids]
+        return [edges[e_id] for e_id in self._ids]
+
+    @property
+    def polygons(self):
+
+        polys = self.geom_data_obj.get_subobjects("poly")
+
+        return [polys[p_id] for p_id in self.polygon_ids]
 
     @property
     def connected_verts(self):

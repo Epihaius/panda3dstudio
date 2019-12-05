@@ -88,6 +88,18 @@ class Vertex:
         return self.get_toplevel_object()
 
     @property
+    def edges(self):
+
+        edges = self.geom_data_obj.get_subobjects("edge")
+
+        return [edges[edge_id] for edge_id in self.edge_ids]
+
+    @property
+    def polygon(self):
+
+        return self.geom_data_obj.get_subobject("poly", self.polygon_id)
+
+    @property
     def merged_subobj(self):
 
         return self.geom_data_obj.get_merged_vertex(self.id)
@@ -214,13 +226,6 @@ class Vertex:
         return self._data["normal_is_locked"]
 
     @property
-    def polygon_normal(self):
-
-        poly = Mgr.get("poly", self.polygon_id)
-
-        return poly.normal if poly else None
-
-    @property
     def tangent_space(self):
 
         return self._data["tangent_space"]
@@ -339,32 +344,37 @@ class MergedVertex:
     @property
     def edge_ids(self):
 
-        verts = self.geom_data_obj.get_subobjects("vert")
-        edge_ids = []
-
-        for vert_id in self._ids:
-            edge_ids.extend(verts[vert_id].edge_ids)
-
-        return edge_ids
+        return [e_id for v in self.vertices for e_id in v.edge_ids]
 
     @property
     def polygon_ids(self):
 
+        return [v.polygon_id for v in self.vertices]
+
+    @property
+    def vertices(self):
+
         verts = self.geom_data_obj.get_subobjects("vert")
 
-        return [verts[v_id].polygon_id for v_id in self._ids]
+        return [verts[v_id] for v_id in self._ids]
+
+    @property
+    def edges(self):
+
+        edges = self.geom_data_obj.get_subobjects("edge")
+
+        return [edges[e_id] for e_id in self.edge_ids]
+
+    @property
+    def polygons(self):
+
+        polys = self.geom_data_obj.get_subobjects("poly")
+
+        return [polys[p_id] for p_id in self.polygon_ids]
 
     def is_border_vertex(self):
 
-        geom_data_obj = self.geom_data_obj
-        verts = geom_data_obj.get_subobjects("vert")
-
-        for vert_id in self._ids:
-            for edge_id in verts[vert_id].edge_ids:
-                if len(geom_data_obj.get_merged_edge(edge_id)) == 1:
-                    return True
-
-        return False
+        return any(len(e.merged_edge) == 1 for v in self.vertices for e in v.edges)
 
     @property
     def connected_verts(self):

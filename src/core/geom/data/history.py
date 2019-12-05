@@ -177,7 +177,7 @@ class HistoryMixin:
 
         elif unique_prop_id == unique_prop_ids["normal_sharing"]:
 
-            data[unique_prop_id] = {"main": self._shared_normals}
+            data[unique_prop_id] = {"main": self.shared_normals}
             self._normal_sharing_change = False
 
         elif unique_prop_id == unique_prop_ids["smoothing"]:

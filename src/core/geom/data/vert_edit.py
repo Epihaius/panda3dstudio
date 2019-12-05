@@ -27,7 +27,7 @@ class VertexEditMixin:
             return False, False
 
         merged_verts = self.merged_verts
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         verts_to_update = set(merged_verts[v_id] for v_id in selected_vert_ids)
         merged_verts_to_resmooth = set()
         normals_to_sel = False

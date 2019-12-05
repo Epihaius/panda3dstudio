@@ -82,7 +82,7 @@ class SmoothingMixin:
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
         merged_verts = self.merged_verts
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         poly_smoothing = {}
         creases = {}
 
@@ -180,7 +180,7 @@ class SmoothingMixin:
         if smoothing:
 
             self._reset_normal_sharing()
-            shared_normals = self._shared_normals
+            shared_normals = self.shared_normals
             self._poly_smoothing = poly_smoothing = {}
             polys = self._subobjs["poly"]
             merged_verts = self.merged_verts
@@ -265,7 +265,7 @@ class SmoothingMixin:
         if smooth:
 
             self._reset_normal_sharing(share=True)
-            shared_normals = self._shared_normals
+            shared_normals = self.shared_normals
             all_smoothing = set()
 
             for poly_id in polys:
@@ -389,7 +389,7 @@ class SmoothingMixin:
 
         polys = self._subobjs["poly"]
         verts = self._subobjs["vert"]
-        shared_normals = self._shared_normals
+        shared_normals = self.shared_normals
         poly_smoothing = self._poly_smoothing
         normals_to_sel = False
 

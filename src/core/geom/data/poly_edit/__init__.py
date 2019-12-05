@@ -102,7 +102,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
 
         if create_normals:
 
-            shared_normals = self._shared_normals
+            shared_normals = self.shared_normals
 
             for vert in new_verts:
                 shared_normals[vert.id] = Mgr.do("create_shared_normal", self, [vert.id])

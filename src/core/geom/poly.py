@@ -121,6 +121,11 @@ class Polygon:
         return neighbor_ids
 
     @property
+    def polygon_ids(self):
+
+        return [self.id]
+
+    @property
     def vertices(self):
 
         verts = self.geom_data_obj.get_subobjects("vert")
@@ -133,6 +138,11 @@ class Polygon:
         edges = self.geom_data_obj.get_subobjects("edge")
 
         return [edges[edge_id] for edge_id in self.edge_ids]
+
+    @property
+    def polygons(self):
+
+        return [self]
 
     @property
     def vertex_count(self):
