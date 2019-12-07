@@ -1755,12 +1755,11 @@ class SelectionManager:
 
         if next_subobj_lvl == "normal":
             for subobj in selection:
-                next_sel.update(v.shared_normal for v in
-                    iter(subobj.get_connected_subobjs("vert")))
+                next_sel.update(v.shared_normal for v in subobj.connected_verts)
         else:
             for subobj in selection:
                 next_sel.update(s.merged_subobj for s in
-                    iter(subobj.get_connected_subobjs(next_subobj_lvl)))
+                    subobj.get_connected_subobjs(next_subobj_lvl))
 
     def __convert_subobj_selection_containing(self, next_subobj_lvl):
 
@@ -1785,21 +1784,21 @@ class SelectionManager:
             if next_subobj_lvl == "edge":
                 for subobj in selection:
                     if subobj_lvl == "vert":
-                        next_sel.update(e.merged_edge for e in iter(subobj.connected_edges)
+                        next_sel.update(e.merged_edge for e in subobj.connected_edges
                             if all(v.merged_vertex in selection for v in e.vertices))
                     else:  # subobj_lvl == "normal"
-                        next_sel.update(e.merged_edge for e in iter(subobj.connected_edges)
+                        next_sel.update(e.merged_edge for e in subobj.connected_edges
                             if all(v.shared_normal in selection for v in e.vertices))
             else:  # next_subobj_lvl == "poly"
                 for subobj in selection:
                     if subobj_lvl == "vert":
-                        next_sel.update(p for p in iter(subobj.connected_polys)
+                        next_sel.update(p for p in subobj.connected_polys
                             if all(v.merged_vertex in selection for v in p.vertices))
                     elif subobj_lvl == "normal":
-                        next_sel.update(p for p in iter(subobj.connected_polys)
+                        next_sel.update(p for p in subobj.connected_polys
                             if all(v.shared_normal in selection for v in p.vertices))
                     else:  # subobj_lvl == "edge"
-                        next_sel.update(p for p in iter(subobj.connected_polys)
+                        next_sel.update(p for p in subobj.connected_polys
                             if all(e.merged_edge in selection for e in p.edges))
         else:
             self.__convert_subobj_selection_touching(next_subobj_lvl)

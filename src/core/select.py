@@ -1591,6 +1591,17 @@ class SelectionManager:
 
         obj_level = GD["active_obj_level"]
 
+        if set_id1 == "cur_sel":
+            in_place = False
+            if obj_level == "top":
+                set1 = set(obj.id for obj in self._selection)
+            elif "uv" in (GD["viewport"][1], GD["viewport"][2]):
+                set1 = Mgr.get("uv_selection_set")
+            else:
+                set1 = Mgr.get("subobj_selection_set")
+        else:
+            set1 = None
+
         if set_id2 == "cur_sel":
             if obj_level == "top":
                 set2 = set(obj.id for obj in self._selection)
@@ -1605,7 +1616,9 @@ class SelectionManager:
             obj_level = "uv_" + obj_level
 
         sets = self._selection_sets["sets"][obj_level]
-        set1 = sets[set_id1]
+
+        if set1 is None:
+            set1 = sets[set_id1]
 
         if set2 is None:
             set2 = sets[set_id2]

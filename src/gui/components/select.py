@@ -85,7 +85,7 @@ class SetsComboBox(ToolbarComboBox):
     def __parse_name(self, input_text):
 
         name = input_text.strip()
-        old_name = self.get_input_field().get_value()
+        old_name = self.get_input_field().get_text()
 
         if name != old_name:
             return name if name else None
@@ -266,6 +266,15 @@ class SelectionPanel(Panel):
         combobox1 = PanelComboBox(section, 100, tooltip_text="Primary set",
                                   editable=True, value_id=val_id,
                                   handler=handler)
+
+        def select_current():
+
+            self._comboboxes["set1"].select_item("cur_sel")
+            self._comboboxes["set1"].show_input_field(False)
+            self._fields["name"].clear()
+            self._btns["edit_set_name"].active = False
+
+        combobox1.add_item("cur_sel", "<Current selection>", select_current, update=True)
         self._comboboxes["set1"] = combobox1
         section.add(combobox1, expand=True)
 
@@ -335,7 +344,7 @@ class SelectionPanel(Panel):
 
         set_menus1 = {"top": combobox1.get_popup_menu()}
         set_menus2 = {"top": combobox2.get_popup_menu()}
-        self._menus = menus = {"set1": set_menus1, "set2": set_menus2}
+        self._menus = {"set1": set_menus1, "set2": set_menus2}
 
         for obj_level in ("vert", "normal", "edge", "poly", "uv_vert", "uv_edge", "uv_poly"):
             set_menus1[obj_level] = combobox1.create_popup_menu()
@@ -437,7 +446,7 @@ class SelectionPanel(Panel):
         self._fields["name"].clear()
         self._btns["edit_set_name"].active = False
         self._comboboxes["set1"].show_input_field(False)
-        self._comboboxes["set1"].select_none()
+        self._comboboxes["set1"].select_item("cur_sel")
         self._comboboxes["set2"].select_item("cur_sel")
 
     def __replace_sets(self, obj_level):
@@ -473,7 +482,7 @@ class SelectionPanel(Panel):
 
         set_id = self._comboboxes["set1"].get_selected_item()
 
-        if set_id is not None:
+        if set_id != "cur_sel":
             Mgr.update_remotely("object_selection", "apply_set", set_id)
             name = self._fields["name"].get_value()
             Mgr.update_locally("selection_set", "select", set_id, name)
@@ -482,7 +491,7 @@ class SelectionPanel(Panel):
 
         set_id = self._comboboxes["set1"].get_selected_item()
 
-        if set_id is not None:
+        if set_id != "cur_sel":
             combobox = self._comboboxes["set1"]
             show = combobox.is_input_field_hidden()
             combobox.show_input_field(show)
@@ -492,7 +501,7 @@ class SelectionPanel(Panel):
 
         set_id = self._comboboxes["set1"].get_selected_item()
 
-        if set_id is not None:
+        if set_id != "cur_sel":
             Mgr.update_remotely("object_selection", "copy_set", set_id)
 
     def __create_set(self):
@@ -504,7 +513,7 @@ class SelectionPanel(Panel):
         combobox = self._comboboxes["set1"]
         set_id = combobox.get_selected_item()
 
-        if set_id is None:
+        if set_id == "cur_sel":
             return
 
         Mgr.update_remotely("object_selection", "remove_set", set_id)
@@ -531,7 +540,7 @@ class SelectionPanel(Panel):
 
         set_id = self._comboboxes["set1"].get_selected_item()
 
-        if set_id is None:
+        if set_id == "cur_sel":
             self._fields["name"].clear()
             self._comboboxes["set1"].show_input_field(False)
             self._btns["edit_set_name"].active = False
@@ -545,7 +554,8 @@ class SelectionPanel(Panel):
         item_ids = list(combobox.get_popup_menu().items.keys())
         item_id = combobox.get_selected_item()
 
-        if item_id is not None:
+        if item_id != "cur_sel":
+            item_ids.remove("cur_sel")
             item_ids.append(item_id)
             self._fields["name"].clear()
             combobox.show_input_field(False)
@@ -560,20 +570,14 @@ class SelectionPanel(Panel):
         for combobox_id in ("set1", "set2"):
 
             combobox = self._comboboxes[combobox_id]
-            combobox.select_none()
+            combobox.select_item("cur_sel")
 
             for item_id in item_ids:
                 combobox.remove_item(item_id)
 
-        self._comboboxes["set2"].select_item("cur_sel")
-
     def __combine_sets(self, op):
 
         item_id1 = self._comboboxes["set1"].get_selected_item()
-
-        if item_id1 is None:
-            return
-
         item_id2 = self._comboboxes["set2"].get_selected_item()
         in_place = self._radio_btns["result"].get_selected_button() == "in_place"
         Mgr.update_remotely("object_selection", "combine_sets", item_id1, item_id2, op, in_place)
