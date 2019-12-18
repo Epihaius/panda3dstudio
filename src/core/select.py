@@ -1094,7 +1094,7 @@ class SelectionManager:
             picking_cam = Mgr.get("picking_cam")
             picking_cam().reparent_to(GD.cam().parent)
             picking_cam.set_transformer(None)
-            self._fence_points.remove_node()
+            self._fence_points.detach_node()
             self._fence_points = None
             self._fence_point_color_id = 1
             self._fence_point_coords = {}
@@ -1117,7 +1117,7 @@ class SelectionManager:
 
         if shape_type in ("fence", "lasso"):
             shape = self._selection_shapes["free"]
-            shape.remove_node()
+            shape.detach_node()
             del self._selection_shapes["free"]
             tri = self._sel_mask_triangle
             tri.hide()
@@ -1129,7 +1129,7 @@ class SelectionManager:
         if shape_type == "paint":
             geom_root = self._sel_mask_geom_root
             brush = geom_root.find("**/brush")
-            brush.remove_node()
+            brush.detach_node()
 
         x1, y1 = self._mouse_start_pos
         x2, y2 = self._mouse_end_pos
@@ -1385,8 +1385,7 @@ class SelectionManager:
                 self._selection.remove(new_sel)
             elif op == "toggle":
                 old_sel = set(self._selection)
-                self._selection.remove(old_sel & new_sel)
-                self._selection.add(new_sel - old_sel)
+                self._selection.replace(old_sel ^ new_sel)
 
             for obj in objs:
                 if obj.type == "model":

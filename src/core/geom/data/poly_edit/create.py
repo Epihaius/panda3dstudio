@@ -436,7 +436,7 @@ class CreationMixin:
         tmp_geoms = tmp_data["geoms"]
 
         for subobj_type in ("vert", "edge", "poly"):
-            tmp_geoms[subobj_type].remove_node()
+            tmp_geoms[subobj_type].detach_node()
 
         del self._tmp_data
 
@@ -449,7 +449,7 @@ class CreationMixin:
         verts = subobjs["vert"]
         edges = subobjs["edge"]
         polys = subobjs["poly"]
-        ordered_polys = self._ordered_polys
+        ordered_polys = self.ordered_polys
         merged_verts = self.merged_verts
         merged_verts_by_pos = {}
         merged_edges = self.merged_edges

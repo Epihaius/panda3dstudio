@@ -652,6 +652,10 @@ class NormalEditMixin:
             else:
                 self._is_tangent_space_initialized = False
 
+    def clear_normal_change(self):
+
+        self._normal_change.clear()
+
     def _restore_normal_length(self, time_id):
 
         obj_id = self.toplevel_obj.id
@@ -940,10 +944,16 @@ class NormalEditMixin:
 
         geom = self._toplvl_node.get_geom(0)
         prim_count = geom.get_primitive(0).get_num_primitives()
-        p1, p2 = self.origin.get_tight_bounds()
-        x, y, z = p2 - p1
-        a = (x + y + z) / 3.
-        normal_length = min(a * .25, max(.001, 500. * a / prim_count))
+        bounds = self.origin.get_tight_bounds()
+
+        if bounds:
+            p1, p2 = bounds
+            x, y, z = p2 - p1
+            a = (x + y + z) / 3.
+            normal_length = min(a * .25, max(.001, 500. * a / prim_count))
+        else:
+            normal_length = .001
+
         self._geoms["normal"]["pickable"].set_shader_input("normal_length", normal_length)
         self._geoms["normal"]["sel_state"].set_shader_input("normal_length", normal_length)
         self._normal_length = normal_length

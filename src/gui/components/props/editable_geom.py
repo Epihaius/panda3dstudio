@@ -1,6 +1,86 @@
 from .base import *
 
 
+class SurfaceToModelDialog(Dialog):
+
+    def __init__(self):
+
+        title = "Create models from surfaces"
+
+        Dialog.__init__(self, title, choices="okcancel", on_yes=self.__on_yes)
+
+        self._model_basename = ""
+        self._creation_method = "per_src"
+        self._copy_surfaces = False
+
+        client_sizer = self.get_client_sizer()
+
+        subsizer = Sizer("horizontal")
+        borders = (50, 50, 0, 20)
+        client_sizer.add(subsizer, expand=True, borders=borders)
+
+        text = DialogText(self, "Model basename:")
+        borders = (0, 5, 0, 0)
+        subsizer.add(text, alignment="center_v", borders=borders)
+        field = DialogInputField(self, "name", "string", self.__handle_name, 200)
+        field.set_input_parser(self.__parse_input)
+        subsizer.add(field, proportion=1., alignment="center_v")
+
+        text = DialogText(self, "Leave field empty to base name(s) on source model name(s).")
+        borders = (50, 50, 0, 5)
+        client_sizer.add(text, borders=borders)
+
+        group = DialogWidgetGroup(self, "Creation method")
+        borders = (50, 50, 0, 20)
+        client_sizer.add(group, expand=True, borders=borders)
+
+        radio_btns = DialogRadioButtonGroup(group, columns=1, gap_v=5)
+
+        def get_command(method_id):
+
+            def command():
+
+                self._creation_method = method_id
+
+            return command
+
+        method_ids = ("per_src", "per_surface", "single")
+        method_names = ("One model per source model", "One model per surface", "Single model")
+
+        for method_id, method_name in zip(method_ids, method_names):
+            radio_btns.add_button(method_id, method_name)
+            radio_btns.set_button_command(method_id, get_command(method_id))
+
+        radio_btns.set_selected_button("per_src")
+        group.add(radio_btns.sizer)
+
+        text = "Copy surfaces"
+        checkbtn = DialogCheckButton(self, self.__copy_surfaces, text)
+        borders = (50, 50, 20, 15)
+        client_sizer.add(checkbtn, borders=borders)
+
+        self.finalize()
+
+    def __parse_input(self, input_text):
+
+        self._input = input_text.strip()
+
+        return self._input
+
+    def __handle_name(self, value_id, name, state):
+
+        self._model_basename = name
+
+    def __copy_surfaces(self, copy_surfaces):
+
+        self._copy_surfaces = copy_surfaces
+
+    def __on_yes(self):
+
+        Mgr.update_remotely("poly_surface_to_model", self._model_basename,
+                            self._creation_method, self._copy_surfaces)
+
+
 class EditableGeomProperties:
 
     def __init__(self, panel):
@@ -346,6 +426,14 @@ class EditableGeomProperties:
         sizer.add(btn)
 
         sizer.add((0, 0), proportion=1.)
+
+        group.add((0, 5))
+
+        text = "To new model(s)..."
+        tooltip_text = "Create new model(s) out of surfaces containing selected polygons"
+        btn = PanelButton(group, text, "", tooltip_text, self.__show_surf_to_model_dialog)
+        self._btns["make_model"] = btn
+        group.add(btn)
 
         group = section.add_group("Extrusion/inset")
 
@@ -777,27 +865,6 @@ class EditableGeomProperties:
 
         Mgr.update_remotely(value_id, value, state)
 
-    def __parse_length_input(self, input_text):
-
-        try:
-            return max(.001, abs(float(eval(input_text))))
-        except:
-            return None
-
-    def __parse_edge_bridge_segs_input(self, input_text):
-
-        try:
-            return max(1, abs(int(eval(input_text))))
-        except:
-            return None
-
-    def __toggle_poly_creation(self):
-
-        if self._btns["create_poly"].active:
-            Mgr.exit_state("poly_creation_mode")
-        else:
-            Mgr.enter_state("poly_creation_mode")
-
     def __toggle_auto_selection_conversion(self):
 
         if self._btns["sel_conversion"].active:
@@ -811,6 +878,13 @@ class EditableGeomProperties:
             conversion_type = self._radio_btns["sel_conversion_type"].get_selected_button()
             Mgr.update_remotely("subobj_sel_conversion", next_subobj_lvl, conversion_type)
             self._btns["sel_conversion"].active = False
+
+    def __parse_length_input(self, input_text):
+
+        try:
+            return max(.001, abs(float(eval(input_text))))
+        except:
+            return None
 
     def __break_vertices(self):
 
@@ -850,6 +924,13 @@ class EditableGeomProperties:
         else:
             Mgr.enter_state("edge_merge_mode")
 
+    def __parse_edge_bridge_segs_input(self, input_text):
+
+        try:
+            return max(1, abs(int(eval(input_text))))
+        except:
+            return None
+
     def __bridge_edges(self):
 
         btn = self._btns["bridge_edges"]
@@ -863,39 +944,16 @@ class EditableGeomProperties:
 
         Mgr.update_remotely("edge_smoothing", smooth)
 
+    def __toggle_poly_creation(self):
+
+        if self._btns["create_poly"].active:
+            Mgr.exit_state("poly_creation_mode")
+        else:
+            Mgr.enter_state("poly_creation_mode")
+
     def __detach_polygons(self):
 
         Mgr.update_remotely("poly_detach")
-
-    def __update_polygon_smoothing(self):
-
-        Mgr.update_remotely("poly_smoothing_update")
-
-    def __smooth_polygons(self, smooth=True):
-
-        Mgr.update_remotely("poly_smoothing", smooth)
-
-    def __smooth_all(self, smooth=True):
-
-        Mgr.update_remotely("model_smoothing", smooth)
-
-    def __pick_poly_to_smooth_with(self, smooth=True):
-
-        pick_btn = self._btns[("" if smooth else "un") + "smooth_with"]
-        state_id = ("" if smooth else "un") + "smoothing_poly_picking_mode"
-
-        if pick_btn.active:
-            Mgr.exit_state(state_id)
-        else:
-            Mgr.enter_state(state_id)
-
-    def __invert_poly_surfaces(self):
-
-        Mgr.update_remotely("poly_surface_inversion")
-
-    def __doubleside_poly_surfaces(self):
-
-        Mgr.update_remotely("poly_surface_doublesiding")
 
     def __turn_diagonals(self):
 
@@ -905,6 +963,18 @@ class EditableGeomProperties:
             Mgr.exit_state("diagonal_turning_mode")
         else:
             Mgr.update_remotely("diagonal_turn")
+
+    def __invert_poly_surfaces(self):
+
+        Mgr.update_remotely("poly_surface_inversion")
+
+    def __doubleside_poly_surfaces(self):
+
+        Mgr.update_remotely("poly_surface_doublesiding")
+
+    def __show_surf_to_model_dialog(self):
+
+        SurfaceToModelDialog()
 
     def __preview_poly_extr_inset(self):
 
@@ -930,6 +1000,28 @@ class EditableGeomProperties:
             return max(0., float(eval(input_text)))
         except:
             return None
+
+    def __update_polygon_smoothing(self):
+
+        Mgr.update_remotely("poly_smoothing_update")
+
+    def __smooth_polygons(self, smooth=True):
+
+        Mgr.update_remotely("poly_smoothing", smooth)
+
+    def __smooth_all(self, smooth=True):
+
+        Mgr.update_remotely("model_smoothing", smooth)
+
+    def __pick_poly_to_smooth_with(self, smooth=True):
+
+        pick_btn = self._btns[("" if smooth else "un") + "smooth_with"]
+        state_id = ("" if smooth else "un") + "smoothing_poly_picking_mode"
+
+        if pick_btn.active:
+            Mgr.exit_state(state_id)
+        else:
+            Mgr.enter_state(state_id)
 
     def get_base_type(self):
 

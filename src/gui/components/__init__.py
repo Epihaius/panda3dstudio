@@ -932,7 +932,7 @@ class Components:
             if not self._screenshot:
                 return
 
-            self._screenshot.remove_node()
+            self._screenshot.detach_node()
             self._screenshot = None
             fps_meter_display_region = GD["fps_meter_display_region"]
             fps_meter_display_region.active = True

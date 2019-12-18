@@ -753,7 +753,7 @@ class BoxManager(PrimitiveManager):
                 if material:
                     plane.set_material(material)
 
-            box_origin.remove_node()
+            box_origin.detach_node()
 
         Mgr.exit_state("processing")
         self._tmp_box_origin = None
@@ -795,7 +795,7 @@ class BoxManager(PrimitiveManager):
             self._created_planes = []
 
             if self._tmp_box_origin:
-                self._tmp_box_origin.remove_node()
+                self._tmp_box_origin.detach_node()
                 self._tmp_box_origin = None
 
     def __convert_boxes_to_planes(self):

@@ -88,7 +88,7 @@ class TextControl:
     def destroy(self):
 
         self._field = None
-        self._root.remove_node()
+        self._root.detach_node()
         self._root = None
         self._quad = None
         self._caret = None
@@ -522,7 +522,7 @@ class SliderControl:
     def destroy(self):
 
         self._field = None
-        self._root.remove_node()
+        self._root.detach_node()
         self._root = None
         self._quad = None
 

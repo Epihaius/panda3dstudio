@@ -15,7 +15,8 @@ class BamExporter:
         self.__set_initial_data(filename)
         self.__parse_data()
         self.root.write_bam_file(self.fullpath)
-        self.root.remove_node()
+        self.root.detach_node()
+        self.root = None
 
     def __determine_objs_for_export(self):
 

@@ -290,25 +290,17 @@ class SelectionMixin:
         if update_verts_to_transf:
             self._verts_to_transf[subobj_lvl] = {}
 
-    def delete_selection(self, subobj_lvl):
+    def delete_selection(self, subobj_lvl, unregister_globally=True, unregister_locally=True):
 
         subobjs = self._subobjs
         verts = subobjs["vert"]
         edges = subobjs["edge"]
         polys = subobjs["poly"]
-        ordered_polys = self._ordered_polys
 
         selected_subobj_ids = self._selected_subobj_ids
         selected_vert_ids = selected_subobj_ids["vert"]
         selected_edge_ids = selected_subobj_ids["edge"]
         selected_poly_ids = selected_subobj_ids["poly"]
-        selected_normal_ids = selected_subobj_ids["normal"]
-        self._verts_to_transf["vert"] = {}
-        self._verts_to_transf["edge"] = {}
-        self._verts_to_transf["poly"] = {}
-        verts_to_delete = []
-        edges_to_delete = []
-        border_edges = []
 
         if subobj_lvl == "vert":
 
@@ -328,302 +320,7 @@ class SelectionMixin:
 
             polys_to_delete = [polys[poly_id] for poly_id in selected_poly_ids]
 
-        poly_index = min(ordered_polys.index(poly) for poly in polys_to_delete)
-        polys_to_offset = ordered_polys[poly_index:]
-
-        merged_verts = self.merged_verts
-        merged_edges = self.merged_edges
-        shared_normals = self.shared_normals
-        row_ranges_to_keep = SparseArray()
-        row_ranges_to_keep.set_range(0, self._data_row_count)
-
-        subobjs_to_unreg = self._subobjs_to_unreg = {"vert": {}, "edge": {}, "poly": {}}
-
-        subobj_change = self._subobj_change
-        subobj_change["vert"]["deleted"] = vert_change = {}
-        subobj_change["edge"]["deleted"] = edge_change = {}
-        subobj_change["poly"]["deleted"] = poly_change = {}
-
-        for poly in polys_to_delete:
-
-            poly_verts = poly.vertices
-            vert = poly_verts[0]
-            row = vert.row_index
-            row_ranges_to_keep.clear_range(row, len(poly_verts))
-
-            verts_to_delete.extend(poly_verts)
-            edges_to_delete.extend(poly.edges)
-
-            for edge_id in poly.edge_ids:
-
-                merged_edge = merged_edges[edge_id]
-
-                if merged_edge in border_edges:
-                    border_edges.remove(merged_edge)
-                else:
-                    border_edges.append(merged_edge)
-
-            ordered_polys.remove(poly)
-            poly_id = poly.id
-            subobjs_to_unreg["poly"][poly_id] = poly
-            poly_change[poly] = poly.creation_time
-
-            if poly_id in selected_poly_ids:
-                selected_poly_ids.remove(poly_id)
-
-        merged_verts_to_resmooth = set()
-
-        for vert in verts_to_delete:
-
-            vert_id = vert.id
-            subobjs_to_unreg["vert"][vert_id] = vert
-            vert_change[vert] = vert.creation_time
-
-            if vert_id in selected_vert_ids:
-                selected_vert_ids.remove(vert_id)
-
-            if vert_id in selected_normal_ids:
-                selected_normal_ids.remove(vert_id)
-
-            if vert_id in merged_verts:
-                merged_vert = merged_verts[vert_id]
-                merged_vert.remove(vert_id)
-                del merged_verts[vert_id]
-                merged_verts_to_resmooth.add(merged_vert)
-
-            if vert_id in shared_normals:
-                shared_normal = shared_normals[vert_id]
-                shared_normal.discard(vert_id)
-                del shared_normals[vert_id]
-
-        sel_data = self._poly_selection_data
-        geoms = self._geoms
-
-        for state in ("selected", "unselected"):
-            sel_data[state] = []
-            prim = geoms["poly"][state].node().modify_geom(0).modify_primitive(0)
-            prim.modify_vertices().clear_rows()
-
-        for edge in edges_to_delete:
-
-            edge_id = edge.id
-            subobjs_to_unreg["edge"][edge_id] = edge
-            edge_change[edge] = edge.creation_time
-
-            if edge_id in selected_edge_ids:
-                selected_edge_ids.remove(edge_id)
-
-            if edge_id in merged_edges:
-
-                merged_edge = merged_edges[edge_id]
-                merged_edge.remove(edge_id)
-                del merged_edges[edge_id]
-
-                if not merged_edge[:] and merged_edge in border_edges:
-                    border_edges.remove(merged_edge)
-
-        if border_edges:
-
-            new_merged_verts = self.fix_borders(border_edges)
-
-            if new_merged_verts:
-                self.update_normal_sharing(new_merged_verts)
-                merged_verts_to_resmooth.update(new_merged_verts)
-
-        self.unregister(locally=True)
-
-        row_index_offset = 0
-
-        for poly in polys_to_offset:
-
-            if poly in polys_to_delete:
-                row_index_offset -= poly.vertex_count
-                continue
-
-            poly_verts = poly.vertices
-
-            for vert in poly_verts:
-                vert.offset_row_index(row_index_offset)
-
-        vert_geom = geoms["vert"]["pickable"].node().modify_geom(0)
-        edge_geom = geoms["edge"]["pickable"].node().modify_geom(0)
-        normal_geom = geoms["normal"]["pickable"].node().modify_geom(0)
-        vertex_data_vert = vert_geom.modify_vertex_data()
-        vertex_data_edge = edge_geom.modify_vertex_data()
-        vertex_data_normal = normal_geom.modify_vertex_data()
-        vertex_data_poly = self._vertex_data["poly"]
-        vertex_data_poly_picking = self._vertex_data["poly_picking"]
-
-        vert_array = vertex_data_vert.modify_array(1)
-        vert_view = memoryview(vert_array).cast("B")
-        vert_stride = vert_array.array_format.stride
-        edge_array = vertex_data_edge.modify_array(1)
-        edge_view = memoryview(edge_array).cast("B")
-        edge_stride = edge_array.array_format.stride
-        picking_array = vertex_data_poly_picking.modify_array(1)
-        picking_view = memoryview(picking_array).cast("B")
-        picking_stride = picking_array.array_format.stride
-
-        poly_arrays = []
-        poly_views = []
-        poly_strides = []
-
-        for i in range(vertex_data_poly.get_num_arrays()):
-            poly_array = vertex_data_poly.modify_array(i)
-            poly_arrays.append(poly_array)
-            poly_views.append(memoryview(poly_array).cast("B"))
-            poly_strides.append(poly_array.array_format.stride)
-
-        pos_array = poly_arrays[0]
-        f = lambda values, stride: (v * stride for v in values)
-        offset = 0
-
-        for i in range(row_ranges_to_keep.get_num_subranges()):
-
-            start = row_ranges_to_keep.get_subrange_begin(i)
-            size = row_ranges_to_keep.get_subrange_end(i) - start
-            offset_, start_, size_ = f((offset, start, size), vert_stride)
-            vert_view[offset_:offset_+size_] = vert_view[start_:start_+size_]
-            offset_, start_, size_ = f((offset, start, size), edge_stride)
-            edge_view[offset_:offset_+size_] = edge_view[start_:start_+size_]
-            offset_, start_, size_ = f((offset, start, size), picking_stride)
-            picking_view[offset_:offset_+size_] = picking_view[start_:start_+size_]
-
-            for poly_view, poly_stride in zip(poly_views, poly_strides):
-                offset_, start_, size_ = f((offset, start, size), poly_stride)
-                poly_view[offset_:offset_+size_] = poly_view[start_:start_+size_]
-
-            offset += size
-
-        old_count = self._data_row_count
-        count = len(verts)
-        offset = count
-
-        for i in range(row_ranges_to_keep.get_num_subranges()):
-            start = row_ranges_to_keep.get_subrange_begin(i)
-            size = row_ranges_to_keep.get_subrange_end(i) - start
-            offset_, start_, size_ = f((offset, start + old_count, size), edge_stride)
-            edge_view[offset_:offset_+size_] = edge_view[start_:start_+size_]
-            offset += size
-
-        self._data_row_count = count
-        sel_colors = Mgr.get("subobj_selection_colors")
-
-        vertex_data_poly.set_num_rows(count)
-        vertex_data_vert.set_num_rows(count)
-        vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_normal.set_num_rows(count)
-        vertex_data_poly_picking.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_normal.set_array(0, GeomVertexArrayData(pos_array))
-        vertex_data_normal.set_array(1, GeomVertexArrayData(vert_array))
-        vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
-
-        vertex_data_vert = geoms["vert"]["sel_state"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_vert.set_num_rows(count)
-        vertex_data_vert.set_array(0, GeomVertexArrayData(pos_array))
-        new_data = vertex_data_vert.set_color(sel_colors["vert"]["unselected"])
-        vertex_data_vert.set_array(1, new_data.get_array(1))
-
-        vertex_data_normal = geoms["normal"]["sel_state"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_normal.set_num_rows(count)
-        vertex_data_normal.set_array(0, GeomVertexArrayData(pos_array))
-        new_data = vertex_data_normal.set_color(sel_colors["normal"]["unselected"])
-        vertex_data_normal.set_array(1, new_data.get_array(1))
-        vertex_data_normal.set_array(2, GeomVertexArrayData(poly_arrays[2]))
-
-        size = pos_array.data_size_bytes
-        from_view = memoryview(pos_array).cast("B")
-
-        vertex_data_edge.set_num_rows(count * 2)
-        pos_array_edge = vertex_data_edge.modify_array(0)
-        to_view = memoryview(pos_array_edge).cast("B")
-        to_view[:size] = from_view
-        to_view[size:] = from_view
-
-        vertex_data_edge = geoms["edge"]["sel_state"].node().modify_geom(0).modify_vertex_data()
-        vertex_data_edge.set_num_rows(count * 2)
-        pos_array_edge = vertex_data_edge.modify_array(0)
-        to_view = memoryview(pos_array_edge).cast("B")
-        to_view[:size] = from_view
-        to_view[size:] = from_view
-        new_data = vertex_data_edge.set_color(sel_colors["edge"]["unselected"])
-        vertex_data_edge.set_array(1, new_data.get_array(1))
-
-        data_unselected = sel_data["unselected"]
-
-        for poly in ordered_polys:
-            data_unselected.extend(poly)
-
-        points_prim = GeomPoints(Geom.UH_static)
-        points_prim.reserve_num_vertices(count)
-        points_prim.add_next_vertices(count)
-        vert_geom.set_primitive(0, points_prim)
-        normal_geom.set_primitive(0, GeomPoints(points_prim))
-        geom_node = geoms["vert"]["sel_state"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomPoints(points_prim))
-        geom_node = geoms["normal"]["sel_state"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomPoints(points_prim))
-
-        lines_prim = GeomLines(Geom.UH_static)
-        lines_prim.reserve_num_vertices(count * 2)
-
-        tris_prim = GeomTriangles(Geom.UH_static)
-
-        for poly in ordered_polys:
-
-            for edge in poly.edges:
-                row1, row2 = edge.row_indices
-                lines_prim.add_vertices(row1, row2)
-
-            for vert_ids in poly:
-                tris_prim.add_vertices(*[verts[v_id].row_index for v_id in vert_ids])
-
-        edge_geom.set_primitive(0, lines_prim)
-        geom_node = geoms["edge"]["sel_state"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomLines(lines_prim))
-
-        geom_node_top = self._toplvl_node
-        geom_node_top.modify_geom(0).set_primitive(0, tris_prim)
-
-        geom_node = geoms["poly"]["unselected"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
-
-        geom_node = geoms["poly"]["pickable"].node()
-        geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
-
-        vertex_data_top = geom_node_top.modify_geom(0).modify_vertex_data()
-
-        for i, poly_array in enumerate(poly_arrays):
-            vertex_data_top.set_array(i, poly_array)
-
-        geom_node.modify_geom(0).set_primitive(0, GeomTriangles(tris_prim))
-
-        for subobj_type in ("vert", "edge", "poly", "normal"):
-            selected_subobj_ids[subobj_type] = []
-
-        if selected_vert_ids:
-            selected_verts = (verts[vert_id] for vert_id in selected_vert_ids)
-            self.update_selection("vert", selected_verts, [])
-
-        if selected_edge_ids:
-            selected_edges = (edges[edge_id] for edge_id in selected_edge_ids)
-            self.update_selection("edge", selected_edges, [])
-
-        if selected_poly_ids:
-            selected_polys = (polys[poly_id] for poly_id in selected_poly_ids)
-            self.update_selection("poly", selected_polys, [])
-
-        if selected_normal_ids:
-            selected_normals = (shared_normals[normal_id] for normal_id in selected_normal_ids)
-            self.update_selection("normal", selected_normals, [])
-
-        self.update_subobject_indices()
-
-        poly_ids = [poly.id for poly in polys_to_delete]
-        self.smooth_polygons(poly_ids, smooth=False, update_normals=False)
-        self._normal_sharing_change = True
-        self.update_vertex_normals(merged_verts_to_resmooth)
-        self.toplevel_obj.bbox.update(*self.origin.get_tight_bounds())
+        self.delete_polygons(polys_to_delete, unregister_globally, unregister_locally)
 
     def _restore_subobj_selection(self, time_id):
 
@@ -748,6 +445,10 @@ class Selection(TransformMixin):
     def __len__(self):
 
         return len(self._objs)
+
+    def get_geom_data_objects(self):
+
+        return list(self._groups)
 
     def get_toplevel_objects(self, get_group=False):
 
@@ -1356,8 +1057,7 @@ class SelectionManager:
 
                 old_sel = set(selection)
                 new_sel = set(obj.special_selection)
-                selection.remove(old_sel & new_sel)
-                selection.add(new_sel - old_sel)
+                selection.replace(old_sel ^ new_sel)
 
                 if obj in selection:
                     transform_allowed = GD["active_transform_type"]
@@ -1530,8 +1230,7 @@ class SelectionManager:
             selection.remove(new_sel)
         elif op == "toggle":
             old_sel = set(selection)
-            selection.remove(old_sel & new_sel)
-            selection.add(new_sel - old_sel)
+            selection.replace(old_sel ^ new_sel)
 
     def __set_subobj_picking_via_poly(self, via_poly=False):
 

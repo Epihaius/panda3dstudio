@@ -71,7 +71,7 @@ class TemporaryPointHelper:
 
     def destroy(self):
 
-        self.geom.remove_node()
+        self.geom.detach_node()
         self.geom = None
 
     def is_valid(self):

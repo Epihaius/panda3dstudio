@@ -157,7 +157,7 @@ class TemporaryTexProjector:
 
     def destroy(self):
 
-        self.geom.remove_node()
+        self.geom.detach_node()
         self.geom = None
 
     @property
@@ -544,12 +544,12 @@ class TexProjector(TopLevelObject):
         self._edges = {}
 
         for np in self._lens_viz.values():
-            np.remove_node()
+            np.detach_node()
 
         self._lens_viz = {}
-        self._lens_np.remove_node()
+        self._lens_np.detach_node()
         self._lens_np = None
-        self._subobj_root.remove_node()
+        self._subobj_root.detach_node()
         self._subobj_root = None
         self._body = None
         self._tripod = None
@@ -1003,7 +1003,7 @@ class TexProjector(TopLevelObject):
             target.project_uvs(uv_set_ids, False, toplvl=toplvl)
             target.apply_uv_projection(vertex_data, uv_set_ids, toplvl)
 
-        screen_np.remove_node()
+        screen_np.detach_node()
 
         # Add to history
 

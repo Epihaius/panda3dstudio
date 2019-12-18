@@ -256,11 +256,11 @@ class TemporaryDummy:
 
     def destroy(self):
 
-        self.geom.remove_node()
+        self.geom.detach_node()
         self.geom = None
 
         if self._is_const_size:
-            self._root.remove_node()
+            self._root.detach_node()
             self._root = None
 
     @property
@@ -594,7 +594,7 @@ class Dummy(TopLevelObject):
             self.unregister()
 
         self._edges = {}
-        self._root.remove_node()
+        self._root.detach_node()
         self._root = None
 
     def register(self, restore=True):
@@ -950,14 +950,9 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
 
     def setup(self):
 
-        self._dummy_root = dummy_root = GD.cam().attach_new_node("dummy_helper_root")
-        dummy_root.set_light_off()
-        dummy_root.set_shader_off()
-        dummy_root.set_bin("fixed", 50)
-        dummy_root.set_depth_test(False)
-        dummy_root.set_depth_write(False)
-        dummy_root.node().set_bounds(OmniBoundingVolume())
-        dummy_root.node().final = True
+        dummy_root = GD.cam.const_size_obj_root.attach_new_node("const_size_dummy_root")
+        self._dummy_root = dummy_root
+        Mgr.expose("const_size_dummy_root", lambda: self._dummy_root)
         root_persp = dummy_root.attach_new_node("dummy_helper_root_persp")
         root_ortho = dummy_root.attach_new_node("dummy_helper_root_ortho")
         root_ortho.set_scale(20.)
@@ -1086,13 +1081,13 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
                 del const_sizes[dummy_id]
                 origin_persp = dummy_origins["persp"][dummy_id]
                 origin_persp.children.reparent_to(dummy.get_geom_root())
-                origin_persp.remove_node()
+                origin_persp.detach_node()
                 del dummy_origins["persp"][dummy_id]
                 origin_ortho = dummy_origins["ortho"][dummy_id]
-                origin_ortho.remove_node()
+                origin_ortho.detach_node()
                 del dummy_origins["ortho"][dummy_id]
                 dummy_base = dummy_bases[dummy_id]
-                dummy_base.remove_node()
+                dummy_base.detach_node()
                 del dummy_bases[dummy_id]
                 dummy.set_geoms_for_ortho_lens()
                 change = True

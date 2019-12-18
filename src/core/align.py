@@ -98,6 +98,7 @@ class AlignmentManager:
                 if obj_lvl != "top":
                     Mgr.do("enable_object_name_checking")
                     Mgr.get("object_root").show(picking_mask)
+                    GD.cam.const_size_obj_root.show(picking_mask)
                     if obj_lvl != "poly":
                         if GD["subobj_edit_options"]["pick_via_poly"]:
                             Mgr.update_locally("picking_via_poly", False)
@@ -107,6 +108,7 @@ class AlignmentManager:
             elif self._target_type == "surface":
                 if obj_lvl == "top":
                     Mgr.get("object_root").hide(picking_mask)
+                    GD.cam.const_size_obj_root.hide(picking_mask)
                     for model in models:
                         model.origin.show_through(picking_mask)
                 else:
@@ -154,6 +156,7 @@ class AlignmentManager:
                 if obj_lvl != "top":
                     Mgr.do("disable_object_name_checking")
                     Mgr.get("object_root").hide(picking_mask)
+                    GD.cam.const_size_obj_root.hide(picking_mask)
                     if obj_lvl != "poly":
                         for model in selection:
                             model.geom_obj.geom_data_obj.make_polys_pickable(False)
@@ -163,6 +166,7 @@ class AlignmentManager:
             elif self._target_type == "surface":
                 if obj_lvl == "top":
                     Mgr.get("object_root").show(picking_mask)
+                    GD.cam.const_size_obj_root.show(picking_mask)
                     for model in models:
                         model.origin.show(picking_mask)
                 else:
@@ -1007,7 +1011,7 @@ class AlignmentManager:
                         target_descr = f'"{obj.name}"'
 
                     event_descr += f'\n\n{"at" if obj_point else "to"} {target_descr}'
-                    selection.add_history("custom", descr=event_descr)
+                    selection.add_transform_history("custom", descr=event_descr)
 
     def __add_history(self, objs_to_align, point_opts):
 

@@ -25,15 +25,18 @@ class PickingColorIDManager:
             mgr.reset()
 
     @classmethod
-    def __update_id_ranges(cls):
+    def __update_id_ranges(cls, as_task=True):
 
         def task():
 
             for mgr in cls._mgrs.values():
                 mgr.update_picking_color_id_ranges()
 
-        task_id = "update_picking_col_id_ranges"
-        PendingTasks.add(task, task_id, "object")
+        if as_task:
+            task_id = "update_picking_col_id_ranges"
+            PendingTasks.add(task, task_id, "object")
+        else:
+            task()
 
     @classmethod
     def __create_id_range_backups(cls):
@@ -152,10 +155,18 @@ class PickingColorIDManager:
     def recover_picking_color_id(self, color_id):
         """ Recover the given color ID, so it can be used again """
 
+        if color_id in self._ids_to_recover:
+            Notifiers.reg.warning(f'!!!!!! {self.get_managed_object_type()} picking color ID '
+                                  f'already recovered!')
+
         self._ids_to_recover.add(color_id)
 
     def recover_picking_color_ids(self, color_ids):
         """ Recover the given color IDs, so they can be used again. """
+
+        if self._ids_to_recover.intersection(color_ids):
+            Notifiers.reg.warning(f'!!!!!! {self.get_managed_object_type()} picking color IDs '
+                                  f'already recovered!')
 
         self._ids_to_recover.update(color_ids)
         Notifiers.reg.debug(f'****** {self.get_managed_object_type()} picking color IDs '
@@ -164,10 +175,18 @@ class PickingColorIDManager:
     def discard_picking_color_id(self, color_id):
         """ Discard the given color ID, so it can no longer be used """
 
+        if color_id in self._ids_to_discard:
+            Notifiers.reg.warning(f'!!!!!! {self.get_managed_object_type()} picking color ID '
+                                  f'already discarded!')
+
         self._ids_to_discard.add(color_id)
 
     def discard_picking_color_ids(self, color_ids):
         """ Discard the given color IDs, so they can no longer be used. """
+
+        if self._ids_to_discard.intersection(color_ids):
+            Notifiers.reg.warning(f'!!!!!! {self.get_managed_object_type()} picking color IDs '
+                                  f'already discarded!')
 
         self._ids_to_discard.update(color_ids)
         Notifiers.reg.debug(f'****** {self.get_managed_object_type()} picking color IDs '

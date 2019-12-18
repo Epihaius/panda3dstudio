@@ -94,7 +94,8 @@ class ToolbarGhostImage:
 
     def destroy(self):
 
-        self._geom.remove_node()
+        self._geom.detach_node()
+        self._geom = None
 
     def set_pos(self, pos):
 

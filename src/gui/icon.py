@@ -31,7 +31,7 @@ class Icon(Widget):
     def destroy(self):
 
         if self.node:
-            self.node.remove_node()
+            self.node.detach_node()
             self.node = None
 
         self._parent = None
@@ -104,7 +104,7 @@ class LayeredIcon(Widget):
     def destroy(self):
 
         if self.node:
-            self.node.remove_node()
+            self.node.detach_node()
             self.node = None
 
         self._parent = None

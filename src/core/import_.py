@@ -100,7 +100,7 @@ class ImportManager:
 
     def __cancel_import(self):
 
-        self._model_root.remove_node()
+        self._model_root.detach_node()
         self._model_root = None
         self._hierarchy = {}
         self._obj_index = 0
@@ -347,7 +347,7 @@ class ImportManager:
         node.add_geom(geom)
         node_path = NodePath(node)
         model = Mgr.do("create_basic_geom", node_path, name).model
-        model.bbox.update(*node_path.get_tight_bounds())
+        model.bbox.update(node_path.get_tight_bounds())
         r, g, b = [random.random() * .4 + .5 for i in range(3)]
         color = (r, g, b, 1.)
         model.set_color(color, update_app=False)
@@ -410,7 +410,7 @@ class ImportManager:
                             tmp_np = node_path.attach_new_node("temp")
                             tmp_np.set_state(state)
                             state = tmp_np.get_net_state()
-                            tmp_np.remove_node()
+                            tmp_np.detach_node()
                             new_node = GeomNode("basic_geom")
                             new_node.add_geom(node.modify_geom(i).decompose().unify(1000000, False))
                             new_geom = NodePath(new_node)
@@ -421,7 +421,7 @@ class ImportManager:
                             member = Mgr.do("create_basic_geom", new_geom, member_name, materials).model
                             member.register(restore=False)
                             Mgr.do("add_group_member", member, obj, restore="import")
-                            member.bbox.update(*new_geom.get_tight_bounds())
+                            member.bbox.update(new_geom.get_tight_bounds())
                             self._imported_objs.append(member)
                             material = member.get_material()
 
@@ -435,7 +435,7 @@ class ImportManager:
                         tmp_np = node_path.attach_new_node("temp")
                         tmp_np.set_state(state)
                         state = tmp_np.get_net_state()
-                        tmp_np.remove_node()
+                        tmp_np.detach_node()
                         new_node = GeomNode("basic_geom")
                         new_node.add_geom(node.modify_geom(index))
                         new_geom = NodePath(new_node)
@@ -551,7 +551,7 @@ class ImportManager:
                 obj.restore_link(parent_id, None)
 
                 if obj.type == "model":
-                    obj.bbox.update(*bounds_node.get_tight_bounds())
+                    obj.bbox.update(bounds_node.get_tight_bounds())
 
                 self._imported_objs.append(obj)
                 obj_id = obj.id
@@ -603,7 +603,7 @@ class ImportManager:
             if gradual:
                 yield True
 
-        self._model_root.remove_node()
+        self._model_root.detach_node()
         self._model_root = None
         self._hierarchy = {}
         self._obj_index = 0
@@ -637,7 +637,7 @@ class ImportManager:
             for obj in self._imported_objs:
                 obj.destroy(unregister=False, add_to_hist=False)
 
-            self._model_root.remove_node()
+            self._model_root.detach_node()
             self._model_root = None
             self._hierarchy = {}
             self._obj_index = 0

@@ -497,7 +497,7 @@ class UVTemplateSaver:
 
         Mgr.render_frame()
         tex_buffer.save_screenshot(Filename.from_os_specific(filename))
-        cam.remove_node()
+        cam.detach_node()
         GD.showbase.graphicsEngine.remove_window(tex_buffer)
 
         UVMgr.do("reset_unselected_poly_state")

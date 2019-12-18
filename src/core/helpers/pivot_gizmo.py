@@ -241,10 +241,10 @@ class PivotGizmo:
         self._axis_objs = None
 
         for origin in self._origins.values():
-            origin.remove_node()
+            origin.detach_node()
 
         self._origins = None
-        self._base.remove_node()
+        self._base.detach_node()
         self._base = None
         self._axis_nps = None
         self._axis_label_roots = None
@@ -338,6 +338,7 @@ class PivotGizmoManager:
         self._pivot_gizmo_root = None
         self._pivot_gizmo_roots = {}
         self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
+        Mgr.expose("pivot_gizmo_root", lambda: self._pivot_gizmo_root)
         Mgr.expose("pivot_gizmo_roots", lambda: self._pivot_gizmo_roots)
         Mgr.accept("create_pivot_gizmo", self.__create_pivot_gizmo)
         Mgr.accept("show_pivot_gizmos", self.__show_pivot_gizmos)
@@ -347,14 +348,8 @@ class PivotGizmoManager:
 
     def setup(self):
 
-        pivot_gizmo_root = GD.cam().attach_new_node("pivot_gizmo_root")
-        pivot_gizmo_root.set_light_off()
-        pivot_gizmo_root.set_shader_off()
-        pivot_gizmo_root.set_bin("fixed", 50)
-        pivot_gizmo_root.set_depth_test(False)
-        pivot_gizmo_root.set_depth_write(False)
-        pivot_gizmo_root.node().set_bounds(OmniBoundingVolume())
-        pivot_gizmo_root.node().final = True
+        pivot_gizmo_root = GD.cam.const_size_obj_root.attach_new_node("pivot_gizmo_root")
+        pivot_gizmo_root.set_bin("fixed", 52)
         pivot_gizmo_root.hide()
         self._pivot_gizmo_root = pivot_gizmo_root
         root_persp = pivot_gizmo_root.attach_new_node("pivot_gizmo_root_persp")

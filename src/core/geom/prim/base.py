@@ -41,7 +41,7 @@ class TemporaryPrimitive:
         elif info and info != "creation":
             return
 
-        self.pivot.remove_node()
+        self.pivot.detach_node()
         self.pivot = None
         self.origin = None
 
@@ -278,7 +278,7 @@ class Primitive(GeomDataOwner):
             geom_data_backup.origin.reparent_to(model.origin)
             self.geom_data_obj = geom_data_backup
             self.set_geom_data_backup(None)
-            model.bbox.update(*self.origin.get_tight_bounds())
+            model.bbox.update(self.origin.get_tight_bounds())
 
     def recreate_geometry(self, poly_count):
 

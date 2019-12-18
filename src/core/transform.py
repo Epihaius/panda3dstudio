@@ -1043,7 +1043,7 @@ class TransformationManager:
             Mgr.do("update_obj_link_viz", [obj.id for obj in tmp_pivot_mats])
 
         tmp_pivot_mats.clear()
-        self._tmp_ref_root.remove_node()
+        self._tmp_ref_root.detach_node()
         self._tmp_ref_root = None
 
     def __set_transform_component(self, transf_type, axis, value, is_rel_value, objects=None,
@@ -1182,6 +1182,9 @@ class TransformationManager:
             selection = Mgr.get("selection")
             selection.prepare_transform(backup)
             selection.finalize_transform(add_to_hist=False, lock_normals=False)
+
+            for geom_data_obj in selection.get_geom_data_objects():
+                geom_data_obj.clear_normal_change()
 
         if clear:
             backup.clear()

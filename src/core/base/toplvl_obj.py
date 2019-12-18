@@ -78,9 +78,9 @@ class TopLevelObject:
         self.name = ""
         self.pivot_gizmo.destroy(unregister=False)
         self.pivot_gizmo = None
-        self.origin.remove_node()
+        self.origin.detach_node()
         self.origin = None
-        self.pivot.remove_node()
+        self.pivot.detach_node()
         self.pivot = None
 
     def destroy(self, unregister=True, add_to_hist=True):
@@ -108,9 +108,9 @@ class TopLevelObject:
         self.name = ""
         self.pivot_gizmo.destroy(unregister)
         self.pivot_gizmo = None
-        self.origin.remove_node()
+        self.origin.detach_node()
         self.origin = None
-        self.pivot.remove_node()
+        self.pivot.detach_node()
         self.pivot = None
 
         if unregister:

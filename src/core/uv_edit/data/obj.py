@@ -141,7 +141,8 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
 
     def destroy(self):
 
-        self.origin.remove_node()
+        self.origin.detach_node()
+        self.origin = None
         self.geom_data_obj.destroy_tex_seams(self._uv_set_id)
 
     def __process_geom_data(self, uv_registry):
@@ -672,16 +673,16 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         # clean up temporary vertex data
         if self._tmp_geom_pickable:
 
-            self._tmp_geom_pickable.remove_node()
+            self._tmp_geom_pickable.detach_node()
             self._tmp_geom_pickable = None
-            self._tmp_geom_sel_state.remove_node()
+            self._tmp_geom_sel_state.detach_node()
             self._tmp_geom_sel_state = None
             self._tmp_row_indices = {}
 
             if GD["uv_edit_options"]["pick_by_aiming"]:
                 aux_picking_root = Mgr.get("aux_picking_root")
                 tmp_geom_pickable = aux_picking_root.find("**/tmp_geom_pickable")
-                tmp_geom_pickable.remove_node()
+                tmp_geom_pickable.detach_node()
                 aux_picking_cam = UVMgr.get("aux_picking_cam")
                 aux_picking_cam.active = False
                 UVMgr.do("end_drawing_aux_picking_viz")

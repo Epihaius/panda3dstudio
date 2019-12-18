@@ -83,9 +83,6 @@ class HistoryMixin:
                 unique_prop_id = unique_prop_ids["normal_lock__extra__"]
                 extra_normal_lock_data = list(normal_lock_data.values())[0]["extra"][unique_prop_id]
 
-            # TODO: check if all polys have been deleted; if so, this GeomDataObject
-            # needs to be deleted itself also
-
             for subobj_type in ("vert", "edge", "poly"):
 
                 unique_prop_id = unique_prop_ids[f"{subobj_type}s"]
@@ -657,7 +654,7 @@ class HistoryMixin:
             for subobj in subobjs[subobj_type].values():
                 subobj.geom_data_obj = self
 
-        self._ordered_polys = list(subobjs["poly"].values())
+        self.ordered_polys = list(subobjs["poly"].values())
         poly_count = len(subobjs["poly"])
         progress_steps = poly_count // 20
         gradual = progress_steps > 20
@@ -691,7 +688,7 @@ class HistoryMixin:
         polys_to_remove, polys_to_restore = subobj_change["poly"]
 
         progress_steps = 3 + 2 * len(polys_to_remove) // 20 + 3 * len(polys_to_restore) // 20
-        progress_steps += (len(self._ordered_polys) - len(polys_to_remove) + len(polys_to_restore)) // 20
+        progress_steps += (len(self.ordered_polys) - len(polys_to_remove) + len(polys_to_restore)) // 20
         gradual = progress_steps > 50
 
         if gradual:
@@ -853,7 +850,7 @@ class HistoryMixin:
 
         subobjs = self._subobjs
         verts = subobjs["vert"]
-        ordered_polys = self._ordered_polys
+        ordered_polys = self.ordered_polys
 
         poly_index = min(ordered_polys.index(poly) for poly in polys_to_remove)
         polys_to_offset = ordered_polys[poly_index:]
@@ -959,7 +956,7 @@ class HistoryMixin:
 
         subobjs = self._subobjs
         verts = subobjs["vert"]
-        ordered_polys = self._ordered_polys
+        ordered_polys = self.ordered_polys
         vert_count = sum((poly.vertex_count for poly in polys_to_restore))
         old_count = self._data_row_count
         count = old_count + vert_count
@@ -1104,7 +1101,7 @@ class HistoryMixin:
     def __finalize_geometry_restore(self):
 
         count = self._data_row_count
-        ordered_polys = self._ordered_polys
+        ordered_polys = self.ordered_polys
         subobjs = self._subobjs
         verts = subobjs["vert"]
         sel_data = self._poly_selection_data["unselected"]

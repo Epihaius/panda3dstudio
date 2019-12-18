@@ -27,7 +27,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         del state["merged_edges"]
         del state["shared_normals"]
         del state["_poly_smoothing"]
-        del state["_ordered_polys"]
+        del state["ordered_polys"]
         del state["_subobjs"]
         del state["_indexed_subobjs"]
         del state["_is_tangent_space_initialized"]
@@ -52,7 +52,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         self.merged_edges = {}
         self.shared_normals = {}
         self._poly_smoothing = {}
-        self._ordered_polys = []
+        self.ordered_polys = []
         self._is_tangent_space_initialized = False
         self._picking_geom_xform_locked = False
 
@@ -88,7 +88,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         self._data_row_count = 0
         self.merged_verts = {}
         self.merged_edges = {}
-        self._ordered_polys = []
+        self.ordered_polys = []
         self._is_tangent_space_initialized = False
 
         self._prop_ids = ["subobj_merge", "subobj_selection", "subobj_transform", "poly_tris",
@@ -136,7 +136,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         Notifiers.geom.debug(f'GeomDataObject "{self.id}" creation cancelled.')
 
         if self.origin:
-            self.origin.remove_node()
+            self.origin.detach_node()
 
         self.__dict__.clear()
 
@@ -147,7 +147,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         if unregister:
             self.unregister()
 
-        self.origin.remove_node()
+        self.origin.detach_node()
 
         Notifiers.geom.debug(f'GeomDataObject "{self.id}" destroyed.')
         self.__dict__.clear()
@@ -157,7 +157,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         subobjs = (self._subobjs_to_reg if self._subobjs_to_reg else self._subobjs)
 
-        for subobj_type in ("vert", "edge", "poly"):
+        for subobj_type in subobjs:
 
             Mgr.do(f"register_{subobj_type}_objs", iter(subobjs[subobj_type].values()), restore)
 
@@ -170,7 +170,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         subobjs = (self._subobjs_to_unreg if self._subobjs_to_unreg else self._subobjs)
 
-        for subobj_type in ("vert", "edge", "poly"):
+        for subobj_type in subobjs:
 
             Mgr.do(f"unregister_{subobj_type}_objs", iter(subobjs[subobj_type].values()))
 
@@ -182,6 +182,24 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
                     del registered_subobjs[subobj_id]
 
         self._subobjs_to_unreg = None
+
+    def register_locally(self, subobjs_to_reg=None):
+
+        subobjs = (subobjs_to_reg if subobjs_to_reg else self._subobjs)
+
+        for subobj_type in subobjs:
+            self._subobjs[subobj_type].update(subobjs[subobj_type])
+
+    def unregister_locally(self, subobjs_to_unreg=None):
+
+        subobjs = (subobjs_to_unreg if subobjs_to_unreg else self._subobjs)
+
+        for subobj_type in subobjs:
+
+            registered_subobjs = self._subobjs[subobj_type]
+
+            for subobj_id in subobjs[subobj_type]:
+                del registered_subobjs[subobj_id]
 
     def get_subobjects(self, subobj_type):
 
@@ -201,7 +219,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         verts = subobjs["vert"]
         edges = subobjs["edge"]
         polys = subobjs["poly"]
-        ordered_polys = self._ordered_polys
+        ordered_polys = self.ordered_polys
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
         self._poly_smoothing = poly_smoothing = {}
@@ -218,7 +236,6 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         for poly_data in data:
 
-            row_index = 0
             tmp_edges = []
             positions = {}
             poly_verts_by_pos = {}
@@ -244,8 +261,6 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
                     else:
 
                         vertex = Mgr.do("create_vert", self, pos)
-                        vertex.row_index = row_index
-                        row_index += 1
                         vertex.normal = vert_data["normal"]
                         vertex.set_uvs(vert_data["uvs"])
 
@@ -499,7 +514,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         subobjs = self._subobjs
         verts = subobjs["vert"]
         self._data_row_count = count = len(verts)
-        tri_vert_count = sum([len(poly) for poly in self._ordered_polys])
+        tri_vert_count = sum([len(poly) for poly in self.ordered_polys])
 
         sel_data = self._poly_selection_data["unselected"]
 
@@ -538,9 +553,10 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         if gradual:
             poly_count = 0
 
-        for poly in self._ordered_polys:
+        for poly in self.ordered_polys:
 
             processed_verts = []
+            row_index = 0
 
             for vert_ids in poly:
 
@@ -555,6 +571,8 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
                         if not restore:
                             pos_writer.add_data3(vert.get_pos())
                             normal_writer.add_data3(vert.normal)
+                            vert.row_index = row_index
+                            row_index += 1
 
                         processed_verts.append(vert)
 
@@ -872,7 +890,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         edge_index = 0
         poly_index = 0
 
-        for poly in self._ordered_polys:
+        for poly in self.ordered_polys:
 
             picking_color = get_color_vec(poly.picking_color_id, pickable_id_poly)
             verts = poly.vertices
@@ -1243,16 +1261,16 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         # clean up temporary vertex data
         if self._tmp_geom_pickable:
 
-            self._tmp_geom_pickable.remove_node()
+            self._tmp_geom_pickable.detach_node()
             self._tmp_geom_pickable = None
-            self._tmp_geom_sel_state.remove_node()
+            self._tmp_geom_sel_state.detach_node()
             self._tmp_geom_sel_state = None
             self._tmp_row_indices = {}
 
             if GD["subobj_edit_options"]["pick_by_aiming"]:
                 aux_picking_root = Mgr.get("aux_picking_root")
                 tmp_geom_pickable = aux_picking_root.find("**/tmp_geom_pickable")
-                tmp_geom_pickable.remove_node()
+                tmp_geom_pickable.detach_node()
                 aux_picking_cam = Mgr.get("aux_picking_cam")
                 aux_picking_cam.active = False
                 Mgr.do("end_drawing_aux_picking_viz")

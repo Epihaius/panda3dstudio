@@ -369,7 +369,7 @@ class PanelStack(ScrollPane):
         self._sizer.virtual_size = (w, h_virt_new)
 
         tex_offset_y = self._quad.get_tex_offset(TextureStage.default)[1]
-        self._quad.remove_node()
+        self._quad.detach_node()
 
         width, height = self.get_size()
         tex_scale = (1., min(1., height / h_virt_new))

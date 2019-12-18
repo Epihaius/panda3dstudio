@@ -181,7 +181,7 @@ class HierarchyManager:
         if child_id in self._obj_link_viz:
             link_geom = self._obj_link_viz[child_id]
             self._obj_link_viz_nps.remove_path(link_geom)
-            link_geom.remove_node()
+            link_geom.detach_node()
 
         vertex_format = GeomVertexFormat.get_v3c4()
 
@@ -221,7 +221,7 @@ class HierarchyManager:
 
         link_geom = self._obj_link_viz[child_id]
         self._obj_link_viz_nps.remove_path(link_geom)
-        link_geom.remove_node()
+        link_geom.detach_node()
         del self._obj_link_viz[child_id]
 
     def __update_obj_link_viz(self, obj_ids=None, force_update_children=False):

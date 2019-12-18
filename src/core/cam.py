@@ -35,6 +35,18 @@ class MainCamera:
         projector_node = LensNode("projector", lenses["persp"])
         self.projector = self._cam_np.attach_new_node(projector_node)
 
+        # Create a root node for objects that need to have a constant screen size
+
+        const_size_obj_root = self._cam_np.attach_new_node("const_size_obj_root")
+        const_size_obj_root.set_light_off()
+        const_size_obj_root.set_shader_off()
+        const_size_obj_root.set_bin("fixed", 50)
+        const_size_obj_root.set_depth_test(False)
+        const_size_obj_root.set_depth_write(False)
+        const_size_obj_root.node().set_bounds(OmniBoundingVolume())
+        const_size_obj_root.node().final = True
+        self.const_size_obj_root = const_size_obj_root
+
         Mgr.expose("render_mask", lambda: self._mask)
         Mgr.expose("cam", lambda: self)
 
@@ -251,13 +263,13 @@ class MainCamera:
     def remove_rig(self, view_id):
 
         pivot = self._pivots[view_id]
-        pivot.remove_node()
+        pivot.detach_node()
         del self._pivots[view_id]
         target = self._targets[view_id]
-        target.remove_node()
+        target.detach_node()
         del self._targets[view_id]
         orig = self._origins[view_id]
-        orig.remove_node()
+        orig.detach_node()
         del self._origins[view_id]
         del self._lens_types[view_id]
 

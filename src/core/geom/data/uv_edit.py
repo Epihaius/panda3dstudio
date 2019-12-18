@@ -24,7 +24,7 @@ class UVEditMixin:
         for i in range(1, 8):
             uv_writers.append(GeomVertexWriter(vertex_data_poly, f"texcoord.{i}"))
 
-        for poly in self._ordered_polys:
+        for poly in self.ordered_polys:
 
             for vert in poly.vertices:
 
@@ -349,7 +349,7 @@ class UVEditMixin:
     def destroy_tex_seams(self, uv_set_id):
 
         if self._tex_seam_geom:
-            self._tex_seam_geom.remove_node()
+            self._tex_seam_geom.detach_node()
             self._tex_seam_geom = None
             edge_prim = self._edge_prims["main"]
             edge_geom = self._geoms["edge"]["sel_state"]

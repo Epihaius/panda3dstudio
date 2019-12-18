@@ -151,7 +151,7 @@ class UVEditGUI:
                 GD.window.remove_display_region(region)
                 mouse_watcher = NodePath(self._mouse_watcher)
                 self._mouse_watcher = None
-                mouse_watcher.remove_node()
+                mouse_watcher.detach_node()
                 GD["active_obj_level"] = "top"
 
                 main_components = self._main_components

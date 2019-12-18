@@ -32,7 +32,7 @@ class Group(TopLevelObject):
         Mgr.do("update_group_bboxes", [self.id])
 
         if self._bbox_is_const_size:
-            Mgr.do("make_group_const_size", self.bbox)
+            Mgr.do("make_bbox_const_size", self.bbox)
             self.bbox.origin.detach_node()
 
     def __init__(self, member_types, member_types_id, group_id, name, color_unsel):
@@ -76,7 +76,7 @@ class Group(TopLevelObject):
                 Mgr.do("add_history", "", event_data, update_time_id=False)
 
         if self._bbox_is_const_size:
-            Mgr.do("make_group_const_size", self.bbox, False)
+            Mgr.do("make_bbox_const_size", self.bbox, False)
 
         self.bbox.destroy(unregister)
         self.bbox = None
@@ -128,7 +128,7 @@ class Group(TopLevelObject):
     def __destroy_collision_geoms(self):
 
         for coll_geom in self._collision_geoms.values():
-            coll_geom.remove_node()
+            coll_geom.detach_node()
 
         for member in self.get_members():
             if member.type == "model":
@@ -262,7 +262,7 @@ class Group(TopLevelObject):
 
         if self._bbox_is_const_size:
 
-            bbox_origins = Mgr.get("const_sized_group_bbox", self.id)
+            bbox_origins = Mgr.get("const_size_bbox_origins", self.id)
 
             if not bbox_origins:
                 return
@@ -355,7 +355,7 @@ class Group(TopLevelObject):
         if max(x_max - x_min, y_max - y_min, z_max - z_min) > epsilon:
 
             if self._bbox_is_const_size:
-                Mgr.do("make_group_const_size", self.bbox, False)
+                Mgr.do("make_bbox_const_size", self.bbox, False)
                 bbox_orig.reparent_to(group_orig)
                 self._bbox_is_const_size = False
                 Mgr.notify("pickable_geom_altered", self)
@@ -366,7 +366,7 @@ class Group(TopLevelObject):
             center_pos = point_min + vec
             center_pos = group_pivot.get_relative_point(group_orig, center_pos)
             group_orig.set_pos(center_pos)
-            self.bbox.update(Point3(-vec), Point3(vec))
+            self.bbox.update((Point3(-vec), Point3(vec)))
 
         else:
 
@@ -377,7 +377,7 @@ class Group(TopLevelObject):
             bbox_orig.detach_node()
 
             if not self._bbox_is_const_size:
-                Mgr.do("make_group_const_size", self.bbox)
+                Mgr.do("make_bbox_const_size", self.bbox)
                 self._bbox_is_const_size = True
                 Mgr.notify("pickable_geom_altered", self)
 
@@ -458,7 +458,7 @@ class Group(TopLevelObject):
         if member_id in self._collision_geoms:
 
             coll_geom = self._collision_geoms[member_id]
-            coll_geom.remove_node()
+            coll_geom.detach_node()
             del self._collision_geoms[member_id]
             member = Mgr.get("object", member_id)
 
@@ -486,7 +486,7 @@ class Group(TopLevelObject):
 
         if self._bbox_is_const_size:
 
-            bbox_origins = Mgr.get("const_sized_group_bbox", self.id)
+            bbox_origins = Mgr.get("const_size_bbox_origins", self.id)
 
             for origin in bbox_origins:
 
@@ -565,7 +565,7 @@ class Group(TopLevelObject):
     def make_pickable(self, mask_index=0, pickable=True, show_through=True):
 
         if self._bbox_is_const_size:
-            Mgr.do("show_const_sized_bboxes", self.bbox, mask_index, pickable, show_through)
+            Mgr.do("show_const_size_bboxes", self.bbox, mask_index, pickable, show_through)
             return
 
         mask = Mgr.get("picking_mask", mask_index)
@@ -593,11 +593,6 @@ class GroupManager(ObjectManager):
         copier = lambda d: {k: v.copy() for k, v in d.items()}
         GD.set_default("group_options", group_options, copier)
 
-        self._bbox_roots = {}
-        self._bbox_bases = {}
-        self._bbox_origins = {"persp": {}, "ortho": {}}
-        self._compass_props = CompassEffect.P_pos | CompassEffect.P_rot
-
         self._pixel_under_mouse = None
 
         status_data = GD["status"]
@@ -606,34 +601,11 @@ class GroupManager(ObjectManager):
         status_data["sel_grouping_mode"] = {"mode": mode_text, "info": info_text}
 
         Mgr.add_app_updater("group", self.__update_groups)
-        Mgr.add_app_updater("viewport", self.__handle_viewport_resize)
-        Mgr.add_app_updater("region_picking", self.__make_region_pickable)
-        Mgr.add_app_updater("lens_type", self.__show_root)
-        Mgr.expose("const_sized_group_bbox", self.__get_const_sized_bbox_origins)
-        Mgr.accept("show_const_sized_bboxes", self.__show_const_sized_bboxes)
-        Mgr.accept("make_group_const_size", self.__make_bbox_const_size)
         Mgr.accept("update_group_bboxes", self.__update_group_bboxes)
         Mgr.accept("add_group_member", self.__add_member)
         Mgr.accept("add_group_members", self.__add_members)
         Mgr.accept("close_groups", self.__close_groups)
         Mgr.accept("prune_empty_groups", self.__prune_empty_groups)
-
-        self._bbox_root = bbox_root = GD.cam().attach_new_node("group_bbox_root")
-        bbox_root.set_light_off()
-        bbox_root.set_shader_off()
-        bbox_root.set_bin("fixed", 52)
-        bbox_root.set_depth_test(False)
-        bbox_root.set_depth_write(False)
-        bbox_root.node().set_bounds(OmniBoundingVolume())
-        bbox_root.node().final = True
-        masks = Mgr.get("render_mask") | Mgr.get("picking_mask")
-        root_persp = bbox_root.attach_new_node("group_bbox_root_persp")
-        root_persp.show(masks)
-        root_ortho = bbox_root.attach_new_node("group_bbox_root_ortho")
-        root_ortho.set_scale(20.)
-        root_ortho.hide(masks)
-        self._bbox_roots["persp"] = root_persp
-        self._bbox_roots["ortho"] = root_ortho
 
         add_state = Mgr.add_state
         add_state("grouping_mode", -10, self.__enter_grouping_mode, self.__exit_grouping_mode)
@@ -650,68 +622,6 @@ class GroupManager(ObjectManager):
         bind("grouping_mode", "grouping ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
 
-    def __handle_viewport_resize(self):
-
-        w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
-        scale = 800. / max(w, h)
-        bbox_origins = self._bbox_origins
-
-        for group_id in self._bbox_bases:
-            for origins in bbox_origins.values():
-                origins[group_id].set_scale(.5 * scale)
-
-    def __make_region_pickable(self, pickable):
-
-        if pickable:
-            self._bbox_root.wrt_reparent_to(Mgr.get("object_root"))
-            bbox_origins = self._bbox_origins
-            bbox_origins_persp = bbox_origins["persp"]
-            bbox_origins_ortho = bbox_origins["ortho"]
-            for group_id in self._bbox_bases:
-                group = Mgr.get("group", group_id)
-                index = int(group.pivot.get_shader_input("index").get_vector().x)
-                bbox_origins_persp[group_id].set_shader_input("index", index)
-                bbox_origins_ortho[group_id].set_shader_input("index", index)
-        else:
-            self._bbox_root.reparent_to(GD.cam())
-            self._bbox_root.clear_transform()
-
-    def __show_root(self, lens_type):
-
-        masks = Mgr.get("render_mask") | Mgr.get("picking_mask")
-
-        if lens_type == "persp":
-            self._bbox_roots["persp"].show(masks)
-            self._bbox_roots["ortho"].hide(masks)
-        else:
-            self._bbox_roots["persp"].hide(masks)
-            self._bbox_roots["ortho"].show(masks)
-
-    def __show_const_sized_bboxes(self, bbox, mask_index=0, show=True, show_through=False):
-
-        group = bbox.toplevel_obj
-        group_id = group.id
-        bbox_origins = self._bbox_origins
-
-        if group_id not in bbox_origins["persp"]:
-            return
-
-        origin_persp = bbox_origins["persp"][group_id]
-        origin_ortho = bbox_origins["ortho"][group_id]
-
-        mask = Mgr.get("picking_mask", mask_index)
-
-        if show:
-            if GD.cam.lens_type == "persp":
-                origin_persp.show_through(mask) if show_through else origin_persp.show(mask)
-                origin_ortho.hide(mask)
-            else:
-                origin_persp.hide(mask)
-                origin_ortho.show_through(mask) if show_through else origin_ortho.show(mask)
-        else:
-            origin_persp.hide(mask)
-            origin_ortho.hide(mask)
-
     def __create_group(self, name, member_types=None, member_types_id="any", transform=None,
                        color_unsel=(1., .5, .25, 1.)):
 
@@ -726,58 +636,6 @@ class GroupManager(ObjectManager):
             group.pivot.set_transform(transform)
 
         return group
-
-    def __make_bbox_const_size(self, bbox, const_size_state=True):
-
-        group = bbox.toplevel_obj
-        group_id = group.id
-        group_origin = group.origin
-        bbox_bases = self._bbox_bases
-        bbox_origins = self._bbox_origins
-
-        if const_size_state:
-            if group_id not in bbox_bases:
-                bbox_roots = self._bbox_roots
-                bbox_base = bbox_roots["persp"].attach_new_node("group_bbox_base")
-                origin = bbox.origin
-                bbox_base.set_billboard_point_world(group_origin, 2000.)
-                pivot = bbox_base.attach_new_node("group_bbox_pivot")
-                pivot.set_scale(100.)
-                w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
-                scale = 800. / max(w, h)
-                origin_persp = origin.copy_to(pivot)
-                origin_persp.name = "group_bbox_origin_persp"
-                origin_persp.set_scale(.5 * scale)
-                bbox_origins["persp"][group_id] = origin_persp
-                origin_ortho = origin.copy_to(bbox_roots["ortho"])
-                origin_ortho.name = "group_bbox_origin_ortho"
-                origin_ortho.set_scale(.5 * scale)
-                bbox_origins["ortho"][group_id] = origin_ortho
-                origin_persp.set_compass(group_origin)
-                bbox_bases[group_id] = bbox_base
-                compass_effect = CompassEffect.make(group_origin, self._compass_props)
-                origin_ortho.set_effect(compass_effect)
-        else:
-            if group_id in bbox_bases:
-                origin_persp = bbox_origins["persp"][group_id]
-                origin_persp.remove_node()
-                del bbox_origins["persp"][group_id]
-                origin_ortho = bbox_origins["ortho"][group_id]
-                origin_ortho.remove_node()
-                del bbox_origins["ortho"][group_id]
-                bbox_base = bbox_bases[group_id]
-                bbox_base.remove_node()
-                del bbox_bases[group_id]
-
-    def __get_const_sized_bbox_origins(self, group_id):
-
-        if group_id in self._bbox_bases:
-
-            bbox_origins = self._bbox_origins
-            origin_persp = bbox_origins["persp"][group_id]
-            origin_ortho = bbox_origins["ortho"][group_id]
-
-            return origin_persp, origin_ortho
 
     def __update_group_bboxes_task(self):
 

@@ -77,7 +77,8 @@ class SelectionManager:
         def get_grouped_models(group, models):
 
             for member in group.get_members():
-                if member.type == "model" and member.geom_type != "basic_geom":
+                if member.type == "model" and not (member.geom_type == "basic_geom"
+                        or member.bbox.has_zero_size_owner):
                     models.append(member)
                 elif member.type == "group" and not (member.is_open()
                         or member.get_member_types_id() == "collision"):
@@ -86,7 +87,8 @@ class SelectionManager:
         models = []
 
         for obj in objs:
-            if obj.type == "model" and obj.geom_type != "basic_geom":
+            if obj.type == "model" and not (obj.geom_type == "basic_geom"
+                    or obj.bbox.has_zero_size_owner):
                 models.append(obj)
             elif obj.type == "group" and not (obj.is_open()
                     or obj.get_member_types_id() == "collision"):
@@ -236,6 +238,7 @@ class SelectionManager:
         if obj_lvl == "top":
 
             obj_root.show(picking_mask)
+            GD.cam.const_size_obj_root.show(picking_mask)
 
             for model in models:
                 geom_data_obj = model.geom_obj.geom_data_obj
@@ -246,6 +249,7 @@ class SelectionManager:
         else:
 
             obj_root.hide(picking_mask)
+            GD.cam.const_size_obj_root.hide(picking_mask)
             color = UVMgr.get("uv_selection_colors")["seam"]["unselected"]
 
             for model in models:

@@ -45,7 +45,7 @@ class ScrollThumb(Widget):
         self._pane = None
         self._listener.ignore_all()
         self._listener = None
-        self._quad.remove_node()
+        self._quad.detach_node()
         self._quad = None
 
     def get_direction(self):
@@ -564,7 +564,7 @@ class ScrollPane(WidgetCard):
         self._scissor_effect = None
 
         for node in self._scissor_nodes:
-            node.remove_node()
+            node.detach_node()
 
         self._scissor_nodes = None
         self._widget_root_node.detach_node()

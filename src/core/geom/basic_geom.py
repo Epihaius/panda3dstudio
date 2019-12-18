@@ -111,10 +111,15 @@ class BasicGeom:
         self._geometry_unlock_started = False
         self._geometry_unlock_ended = False
         prim_count = geom.node().get_geom(0).get_primitive(0).get_num_primitives()
-        p1, p2 = geom.get_tight_bounds()
-        x, y, z = p2 - p1
-        a = (x + y + z) / 3.
-        self._normal_length = min(a * .25, max(.001, 500. * a / prim_count))
+        bounds = geom.get_tight_bounds()
+
+        if bounds:
+            p1, p2 = bounds
+            x, y, z = p2 - p1
+            a = (x + y + z) / 3.
+            self._normal_length = min(a * .25, max(.001, 500. * a / prim_count))
+        else:
+            self._normal_length = .001
 
         model.geom_obj = self
         model.pivot.set_transform(geom.get_transform())
@@ -186,7 +191,7 @@ class BasicGeom:
 
     def destroy(self, unregister=True):
 
-        self.geom.remove_node()
+        self.geom.detach_node()
         self.geom = None
 
         if unregister:
@@ -473,7 +478,7 @@ class BasicGeom:
             normals_geom.hide(Mgr.get("picking_mask"))
         else:
             normals_geom = self.geom.find("**/normals_geom")
-            normals_geom.remove_node()
+            normals_geom.detach_node()
 
         self._normals_shown = show
 

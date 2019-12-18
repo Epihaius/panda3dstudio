@@ -1,4 +1,5 @@
 from ...base import *
+from ...dialog import *
 from ...panel import *
 from ...button import *
 

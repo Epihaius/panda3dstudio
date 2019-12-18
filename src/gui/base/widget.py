@@ -83,7 +83,7 @@ class Widget:
             return False
 
         if self.node:
-            self.node.remove_node()
+            self.node.detach_node()
             self.node = None
 
         if self._sizer:
@@ -551,7 +551,7 @@ class WidgetCard:
     def destroy(self):
 
         if self.node:
-            self.node.remove_node()
+            self.node.detach_node()
             self.node = None
 
         if self._sizer:
@@ -561,7 +561,7 @@ class WidgetCard:
         self.sizer_item = None
 
         if self._quad:
-            self._quad.remove_node()
+            self._quad.detach_node()
             self._quad = None
 
         if self.mouse_region:
@@ -605,7 +605,7 @@ class WidgetCard:
     def create_quad(self, frame=(0., 0., 0., 0.)):
 
         if self._quad:
-            self._quad.remove_node()
+            self._quad.detach_node()
 
         cm = CardMaker("widget_card")
         cm.set_frame(frame)

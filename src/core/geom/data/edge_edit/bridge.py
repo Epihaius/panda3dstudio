@@ -10,7 +10,7 @@ class EdgeBridgeMixin:
         verts = subobjs["vert"]
         edges = subobjs["edge"]
         polys = subobjs["poly"]
-        ordered_polys = self._ordered_polys
+        ordered_polys = self.ordered_polys
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
 

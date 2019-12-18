@@ -342,7 +342,7 @@ class SurfaceMixin:
             self._poly_selection_data["unselected"] = data_unselected = []
             prim = GeomTriangles(Geom.UH_static)
 
-            for poly in self._ordered_polys:
+            for poly in self.ordered_polys:
                 for tri_vert_ids in poly:
                     data_unselected.append(tri_vert_ids)
                     indices = [verts[v_id].row_index for v_id in tri_vert_ids]
@@ -526,7 +526,7 @@ class SurfaceMixin:
             new_verts.extend(poly_verts)
             new_edges.extend(poly_edges)
             new_polys.append(new_poly)
-            self._ordered_polys.append(new_poly)
+            self.ordered_polys.append(new_poly)
 
             new_poly.center_pos = Point3(poly.center_pos)
             new_poly.normal = poly.normal * -1.
@@ -582,8 +582,10 @@ class SurfaceManager:
 
     def __init__(self):
 
+        self._id_generator = id_generator()
         Mgr.add_app_updater("poly_surface_inversion", self.__invert_poly_surfaces)
         Mgr.add_app_updater("poly_surface_doublesiding", self.__doubleside_poly_surfaces)
+        Mgr.add_app_updater("poly_surface_to_model", self.__create_models_from_poly_surfaces)
 
     def __invert_poly_surfaces(self):
 
@@ -597,23 +599,22 @@ class SurfaceManager:
 
         for model in selection:
 
-            model_id = model.id
             geom_data_obj = model.geom_obj.geom_data_obj
             change = geom_data_obj.invert_polygon_surfaces()
 
             if change:
 
-                changed_objs[model_id] = geom_data_obj
+                changed_objs[model] = geom_data_obj
                 tri_change, uv_change, sel_change = change
 
                 if tri_change:
-                    changed_triangulations.append(model_id)
+                    changed_triangulations.append(model)
 
                 if uv_change:
-                    changed_uvs.append(model_id)
+                    changed_uvs.append(model)
 
                 if sel_change:
-                    changed_selections.append(model_id)
+                    changed_selections.append(model)
 
         if not changed_objs:
             return
@@ -621,30 +622,28 @@ class SurfaceManager:
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.items():
+        for obj, geom_data_obj in changed_objs.items():
 
             data = geom_data_obj.get_data_to_store("prop_change", "subobj_merge")
             data.update(geom_data_obj.get_data_to_store("prop_change", "subobj_transform", "check"))
 
-            if obj_id in changed_triangulations:
+            if obj in changed_triangulations:
                 data.update(geom_data_obj.get_data_to_store("prop_change", "poly_tris"))
 
-            if obj_id in changed_uvs:
+            if obj in changed_uvs:
                 data.update(geom_data_obj.get_data_to_store("prop_change", "uvs"))
 
-            if obj_id in changed_selections:
+            if obj in changed_selections:
                 data.update(geom_data_obj.get_property_to_store("subobj_selection"))
 
-            obj_data[obj_id] = data
+            obj_data[obj.id] = data
 
-        objs = [geom_data_obj.toplevel_obj for geom_data_obj in changed_objs.values()]
-
-        if len(objs) == 1:
-            obj = objs[0]
+        if len(changed_objs) == 1:
+            obj = list(changed_objs)[0]
             event_descr = f'Invert surfaces of "{obj.name}"'
         else:
             event_descr = 'Invert surfaces of objects:\n'
-            event_descr += "".join([f'\n    "{obj.name}"' for obj in objs])
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
@@ -658,11 +657,10 @@ class SurfaceManager:
 
         for model in selection:
 
-            model_id = model.id
             geom_data_obj = model.geom_obj.geom_data_obj
 
             if geom_data_obj.doubleside_polygon_surfaces():
-                changed_objs[model_id] = geom_data_obj
+                changed_objs[model] = geom_data_obj
 
         if not changed_objs:
             return
@@ -670,17 +668,299 @@ class SurfaceManager:
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj_id, geom_data_obj in changed_objs.items():
-            obj_data[obj_id] = geom_data_obj.get_data_to_store("subobj_change")
+        for obj, geom_data_obj in changed_objs.items():
+            obj_data[obj.id] = geom_data_obj.get_data_to_store("subobj_change")
 
-        objs = [geom_data_obj.toplevel_obj for geom_data_obj in changed_objs.values()]
-
-        if len(objs) == 1:
-            obj = objs[0]
+        if len(changed_objs) == 1:
+            obj = list(changed_objs)[0]
             event_descr = f'Doubleside surfaces of "{obj.name}"'
         else:
             event_descr = 'Doubleside surfaces of objects:\n'
-            event_descr += "".join([f'\n    "{obj.name}"' for obj in objs])
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
 
         event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __copy_polygons(self, src_polys, dest_data_obj):
+
+        src_verts = []
+        src_edges = []
+
+        for poly in src_polys:
+            src_verts.extend(poly.vertices)
+            src_edges.extend(poly.edges)
+
+        src_merged_verts = set(v.merged_vertex for v in src_verts)
+        src_merged_edges = set(e.merged_edge for e in src_edges)
+        src_shared_normals = set(v.shared_normal for v in src_verts)
+        dest_verts = dest_data_obj.get_subobjects("vert")
+        dest_edges = dest_data_obj.get_subobjects("edge")
+        dest_polys = dest_data_obj.get_subobjects("poly")
+        dest_ordered_polys = dest_data_obj.ordered_polys
+        dest_merged_verts = dest_data_obj.merged_verts
+        dest_merged_edges = dest_data_obj.merged_edges
+        dest_shared_normals = dest_data_obj.shared_normals
+        new_verts = {}
+        new_edges = {}
+
+        for vert in src_verts:
+            new_vert = Mgr.do("create_vert", dest_data_obj, vert.get_pos())
+            new_vert.color = vert.color
+            new_vert.set_uvs(vert.get_uvs())
+            new_vert.normal = vert.normal
+            new_vert.lock_normal(vert.has_locked_normal())
+            new_vert.tangent_space = vert.tangent_space
+            new_verts[vert.id] = new_vert
+            dest_verts[new_vert.id] = new_vert
+
+        for shared_normal in src_shared_normals:
+
+            new_vert_ids = [new_verts[v_id].id for v_id in shared_normal]
+            new_shared_normal = Mgr.do("create_shared_normal", dest_data_obj, new_vert_ids)
+
+            for new_vert_id in new_vert_ids:
+                dest_shared_normals[new_vert_id] = new_shared_normal
+
+        del src_shared_normals
+
+        for merged_vert in src_merged_verts:
+
+            new_vert_ids = [new_verts[v_id].id for v_id in merged_vert]
+            new_merged_vert = Mgr.do("create_merged_vert", dest_data_obj)
+            new_merged_vert.extend(new_vert_ids)
+
+            for new_vert_id in new_vert_ids:
+                dest_merged_verts[new_vert_id] = new_merged_vert
+
+        del src_merged_verts
+
+        for edge in src_edges:
+            new_vert_ids = tuple(new_verts[v_id].id for v_id in edge)
+            new_edge = Mgr.do("create_edge", dest_data_obj, new_vert_ids)
+            new_edges[edge.id] = new_edge
+            dest_edges[new_edge.id] = new_edge
+
+        del src_edges
+
+        for merged_edge in src_merged_edges:
+
+            new_edge_ids = [new_edges[e_id].id for e_id in merged_edge]
+            new_merged_edge = Mgr.do("create_merged_edge", dest_data_obj)
+            new_merged_edge.extend(new_edge_ids)
+
+            for new_edge_id in new_edge_ids:
+                dest_merged_edges[new_edge_id] = new_merged_edge
+
+        del src_merged_edges
+        verts = {v.id: v for v in src_verts}
+        del src_verts
+
+        for vert_id, new_vert in new_verts.items():
+            new_vert.edge_ids = [new_edges[e_id].id for e_id in verts[vert_id].edge_ids]
+
+        del verts
+
+        for poly in src_polys:
+            poly_tris = [tuple(new_verts[v_id].id for v_id in tri_vert_ids) for tri_vert_ids in poly]
+            poly_edges = [new_edges[e_id] for e_id in poly.edge_ids]
+            poly_verts = [new_verts[v_id] for v_id in poly.vertex_ids]
+            new_poly = Mgr.do("create_poly", dest_data_obj, poly_tris, poly_edges, poly_verts)
+            dest_polys[new_poly.id] = new_poly
+            dest_ordered_polys.append(new_poly)
+
+    def __create_models_from_poly_surfaces(self, model_basename, creation_method, copy_surfaces=True):
+
+        # exit any subobject modes
+        Mgr.exit_states(min_persistence=-99)
+        obj_names = GD["obj_names"]
+        changed_objs = {}
+        src_objs = []
+        created_objs = []
+
+        if not Mgr.get("selection"):
+            return
+
+        if creation_method == "single":
+
+            selection = Mgr.get("selection_top")
+            pos = sum((m.pivot.get_pos(GD.world) for m in selection), Point3()) / len(selection)
+            new_model_id = ("editable_geom",) + next(self._id_generator)
+            name = model_basename if model_basename else "model 0001"
+            name = get_unique_name(name, obj_names)
+            new_model = Mgr.do("create_model", new_model_id, name, pos)
+            created_objs.append(new_model)
+            color = tuple(random.random() * .4 + .5 for _ in range(3))
+            color += (1.,)
+            new_model.set_color(color, update_app=False)
+            editable_geom = Mgr.do("create_editable_geom", new_model)
+            new_geom_data_obj = editable_geom.geom_data_obj
+            pivot = new_model.pivot
+            pivot.set_hpr(0., 0., 0.)
+            polys_to_copy = []
+            pos_backup = {}
+            normal_backup = {}
+            surface_polys_by_model = {}
+
+            for model in selection:
+
+                geom_data_obj = model.geom_obj.geom_data_obj
+                sel_polys = set(geom_data_obj.get_selection("poly"))
+                surface_polys = []
+
+                while sel_polys:
+
+                    poly = sel_polys.pop()
+                    surface = geom_data_obj.get_polygon_surface(poly.id)
+                    polys_to_copy.extend(surface)
+                    surface_polys.extend(surface)
+                    sel_polys.difference_update(surface)
+
+                    if copy_surfaces:
+                        for poly in surface:
+                            for vert in poly.vertices:
+                                pos_backup[vert] = vert.get_pos()
+                                normal_backup[vert] = vert.normal
+
+                    for poly in surface:
+                        for vert in poly.vertices:
+                            vert.set_pos(vert.get_pos(pivot))
+                            vert.normal = pivot.get_relative_vector(model.pivot,
+                                vert.normal).normalized()
+
+                if surface_polys:
+                    src_objs.append(model)
+
+                if not copy_surfaces and surface_polys:
+                    surface_polys_by_model[model] = surface_polys
+                    geom_data_obj.set_subobjs_to_unregister(surface_polys)
+                    geom_data_obj.unregister()
+                    changed_objs[model] = geom_data_obj
+
+            if not copy_surfaces:
+                Mgr.do("update_picking_col_id_ranges", as_task=False)
+
+            self.__copy_polygons(polys_to_copy, new_geom_data_obj)
+
+            if copy_surfaces:
+                for poly in polys_to_copy:
+                    for vert in poly.vertices:
+                        vert.set_pos(pos_backup[vert])
+                        vert.normal = normal_backup[vert]
+            else:
+                for model, geom_data_obj in changed_objs.items():
+                    surface_polys = surface_polys_by_model[model]
+                    geom_data_obj.delete_polygons(surface_polys, unregister_globally=False)
+
+            del pos_backup
+            del normal_backup
+
+            for step in new_geom_data_obj.create_geometry("editable_geom"): pass
+
+            new_geom_data_obj.finalize_geometry()
+            new_geom_data_obj.update_poly_centers()
+            new_geom_data_obj.update_poly_normals()
+            new_model.register(restore=False)
+            new_model.bbox.update(new_geom_data_obj.origin.get_tight_bounds())
+
+        else:
+
+            for model in Mgr.get("selection_top"):
+
+                geom_data_obj = model.geom_obj.geom_data_obj
+                polys_to_copy = set()
+                surface_list = []
+                sel_polys = set(geom_data_obj.get_selection("poly"))
+
+                while sel_polys:
+
+                    poly = sel_polys.pop()
+                    surface = geom_data_obj.get_polygon_surface(poly.id)
+
+                    if creation_method == "per_src":
+                        polys_to_copy.update(surface)
+                    else:  # creation_method == "per_surface"
+                        surface_list.append(surface)
+
+                    sel_polys.difference_update(surface)
+
+                if creation_method == "per_src" and polys_to_copy:
+                    surface_list.append(list(polys_to_copy))
+
+                if surface_list:
+                    src_objs.append(model)
+
+                if not copy_surfaces and surface_list:
+                    surface_polys = sum(surface_list, [])
+                    geom_data_obj.set_subobjs_to_unregister(surface_polys)
+                    geom_data_obj.unregister()
+                    Mgr.do("update_picking_col_id_ranges", as_task=False)
+                    changed_objs[model] = geom_data_obj
+
+                for polys_to_copy in surface_list:
+
+                    new_model_id = ("editable_geom",) + next(self._id_generator)
+                    name = model_basename if model_basename else model.name
+                    name = get_unique_name(name, obj_names)
+                    new_model = Mgr.do("create_model", new_model_id, name, Point3())
+                    created_objs.append(new_model)
+                    new_model.pivot.set_transform(GD.world, model.pivot.get_transform(GD.world))
+                    color = tuple(random.random() * .4 + .5 for _ in range(3))
+                    color += (1.,)
+                    new_model.set_color(color, update_app=False)
+                    editable_geom = Mgr.do("create_editable_geom", new_model)
+                    new_geom_data_obj = editable_geom.geom_data_obj
+                    self.__copy_polygons(polys_to_copy, new_geom_data_obj)
+
+                    for step in new_geom_data_obj.create_geometry("editable_geom"): pass
+
+                    new_geom_data_obj.finalize_geometry()
+                    new_geom_data_obj.update_poly_centers()
+                    new_geom_data_obj.update_poly_normals()
+                    new_model.register(restore=False)
+                    new_model.bbox.update(new_geom_data_obj.origin.get_tight_bounds())
+
+                if not copy_surfaces and surface_list:
+                    geom_data_obj.delete_polygons(surface_polys, unregister_globally=False)
+
+        for obj in created_objs:
+
+            geom_data_obj = obj.geom_obj.geom_data_obj
+            locked_normal_ids = []
+
+            for vert in geom_data_obj.get_subobjects("vert").values():
+                if vert.has_locked_normal():
+                    locked_normal_ids.append(vert.id)
+
+            geom_data_obj.update_locked_normal_selection(None, None, locked_normal_ids, ())
+            geom_data_obj.update_smoothing()
+
+        if not copy_surfaces:
+            Mgr.get("selection").clear(add_to_hist=False)
+            Mgr.update_remotely("selection_set", "hide_name")
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+
+        for obj, geom_data_obj in changed_objs.items():
+            obj_data[obj.id] = geom_data_obj.get_data_to_store("subobj_change")
+
+        for obj in created_objs:
+            obj_data[obj.id] = obj.get_data_to_store("creation")
+
+        if len(created_objs) == 1:
+            obj = created_objs[0]
+            event_descr = f'Create model:\n\n    "{obj.name}"'
+        else:
+            event_descr = f'Create models:\n'
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in created_objs])
+
+        if len(src_objs) == 1:
+            obj = src_objs[0]
+            event_descr += f'\n\nfrom polys of "{obj.name}"'
+        else:
+            event_descr += '\n\nfrom polys of:\n'
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in src_objs])
+
+        event_data = {"objects": obj_data}
+        event_data["object_ids"] = set(Mgr.get("object_ids"))
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

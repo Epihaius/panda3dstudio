@@ -747,7 +747,7 @@ class UVSelectionMixin:
             picking_cam().reparent_to(GD.uv_cam)
             picking_cam.restore_lens()
             picking_cam.set_transformer(None)
-            self._fence_points.remove_node()
+            self._fence_points.detach_node()
             self._fence_points = None
             self._fence_point_color_id = 1
             self._fence_point_coords = {}
@@ -775,7 +775,7 @@ class UVSelectionMixin:
 
         if shape_type in ("fence", "lasso"):
             shape = selection_shapes["free"]
-            shape.remove_node()
+            shape.detach_node()
             del selection_shapes["free"]
             tri = sel_mask_data["triangle"]
             tri.hide()
@@ -792,7 +792,7 @@ class UVSelectionMixin:
         if shape_type == "paint":
             geom_root = sel_mask_data["geom_root"]
             brush = geom_root.find("**/brush")
-            brush.remove_node()
+            brush.detach_node()
 
         x1, y1 = self._mouse_start_pos
         x2, y2 = self._mouse_end_pos

@@ -1201,7 +1201,8 @@ class ViewManager:
         parents = {}
         parent_copies = {}
 
-        bboxes = {obj: obj.bbox for obj in objs if obj.type == "model"}
+        bboxes = {obj: obj.bbox for obj in objs if obj.type == "model"
+            and not obj.bbox.has_zero_size_owner}
 
         for bbox in bboxes.values():
             bbox.origin.detach_node()
@@ -1264,7 +1265,7 @@ class ViewManager:
             vec = point_max - point_min
             center_pos = GD.world.get_relative_point(tmp_np, point_min + vec * .5)
 
-        bounds_np.remove_node()
+        bounds_np.detach_node()
 
         if cam.lens.is_perspective():
 

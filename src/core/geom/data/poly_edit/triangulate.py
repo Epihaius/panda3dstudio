@@ -137,7 +137,7 @@ class TriangulationMixin:
         self._tmp_tris = {}
 
         if self._tmp_geom:
-            self._tmp_geom.remove_node()
+            self._tmp_geom.detach_node()
             self._tmp_geom = None
 
     def turn_diagonal(self, diagonal):
@@ -369,7 +369,7 @@ class TriangulationMixin:
         data_selected = poly_sel_data["selected"]
         data_unselected = poly_sel_data["unselected"]
 
-        ordered_polys = self._ordered_polys
+        ordered_polys = self.ordered_polys
         selected_poly_ids = self._selected_subobj_ids["poly"]
 
         row_offset = 0

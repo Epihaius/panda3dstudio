@@ -382,6 +382,7 @@ class GeneralObjectManager:
         if obj_lvl == "top":
 
             obj_root.show(picking_mask)
+            GD.cam.const_size_obj_root.show(picking_mask)
 
             for model in models:
                 model.geom_obj.show_top_level()
@@ -389,6 +390,7 @@ class GeneralObjectManager:
         else:
 
             obj_root.hide(picking_mask)
+            GD.cam.const_size_obj_root.hide(picking_mask)
 
             for model in models:
                 model.geom_obj.show_subobj_level(obj_lvl)

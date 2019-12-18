@@ -333,6 +333,9 @@ class Model(TopLevelObject):
 
     def get_center_pos(self, ref_node):
 
+        if self.bbox.has_zero_size_owner:
+            return self.origin.get_pos(ref_node)
+
         return self.bbox.get_center_pos(ref_node)
 
     def update_selection_state(self, is_selected=True):
@@ -347,8 +350,10 @@ class Model(TopLevelObject):
                 self.bbox.show()
             else:
                 self.bbox.hide()
-        else:
+        elif not (is_selected and self.bbox.has_zero_size_owner):
             self.bbox.hide()
+        else:
+            self.bbox.show()
 
         if self.geom_obj:
             self.geom_obj.update_selection_state(is_selected)
@@ -360,7 +365,7 @@ class Model(TopLevelObject):
         if is_selected:
             if "shaded" in GD["render_mode"]:
                 self.bbox.show()
-            else:
+            elif not self.bbox.has_zero_size_owner:
                 self.bbox.hide()
 
         if self.geom_obj:

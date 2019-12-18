@@ -143,7 +143,7 @@ class GeomTransformMixin:
             bounds = geom_node_top.get_bounds()
             self.origin.node().set_bounds(bounds)
             model = self.toplevel_obj
-            model.bbox.update(*self.origin.get_tight_bounds())
+            model.bbox.update(self.origin.get_tight_bounds())
 
     def reposition_vertices(self, computation):
         """ Change the positions of all vertices using the given computation """
@@ -188,7 +188,7 @@ class GeomTransformMixin:
         self.update_poly_centers()
         self.update_poly_normals()
 
-        self.toplevel_obj.bbox.update(*self.origin.get_tight_bounds())
+        self.toplevel_obj.bbox.update(self.origin.get_tight_bounds())
 
     def bake_transform(self):
         """ Bake the origin's transform into the vertices and reset it to identity """
@@ -234,7 +234,7 @@ class GeomTransformMixin:
         self.update_poly_centers()
         self.update_poly_normals()
 
-        self.toplevel_obj.bbox.update(*self.origin.get_tight_bounds())
+        self.toplevel_obj.bbox.update(self.origin.get_tight_bounds())
 
     def set_picking_geom_xform_locked(self, locked=True):
 
@@ -490,7 +490,7 @@ class GeomTransformMixin:
             vertex_data = normal_geoms["sel_state"].node().modify_geom(0).modify_vertex_data()
             vertex_data.set_array(0, pos_array)
             model = self.toplevel_obj
-            model.bbox.update(*self.origin.get_tight_bounds())
+            model.bbox.update(self.origin.get_tight_bounds())
 
         self.origin.node().set_bounds(bounds)
         start_data.clear()
@@ -631,10 +631,7 @@ class GeomTransformMixin:
             poly.update_center_pos()
             poly.update_normal()
 
-        bounds = self.origin.get_tight_bounds()
-
-        if bounds:
-            self.toplevel_obj.bbox.update(*bounds)
+        self.toplevel_obj.bbox.update(self.origin.get_tight_bounds())
 
 
 class TransformMixin:
@@ -786,7 +783,7 @@ class TransformMixin:
                 Mgr.get("transf_gizmo").pos = self.get_center_pos()
 
         if add_to_hist:
-            self.add_history(transf_type)
+            self.add_transform_history(transf_type)
 
     def aim_at_point(self, point, ref_node, toward=True, add_to_hist=True, objects=None, lock_normals=True):
 
@@ -804,7 +801,7 @@ class TransformMixin:
                 Mgr.update_remotely("transform_values", transform_values)
 
             if add_to_hist:
-                self.add_history("custom", "Aim {} at point")
+                self.add_transform_history("custom", "Aim {} at point")
 
     def update_transform_values(self):
 
@@ -914,7 +911,7 @@ class TransformMixin:
                 self.update_transform_values()
                 if add_to_hist:
                     xform_type = "custom" if data else GD["active_transform_type"]
-                    self.add_history(xform_type, data["descr"] if data else "")
+                    self.add_transform_history(xform_type, data["descr"] if data else "")
 
         else:
 
@@ -934,9 +931,9 @@ class TransformMixin:
 
                 if add_to_hist:
                     xform_type = "custom" if data else GD["active_transform_type"]
-                    self.add_history(xform_type, data["descr"] if data else "")
+                    self.add_transform_history(xform_type, data["descr"] if data else "")
 
-    def add_history(self, transf_type, descr=""):
+    def add_transform_history(self, transf_type, descr=""):
 
         obj_data = {}
         event_data = {"objects": obj_data}

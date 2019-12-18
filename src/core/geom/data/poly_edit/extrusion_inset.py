@@ -514,7 +514,7 @@ class ExtrusionInsetMixin:
 
         if self._tmp_geom:
             self._tmp_geom.clear_shader()
-            self._tmp_geom.remove_node()
+            self._tmp_geom.detach_node()
             self._tmp_geom = None
 
     def set_extrusion(self, extrusion):
@@ -596,7 +596,7 @@ class ExtrusionInsetMixin:
         verts = subobjs["vert"]
         edges = subobjs["edge"]
         polys = subobjs["poly"]
-        ordered_polys = self._ordered_polys
+        ordered_polys = self.ordered_polys
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
 
@@ -1071,7 +1071,7 @@ class ExtrusionInsetMixin:
 
         if self._tmp_geom:
             self._tmp_geom.clear_shader()
-            self._tmp_geom.remove_node()
+            self._tmp_geom.detach_node()
             self._tmp_geom = None
 
     def set_solidification_thickness(self, thickness):
@@ -1280,7 +1280,8 @@ class ExtrusionInsetManager:
     def __init_solidification_preview_mode(self):
 
         selection = Mgr.get("selection_top")
-        self._geom_data_objs = [obj.geom_obj.geom_data_obj for obj in selection]
+        self._geom_data_objs = [obj.geom_obj.geom_data_obj for obj in selection
+            if not obj.bbox.has_zero_size_owner]
 
         for data_obj in self._geom_data_objs:
             data_obj.initialize_solidification_preview(self._solidification_thickness,
@@ -1327,10 +1328,11 @@ class ExtrusionInsetManager:
             for data_obj in self._geom_data_objs:
                 data_obj.clear_solidification_preview()
 
-        selection = Mgr.get("selection_top")
+        changed_objs = {obj: obj.geom_obj.geom_data_obj for obj in Mgr.get("selection_top")
+            if not obj.bbox.has_zero_size_owner}
 
-        for obj in selection:
-            obj.geom_obj.geom_data_obj.solidify(self._solidification_thickness,
+        for obj, geom_data_obj in changed_objs.items():
+            geom_data_obj.solidify(self._solidification_thickness,
                     self._solidification_offset)
 
         if preview_mode:
@@ -1338,21 +1340,23 @@ class ExtrusionInsetManager:
                 data_obj.initialize_solidification_preview(self._solidification_thickness,
                     self._solidification_offset)
 
+        if not changed_objs:
+            return
+
         Mgr.do("update_history_time")
         obj_data = {}
 
-        for obj in selection:
-            geom_data_obj = obj.geom_obj.geom_data_obj
+        for obj, geom_data_obj in changed_objs.items():
             obj_data[obj.id] = geom_data_obj.get_data_to_store("subobj_change")
             data = geom_data_obj.get_data_to_store("prop_change", "subobj_transform", "check")
             obj_data[obj.id].update(data)
 
-        if len(selection) == 1:
-            obj = selection[0]
+        if len(changed_objs) == 1:
+            obj = list(changed_objs)[0]
             event_descr = f'Solidify "{obj.name}"'
         else:
             event_descr = 'Solidify objects:\n'
-            event_descr += "".join([f'\n    "{obj.name}"' for obj in selection])
+            event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
