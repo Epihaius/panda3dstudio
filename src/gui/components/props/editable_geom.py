@@ -77,8 +77,47 @@ class SurfaceToModelDialog(Dialog):
 
     def __on_yes(self):
 
-        Mgr.update_remotely("poly_surface_to_model", self._model_basename,
+        Mgr.update_remotely("poly_surface_to_model", "create", self._model_basename,
                             self._creation_method, self._copy_surfaces)
+
+
+class GeometryFromModelDialog(Dialog):
+
+    def __init__(self, model_name):
+
+        title = f'Add geometry from "{model_name}"'
+
+        Dialog.__init__(self, title, choices="okcancel", on_yes=self.__on_yes)
+
+        self._delete_src_geometry = True
+        self._keep_src_model = False
+
+        client_sizer = self.get_client_sizer()
+
+        text = "Delete source geometry"
+        checkbtn = DialogCheckButton(self, self.__delete_src_geometry, text)
+        checkbtn.check()
+        borders = (50, 50, 0, 20)
+        client_sizer.add(checkbtn, borders=borders)
+
+        text = "Keep source model"
+        checkbtn = DialogCheckButton(self, self.__keep_src_model, text)
+        borders = (70, 50, 20, 0)
+        client_sizer.add(checkbtn, borders=borders)
+
+        self.finalize()
+
+    def __delete_src_geometry(self, delete_src_geometry):
+
+        self._delete_src_geometry = delete_src_geometry
+
+    def __keep_src_model(self, keep_src_model):
+
+        self._keep_src_model = keep_src_model
+
+    def __on_yes(self):
+
+        Mgr.update_remotely("geometry_from_model", self._delete_src_geometry, self._keep_src_model)
 
 
 class EditableGeomProperties:
@@ -431,7 +470,7 @@ class EditableGeomProperties:
 
         text = "To new model(s)..."
         tooltip_text = "Create new model(s) out of surfaces containing selected polygons"
-        btn = PanelButton(group, text, "", tooltip_text, self.__show_surf_to_model_dialog)
+        btn = PanelButton(group, text, "", tooltip_text, self.__init_surf_to_model)
         self._btns["make_model"] = btn
         group.add(btn)
 
@@ -595,6 +634,13 @@ class EditableGeomProperties:
 
         section = panel.add_section("geometry", "Geometry", hidden=True)
 
+        text = "Add from..."
+        tooltip_text = "Add geometry from picked model to selected models"
+        btn = PanelButton(section, text, "", tooltip_text)
+        btn.command = self.__toggle_geometry_from_model
+        self._btns["add_geometry"] = btn
+        section.add(btn)
+
         group = section.add_group("Solidification")
 
         subsizer = GridSizer(columns=2, gap_h=5)
@@ -644,6 +690,8 @@ class EditableGeomProperties:
         # **************************************************************************
 
         Mgr.add_app_updater("subobj_edit_options", self.__update_subobj_edit_options)
+        Mgr.add_app_updater("poly_surface_to_model", self.__show_surf_to_model_dialog)
+        Mgr.add_app_updater("geometry_from_model", self.__show_geom_from_model_dialog)
 
     def __update_subobj_edit_options(self):
 
@@ -729,6 +777,26 @@ class EditableGeomProperties:
             if not active:
                 self._btns["create_poly"].active = False
 
+        def enter_diagonal_turning_mode(prev_state_id, active):
+
+            Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
+            self._btns["turn_diagonals"].active = True
+
+        def exit_diagonal_turning_mode(next_state_id, active):
+
+            if not active:
+                self._btns["turn_diagonals"].active = False
+
+        def enter_extr_inset_preview_mode(prev_state_id, active):
+
+            Mgr.do("set_viewport_border_color", "viewport_frame_create_objects")
+            self._btns["preview_inset"].active = True
+
+        def exit_extr_inset_preview_mode(next_state_id, active):
+
+            if not active:
+                self._btns["preview_inset"].active = False
+
         def enter_smoothing_poly_picking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
@@ -749,25 +817,15 @@ class EditableGeomProperties:
             if not active:
                 self._btns["unsmooth_with"].active = False
 
-        def enter_diagonal_turning_mode(prev_state_id, active):
+        def enter_model_picking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
-            self._btns["turn_diagonals"].active = True
+            self._btns["add_geometry"].active = True
 
-        def exit_diagonal_turning_mode(next_state_id, active):
-
-            if not active:
-                self._btns["turn_diagonals"].active = False
-
-        def enter_extr_inset_preview_mode(prev_state_id, active):
-
-            Mgr.do("set_viewport_border_color", "viewport_frame_create_objects")
-            self._btns["preview_inset"].active = True
-
-        def exit_extr_inset_preview_mode(next_state_id, active):
+        def exit_model_picking_mode(next_state_id, active):
 
             if not active:
-                self._btns["preview_inset"].active = False
+                self._btns["add_geometry"].active = False
 
         def enter_solidification_preview_mode(prev_state_id, active):
 
@@ -794,14 +852,16 @@ class EditableGeomProperties:
                   enter_creation_mode, exit_creation_mode)
         add_state("poly_creation", -11, lambda prev_state_id, active:
                   Mgr.do("enable_gui", False))
-        add_state("smoothing_poly_picking_mode", -10, enter_smoothing_poly_picking_mode,
-                  exit_smoothing_poly_picking_mode)
-        add_state("unsmoothing_poly_picking_mode", -10, enter_unsmoothing_poly_picking_mode,
-                  exit_unsmoothing_poly_picking_mode)
         add_state("diagonal_turning_mode", -10, enter_diagonal_turning_mode,
                   exit_diagonal_turning_mode)
         add_state("poly_extr_inset_preview_mode", -10, enter_extr_inset_preview_mode,
                   exit_extr_inset_preview_mode)
+        add_state("smoothing_poly_picking_mode", -10, enter_smoothing_poly_picking_mode,
+                  exit_smoothing_poly_picking_mode)
+        add_state("unsmoothing_poly_picking_mode", -10, enter_unsmoothing_poly_picking_mode,
+                  exit_unsmoothing_poly_picking_mode)
+        add_state("model_picking_mode", -10, enter_model_picking_mode,
+                  exit_model_picking_mode)
         add_state("solidification_preview_mode", -10, enter_solidification_preview_mode,
                   exit_solidification_preview_mode)
 
@@ -972,6 +1032,10 @@ class EditableGeomProperties:
 
         Mgr.update_remotely("poly_surface_doublesiding")
 
+    def __init_surf_to_model(self):
+
+        Mgr.update_remotely("poly_surface_to_model", "init")
+
     def __show_surf_to_model_dialog(self):
 
         SurfaceToModelDialog()
@@ -984,22 +1048,6 @@ class EditableGeomProperties:
             Mgr.exit_state("poly_extr_inset_preview_mode")
         else:
             Mgr.update_remotely("poly_extr_inset", "preview")
-
-    def __preview_solidification(self):
-
-        preview_btn = self._btns["preview_solidification"]
-
-        if preview_btn.active:
-            Mgr.exit_state("solidification_preview_mode")
-        else:
-            Mgr.update_remotely("solidification", "preview")
-
-    def __parse_solidification_thickness(self, input_text):
-
-        try:
-            return max(0., float(eval(input_text)))
-        except:
-            return None
 
     def __update_polygon_smoothing(self):
 
@@ -1023,6 +1071,35 @@ class EditableGeomProperties:
         else:
             Mgr.enter_state(state_id)
 
+    def __toggle_geometry_from_model(self):
+
+        btn = self._btns["add_geometry"]
+
+        if btn.active:
+            Mgr.exit_state("model_picking_mode")
+        else:
+            Mgr.enter_state("model_picking_mode")
+
+    def __show_geom_from_model_dialog(self, model_name):
+
+        GeometryFromModelDialog(model_name)
+
+    def __preview_solidification(self):
+
+        preview_btn = self._btns["preview_solidification"]
+
+        if preview_btn.active:
+            Mgr.exit_state("solidification_preview_mode")
+        else:
+            Mgr.update_remotely("solidification", "preview")
+
+    def __parse_solidification_thickness(self, input_text):
+
+        try:
+            return max(0., float(eval(input_text)))
+        except:
+            return None
+
     def get_base_type(self):
 
         return "editable_geom"
@@ -1044,7 +1121,7 @@ class EditableGeomProperties:
 
     def set_object_property(self, prop_id, value):
 
-        if prop_id not in self._fields:
+        if prop_id not in self._fields or type(value) is not tuple:
             return
 
         field = self._fields[prop_id]

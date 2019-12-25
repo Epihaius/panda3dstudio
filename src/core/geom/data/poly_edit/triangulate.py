@@ -450,7 +450,7 @@ class TriangulationManager:
 
         status_data = GD["status"]
         mode_text = "Turn polygon diagonal"
-        info_text = "LMB to pick a polygon diagonal to turn; RMB to cancel"
+        info_text = "LMB to pick a polygon diagonal to turn; RMB to cancel; <Space> to navigate"
         status_data["turn_diagonal"] = {"mode": mode_text, "info": info_text}
 
     def __add_diagonal(self, diagonal):

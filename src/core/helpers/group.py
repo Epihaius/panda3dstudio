@@ -18,6 +18,7 @@ class Group(TopLevelObject):
         state["_member_ids"] = []
         state["_collision_geoms"] = {}
         state["_bbox"] = state.pop("bbox")
+        state["_bbox_is_const_size"] = state.pop("is_zero_size")
 
         return state
 
@@ -26,14 +27,11 @@ class Group(TopLevelObject):
         TopLevelObject.__setstate__(self, state)
 
         state["bbox"] = state.pop("_bbox")
+        state["is_zero_size"] = state.pop("_bbox_is_const_size")
         self.bbox.origin.reparent_to(self.origin)
         self.bbox.color = self._color_unsel
         self.bbox.hide()
         Mgr.do("update_group_bboxes", [self.id])
-
-        if self._bbox_is_const_size:
-            Mgr.do("make_bbox_const_size", self.bbox)
-            self.bbox.origin.detach_node()
 
     def __init__(self, member_types, member_types_id, group_id, name, color_unsel):
 
@@ -47,7 +45,7 @@ class Group(TopLevelObject):
         self._color_unsel = color_unsel
         self.bbox = Mgr.do("create_bbox", self, color_unsel)
         self.bbox.hide()
-        self._bbox_is_const_size = False
+        self.is_zero_size = False
         self._collision_geoms = {}
 
     def __del__(self):
@@ -74,9 +72,6 @@ class Group(TopLevelObject):
 
             if obj_data:
                 Mgr.do("add_history", "", event_data, update_time_id=False)
-
-        if self._bbox_is_const_size:
-            Mgr.do("make_bbox_const_size", self.bbox, False)
 
         self.bbox.destroy(unregister)
         self.bbox = None
@@ -251,16 +246,13 @@ class Group(TopLevelObject):
 
     def get_center_pos(self, ref_node):
 
-        if self._bbox_is_const_size:
-            return self.origin.get_pos(ref_node)
-
         return self.bbox.get_center_pos(ref_node)
 
     def update_selection_state(self, is_selected=True):
 
         TopLevelObject.update_selection_state(self, is_selected)
 
-        if self._bbox_is_const_size:
+        if self.is_zero_size:
 
             bbox_origins = Mgr.get("const_size_bbox_origins", self.id)
 
@@ -292,9 +284,9 @@ class Group(TopLevelObject):
 
         if not self._is_open:
             if is_selected:
-                bbox.show()
+                bbox.origin.show()
             else:
-                bbox.hide()
+                bbox.origin.hide()
 
     def update_bbox(self):
 
@@ -333,16 +325,13 @@ class Group(TopLevelObject):
             y_max = max(y_max, y)
             z_max = max(z_max, z)
 
-        bbox_orig.reparent_to(group_orig)
         group_orig.set_transform(transform)
 
         for member, parent in parents.items():
             member.wrt_reparent_to(parent)
 
         if bounds:
-
-            for point in bounds:
-                x, y, z = point
+            for x, y, z in bounds:
                 x_min = min(x_min, x)
                 y_min = min(y_min, y)
                 z_min = min(z_min, z)
@@ -350,36 +339,22 @@ class Group(TopLevelObject):
                 y_max = max(y_max, y)
                 z_max = max(z_max, z)
 
-        epsilon = 1.e-010
+        point_min = Point3(x_min, y_min, z_min)
+        point_max = Point3(x_max, y_max, z_max)
+        vec = (point_max - point_min) * .5
+        center_pos = point_min + vec
+        center_pos = group_pivot.get_relative_point(group_orig, center_pos)
+        group_orig.set_pos(center_pos)
+        self.bbox.update((Point3(-vec), Point3(vec)))
+        is_zero_size = self.bbox.has_zero_size_owner
 
-        if max(x_max - x_min, y_max - y_min, z_max - z_min) > epsilon:
+        if not is_zero_size:
+            bbox_orig.reparent_to(group_orig)
+            bbox_orig.show()
 
-            if self._bbox_is_const_size:
-                Mgr.do("make_bbox_const_size", self.bbox, False)
-                bbox_orig.reparent_to(group_orig)
-                self._bbox_is_const_size = False
-                Mgr.notify("pickable_geom_altered", self)
-
-            point_min = Point3(x_min, y_min, z_min)
-            point_max = Point3(x_max, y_max, z_max)
-            vec = (point_max - point_min) * .5
-            center_pos = point_min + vec
-            center_pos = group_pivot.get_relative_point(group_orig, center_pos)
-            group_orig.set_pos(center_pos)
-            self.bbox.update((Point3(-vec), Point3(vec)))
-
-        else:
-
-            pos = Point3(x_min, y_min, z_min)
-            center_pos = group_pivot.get_relative_point(group_orig, pos)
-            group_orig.set_pos(center_pos)
-            bbox_orig.clear_transform()
-            bbox_orig.detach_node()
-
-            if not self._bbox_is_const_size:
-                Mgr.do("make_bbox_const_size", self.bbox)
-                self._bbox_is_const_size = True
-                Mgr.notify("pickable_geom_altered", self)
+        if self.is_zero_size != is_zero_size:
+            self.is_zero_size = is_zero_size
+            Mgr.notify("pickable_geom_altered", self)
 
     def center_pivot(self):
 
@@ -481,10 +456,7 @@ class Group(TopLevelObject):
 
     def open(self, is_open=True):
 
-        if self._is_open == is_open:
-            return False
-
-        if self._bbox_is_const_size:
+        if self.is_zero_size:
 
             bbox_origins = Mgr.get("const_size_bbox_origins", self.id)
 
@@ -502,9 +474,12 @@ class Group(TopLevelObject):
             self.bbox.color = (1., 1., 0., 1.) if is_open else (1., 1., 1., 1.)
         else:
             if is_open:
-                self.bbox.show()
+                self.bbox.origin.show()
             else:
-                self.bbox.hide()
+                self.bbox.origin.hide()
+
+        if self._is_open == is_open:
+            return False
 
         self._is_open = is_open
 
@@ -531,7 +506,12 @@ class Group(TopLevelObject):
             else:
                 return self.set_member_types(*value)
         elif prop_id == "open":
-            return self.open(value)
+            if restore:
+                task = lambda: self.open(value)
+                task_id = "open_group"
+                PendingTasks.add(task, task_id, "object", id_prefix=self.id)
+            else:
+                return self.open(value)
         else:
             return TopLevelObject.set_property(self, prop_id, value, restore)
 
@@ -553,6 +533,13 @@ class Group(TopLevelObject):
 
         return self._type_prop_ids
 
+    def __set_const_size_bbox_display(self, show):
+
+        if self.bbox.has_zero_size_owner:
+            for origin in Mgr.get("const_size_bbox_origins", self.id):
+                origin.show() if show else origin.hide()
+                   
+
     def display_link_effect(self):
         """
         Visually indicate that another object has been successfully reparented
@@ -560,21 +547,28 @@ class Group(TopLevelObject):
 
         """
 
-        self.bbox.flash()
+        show = True if self.is_selected() else (True if self._is_open else False)
+
+        if self.bbox.origin.is_hidden():
+            show = not show
+
+        on_show = lambda: self.__set_const_size_bbox_display(show)
+        on_hide = lambda: self.__set_const_size_bbox_display(not show)
+        self.bbox.flash(on_show, on_hide)
 
     def make_pickable(self, mask_index=0, pickable=True, show_through=True):
 
-        if self._bbox_is_const_size:
+        if self.is_zero_size:
             Mgr.do("show_const_size_bboxes", self.bbox, mask_index, pickable, show_through)
             return
 
         mask = Mgr.get("picking_mask", mask_index)
-        bbox = self.bbox.origin
+        origin = self.bbox.origin
 
         if pickable:
-            bbox.show_through(mask) if show_through else bbox.show(mask)
+            origin.show_through(mask) if show_through else origin.show(mask)
         else:
-            bbox.hide(mask)
+            origin.hide(mask)
 
 
 class GroupManager(ObjectManager):
@@ -826,6 +820,8 @@ class GroupManager(ObjectManager):
         if not (objs and new_group):
             return [], []
 
+        Mgr.exit_state("grouping_mode")
+
         members = []
         groups = []
         group_children = {}
@@ -990,7 +986,7 @@ class GroupManager(ObjectManager):
             Mgr.do("update_history_time")
             members, member_children = self.__add_members(selection, group, add_to_hist=False)
 
-            task = group.center_pivot # stores member & child transform data
+            task = group.center_pivot  # stores member & child transform data
             task_id = "center_group_pivot"
             PendingTasks.add(task, task_id, "object")
             obj_ids = [child.id for child in member_children]

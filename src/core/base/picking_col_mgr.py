@@ -7,7 +7,7 @@ from functools import reduce
 class PickingColorIDManager:
 
     _mgrs = {}
-    _id_range_backups_created = False
+    _id_range_backups_created = set()
 
     @classmethod
     def init(cls):
@@ -15,14 +15,17 @@ class PickingColorIDManager:
         Mgr.accept("reset_picking_col_id_ranges", cls.__reset_id_ranges)
         Mgr.accept("update_picking_col_id_ranges", cls.__update_id_ranges)
         Mgr.accept("create_id_range_backups", cls.__create_id_range_backups)
+        Mgr.accept("restore_id_range_backups", cls.__restore_id_range_backups)
         Mgr.add_notification_handler("long_process_cancelled", "picking_col_mgr",
                                      cls.__restore_id_range_backups)
 
     @classmethod
-    def __reset_id_ranges(cls):
+    def __reset_id_ranges(cls, obj_types=None):
 
-        for mgr in cls._mgrs.values():
-            mgr.reset()
+        types = cls._mgrs if obj_types is None else obj_types
+
+        for obj_type in types:
+            cls._mgrs[obj_type].reset()
 
     @classmethod
     def __update_id_ranges(cls, as_task=True):
@@ -39,18 +42,21 @@ class PickingColorIDManager:
             task()
 
     @classmethod
-    def __create_id_range_backups(cls):
+    def __create_id_range_backups(cls, obj_types=None):
 
-        if cls._id_range_backups_created:
+        types = set(cls._mgrs) if obj_types is None else set(obj_types)
+        types -= cls._id_range_backups_created
+
+        if not types:
             return
 
-        for mgr in cls._mgrs.values():
-            mgr.create_id_ranges_backup()
+        for obj_type in types:
+            cls._mgrs[obj_type].create_id_ranges_backup()
 
         task = cls.__remove_id_range_backups
         task_id = "remove_id_range_backups"
         PendingTasks.add(task, task_id, "object", sort=100)
-        cls._id_range_backups_created = True
+        cls._id_range_backups_created.update(types)
 
     @classmethod
     def __restore_id_range_backups(cls, info=""):
@@ -60,8 +66,8 @@ class PickingColorIDManager:
 
         Notifiers.reg.info(f'Restoring ID ranges;\ninfo: {info}')
 
-        for mgr in cls._mgrs.values():
-            mgr.restore_id_ranges_backup()
+        for obj_type in cls._id_range_backups_created:
+            cls._mgrs[obj_type].restore_id_ranges_backup()
 
         cls.__remove_id_range_backups()
 
@@ -71,10 +77,10 @@ class PickingColorIDManager:
         if not cls._id_range_backups_created:
             return
 
-        for mgr in cls._mgrs.values():
-            mgr.remove_id_ranges_backup()
+        for obj_type in cls._id_range_backups_created:
+            cls._mgrs[obj_type].remove_id_ranges_backup()
 
-        cls._id_range_backups_created = False
+        cls._id_range_backups_created.clear()
 
     def __init__(self):
 
@@ -90,7 +96,6 @@ class PickingColorIDManager:
         self._id_ranges = [(1, 2 ** 24)]
         self._ids_to_recover = set()
         self._ids_to_discard = set()
-        self._id_ranges_backup = None
         Notifiers.reg.debug(f'"{self.get_managed_object_type()}" picking color IDs reset.')
 
     def __get_ranges(self, lst):

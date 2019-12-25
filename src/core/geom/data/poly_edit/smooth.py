@@ -653,10 +653,12 @@ class SmoothingManager:
 
         status_data = GD["status"]
         mode_text = "Pick poly for smoothing"
-        info_text = "LMB to pick a polygon to smooth the selection with; RMB to cancel"
+        info_text = "LMB to pick a polygon to smooth the selection with; RMB to cancel;"
+        info_text += " <Space> to navigate"
         status_data["smooth_with_poly"] = {"mode": mode_text, "info": info_text}
         mode_text = "Pick poly for unsmoothing"
-        info_text = "LMB to pick a polygon to unsmooth the selection with; RMB to cancel"
+        info_text = "LMB to pick a polygon to unsmooth the selection with; RMB to cancel;"
+        info_text += " <Space> to navigate"
         status_data["unsmooth_with_poly"] = {"mode": mode_text, "info": info_text}
 
     def __set_smooth_shaded(self, smooth=True):

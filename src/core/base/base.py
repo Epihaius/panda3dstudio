@@ -170,6 +170,7 @@ class PendingTasks:
             "origin_transform",
             "center_group_pivot",
             "update_group_bboxes",
+            "open_group",
             "set_group_member_types",
             "obj_link_viz_update",
             "obj_transf_info_reset"

@@ -392,7 +392,14 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         self.update_vertex_normals(merged_verts_to_resmooth)
         self.toplevel_obj.bbox.update(self.origin.get_tight_bounds())
 
-    def _create_new_geometry(self, new_verts, new_edges, new_polys, create_normals=True):
+    def create_new_geometry(self, new_polys, create_normals=True):
+
+        new_verts = []
+        new_edges = []
+
+        for poly in new_polys:
+            new_verts.extend(poly.vertices)
+            new_edges.extend(poly.edges)
 
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges

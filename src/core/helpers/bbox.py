@@ -38,8 +38,13 @@ class BBoxEdge:
     def get_point_at_screen_pos(self, screen_pos):
 
         cam = GD.cam()
-        origin = self._bbox.origin
-        corner_pos = self._bbox.get_corner_pos(self._corner_index)
+        bbox = self._bbox
+        origin = bbox.origin
+
+        if bbox.has_zero_size_owner:
+            return bbox.compass_target.get_pos(GD.world)
+
+        corner_pos = bbox.get_corner_pos(self._corner_index)
         vec_coords = [0., 0., 0.]
         vec_coords["xyz".index(self._axis)] = 1.
         edge_vec = V3D(GD.world.get_relative_vector(origin, Vec3(*vec_coords)))
@@ -149,6 +154,8 @@ class BoundingBox:
         state["_is_registered"] = False
         state["_origin"] = state.pop("origin")
         del state["has_zero_size_owner"]
+        del state["compass_target"]
+        del state["const_size_origin_modifier"]
 
         return state
 
@@ -157,6 +164,8 @@ class BoundingBox:
         state["origin"] = state.pop("_origin")
         self.__dict__ = state
         self.has_zero_size_owner = False
+        self.compass_target = None
+        self.const_size_origin_modifier = None
         pickable_type_id = PickableTypes.get_id("bbox_edge")
         vertex_data = self.origin.node().modify_geom(0).modify_vertex_data()
         col_rewriter = GeomVertexRewriter(vertex_data, "color")
@@ -172,10 +181,12 @@ class BoundingBox:
 
     def __init__(self, owner, color):
 
-        self._owner = owner
+        self.owner = owner
         self.origin = origin = self.original.copy_to(owner.origin)
         origin.set_color(color)
         self.has_zero_size_owner = False  # indicates whether owner has no visible geometry
+        self.compass_target = None
+        self.const_size_origin_modifier = None
         vertex_data = origin.node().modify_geom(0).modify_vertex_data()
         col_writer = GeomVertexWriter(vertex_data, "color")
         col_writer.set_row(0)
@@ -210,9 +221,12 @@ class BoundingBox:
         self._edges = {}
         self.origin.detach_node()
         self.origin = None
+        self.const_size_origin_modifier = None
 
         if self.has_zero_size_owner:
             Mgr.do("make_bbox_const_size", self, False)
+            self.compass_target.detach_node()
+            self.compass_target = None
 
     def register(self, restore=True):
 
@@ -262,11 +276,14 @@ class BoundingBox:
 
     def get_center_pos(self, ref_node):
 
+        if self.has_zero_size_owner:
+            return self.compass_target.get_pos(ref_node)
+
         return self.origin.get_pos(ref_node)
 
     def get_toplevel_object(self, get_group=False):
 
-        return self._owner.get_toplevel_object(get_group)
+        return self.owner.get_toplevel_object(get_group)
 
     @property
     def toplevel_obj(self):
@@ -276,69 +293,83 @@ class BoundingBox:
     def update(self, min_max):
 
         if min_max:
-            point_max, point_min = min_max
+            point_min, point_max = min_max
             vec = point_max - point_min
 
         if not min_max or vec.length() < .0001:
             vec = None
+            target_pos = point_min if min_max else Point3()
 
         if vec:
+
             scale_factors = [max(.0001, abs(factor)) for factor in vec]
             self.origin.set_scale(*scale_factors)
             self.origin.set_pos(point_min + vec * .5)
+
             if self.has_zero_size_owner:
                 Mgr.do("make_bbox_const_size", self, False)
-                self.origin.reparent_to(self._owner.origin)
+                self.origin.reparent_to(self.owner.origin)
+                self.compass_target.detach_node()
+                self.compass_target = None
                 self.has_zero_size_owner = False
+
         elif self.has_zero_size_owner:
-            return
+
+            self.compass_target.set_pos(target_pos)
+
         else:
+
             origin_backup = self.origin
             self.origin.detach_node()
-            self.origin = self.origin.copy_to(self._owner.origin)
+            self.origin = self.origin.copy_to(self.owner.origin)
             self.origin.detach_node()
-            color = (1., .5, .5, 1.) if self._owner.is_selected() else (1., 0., 0., 1.)
-            self.origin.set_color(color)
             self.origin.clear_transform()
             self.origin.show()
-            mat = Mat4.scale_mat(.85)
-            self.origin.node().modify_geom(0).modify_vertex_data().transform_vertices(mat)
+
+            if self.const_size_origin_modifier:
+                self.const_size_origin_modifier(self.origin)
+
+            self.compass_target = self.owner.origin.attach_new_node("bbox_compass_target")
+            self.compass_target.set_pos(target_pos)
             Mgr.do("make_bbox_const_size", self)
             self.origin = origin_backup
             self.has_zero_size_owner = True
 
-        self._owner.update_group_bbox()
+        self.owner.update_group_bbox()
 
-    def show(self, *args):
+    def show(self, camera_mask=None, handler=None):
 
-        self.origin.show(*args)
+        if camera_mask:
+            self.origin.show(camera_mask)
+        else:
+            self.origin.show()
 
-        if self.has_zero_size_owner:
-            for origin in Mgr.get("const_size_bbox_origins", self._owner.id):
-                origin.set_color((1., .5, .5, 1.))
+        if handler:
+            handler()
 
-    def hide(self, *args):
+    def hide(self, camera_mask=None, handler=None):
 
-        self.origin.hide(*args)
+        if camera_mask:
+            self.origin.hide(camera_mask)
+        else:
+            self.origin.hide()
 
-        if self.has_zero_size_owner:
-            for origin in Mgr.get("const_size_bbox_origins", self._owner.id):
-                origin.set_color((1., 0., 0., 1.))
+        if handler:
+            handler()
 
-    def flash(self):
+    def flash(self, on_show=None, on_hide=None):
 
-        orig = self.origin
-        hidden = orig.is_hidden()
+        hidden = self.origin.is_hidden()
         data = {"flash_count": 0, "state": ["shown", "hidden"]}
 
         def do_flash(task):
 
             state = data["state"][1 if hidden else 0]
-            self.show() if state == "hidden" else self.hide()
+            self.show(handler=on_show) if state == "hidden" else self.hide(handler=on_hide)
             data["state"].reverse()
             data["flash_count"] += 1
 
-            return task.again if data["flash_count"] < 4 else None
+            return task.again if data["flash_count"] < 4 else task.done
 
         Mgr.add_task(.2, do_flash, "do_flash")
 
@@ -410,7 +441,7 @@ class ConstSizeBBoxManager:
                 bbox_origins_persp[owner_id].set_shader_input("index", index)
                 bbox_origins_ortho[owner_id].set_shader_input("index", index)
         else:
-            self._bbox_root.reparent_to(GD.cam())
+            self._bbox_root.reparent_to(GD.cam.const_size_obj_root)
             self._bbox_root.clear_transform()
 
     def __show_root(self, lens_type):
@@ -437,7 +468,7 @@ class ConstSizeBBoxManager:
                 bbox_roots = self._bbox_roots
                 bbox_base = bbox_roots["persp"].attach_new_node("bbox_base")
                 origin = bbox.origin
-                bbox_base.set_billboard_point_world(owner_origin, 2000.)
+                bbox_base.set_billboard_point_world(bbox.compass_target, 2000.)
                 pivot = bbox_base.attach_new_node("bbox_pivot")
                 pivot.set_scale(100.)
                 w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
@@ -452,7 +483,7 @@ class ConstSizeBBoxManager:
                 bbox_origins["ortho"][owner_id] = origin_ortho
                 origin_persp.set_compass(owner_origin)
                 bbox_bases[owner_id] = bbox_base
-                compass_effect = CompassEffect.make(owner_origin, self._compass_props)
+                compass_effect = CompassEffect.make(bbox.compass_target, self._compass_props)
                 origin_ortho.set_effect(compass_effect)
         else:
             if owner_id in bbox_bases:

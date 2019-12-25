@@ -24,6 +24,7 @@ class Model(TopLevelObject):
         state["bbox"] = state.pop("_bbox")
         self.bbox.origin.reparent_to(self.origin)
         self.bbox.origin.hide()
+        self.bbox.const_size_origin_modifier = self.__modify_const_size_bbox_origin
 
         if GD["two_sided"]:
             self.origin.set_two_sided(True)
@@ -42,6 +43,7 @@ class Model(TopLevelObject):
 
         self.bbox = Mgr.do("create_bbox", self, bbox_color)
         self.bbox.hide()
+        self.bbox.const_size_origin_modifier = self.__modify_const_size_bbox_origin
 
         if GD["two_sided"]:
             self.origin.set_two_sided(True)
@@ -333,10 +335,20 @@ class Model(TopLevelObject):
 
     def get_center_pos(self, ref_node):
 
-        if self.bbox.has_zero_size_owner:
-            return self.origin.get_pos(ref_node)
-
         return self.bbox.get_center_pos(ref_node)
+
+    def __modify_const_size_bbox_origin(self, origin):
+
+        color = (1., .5, .5, 1.) if self.is_selected() else (1., 0., 0., 1.)
+        origin.set_color(color)
+        mat = Mat4.scale_mat(.85)
+        origin.node().modify_geom(0).modify_vertex_data().transform_vertices(mat)
+
+    def __set_const_size_bbox_color(self, color):
+
+        if self.bbox.has_zero_size_owner:
+            for origin in Mgr.get("const_size_bbox_origins", self.id):
+                origin.set_color(color)
 
     def update_selection_state(self, is_selected=True):
 
@@ -347,13 +359,17 @@ class Model(TopLevelObject):
 
         if "shaded" in GD["render_mode"]:
             if is_selected:
-                self.bbox.show()
+                handler = lambda: self.__set_const_size_bbox_color((1., .5, .5, 1.))
+                self.bbox.show(handler=handler)
             else:
-                self.bbox.hide()
+                handler = lambda: self.__set_const_size_bbox_color((1., 0., 0., 1.))
+                self.bbox.hide(handler=handler)
         elif not (is_selected and self.bbox.has_zero_size_owner):
-            self.bbox.hide()
+            handler = lambda: self.__set_const_size_bbox_color((1., 0., 0., 1.))
+            self.bbox.hide(handler=handler)
         else:
-            self.bbox.show()
+            handler = lambda: self.__set_const_size_bbox_color((1., .5, .5, 1.))
+            self.bbox.show(handler=handler)
 
         if self.geom_obj:
             self.geom_obj.update_selection_state(is_selected)
@@ -364,7 +380,8 @@ class Model(TopLevelObject):
 
         if is_selected:
             if "shaded" in GD["render_mode"]:
-                self.bbox.show()
+                handler = lambda: self.__set_const_size_bbox_color((1., .5, .5, 1.))
+                self.bbox.show(handler=handler)
             elif not self.bbox.has_zero_size_owner:
                 self.bbox.hide()
 
@@ -430,7 +447,9 @@ class Model(TopLevelObject):
 
         """
 
-        self.bbox.flash()
+        on_show = lambda: self.__set_const_size_bbox_color((1., .5, .5, 1.))
+        on_hide = lambda: self.__set_const_size_bbox_color((1., 0., 0., 1.))
+        self.bbox.flash(on_show, on_hide)
 
 
 class ModelManager(ObjectManager):

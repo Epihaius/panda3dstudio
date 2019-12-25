@@ -381,7 +381,7 @@ class PivotGizmoManager:
                 pivot_gizmo.get_origin("persp").set_shader_input("index", index)
                 pivot_gizmo.get_origin("ortho").set_shader_input("index", index)
         else:
-            self._pivot_gizmo_root.reparent_to(GD.cam())
+            self._pivot_gizmo_root.reparent_to(GD.cam.const_size_obj_root)
             self._pivot_gizmo_root.clear_transform()
 
     def __show_root(self, lens_type):
@@ -399,6 +399,11 @@ class PivotGizmoManager:
 
         pivot_gizmo = PivotGizmo(owner)
         pivot_gizmo.show(False)
+
+        w, h = GD["viewport"]["size_aux" if GD["viewport"][2] == "main" else "size"]
+        scale = 800. / max(w, h)
+        pivot_gizmo.get_origin("persp").set_scale(scale)
+        pivot_gizmo.get_origin("ortho").set_scale(scale)
 
         if not self._pivot_gizmo_root.is_hidden():
             pivot = owner.pivot

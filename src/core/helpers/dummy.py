@@ -999,7 +999,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
                 dummy_origins_persp[dummy_id].set_shader_input("index", index)
                 dummy_origins_ortho[dummy_id].set_shader_input("index", index)
         else:
-            self._dummy_root.reparent_to(GD.cam())
+            self._dummy_root.reparent_to(GD.cam.const_size_obj_root)
             self._dummy_root.clear_transform()
 
     def __show_root(self, lens_type):

@@ -245,13 +245,17 @@ class ExtrusionInsetMixin:
                 if planes.pop(2).intersects_line(intersection_point, point_on_line,
                         point_on_line + line_vec):
                     tmp_vec = Vec3(intersection_point)
+                else:
+                    tmp_vec = None
 
-                if scale_vec:
+                if scale_vec and tmp_vec:
                     scale_vec = (scale_vec + tmp_vec) * .5
                 else:
                     scale_vec = tmp_vec
 
-            return avg_poly_normal * scale_vec.length() * sign
+            l = scale_vec.length() if scale_vec else 1.
+
+            return avg_poly_normal * l * sign
 
         # Process all target polygons; compute the extrusion and inset vectors for
         # all of their vertices.
@@ -690,7 +694,7 @@ class ExtrusionInsetMixin:
         for vert in poly_verts:
             vert.normal = normal
 
-        return poly, poly_edges, poly_verts
+        return poly
 
     def extrude_inset_polygons(self, extrusion, inset, extr_inset_type, poly_ids=None, data=None):
         """
@@ -896,8 +900,6 @@ class ExtrusionInsetMixin:
 
         # Create polygons between original and extruded edge positions
 
-        new_verts = []
-        new_edges = []
         new_polys = []
         start_verts = {}  # maps extruded (border) vertex IDs to start merged vertices
         xformed_verts = self._transformed_verts
@@ -958,9 +960,8 @@ class ExtrusionInsetMixin:
                     ordered_verts = (start_mv1, start_mv2, extr_mv2, extr_mv1)
                     xformed_verts.update(ordered_verts)
                     ordered_pos = (old_pos1, old_pos2, new_pos2, new_pos1)
-                    poly, poly_edges, poly_verts = self.__create_extr_inset_polygon(
-                        ordered_verts, ordered_pos
-                    )
+                    poly = self.__create_extr_inset_polygon(ordered_verts, ordered_pos)
+                    poly_verts = poly.vertices
 
                     # update start_verts dict
                     for vi in s1:
@@ -968,12 +969,10 @@ class ExtrusionInsetMixin:
                     for vi in s2:
                         start_verts[vi] = merged_verts[poly_verts[1].id]
 
-                    new_verts.extend(poly_verts)
-                    new_edges.extend(poly_edges)
                     new_polys.append(poly)
 
         if new_polys:
-            self._create_new_geometry(new_verts, new_edges, new_polys)
+            self.create_new_geometry(new_polys)
 
         Mgr.get("selection").update()
 

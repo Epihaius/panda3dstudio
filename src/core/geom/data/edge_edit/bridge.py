@@ -203,7 +203,7 @@ class EdgeBridgeMixin:
         for vert in poly_verts:
             vert.normal = normal
 
-        return poly, poly_edges, poly_verts
+        return poly
 
     def bridge_edges(self, src_border_edge, dest_border_edge):
 
@@ -302,8 +302,6 @@ class EdgeBridgeMixin:
                         src_end_edges[index] = src_edge
                         dest_end_edges[index] = dest_edge
 
-        new_verts = []
-        new_edges = []
         new_polys = []
 
         update_polys_to_transf = False
@@ -337,14 +335,12 @@ class EdgeBridgeMixin:
 
                     new_seg_verts.append(dest_vert)
 
-        def add_new_subobjects(vert1, vert2, vert3, vert4):
+        def add_new_polys(vert1, vert2, vert3, vert4):
 
             # define the merged vertices of the bridging polygon(s) in winding order,
             # starting and ending with 2 vertices along the length of the bridge
             ordered_verts = (vert1, vert2, vert3, vert4)
-            poly, poly_edges, poly_verts = self.__create_bridge_polygon(ordered_verts)
-            new_verts.extend(poly_verts)
-            new_edges.extend(poly_edges)
+            poly = self.__create_bridge_polygon(ordered_verts)
             new_polys.append(poly)
 
         for src_edge, dest_edge in edges_to_merge.items():
@@ -374,16 +370,16 @@ class EdgeBridgeMixin:
                     vert2 = seg_verts[src_vert1][i + 1]
                     vert3 = seg_verts[src_vert2][i + 1]
                     vert4 = seg_verts[src_vert2][i]
-                    add_new_subobjects(vert1, vert2, vert3, vert4)
+                    add_new_polys(vert1, vert2, vert3, vert4)
 
             else:
 
-                add_new_subobjects(src_vert1, dest_vert1, dest_vert2, src_vert2)
+                add_new_polys(src_vert1, dest_vert1, dest_vert2, src_vert2)
 
         if bridge_segments > 1:
             seg_verts.clear()
 
-        self._create_new_geometry(new_verts, new_edges, new_polys)
+        self.create_new_geometry(new_polys)
 
         return True
 

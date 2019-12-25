@@ -648,7 +648,7 @@ class CreationMixin:
         polygon.update_center_pos()
         polygon.update_normal()
 
-        self._create_new_geometry(poly_verts, poly_edges, [polygon])
+        self.create_new_geometry([polygon])
 
         return True
 

@@ -18,7 +18,7 @@ class GeneralObjectManager:
         self._obj_lvl_before_hist_change = "top"
         self._sel_before_hist_change = set()
 
-        self._registry_backups_created = False
+        self._registry_backups_created = set()
 
         GD.set_default("active_obj_level", "top")
         GD.set_default("temp_toplevel", False)
@@ -38,6 +38,7 @@ class GeneralObjectManager:
         Mgr.expose("next_obj_name", self.__get_next_object_name)
         Mgr.accept("reset_registries", self.__reset_registries)
         Mgr.accept("create_registry_backups", self.__create_registry_backups)
+        Mgr.accept("restore_registry_backups", self.__restore_registry_backups)
         Mgr.add_app_updater("custom_obj_name", self.__set_custom_object_name)
         Mgr.add_app_updater("selected_obj_name", self.__set_object_name)
         Mgr.add_app_updater("selected_obj_color", self.__set_object_color)
@@ -450,25 +451,32 @@ class GeneralObjectManager:
         GD["temp_toplevel"] = True
         Mgr.update_locally("active_obj_level", restore=True)
 
-    def __reset_registries(self):
+    def __reset_registries(self, obj_types=None):
 
-        for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
+        all_types = self._obj_types["top"] + self._obj_types["sub"]
+        types = all_types if obj_types is None else obj_types
+
+        for obj_type in types:
             Mgr.do(f"reset_{obj_type}_registry")
 
         Notifiers.reg.info('Registries reset.')
 
-    def __create_registry_backups(self):
+    def __create_registry_backups(self, obj_types=None):
 
-        if self._registry_backups_created:
+        all_types = set(self._obj_types["top"] + self._obj_types["sub"])
+        types = all_types if obj_types is None else set(obj_types)
+        types -= self._registry_backups_created
+
+        if not types:
             return
 
-        for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
+        for obj_type in types:
             Mgr.do(f"create_{obj_type}_registry_backup")
 
         task = self.__remove_registry_backups
         task_id = "remove_registry_backups"
         PendingTasks.add(task, task_id, "object", sort=100)
-        self._registry_backups_created = True
+        self._registry_backups_created.update(types)
         Notifiers.reg.info('Registry backups created.')
 
     def __restore_registry_backups(self, info=""):
@@ -476,7 +484,7 @@ class GeneralObjectManager:
         if not self._registry_backups_created:
             return
 
-        for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
+        for obj_type in self._registry_backups_created:
             Mgr.do(f"restore_{obj_type}_registry_backup")
 
         Notifiers.reg.info(f'Registry backups restored;\ninfo: {info}')
@@ -487,10 +495,10 @@ class GeneralObjectManager:
         if not self._registry_backups_created:
             return
 
-        for obj_type in self._obj_types["top"] + self._obj_types["sub"]:
+        for obj_type in self._registry_backups_created:
             Mgr.do(f"remove_{obj_type}_registry_backup")
 
-        self._registry_backups_created = False
+        self._registry_backups_created.clear()
         Notifiers.reg.info('Registry backups removed.')
 
 
@@ -590,8 +598,6 @@ class ObjectManager:
 
         self._objects = {}
         self._object_id = 0
-        self._objects_backup = None
-        self._object_id_backup = None
 
     def __create_registry_backup(self):
 
