@@ -579,11 +579,12 @@ class SurfaceManager:
     def __init__(self):
 
         self._id_generator = id_generator()
-        self._picked_obj_id = None
+        self._src_obj_ids = []
+        self._add_geometry_from_multiple_models = False
         Mgr.add_app_updater("poly_surface_inversion", self.__invert_poly_surfaces)
         Mgr.add_app_updater("poly_surface_doublesiding", self.__doubleside_poly_surfaces)
         Mgr.add_app_updater("poly_surface_to_model", self.__update_models_from_poly_surfaces)
-        Mgr.add_app_updater("geometry_from_model", self.__add_geometry_from_model)
+        Mgr.add_app_updater("geometry_from_model", self.__update_geometry_from_model)
 
         add_state = Mgr.add_state
         add_state("model_picking_mode", -10, self.__enter_model_picking_mode,
@@ -597,7 +598,7 @@ class SurfaceManager:
         bind("model_picking_mode", "cancel model picking", "mouse3",
              lambda: Mgr.exit_state("model_picking_mode"))
         bind("model_picking_mode", "pick model", "mouse1",
-             self.__pick_model)
+             self.__pick_src)
         mod_ctrl = GD["mod_key_codes"]["ctrl"]
         bind("model_picking_mode", "pick model ctrl-right-click", f"{mod_ctrl}|mouse3",
              lambda: Mgr.update_remotely("main_context"))
@@ -605,7 +606,7 @@ class SurfaceManager:
         status_data = GD["status"]
         mode_text = "Pick source model"
         info_text = "LMB to pick a model to add geometry from; RMB to cancel; <Space> to navigate"
-        status_data["pick_model"] = {"mode": mode_text, "info": info_text}
+        status_data["pick_geom_src"] = {"mode": mode_text, "info": info_text}
 
     def __invert_poly_surfaces(self):
 
@@ -994,18 +995,40 @@ class SurfaceManager:
         event_data["object_ids"] = set(Mgr.get("object_ids"))
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
+    def __update_geometry_from_model(self, update_type, *args):
+
+        def handler(obj_ids):
+
+            if obj_ids:
+                objs = [Mgr.get("object", obj_id) for obj_id in obj_ids]
+                self.__pick_src(picked_src=objs)
+
+        if update_type == "init":
+            if self._add_geometry_from_multiple_models:
+                Mgr.update_remotely("selection_by_name", "",
+                                    "Choose models to add geometry from",
+                                    ["model"], True, "OK", handler)
+                Mgr.update_remotely("selection_by_name", "show")
+                Mgr.update_remotely("selection_by_name", "default")
+            else:
+                Mgr.enter_state("model_picking_mode")
+        elif update_type == "multiple":
+            self._add_geometry_from_multiple_models = args[0]
+        elif update_type == "add":
+            self.__add_geometry_from_models(*args)
+
     def __enter_model_picking_mode(self, prev_state_id, active):
 
         Mgr.add_task(self._update_cursor, "update_model_picking_cursor")
-        Mgr.update_app("status", ["pick_model"])
+        Mgr.update_app("status", ["pick_geom_src"])
 
         if not active:
 
             def handler(obj_ids):
 
                 if obj_ids:
-                    obj = Mgr.get("object", obj_ids[0])
-                    self.__pick_model(picked_obj=obj)
+                    models = [Mgr.get("model", obj_id) for obj_id in obj_ids]
+                    self.__pick_src(picked_src=models)
 
             Mgr.update_remotely("selection_by_name", "", "Pick model to add geometry from",
                                 ["model"], False, "Pick", handler)
@@ -1025,55 +1048,76 @@ class SurfaceManager:
         Mgr.remove_task("update_model_picking_cursor")
         Mgr.set_cursor("main")
 
-    def __pick_model(self, picked_obj=None):
+    def __pick_src(self, picked_src=None):
 
-        obj = picked_obj if picked_obj else Mgr.get("object", pixel_color=self._pixel_under_mouse)
+        if not (picked_src or self._add_geometry_from_multiple_models):
+            picked_src = [Mgr.get("object", pixel_color=self._pixel_under_mouse)]
+
+        selection = set(Mgr.get("selection_top"))
+
+        if not selection.difference(picked_src):
+            Mgr.update_remotely("geometry_from_model", "invalid_src")
+            return
+
+        def is_valid_model(obj):
+
+            valid_model = obj and obj.type == "model" and obj.geom_type == "editable_geom"
+
+            return valid_model and obj.geom_obj.geom_data_obj.ordered_polys
+
+        src_models = [obj for obj in picked_src if is_valid_model(obj)]
+
+        if src_models:
+            self._src_obj_ids = [obj.id for obj in src_models]
+            name = src_models[0].name if len(src_models) == 1 else None
+            Mgr.update_remotely("geometry_from_model", "options", name)
+        else:
+            Mgr.update_remotely("geometry_from_model", "invalid_src")
+
+    def __add_geometry_from_models(self, delete_src_geometry, keep_src_models):
+
+        # exit any subobject modes
+        Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
-        is_selection = len(selection) == 1 and selection[0] is obj
-        valid_model = obj and obj.type == "model" and obj.geom_type == "editable_geom"
-        valid_model = valid_model and obj.geom_obj.geom_data_obj.ordered_polys
-
-        if not is_selection and valid_model:
-            self._picked_obj_id = obj.id
-            Mgr.exit_state("model_picking_mode")
-            Mgr.update_remotely("geometry_from_model", obj.name)
-
-    def __add_geometry_from_model(self, delete_src_geometry, keep_src_model):
-
-        selection = Mgr.get("selection_top")
-        src_model = Mgr.get("object", self._picked_obj_id)
-        src_data_obj = src_model.geom_obj.geom_data_obj
-        ordered_polys = src_data_obj.ordered_polys
+        src_models = [Mgr.get("object", obj_id) for obj_id in self._src_obj_ids]
+        self._src_obj_ids = []
+        src_data_objs = {m: m.geom_obj.geom_data_obj for m in src_models}
+        ordered_polys = {m: gdo.ordered_polys for m, gdo in src_data_objs.items()}
+        src_polys = sum(ordered_polys.values(), [])
         changed_objs = {}
         pos_backup = {}
         normal_backup = {}
 
-        for poly in ordered_polys:
+        for poly in src_polys:
             for vert in poly.vertices:
                 pos_backup[vert] = vert.get_pos()
                 normal_backup[vert] = vert.normal
 
         if delete_src_geometry:
-            src_data_obj.set_subobjs_to_unregister(ordered_polys)
-            src_data_obj.unregister()
+
+            for src_data_obj in src_data_objs.values():
+                src_data_obj.set_subobjs_to_unregister(src_data_obj.ordered_polys)
+                src_data_obj.unregister()
+
             Mgr.do("update_picking_col_id_ranges", as_task=False)
 
         for model in selection:
 
-            if model is src_model:
+            if model in src_models:
                 continue
 
             geom_data_obj = model.geom_obj.geom_data_obj
             changed_objs[model] = geom_data_obj
             pivot = model.pivot
 
-            for poly in ordered_polys:
-                for vert in poly.vertices:
-                    vert.set_pos(vert.get_pos(pivot))
-                    vert.normal = pivot.get_relative_vector(src_model.pivot,
-                        vert.normal).normalized()
+            for src_model, polys in ordered_polys.items():
+                for poly in polys:
+                    for vert in poly.vertices:
+                        vert.set_pos(vert.get_pos(pivot))
+                        vert.normal = pivot.get_relative_vector(src_model.pivot,
+                            vert.normal).normalized()
 
-            new_polys = self.__copy_polygons(ordered_polys, geom_data_obj)
+            new_polys = self.__copy_polygons(src_polys, geom_data_obj)
             geom_data_obj.create_new_geometry(new_polys, create_normals=False)
 
             locked_normal_ids = []
@@ -1090,7 +1134,7 @@ class SurfaceManager:
             geom_data_obj.update_locked_normal_selection(None, None, locked_normal_ids, ())
             geom_data_obj.update_smoothing()
 
-            for poly in ordered_polys:
+            for poly in src_polys:
                 for vert in poly.vertices:
                     vert.set_pos(pos_backup[vert])
                     vert.normal = normal_backup[vert]
@@ -1100,7 +1144,7 @@ class SurfaceManager:
 
         Mgr.do("update_history_time")
         obj_data = {}
-        src_model_name = src_model.name
+        src_names = [model.name for model in src_models]
 
         def reparent(model):
 
@@ -1114,31 +1158,52 @@ class SurfaceManager:
                 obj_data.setdefault(child.id, {}).update(data)
 
         if delete_src_geometry:
-            if keep_src_model:
-                src_data_obj.delete_polygons(ordered_polys[:], unregister_globally=False)
-                obj_data[src_model.id] = src_data_obj.get_data_to_store("subobj_change")
+
+            if keep_src_models:
+
+                for src_model, src_data_obj in src_data_objs.items():
+                    src_data_obj.delete_polygons(src_data_obj.ordered_polys[:],
+                        unregister_globally=False)
+                    obj_data[src_model.id] = src_data_obj.get_data_to_store("subobj_change")
+
             else:
-                reparent(src_model)
-                data = src_model.get_data_to_store("deletion")
-                obj_data.setdefault(src_model.id, {}).update(data)
-                group = src_model.group
-                groups = [group] if group else []
+
+                groups = []
+
+                for src_model in src_models:
+
+                    reparent(src_model)
+                    data = src_model.get_data_to_store("deletion")
+                    obj_data.setdefault(src_model.id, {}).update(data)
+                    group = src_model.group
+
+                    if group:
+                        groups.append(group)
+
                 Mgr.do("create_registry_backups", ("vert", "edge", "poly"))
                 Mgr.do("create_id_range_backups", ("vert", "edge", "poly"))
                 Mgr.do("reset_registries", ("vert", "edge", "poly"))
                 Mgr.do("reset_picking_col_id_ranges", ("vert", "edge", "poly"))
-                src_data_obj.register()
-                src_model.destroy(add_to_hist=False)
+
+                for src_model, src_data_obj in src_data_objs.items():
+                    src_data_obj.register()
+                    src_model.destroy(add_to_hist=False)
+
                 Mgr.do("update_picking_col_id_ranges", as_task=False)
-                Mgr.do("restore_registry_backups", info=f'"{src_model_name}" destroyed')
-                Mgr.do("restore_id_range_backups", info=f'"{src_model_name}" destroyed')
+                Mgr.do("restore_registry_backups", info='source models destroyed')
+                Mgr.do("restore_id_range_backups", info='source models destroyed')
                 Mgr.do("prune_empty_groups", groups, obj_data)
 
         for obj, geom_data_obj in changed_objs.items():
             data = geom_data_obj.get_data_to_store("subobj_change")
             obj_data.setdefault(obj.id, {}).update(data)
 
-        event_descr = f'Add geometry from "{src_model_name}"'
+        if len(src_names) == 1:
+            event_descr = f'Add geometry from "{src_names[0]}"'
+        else:
+            event_descr = 'Add geometry from source models:\n'
+            event_descr += "".join([f'\n    "{name}"' for name in src_names])
+            event_descr += "\n"
 
         if len(changed_objs) == 1:
             obj = list(changed_objs)[0]
@@ -1149,7 +1214,7 @@ class SurfaceManager:
 
         event_data = {"objects": obj_data}
 
-        if delete_src_geometry and not keep_src_model:
+        if delete_src_geometry and not keep_src_models:
             event_data["object_ids"] = set(Mgr.get("object_ids"))
 
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)

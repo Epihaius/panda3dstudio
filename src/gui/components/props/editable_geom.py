@@ -83,14 +83,17 @@ class SurfaceToModelDialog(Dialog):
 
 class GeometryFromModelDialog(Dialog):
 
-    def __init__(self, model_name):
+    def __init__(self, model_name=None):
 
-        title = f'Add geometry from "{model_name}"'
+        if model_name is None:
+            title = 'Add geometry from other models'
+        else:
+            title = f'Add geometry from "{model_name}"'
 
         Dialog.__init__(self, title, choices="okcancel", on_yes=self.__on_yes)
 
         self._delete_src_geometry = True
-        self._keep_src_model = False
+        self._keep_src_models = False
 
         client_sizer = self.get_client_sizer()
 
@@ -100,8 +103,8 @@ class GeometryFromModelDialog(Dialog):
         borders = (50, 50, 0, 20)
         client_sizer.add(checkbtn, borders=borders)
 
-        text = "Keep source model"
-        checkbtn = DialogCheckButton(self, self.__keep_src_model, text)
+        text = "Keep empty source model(s)"
+        checkbtn = DialogCheckButton(self, self.__keep_src_models, text)
         borders = (70, 50, 20, 0)
         client_sizer.add(checkbtn, borders=borders)
 
@@ -111,13 +114,14 @@ class GeometryFromModelDialog(Dialog):
 
         self._delete_src_geometry = delete_src_geometry
 
-    def __keep_src_model(self, keep_src_model):
+    def __keep_src_models(self, keep_src_models):
 
-        self._keep_src_model = keep_src_model
+        self._keep_src_models = keep_src_models
 
     def __on_yes(self):
 
-        Mgr.update_remotely("geometry_from_model", self._delete_src_geometry, self._keep_src_model)
+        Mgr.update_remotely("geometry_from_model", "add",
+            self._delete_src_geometry, self._keep_src_models)
 
 
 class EditableGeomProperties:
@@ -634,20 +638,35 @@ class EditableGeomProperties:
 
         section = panel.add_section("geometry", "Geometry", hidden=True)
 
+        subsizer = Sizer("horizontal")
+        section.add(subsizer, expand=True)
+
         text = "Add from..."
         tooltip_text = "Add geometry from picked model to selected models"
         btn = PanelButton(section, text, "", tooltip_text)
         btn.command = self.__toggle_geometry_from_model
         self._btns["add_geometry"] = btn
-        section.add(btn)
+        subsizer.add(btn, alignment="center_v")
+
+        borders = (5, 0, 0, 0)
+
+        def handler(multiple):
+
+            Mgr.update_remotely("geometry_from_model", "multiple", multiple)
+            src_descr = "chosen models" if multiple else "picked model"
+            tooltip_text = f"Add geometry from {src_descr} to selected models"
+            self._btns["add_geometry"].set_tooltip_text(tooltip_text)
+
+        text = "multiple"
+        checkbtn = PanelCheckButton(section, handler, text)
+        self._checkbuttons["multiple_src_models"] = checkbtn
+        subsizer.add(checkbtn, alignment="center_v", borders=borders)
 
         group = section.add_group("Solidification")
 
         subsizer = GridSizer(columns=2, gap_h=5)
         subsizer.set_column_proportion(1, 1.)
         group.add(subsizer, expand=True)
-
-        borders = (0, 5, 0, 0)
 
         prop_id = "solidification_thickness"
         text = "Thickness:"
@@ -691,7 +710,7 @@ class EditableGeomProperties:
 
         Mgr.add_app_updater("subobj_edit_options", self.__update_subobj_edit_options)
         Mgr.add_app_updater("poly_surface_to_model", self.__show_surf_to_model_dialog)
-        Mgr.add_app_updater("geometry_from_model", self.__show_geom_from_model_dialog)
+        Mgr.add_app_updater("geometry_from_model", self.__update_geom_from_model)
 
     def __update_subobj_edit_options(self):
 
@@ -820,12 +839,16 @@ class EditableGeomProperties:
         def enter_model_picking_mode(prev_state_id, active):
 
             Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
-            self._btns["add_geometry"].active = True
+
+            if not active:
+                self._btns["add_geometry"].active = True
+                self._checkbuttons["multiple_src_models"].enable(False)
 
         def exit_model_picking_mode(next_state_id, active):
 
             if not active:
                 self._btns["add_geometry"].active = False
+                self._checkbuttons["multiple_src_models"].enable()
 
         def enter_solidification_preview_mode(prev_state_id, active):
 
@@ -1078,11 +1101,20 @@ class EditableGeomProperties:
         if btn.active:
             Mgr.exit_state("model_picking_mode")
         else:
-            Mgr.enter_state("model_picking_mode")
+            Mgr.update_remotely("geometry_from_model", "init")
 
-    def __show_geom_from_model_dialog(self, model_name):
+    def __update_geom_from_model(self, update_type, *args):
 
-        GeometryFromModelDialog(model_name)
+        if update_type == "options":
+            GeometryFromModelDialog(*args)
+        elif update_type == "invalid_src":
+            MessageDialog(title="Invalid geometry source",
+                          message="No suitable models chosen to add geometry from.\n\n"
+                                  "Source models must contain unlocked geometry.\n"
+                                  "Also, at least one model in the current selection may not\n"
+                                  "be chosen as source model.",
+                          choices="ok",
+                          icon_id="icon_exclamation")
 
     def __preview_solidification(self):
 

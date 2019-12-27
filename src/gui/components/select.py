@@ -635,7 +635,9 @@ class SelectionManager:
 
     def __update_selection_by_name(self, update_type, *args):
 
-        if update_type == "default":
+        if update_type == "show":
+            self.__show_selection_dialog()
+        elif update_type == "default":
             self._selection_dialog_kwargs = {}
         else:
             title, object_types, multi_select, ok_alias, handler = args

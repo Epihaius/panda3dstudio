@@ -87,7 +87,7 @@ class SnapAlignToolbar(SnapToolbar):
             msg_type = args[0]
             if msg_type == "invalid_sel":
                 MessageDialog(title="Invalid selection",
-                              message="No suitable selection for alignment.\n" \
+                              message="No suitable selection for alignment.\n"
                                       "(Open groups must be closed before they can be aligned.)",
                               choices="ok",
                               icon_id="icon_exclamation")
@@ -103,8 +103,9 @@ class SnapAlignToolbar(SnapToolbar):
                               icon_id="icon_exclamation")
             elif msg_type == "invalid_target":
                 MessageDialog(title="Invalid alignment target",
-                              message="No suitable object picked to align to.\n" \
-                                      "(An open group must be closed before it can be used as target.)",
+                              message="No suitable object picked to align to.\n"
+                                      "(An open group must be closed before it can"
+                                      " be used as target.)",
                               choices="ok",
                               icon_id="icon_exclamation")
             elif msg_type == "invalid_surface":

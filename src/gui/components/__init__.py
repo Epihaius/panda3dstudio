@@ -493,8 +493,8 @@ class Components:
     def __show_menubar_message(self, task=None):
 
         MessageDialog(title="Menu access",
-                      message="The menu bar is hidden, but its menus can still\n" \
-                              "be accessed through the main context menu\n" \
+                      message="The menu bar is hidden, but its menus can still\n"
+                              "be accessed through the main context menu\n"
                               "(Ctrl + right-click in the viewport).",
                       choices="ok")
 

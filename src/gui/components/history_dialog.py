@@ -1404,11 +1404,11 @@ class HistoryDialog(Dialog):
             Mgr.update_app("history", "archive")
 
         MessageDialog(title="Confirm archive history",
-                      message=("You are about to archive the entire history!"
-                      "\n\nAll inactive history will be deleted and the remaining"
-                      "\nevents will be merged, making it impossible to undo or"
-                      "\nredo any of these events."
-                      "\n\nAlso, all edits made in the history dialog will be discarded."),
+                      message="You are about to archive the entire history!\n\n"
+                              "All inactive history will be deleted and the remaining\n"
+                              "events will be merged, making it impossible to undo or\n"
+                              "redo any of these events.\n\n"
+                              "Also, all edits made in the history dialog will be discarded.",
                       choices="okcancel", on_yes=on_yes,
                       icon_id="icon_exclamation")
 

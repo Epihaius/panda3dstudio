@@ -129,14 +129,14 @@ class FileManager:
 
         if error_type == "read":
             MessageDialog(title="Error loading scene",
-                          message="The following file could not be read:\n\n" \
-                                  + Filename(filename).to_os_specific(),
+                          message="The following file could not be read:"
+                                  "\n\n" + Filename(filename).to_os_specific(),
                           choices="ok",
                           icon_id="icon_exclamation")
         elif error_type == "id":
             MessageDialog(title="Error loading scene",
-                          message="The following file does not appear\nto be a valid scene file:\n\n" \
-                                  + Filename(filename).to_os_specific(),
+                          message="The following file does not appear\nto be a valid scene"
+                                  " file:\n\n" + Filename(filename).to_os_specific(),
                           choices="ok",
                           icon_id="icon_exclamation")
 

@@ -152,6 +152,7 @@ class BoundingBox:
 
         state = self.__dict__.copy()
         state["_is_registered"] = False
+        state["_owner"] = state.pop("owner")
         state["_origin"] = state.pop("origin")
         del state["has_zero_size_owner"]
         del state["compass_target"]
@@ -161,6 +162,7 @@ class BoundingBox:
 
     def __setstate__(self, state):
 
+        state["owner"] = state.pop("_owner")
         state["origin"] = state.pop("_origin")
         self.__dict__ = state
         self.has_zero_size_owner = False
