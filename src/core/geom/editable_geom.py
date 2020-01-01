@@ -76,11 +76,18 @@ class EditableGeomManager(ObjPropDefaultsManager):
 
         self._id_generator = id_generator()
         Mgr.accept("create_editable_geom", self.__create)
-        Mgr.add_app_updater("geometry_access", self.__unlock_geometry)
+        Mgr.add_app_updater("geometry_access", self.__update_geometry_access)
 
     def __create(self, model, geom_data_obj=None, has_vert_colors=False):
 
         return EditableGeom(model, geom_data_obj, has_vert_colors)
+
+    def __update_geometry_access(self, access):
+
+        if access:
+            self.__unlock_geometry()
+        else:
+            self.__lock_geometry()
 
     def __unlock_primitive_geometry(self, models):
 
@@ -113,9 +120,9 @@ class EditableGeomManager(ObjPropDefaultsManager):
 
         if len(models) == 1:
             model = models[0]
-            event_descr = f'Access geometry of "{model.name}"'
+            event_descr = f'Enable geometry editing of "{model.name}"'
         else:
-            event_descr = 'Access geometry of objects:\n'
+            event_descr = 'Enable geometry editing of objects:\n'
             event_descr += "".join([f'\n    "{model.name}"' for model in models])
 
         event_data = {"objects": obj_data}
@@ -143,6 +150,41 @@ class EditableGeomManager(ObjPropDefaultsManager):
         get_task = lambda models1, models2: lambda: self.__add_to_history(models1, models2)
         task = get_task(models1, models2)
         PendingTasks.add(task, "add_history", "object", 100)
+
+        task = lambda: Mgr.do("update_picking_col_id_ranges", as_task=False)
+        PendingTasks.add(task, "update_picking_col_id_ranges", "object", 101)
+
+    def __lock_geometry(self):
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+        models = Mgr.get("selection_top")
+
+        for model in Mgr.get("selection_top"):
+            geom_data_obj = model.geom_obj.geom_data_obj
+            data = model.geom_obj.get_data_to_store("deletion")
+            data.update(model.geom_obj.get_property_to_store("geom_data"))
+            geom = Mgr.do("merge_duplicate_verts", geom_data_obj)
+            locked_geom = Mgr.do("create_basic_geom", geom, model=model)
+            locked_geom.register(restore=False)
+            data.update(locked_geom.get_data_to_store("creation"))
+            obj_data[model.id] = data
+            geom_data_obj.destroy()
+            model.bbox.color = (.7, .7, 1., 1.)
+
+        if len(models) == 1:
+            model = models[0]
+            event_descr = f'Disable geometry editing of "{model.name}"'
+        else:
+            event_descr = 'Disable geometry editing of objects:\n'
+            event_descr += "".join([f'\n    "{model.name}"' for model in models])
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        Mgr.do("update_picking_col_id_ranges")
+        Mgr.update_remotely("selected_obj_types", ("basic_geom",))
+        models.update_obj_props(force=True)
 
 
 MainObjects.add_class(EditableGeomManager)

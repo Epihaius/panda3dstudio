@@ -1,1 +1,1 @@
-from . import obj
+from . import obj, vertex_merge

@@ -1,12 +1,10 @@
 from .. import *
-from .vertex_merge import VertexMerger
 
 
 class BamExporter:
 
     def __init__(self):
 
-        self.vertex_merger = VertexMerger()
         self.data_formatter = VertexDataFormatter()
 
     def export(self, filename):
@@ -318,7 +316,7 @@ class BamExporter:
         else:
 
             self.geom_data_obj = self.geom_obj.geom_data_obj
-            self.node = self.vertex_merger.merge_duplicate_vertices(self.geom_data_obj)
+            self.node = Mgr.do("merge_duplicate_verts", self.geom_data_obj)
             self.uv_set_names = self.geom_data_obj.get_uv_set_names()
 
             if self.geom_obj.has_flipped_normals():

@@ -1,12 +1,7 @@
 from .. import *
-from .vertex_merge import VertexMerger
 
 
 class ObjExporter:
-
-    def __init__(self):
-
-        self.vertex_merger = VertexMerger()
 
     def export(self, filename):
 
@@ -89,7 +84,7 @@ class ObjExporter:
         else:
 
             self.geom_data_obj = self.geom_obj.geom_data_obj
-            self.node = self.vertex_merger.merge_duplicate_vertices(self.geom_data_obj)
+            self.node = Mgr.do("merge_duplicate_verts", self.geom_data_obj)
 
             if self.geom_obj.has_flipped_normals():
                 self.node.node().modify_geom(0).reverse_in_place()

@@ -159,7 +159,7 @@ class PropertyPanel(Panel):
 
         bottom_container = self.get_bottom_container()
         text = "Unlock geometry"
-        tooltip_text = "Enable subobject editing"
+        tooltip_text = "Enable geometry editing at different (sub-)object levels"
         command = self.__unlock_geometry
         btn = PanelButton(bottom_container, text, "", tooltip_text, command)
         borders = (10, 10, 10, 10)
@@ -204,7 +204,7 @@ class PropertyPanel(Panel):
 
     def __unlock_geometry(self):
 
-        Mgr.update_remotely("geometry_access")
+        Mgr.update_remotely("geometry_access", True)
 
     def __reset_auto_grid_align(self):
 

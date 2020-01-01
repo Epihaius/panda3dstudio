@@ -95,7 +95,7 @@ class BasicGeom:
         self._initial_vertex_colors = array
         self._is_tangent_space_initialized = False
 
-    def __init__(self, model, geom, picking_col_id, materials=None):
+    def __init__(self, model, geom, picking_col_id, materials=None, update_model=True):
 
         self._prop_ids = []
         self._type_prop_ids = ["uv_set_names", "normal_flip", "normal_viz",
@@ -122,7 +122,10 @@ class BasicGeom:
             self._normal_length = .001
 
         model.geom_obj = self
-        model.pivot.set_transform(geom.get_transform())
+
+        if update_model:
+            model.pivot.set_transform(geom.get_transform())
+
         geom.clear_transform()
         model_orig = model.origin
         render_state = geom.get_state()
@@ -159,8 +162,10 @@ class BasicGeom:
         if material:
             model.set_material(material)
 
-        color = tuple([random.random() * .4 + .5 for i in range(3)] + [1.])
-        model.set_color(color, update_app=False)
+        if update_model:
+            color = tuple([random.random() * .4 + .5 for i in range(3)] + [1.])
+            model.set_color(color, update_app=False)
+
         geom.reparent_to(model_orig)
 
         pickable_type_id = PickableTypes.get_id("basic_geom")
@@ -180,7 +185,7 @@ class BasicGeom:
 
         def update_render_mode():
 
-            self.update_render_mode(False)
+            self.update_render_mode(False if update_model else model.is_selected())
 
         obj_id = model.id
         PendingTasks.add(update_render_mode, "update_render_mode", "object", 0, obj_id)
@@ -812,12 +817,16 @@ class BasicGeomManager(ObjectManager, PickingColorIDManager):
 
         BasicGeom.init_render_states()
 
-    def __create(self, geom, name, materials=None):
+    def __create(self, geom, materials=None, name="", model=None):
 
-        model_id = ("basic_geom",) + next(self._id_generator)
-        model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1., 1.))
+        update_model = not model
+
+        if not model:
+            model_id = ("basic_geom",) + next(self._id_generator)
+            model = Mgr.do("create_model", model_id, name, Point3(), (.7, .7, 1., 1.))
+
         picking_col_id = self.get_next_picking_color_id()
-        basic_geom = BasicGeom(model, geom, picking_col_id, materials)
+        basic_geom = BasicGeom(model, geom, picking_col_id, materials, update_model)
 
         return basic_geom
 

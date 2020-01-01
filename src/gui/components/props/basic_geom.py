@@ -9,7 +9,35 @@ class BasicGeomProperties:
         self._fields = {}
         self._checkbuttons = {}
 
-        section = panel.add_section("basic_geom_props", "Basic properties", hidden=True)
+        section = panel.add_section("basic_geom_props", "Options", hidden=True)
+
+        group = section.add_group("Vertex normals")
+
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        command = lambda on: Mgr.update_remotely("normal_viz", on)
+        text = "Show"
+        checkbtn = PanelCheckButton(group, command, text)
+        self._checkbuttons["normal_viz"] = checkbtn
+        sizer.add(checkbtn, alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+        self._colorbox = colorbox = PanelColorBox(group, self.__handle_color)
+        sizer.add(colorbox, alignment="center_v")
+        sizer.add((0, 0), proportion=1.)
+
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        text = "Length:"
+        borders = (0, 5, 0, 0)
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
+        val_id = "normal_length"
+        field = PanelSpinnerField(group, val_id, "float", (.001, None), .01,
+                                  self.__handle_value, 80)
+        field.set_input_parser(self.__parse_length_input)
+        self._fields[val_id] = field
+        sizer.add(field, alignment="center_v")
 
         group = section.add_group("UV set names")
 
@@ -36,8 +64,6 @@ class BasicGeomProperties:
 
         uv_set_btns.set_active_button("0")
 
-        borders = (0, 5, 0, 0)
-
         group.add((0, 10))
         val_id = "uv_set_name"
         field = PanelInputField(group, val_id, "string", self.__handle_uv_name, 140)
@@ -45,33 +71,6 @@ class BasicGeomProperties:
         field.set_input_parser(self.__parse_uv_name)
         self._fields[val_id] = field
         group.add(field, expand=True)
-
-        group = section.add_group("Vertex normals")
-
-        sizer = Sizer("horizontal")
-        group.add(sizer, expand=True)
-
-        command = lambda on: Mgr.update_remotely("normal_viz", on)
-        text = "Show"
-        checkbtn = PanelCheckButton(group, command, text)
-        self._checkbuttons["normal_viz"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-        self._colorbox = colorbox = PanelColorBox(group, self.__handle_color)
-        sizer.add(colorbox, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-
-        sizer = Sizer("horizontal")
-        group.add(sizer, expand=True)
-
-        text = "Length:"
-        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
-        val_id = "normal_length"
-        field = PanelSpinnerField(group, val_id, "float", (.001, None), .01,
-                                  self.__handle_value, 80)
-        field.set_input_parser(self.__parse_length_input)
-        self._fields[val_id] = field
-        sizer.add(field, alignment="center_v")
 
         Mgr.add_app_updater("uv_set_name", self.__set_uv_name)
 

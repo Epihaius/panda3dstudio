@@ -209,6 +209,10 @@ class Model(TopLevelObject):
 
         if old_geom_obj.type == "basic_geom":
             old_geom_obj.destroy()
+            if geom_obj.type == "basic_geom":
+                geom_obj.geom.reparent_to(self.origin)
+                geom_obj.register()
+                geom_obj.update_render_mode(self.is_selected())
         else:
             old_geom_obj.replace(geom_obj)
 
@@ -216,6 +220,8 @@ class Model(TopLevelObject):
         self.bbox.color = color
 
         if geom_obj.type == "basic_geom":
+
+            self.bbox.update(geom_obj.geom.get_tight_bounds())
 
             if self._has_tangent_space:
                 geom_obj.init_tangent_space()
@@ -251,6 +257,9 @@ class Model(TopLevelObject):
             color = (.7, .7, 1., 1.) if geom_obj.type == "basic_geom" else (1., 1., 1., 1.)
             self.bbox.color = color
 
+            if geom_obj.type == "basic_geom":
+                self.bbox.update(geom_obj.geom.get_tight_bounds())
+
         else:
 
             if "geom_obj" in data_ids:
@@ -266,7 +275,8 @@ class Model(TopLevelObject):
                     if prop_id in data_ids:
                         prop_ids.remove(prop_id)
 
-                geom_obj.restore_data(prop_ids, restore_type, old_time_id, new_time_id)
+                if prop_ids:
+                    geom_obj.restore_data(prop_ids, restore_type, old_time_id, new_time_id)
 
             if data_ids:
                 self.geom_obj.restore_data(data_ids, restore_type, old_time_id, new_time_id)

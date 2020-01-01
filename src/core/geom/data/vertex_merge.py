@@ -1,9 +1,13 @@
-from .. import *
+from ...base import *
 
 
 class VertexMerger:
 
-    def merge_duplicate_vertices(self, geom_data_obj):
+    def __init__(self):
+
+        Mgr.accept("merge_duplicate_verts", self.__merge_duplicate_verts)
+
+    def __merge_duplicate_verts(self, geom_data_obj):
 
         self.__check_duplicate_verts(geom_data_obj)
         self.__create_vertex_data(geom_data_obj)
@@ -11,7 +15,7 @@ class VertexMerger:
         geom_node = self.__create_geom_node()
 
         return NodePath(geom_node)
-      
+
     def __set_merged_verts_to_compare(self, verts, merged_vert):
 
         self.verts1 = [verts[v_id] for v_id in merged_vert]
@@ -92,3 +96,6 @@ class VertexMerger:
         for merged_vert in merged_verts:
             self.__set_merged_verts_to_compare(verts, merged_vert)
             self.__compare_merged_verts()
+
+
+MainObjects.add_class(VertexMerger)

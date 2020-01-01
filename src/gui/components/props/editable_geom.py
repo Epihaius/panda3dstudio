@@ -103,7 +103,11 @@ class GeometryFromModelDialog(Dialog):
         borders = (50, 50, 0, 20)
         client_sizer.add(checkbtn, borders=borders)
 
-        text = "Keep empty source model(s)"
+        text = "Keep empty source model"
+
+        if model_name is None:
+            text += "s"
+
         checkbtn = DialogCheckButton(self, self.__keep_src_models, text)
         borders = (70, 50, 20, 0)
         client_sizer.add(checkbtn, borders=borders)
@@ -705,6 +709,13 @@ class EditableGeomProperties:
         btn.command = lambda: Mgr.update_remotely("solidification", "apply")
         self._btns["apply_solidification"] = btn
         subsizer.add(btn, proportion=1.)
+
+        tooltip_text = "Disable geometry editing"
+        btn = PanelButton(section, "Lock", "", tooltip_text)
+        btn.command = lambda: Mgr.update_remotely("geometry_access", False)
+        self._btns["lock_geometry"] = btn
+        borders = (0, 0, 0, 10)
+        section.add(btn, alignment="center_h", borders=borders)
 
         # **************************************************************************
 

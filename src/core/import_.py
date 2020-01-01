@@ -346,7 +346,7 @@ class ImportManager:
         node = GeomNode("basic_geom")
         node.add_geom(geom)
         node_path = NodePath(node)
-        model = Mgr.do("create_basic_geom", node_path, name).model
+        model = Mgr.do("create_basic_geom", node_path, name=name).model
         model.bbox.update(node_path.get_tight_bounds())
         r, g, b = [random.random() * .4 + .5 for i in range(3)]
         color = (r, g, b, 1.)
@@ -418,7 +418,7 @@ class ImportManager:
                             member_name = "object 0001"
                             member_name = get_unique_name(member_name, obj_names)
                             obj_names.append(member_name)
-                            member = Mgr.do("create_basic_geom", new_geom, member_name, materials).model
+                            member = Mgr.do("create_basic_geom", new_geom, materials, member_name).model
                             member.register(restore=False)
                             Mgr.do("add_group_member", member, obj, restore="import")
                             member.bbox.update(new_geom.get_tight_bounds())
@@ -445,7 +445,7 @@ class ImportManager:
 
                         new_node.decompose()
                         new_node.unify(1000000, False)
-                        obj = Mgr.do("create_basic_geom", new_geom, obj_name, materials).model
+                        obj = Mgr.do("create_basic_geom", new_geom, materials, obj_name).model
                         obj.register(restore=False)
                         obj.origin.node().copy_tags(node)
                         material = obj.get_material()
