@@ -1919,8 +1919,8 @@ class SelectionManager:
         color_id = r << 16 | g << 8 | b
         pickable_type, picked_obj = self.__get_picked_object(color_id, a)
 
-        if (GD["active_transform_type"] and obj_lvl != pickable_type == "poly"
-                and GD["subobj_edit_options"]["pick_via_poly"]):
+        if (GD["active_transform_type"] and obj_lvl not in ("top", "poly")
+                and pickable_type == "poly" and GD["subobj_edit_options"]["pick_via_poly"]):
             Mgr.do("init_selection_via_poly", picked_obj, op)
             return
 
