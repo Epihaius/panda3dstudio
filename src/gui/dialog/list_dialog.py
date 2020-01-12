@@ -13,8 +13,7 @@ class ListEntry(Widget):
         self.mouse_region.sort = parent.sort + 1
         self.node.reparent_to(parent.get_widget_root_node())
 
-        sizer = Sizer("horizontal")
-        self.sizer = sizer
+        self.sizer = Sizer("horizontal")
         self._image = None
         self._is_selected = False
         self._text = {}
@@ -26,10 +25,10 @@ class ListEntry(Widget):
         sizer = self.sizer
         min_default_widths = self._min_default_widths
 
-        for text_id, text, alignment, width in data:
+        for text_id, text, alignment, width, proportion in data:
 
             subsizer = Sizer("horizontal")
-            sizer.add(subsizer, borders=borders)
+            sizer.add(subsizer, proportion=proportion, borders=borders)
             self._text_sizers[text_id] = subsizer
 
             if alignment in ("center", "right"):

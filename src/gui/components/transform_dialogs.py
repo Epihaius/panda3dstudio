@@ -361,7 +361,7 @@ class TransformEntry(ListEntry):
 
         ListEntry.__init__(self, parent)
 
-        data = (("name", name, "left", 0),)
+        data = (("name", name, "left", 0, 0.),)
         self.set_data(data)
 
 

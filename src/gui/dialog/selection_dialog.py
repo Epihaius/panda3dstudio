@@ -12,9 +12,9 @@ class SelectionEntry(ListEntry):
         self._obj_id = obj_id
 
         data = (
-            ("", "*", "center", 20) if obj_sel_state else ("", "", "left", 20),
-            ("name", obj_name, "left", 0),
-            ("type", obj_type.title(), "right", 0)
+            ("", "*", "center", 20, 0.) if obj_sel_state else ("", "", "left", 20, 0.),
+            ("name", obj_name, "left", 0, 0.),
+            ("type", obj_type.title(), "right", 0, 1.)
         )
         self.set_data(data)
 
