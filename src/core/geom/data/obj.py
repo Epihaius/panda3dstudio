@@ -350,6 +350,12 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
             for edge_pos in poly_edges_by_pos:
 
+                if edge_pos in polys_by_edge and len(polys_by_edge[edge_pos]) == 2:
+                    edge_pos = (PosObj(edge_pos[0]), PosObj(edge_pos[1]))
+                    polys_by_edge[edge_pos] = [poly_id]
+                else:
+                    polys_by_edge.setdefault(edge_pos, []).append(poly_id)
+
                 poly_connections["neighbors"][edge_pos] = neighbors = []
                 reversed_edge_pos = edge_pos[::-1]
 
@@ -371,8 +377,6 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
                             other_neighbor_count = other_connections["neighbor_count"]
                             other_neighbor_count.setdefault(poly_id, 0)
                             other_neighbor_count[poly_id] += 1
-
-                polys_by_edge.setdefault(edge_pos, []).append(poly_id)
 
             connectivity[poly_id] = poly_connections
 
@@ -411,16 +415,17 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
                             if neighbor_count[neighbor_id] > neighbor_count[neighbor_to_keep]:
                                 neighbor_to_keep = neighbor_id
 
-                        neighbors_to_discard = neighbors[:]
-                        neighbors_to_discard.remove(neighbor_to_keep)
+                        neighbors.remove(neighbor_to_keep)
 
-                        for neighbor_id in neighbors_to_discard:
+                        for neighbor_id in neighbors:
                             connectivity[neighbor_id]["neighbors"][edge_pos[::-1]].remove(poly_id)
                             connectivity[neighbor_id]["neighbor_count"][poly_id] -= 1
 
                     neighbor_edge_id = edges_by_pos[neighbor_to_keep][edge_pos[::-1]]
-                    merged_edge.append(neighbor_edge_id)
-                    merged_edges[neighbor_edge_id] = merged_edge
+
+                    if neighbor_edge_id not in merged_edges:
+                        merged_edge.append(neighbor_edge_id)
+                        merged_edges[neighbor_edge_id] = merged_edge
 
             if gradual:
 
