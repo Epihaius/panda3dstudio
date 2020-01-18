@@ -1335,9 +1335,7 @@ class ExtrusionInsetManager:
                     self._solidification_offset)
 
         if preview_mode:
-            for data_obj in self._geom_data_objs:
-                data_obj.initialize_solidification_preview(self._solidification_thickness,
-                    self._solidification_offset)
+            Mgr.exit_state("solidification_preview_mode")
 
         if not changed_objs:
             return

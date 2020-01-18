@@ -156,6 +156,7 @@ class EditableGeomManager(ObjPropDefaultsManager):
 
     def __lock_geometry(self):
 
+        Mgr.exit_states(min_persistence=-99)
         Mgr.do("update_history_time")
         obj_data = {}
         models = Mgr.get("selection_top")
