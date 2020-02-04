@@ -350,7 +350,7 @@ class Group(TopLevelObject):
 
         if not is_zero_size:
             bbox_orig.reparent_to(group_orig)
-            bbox_orig.show()
+            bbox_orig.show() if self.is_selected() or self._is_open else bbox_orig.hide()
 
         if self.is_zero_size != is_zero_size:
             self.is_zero_size = is_zero_size

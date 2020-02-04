@@ -155,7 +155,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
     def register(self, restore=True, locally=False):
 
-        subobjs = (self._subobjs_to_reg if self._subobjs_to_reg else self._subobjs)
+        subobjs = self._subobjs_to_reg if self._subobjs_to_reg else self._subobjs
 
         for subobj_type in subobjs:
 
@@ -168,7 +168,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
     def unregister(self, locally=False):
 
-        subobjs = (self._subobjs_to_unreg if self._subobjs_to_unreg else self._subobjs)
+        subobjs = self._subobjs_to_unreg if self._subobjs_to_unreg else self._subobjs
 
         for subobj_type in subobjs:
 
@@ -185,14 +185,14 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
     def register_locally(self, subobjs_to_reg=None):
 
-        subobjs = (subobjs_to_reg if subobjs_to_reg else self._subobjs)
+        subobjs = subobjs_to_reg if subobjs_to_reg else self._subobjs
 
         for subobj_type in subobjs:
             self._subobjs[subobj_type].update(subobjs[subobj_type])
 
     def unregister_locally(self, subobjs_to_unreg=None):
 
-        subobjs = (subobjs_to_unreg if subobjs_to_unreg else self._subobjs)
+        subobjs = subobjs_to_unreg if subobjs_to_unreg else self._subobjs
 
         for subobj_type in subobjs:
 
@@ -348,10 +348,12 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
             neighbor_count = {}
             poly_connections = {"neighbors": {}, "neighbor_count": neighbor_count}
 
-            for edge_pos in poly_edges_by_pos:
+            for edge_pos in list(poly_edges_by_pos):
 
                 if edge_pos in polys_by_edge and len(polys_by_edge[edge_pos]) == 2:
+                    val = poly_edges_by_pos[edge_pos]
                     edge_pos = (PosObj(edge_pos[0]), PosObj(edge_pos[1]))
+                    poly_edges_by_pos[edge_pos] = val
                     polys_by_edge[edge_pos] = [poly_id]
                 else:
                     polys_by_edge.setdefault(edge_pos, []).append(poly_id)

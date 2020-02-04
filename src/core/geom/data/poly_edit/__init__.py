@@ -427,9 +427,8 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         normal_change = self._normal_change
         normal_lock_change = self._normal_lock_change
 
-        tmp_merged_vert = Mgr.do("create_merged_vert", self)
-        tmp_merged_edge = Mgr.do("create_merged_edge", self)
-        tmp_merged_edge.extend(selected_edge_ids)
+        vert_ids_to_add = set()
+        edge_ids_to_add = set(selected_edge_ids)
 
         for vert in new_verts:
 
@@ -438,14 +437,14 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
             id_set = set(merged_verts[vert.id])
 
             if not (id_set.isdisjoint(selected_vert_ids) or id_set.issubset(selected_vert_ids)):
-                tmp_merged_vert.extend(id_set.difference(selected_vert_ids))
+                vert_ids_to_add.update(id_set.difference(selected_vert_ids))
 
         for edge in new_edges:
 
             id_set = set(merged_edges[edge.id])
 
             if not (id_set.isdisjoint(selected_edge_ids) or id_set.issubset(selected_edge_ids)):
-                tmp_merged_edge.extend(id_set.difference(selected_edge_ids))
+                edge_ids_to_add.update(id_set.difference(selected_edge_ids))
 
         if create_normals:
 
@@ -710,13 +709,15 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         geom_node = geoms["normal"]["sel_state"].node()
         geom_node.modify_geom(0).set_primitive(0, GeomPoints(prim))
 
-        if tmp_merged_vert[:]:
+        if vert_ids_to_add:
             # since update_selection(...) processes *all* subobjects referenced by the
             # merged subobject, it is replaced by a temporary merged subobject that
             # only references newly created subobjects;
             # as an optimization, one temporary merged subobject references all newly
             # created subobjects, so self.update_selection() needs to be called only
             # once
+            tmp_merged_vert = Mgr.do("create_merged_vert", self)
+            tmp_merged_vert.extend(vert_ids_to_add)
             vert_id = tmp_merged_vert.id
             orig_merged_vert = merged_verts[vert_id]
             merged_verts[vert_id] = tmp_merged_vert
@@ -724,7 +725,9 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
             # the original merged subobject can now be restored
             merged_verts[vert_id] = orig_merged_vert
 
-        if tmp_merged_edge[:]:
+        if edge_ids_to_add:
+            tmp_merged_edge = Mgr.do("create_merged_edge", self)
+            tmp_merged_edge.extend(edge_ids_to_add)
             edge_id = tmp_merged_edge.id
             orig_merged_edge = merged_edges[edge_id]
             merged_edges[edge_id] = tmp_merged_edge
