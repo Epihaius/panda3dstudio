@@ -1235,9 +1235,6 @@ class TransformationManager:
 
     def __init_transform(self, transf_start_pos):
 
-        Mgr.get("picking_cam").active = False
-        Mgr.get("gizmo_picking_cam").node().active = False
-        Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = False
         transform_type = GD["active_transform_type"]
         active_obj_level = GD["active_obj_level"]
         target_type = GD["transform_target_type"]
@@ -1260,6 +1257,10 @@ class TransformationManager:
                 return
 
             self._objs_to_transform = objs_to_transform
+
+        Mgr.get("picking_cam").active = False
+        Mgr.get("gizmo_picking_cam").node().active = False
+        Mgr.get("gizmo_picking_cam").node().get_display_region(0).active = False
 
         self._selection = selection
 
