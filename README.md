@@ -1,14 +1,23 @@
 # Panda3D Studio
 A general-purpose scene editor for the Panda3D open-source game engine
 
-Currently, the main purpose of this editor is to allow users of Panda3D to create their game models right inside of the game engine itself, without needing external modelling programs.
+The main purpose of this editor is to allow users of Panda3D to create their game models using the game engine itself, without needing external modelling programs.
 This should avoid any export/import problems, as models are exported from Panda3D Studio as .bam files, whose data closely mirrors the actual Panda3D structures that are used for rendering.
-Hopefully, at some point it will also become a full-fledged level editor.
+
+Export to .obj files is also supported, which should appeal to those who are primarily interested in creating models for import into any other application that supports this file type.
+
+Currently, only static models can be created and exported. At some point in the future, animation might also be supported.
+
+This project is still missing plenty of features, but it's already possible to do some cool things with it.
 
 Requirements:
-* a recent development version of the Panda3D SDK with Python 3.x support. Please note that Python 2.x is no longer supported by this project!
+* a recent version of the Panda3D SDK with Python 3.x support. Please note that Python 2.x is no longer supported by this project!
 
-The functionality of this project is still quite basic, with a lot of important features missing or incomplete, so please don't use it for serious work yet.
+***
+## NOTE
+The next release (v1.0.0) will break backwards compatibility with this version (v0.9.0).
+Please finish your current projects first and export the models you have created before upgrading to v1.0.0 when it gets released.
+***
 
 
 There is no manual yet, but to test the program, you can:
@@ -23,13 +32,13 @@ There is no manual yet, but to test the program, you can:
 
 * open the UV editing interface (Ctrl-U) to control UV-mapping by transforming the UVs;
 
-* unlock the geometry of selected models (the "Unlock geometry" button becomes available in the Object properties control panel when primitives are selected) and edit their subobjects (select, transform and delete vertices, edges and polygons; new polygons can be created interactively - use Ctrl to flip the normal and Shift to control triangulation);
+* unlock the geometry of selected models (the "Unlock geometry" button becomes available in the Object properties control panel when primitives are selected) and edit their subobjects (select, transform and delete vertices, normals, edges and polygons; new polygons can be created interactively - use Ctrl to flip the normal and Shift to control triangulation);
 
-* undo (Ctrl-Z), redo (Ctrl-Shift-Z) and edit the entire non-linear, branching history;
+* undo (Ctrl-Z), redo (Ctrl-Y) and edit the entire non-linear, branching history;
 
-* save (Ctrl-S) and load (Ctrl-O) scenes, export selected models (using menu bar -> File -> Export) and import .bam files (using menu bar -> File -> Import).
-
-
+* save (Ctrl-S) and load (Ctrl-O) scenes, export selected models (using menu bar -> File -> Export) and import model files (using menu bar -> File -> Import).
 
 
-Feel free to discuss this project in [this topic](https://www.panda3d.org/forums/viewtopic.php?f=6&t=18500) on the Panda3D forums.
+
+
+Feel free to discuss this project in [this topic](https://discourse.panda3d.org/t/panda3d-studio/15250) on the Panda3D forums.
