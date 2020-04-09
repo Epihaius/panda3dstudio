@@ -11,12 +11,12 @@ Currently, only static models can be created and exported. At some point in the 
 This project is still missing plenty of features, but it's already possible to do some cool things with it.
 
 Requirements:
-* a recent version of the Panda3D SDK with Python 3.x support. Please note that Python 2.x is no longer supported by this project!
+* a recent development version of the Panda3D SDK with Python 3.x support (not older than [this one](http://buildbot.panda3d.org/downloads/94571aac93b5948adf0f4530cd6e6690408c6230/)). Please note that Python 2.x is no longer supported by this project!
 
 ***
 ## NOTE
-The next release (v1.0.0) will break backwards compatibility with this version (v0.9.0).
-Please finish your current projects first and export the models you have created before upgrading to v1.0.0 when it gets released.
+The most recent release (v1.0.0) breaks backwards compatibility with the previous version (v0.9.0).
+Please finish your current projects first and export the models you have created before upgrading.
 ***
 
 
