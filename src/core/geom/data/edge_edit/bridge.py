@@ -264,7 +264,7 @@ class EdgeBridgeMixin:
                     if src_edge is src_border_edge:
                         segment_is_border = index
 
-                    if (src_edge is src_border_edge or src_edge.id not in selected_edge_ids):
+                    if src_edge is src_border_edge or src_edge.id not in selected_edge_ids:
                         break
 
                     if src_edge is dest_border_edge:

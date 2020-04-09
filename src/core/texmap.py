@@ -25,17 +25,11 @@ class TextureMap:
 
         state = self.__dict__.copy()
         state["_texture"] = None
-        state["_type"] = state.pop("type")
-        state["_tex_stage"] = state.pop("tex_stage")
-        state["_is_active"] = state.pop("active")
 
         return state
 
     def __setstate__(self, state):
 
-        state["type"] = state.pop("_type")
-        state["tex_stage"] = state.pop("_tex_stage")
-        state["active"] = state.pop("_is_active")
         self.__dict__ = state
 
         if self.type != "layer":
@@ -433,20 +427,6 @@ class Layer(TextureMap):
         "alpha": TextureStage.CO_src_alpha,
         "1-alpha": TextureStage.CO_one_minus_src_alpha
     }
-
-    def __getstate__(self):
-
-        state = TextureMap.__getstate__(self)
-
-        state["_id"] = state.pop("id")
-
-        return state
-
-    def __setstate__(self, state):
-
-        TextureMap.__setstate__(self, state)
-
-        state["id"] = state.pop("_id")
 
     def __init__(self, layer_id, name):
 

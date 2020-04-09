@@ -9,8 +9,8 @@ class MainCamera:
 
         showbase = GD.showbase
         self._mask = mask = next(camera_mask)
-        self._node = showbase.camNode
-        self._node.camera_mask = mask
+        self._node = node = showbase.camNode
+        node.camera_mask = mask
 
         lens_persp = showbase.camLens
         lens_ortho = OrthographicLens()
@@ -28,6 +28,19 @@ class MainCamera:
         self._camera = camera = showbase.camera
         default_light = Mgr.get("default_light")
         default_light.reparent_to(camera)
+
+        # make it possible to override the render state of certain nodes using tags
+        node.tag_state_key = "tag_state"
+
+        state_np = NodePath("state")
+        state_np.set_material_off()
+        state_np.set_texture_off()
+        state_np.set_light_off()
+        state_np.set_transparency(TransparencyAttrib.M_alpha)
+        state_np.set_color((1., 1., 1., .5))
+        state = state_np.get_state()
+        # for rendering members of collision groups
+        node.set_tag_state("collision_geom", state)
 
         # A separate LensNode projects the selection texture onto selected polygons
 
@@ -342,7 +355,8 @@ class PickingCamera:
 
         self._tex = Texture("picking_texture")
         props = FrameBufferProperties()
-        props.set_rgba_bits(8, 8, 8, 8)
+        props.set_float_color(True)
+        props.set_rgba_bits(32, 32, 32, 8)
         props.set_depth_bits(16)
         self._buffer = bfr = GD.window.make_texture_buffer("picking_buffer",
                                                            15, 15,
@@ -374,10 +388,10 @@ class PickingCamera:
         state = state_np.get_state()
         node.initial_state = state
 
-        # For rendering BasicGeoms as pickable geometry
+        # For rendering LockedGeoms as pickable geometry
         node.tag_state_key = "picking_color"
-        Mgr.accept("set_basic_geom_picking_color", node.set_tag_state)
-        Mgr.accept("clear_basic_geom_picking_color", node.clear_tag_state)
+        Mgr.accept("set_locked_geom_picking_color", node.set_tag_state)
+        Mgr.accept("clear_locked_geom_picking_color", node.clear_tag_state)
 
         # Create a secondary camera and DisplayRegion to render gizmos on top of the
         # 3D scene.

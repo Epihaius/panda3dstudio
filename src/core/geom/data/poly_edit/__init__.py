@@ -199,9 +199,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
                 row_index_offset -= poly.vertex_count
                 continue
 
-            poly_verts = poly.vertices
-
-            for vert in poly_verts:
+            for vert in poly.vertices:
                 vert.offset_row_index(row_index_offset)
 
         sel_data = self._poly_selection_data
@@ -322,6 +320,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
             data_unselected.extend(poly)
 
         points_prim = GeomPoints(Geom.UH_static)
+        points_prim.set_index_type(Geom.NT_uint32)
         points_prim.reserve_num_vertices(count)
         points_prim.add_next_vertices(count)
         vert_geom.set_primitive(0, points_prim)
@@ -332,9 +331,11 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         geom_node.modify_geom(0).set_primitive(0, GeomPoints(points_prim))
 
         lines_prim = GeomLines(Geom.UH_static)
+        lines_prim.set_index_type(Geom.NT_uint32)
         lines_prim.reserve_num_vertices(count * 2)
 
         tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.set_index_type(Geom.NT_uint32)
 
         for poly in ordered_polys:
 
@@ -487,7 +488,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         poly_indices = {}
         poly_index = len(polys)
         sel_data = self._poly_selection_data["unselected"]
-        sign = -1. if self.owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_inverted_geometry() else 1.
 
         for poly in new_polys:
 
@@ -616,6 +617,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         to_view[size:] = from_view[-size:]
 
         lines_prim = GeomLines(Geom.UH_static)
+        lines_prim.set_index_type(Geom.NT_uint32)
         lines_prim.reserve_num_vertices(count * 2)
 
         for poly in self.ordered_polys:
@@ -683,6 +685,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         to_view[to_size:to_size+size] = from_view[-size:]
 
         tmp_prim = GeomPoints(Geom.UH_static)
+        tmp_prim.set_index_type(Geom.NT_uint32)
         tmp_prim.reserve_num_vertices(vert_count)
         tmp_prim.add_next_vertices(vert_count)
         tmp_prim.offset_vertices(old_count)
@@ -746,7 +749,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
             tangent_flip, bitangent_flip = model.get_tangent_space_flip()
             self.update_tangent_space(tangent_flip, bitangent_flip, [p.id for p in new_polys])
         else:
-            self._is_tangent_space_initialized = False
+            self.is_tangent_space_initialized = False
 
 
 class PolygonEditManager(CreationManager, TriangulationManager, SmoothingManager,

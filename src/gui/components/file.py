@@ -100,8 +100,7 @@ class FileManager:
 
             def on_yes(filename):
 
-                Mgr.update_app("scene", "load", Filename.from_os_specific(filename).get_fullpath())
-                Mgr.do("set_scene_label", filename)
+                Mgr.update_app("scene", "load", filename)
 
             open_file = GD["open_file"]
             default_filename = open_file if open_file else ""
@@ -125,18 +124,39 @@ class FileManager:
 
         Mgr.do("close_aux_viewport", task)
 
-    def __handle_load_error(self, filename, error_type):
+    def __handle_load_error(self, filename, error_type, handlers=None):
+
+        name = Filename(filename).to_os_specific()
 
         if error_type == "read":
-            MessageDialog(title="Error loading scene",
-                          message="The following file could not be read:"
-                                  "\n\n" + Filename(filename).to_os_specific(),
-                          choices="ok",
-                          icon_id="icon_exclamation")
+            msg = "The following file could not be read:\n\n" + name
         elif error_type == "id":
+            msg = "The following file does not appear\nto be a valid scene file:\n\n" + name
+        elif error_type == "major_older_version":
+            msg = ("The version of the following scene\nfile is outdated:\n\n" + name
+                  + "\n\nIt cannot be loaded by the current version of this program.")
+        elif error_type == "major_newer_version":
+            msg = ("The following scene file was created\nby a newer version of this"
+                  " program:\n\n" + name + "\n\nPlease upgrade before trying to load it.")
+        elif error_type in ("minor_older_version", "patched_older_version"):
+            msg = ("The version of the following scene\nfile is outdated:\n\n" + name
+                  + "\n\nLoading it may lead to bugs.\n\nLoad it anyway?")
+        elif error_type in ("minor_newer_version", "patched_newer_version"):
+            msg = ("The following scene file was created\nby a newer version of this"
+                  " program:\n\n" + name + "\n\nLoading it may lead to bugs."
+                  "\n\nLoad it anyway?")
+
+        if error_type in ("minor_older_version", "patched_older_version",
+                "minor_newer_version", "patched_newer_version"):
+            MessageDialog(title="Warning loading scene",
+                          message=msg,
+                          choices="yesno",
+                          on_yes=handlers[0],
+                          on_no=handlers[1],
+                          icon_id="icon_exclamation")
+        else:
             MessageDialog(title="Error loading scene",
-                          message="The following file does not appear\nto be a valid scene"
-                                  " file:\n\n" + Filename(filename).to_os_specific(),
+                          message=msg,
                           choices="ok",
                           icon_id="icon_exclamation")
 

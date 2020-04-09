@@ -176,7 +176,7 @@ def __set_layer_properties(layer, stage, tex_attrib, off_stages, tex_xforms):
 
 
 def render_state_to_material(render_state, geom_vertex_format, other_materials=None,
-                             for_basic_geom=True):
+                             for_locked_geom=True):
 
     default_uv_set_name = InternalName.get_texcoord()
     uv_set_list = [default_uv_set_name]
@@ -296,7 +296,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                 stage = colormap_stages[0]
                 uv_set_name = stage.texcoord_name
 
-                if uv_set_name != default_uv_set_name or not for_basic_geom:
+                if uv_set_name != default_uv_set_name or not for_locked_geom:
 
                     if uv_set_names[uv_set_name] != default_uv_set_name:
 
@@ -398,7 +398,7 @@ def render_state_to_material(render_state, geom_vertex_format, other_materials=N
                 src_uv_set_names = set(stages_by_uv_set)
                 dest_uv_set_names = set(uv_set_list[:len(stages_by_uv_set)])
 
-                if for_basic_geom:
+                if for_locked_geom:
                     common = src_uv_set_names & dest_uv_set_names
                     src_uv_set_names -= common
                     dest_uv_set_names -= common

@@ -16,8 +16,8 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
     def __getstate__(self):
 
         state = self.__dict__.copy()
-        state["_origin"] = NodePath(self.origin.node().make_copy())
-        state["_origin"].clear_two_sided()
+        state["origin"] = NodePath(self.origin.node().make_copy())
+        state["origin"].clear_two_sided()
         del state["_vertex_data"]
         del state["owner"]
         del state["_toplvl_node"]
@@ -30,19 +30,14 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         del state["ordered_polys"]
         del state["_subobjs"]
         del state["_indexed_subobjs"]
-        del state["_is_tangent_space_initialized"]
+        del state["is_tangent_space_initialized"]
 
         SelectionMixin._edit_state(self, state)
-
-        state["_id"] = state.pop("id")
-        del state["origin"]
 
         return state
 
     def __setstate__(self, state):
 
-        state["id"] = state.pop("_id")
-        state["origin"] = state.pop("_origin")
         self.__dict__ = state
 
         SelectionMixin.__setstate__(self, state)
@@ -53,7 +48,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         self.shared_normals = {}
         self._poly_smoothing = {}
         self.ordered_polys = []
-        self._is_tangent_space_initialized = False
+        self.is_tangent_space_initialized = False
         self._picking_geom_xform_locked = False
 
         self._subobjs = subobjs = {}
@@ -89,7 +84,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         self.merged_verts = {}
         self.merged_edges = {}
         self.ordered_polys = []
-        self._is_tangent_space_initialized = False
+        self.is_tangent_space_initialized = False
 
         self._prop_ids = ["subobj_merge", "subobj_selection", "subobj_transform", "poly_tris",
                           "uvs", "uv_set_names", "normals", "normal_lock", "normal_length",
@@ -213,7 +208,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         return self._indexed_subobjs[subobj_type]
 
-    def process_geom_data(self, data, gradual=False):
+    def process_geom_data(self, geom_data, gradual=False):
 
         subobjs = self._subobjs
         verts = subobjs["vert"]
@@ -222,165 +217,60 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         ordered_polys = self.ordered_polys
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
-        self._poly_smoothing = poly_smoothing = {}
-        smoothing_by_id = {}
-
-        connectivity = {}
-        normals = {}
-        verts_by_pos = {}
-        edges_by_pos = {}
-        polys_by_edge = {}
+        verts_by_pos_ind = {}
 
         if gradual:
             poly_count = 0
 
-        for poly_data in data:
+        for poly_data in geom_data:
 
-            tmp_edges = []
-            positions = {}
-            poly_verts_by_pos = {}
-            poly_edges_by_pos = {}
-            poly_edges_by_vert_id = {}
+            vert_ids_by_data = {}
 
             poly_verts = []
             poly_edges = []
             poly_tris = []
 
+            for vert_data in poly_data["verts"]:
+
+                pos = vert_data["pos"]
+                vertex = Mgr.do("create_vert", self, pos)
+                vertex.normal = vert_data["normal"]
+                vertex.set_uvs(vert_data["uvs"])
+
+                if "color" in vert_data:
+                    vertex.color = vert_data["color"]
+
+                vert_id = vertex.id
+                verts[vert_id] = vertex
+                vert_ids_by_data[id(vert_data)] = vert_id
+                pos_ind = vert_data["pos_ind"]
+                verts_by_pos_ind.setdefault(pos_ind, []).append(vertex)
+                poly_verts.append(vertex)
+
             for tri_data in poly_data["tris"]:
+                tri = tuple(vert_ids_by_data[id(v_data)] for v_data in tri_data)
+                poly_tris.append(tri)
 
-                tri_vert_ids = []
+            poly_edge_verts = poly_verts[:]
+            poly_edge_verts.append(poly_edge_verts[0])
 
-                for vert_data in tri_data:
-
-                    pos = vert_data["pos"]
-
-                    if pos in poly_verts_by_pos:
-
-                        vert_id = poly_verts_by_pos[pos]
-
-                    else:
-
-                        vertex = Mgr.do("create_vert", self, pos)
-                        vertex.normal = vert_data["normal"]
-                        vertex.set_uvs(vert_data["uvs"])
-
-                        if "color" in vert_data:
-                            vertex.color = vert_data["color"]
-
-                        vert_id = vertex.id
-                        verts[vert_id] = vertex
-                        poly_verts_by_pos[pos] = vert_id
-                        positions[vert_id] = pos
-
-                    tri_vert_ids.append(vert_id)
-
-                poly_tris.append(tuple(tri_vert_ids))
-
-                for i, j in ((0, 1), (1, 2), (2, 0)):
-
-                    edge_vert_ids = (tri_vert_ids[i], tri_vert_ids[j])
-                    reversed_vert_ids = edge_vert_ids[::-1]
-
-                    if reversed_vert_ids in tmp_edges:
-                        # if the edge appears twice, it's actually a diagonal
-                        tmp_edges.remove(reversed_vert_ids)
-                    else:
-                        tmp_edges.append(edge_vert_ids)
-
-            for edge_vert_ids in tmp_edges:
-                poly_edges_by_vert_id[edge_vert_ids[0]] = edge_vert_ids
-
-            # Define verts and edges in winding order
-
-            vert1_id, vert2_id = edge_vert_ids = poly_edges_by_vert_id[poly_tris[0][0]]
-            vert1 = verts[vert1_id]
-            vert2 = verts[vert2_id]
-            poly_verts.append(vert1)
-            edge = Mgr.do("create_edge", self, edge_vert_ids)
-            edge1_id = edge.id
-            vert2.add_edge_id(edge1_id)
-            edges[edge1_id] = edge
-            poly_edges.append(edge)
-            pos1 = positions[vert1_id]
-            pos2 = positions[vert2_id]
-            poly_edges_by_pos[(pos1, pos2)] = edge1_id
-
-            while vert2_id != vert1_id:
-                poly_verts.append(vert2)
-                vert1 = vert2
-                edge_vert_ids = poly_edges_by_vert_id[vert2_id]
-                vert2_id = edge_vert_ids[1]
-                vert2 = verts[vert2_id]
+            for i in range(len(poly_verts)):
+                vert1 = poly_edge_verts[i]
+                vert2 = poly_edge_verts[i+1]
+                edge_vert_ids = (vert1.id, vert2.id)
                 edge = Mgr.do("create_edge", self, edge_vert_ids)
-                edge_id = edge.id
-                vert1.add_edge_id(edge_id)
-                vert2.add_edge_id(edge_id)
-                edges[edge_id] = edge
+                edges[edge.id] = edge
                 poly_edges.append(edge)
-                pos1 = pos2
-                pos2 = positions[vert2_id]
-                poly_edges_by_pos[(pos1, pos2)] = edge_id
 
-            vert2.add_edge_id(edge1_id)
+            for i, vert in enumerate(poly_verts):
+                vert.add_edge_id(poly_edges[i-1].id)
+                vert.add_edge_id(poly_edges[i].id)
 
             polygon = Mgr.do("create_poly", self, poly_tris, poly_edges, poly_verts)
             polygon.update_normal()
             ordered_polys.append(polygon)
             poly_id = polygon.id
-            normals[poly_id] = normal = V3D(polygon.normal.normalized())
             polys[poly_id] = polygon
-            verts_by_pos[poly_id] = poly_verts_by_pos
-            edges_by_pos[poly_id] = poly_edges_by_pos
-
-            for smoothing_id, use in poly_data["smoothing"]:
-
-                if smoothing_id in smoothing_by_id:
-                    smoothing_grp = smoothing_by_id[smoothing_id]
-                else:
-                    smoothing_grp = SmoothingGroup()
-                    smoothing_by_id[smoothing_id] = smoothing_grp
-
-                smoothing_grp.add(poly_id)
-
-                if use:
-                    poly_smoothing.setdefault(poly_id, set()).add(smoothing_grp)
-
-            neighbor_count = {}
-            poly_connections = {"neighbors": {}, "neighbor_count": neighbor_count}
-
-            for edge_pos in list(poly_edges_by_pos):
-
-                if edge_pos in polys_by_edge and len(polys_by_edge[edge_pos]) == 2:
-                    val = poly_edges_by_pos[edge_pos]
-                    edge_pos = (PosObj(edge_pos[0]), PosObj(edge_pos[1]))
-                    poly_edges_by_pos[edge_pos] = val
-                    polys_by_edge[edge_pos] = [poly_id]
-                else:
-                    polys_by_edge.setdefault(edge_pos, []).append(poly_id)
-
-                poly_connections["neighbors"][edge_pos] = neighbors = []
-                reversed_edge_pos = edge_pos[::-1]
-
-                if reversed_edge_pos in polys_by_edge:
-
-                    # one or more other polys form a continuous surface with this one
-
-                    for other_poly_id in polys_by_edge[reversed_edge_pos]:
-
-                        other_connections = connectivity[other_poly_id]
-                        other_neighbors = other_connections["neighbors"][reversed_edge_pos]
-
-                        if normal * normals[other_poly_id] > -.99:
-                            # the other poly's normal is not the inverse of this one's
-                            neighbors.append(other_poly_id)
-                            other_neighbors.append(poly_id)
-                            neighbor_count.setdefault(other_poly_id, 0)
-                            neighbor_count[other_poly_id] += 1
-                            other_neighbor_count = other_connections["neighbor_count"]
-                            other_neighbor_count.setdefault(poly_id, 0)
-                            other_neighbor_count[poly_id] += 1
-
-            connectivity[poly_id] = poly_connections
 
             if gradual:
 
@@ -391,120 +281,33 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
                     poly_count = 0
 
         if gradual:
-            poly_count = 0
+            vert_count = 0
 
-        for poly_id, connections in connectivity.items():
+        for vert_list in verts_by_pos_ind.values():
 
-            for edge_pos, neighbors in connections["neighbors"].items():
-
-                edge_id = edges_by_pos[poly_id][edge_pos]
-
-                if edge_id in merged_edges:
-                    continue
-
-                merged_edge = Mgr.do("create_merged_edge", self, edge_id)
-                merged_edges[edge_id] = merged_edge
-
-                if neighbors:
-
-                    neighbor_to_keep = neighbors[0]
-
-                    if len(neighbors) > 1:
-
-                        neighbor_count = connections["neighbor_count"]
-
-                        for neighbor_id in neighbors:
-                            if neighbor_count[neighbor_id] > neighbor_count[neighbor_to_keep]:
-                                neighbor_to_keep = neighbor_id
-
-                        neighbors.remove(neighbor_to_keep)
-
-                        for neighbor_id in neighbors:
-                            connectivity[neighbor_id]["neighbors"][edge_pos[::-1]].remove(poly_id)
-                            connectivity[neighbor_id]["neighbor_count"][poly_id] -= 1
-
-                    neighbor_edge_id = edges_by_pos[neighbor_to_keep][edge_pos[::-1]]
-
-                    if neighbor_edge_id not in merged_edges:
-                        merged_edge.append(neighbor_edge_id)
-                        merged_edges[neighbor_edge_id] = merged_edge
+            merged_vert = Mgr.do("create_merged_vert", self)
+            merged_vert.extend(v.id for v in vert_list)
+            merged_verts.update({v.id: merged_vert for v in vert_list})
 
             if gradual:
 
-                poly_count += 1
+                vert_count += 1
 
-                if poly_count == 20:
+                if vert_count == 20:
                     yield
-                    poly_count = 0
+                    vert_count = 0
 
-        if gradual:
-            poly_count = 0
+        for edge_id, edge in edges.items():
+            if edge_id not in merged_edges:
+                mv1, mv2 = (verts[v_id].merged_vertex for v_id in edge)
+                edge_ids1 = {e_id for v_id in mv1 for e_id in verts[v_id].edge_ids}
+                edge_ids2 = {e_id for v_id in mv2 for e_id in verts[v_id].edge_ids}
+                edge_ids = edge_ids1 & edge_ids2
+                merged_edge = Mgr.do("create_merged_edge", self)
+                merged_edge.extend(edge_ids)
+                merged_edges.update({e_id: merged_edge for e_id in edge_ids})
 
-        for poly in ordered_polys:
-
-            for edge_id in poly.edge_ids:
-
-                merged_edge = merged_edges[edge_id]
-                vert1_id, vert2_id = edges[edge_id]
-
-                if vert1_id in merged_verts:
-                    merged_vert1 = merged_verts[vert1_id]
-                else:
-                    merged_vert1 = Mgr.do("create_merged_vert", self, vert1_id)
-                    merged_verts[vert1_id] = merged_vert1
-
-                if vert2_id in merged_verts:
-                    merged_vert2 = merged_verts[vert2_id]
-                else:
-                    merged_vert2 = Mgr.do("create_merged_vert", self, vert2_id)
-                    merged_verts[vert2_id] = merged_vert2
-
-                if len(merged_edge) > 1:
-
-                    neighbor_edge_id = merged_edge[0 if merged_edge[1] == edge_id else 1]
-                    neighbor_vert1_id, neighbor_vert2_id = edges[neighbor_edge_id]
-
-                    if neighbor_vert1_id not in merged_vert2:
-
-                        if neighbor_vert1_id in merged_verts:
-
-                            merged_vert = merged_verts[neighbor_vert1_id]
-
-                            for vert_id in merged_vert:
-                                merged_vert2.append(vert_id)
-                                merged_verts[vert_id] = merged_vert2
-
-                        else:
-
-                            merged_vert2.append(neighbor_vert1_id)
-                            merged_verts[neighbor_vert1_id] = merged_vert2
-
-                    if neighbor_vert2_id not in merged_vert1:
-
-                        if neighbor_vert2_id in merged_verts:
-
-                            merged_vert = merged_verts[neighbor_vert2_id]
-
-                            for vert_id in merged_vert:
-                                merged_vert1.append(vert_id)
-                                merged_verts[vert_id] = merged_vert1
-
-                        else:
-
-                            merged_vert1.append(neighbor_vert2_id)
-                            merged_verts[neighbor_vert2_id] = merged_vert1
-
-            if gradual:
-
-                poly_count += 1
-
-                if poly_count == 20:
-                    yield
-                    poly_count = 0
-
-        smoothing_data = {"smoothing": smoothing_by_id}
-
-        yield smoothing_data
+        yield
 
     def create_geometry(self, obj_type="", gradual=False, restore=False):
 
@@ -544,11 +347,14 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         self._vertex_data["poly_picking"] = vertex_data_poly_picking
 
         points_prim = GeomPoints(Geom.UH_static)
+        points_prim.set_index_type(Geom.NT_uint32)
         points_prim.reserve_num_vertices(count)
         points_prim.add_next_vertices(count)
         lines_prim = GeomLines(Geom.UH_static)
+        lines_prim.set_index_type(Geom.NT_uint32)
         lines_prim.reserve_num_vertices(count * 2)
         tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.set_index_type(Geom.NT_uint32)
         tris_prim.reserve_num_vertices(tri_vert_count)
 
         if not restore:
@@ -562,28 +368,20 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         for poly in self.ordered_polys:
 
-            processed_verts = []
             row_index = 0
 
+            for vert in poly.vertices:
+
+                vert.offset_row_index(row_index_offset)
+
+                if not restore:
+                    pos_writer.add_data3(vert.get_pos())
+                    normal_writer.add_data3(vert.normal)
+                    vert.row_index = row_index
+                    row_index += 1
+
             for vert_ids in poly:
-
-                for vert_id in vert_ids:
-
-                    vert = verts[vert_id]
-
-                    if vert not in processed_verts:
-
-                        vert.offset_row_index(row_index_offset)
-
-                        if not restore:
-                            pos_writer.add_data3(vert.get_pos())
-                            normal_writer.add_data3(vert.normal)
-                            vert.row_index = row_index
-                            row_index += 1
-
-                        processed_verts.append(vert)
-
-                    tris_prim.add_vertex(vert.row_index)
+                tris_prim.add_vertices(*[verts[v_id].row_index for v_id in vert_ids])
 
             for edge in poly.edges:
                 row1, row2 = (verts[v_id].row_index for v_id in edge)
@@ -706,6 +504,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         # create the geom with the polygon picking colors
         tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.set_index_type(Geom.NT_uint32)
         tris_prim.reserve_num_vertices(3)
         tris_prim.set_vertices(GeomVertexArrayData(vertices))
         tris_geom = Geom(vertex_data_poly_picking)
@@ -717,6 +516,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         geoms["poly"]["pickable"] = poly_picking_geom
 
         tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.set_index_type(Geom.NT_uint32)
         tris_prim.reserve_num_vertices(3)
         tris_prim.set_vertices(GeomVertexArrayData(vertices))
         tris_geom = Geom(vertex_data_poly)
@@ -728,6 +528,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         geoms["poly"]["unselected"] = poly_unselected_geom
 
         tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.set_index_type(Geom.NT_uint32)
         tris_prim.reserve_num_vertices(3)
         tris_geom = Geom(vertex_data_poly)
         tris_geom.add_primitive(tris_prim)
@@ -1030,17 +831,13 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         vertex_data_top.set_array(3, GeomVertexArrayData(array))
 
-        self._is_tangent_space_initialized = True
+        self.is_tangent_space_initialized = True
 
     def init_tangent_space(self):
 
-        if not self._is_tangent_space_initialized:
+        if not self.is_tangent_space_initialized:
             tangent_flip, bitangent_flip = self.toplevel_obj.get_tangent_space_flip()
             self.update_tangent_space(tangent_flip, bitangent_flip)
-
-    def is_tangent_space_initialized(self):
-
-        return self._is_tangent_space_initialized
 
     def set_wireframe_color(self, color):
 

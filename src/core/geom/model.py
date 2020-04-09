@@ -1,5 +1,7 @@
 from ..base import *
+from . import catmull_clark
 import random
+import array
 
 
 class Model(TopLevelObject):
@@ -8,11 +10,9 @@ class Model(TopLevelObject):
 
         state = TopLevelObject.__getstate__(self)
 
-        state["_geom_obj"] = None
+        state["geom_obj"] = None
         state["_color"] = None
         state["_material"] = None
-        del state["geom_obj"]
-        state["_bbox"] = state.pop("bbox")
 
         return state
 
@@ -20,8 +20,6 @@ class Model(TopLevelObject):
 
         TopLevelObject.__setstate__(self, state)
 
-        state["geom_obj"] = state.pop("_geom_obj")
-        state["bbox"] = state.pop("_bbox")
         self.bbox.origin.reparent_to(self.origin)
         self.bbox.origin.hide()
         self.bbox.const_size_origin_modifier = self.__modify_const_size_bbox_origin
@@ -138,6 +136,9 @@ class Model(TopLevelObject):
         else:
             self.origin.clear_two_sided()
 
+        if self.geom_obj.type != "unlocked_geom":
+            self.geom_obj.set_two_sided(two_sided)
+
     def make_pickable(self, mask_index, pickable=True):
 
         self.geom_obj.make_pickable(mask_index, pickable)
@@ -207,21 +208,22 @@ class Model(TopLevelObject):
         old_geom_obj, self.geom_obj = self.geom_obj, geom_obj
         geom_obj.model = self
 
-        if old_geom_obj.type == "basic_geom":
+        if old_geom_obj.type == "unlocked_geom":
+            old_geom_obj.replace(geom_obj)
+        else:
             old_geom_obj.destroy()
-            if geom_obj.type == "basic_geom":
-                geom_obj.geom.reparent_to(self.origin)
+            if geom_obj.type != "unlocked_geom":
+                geom_obj.restore_geom_root()
                 geom_obj.register()
                 geom_obj.update_render_mode(self.is_selected())
-        else:
-            old_geom_obj.replace(geom_obj)
 
-        color = (.7, .7, 1., 1.) if geom_obj.type == "basic_geom" else (1., 1., 1., 1.)
+        color = (.7, .7, 1., 1.) if geom_obj.type == "locked_geom" else (1., 1., 1., 1.)
         self.bbox.color = color
 
-        if geom_obj.type == "basic_geom":
+        if geom_obj.type != "unlocked_geom":
 
-            self.bbox.update(geom_obj.geom.get_tight_bounds())
+            if geom_obj.geom:
+                self.bbox.update(geom_obj.geom.get_tight_bounds())
 
             if self._has_tangent_space:
                 geom_obj.init_tangent_space()
@@ -254,10 +256,10 @@ class Model(TopLevelObject):
 
             geom_obj = Mgr.do("load_last_from_history", obj_id, "geom_obj", new_time_id)
             self.__restore_geom_object(geom_obj, restore_type, old_time_id, new_time_id)
-            color = (.7, .7, 1., 1.) if geom_obj.type == "basic_geom" else (1., 1., 1., 1.)
+            color = (.7, .7, 1., 1.) if geom_obj.type == "locked_geom" else (1., 1., 1., 1.)
             self.bbox.color = color
 
-            if geom_obj.type == "basic_geom":
+            if geom_obj.type == "locked_geom":
                 self.bbox.update(geom_obj.geom.get_tight_bounds())
 
         else:
@@ -446,7 +448,7 @@ class Model(TopLevelObject):
     def is_tangent_space_initialized(self):
 
         if self.geom_obj:
-            return self.geom_obj.is_tangent_space_initialized()
+            return self.geom_obj.is_tangent_space_initialized
 
         return False
 
@@ -469,10 +471,12 @@ class ModelManager(ObjectManager):
         ObjectManager.__init__(self, "model", self.__create_model)
 
         GD.set_default("two_sided", False)
+        self._surface_subdivision_count = 1
         updater = lambda flip: self.__set_tangent_space_vector_flip("tangent", flip)
         Mgr.add_app_updater("tangent_flip", updater)
         updater = lambda flip: self.__set_tangent_space_vector_flip("bitangent", flip)
         Mgr.add_app_updater("bitangent_flip", updater)
+        Mgr.add_app_updater("subdivision_surfaces", self.__update_surface_subdivision)
 
     def __create_model(self, model_id, name, origin_pos, bbox_color=(1., 1., 1., 1.)):
 
@@ -509,6 +513,117 @@ class ModelManager(ObjectManager):
 
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+    def __update_surface_subdivision(self, update_type, *args):
+
+        if update_type == "count":
+            self._surface_subdivision_count = args[0]
+        elif update_type == "apply":
+            self.__subdivide_surfaces()
+
+    def __subdivide_object_surfaces(self, positions, uvs, faces, uv_faces):
+
+        data = catmull_clark.subdivide(positions, uvs, faces, uv_faces,
+            self._surface_subdivision_count)
+        positions = data["positions"]
+        uvs = data["uvs"]
+        faces = data["faces"]
+        uv_faces = data["uv_faces"]
+        count = len(uvs)
+        vertex_format = GeomVertexFormat.get_v3n3t2()
+        vertex_data = GeomVertexData("vert_data", vertex_format, Geom.UH_static)
+        vertex_data.reserve_num_rows(count)
+        vertex_data.set_num_rows(count)
+        memview = memoryview(vertex_data.modify_array(0)).cast("B").cast("f")
+        data_array = array.array("f", [])
+        face_normals = {}
+
+        for face in faces:
+
+            edge_vec1 = Point3(*positions[face[1]]) - Point3(*positions[face[0]])
+            edge_vec2 = Point3(*positions[face[2]]) - Point3(*positions[face[1]])
+            normal = edge_vec1.cross(edge_vec2)
+
+            for index in face:
+                face_normals.setdefault(index, []).append(normal)
+
+        vert_normals = [sum(face_normals[i], Vec3()).normalized() for i in range(len(positions))]
+        new_geom_data = catmull_clark.convert_data(data, vert_normals)
+
+        for uv, i in uvs:
+            data_array.extend(positions[i])
+            data_array.extend(vert_normals[i])
+            data_array.extend(uv)
+
+        memview[:] = data_array
+
+        prim = GeomTriangles(Geom.UH_static)
+        prim_size = len(uv_faces) * 6
+        int_format = "H"
+
+        if prim_size >= 2 ** 16:
+            prim.set_index_type(Geom.NT_uint32)
+            int_format = "I"
+
+        prim.reserve_num_vertices(prim_size)
+        prim_array = prim.modify_vertices()
+        prim_array.unclean_set_num_rows(prim_size)
+        memview = memoryview(prim_array).cast("B").cast(int_format)
+        data_array = array.array(int_format, [])
+
+        for (row0, row1, row2, row3) in uv_faces:
+            data_array.extend((row0, row1, row2, row0, row2, row3))
+
+        memview[:] = data_array
+
+        geom = Geom(vertex_data)
+        geom.add_primitive(prim)
+        geom_node = GeomNode("subdiv_mesh")
+        geom_node.add_geom(geom)
+
+        return NodePath(geom_node), new_geom_data
+
+    def __subdivide_surfaces(self):
+
+        if GD["active_obj_level"] != "top":
+            GD["active_obj_level"] = "top"
+            Mgr.update_app("active_obj_level")
+
+        Mgr.do("update_history_time")
+        obj_data = {}
+        models = Mgr.get("selection_top")
+
+        for model in models:
+
+            geom_obj = model.geom_obj
+            data = geom_obj.get_data_to_store("deletion")
+
+            if geom_obj.type == "unlocked_geom":
+                data.update(geom_obj.get_property_to_store("geom_data"))
+
+            subdiv_data = geom_obj.get_subdivision_data()
+            geom, geom_data = self.__subdivide_object_surfaces(*subdiv_data)
+            locked_geom = Mgr.do("create_locked_geom", geom, geom_data, model=model)
+            locked_geom.register(restore=False)
+            data.update(locked_geom.get_data_to_store("creation"))
+            obj_data[model.id] = data
+            geom_obj.destroy()
+            model.bbox.color = (.7, .7, 1., 1.)
+            model.bbox.update(geom.get_tight_bounds())
+
+        if len(models) == 1:
+            model = models[0]
+            event_descr = f'Subdivide surface of "{model.name}"'
+        else:
+            event_descr = 'Subdivide surface of objects:\n'
+            event_descr += "".join([f'\n    "{model.name}"' for model in models])
+
+        event_data = {"objects": obj_data}
+        Mgr.do("add_history", event_descr, event_data, update_time_id=False)
+
+        Mgr.do("update_picking_col_id_ranges")
+        Mgr.update_remotely("selected_obj_types", ("locked_geom",))
+        models.update_obj_props(force=True)
 
 
 MainObjects.add_class(ModelManager)

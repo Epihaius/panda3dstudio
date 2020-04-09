@@ -185,26 +185,11 @@ class TemporaryTexProjector:
     def finalize(self):
 
         pos = self.geom.get_pos(Mgr.get("grid").origin)
-
-        for step in Mgr.do("create_tex_projector", pos, self._size):
-            pass
-
+        Mgr.do("create_tex_projector", pos, self._size)
         self.destroy()
 
 
 class TexProjectorEdge:
-
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        state["_picking_col_id"] = state.pop("picking_color_id")
-
-        return state
-
-    def __setstate__(self, state):
-
-        state["picking_color_id"] = state.pop("_picking_col_id")
-        self.__dict__ = state
 
     def __init__(self, projector, axis, corner_index, picking_col_id):
 
@@ -1205,7 +1190,7 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
 
         target = Mgr.get("object", pixel_color=self._pixel_under_mouse)
 
-        if target and target.type == "model" and target.geom_type != "basic_geom":
+        if target and target.type == "model" and target.geom_type == "unlocked_geom":
 
             projectors = [obj for obj in Mgr.get("selection_top")
                           if obj.type == "tex_projector"]
@@ -1299,8 +1284,6 @@ class TexProjectorManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMa
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(projector)
-
-        yield False
 
     def __start_creation_phase1(self):
         """ start drawing out texture projector """

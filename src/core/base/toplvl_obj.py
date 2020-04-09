@@ -8,25 +8,17 @@ class TopLevelObject:
 
         state = self.__dict__.copy()
         state["_name"] = self._name.get_value()
-        state["_pivot"] = NodePath(self.pivot.name)
-        state["_origin"] = NodePath(self.origin.name)
+        state["pivot"] = NodePath(self.pivot.name)
+        state["origin"] = NodePath(self.origin.name)
         state["_child_ids"] = []
         state["_parent_id"] = None
         state["_group_id"] = None
         del state["pivot_gizmo"]
-        del state["pivot"]
-        del state["origin"]
-        state["_type"] = state.pop("type")
-        state["_id"] = state.pop("id")
 
         return state
 
     def __setstate__(self, state):
 
-        state["type"] = state.pop("_type")
-        state["id"] = state.pop("_id")
-        state["pivot"] = state.pop("_pivot")
-        state["origin"] = state.pop("_origin")
         self.__dict__ = state
 
         self._name = ObjectName(state["_name"])
@@ -56,6 +48,7 @@ class TopLevelObject:
         self.pivot = pivot
         self.origin = pivot.attach_new_node(f"{obj_id}origin")
         self._has_color = has_color
+        self.tags = {}
 
         grid = Mgr.get("grid")
         active_grid_plane = grid.plane_id
@@ -638,25 +631,6 @@ class TopLevelObject:
             transform["scale"] = (sx, sy, sz)
 
         return transform
-
-    @property
-    def tags(self):
-
-        orig = self.origin
-        tags = {key: orig.get_tag(key) for key in orig.get_tag_keys()}
-
-        return tags
-
-    @tags.setter
-    def tags(self, tags):
-
-        orig = self.origin
-
-        for key in orig.get_tag_keys():
-            orig.clear_tag(key)
-
-        for key, val in tags.items():
-            orig.set_tag(key, val)
 
     def set_selected(self, is_selected=True, add_to_hist=True):
 

@@ -46,7 +46,7 @@ class ExtrusionInsetMixin:
         edge_vert_ids1 = []
         computed_extr1_vecs = []
         computed_extr3_vecs = []
-        sign = -1 if self.owner.has_flipped_normals() else 1
+        sign = -1 if self.owner.has_inverted_geometry() else 1
 
         def get_poly_neighbor_ids(poly):
             """
@@ -434,6 +434,7 @@ class ExtrusionInsetMixin:
         vertex_data.reserve_num_rows(sum(p.vertex_count for p in target_polys))
 
         prim = GeomTriangles(Geom.UH_static)
+        prim.set_index_type(Geom.NT_uint32)
         prim.reserve_num_vertices(sum(len(p) for p in target_polys))
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         normal_writer = GeomVertexWriter(vertex_data, "normal")
@@ -446,7 +447,7 @@ class ExtrusionInsetMixin:
         inset2_writer = GeomVertexWriter(vertex_data, "inset2_vec")
 
         count = 0
-        sign = -1 if self.owner.has_flipped_normals() else 1
+        sign = -1 if self.owner.has_inverted_geometry() else 1
         data = self.__compute_extr_inset_data()
 
         for poly_id in target_poly_ids:
@@ -491,18 +492,14 @@ class ExtrusionInsetMixin:
         geom_node.add_geom(geom)
         inset_geom = self.origin.attach_new_node(geom_node)
         inset_geom.show_through(render_mask)
-        sh = shaders.extrusion_inset
-        vs = sh.VERT_SHADER
-        fs = sh.FRAG_SHADER
-        gs = sh.GEOM_SHADER
-        shader = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+        shader = shaders.Shaders.extrusion_inset
         inset_geom.set_shader(shader)
         inset_geom.set_shader_input("extrusion", extrusion)
         inset_geom.set_shader_input("inset", inset)
         inset_geom.set_shader_input("extr_inset_type", extr_inset_type)
         self._tmp_geom = inset_geom
 
-        if self.owner.has_flipped_normals():
+        if self.owner.has_inverted_geometry():
             state = inset_geom.get_state()
             cull_attr = CullFaceAttrib.make(CullFaceAttrib.M_cull_counter_clockwise)
             state = state.add_attrib(cull_attr)
@@ -716,7 +713,7 @@ class ExtrusionInsetMixin:
         if not target_poly_ids:
             return False
 
-        sign = -1 if self.owner.has_flipped_normals() else 1
+        sign = -1 if self.owner.has_inverted_geometry() else 1
 
         if not data:
             data = self.__compute_extr_inset_data()
@@ -1006,6 +1003,7 @@ class ExtrusionInsetMixin:
         vertex_data.reserve_num_rows(sum(p.vertex_count for p in polys.values()))
 
         prim = GeomTriangles(Geom.UH_static)
+        prim.set_index_type(Geom.NT_uint32)
         prim.reserve_num_vertices(sum(len(p) for p in polys.values()))
         pos_writer = GeomVertexWriter(vertex_data, "vertex")
         normal_writer = GeomVertexWriter(vertex_data, "normal")
@@ -1013,7 +1011,7 @@ class ExtrusionInsetMixin:
         extr_writer = GeomVertexWriter(vertex_data, "extrusion_vec")
 
         count = 0
-        sign = -1 if self.owner.has_flipped_normals() else 1
+        sign = -1 if self.owner.has_inverted_geometry() else 1
         poly_ids = list(polys)
         data = self.__compute_extr_inset_data(main_extr_vec_only=True, poly_ids=poly_ids)
 
@@ -1048,17 +1046,13 @@ class ExtrusionInsetMixin:
         geom_node = GeomNode("solidify_geom")
         geom_node.add_geom(geom)
         solidify_geom = self.origin.attach_new_node(geom_node)
-        sh = shaders.solidify
-        vs = sh.VERT_SHADER
-        fs = sh.FRAG_SHADER
-        gs = sh.GEOM_SHADER
-        shader = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+        shader = shaders.Shaders.solidify
         solidify_geom.set_shader(shader)
         solidify_geom.set_shader_input("thickness", thickness)
         solidify_geom.set_shader_input("offset", offset)
         self._tmp_geom = solidify_geom
 
-        if self.owner.has_flipped_normals():
+        if self.owner.has_inverted_geometry():
             state = solidify_geom.get_state()
             cull_attr = CullFaceAttrib.make(CullFaceAttrib.M_cull_counter_clockwise)
             state = state.add_attrib(cull_attr)

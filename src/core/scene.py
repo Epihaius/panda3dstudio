@@ -1,6 +1,9 @@
 from .base import *
 
 
+FILE_VERSION = "1.0.0"
+
+
 class SceneManager:
 
     def __init__(self):
@@ -85,27 +88,9 @@ class SceneManager:
 
         Mgr.update_remotely("scene_label", "New")
 
-    def __load(self, filename):
+    def __load_scene(self, scene_file):
 
         self.__reset()
-
-        scene_file = Multifile()
-        scene_file.open_read(Filename(filename))
-        valid_file = True
-
-        if not scene_file.is_read_valid():
-            Mgr.update_remotely("scene_load_error", filename, "read")
-            valid_file = False
-        elif scene_file.find_subfile("Panda3DStudio") == -1:
-            Mgr.update_remotely("scene_load_error", filename, "id")
-            valid_file = False
-
-        if not valid_file:
-            scene_file.close()
-            task = lambda: Mgr.update_remotely("scene_label", "New")
-            task_id = "set_scene_label"
-            PendingTasks.add(task, task_id, "ui")
-            return
 
         handler = lambda info: self.__reset()
         Mgr.add_notification_handler("long_process_cancelled", "scene_mgr", handler, once=True)
@@ -122,8 +107,7 @@ class SceneManager:
 
         GD["loading_scene"] = True
         Mgr.update_remotely("screenshot", "create")
-        scene_data_str = scene_file.read_subfile(scene_file.find_subfile("scene/data"))
-        scene_data = pickle.loads(scene_data_str)
+        scene_data = pickle.loads(scene_file.read_subfile(scene_file.find_subfile("scene/data")))
         Mgr.do("set_material_library", scene_data["material_library"])
         Mgr.do("load_history", scene_file)
         scene_file.close()
@@ -180,9 +164,9 @@ class SceneManager:
                 x_type = scene_data[x]["type"]
                 obj = Mgr.get("object", scene_data[x]["obj_id"])
                 name_obj = obj.name_obj if obj else None
-                transform = scene_data[x].get("custom_transform", [])
+                transform = scene_data[x]["custom_transform"]
                 Mgr.do(f"set_custom_{x}_transform", *transform)
-                stored_transforms = scene_data[x].get("stored_transforms", {})
+                stored_transforms = scene_data[x]["stored_transforms"]
                 Mgr.do(f"set_stored_{x}_transforms", stored_transforms)
                 Mgr.update_locally(x, x_type, obj)
                 Mgr.update_remotely(x, x_type, name_obj)
@@ -193,7 +177,54 @@ class SceneManager:
         PendingTasks.add(task, task_id, "ui", sort=100)
 
         PendingTasks.handle(["object", "ui"], True)
-        GD["open_file"] = filename
+
+    def __load(self, filename):
+
+        path = Filename.from_os_specific(filename).get_fullpath()
+        scene_file = Multifile()
+        scene_file.open_read(Filename(path))
+
+        def load():
+
+            self.__load_scene(scene_file)
+            GD["open_file"] = path
+            Mgr.update_remotely("scene_label", filename)
+
+        def cancel():
+
+            scene_file.close()
+
+        handlers = (load, cancel)
+        valid_file = True
+        prefixes = ("major", "minor", "patched")
+
+        if not scene_file.is_read_valid():
+            Mgr.update_remotely("scene_load_error", path, "read")
+            valid_file = False
+        elif scene_file.find_subfile("Panda3DStudio") == -1:
+            Mgr.update_remotely("scene_load_error", path, "id")
+            valid_file = False
+        elif scene_file.find_subfile("version") == -1:
+            Mgr.update_remotely("scene_load_error", path, "major_older_version")
+            valid_file = False
+        else:
+            version = pickle.loads(scene_file.read_subfile(scene_file.find_subfile("version")))
+            if version != FILE_VERSION:
+                for i, (n1, n2) in enumerate(zip(version.split("."), FILE_VERSION.split("."))):
+                    prefix = prefixes[i]
+                    if int(n1) != int(n2):
+                        valid_file = False
+                    if int(n1) < int(n2):
+                        Mgr.update_remotely("scene_load_error", path,
+                            prefix + "_older_version", handlers)
+                        break
+                    elif int(n1) > int(n2):
+                        Mgr.update_remotely("scene_load_error", path,
+                            prefix + "_newer_version", handlers)
+                        break
+
+        if valid_file:
+            load()
 
     def __save(self, filename, set_saved_state=True):
 
@@ -224,6 +255,8 @@ class SceneManager:
         scene_file.open_write(Filename(filename))
         id_stream = StringStream()
         scene_file.add_subfile("Panda3DStudio", id_stream, 9)
+        version_stream = StringStream(pickle.dumps(FILE_VERSION, -1))
+        scene_file.add_subfile("version", version_stream, 9)
         scene_data_stream = StringStream(pickle.dumps(scene_data, -1))
         scene_file.add_subfile("scene/data", scene_data_stream, 9)
         Mgr.do("save_history", scene_file, set_saved_state)

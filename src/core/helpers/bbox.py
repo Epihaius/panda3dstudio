@@ -3,18 +3,6 @@ from ..base import *
 
 class BBoxEdge:
 
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        state["_picking_col_id"] = state.pop("picking_color_id")
-
-        return state
-
-    def __setstate__(self, state):
-
-        state["picking_color_id"] = state.pop("_picking_col_id")
-        self.__dict__ = state
-
     def __init__(self, bbox, axis, corner_index, picking_col_id):
 
         self._bbox = bbox
@@ -152,8 +140,6 @@ class BoundingBox:
 
         state = self.__dict__.copy()
         state["_is_registered"] = False
-        state["_owner"] = state.pop("owner")
-        state["_origin"] = state.pop("origin")
         del state["has_zero_size_owner"]
         del state["compass_target"]
         del state["const_size_origin_modifier"]
@@ -162,24 +148,10 @@ class BoundingBox:
 
     def __setstate__(self, state):
 
-        state["owner"] = state.pop("_owner")
-        state["origin"] = state.pop("_origin")
         self.__dict__ = state
         self.has_zero_size_owner = False
         self.compass_target = None
         self.const_size_origin_modifier = None
-        pickable_type_id = PickableTypes.get_id("bbox_edge")
-        vertex_data = self.origin.node().modify_geom(0).modify_vertex_data()
-        col_rewriter = GeomVertexRewriter(vertex_data, "color")
-        col_rewriter.set_row(0)
-        r, g, b, a = col_rewriter.get_data4()
-
-        if int(round(a * 255.)) != pickable_type_id:
-            a = pickable_type_id / 255.
-            col_rewriter.set_data4(r, g, b, a)
-            while not col_rewriter.is_at_end():
-                r, g, b, _ = col_rewriter.get_data4()
-                col_rewriter.set_data4(r, g, b, a)
 
     def __init__(self, owner, color):
 

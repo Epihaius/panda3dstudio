@@ -71,6 +71,8 @@ class SnapManager:
         self._projected_snap_target_marker = proj_marker
         self._rubber_band = rubber_band
 
+        PickableTypes.add("snap_geom")
+
         Mgr.expose("snap_target_subobj", lambda: self._snap_target_subobj)
         Mgr.expose("snap_target_point", lambda: self._snap_target_point)
         Mgr.accept("set_creation_start_snap", self.__set_creation_start)
@@ -197,7 +199,7 @@ class SnapManager:
         positions = ((-1., 0., 0.), (1., 0., 0.), (0., 0., -1.), (0., 0., 1.))
 
         for i, pos in enumerate(positions):
-            memview[stride * i:stride * (i + 1)] = struct.pack("fff", *pos)
+            memview[stride * i:stride * (i + 1)] = struct.pack("3f", *pos)
 
         lines = GeomLines(Geom.UH_static)
         lines.add_next_vertices(4)
@@ -217,7 +219,7 @@ class SnapManager:
         positions = ((-1., 0., -1.), (1., 0., 1.), (1., 0., -1.), (-1., 0., 1.))
 
         for i, pos in enumerate(positions):
-            memview[stride * i:stride * (i + 1)] = struct.pack("fff", *pos)
+            memview[stride * i:stride * (i + 1)] = struct.pack("3f", *pos)
 
         lines = GeomLines(Geom.UH_static)
         lines.add_next_vertices(4)
@@ -256,7 +258,7 @@ class SnapManager:
     def __get_selected_models(self, include_linked=False):
 
         sel = Mgr.get("selection_top")
-        models = [o for o in sel if o.type == "model" and o.geom_type != "basic_geom"]
+        models = [o for o in sel if o.type == "model" and o.geom_type == "unlocked_geom"]
 
         if include_linked:
             for obj in sel:
@@ -303,7 +305,7 @@ class SnapManager:
     def __make_subobjs_pickable(self, subobj_lvl, pickable=True):
 
         obj_lvl = GD["active_obj_level"]
-        models = set(m for m in Mgr.get("model_objs") if m.geom_type != "basic_geom")
+        models = set(m for m in Mgr.get("model_objs") if m.geom_type == "unlocked_geom")
         exclude_selection = Mgr.get_state_id() == "transforming"
 
         if obj_lvl == "top" and exclude_selection:
@@ -341,7 +343,7 @@ class SnapManager:
             else:
                 obj.make_pickable(1)
         elif tgt_type in ("vert", "edge", "poly"):
-            if obj.type == "model" and obj.geom_type != "basic_geom":
+            if obj.type == "model" and obj.geom_type == "unlocked_geom":
                 geom_data_obj = obj.geom_obj.geom_data_obj
                 geom_data_obj.make_subobjs_pickable(tgt_type, 1)
 
@@ -368,12 +370,12 @@ class SnapManager:
             selection = Mgr.get("selection_top")
 
             for obj in selection:
-                if obj.type == "model" and obj.geom_type != "basic_geom":
+                if obj.type == "model" and obj.geom_type == "unlocked_geom":
                     geom_data_obj = obj.geom_obj.geom_data_obj
                     geom_data_obj.make_subobjs_pickable(new_subobj_lvl, 1, False)
 
             for model in models:
-                if model.geom_type != "basic_geom":
+                if model.geom_type == "unlocked_geom":
                     geom_data_obj = model.geom_obj.geom_data_obj
                     geom_data_obj.make_subobjs_pickable(old_subobj_lvl, 1, False)
                     geom_data_obj.make_subobjs_pickable(new_subobj_lvl, 1)
@@ -505,6 +507,11 @@ class SnapManager:
                         obj.make_pickable(False)
         else:
             self.__make_subobjs_pickable(tgt_type)
+            models = set(m for m in Mgr.get("model_objs") if m.geom_type != "unlocked_geom")
+            if Mgr.get_state_id() == "transforming":
+                models.difference_update(self.__get_objs_to_transform())
+            for model in models:
+                model.geom_obj.enable_snap(tgt_type)
 
         Mgr.render_frame()
         Mgr.remove_task("update_snap_target_cursor")
@@ -557,6 +564,11 @@ class SnapManager:
                         obj.make_pickable()
         else:
             self.__make_subobjs_pickable(tgt_type, False)
+            models = set(m for m in Mgr.get("model_objs") if m.geom_type != "unlocked_geom")
+            if Mgr.get_state_id() == "transforming":
+                models.difference_update(self.__get_objs_to_transform())
+            for model in models:
+                model.geom_obj.enable_snap(tgt_type, False)
 
     def __force_cursor_update(self):
 
@@ -599,9 +611,14 @@ class SnapManager:
                         else:
                             self._snap_target_point = obj.get_center_pos(grid_origin)
             else:
-                r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
-                pickable_type = PickableTypes.get(a)
-                if pickable_type == tgt_type:
+                r, g, b, a = pixel_under_mouse
+                pickable_type = PickableTypes.get(int(round(a * 255.)))
+                if pickable_type == "snap_geom":
+                    self._snap_target_subobj = None
+                    point = Point3(r, g, b)
+                    self._snap_target_point = grid_origin.get_relative_point(GD.world, point)
+                elif pickable_type == tgt_type:
+                    r, g, b = [int(round(c * 255.)) for c in (r, g, b)]
                     color_id = r << 16 | g << 8 | b
                     subobj = Mgr.get(tgt_type, color_id)
                     self._snap_target_subobj = subobj
@@ -634,7 +651,7 @@ class SnapManager:
                         rubber_band = self._rubber_band
                         rubber_band.show()
                         pos = point - self._transf_start_pos
-                        pos_data = struct.pack("fff", *pos)
+                        pos_data = struct.pack("3f", *pos)
                         array = rubber_band.node().modify_geom(0).modify_vertex_data().modify_array(0)
                         stride = array.array_format.stride
                         memview = memoryview(array).cast("B")

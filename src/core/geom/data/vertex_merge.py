@@ -5,16 +5,33 @@ class VertexMerger:
 
     def __init__(self):
 
+        self.__clear()
+
         Mgr.accept("merge_duplicate_verts", self.__merge_duplicate_verts)
 
-    def __merge_duplicate_verts(self, geom_data_obj):
+    def __clear(self):
+
+        self.rows = []
+        self.dupes = {}
+        self.verts1 = []
+        self.verts2 = []
+        self.geom = None
+        self.vdata_dest = None
+        self.prim_dest = None
+
+    def __merge_duplicate_verts(self, geom_data_obj, return_row_change=False):
 
         self.__check_duplicate_verts(geom_data_obj)
         self.__create_vertex_data(geom_data_obj)
-        self.__create_geom_primitive()
-        geom_node = self.__create_geom_node()
+        row_change = self.__create_geom_primitive(return_row_change)
+        geom_node = self.__create_geom_node(geom_data_obj)
 
-        return NodePath(geom_node)
+        self.__clear()
+
+        if return_row_change:
+            return NodePath(geom_node), row_change
+        else:
+            return NodePath(geom_node)
 
     def __set_merged_verts_to_compare(self, verts, merged_vert):
 
@@ -65,10 +82,11 @@ class VertexMerger:
         for row2, row1 in list(self.dupes.items()):
             self.dupes[row2] = self.rows.index(row1)
 
-    def __create_geom_primitive(self): 
+    def __create_geom_primitive(self, return_row_change): 
 
         prim_src = self.geom.get_primitive(0)
         self.prim_dest = prim_dest = GeomTriangles(Geom.UH_static)
+        prim_dest.set_index_type(Geom.NT_uint32)
         rows_src = prim_src.get_vertex_list()
         dupes = self.dupes
         rows = self.rows
@@ -77,10 +95,17 @@ class VertexMerger:
         for indices in (rows_dest[i:i + 3] for i in range(0, len(rows_dest), 3)):
             prim_dest.add_vertices(*indices)
 
-    def __create_geom_node(self):
+        if return_row_change:
+            return dict(zip(rows_src, rows_dest))
+
+    def __create_geom_node(self, geom_data_obj):
 
         geom_dest = Geom(self.vdata_dest)
         geom_dest.add_primitive(self.prim_dest)
+
+        if geom_data_obj.has_inverted_geometry():
+            geom_dest.reverse_in_place()
+
         geom_node = GeomNode("")
         geom_node.add_geom(geom_dest)
 
@@ -91,7 +116,6 @@ class VertexMerger:
         verts = geom_data_obj.get_subobjects("vert")
         merged_verts = set(geom_data_obj.merged_verts.values())
         self.rows = list(range(len(verts)))
-        self.dupes = {}
 
         for merged_vert in merged_verts:
             self.__set_merged_verts_to_compare(verts, merged_vert)

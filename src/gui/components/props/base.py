@@ -132,14 +132,34 @@ class PropertyPanel(Panel):
 
         section = self.add_section("surface_props", "Surface properties", hidden=True)
 
-        command = lambda on: Mgr.update_remotely("normal_flip", on)
+        command = lambda on: Mgr.update_remotely("inverted_geom", on)
         text = "Invert (render inside-out)"
         checkbtn = PanelCheckButton(section, command, text)
-        self._checkbuttons["normal_flip"] = checkbtn
+        self._checkbuttons["inverted_geom"] = checkbtn
         borders = (2, 2, 2, 6)
         section.add(checkbtn, borders=borders)
 
         section.add((0, 8))
+
+        group = section.add_group("Subdivision")
+
+        sizer = Sizer("horizontal")
+        group.add(sizer, expand=True)
+
+        text = "Subdivide"
+        tooltip_text = "Smooth mesh using surface subdivision"
+        btn = PanelButton(group, text, "", tooltip_text, command=command)
+        btn.command = lambda: Mgr.update_remotely("subdivision_surfaces", "apply")
+        sizer.add(btn, alignment="center_v")
+        prop_id = "subdivision_count"
+        handler = lambda *args: Mgr.update_remotely("subdivision_surfaces", "count", args[1])
+        field = PanelSpinnerField(group, prop_id, "int", (1, 4), 1, handler, 10)
+        field.set_input_parser(self.__parse_subdivision_count)
+        field.set_value(1)
+        borders = (5, 0, 0, 0)
+        sizer.add(field, proportion=1., alignment="center_v", borders=borders)
+        text = "times"
+        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
 
         group = section.add_group("Tangent space")
 
@@ -235,10 +255,10 @@ class PropertyPanel(Panel):
             props = self._properties
             base_types = set(props[o_type].get_base_type() for o_type in obj_types)
 
-            if base_types and not base_types - set(["primitive", "basic_geom"]):
+            if base_types and not base_types - set(["primitive", "locked_geom"]):
                 self.show_container("bottom")
 
-            if base_types and not base_types - set(["primitive", "editable_geom", "basic_geom"]):
+            if base_types and not base_types - set(["primitive", "locked_geom", "unlocked_geom"]):
                 self.get_section("surface_props").show()
 
             self.get_section("create").hide()
@@ -264,6 +284,13 @@ class PropertyPanel(Panel):
             return name
 
         return name if name else None
+
+    def __parse_subdivision_count(self, input_text):
+
+        try:
+            return max(1, min(4, int(eval(input_text))))
+        except:
+            return None
 
     def __update_selection(self, obj_id):
 
@@ -336,7 +363,7 @@ class PropertyPanel(Panel):
 
         obj_type = self._obj_types[0] if len(self._obj_types) == 1 else ""
 
-        if not obj_type or obj_type == "editable_geom":
+        if not obj_type or obj_type == "unlocked_geom":
             return
 
         next_color = GD[f"next_{obj_type}_color"]
@@ -466,12 +493,12 @@ class PropertyPanel(Panel):
 
         base_types = set(props[o_type].get_base_type() for o_type in obj_types)
 
-        if base_types and not base_types - set(["primitive", "basic_geom"]):
+        if base_types and not base_types - set(["primitive", "locked_geom"]):
             self.show_container("bottom")
         else:
             self.show_container("bottom", False)
 
-        if base_types and not base_types - set(["primitive", "editable_geom", "basic_geom"]):
+        if base_types and not base_types - set(["primitive", "locked_geom", "unlocked_geom"]):
             self.get_section("surface_props").show()
         else:
             self.get_section("surface_props").hide()

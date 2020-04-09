@@ -179,8 +179,17 @@ class ImportDialog(Dialog):
         info += '\n    \u2022 the unique name the object will have in the scene (editable);'
         info += '\n    \u2022 the object hierarchy.'
         text = DialogText(self, info)
-        borders = (50, 50, 20, 20)
+        borders = (50, 50, 0, 20)
         client_sizer.add(text, borders=borders)
+
+        def handler(quadrangulate):
+
+            hierarchy["quadrangulate"] = quadrangulate
+
+        text = "Quadrangulate geometry"
+        checkbtn = DialogCheckButton(self, handler, text)
+        borders = (50, 50, 10, 10)
+        client_sizer.add(checkbtn, borders=borders)
 
         self._object_pane = pane = ObjectPane(self, hierarchy, new_obj_names)
         frame = pane.frame

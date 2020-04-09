@@ -1,7 +1,7 @@
 from .base import *
 
 
-class BasicGeomProperties:
+class LockedGeomProperties:
 
     def __init__(self, panel):
 
@@ -9,7 +9,7 @@ class BasicGeomProperties:
         self._fields = {}
         self._checkbuttons = {}
 
-        section = panel.add_section("basic_geom_props", "Options", hidden=True)
+        section = panel.add_section("locked_geom_props", "Options", hidden=True)
 
         group = section.add_group("Vertex normals")
 
@@ -76,15 +76,15 @@ class BasicGeomProperties:
 
     def setup(self):
 
-        self._panel.get_section("basic_geom_props").expand(False)
+        self._panel.get_section("locked_geom_props").expand(False)
 
     def get_base_type(self):
 
-        return "basic_geom"
+        return "locked_geom"
 
     def get_section_ids(self):
 
-        return ["basic_geom_props"] + self.get_extra_section_ids()
+        return ["locked_geom_props"] + self.get_extra_section_ids()
 
     def get_extra_section_ids(self):
 
@@ -172,4 +172,4 @@ class BasicGeomProperties:
             return None
 
 
-PropertyPanel.add_properties("basic_geom", BasicGeomProperties)
+PropertyPanel.add_properties("locked_geom", LockedGeomProperties)

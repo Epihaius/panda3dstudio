@@ -28,7 +28,7 @@ GEOM_SHADER = """
 
     layout(points) in;
 
-    // Three lines will be generated: 6 vertices
+    // One line will be generated: 2 vertices
     layout(line_strip, max_vertices=2) out;
 
     uniform mat4 p3d_ModelViewProjectionMatrix;

@@ -1,76 +1,96 @@
 from .base import *
-from math import pi, sin, cos
-
-
-def _get_mesh_density(segments):
-
-    poly_count = segments["circular"] * segments["height"]
-    poly_count += 2 * segments["circular"] * segments["caps"]
-
-    return poly_count
+from math import pi, sin, cos, sqrt
+import array
 
 
 def _define_geom_data(segments, smooth, temp=False):
 
     geom_data = []
+    pos_objs = []
     positions_main = []
+    # keep track of row indices, one SparseArray per generatrix;
+    # compute the initial vertex positions the same for all generatrices, as if
+    # they were all lying in the front plane, centered at the cone origin;
+    # these will then be transformed with the following matrix:
+    #     shear_mat (delta_radius) * scale_mat (height) * translate_mat (bottom_radius)
+    #     * rotate_mat (generatrix angle)
+    # for each generatrix, using the corresponding SparseArray.
+    generatrix_arrays = []
+    generatrix_arrays_by_vert_id = {}
+    generatrix_rot_by_vert_id = {}
 
     if not temp:
         uvs_main = []
-        smoothing_ids = [(0, smooth)]
 
     segs_c = segments["circular"]
     segs_h = segments["height"]
     segs_cap = segments["caps"]
-
-    angle = 2 * pi / segs_c
+    d_h = 1. / segs_h
+    generatrix_pos = [(0., 0., d_h * i) for i in range(segs_h + 1)]
 
     # Define vertex data
 
     vert_id = 0
+    angle_h = 360. / segs_c
+    up_vec = Vec3.up()
+    translate_mat = Mat4.translate_mat(1., 0., 0.)
 
-    for i in range(segs_h + 1):
+    for i in range(segs_c):
 
-        z = 1. - i / segs_h
+        if not temp:
+            u = i / segs_c
 
-        for j in range(segs_c + 1):
+        # two SparseArrays are needed; one for per-poly vertices (to shape the main geom)
+        # and another for per-triangle vertices (to shape the auxiliary geom, used for
+        # wireframe display and snapping)
+        sparse_arrays = (SparseArray(), SparseArray())
+        generatrix_arrays.append(sparse_arrays)
+        mat = translate_mat * Mat4.rotate_mat_normaxis(angle_h * i, up_vec)
 
-            angle_h = angle * j
-            x = cos(angle_h)
-            y = sin(angle_h)
+        for j in range(segs_h + 1):
 
-            if j < segs_c:
-                pos = (x, y, z)
-                pos_obj = PosObj(pos)
-            else:
-                pos_obj = positions_main[vert_id - segs_c]
-
+            pos_obj = PosObj(generatrix_pos[j])
+            pos_objs.append(pos_obj)
             positions_main.append(pos_obj)
 
             if not temp:
-                u = j / segs_c
-                uvs_main.append((u, z))
+                v = d_h * j
+                uvs_main.append((u, v))
 
+            generatrix_arrays_by_vert_id[vert_id] = sparse_arrays
+            generatrix_rot_by_vert_id[vert_id] = mat
             vert_id += 1
+
+    positions_main.extend(positions_main[:segs_h + 1])
+    sparse_arrays = generatrix_arrays[0]
+    generatrix_arrays_by_vert_id.update({vi: sparse_arrays
+        for vi in range(vert_id, vert_id + segs_h + 1)})
+    generatrix_rot_by_vert_id.update({vi: translate_mat
+        for vi in range(vert_id, vert_id + segs_h + 1)})
+
+    if not temp:
+        for u, v in uvs_main[:segs_h + 1]:
+            uvs_main.append((1., v))
 
     if segs_cap:
 
-        positions_cap_lower = positions_main[-segs_c - 1:]
-        positions_cap_upper = positions_main[:segs_c + 1]
-        positions_cap_upper.reverse()
+        angle = 2 * pi / segs_c
+
+        positions_cap_lower = positions_main[::segs_h + 1]
+        positions_cap_upper = positions_main[segs_h::segs_h + 1][::-1]
 
         if not temp:
             uvs_cap_lower = []
             uvs_cap_upper = []
 
-        def add_cap_data(cap):
+        def add_cap_data(cap_id):
 
             # Add data related to vertices along the cap segments
 
-            if cap == "lower":
+            if cap_id == "bottom":
 
                 positions = positions_cap_lower
-                z = 0.
+                z = -1.
                 y_factor = 1.
 
                 if not temp:
@@ -107,6 +127,7 @@ def _define_geom_data(segments, smooth, temp=False):
                     if j < segs_c:
                         pos = (x, y, z)
                         pos_obj = PosObj(pos)
+                        pos_objs.append(pos_obj)
                     else:
                         pos_obj = positions[vert_id - segs_c]
 
@@ -121,91 +142,99 @@ def _define_geom_data(segments, smooth, temp=False):
 
             pos = (0., 0., z)
             pos_obj = PosObj(pos)
+            pos_objs.append(pos_obj)
             positions.append(pos_obj)
 
             if not temp:
                 uvs.append((.5, .5))
 
-        add_cap_data("lower")
-        add_cap_data("upper")
+        add_cap_data("bottom")
+        add_cap_data("top")
+
+    flat_normals = array.array("f", [])
+    smooth_normals = array.array("f", [])
+    normals = {"flat": flat_normals, "smooth": smooth_normals}
 
     # Define faces
 
-    z_vec = V3D(0., 0., 1.)
+    row = 0
+    row_alt = 0
+    vec = Vec3(1., 0., 1.)
 
-    def convert_pos_to_normal(vert_index):
+    for i in range(segs_c):
 
-        normal = Vec3(*positions_main[vert_index])
-        normal[2] = 0.
-        normal.normalize()
-
-        return normal
-
-    for i in range(segs_h):
-
-        s = segs_c + 1
+        s = segs_h + 1
         k = i * s
 
-        for j in range(segs_c):
+        for j in range(segs_h):
 
             vi1 = k + j
             vi2 = vi1 + s
             vi3 = vi2 + 1
             vi4 = vi1 + 1
-            vert_ids = (vi1, vi2, vi3)
-            tri_data1 = []
+            vert_data = {}
+            vert_ids = (vi1, vi2, vi3, vi4)
 
-            if not smooth:
-                plane = Plane(*[Point3(*positions_main[vi]) for vi in vert_ids])
-                poly_normal = plane.get_normal()
-
-            get_normal = lambda i: convert_pos_to_normal(i) if smooth else poly_normal
+            plane_points = [generatrix_rot_by_vert_id[vi].xform_point(Point3(*positions_main[vi]))
+                for vi in vert_ids[:3]]
+            plane = Plane(*plane_points)
+            poly_normal = plane.get_normal()
+            poly_normal.z = 1.
 
             for vi in vert_ids:
 
                 pos = positions_main[vi]
-                normal = get_normal(vi)
+                h_mat = generatrix_rot_by_vert_id[vi]
+                smooth_normal = h_mat.xform_vec(vec)
+                normal = smooth_normal if smooth else poly_normal
+                flat_normals.extend(poly_normal)
+                smooth_normals.extend(smooth_normal)
 
                 if temp:
-                    tri_data1.append({"pos": pos, "normal": normal})
+                    vert_data[vi] = {"pos": pos, "normal": normal}
                 else:
                     uv = uvs_main[vi]
-                    tri_data1.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+                    vert_data[vi] = {"pos": pos, "normal": normal, "uvs": {0: uv},
+                        "pos_ind": pos_objs.index(pos)}
+
+                generatrix_arrays_by_vert_id[vi][0].set_bit(row)
+                row += 1
+
+            poly_verts = [vert_data[vi] for vi in vert_ids]
+            vert_ids = (vi1, vi2, vi3)
+            tri_data1 = [vert_data[vi] for vi in vert_ids]
+
+            for vi in vert_ids:
+                generatrix_arrays_by_vert_id[vi][1].set_bit(row_alt)
+                row_alt += 1
 
             vert_ids = (vi1, vi3, vi4)
-            tri_data2 = []
+            tri_data2 = [vert_data[vi] for vi in vert_ids]
 
             for vi in vert_ids:
+                generatrix_arrays_by_vert_id[vi][1].set_bit(row_alt)
+                row_alt += 1
 
-                pos = positions_main[vi]
-                normal = get_normal(vi)
-
-                if temp:
-                    tri_data2.append({"pos": pos, "normal": normal})
-                else:
-                    uv = uvs_main[vi]
-                    tri_data2.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
-
-            if temp:
-                poly_data = (tri_data1, tri_data2)  # quadrangular face
-            else:
-                tris = (tri_data1, tri_data2)  # quadrangular face
-                poly_data = {"tris": tris, "smoothing": smoothing_ids}
-
+            tris = (tri_data1, tri_data2)  # quadrangular face
+            poly_data = {"verts": poly_verts, "tris": tris}
             geom_data.append(poly_data)
+
+    cap_arrays = {"bottom": (SparseArray(), SparseArray()), "top":  (SparseArray(), SparseArray())}
 
     if segs_cap:
 
-        def define_cap_faces(cap):
+        def define_cap_faces(cap_id, row_start, row_alt_start):
 
-            if cap == "lower":
+            row = row_start
+            row_alt = row_alt_start
+
+            if cap_id == "bottom":
 
                 positions = positions_cap_lower
                 sign = 1.
 
                 if not temp:
                     uvs = uvs_cap_lower
-                    smoothing_grp = 1
 
             else:
 
@@ -214,7 +243,8 @@ def _define_geom_data(segments, smooth, temp=False):
 
                 if not temp:
                     uvs = uvs_cap_upper
-                    smoothing_grp = 2
+
+            sparse_arrays = cap_arrays[cap_id]
 
             # Define quadrangular faces of cap
 
@@ -229,40 +259,58 @@ def _define_geom_data(segments, smooth, temp=False):
                     vi2 = vi1 + s
                     vi3 = vi2 + 1
                     vi4 = vi1 + 1
-                    vert_ids = (vi1, vi2, vi3)
-                    tri_data1 = []
+                    vert_data = {}
+                    vert_ids = (vi1, vi2, vi3, vi4)
 
                     for vi in vert_ids:
 
                         pos = positions[vi]
                         normal = Vec3(0., 0., -1. * sign)
+                        flat_normals.extend(normal)
+                        smooth_normals.extend(normal)
 
                         if temp:
-                            tri_data1.append({"pos": pos, "normal": normal})
+                            vert_data[vi] = {"pos": pos, "normal": normal}
                         else:
                             uv = uvs[vi]
-                            tri_data1.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+                            vert_data[vi] = {"pos": pos, "normal": normal, "uvs": {0: uv},
+                                "pos_ind": pos_objs.index(pos)}
+
+                        if pos in positions_main:
+                            index = positions_main.index(pos)
+                            generatrix_arrays_by_vert_id[index][0].set_bit(row)
+                        else:
+                            sparse_arrays[0].set_bit(row)
+
+                        row += 1
+
+                    poly_verts = [vert_data[vi] for vi in vert_ids]
+                    vert_ids = (vi1, vi2, vi3)
+                    tri_data1 = [vert_data[vi] for vi in vert_ids]
+
+                    for vi in vert_ids:
+                        pos = positions[vi]
+                        if pos in positions_main:
+                            index = positions_main.index(pos)
+                            generatrix_arrays_by_vert_id[index][1].set_bit(row_alt)
+                        else:
+                            sparse_arrays[1].set_bit(row_alt)
+                        row_alt += 1
 
                     vert_ids = (vi1, vi3, vi4)
-                    tri_data2 = []
+                    tri_data2 = [vert_data[vi] for vi in vert_ids]
 
                     for vi in vert_ids:
-
                         pos = positions[vi]
-                        normal = Vec3(0., 0., -1. * sign)
-
-                        if temp:
-                            tri_data2.append({"pos": pos, "normal": normal})
+                        if pos in positions_main:
+                            index = positions_main.index(pos)
+                            generatrix_arrays_by_vert_id[index][1].set_bit(row_alt)
                         else:
-                            uv = uvs[vi]
-                            tri_data2.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+                            sparse_arrays[1].set_bit(row_alt)
+                        row_alt += 1
 
-                    if temp:
-                        poly_data = (tri_data1, tri_data2)  # quadrangular face
-                    else:
-                        tris = (tri_data1, tri_data2)  # quadrangular face
-                        poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
-
+                    tris = (tri_data1, tri_data2)  # quadrangular face
+                    poly_data = {"verts": poly_verts, "tris": tris}
                     geom_data.append(poly_data)
 
             # Define triangular faces at center of cap
@@ -281,25 +329,37 @@ def _define_geom_data(segments, smooth, temp=False):
 
                     pos = positions[vi]
                     normal = Vec3(0., 0., -1. * sign)
+                    flat_normals.extend(normal)
+                    smooth_normals.extend(normal)
 
                     if temp:
                         tri_data.append({"pos": pos, "normal": normal})
                     else:
                         uv = uvs[vi]
-                        tri_data.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+                        tri_data.append({"pos": pos, "normal": normal, "uvs": {0: uv},
+                            "pos_ind": pos_objs.index(pos)})
 
-                if temp:
-                    poly_data = (tri_data,)  # triangular face
-                else:
-                    tris = (tri_data,)  # triangular face
-                    poly_data = {"tris": tris, "smoothing": [(smoothing_grp, smooth)]}
+                    if pos in positions_main:
+                        index = positions_main.index(pos)
+                        generatrix_arrays_by_vert_id[index][0].set_bit(row)
+                        generatrix_arrays_by_vert_id[index][1].set_bit(row_alt)
+                    else:
+                        sparse_arrays[0].set_bit(row)
+                        sparse_arrays[1].set_bit(row_alt)
 
+                    row += 1
+                    row_alt += 1
+
+                tris = (tri_data,)  # triangular face
+                poly_data = {"verts": tri_data, "tris": tris}
                 geom_data.append(poly_data)
 
-        define_cap_faces("lower")
-        define_cap_faces("upper")
+            return row, row_alt
 
-    return geom_data
+        row, row_alt = define_cap_faces("bottom", row, row_alt)
+        define_cap_faces("top", row, row_alt)
+
+    return geom_data, normals, (generatrix_arrays, cap_arrays)
 
 
 class TemporaryCone(TemporaryPrimitive):
@@ -311,16 +371,46 @@ class TemporaryCone(TemporaryPrimitive):
         self._bottom_radius = 0.
         self._top_radius = 0.
         self._height = 0.
-        geom_data = _define_geom_data(segments, is_smooth, True)
+        geom_data, normals, arrays = _define_geom_data(segments, is_smooth, True)
+        generatrix_arrays, cap_arrays = arrays
         self.create_geometry(geom_data)
         origin = self.origin
-        vs = shaders.cone.VERT_SHADER
-        fs = shaders.prim.FRAG_SHADER
-        shader = Shader.make(Shader.SL_GLSL, vs, fs)
-        origin.set_shader(shader, 1)
         origin.set_shader_input("bottom_radius", 1.)
         origin.set_shader_input("top_radius", 1.)
         origin.set_shader_input("height", .001)
+        origin.set_shader_input("smooth_normals", is_smooth)
+        cone_shaded = shaders.Shaders.cone_shaded
+        cone_wire = shaders.Shaders.cone_wire
+        scale_mat = Mat4.scale_mat(1., 1., 0.)
+        scale_z_bottom = abs(self._height) if self._height < 0. else 0.
+        cap_mat = Mat4.scale_mat(1., 1., scale_z_bottom)
+
+        for child in origin.get_children():
+
+            vertex_data = child.node().modify_geom(0).modify_vertex_data()
+            tmp_mat = Mat4.translate_mat(1., 0., 0.)
+            angle = 360. / segments["circular"]
+            axis_vec = Vec3.up()
+            index = 0 if child.name == "shaded" else 1
+
+            for i, rows in enumerate(generatrix_arrays):
+                mat = tmp_mat * Mat4.rotate_mat_normaxis(angle * i, axis_vec)
+                vertex_data.transform_vertices(mat, rows[index])
+
+            vertex_data.transform_vertices(cap_mat, cap_arrays["bottom"][index])
+
+            if child.name == "shaded":
+                normal_view = memoryview(vertex_data.modify_array(2)).cast("B").cast("f")
+                vert_count = segments["circular"] * segments["height"] * 4
+                size = vert_count * 3
+                normal_view[:size] = normals["smooth" if is_smooth else "flat"][:size]
+                tmp_vertex_data = GeomVertexData(vertex_data)
+                tmp_vertex_data.set_array(0, tmp_vertex_data.modify_array(2))
+                tmp_vertex_data.transform_vertices(scale_mat, 0, vert_count)
+                vertex_data.set_array(2, tmp_vertex_data.modify_array(0))
+                child.set_shader(cone_shaded)
+            else:
+                child.set_shader(cone_wire)
 
     def update_size(self, bottom_radius=None, top_radius=None, height=None):
 
@@ -366,98 +456,102 @@ class TemporaryCone(TemporaryPrimitive):
 
 class Cone(Primitive):
 
-    def __init__(self, model):
+    def __getstate__(self):
 
-        prop_ids = ["segments", "radius_bottom", "radius_top", "height", "smoothness"]
+        state = Primitive.__getstate__(self)
+        del state["_normals"]
+        del state["_generatrix_arrays"]
+        del state["_cap_arrays"]
 
-        Primitive.__init__(self, "cone", model, prop_ids)
+        return state
 
-        self._segments = {"circular": 3, "height": 1, "caps": 0}
-        self._segments_backup = {"circular": 3, "height": 1, "caps": 0}
+    def __init__(self, model, segments, is_smooth, picking_col_id, geom_data,
+                 normals, arrays):
+
+        self._segments = segments
         self._bottom_radius = 0.
         self._top_radius = 0.
         self._height = 0.
-        self._is_smooth = True
-        self._smoothing = {}
-
-    def define_geom_data(self):
-
-        return _define_geom_data(self._segments, self._is_smooth)
-
-    def update(self, data):
-
-        self._smoothing = data["smoothing"]
-
-    def create(self, segments, is_smooth):
-
-        self._segments = segments
         self._is_smooth = is_smooth
+        self._normals = normals
+        self._generatrix_arrays, self._cap_arrays = arrays
 
-        for step in Primitive.create(self, _get_mesh_density(segments)):
-            yield
+        prop_ids = ["segments", "radius_bottom", "radius_top", "height", "smoothness"]
 
-        self.update_initial_coords()
+        Primitive.__init__(self, "cone", model, prop_ids, picking_col_id, geom_data)
+
+    def recreate(self):
+
+        geom_data, normals, arrays = _define_geom_data(self._segments, self._is_smooth)
+        self._normals = normals
+        self._generatrix_arrays, self._cap_arrays = arrays
+        Primitive.recreate(self, geom_data)
 
     def set_segments(self, segments):
 
         if self._segments == segments:
             return False
 
-        self._segments_backup = self._segments
         self._segments = segments
 
         return True
 
-    def __set_new_vertex_position(self, pos_old):
-
-        # original radii: 1.
-        # original height: 1.
-        height = abs(self._height)
-        z = pos_old.z * height
-
-        if self._height < 0.:
-            z -= height
-            delta_radius = self._top_radius - self._bottom_radius
-        else:
-            delta_radius = self._bottom_radius - self._top_radius
-
-        epsilon = 1.e-010
-
-        if abs(delta_radius) < epsilon:
-
-            new_dist = self._bottom_radius
-
-        else:
-
-            if abs(self._bottom_radius) >= epsilon:
-                radius = self._bottom_radius
-            else:
-                radius = self._top_radius
-
-            h = height * radius / delta_radius
-            new_dist = (h - z) * radius / h
-
-        pos_new = Point3(pos_old)
-        pos_new.z = 0.
-        pos_new *= new_dist
-        pos_new.z = z
-
-        return pos_new
-
     def __update_size(self):
 
-        self.reset_initial_coords()
-        self.geom_data_obj.reposition_vertices(self.__set_new_vertex_position)
+        height = abs(self._height)
+        b_radius = self._bottom_radius
+        t_radius = self._top_radius
+        segments = self._segments
+
+        if self._height < 0.:
+            z = self._height
+            scale_xy_bottom = t_radius
+            scale_xy_top = b_radius
+            scale_z_bottom = height
+            scale_z_top = 0.
+        else:
+            z = 0.
+            scale_xy_bottom = b_radius
+            scale_xy_top = t_radius
+            scale_z_bottom = 0.
+            scale_z_top = height
+
+        delta_radius = scale_xy_bottom - scale_xy_top
+        angle = 360. / segments["circular"]
+        axis_vec = Vec3.up()
+
+        for i, geom in enumerate((self.geom, self.aux_geom)):
+
+            vertex_data = geom.node().modify_geom(0).modify_vertex_data()
+            pos_view = memoryview(vertex_data.modify_array(0)).cast("B").cast("f")
+            pos_view[:] = self.initial_coords[i]
+            # use shearing per generatrix to update the vertex positions
+            shear = -delta_radius
+            tmp_mat = Mat4.shear_mat(0., shear, 0.) * Mat4.scale_mat(1., 1., height)
+            tmp_mat = tmp_mat * Mat4.translate_mat(scale_xy_bottom, 0., z)
+
+            for j, rows in enumerate(self._generatrix_arrays):
+                mat = tmp_mat * Mat4.rotate_mat_normaxis(angle * j, axis_vec)
+                vertex_data.transform_vertices(mat, rows[i])
+
+            bottom_array = self._cap_arrays["bottom"][i]
+            top_array = self._cap_arrays["top"][i]
+            scale_mat = Mat4.scale_mat(scale_xy_bottom, scale_xy_bottom, scale_z_bottom)
+            vertex_data.transform_vertices(scale_mat, bottom_array)
+            scale_mat = Mat4.scale_mat(scale_xy_top, scale_xy_top, scale_z_top)
+            vertex_data.transform_vertices(scale_mat, top_array)
+
+        self.__update_normals()
+        self.update_poly_centers()
+
+        self.model.bbox.update(self.geom.get_tight_bounds())
 
     def init_size(self, bottom_radius, top_radius, height):
 
-        origin = self.origin
         self._bottom_radius = max(bottom_radius, .001)
         self._top_radius = max(top_radius, 0.)
         self._height = max(abs(height), .001) * (-1. if height < 0. else 1.)
-
         self.__update_size()
-        self.geom_data_obj.update_vertex_normals()
 
     def set_bottom_radius(self, radius):
 
@@ -495,6 +589,50 @@ class Cone(Primitive):
 
         return True
 
+    def __update_normals(self):
+
+        # Use non-uniform scaling to update the vertex normals:
+        # the default normals should be (sin(x), cos(x), 1.), so they can be scaled
+        # along the Z-axis by the sine of the new vertical angle and along both the
+        # X- and Y-axes by the cosine of that angle;
+        # this sine is delta_radius / d, while the cosine is height / d in the code
+        # below (note that a different delta_radius is needed for flat normals).
+
+        segments = self._segments
+        height = abs(self._height)
+        b_radius = self._bottom_radius
+        t_radius = self._top_radius
+        delta_radius = (t_radius - b_radius) if self._height < 0. else (b_radius - t_radius)
+
+        if not self._is_smooth:
+            delta_radius *= cos(pi / segments["circular"])
+
+        end_index = segments["circular"] * segments["height"] * 4
+        size = end_index * 3
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+        normal_view = memoryview(vertex_data.modify_array(2)).cast("B").cast("f")
+        normal_view[:size] = self._normals["smooth" if self._is_smooth else "flat"][:size]
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        tmp_vertex_data.set_array(0, tmp_vertex_data.modify_array(2))
+        d = sqrt(delta_radius ** 2. + height ** 2.)
+        scale_xy = height / d
+        scale_z = delta_radius / d
+        scale_mat = Mat4.scale_mat(scale_xy, scale_xy, scale_z)
+        tmp_vertex_data.transform_vertices(scale_mat, 0, end_index)
+        vertex_data.set_array(2, tmp_vertex_data.modify_array(0))
+
+        if self.has_inverted_geometry():
+            geom = self.geom.node().modify_geom(0)
+            vertex_data = geom.get_vertex_data().reverse_normals()
+            reverse_view = memoryview(vertex_data.get_array(2)).cast("B").cast("f")
+            vertex_data = geom.modify_vertex_data()
+            normal_view = memoryview(vertex_data.modify_array(2)).cast("B").cast("f")
+            normal_view[:size] = reverse_view[:size]
+
+    def unlock_geometry(self, unlocked_geom):
+
+        Primitive.unlock_geometry(self, unlocked_geom, update_normal_data=True)
+
     def get_data_to_store(self, event_type, prop_id=""):
 
         if event_type == "prop_change" and prop_id in self.get_type_property_ids():
@@ -502,29 +640,30 @@ class Cone(Primitive):
             data = {}
             data[prop_id] = {"main": self.get_property(prop_id)}
 
-            if prop_id == "segments":
-                data.update(self.get_geom_data_backup().get_data_to_store("deletion"))
-                data.update(self.geom_data_obj.get_data_to_store("creation"))
-                self.remove_geom_data_backup()
-            elif prop_id == "smoothness":
-                data.update(self.geom_data_obj.get_data_to_store())
-            elif prop_id in ("radius_bottom", "radius_top", "height"):
-                data.update(self.geom_data_obj.get_property_to_store("subobj_transform",
-                                                                              "prop_change", "all"))
-                data.update(self.geom_data_obj.get_property_to_store("normals",
-                                                                              "prop_change", "all"))
-
             return data
 
         return Primitive.get_data_to_store(self, event_type, prop_id)
 
-    def cancel_geometry_recreation(self, info):
+    def get_property(self, prop_id, for_remote_update=False):
 
-        Primitive.cancel_geometry_recreation(self, info)
-
-        if info == "creation":
-            self._segments = self._segments_backup
-            Mgr.update_remotely("selected_obj_prop", "cone", "segments", self._segments)
+        if prop_id == "segments":
+            if for_remote_update:
+                return self._segments
+            else:
+                return {"count": self._segments, "pos_data": self.initial_coords,
+                        "normals": self._normals, "generatrix_arrays": self._generatrix_arrays,
+                        "cap_arrays": self._cap_arrays, "geom_data": self.geom_data,
+                        "geom": self.geom_for_pickling, "aux_geom": self.aux_geom_for_pickling}
+        elif prop_id == "radius_bottom":
+            return self._bottom_radius
+        elif prop_id == "radius_top":
+            return self._top_radius
+        elif prop_id == "height":
+            return self._height
+        elif prop_id == "smoothness":
+            return self._is_smooth
+        else:
+            return Primitive.get_property(self, prop_id, for_remote_update)
 
     def set_property(self, prop_id, value, restore=""):
 
@@ -539,17 +678,30 @@ class Cone(Primitive):
 
             if restore:
                 segments = value["count"]
-                self.restore_initial_coords(value["pos_data"])
+                self.initial_coords = value["pos_data"]
+                self._normals = value["normals"]
+                self._generatrix_arrays = value["generatrix_arrays"]
+                self._cap_arrays = value["cap_arrays"]
+                self.geom_data = value["geom_data"]
+                self.geom = value["geom"]
+                self.aux_geom = value["aux_geom"]
+                self.model.bbox.update(self.geom.get_tight_bounds())
+                self.setup_geoms()
             else:
                 segments = self._segments.copy()
                 segments.update(value)
+
+            task = self.__update_size
+            sort = PendingTasks.get_sort("set_normals", "object") - 1
+            PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
+            self.model.update_group_bbox()
 
             change = self.set_segments(segments)
 
             if change:
 
                 if not restore:
-                    self.recreate_geometry(_get_mesh_density(segments))
+                    self.recreate()
 
                 update_app()
 
@@ -560,16 +712,11 @@ class Cone(Primitive):
             change = self.set_bottom_radius(value)
 
             if change:
-
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.model.update_group_bbox()
                 update_app()
-
-                if not restore:
-                    task = self.geom_data_obj.update_vertex_normals
-                    PendingTasks.add(task, "set_normals", "object", id_prefix=obj_id)
 
             return change
 
@@ -578,16 +725,11 @@ class Cone(Primitive):
             change = self.set_top_radius(value)
 
             if change:
-
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.model.update_group_bbox()
                 update_app()
-
-                if not restore:
-                    task = self.geom_data_obj.update_vertex_normals
-                    PendingTasks.add(task, "set_normals", "object", id_prefix=obj_id)
 
             return change
 
@@ -596,16 +738,11 @@ class Cone(Primitive):
             change = self.set_height(value)
 
             if change:
-
                 task = self.__update_size
                 sort = PendingTasks.get_sort("set_normals", "object") - 1
                 PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
                 self.model.update_group_bbox()
                 update_app()
-
-                if not restore:
-                    task = self.geom_data_obj.update_vertex_normals
-                    PendingTasks.add(task, "set_normals", "object", id_prefix=obj_id)
 
             return change
 
@@ -613,10 +750,11 @@ class Cone(Primitive):
 
             change = self.set_smooth(value)
 
-            if change and not restore:
-                task = lambda: self.geom_data_obj.set_smoothing(iter(self._smoothing.values())
-                                                                         if value else None)
-                PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
+            if restore:
+                task = self.__update_normals
+                PendingTasks.add(task, "set_normals", "object", id_prefix=obj_id)
+            elif change:
+                self.__update_normals()
 
             if change:
                 update_app()
@@ -626,32 +764,6 @@ class Cone(Primitive):
         else:
 
             return Primitive.set_property(self, prop_id, value, restore)
-
-    def get_property(self, prop_id, for_remote_update=False):
-
-        if prop_id == "segments":
-            if for_remote_update:
-                return self._segments
-            else:
-                return {"count": self._segments, "pos_data": self.get_initial_coords()}
-        elif prop_id == "radius_bottom":
-            return self._bottom_radius
-        elif prop_id == "radius_top":
-            return self._top_radius
-        elif prop_id == "height":
-            return self._height
-        elif prop_id == "smoothness":
-            return self._is_smooth
-        else:
-            return Primitive.get_property(self, prop_id, for_remote_update)
-
-    def finalize(self):
-
-        self.__update_size()
-
-        Primitive.finalize(self)
-
-        self.geom_data_obj.update_vertex_normals()
 
 
 class ConeManager(PrimitiveManager):
@@ -698,6 +810,14 @@ class ConeManager(PrimitiveManager):
 
         return PrimitiveManager.setup(self, creation_phases, status_text)
 
+    def define_geom_data(self):
+
+        prop_defaults = self.get_property_defaults()
+        segments = prop_defaults["segments"]
+        is_smooth = prop_defaults["smoothness"]
+
+        return _define_geom_data(segments, is_smooth)
+
     def create_temp_primitive(self, color, pos):
 
         segs = self.get_property_defaults()["segments"]
@@ -708,20 +828,14 @@ class ConeManager(PrimitiveManager):
 
         return tmp_prim
 
-    def create_primitive(self, model):
+    def create_primitive(self, model, picking_col_id, geom_data):
 
-        prim = Cone(model)
         prop_defaults = self.get_property_defaults()
         segments = prop_defaults["segments"]
-        poly_count = _get_mesh_density(segments)
-        progress_steps = (poly_count // 20) * 4
-        gradual = progress_steps > 80
+        is_smooth = prop_defaults["smoothness"]
+        prim = Cone(model, segments, is_smooth, picking_col_id, *geom_data)
 
-        for step in prim.create(segments, prop_defaults["smoothness"]):
-            if gradual:
-                yield
-
-        yield prim, gradual
+        return prim
 
     def init_primitive_size(self, prim, size=None):
 

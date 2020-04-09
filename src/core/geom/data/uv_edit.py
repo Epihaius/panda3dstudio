@@ -490,7 +490,7 @@ class UVEditMixin:
             tangent_flip, bitangent_flip = model.get_tangent_space_flip()
             self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
         else:
-            self._is_tangent_space_initialized = False
+            self.is_tangent_space_initialized = False
 
         if 0 in uv_set_ids:
             self.update_vertex_colors()
@@ -524,7 +524,7 @@ class UVEditMixin:
                 tangent_flip, bitangent_flip = model.get_tangent_space_flip()
                 self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
             else:
-                self._is_tangent_space_initialized = False
+                self.is_tangent_space_initialized = False
 
             self.update_vertex_colors()
 
@@ -559,7 +559,7 @@ class UVEditMixin:
             if model.has_tangent_space():
                 model.update_tangent_space()
             else:
-                self._is_tangent_space_initialized = False
+                self.is_tangent_space_initialized = False
 
             self.update_vertex_colors()
 

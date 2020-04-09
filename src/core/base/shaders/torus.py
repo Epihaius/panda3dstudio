@@ -1,29 +1,7 @@
-# This module contains the vertex shader used during the creation of torus primitives.
+# This module contains the vertex shaders used during the creation of torus primitives.
 
 
-VERT_SHADER = """
-    #version 150 compatibility
-
-    // Uniform inputs
-    uniform mat4 p3d_ModelViewProjectionMatrix;
-    uniform mat4 p3d_ModelViewMatrix;
-    uniform mat3 p3d_NormalMatrix;
-    uniform float ring_radius;
-    uniform float section_radius;
-
-    // Vertex inputs
-    in vec4 p3d_Vertex;
-    in vec2 p3d_MultiTexCoord0;
-    in vec3 p3d_Normal;
-
-    // Output to fragment shader
-    out vec2 texcoord;
-    out vec3 eye_vec;
-    out vec3 eye_normal;
-
-    void main(void)
-    {
-
+main_computation = """
         vec3 pos_old;
         vec3 pos_new;
         vec3 pos_vec;
@@ -48,6 +26,37 @@ VERT_SHADER = """
         // get the new vertex position by adding the updated pos_vec to the new
         // cross section center
         pos_new = section_center + pos_vec;
+"""
+
+
+VERT_SHADER = ("""
+    #version 150 compatibility
+
+    // Uniform inputs
+    uniform mat4 p3d_ModelViewProjectionMatrix;
+    uniform mat4 p3d_ModelViewMatrix;
+    uniform mat3 p3d_NormalMatrix;
+    uniform float ring_radius;
+    uniform float section_radius;
+
+    // Vertex inputs
+    in vec4 p3d_Vertex;
+    in vec2 p3d_MultiTexCoord0;
+    in vec3 p3d_Normal;
+
+    // Output to fragment shader
+    out vec2 texcoord;
+    out vec3 eye_vec;
+    out vec3 eye_normal;
+
+    void main(void)
+    {
+
+"""
++
+main_computation
++
+"""
 
         gl_Position = p3d_ModelViewProjectionMatrix * vec4(pos_new, 1.);
         eye_vec = (p3d_ModelViewMatrix * vec4(pos_new, 1.)).xyz;
@@ -55,4 +64,40 @@ VERT_SHADER = """
         eye_normal = normalize(p3d_NormalMatrix * p3d_Normal);
 
     }
+""")
+
+
+VERT_SHADER_WIRE = ("""
+    #version 150 compatibility
+
+    // Uniform inputs
+    uniform mat4 p3d_ModelMatrix;
+    uniform float ring_radius;
+    uniform float section_radius;
+
+    // Vertex inputs
+    in vec4 p3d_Vertex;
+    in vec4 p3d_Color;
+    in int sides;
+
+    out Vertex
+    {
+        vec4 color;
+        int side_gen;
+    } vertex;
+
+    void main(void)
+    {
+
 """
++
+main_computation
++
+"""
+
+        gl_Position = p3d_ModelMatrix * vec4(pos_new, 1.);
+        vertex.color = p3d_Color;
+        vertex.side_gen = sides;
+
+    }
+""")

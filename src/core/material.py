@@ -8,16 +8,8 @@ class Material:
 
         state = self.__dict__.copy()
         state["_owner_ids"] = []
-        state["_id"] = state.pop("id")
-        state["_name"] = state.pop("name")
 
         return state
-
-    def __setstate__(self, state):
-
-        state["id"] = state.pop("_id")
-        state["name"] = state.pop("_name")
-        self.__dict__ = state
 
     def __str__(self):
 
@@ -946,7 +938,7 @@ class Material:
         if not self._owner_ids:
             Mgr.do("unregister_material", self)
 
-        if owner.geom_type != "basic_geom":
+        if owner.geom_type != "locked_geom":
             if owner.has_tangent_space():
                 owner.clear_tangent_space()
 
@@ -981,7 +973,7 @@ class Material:
             origin.set_transparency(TransparencyAttrib.M_none)
             origin.set_color(owner.get_color())
 
-            if owner.geom_type != "basic_geom":
+            if owner.geom_type != "locked_geom":
                 if owner.has_tangent_space():
                     owner.clear_tangent_space()
 

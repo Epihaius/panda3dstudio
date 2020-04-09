@@ -703,9 +703,7 @@ class UVSelectionMixin:
             pos_writer = GeomVertexWriter(vertex_data, "vertex")
             pos_writer.set_row(0)
             pos_writer.set_data3(mouse_x, 0., mouse_y)
-            vs = sh.VERT_SHADER_MASK
-            fs = sh.FRAG_SHADER_MASK
-            shader = Shader.make(Shader.SL_GLSL, vs, fs)
+            shader = shaders.Shaders.region_sel_mask
             tri.set_shader(shader)
             tri.set_shader_input("prev_tex", tex)
             r, g, b, a = GD["region_select"]["fill_color"]

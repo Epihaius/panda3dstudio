@@ -190,7 +190,9 @@ class AlignmentManager:
 
     def __pick(self, picked_obj=None):
 
-        obj = picked_obj if picked_obj else Mgr.get("object", pixel_color=self._pixel_under_mouse)
+        get_group = self._target_type != "surface"
+        obj = picked_obj if picked_obj else Mgr.get("object", pixel_color=self._pixel_under_mouse,
+            get_group=get_group)
         Mgr.enter_state("alignment_target_picking_end")
         Mgr.exit_state("alignment_target_picking_end")
 
@@ -356,10 +358,7 @@ class AlignmentManager:
         cam.reparent_to(Mgr.get("picking_cam")())
 
         state_np = NodePath("state_np")
-        sh = shaders.surface_normal
-        vs = sh.VERT_SHADER
-        fs = sh.FRAG_SHADER
-        shader = Shader.make(Shader.SL_GLSL, vs, fs)
+        shader = shaders.Shaders.surface_normal
         state_np.set_shader(shader, 1)
         state_np.set_light_off(1)
         state_np.set_color_off(1)
@@ -369,10 +368,10 @@ class AlignmentManager:
         state = state_np.get_state()
         cam_node.initial_state = state
 
-        if model.geom_type == "basic_geom":
-            cam_node.scene = model.geom_obj.geom
-        else:
+        if model.geom_type == "unlocked_geom":
             cam_node.scene = model.geom_obj.geom_data_obj.toplevel_geom
+        else:
+            cam_node.scene = model.geom_obj.geom
 
     def __finalize_surface_alignment(self):
 

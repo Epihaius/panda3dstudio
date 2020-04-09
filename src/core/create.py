@@ -233,6 +233,7 @@ class CreationManager:
             return quat.get_hpr()
 
         pos = None
+        pos_ = None
         snap_settings = GD["snap"]
         snap_on_settings = snap_settings["on"]
         snap_on = snap_on_settings["creation"] and snap_on_settings["creation_start"]
@@ -249,7 +250,12 @@ class CreationManager:
             if pos:
                 pos = GD.world.get_relative_point(grid_origin, pos)
                 subobj = Mgr.get("snap_target_subobj")
-                if tgt_type == "poly":
+                if not subobj:
+                    pos_ = pos
+                    pos = None
+                    Mgr.do("end_snap_target_checking")
+                    Mgr.render_frame()
+                elif tgt_type == "poly":
                     normal = subobj.get_normal(GD.world).normalized()
                     hpr = normal_to_hpr(normal)
                 elif tgt_type in ("vert", "edge"):
@@ -258,7 +264,7 @@ class CreationManager:
                     normal = (sum(normals, Vec3()) / len(normals)).normalized()
                     hpr = normal_to_hpr(normal)
                 else:
-                    obj = subobj.get_toplevel_object(get_group=True)
+                    obj = subobj.toplevel_obj
                     hpr = obj.pivot.get_hpr(GD.world)
             else:
                 Mgr.do("end_snap_target_checking")
@@ -268,18 +274,23 @@ class CreationManager:
 
             pixel_under_mouse = Mgr.get("picking_cam").update_pixel_under_mouse()
             obj = None
-            r, g, b, a = [int(round(c * 255.)) for c in pixel_under_mouse]
-            pickable_type = PickableTypes.get(a)
+            r, g, b, a = pixel_under_mouse
+            pickable_type = PickableTypes.get(int(round(a * 255.)))
 
-            if pickable_type:
+            if pickable_type and pickable_type != "snap_geom":
 
+                r, g, b = [int(round(c * 255.)) for c in (r, g, b)]
                 color_id = r << 16 | g << 8 | b
                 subobj = Mgr.get(pickable_type, color_id)
 
                 if subobj:
-                    obj = subobj.get_toplevel_object(get_group=True)
+                    obj = subobj.toplevel_obj
 
-            if obj:
+            if pickable_type == "snap_geom":
+
+                pass
+
+            elif obj:
 
                 obj_type = obj.type
 
@@ -295,6 +306,9 @@ class CreationManager:
 
                 Mgr.do("init_snap_target_checking", "create")
                 return False
+
+        if pos_:
+            pos = pos_
 
         if not (pos and hpr):
             return False
@@ -361,11 +375,7 @@ class CreationManager:
             origin_pos = GD.cam.target.get_pos(Mgr.get("grid").origin)
 
         object_type = GD["active_creation_type"]
-        process = Mgr.do(f"create_{object_type}", origin_pos)
-
-        if next(process):
-            descr = f"Creating {object_type}..."
-            Mgr.do_gradually(process, "creation", descr, cancellable=True)
+        Mgr.do(f"create_{object_type}", origin_pos)
 
 
 MainObjects.add_class(CreationManager)

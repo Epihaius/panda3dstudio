@@ -128,7 +128,7 @@ class GeometryFromModelDialog(Dialog):
             self._delete_src_geometry, self._keep_src_models)
 
 
-class EditableGeomProperties:
+class UnlockedGeomProperties:
 
     def __init__(self, panel):
 
@@ -903,7 +903,7 @@ class EditableGeomProperties:
 
     def __update_object_level(self):
 
-        if self._panel.get_active_object_type() != "editable_geom":
+        if self._panel.get_active_object_type() != "unlocked_geom":
             return
 
         obj_lvl = GD["active_obj_level"]
@@ -1145,7 +1145,7 @@ class EditableGeomProperties:
 
     def get_base_type(self):
 
-        return "editable_geom"
+        return "unlocked_geom"
 
     def get_section_ids(self):
 
@@ -1194,4 +1194,4 @@ class EditableGeomProperties:
                 field.show_text(not multi_sel)
 
 
-PropertyPanel.add_properties("editable_geom", EditableGeomProperties)
+PropertyPanel.add_properties("unlocked_geom", UnlockedGeomProperties)

@@ -256,11 +256,14 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         self._vertex_data_poly = vertex_data_poly
 
         points_prim = GeomPoints(Geom.UH_static)
+        points_prim.set_index_type(Geom.NT_uint32)
         points_prim.reserve_num_vertices(count)
         points_prim.add_next_vertices(count)
         lines_prim = GeomLines(Geom.UH_static)
+        lines_prim.set_index_type(Geom.NT_uint32)
         lines_prim.reserve_num_vertices(count * 2)
         tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.set_index_type(Geom.NT_uint32)
         tris_prim.reserve_num_vertices(tri_vert_count)
 
         pos_writer = GeomVertexWriter(vertex_data_poly, "vertex")
@@ -408,6 +411,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         geom_node.add_geom(tris_geom, UVMgr.get("poly_states")["unselected"])
         tris_geom = Geom(vertex_data_poly)
         tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.set_index_type(Geom.NT_uint32)
         tris_prim.reserve_num_vertices(tri_vert_count)
         tris_geom.add_primitive(tris_prim)
         geom_node.add_geom(tris_geom)

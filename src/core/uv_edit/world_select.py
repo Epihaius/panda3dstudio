@@ -77,7 +77,7 @@ class SelectionManager:
         def get_grouped_models(group, models):
 
             for member in group.get_members():
-                if member.type == "model" and not (member.geom_type == "basic_geom"
+                if member.type == "model" and not (member.geom_type != "unlocked_geom"
                         or member.bbox.has_zero_size_owner):
                     models.append(member)
                 elif member.type == "group" and not (member.is_open()
@@ -87,7 +87,7 @@ class SelectionManager:
         models = []
 
         for obj in objs:
-            if obj.type == "model" and not (obj.geom_type == "basic_geom"
+            if obj.type == "model" and not (obj.geom_type != "unlocked_geom"
                     or obj.bbox.has_zero_size_owner):
                 models.append(obj)
             elif obj.type == "group" and not (obj.is_open()
@@ -107,7 +107,7 @@ class SelectionManager:
         def process_grouped_models(group, selection):
 
             for member in group.get_members():
-                if member.type == "model" and member.geom_type != "basic_geom":
+                if member.type == "model" and member.geom_type == "unlocked_geom":
                     if accessible:
                         selection.add([member], add_to_hist=False, update=False)
                         member.bbox.origin.detach_node()

@@ -341,6 +341,7 @@ class SurfaceMixin:
             self.clear_selection("poly", False)
             self._poly_selection_data["unselected"] = data_unselected = []
             prim = GeomTriangles(Geom.UH_static)
+            prim.set_index_type(Geom.NT_uint32)
 
             for poly in self.ordered_polys:
                 for tri_vert_ids in poly:
@@ -357,7 +358,7 @@ class SurfaceMixin:
             self.restore_selection_backup("poly")
 
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
-        sign = -1. if self.owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_inverted_geometry() else 1.
         normal_change = self._normal_change
 
         for poly in polys_to_flip:
@@ -402,7 +403,7 @@ class SurfaceMixin:
             poly_ids = [p.id for p in polys_to_flip]
             self.update_tangent_space(tangent_flip, bitangent_flip, poly_ids)
         else:
-            self._is_tangent_space_initialized = False
+            self.is_tangent_space_initialized = False
 
         self._update_verts_to_transform("poly")
         self.update_vertex_colors()
@@ -572,6 +573,51 @@ class SurfaceMixin:
 
         return True
 
+    def get_subdivision_data(self):
+
+        class MergedUV:
+
+            def __init__(self, merged_vert, u, v):
+
+                self.merged_vert = merged_vert
+                self.uv = [u, v]
+
+        merged_verts = list(set(self.merged_verts.values()))
+        verts = self._subobjs["vert"]
+        positions = [list(mv.get_pos()) for mv in merged_verts]
+        merged_uvs = {}
+
+        for merged_vert in merged_verts:
+
+            verts_by_uv = {}
+
+            for vert_id in merged_vert:
+
+                vert = verts[vert_id]
+                uv = vert.get_uvs(0)
+
+                if uv in verts_by_uv:
+                    verts_by_uv[uv].append(vert_id)
+                else:
+                    verts_by_uv[uv] = [vert_id]
+
+            for (u, v), vert_ids in verts_by_uv.items():
+                merged_uv = MergedUV(merged_vert, u, v)
+                merged_uvs.update({v_id: merged_uv for v_id in vert_ids})
+
+        merged_uv_list = list(set(merged_uvs.values()))
+        uvs = [(muv.uv, merged_verts.index(muv.merged_vert)) for muv in merged_uv_list]
+        faces = []
+        uv_faces = []
+        sign = -1 if self.owner.has_inverted_geometry() else 1
+
+        for poly in self.ordered_polys:
+            poly_vert_ids = poly.vertex_ids[::sign]
+            faces.append([merged_verts.index(self.merged_verts[v_id]) for v_id in poly_vert_ids])
+            uv_faces.append([merged_uv_list.index(merged_uvs[v_id]) for v_id in poly_vert_ids])
+
+        return positions, uvs, faces, uv_faces
+
 
 class SurfaceManager:
     """ PolygonEditManager class mix-in """
@@ -707,13 +753,13 @@ class SurfaceManager:
         src_verts = []
         src_edges = []
 
-        for poly in src_polys:
-            src_verts.extend(poly.vertices)
-            src_edges.extend(poly.edges)
+        for poly, sign in src_polys:
+            src_verts.extend((v, sign) for v in poly.vertices)
+            src_edges.extend((e, sign) for e in poly.edges)
 
-        src_merged_verts = set(v.merged_vertex for v in src_verts)
-        src_merged_edges = set(e.merged_edge for e in src_edges)
-        src_shared_normals = set(v.shared_normal for v in src_verts)
+        src_merged_verts = set(v.merged_vertex for v, _ in src_verts)
+        src_merged_edges = set(e.merged_edge for e, _ in src_edges)
+        src_shared_normals = set(v.shared_normal for v, _ in src_verts)
         dest_verts = dest_data_obj.get_subobjects("vert")
         dest_edges = dest_data_obj.get_subobjects("edge")
         dest_polys = dest_data_obj.get_subobjects("poly")
@@ -724,19 +770,19 @@ class SurfaceManager:
         new_verts = {}
         new_edges = {}
 
-        for vert in src_verts:
+        for vert, sign in src_verts:
             new_vert = Mgr.do("create_vert", dest_data_obj, vert.get_pos())
             new_vert.color = vert.color
             new_vert.set_uvs(vert.get_uvs())
             new_vert.normal = vert.normal
             new_vert.lock_normal(vert.has_locked_normal())
             new_vert.tangent_space = vert.tangent_space
-            new_verts[vert.id] = new_vert
+            new_verts[vert.id] = (new_vert, sign)
             dest_verts[new_vert.id] = new_vert
 
         for shared_normal in src_shared_normals:
 
-            new_vert_ids = [new_verts[v_id].id for v_id in shared_normal]
+            new_vert_ids = [new_verts[v_id][0].id for v_id in shared_normal]
             new_shared_normal = Mgr.do("create_shared_normal", dest_data_obj, new_vert_ids)
 
             for new_vert_id in new_vert_ids:
@@ -746,7 +792,7 @@ class SurfaceManager:
 
         for merged_vert in src_merged_verts:
 
-            new_vert_ids = [new_verts[v_id].id for v_id in merged_vert]
+            new_vert_ids = [new_verts[v_id][0].id for v_id in merged_vert]
             new_merged_vert = Mgr.do("create_merged_vert", dest_data_obj)
             new_merged_vert.extend(new_vert_ids)
 
@@ -755,8 +801,8 @@ class SurfaceManager:
 
         del src_merged_verts
 
-        for edge in src_edges:
-            new_vert_ids = tuple(new_verts[v_id].id for v_id in edge)
+        for edge, sign in src_edges:
+            new_vert_ids = tuple(new_verts[v_id][0].id for v_id in edge[::sign])
             new_edge = Mgr.do("create_edge", dest_data_obj, new_vert_ids)
             new_edges[edge.id] = new_edge
             dest_edges[new_edge.id] = new_edge
@@ -773,19 +819,20 @@ class SurfaceManager:
                 dest_merged_edges[new_edge_id] = new_merged_edge
 
         del src_merged_edges
-        verts = {v.id: v for v in src_verts}
+        verts = {v.id: v for v, _ in src_verts}
         del src_verts
 
-        for vert_id, new_vert in new_verts.items():
-            new_vert.edge_ids = [new_edges[e_id].id for e_id in verts[vert_id].edge_ids]
+        for vert_id, (new_vert, sign) in new_verts.items():
+            new_vert.edge_ids = [new_edges[e_id].id for e_id in verts[vert_id].edge_ids][::sign]
 
         del verts
         new_polys = []
 
-        for poly in src_polys:
-            poly_tris = [tuple(new_verts[v_id].id for v_id in tri_vert_ids) for tri_vert_ids in poly]
-            poly_edges = [new_edges[e_id] for e_id in poly.edge_ids]
-            poly_verts = [new_verts[v_id] for v_id in poly.vertex_ids]
+        for poly, sign in src_polys:
+            poly_tris = [tuple(new_verts[v_id][0].id for v_id in tri_vert_ids[::sign])
+                for tri_vert_ids in poly][::sign]
+            poly_edges = [new_edges[e_id] for e_id in poly.edge_ids][::sign]
+            poly_verts = [new_verts[v_id][0] for v_id in poly.vertex_ids][::sign]
             new_poly = Mgr.do("create_poly", dest_data_obj, poly_tris, poly_edges, poly_verts)
             dest_polys[new_poly.id] = new_poly
             dest_ordered_polys.append(new_poly)
@@ -814,7 +861,7 @@ class SurfaceManager:
 
             selection = Mgr.get("selection_top")
             pos = sum((m.pivot.get_pos(GD.world) for m in selection), Point3()) / len(selection)
-            new_model_id = ("editable_geom",) + next(self._id_generator)
+            new_model_id = ("unlocked_geom",) + next(self._id_generator)
             name = model_basename if model_basename else "model 0001"
             name = get_unique_name(name, obj_names)
             new_model = Mgr.do("create_model", new_model_id, name, pos)
@@ -822,8 +869,8 @@ class SurfaceManager:
             color = tuple(random.random() * .4 + .5 for _ in range(3))
             color += (1.,)
             new_model.set_color(color, update_app=False)
-            editable_geom = Mgr.do("create_editable_geom", new_model)
-            new_geom_data_obj = editable_geom.geom_data_obj
+            unlocked_geom = Mgr.do("create_unlocked_geom", new_model)
+            new_geom_data_obj = unlocked_geom.geom_data_obj
             pivot = new_model.pivot
             pivot.set_hpr(0., 0., 0.)
             polys_to_copy = []
@@ -834,6 +881,7 @@ class SurfaceManager:
             for model in selection:
 
                 geom_data_obj = model.geom_obj.geom_data_obj
+                sign = -1 if geom_data_obj.has_inverted_geometry() else 1
                 sel_polys = set(geom_data_obj.get_selection("poly"))
                 surface_polys = []
 
@@ -841,7 +889,7 @@ class SurfaceManager:
 
                     poly = sel_polys.pop()
                     surface = geom_data_obj.get_polygon_surface(poly.id)
-                    polys_to_copy.extend(surface)
+                    polys_to_copy.extend((p, sign) for p in surface)
                     surface_polys.extend(surface)
                     sel_polys.difference_update(surface)
 
@@ -855,7 +903,7 @@ class SurfaceManager:
                         for vert in poly.vertices:
                             vert.set_pos(vert.get_pos(pivot))
                             vert.normal = pivot.get_relative_vector(model.pivot,
-                                vert.normal).normalized()
+                                vert.normal * sign).normalized()
 
                 if surface_polys:
                     src_objs.append(model)
@@ -872,7 +920,7 @@ class SurfaceManager:
             self.__copy_polygons(polys_to_copy, new_geom_data_obj)
 
             if copy_surfaces:
-                for poly in polys_to_copy:
+                for poly, _ in polys_to_copy:
                     for vert in poly.vertices:
                         vert.set_pos(pos_backup[vert])
                         vert.normal = normal_backup[vert]
@@ -884,7 +932,7 @@ class SurfaceManager:
             del pos_backup
             del normal_backup
 
-            for step in new_geom_data_obj.create_geometry("editable_geom"): pass
+            for _ in new_geom_data_obj.create_geometry("unlocked_geom"): pass
 
             new_geom_data_obj.finalize_geometry()
             new_geom_data_obj.update_poly_centers()
@@ -897,6 +945,7 @@ class SurfaceManager:
             for model in Mgr.get("selection_top"):
 
                 geom_data_obj = model.geom_obj.geom_data_obj
+                inverted_geom = geom_data_obj.has_inverted_geometry()
                 polys_to_copy = set()
                 surface_list = []
                 sel_polys = set(geom_data_obj.get_selection("poly"))
@@ -928,7 +977,7 @@ class SurfaceManager:
 
                 for polys_to_copy in surface_list:
 
-                    new_model_id = ("editable_geom",) + next(self._id_generator)
+                    new_model_id = ("unlocked_geom",) + next(self._id_generator)
                     name = model_basename if model_basename else model.name
                     name = get_unique_name(name, obj_names)
                     new_model = Mgr.do("create_model", new_model_id, name, Point3())
@@ -937,17 +986,21 @@ class SurfaceManager:
                     color = tuple(random.random() * .4 + .5 for _ in range(3))
                     color += (1.,)
                     new_model.set_color(color, update_app=False)
-                    editable_geom = Mgr.do("create_editable_geom", new_model)
-                    new_geom_data_obj = editable_geom.geom_data_obj
+                    unlocked_geom = Mgr.do("create_unlocked_geom", new_model)
+                    new_geom_data_obj = unlocked_geom.geom_data_obj
+                    polys_to_copy = [(p, 1) for p in polys_to_copy]
                     self.__copy_polygons(polys_to_copy, new_geom_data_obj)
 
-                    for step in new_geom_data_obj.create_geometry("editable_geom"): pass
+                    for _ in new_geom_data_obj.create_geometry("unlocked_geom"): pass
 
                     new_geom_data_obj.finalize_geometry()
                     new_geom_data_obj.update_poly_centers()
                     new_geom_data_obj.update_poly_normals()
                     new_model.register(restore=False)
                     new_model.bbox.update(new_geom_data_obj.origin.get_tight_bounds())
+
+                    if inverted_geom:
+                        new_geom_data_obj.invert_geometry(delay=False)
 
                 if not copy_surfaces and surface_list:
                     geom_data_obj.delete_polygons(surface_polys, unregister_globally=False)
@@ -962,7 +1015,7 @@ class SurfaceManager:
                     locked_normal_ids.append(vert.id)
 
             geom_data_obj.update_locked_normal_selection(None, None, locked_normal_ids, ())
-            geom_data_obj.update_smoothing()
+            for _ in geom_data_obj.update_smoothing(): pass
 
         if not copy_surfaces:
             Mgr.get("selection").clear(add_to_hist=False)
@@ -1061,7 +1114,7 @@ class SurfaceManager:
 
         def is_valid_model(obj):
 
-            valid_model = obj and obj.type == "model" and obj.geom_type == "editable_geom"
+            valid_model = obj and obj.type == "model" and obj.geom_type == "unlocked_geom"
 
             return valid_model and obj.geom_obj.geom_data_obj.ordered_polys
 
@@ -1083,15 +1136,10 @@ class SurfaceManager:
         self._src_obj_ids = []
         src_data_objs = {m: m.geom_obj.geom_data_obj for m in src_models}
         ordered_polys = {m: gdo.ordered_polys for m, gdo in src_data_objs.items()}
-        src_polys = sum(ordered_polys.values(), [])
+        src_polys = []
         changed_objs = {}
         pos_backup = {}
         normal_backup = {}
-
-        for poly in src_polys:
-            for vert in poly.vertices:
-                pos_backup[vert] = vert.get_pos()
-                normal_backup[vert] = vert.normal
 
         if delete_src_geometry:
 
@@ -1109,13 +1157,20 @@ class SurfaceManager:
             geom_data_obj = model.geom_obj.geom_data_obj
             changed_objs[model] = geom_data_obj
             pivot = model.pivot
+            dest_flip = -1. if geom_data_obj.has_inverted_geometry() else 1.
 
             for src_model, polys in ordered_polys.items():
+                src_pivot = src_model.pivot
+                src_flip = -1. if src_model.geom_obj.geom_data_obj.has_inverted_geometry() else 1.
+                sign = int(src_flip * dest_flip)
                 for poly in polys:
+                    src_polys.append((poly, sign))
                     for vert in poly.vertices:
+                        pos_backup[vert] = vert.get_pos()
+                        normal_backup[vert] = vert.normal
                         vert.set_pos(vert.get_pos(pivot))
-                        vert.normal = pivot.get_relative_vector(src_model.pivot,
-                            vert.normal).normalized()
+                        vert.normal = pivot.get_relative_vector(src_pivot,
+                            vert.normal * sign).normalized()
 
             new_polys = self.__copy_polygons(src_polys, geom_data_obj)
             geom_data_obj.create_new_geometry(new_polys, create_normals=False)
@@ -1132,15 +1187,16 @@ class SurfaceManager:
                         locked_normal_ids.append(vert.id)
 
             geom_data_obj.update_locked_normal_selection(None, None, locked_normal_ids, ())
-            geom_data_obj.update_smoothing()
+            for _ in geom_data_obj.update_smoothing(): pass
 
-            for poly in src_polys:
+            for poly, _ in src_polys:
                 for vert in poly.vertices:
                     vert.set_pos(pos_backup[vert])
                     vert.normal = normal_backup[vert]
 
         del pos_backup
         del normal_backup
+        del src_polys
 
         Mgr.do("update_history_time")
         obj_data = {}

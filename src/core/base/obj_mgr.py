@@ -79,7 +79,8 @@ class GeneralObjectManager:
 
         return True
 
-    def __get_object(self, obj_id=None, pixel_color=None, obj_type=None, obj_lvl=None):
+    def __get_object(self, obj_id=None, pixel_color=None, obj_type=None, obj_lvl=None,
+                     get_group=True):
 
         if obj_id:
 
@@ -104,7 +105,7 @@ class GeneralObjectManager:
             if not pickable_type:
                 return None
 
-            if pickable_type in ("transf_gizmo", ):
+            if pickable_type in ("transf_gizmo", "snap_geom"):
                 return None
 
             obj = Mgr.get(pickable_type, color_id)
@@ -112,7 +113,7 @@ class GeneralObjectManager:
             if obj_lvl and obj_lvl != "top":
                 return obj
 
-            return obj.get_toplevel_object(get_group=True) if obj else None
+            return obj.get_toplevel_object(get_group=get_group) if obj else None
 
     def __show_object_name(self, selection):
 
@@ -371,13 +372,13 @@ class GeneralObjectManager:
         picking_mask = Mgr.get("picking_mask")
 
         models = set(obj for obj in Mgr.get("selection_top") if obj.type == "model"
-                     and obj.geom_type == "editable_geom")
+                     and obj.geom_type == "unlocked_geom")
 
         for model_id in self._sel_before_hist_change:
 
             model = Mgr.get("model", model_id)
 
-            if model and model.geom_type == "editable_geom":
+            if model and model.geom_type == "unlocked_geom":
                 models.add(model)
 
         if obj_lvl == "top":
@@ -416,7 +417,7 @@ class GeneralObjectManager:
 
                 model = Mgr.get("model", model_id)
 
-                if model.geom_type != "editable_geom":
+                if model.geom_type != "unlocked_geom":
                     set_sublvl = False
                     break
 

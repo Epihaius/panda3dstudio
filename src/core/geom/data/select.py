@@ -824,7 +824,7 @@ class SelectionManager:
         for prop_id in geom_data_obj.get_type_property_ids(obj_lvl):
             value = geom_data_obj.get_property(prop_id, for_remote_update=True, obj_lvl=obj_lvl)
             value = (value, sel_count)
-            Mgr.update_remotely("selected_obj_prop", "editable_geom", prop_id, value)
+            Mgr.update_remotely("selected_obj_prop", "unlocked_geom", prop_id, value)
 
     def __update_selection(self, obj_lvl):
 
@@ -1241,7 +1241,7 @@ class SelectionManager:
             models = Mgr.get("model_objs")
 
             for model in models:
-                if model.geom_type == "editable_geom":
+                if model.geom_type == "unlocked_geom":
                     geom_data_obj = model.geom_obj.geom_data_obj
                     geom_data_obj.restore_selection_backup("poly")
 

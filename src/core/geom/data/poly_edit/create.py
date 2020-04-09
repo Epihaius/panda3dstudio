@@ -113,9 +113,9 @@ class CreationMixin:
         tmp_data["start_index"] = 0
         tmp_data["start_index_prev"] = 0
 
-        # keep track of whether or not the normal of the new polygon will be flipped,
-        # relative to the automatically computed direction
-        tmp_data["flip_normal"] = False
+        # keep track of whether or not the geometry of the new polygon will be inverted,
+        # relative to the initial vertex winding order
+        tmp_data["inverted"] = False
 
         self._tmp_data = tmp_data
 
@@ -172,13 +172,13 @@ class CreationMixin:
 
         if last_index == 1:
 
-            if tmp_data["flip_normal"]:
+            if tmp_data["inverted"]:
                 geom.reverse_in_place()
 
             tris_prim = geom.modify_primitive(0)
             tris_prim.add_next_vertices(3)
 
-            if tmp_data["flip_normal"]:
+            if tmp_data["inverted"]:
                 geom.reverse_in_place()
 
         elif last_index > 1:
@@ -209,13 +209,13 @@ class CreationMixin:
 
             tmp_data["vert_indices"].append(indices)
 
-            if tmp_data["flip_normal"]:
+            if tmp_data["inverted"]:
                 geom.reverse_in_place()
 
             tris_prim = geom.modify_primitive(0)
             tris_prim.add_vertices(*indices)
 
-            if tmp_data["flip_normal"]:
+            if tmp_data["inverted"]:
                 geom.reverse_in_place()
 
             pos1, pos2, pos3 = [tmp_data["vert_pos"][i] for i in prev_indices]
@@ -225,11 +225,11 @@ class CreationMixin:
             tmp_data["normals"].append(Vec3(normal))
             normal.normalize()
 
-            if tmp_data["flip_normal"]:
+            if tmp_data["inverted"]:
                 normal *= -1.
 
             normal_writer.set_row(0)
-            sign = -1. if self.owner.has_flipped_normals() else 1.
+            sign = -1. if self.owner.has_inverted_geometry() else 1.
 
             for i in range(last_index):
                 normal_writer.set_data3(normal * sign)
@@ -291,7 +291,7 @@ class CreationMixin:
 
         geom = tmp_data["geoms"]["poly"].node().modify_geom(0)
 
-        if tmp_data["flip_normal"]:
+        if tmp_data["inverted"]:
             geom.reverse_in_place()
 
         geom.modify_vertex_data().set_num_rows(last_index + 1)
@@ -304,7 +304,7 @@ class CreationMixin:
         else:
             tris_prim.modify_vertices().clear_rows()
 
-        if tmp_data["flip_normal"]:
+        if tmp_data["inverted"]:
             geom.reverse_in_place()
 
         if tmp_data["shared_verts"]:
@@ -358,16 +358,16 @@ class CreationMixin:
             col_writer.set_data4(.5, .5, .5, 1.)
             col_writer.set_data4(.5, .5, .5, 1.)
 
-    def flip_new_poly_normal(self):
+    def invert_new_poly(self):
 
-        # When <Ctrl> is pressed, flip the normal of the new polygon.
+        # When <Ctrl> is pressed, invert the new polygon.
 
         tmp_data = self._tmp_data
 
         if len(tmp_data["vert_pos"]) < 2:
             return
 
-        tmp_data["flip_normal"] = not tmp_data["flip_normal"]
+        tmp_data["inverted"] = not tmp_data["inverted"]
 
         poly_geom = tmp_data["geoms"]["poly"].node().modify_geom(0)
         vertex_data = poly_geom.modify_vertex_data()
@@ -401,11 +401,11 @@ class CreationMixin:
                 normal = plane.get_normal()
                 normal.normalize()
 
-                if tmp_data["flip_normal"]:
+                if tmp_data["inverted"]:
                     normal *= -1.
 
                 normal_writer = GeomVertexWriter(vertex_data, "normal")
-                sign = -1. if self.owner.has_flipped_normals() else 1.
+                sign = -1. if self.owner.has_inverted_geometry() else 1.
 
                 for row_index in indices:
                     normal_writer.set_row(row_index)
@@ -461,7 +461,7 @@ class CreationMixin:
         normal = tmp_data["normals"][-1]
         normal.normalize()
 
-        if tmp_data["flip_normal"]:
+        if tmp_data["inverted"]:
             normal *= -1.
 
         verts_by_pos = {}
@@ -474,7 +474,7 @@ class CreationMixin:
 
         for tri_data in indices:
 
-            if tmp_data["flip_normal"]:
+            if tmp_data["inverted"]:
                 tri_data = reversed(tri_data)
 
             tri_vert_ids = []
@@ -704,8 +704,8 @@ class CreationManager:
              "backspace", self.__remove_poly_vertex)
         bind("poly_creation", "switch poly start vertex",
              "shift", self.__switch_start_vertex)
-        bind("poly_creation", "flip poly normal",
-             "control", self.__flip_poly_normal)
+        bind("poly_creation", "invert poly",
+             "control", self.__invert_poly)
         bind("poly_creation", "poly creation -> navigate", "space",
              lambda: Mgr.enter_state("navigation_mode"))
         bind("poly_creation", "quit poly creation", "escape", cancel_creation)
@@ -718,7 +718,7 @@ class CreationManager:
         status_data["create_poly"] = {"mode": mode_text, "info": info_text}
         info_text = "LMB to add vertex; <Backspace> to undo; " \
                     "click a previously added vertex to finalize; " \
-                    "<Ctrl> to flip normal; <Shift> to turn diagonal; " \
+                    "<Ctrl> to invert; <Shift> to turn diagonal; " \
                     "RMB to cancel; <Space> to navigate"
         status_data["start_poly_creation"] = {"mode": mode_text, "info": info_text}
 
@@ -733,8 +733,8 @@ class CreationManager:
 
         else:
 
-            editable_geoms = Mgr.get("selection_top")
-            geom_data_objs = [geom.geom_obj.geom_data_obj for geom in editable_geoms]
+            unlocked_geoms = Mgr.get("selection_top")
+            geom_data_objs = [geom.geom_obj.geom_data_obj for geom in unlocked_geoms]
 
             for data_obj in geom_data_objs:
                 data_obj.prepare_poly_creation()
@@ -925,9 +925,9 @@ class CreationManager:
 
         self._active_geom_data_obj.switch_new_poly_start_vertex()
 
-    def __flip_poly_normal(self):
+    def __invert_poly(self):
 
-        self._active_geom_data_obj.flip_new_poly_normal()
+        self._active_geom_data_obj.invert_new_poly()
 
     def __finalize_poly_creation(self, cancel=False):
 

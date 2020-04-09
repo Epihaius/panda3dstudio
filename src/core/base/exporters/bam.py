@@ -74,7 +74,11 @@ class BamExporter:
         self.__set_model_node_data()
         self.__set_model_material()
         self.__set_model_transform()
-        self.node.node().copy_tags(self.origin.node())
+        node = self.node.node()
+
+        for key, val in self.child.tags.items():
+            node.set_tag(key, val)
+
         self.__create_node()
 
     def __parse_helper_data(self):
@@ -91,7 +95,10 @@ class BamExporter:
             self.node = self.parent_node.attach_new_node(self.child.name)
 
         self.node.set_transform(self.child.pivot.get_transform(self.child.parent_pivot))
-        self.node.node().copy_tags(self.child.origin.node())
+        node = self.node.node()
+
+        for key, val in self.child.tags.items():
+            node.set_tag(key, val)
 
     def __create_node(self):
 
@@ -142,23 +149,23 @@ class BamExporter:
         elif self.geom_type == "plane":
             coll_solid = self.__create_plane_collision_solid(coll_solid)
         else:
-            self.__check_if_basic_geom(scale)
+            self.__process_geom(scale)
 
         return coll_solid
 
-    def __check_if_basic_geom(self, scale):
+    def __process_geom(self, scale):
 
         self.pivot.set_scale(scale)
 
-        if self.geom_type == "basic_geom":
-            self.__process_basic_geom()
-        else:
+        if self.geom_type == "unlocked_geom":
             polys = iter(self.geom_data_obj.get_subobjects("poly").values())
             verts = self.geom_data_obj.get_subobjects("vert")
             epsilon = 1.e-005
             self.__process_polygons(polys, verts, epsilon)
+        else:
+            self.__process_locked_geom()
 
-    def __process_basic_geom(self):
+    def __process_locked_geom(self):
 
         mat = self.pivot.get_mat(self.group_pivot)
         geom = self.node.node().modify_geom(0)
@@ -230,7 +237,7 @@ class BamExporter:
         size_y = dimensions[1]
         size_z = dimensions[2]
 
-        if self.geom_obj.has_flipped_normals():
+        if self.geom_obj.has_inverted_geometry():
 
             x_vec = self.group_pivot.get_relative_vector(self.origin, Vec3.right() * size_x)
             y_vec = self.group_pivot.get_relative_vector(self.origin, Vec3.forward() * size_y)
@@ -252,7 +259,7 @@ class BamExporter:
         center = self.origin.get_pos(self.group_pivot)
         radius = self.geom_obj.get_property("radius") * self.sx
 
-        if self.geom_obj.has_flipped_normals():
+        if self.geom_obj.has_inverted_geometry():
             coll_solid = CollisionInvSphere(center, radius)
         else:
             coll_solid = CollisionSphere(center, radius)
@@ -289,7 +296,7 @@ class BamExporter:
 
     def __create_plane_collision_solid(self, coll_solid):
 
-        normal = Vec3.down() if self.geom_obj.has_flipped_normals() else Vec3.up()
+        normal = Vec3.down() if self.geom_obj.has_inverted_geometry() else Vec3.up()
         normal = self.group_pivot.get_relative_vector(self.origin, normal)
         point = self.origin.get_pos(self.group_pivot)
         coll_solid = CollisionPlane(Plane(normal, point))
@@ -305,22 +312,19 @@ class BamExporter:
 
     def __check_geom_type(self):
 
-        if self.geom_type == "basic_geom":
+        if self.geom_type == "unlocked_geom":
+
+            self.geom_data_obj = self.geom_obj.geom_data_obj
+            self.node = Mgr.do("merge_duplicate_verts", self.geom_data_obj)
+            self.uv_set_names = self.geom_data_obj.get_uv_set_names()
+
+        else:
 
             self.node = NodePath(self.geom_obj.geom.node().make_copy())
             self.uv_set_names = self.geom_obj.get_uv_set_names()
 
             for key in self.node.get_tag_keys():
                 self.node.clear_tag(key)
-
-        else:
-
-            self.geom_data_obj = self.geom_obj.geom_data_obj
-            self.node = Mgr.do("merge_duplicate_verts", self.geom_data_obj)
-            self.uv_set_names = self.geom_data_obj.get_uv_set_names()
-
-            if self.geom_obj.has_flipped_normals():
-                self.node.node().modify_geom(0).reverse_in_place()
 
     def __set_model_node_data(self):
 

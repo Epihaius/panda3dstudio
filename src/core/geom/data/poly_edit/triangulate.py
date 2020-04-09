@@ -92,6 +92,7 @@ class TriangulationMixin:
         vertex_data_top = geom_node_top.get_geom(0).get_vertex_data()
 
         lines_prim = GeomLines(Geom.UH_static)
+        lines_prim.set_index_type(Geom.NT_uint32)
         lines_prim.reserve_num_vertices(len(diagonals) * 2)
         pos_reader = GeomVertexReader(vertex_data_top, "vertex")
         pos_writer = GeomVertexWriter(vertex_data_line, "vertex")
@@ -230,6 +231,7 @@ class TriangulationMixin:
 
         for vert_ids_to_replace, new_tri_vert_ids in zip(tris_to_replace, new_tris_vert_ids):
             tris_prim = GeomTriangles(Geom.UH_static)
+            tris_prim.set_index_type(Geom.NT_uint32)
             rows = [verts[vert_id].row_index for vert_id in new_tri_vert_ids]
             tris_prim.reserve_num_vertices(3)
             tris_prim.add_vertices(*rows)
@@ -385,6 +387,7 @@ class TriangulationMixin:
                     continue
 
                 prim = GeomTriangles(Geom.UH_static)
+                prim.set_index_type(Geom.NT_uint32)
                 prim.reserve_num_vertices(len(tri_data) * 3)
 
                 for tri_verts in tri_data:

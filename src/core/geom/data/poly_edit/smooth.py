@@ -3,6 +3,8 @@ from ....base import *
 
 class SmoothingGroup:
 
+    __slots__ = ("_poly_ids",)
+
     def __init__(self, poly_ids=None):
 
         self._poly_ids = set([] if poly_ids is None else poly_ids)
@@ -21,7 +23,7 @@ class SmoothingGroup:
 
     def __ne__(self, other):
 
-        return True if other is None else not self._poly_ids == other.get()
+        return True if other is None else self._poly_ids != other.get()
 
     def __getitem__(self, index):
 
@@ -76,7 +78,7 @@ class SmoothingMixin:
         self._poly_smoothing = {}
         self._poly_smoothing_change = False
 
-    def update_smoothing(self):
+    def update_smoothing(self, gradual=False):
         """ Derive smoothing groups from shared vertex normals """
 
         verts = self._subobjs["vert"]
@@ -85,6 +87,9 @@ class SmoothingMixin:
         shared_normals = self.shared_normals
         poly_smoothing = {}
         creases = {}
+
+        if gradual:
+            vert_count = 0
 
         for merged_vert in set(merged_verts.values()):
 
@@ -105,8 +110,19 @@ class SmoothingMixin:
                         creases.setdefault(poly_id, set()).add(other_poly_id)
                         creases.setdefault(other_poly_id, set()).add(poly_id)
 
+                if gradual:
+
+                    vert_count += 1
+
+                    if vert_count == 20:
+                        yield
+                        vert_count = 0
+
         polys_to_process = set(polys)
         smoothing = []
+
+        if gradual:
+            poly_count = 0
 
         while polys_to_process:
 
@@ -143,37 +159,55 @@ class SmoothingMixin:
             if len(polys_to_smooth) > 1:
                 smoothing.append(polys_to_smooth)
 
+            if gradual:
+
+                poly_count += 1
+
+                if poly_count == 20:
+                    yield
+                    poly_count = 0
+
+        if gradual:
+            poly_count = 0
+
         for polys_to_smooth in smoothing:
 
             smoothing_group = SmoothingGroup(polys_to_smooth)
 
             for poly_id in polys_to_smooth:
-                poly_smoothing.setdefault(poly_id, set()).add(smoothing_group)
+
+                poly_smoothing.setdefault(poly_id, []).append(smoothing_group)
+
+                if gradual:
+
+                    poly_count += 1
+
+                    if poly_count == 100:
+                        yield
+                        poly_count = 0
 
         # check if anything has changed
         if set(poly_smoothing) == set(self._poly_smoothing):
 
-            old_smoothing = set()
-            new_smoothing = set()
+            old_smoothing = []
+            new_smoothing = []
 
             for smoothing in self._poly_smoothing.values():
-                old_smoothing.update(smoothing)
+                old_smoothing.extend(smoothing)
 
             for smoothing in poly_smoothing.values():
-                new_smoothing.update(smoothing)
-
-            old_smoothing = list(old_smoothing)
+                new_smoothing.extend(smoothing)
 
             for smoothing_grp in new_smoothing:
                 if smoothing_grp not in old_smoothing:
                     break
             else:
-                return False
+                return
 
         self._poly_smoothing = poly_smoothing
         self._poly_smoothing_change = True
 
-        return True
+        yield True
 
     def set_smoothing(self, smoothing=None):
 
@@ -222,7 +256,7 @@ class SmoothingMixin:
                 # Update smoothing groups
 
                 for poly_id in smoothing_grp:
-                    poly_smoothing.setdefault(poly_id, set()).add(smoothing_grp)
+                    poly_smoothing.setdefault(poly_id, []).append(smoothing_grp)
 
                 self._poly_smoothing_change = True
 
@@ -234,7 +268,7 @@ class SmoothingMixin:
             if model.has_tangent_space():
                 model.update_tangent_space()
             else:
-                self._is_tangent_space_initialized = False
+                self.is_tangent_space_initialized = False
 
         else:
 
@@ -259,25 +293,25 @@ class SmoothingMixin:
 
         verts = self._subobjs["vert"]
         polys = self._subobjs["poly"]
-        sign = -1. if self.owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_inverted_geometry() else 1.
         normals_to_sel = False
 
         if smooth:
 
             self._reset_normal_sharing(share=True)
             shared_normals = self.shared_normals
-            all_smoothing = set()
+            all_smoothing = []
 
             for poly_id in polys:
-                smoothing = self._poly_smoothing.get(poly_id, set([None]))
-                all_smoothing.update(smoothing)
+                smoothing = self._poly_smoothing.get(poly_id, [None])
+                all_smoothing.extend(smoothing)
 
             if len(all_smoothing) == 1 and None not in all_smoothing:
                 return False, False
 
             smoothing_grp = SmoothingGroup(polys)
 
-            self._poly_smoothing = {poly_id: set([smoothing_grp]) for poly_id in polys}
+            self._poly_smoothing = {poly_id: [smoothing_grp] for poly_id in polys}
 
             vertex_data_poly = self._vertex_data["poly"]
             normal_writer = GeomVertexWriter(vertex_data_poly, "normal")
@@ -372,7 +406,7 @@ class SmoothingMixin:
         if model.has_tangent_space():
             model.update_tangent_space()
         else:
-            self._is_tangent_space_initialized = False
+            self.is_tangent_space_initialized = False
 
         return True, normals_to_sel
 
@@ -414,7 +448,7 @@ class SmoothingMixin:
                 new_smoothing_grp = SmoothingGroup(poly_ids)
 
                 for poly_id in poly_ids:
-                    poly_smoothing.setdefault(poly_id, set()).add(new_smoothing_grp)
+                    poly_smoothing.setdefault(poly_id, []).append(new_smoothing_grp)
 
                 polys_to_update = poly_ids
 
@@ -438,7 +472,9 @@ class SmoothingMixin:
                             if len(smoothing_grp) == 1:
 
                                 last_id = smoothing_grp.pop()
-                                poly_smoothing[last_id].discard(smoothing_grp)
+
+                                if smoothing_grp in poly_smoothing[last_id]:
+                                    poly_smoothing[last_id].remove(smoothing_grp)
 
                                 if not poly_smoothing[last_id]:
                                     del poly_smoothing[last_id]
@@ -453,7 +489,7 @@ class SmoothingMixin:
             if src_poly_id not in polys:
                 return False, None, False
 
-            smoothing_change = set(poly_smoothing.get(src_poly_id, []))
+            smoothing_change = poly_smoothing.get(src_poly_id, [])
 
             if smooth:
 
@@ -470,7 +506,7 @@ class SmoothingMixin:
                     # smoothing group to be applied to both the source and
                     # target polys
                     new_smoothing_grp = SmoothingGroup([src_poly_id])
-                    smoothing_change = set([new_smoothing_grp])
+                    smoothing_change = [new_smoothing_grp]
                     poly_smoothing[src_poly_id] = smoothing_change
                     polys_to_update.add(src_poly_id)
 
@@ -484,7 +520,7 @@ class SmoothingMixin:
                         polys_to_update.update(dif)
 
                         for poly_id in dif:
-                            poly_smoothing.setdefault(poly_id, set()).add(smoothing_grp)
+                            poly_smoothing.setdefault(poly_id, []).append(smoothing_grp)
 
             else:
 
@@ -498,12 +534,17 @@ class SmoothingMixin:
 
                 for poly_id in poly_ids:
 
-                    if poly_smoothing.get(poly_id, set()).intersection(smoothing_change):
+                    smoothing_list = poly_smoothing.get(poly_id, [])
+                    intersection = [sg for sg in smoothing_change if sg in smoothing_list]
 
-                        poly_smoothing[poly_id].difference_update(smoothing_change)
+                    if intersection:
+
+                        for smoothing_grp in intersection:
+                            smoothing_list.remove(smoothing_grp)
+
                         polys_to_update.add(poly_id)
 
-                        if not poly_smoothing[poly_id]:
+                        if not smoothing_list:
                             del poly_smoothing[poly_id]
 
                 if polys_to_update:
@@ -518,7 +559,9 @@ class SmoothingMixin:
                         if len(smoothing_grp) == 1:
 
                             last_id = smoothing_grp.pop()
-                            poly_smoothing[last_id].discard(smoothing_grp)
+
+                            if smoothing_grp in poly_smoothing[last_id]:
+                                poly_smoothing[last_id].remove(smoothing_grp)
 
                             if not poly_smoothing[last_id]:
                                 del poly_smoothing[last_id]
@@ -746,8 +789,9 @@ class SmoothingManager:
 
             geom_data_obj = model.geom_obj.geom_data_obj
 
-            if geom_data_obj.update_smoothing():
-                changed_objs[model.id] = geom_data_obj
+            for change in geom_data_obj.update_smoothing():
+                if change:
+                    changed_objs[model.id] = geom_data_obj
 
         if not changed_objs:
             return

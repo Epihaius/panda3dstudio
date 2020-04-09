@@ -3,20 +3,6 @@ from ..base import *
 
 class DummyEdge:
 
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        state["_axis"] = state.pop("axis")
-        state["_picking_col_id"] = state.pop("picking_color_id")
-
-        return state
-
-    def __setstate__(self, state):
-
-        state["axis"] = state.pop("_axis")
-        state["picking_color_id"] = state.pop("_picking_col_id")
-        self.__dict__ = state
-
     def __init__(self, dummy, axis, corner_index, picking_col_id):
 
         self._dummy = dummy
@@ -288,10 +274,7 @@ class TemporaryDummy:
     def finalize(self):
 
         pos = self.geom.get_pos(Mgr.get("grid").origin)
-
-        for step in Mgr.do("create_dummy", pos, self._size):
-            pass
-
+        Mgr.do("create_dummy", pos, self._size)
         self.destroy()
 
 
@@ -503,23 +486,9 @@ class Dummy(TopLevelObject):
             geoms["unselected"] = root.find(f"**/{geom_type}_geom_unselected")
             geoms["selected"] = root.find(f"**/{geom_type}_geom_selected")
 
-        pickable_type_id = PickableTypes.get_id("dummy_edge")
-
         for geom_type in ("box", "cross"):
-
             pickable_geom = root.find(f"**/{geom_type}_geom_pickable")
             pickable_geoms[geom_type] = pickable_geom
-            vertex_data = pickable_geom.node().modify_geom(0).modify_vertex_data()
-            col_rewriter = GeomVertexRewriter(vertex_data, "color")
-            col_rewriter.set_row(0)
-            r, g, b, a = col_rewriter.get_data4()
-
-            if int(round(a * 255.)) != pickable_type_id:
-                a = pickable_type_id / 255.
-                col_rewriter.set_data4(r, g, b, a)
-                while not col_rewriter.is_at_end():
-                    r, g, b, _ = col_rewriter.get_data4()
-                    col_rewriter.set_data4(r, g, b, a)
 
     def __init__(self, dummy_id, name, origin_pos):
 
@@ -1141,8 +1110,6 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(dummy)
-
-        yield False
 
     def __create_custom_dummy(self, name, viz, size, cross_size, is_const_size,
                               const_size, on_top, transform=None):

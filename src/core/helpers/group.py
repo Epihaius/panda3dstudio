@@ -16,9 +16,7 @@ class Group(TopLevelObject):
         state = TopLevelObject.__getstate__(self)
 
         state["_member_ids"] = []
-        state["_collision_geoms"] = {}
-        state["_bbox"] = state.pop("bbox")
-        state["_bbox_is_const_size"] = state.pop("is_zero_size")
+        state["_collision_geoms"] = []
 
         return state
 
@@ -26,8 +24,6 @@ class Group(TopLevelObject):
 
         TopLevelObject.__setstate__(self, state)
 
-        state["bbox"] = state.pop("_bbox")
-        state["is_zero_size"] = state.pop("_bbox_is_const_size")
         self.bbox.origin.reparent_to(self.origin)
         self.bbox.color = self._color_unsel
         self.bbox.hide()
@@ -46,7 +42,7 @@ class Group(TopLevelObject):
         self.bbox = Mgr.do("create_bbox", self, color_unsel)
         self.bbox.hide()
         self.is_zero_size = False
-        self._collision_geoms = {}
+        self._collision_geoms = []
 
     def __del__(self):
 
@@ -58,7 +54,7 @@ class Group(TopLevelObject):
             return
 
         if self._member_types_id == "collision" and not self._is_open:
-            self.__destroy_collision_geoms()
+            self.__clear_collision_geoms()
 
         if add_to_hist:
 
@@ -85,7 +81,7 @@ class Group(TopLevelObject):
         if restore:
             Mgr.notify("pickable_geom_altered", self)
 
-    def __create_collision_geoms(self):
+    def __set_collision_geoms(self):
 
         members = self.get_members()
 
@@ -93,9 +89,6 @@ class Group(TopLevelObject):
             return
 
         collision_geoms = self._collision_geoms
-        group_pivot = self.pivot
-        group_pivot.node().final = True
-        compass_props = CompassEffect.P_all
 
         for member in members:
 
@@ -103,43 +96,28 @@ class Group(TopLevelObject):
 
             if member.type == "model" and member_id not in collision_geoms:
 
-                if member.geom_type == "basic_geom":
-                    geom = member.geom_obj.geom
-                else:
+                if member.geom_type == "unlocked_geom":
                     geom = member.geom_obj.geom_data_obj.toplevel_geom
+                else:
+                    geom = member.geom_obj.geom
 
-                coll_geom = geom.instance_under_node(group_pivot, "collision_geom")
-                coll_geom.set_material_off()
-                coll_geom.set_texture_off()
-                coll_geom.set_shader_off()
-                coll_geom.set_light_off()
-                coll_geom.set_transparency(TransparencyAttrib.M_alpha)
-                coll_geom.set_color((1., 1., 1., .5))
-                compass_effect = CompassEffect.make(member.pivot, compass_props)
-                coll_geom.set_effect(compass_effect)
-                collision_geoms[member_id] = coll_geom
-                geom.detach_node()
+                geom.set_tag("tag_state", "collision_geom")
+                collision_geoms.append(member_id)
 
-    def __destroy_collision_geoms(self):
-
-        for coll_geom in self._collision_geoms.values():
-            coll_geom.detach_node()
+    def __clear_collision_geoms(self):
 
         for member in self.get_members():
+
             if member.type == "model":
-                if member.geom_type == "basic_geom":
-                    geom = member.geom_obj.geom
-                    geom.reparent_to(member.origin)
+
+                if member.geom_type == "unlocked_geom":
+                    geom = member.geom_obj.geom_data_obj.toplevel_geom
                 else:
-                    geom_data_obj = member.geom_obj.geom_data_obj
-                    geom = geom_data_obj.toplevel_geom
-                    geom.reparent_to(geom_data_obj.origin)
+                    geom = member.geom_obj.geom
 
-        self._collision_geoms.clear()
-        pivot = self.pivot
+                geom.clear_tag("tag_state")
 
-        if pivot:
-            pivot.node().final = False
+        del self._collision_geoms[:]
 
     def set_member_types(self, member_types, member_types_id, check_outer_group=True,
                          removed_members=None):
@@ -192,9 +170,9 @@ class Group(TopLevelObject):
                 removed_members.update(members_to_remove)
 
         if member_types_id == "collision" and not self._is_open:
-            self.__create_collision_geoms()
+            self.__set_collision_geoms()
         elif old_member_types_id == "collision":
-            self.__destroy_collision_geoms()
+            self.__clear_collision_geoms()
 
         return True
 
@@ -206,9 +184,9 @@ class Group(TopLevelObject):
         self._member_types_id = member_types_id
 
         if member_types_id == "collision" and not self._is_open:
-            self.__create_collision_geoms()
+            self.__set_collision_geoms()
         elif old_member_types_id == "collision":
-            self.__destroy_collision_geoms()
+            self.__clear_collision_geoms()
 
     def get_member_types(self):
 
@@ -400,25 +378,13 @@ class Group(TopLevelObject):
 
             if member.type == "model" and member_id not in self._collision_geoms:
 
-                group_pivot = self.pivot
-
-                if member.geom_type == "basic_geom":
-                    geom = member.geom_obj.geom
-                else:
+                if member.geom_type == "unlocked_geom":
                     geom = member.geom_obj.geom_data_obj.toplevel_geom
+                else:
+                    geom = member.geom_obj.geom
 
-                coll_geom = geom.instance_under_node(group_pivot, "collision_geom")
-                coll_geom.set_material_off()
-                coll_geom.set_texture_off()
-                coll_geom.set_shader_off()
-                coll_geom.set_light_off()
-                coll_geom.set_transparency(TransparencyAttrib.M_alpha)
-                coll_geom.set_color((1., 1., 1., .5))
-                compass_props = CompassEffect.P_all
-                compass_effect = CompassEffect.make(member.pivot, compass_props)
-                coll_geom.set_effect(compass_effect)
-                self._collision_geoms[member_id] = coll_geom
-                geom.detach_node()
+                geom.set_tag("tag_state", "collision_geom")
+                self._collision_geoms.append(member_id)
 
         return True
 
@@ -432,19 +398,17 @@ class Group(TopLevelObject):
 
         if member_id in self._collision_geoms:
 
-            coll_geom = self._collision_geoms[member_id]
-            coll_geom.detach_node()
-            del self._collision_geoms[member_id]
+            self._collision_geoms.remove(member_id)
             member = Mgr.get("object", member_id)
 
             if member:
-                if member.geom_type == "basic_geom":
-                    geom = member.geom_obj.geom
-                    geom.reparent_to(member.origin)
+
+                if member.geom_type == "unlocked_geom":
+                    geom = member.geom_obj.geom_data_obj.toplevel_geom
                 else:
-                    geom_data_obj = member.geom_obj.geom_data_obj
-                    geom = geom_data_obj.toplevel_geom
-                    geom.reparent_to(geom_data_obj.origin)
+                    geom = member.geom_obj.geom
+
+                geom.clear_tag("tag_state")
 
         return True
 
@@ -485,9 +449,9 @@ class Group(TopLevelObject):
 
         if self._member_types_id == "collision":
             if is_open:
-                self.__destroy_collision_geoms()
+                self.__clear_collision_geoms()
             else:
-                self.__create_collision_geoms()
+                self.__set_collision_geoms()
 
         return True
 
@@ -538,7 +502,6 @@ class Group(TopLevelObject):
         if self.bbox.has_zero_size_owner:
             for origin in Mgr.get("const_size_bbox_origins", self.id):
                 origin.show() if show else origin.hide()
-                   
 
     def display_link_effect(self):
         """

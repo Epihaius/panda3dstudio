@@ -77,17 +77,11 @@ class ObjExporter:
 
     def __check_geom_type(self):
 
-        if self.geom_type == "basic_geom":
-
-            self.node = NodePath(self.geom_obj.geom.node().make_copy())
-
-        else:
-
+        if self.geom_type == "unlocked_geom":
             self.geom_data_obj = self.geom_obj.geom_data_obj
             self.node = Mgr.do("merge_duplicate_verts", self.geom_data_obj)
-
-            if self.geom_obj.has_flipped_normals():
-                self.node.node().modify_geom(0).reverse_in_place()
+        else:
+            self.node = NodePath(self.geom_obj.geom.node().make_copy())
 
     def __check_material(self):
 

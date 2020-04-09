@@ -156,7 +156,7 @@ class GeomTransformMixin:
 
         for vert in self._subobjs["vert"].values():
             row = vert.row_index
-            old_pos = vert.get_initial_pos()
+            old_pos = vert.get_pos()
             new_pos = computation(Point3(*old_pos))
             pos_writer.set_row(row)
             pos_writer.set_data3(Point3(*new_pos))

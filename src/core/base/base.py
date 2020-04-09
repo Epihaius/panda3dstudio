@@ -154,13 +154,12 @@ class PendingTasks:
             "set_uvs",
             "set_poly_triangles",
             "set_poly_smoothing",
-            "flip_normals",
+            "invert_geometry",
             "set_normals",
             "set_normal_lock",
             "set_material",
             "update_tangent_space",
             "set_geom_data",
-            "make_editable",
             "update_selection",
             "set_obj_level",
             "update_texproj",
@@ -434,7 +433,7 @@ class PosObj:
 
     def __init__(self, pos):
 
-        self._pos = pos
+        self._pos = list(pos)
 
     def __repr__(self):
 
@@ -445,6 +444,10 @@ class PosObj:
     def __getitem__(self, index):
 
         return self._pos[index]
+
+    def __setitem__(self, index, value):
+
+        self._pos[index] = value
 
 
 # The following class is a wrapper around Vec3 that uses operator overloading

@@ -1,4 +1,4 @@
-from ..base import *
+from ...base import *
 
 
 class SharedNormal:
@@ -214,7 +214,7 @@ class SharedNormal:
         geom_data_obj = self.geom_data_obj
         vert = geom_data_obj.get_subobject("vert", self[0])
         normal = vert.normal
-        sign = -1. if geom_data_obj.owner.has_flipped_normals() else 1.
+        sign = -1. if geom_data_obj.owner.has_inverted_geometry() else 1.
         origin = geom_data_obj.origin
         normal = V3D(ref_node.get_relative_vector(origin, normal * sign))
 
@@ -335,13 +335,13 @@ class NormalEditMixin:
                         for other_smoothing_grp in smoothing:
                             smoothing_grp.update(other_smoothing_grp)
 
-                        smoothing.add(smoothing_grp_orig)
+                        smoothing.append(smoothing_grp_orig)
 
                     else:
 
                         smoothing_grp = None
 
-                    smoothing_grps = list(vert_ids_by_smoothing.keys())
+                    smoothing_grps = list(vert_ids_by_smoothing)
 
                     if smoothing_grp in smoothing_grps:
                         index = smoothing_grps.index(smoothing_grp)
@@ -426,7 +426,7 @@ class NormalEditMixin:
 
         self._normal_sharing_change = change
 
-    def flip_normals(self, flip=True, delay=True):
+    def invert_geometry(self, invert=True, delay=True):
 
         def task():
 
@@ -435,7 +435,7 @@ class NormalEditMixin:
             if not origin:
                 return
 
-            if flip:
+            if invert:
                 state = origin.get_state()
                 cull_attr = CullFaceAttrib.make_reverse()
                 state = state.add_attrib(cull_attr)
@@ -449,7 +449,7 @@ class NormalEditMixin:
             geom.set_vertex_data(vertex_data)
             normal_array = GeomVertexArrayData(vertex_data.get_array(2))
             self._vertex_data["poly"].set_array(2, normal_array)
-            self.owner.set_flipped_normals(flip)
+            self.owner.set_inverted_geometry(invert)
 
             for geom_type in ("pickable", "sel_state"):
                 geom = self._geoms["normal"][geom_type].node().modify_geom(0)
@@ -460,11 +460,15 @@ class NormalEditMixin:
                 Mgr.get("selection").update_transform_values()
 
         if delay:
-            task_id = "flip_normals"
+            task_id = "invert_geometry"
             obj_id = self.toplevel_obj.id
             PendingTasks.add(task, task_id, "object", id_prefix=obj_id)
         else:
             task()
+
+    def has_inverted_geometry(self):
+
+        return self.owner.has_inverted_geometry()
 
     def unify_normals(self, unify=True):
 
@@ -607,7 +611,7 @@ class NormalEditMixin:
 
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
-        sign = -1. if self.owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_inverted_geometry() else 1.
         shared_normals_tmp = [s.difference(locked_normals) for s in
                               set(shared_normals[v_id] for v_id in verts_to_process)]
 
@@ -650,7 +654,7 @@ class NormalEditMixin:
                 tangent_flip, bitangent_flip = model.get_tangent_space_flip()
                 self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
             else:
-                self._is_tangent_space_initialized = False
+                self.is_tangent_space_initialized = False
 
     def clear_normal_change(self):
 
@@ -760,7 +764,7 @@ class NormalEditMixin:
 
         vertex_data_top = self._toplvl_node.modify_geom(0).modify_vertex_data()
         normal_writer = GeomVertexWriter(vertex_data_top, "normal")
-        sign = -1. if self.owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_inverted_geometry() else 1.
 
         for vert_id, normal in normals.items():
 
@@ -976,11 +980,7 @@ class NormalEditMixin:
     def set_normal_shader(self, set_shader=True):
 
         if set_shader:
-            sh = shaders.normal
-            vs = sh.VERT_SHADER
-            fs = sh.FRAG_SHADER
-            gs = sh.GEOM_SHADER
-            shader = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+            shader = shaders.Shaders.normal
             self._geoms["normal"]["pickable"].set_shader(shader)
             self._geoms["normal"]["sel_state"].set_shader(shader)
         else:
@@ -1009,7 +1009,7 @@ class NormalEditMixin:
         normal_writer = GeomVertexWriter(vertex_data, "normal")
         pickable_id = PickableTypes.get_id("vert")
         rows = self._tmp_row_indices
-        sign = -1. if self.owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_inverted_geometry() else 1.
         by_aiming = GD["subobj_edit_options"]["pick_by_aiming"]
 
         if by_aiming:
@@ -1098,11 +1098,7 @@ class NormalEditMixin:
         geom_pickable.set_bin("fixed", 51)
         geom_pickable.set_depth_test(False)
         geom_pickable.set_depth_write(False)
-        sh = shaders.normal
-        vs = sh.VERT_SHADER
-        fs = sh.FRAG_SHADER
-        gs = sh.GEOM_SHADER
-        shader = Shader.make(Shader.SL_GLSL, vs, fs, gs)
+        shader = shaders.Shaders.normal
         geom_pickable.set_shader(shader)
         normal_length = self._normal_length
         geom_pickable.set_shader_input("normal_length", normal_length)
@@ -1377,7 +1373,7 @@ class NormalEditMixin:
             verts = self._subobjs["vert"]
             polys_to_update = set()
             normal_reader = GeomVertexReader(vertex_data_top, "normal")
-            sign = -1. if self.owner.has_flipped_normals() else 1.
+            sign = -1. if self.owner.has_inverted_geometry() else 1.
             sel_ids = self._selected_subobj_ids["normal"]
 
             for sel_id in sel_ids:
@@ -1397,7 +1393,7 @@ class NormalEditMixin:
                 tangent_flip, bitangent_flip = model.get_tangent_space_flip()
                 self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
             else:
-                self._is_tangent_space_initialized = False
+                self.is_tangent_space_initialized = False
 
             if lock_normals:
                 self.lock_normals()
@@ -1417,7 +1413,7 @@ class NormalEditMixin:
         normal_writer = GeomVertexWriter(tmp_vertex_data, "normal")
         verts = self._subobjs["vert"]
         polys_to_update = set()
-        sign = -1. if self.owner.has_flipped_normals() else 1.
+        sign = -1. if self.owner.has_inverted_geometry() else 1.
 
         for sel_id in sel_ids:
             vert = verts[sel_id]
@@ -1444,7 +1440,7 @@ class NormalEditMixin:
             tangent_flip, bitangent_flip = model.get_tangent_space_flip()
             self.update_tangent_space(tangent_flip, bitangent_flip, polys_to_update)
         else:
-            self._is_tangent_space_initialized = False
+            self.is_tangent_space_initialized = False
 
         self.lock_normals()
 
@@ -1463,7 +1459,7 @@ class NormalManager:
 
         Mgr.accept("create_shared_normal", lambda *args, **kwargs: SharedNormal(*args, **kwargs))
         Mgr.add_app_updater("normal_length", self.__set_normal_length)
-        Mgr.add_app_updater("normal_flip", self.__flip_normals)
+        Mgr.add_app_updater("inverted_geom", self.__invert_geometry)
         Mgr.add_app_updater("normal_unification", self.__unify_normals)
         Mgr.add_app_updater("normal_lock", self.__lock_normals)
 
@@ -1512,9 +1508,9 @@ class NormalManager:
         obj_data = {}
 
         for obj in changed_objs:
-            if obj.geom_type == "basic_geom":
+            if obj.geom_type == "locked_geom":
                 obj_data[obj.id] = obj.geom_obj.get_data_to_store("prop_change", "normal_length")
-            elif obj.geom_type == "editable_geom":
+            elif obj.geom_type == "unlocked_geom":
                 geom_data_obj = obj.geom_obj.geom_data_obj
                 obj_data[obj.id] = geom_data_obj.get_property_to_store("normal_length")
 
@@ -1529,14 +1525,14 @@ class NormalManager:
         event_data = {"objects": obj_data}
         Mgr.do("add_history", event_descr, event_data, update_time_id=False)
 
-    def __flip_normals(self, flip=True):
+    def __invert_geometry(self, invert=True):
 
         Mgr.exit_states(min_persistence=-99)
         selection = Mgr.get("selection_top")
         changed_objs = []
 
         for obj in selection:
-            if obj.geom_obj.flip_normals(flip):
+            if obj.geom_obj.invert_geometry(invert):
                 changed_objs.append(obj)
 
         if not changed_objs:
@@ -1546,13 +1542,13 @@ class NormalManager:
         obj_data = {}
 
         for obj in changed_objs:
-            obj_data[obj.id] = obj.get_data_to_store("prop_change", "normal_flip")
+            obj_data[obj.id] = obj.get_data_to_store("prop_change", "inverted_geom")
 
         if len(changed_objs) == 1:
             obj = changed_objs[0]
-            event_descr = f'{"Flip" if flip else "Unflip"} normals of "{obj.name}"'
+            event_descr = f'{"Invert" if invert else "Uninvert"} geometry of "{obj.name}"'
         else:
-            event_descr = f'{"Flip" if flip else "Unflip"} normals of objects:\n'
+            event_descr = f'{"Invert" if invert else "Uninvert"} geometry of objects:\n'
             event_descr += "".join([f'\n    "{obj.name}"' for obj in changed_objs])
 
         event_data = {"objects": obj_data}

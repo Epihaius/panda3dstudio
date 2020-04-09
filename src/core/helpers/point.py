@@ -81,26 +81,11 @@ class TemporaryPointHelper:
     def finalize(self):
 
         pos = self.geom.get_pos(Mgr.get("grid").origin)
-
-        for step in Mgr.do("create_point_helper", pos):
-            pass
-
+        Mgr.do("create_point_helper", pos)
         self.destroy()
 
 
 class PointHelperViz:
-
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        state["_picking_col_id"] = state.pop("picking_color_id")
-
-        return state
-
-    def __setstate__(self, state):
-
-        state["picking_color_id"] = state.pop("_picking_col_id")
-        self.__dict__ = state
 
     def __init__(self, point_helper, picking_col_id):
 
@@ -525,8 +510,6 @@ class PointHelperManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsMan
         Mgr.update_remotely("next_obj_name", Mgr.get("next_obj_name", obj_type))
         # make undo/redoable
         self.add_history(point_helper)
-
-        yield False
 
     def __create_custom_point_helper(self, name, size, on_top, colors, transform=None):
 

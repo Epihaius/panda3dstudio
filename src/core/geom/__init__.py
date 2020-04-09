@@ -1,1 +1,1 @@
-from . import vert, edge, poly, editable_geom, model, data, prim, basic_geom
+from . import data, prim, model, locked_geom, unlocked_geom, vert, edge, poly

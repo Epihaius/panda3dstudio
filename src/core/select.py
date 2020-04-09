@@ -1055,9 +1055,7 @@ class SelectionManager:
             self._selection_shapes["free"] = shape = self.__create_selection_shape("free")
             tri = self._sel_mask_triangle
             tri.set_pos(mouse_x - x, 1.5, mouse_y + y)
-            vs = sh.VERT_SHADER_MASK
-            fs = sh.FRAG_SHADER_MASK
-            shader = Shader.make(Shader.SL_GLSL, vs, fs)
+            shader = shaders.Shaders.region_sel_mask
             tri.set_shader(shader)
             tri.set_shader_input("prev_tex", tex)
             r, g, b, a = GD["region_select"]["fill_color"]
@@ -1291,7 +1289,7 @@ class SelectionManager:
 
         elif obj_lvl == "top":
 
-            objs = Mgr.get("objects", "top")
+            objs = Mgr.get("objects")
             obj_count = len(objs)
 
             for i, obj in enumerate(objs):
@@ -1475,7 +1473,8 @@ class SelectionManager:
             Mgr.do("inverse_select_uvs")
         elif GD["active_obj_level"] == "top":
             old_sel = set(self._selection)
-            new_sel = set(Mgr.get("objects", "top")) - old_sel
+            new_sel = set(o.get_toplevel_object(get_group=True)
+                for o in Mgr.get("objects")) - old_sel
             self._selection.replace(new_sel)
         else:
             Mgr.do("inverse_select_subobjs")
@@ -1487,7 +1486,8 @@ class SelectionManager:
         if "uv" in (GD["viewport"][1], GD["viewport"][2]):
             Mgr.do("select_all_uvs")
         elif GD["active_obj_level"] == "top":
-            self._selection.replace(Mgr.get("objects", "top"))
+            self._selection.replace(o.get_toplevel_object(get_group=True)
+                for o in Mgr.get("objects"))
         else:
             Mgr.do("select_all_subobjs")
 

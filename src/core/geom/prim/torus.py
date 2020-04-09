@@ -1,130 +1,148 @@
 from .base import *
 from math import pi, sin, cos
-
-
-def _get_mesh_density(segments):
-
-    poly_count = segments["section"] * segments["ring"]
-
-    return poly_count
+import array
 
 
 def _define_geom_data(segments, smooth, temp=False):
 
     geom_data = []
+    pos_objs = []
     positions = []
+    # keep track of row indices, one SparseArray per section;
+    # compute the initial vertex positions the same for all sections, as if
+    # they were all lying in the front plane, centered at the torus origin;
+    # these will then be transformed with the following matrix:
+    #     scale_mat (section_radius) * translate_mat (ring_radius)
+    #     * rotate_mat (section angle)
+    # for each section, using the corresponding SparseArray.
+    section_arrays = []
+    section_arrays_by_vert_id = {}
+    section_rot_by_vert_id = {}
 
     if not temp:
         uvs = []
-        smoothing_ids = [(0, smooth)]
 
     segs_r = segments["ring"]
     segs_s = segments["section"]
 
-    angle_h = 2. * pi / segs_r
-    angle_v = 2. * pi / segs_s
+    angle = 2. * pi / segs_s
+    section_pos = [(sin(angle * i), 0., cos(angle * i)) for i in range(segs_s)]
 
     # Define vertex data
 
     vert_id = 0
+    angle_h = 360. / segs_r
+    up_vec = Vec3.up()
+    translate_mat = Mat4.translate_mat(2., 0., 0.)
 
-    for i in range(segs_s):
-
-        z = cos(angle_v * i)
-
-        r2 = 2. + sin(angle_v * i)
+    for i in range(segs_r):
 
         if not temp:
-            v = i / segs_s
+            u = i / segs_r
 
-        for j in range(segs_r + 1):
+        # two SparseArrays are needed; one for per-poly vertices (to shape the main geom)
+        # and another for per-triangle vertices (to shape the auxiliary geom, used for
+        # wireframe display and snapping)
+        sparse_arrays = (SparseArray(), SparseArray())
+        section_arrays.append(sparse_arrays)
+        mat = translate_mat * Mat4.rotate_mat_normaxis(angle_h * i, up_vec)
 
-            if j < segs_r:
-                x = r2 * cos(angle_h * j)
-                y = r2 * sin(angle_h * j)
-                pos = (x, y, z)
-                pos_obj = PosObj(pos)
+        for j in range(segs_s + 1):
+
+            if j < segs_s:
+                pos_obj = PosObj(section_pos[j])
+                pos_objs.append(pos_obj)
             else:
-                pos_obj = positions[vert_id - segs_r]
+                pos_obj = positions[vert_id - segs_s]
 
             positions.append(pos_obj)
 
             if not temp:
-                u = j / segs_r
+                v = j / segs_s
                 uvs.append((u, 1. - v))
 
+            section_arrays_by_vert_id[vert_id] = sparse_arrays
+            section_rot_by_vert_id[vert_id] = mat
             vert_id += 1
 
-    positions.extend(positions[:segs_r + 1])
+    positions.extend(positions[:segs_s + 1])
+    sparse_arrays = section_arrays[0]
+    section_arrays_by_vert_id.update({vi: sparse_arrays
+        for vi in range(vert_id, vert_id + segs_s + 1)})
+    section_rot_by_vert_id.update({vi: translate_mat
+        for vi in range(vert_id, vert_id + segs_s + 1)})
 
     if not temp:
-        for u, v in uvs[:segs_r + 1]:
-            uvs.append((u, 0.))
+        for u, v in uvs[:segs_s + 1]:
+            uvs.append((1., v))
+
+    flat_normals = array.array("f", [])
+    smooth_normals = array.array("f", [])
+    normals = {"flat": flat_normals, "smooth": smooth_normals}
 
     # Define quadrangular faces
 
-    for i in range(segs_s):
+    row = 0
+    row_alt = 0
 
-        s = segs_r + 1
+    for i in range(segs_r):
+
+        s = segs_s + 1
         k = i * s
 
-        for j in range(segs_r):
+        for j in range(segs_s):
 
             vi1 = k + j
-            vi2 = vi1 + s
-            vi3 = vi2 + 1
-            vi4 = vi1 + 1
-            vert_ids = (vi1, vi2, vi3)
-            tri_data1 = []
+            vi2 = vi1 + 1
+            vi3 = vi2 + s
+            vi4 = vi1 + s
+            vert_data = {}
+            vert_ids = (vi1, vi2, vi3, vi4)
 
-            def get_normal(vi):
-
-                x, y, z = positions[vi]
-                pos = Point3(x, y, z)
-                vec = Vec3(x, y, 0.)
-                section_center_pos = Point3(vec.normalized() * 2.)
-                normal = pos - section_center_pos
-
-                return normal
-
-            if not smooth:
-                plane = Plane(*[Point3(*positions[vi]) for vi in vert_ids])
-                poly_normal = plane.get_normal()
+            plane_points = [section_rot_by_vert_id[vi].xform_point(Point3(*positions[vi]))
+                for vi in vert_ids[:3]]
+            plane = Plane(*plane_points)
+            poly_normal = plane.get_normal()
 
             for vi in vert_ids:
 
                 pos = positions[vi]
-                normal = get_normal(vi) if smooth else poly_normal
+                h_mat = section_rot_by_vert_id[vi]
+                smooth_normal = h_mat.xform_vec(Vec3(*pos))
+                normal = smooth_normal if smooth else poly_normal
+                flat_normals.extend(poly_normal)
+                smooth_normals.extend(smooth_normal)
 
                 if temp:
-                    tri_data1.append({"pos": pos, "normal": normal})
+                    vert_data[vi] = {"pos": pos, "normal": normal}
                 else:
                     uv = uvs[vi]
-                    tri_data1.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
+                    vert_data[vi] = {"pos": pos, "normal": normal, "uvs": {0: uv},
+                        "pos_ind": pos_objs.index(pos)}
+
+                section_arrays_by_vert_id[vi][0].set_bit(row)
+                row += 1
+
+            poly_verts = [vert_data[vi] for vi in vert_ids]
+            vert_ids = (vi1, vi2, vi3)
+            tri_data1 = [vert_data[vi] for vi in vert_ids]
+
+            for vi in vert_ids:
+                section_arrays_by_vert_id[vi][1].set_bit(row_alt)
+                row_alt += 1
 
             vert_ids = (vi1, vi3, vi4)
-            tri_data2 = []
+            tri_data2 = [vert_data[vi] for vi in vert_ids]
+            tris = (tri_data1, tri_data2)  # quadrangular face
 
             for vi in vert_ids:
+                section_arrays_by_vert_id[vi][1].set_bit(row_alt)
+                row_alt += 1
 
-                pos = positions[vi]
-                normal = get_normal(vi) if smooth else poly_normal
-
-                if temp:
-                    tri_data2.append({"pos": pos, "normal": normal})
-                else:
-                    uv = uvs[vi]
-                    tri_data2.append({"pos": pos, "normal": normal, "uvs": {0: uv}})
-
-            if temp:
-                poly_data = (tri_data1, tri_data2)  # quadrangular face
-            else:
-                tris = (tri_data1, tri_data2)  # quadrangular face
-                poly_data = {"tris": tris, "smoothing": smoothing_ids}
-
+            poly_data = {"verts": poly_verts, "tris": tris}
             geom_data.append(poly_data)
 
-    return geom_data
+    return geom_data, normals, section_arrays
 
 
 class TemporaryTorus(TemporaryPrimitive):
@@ -135,14 +153,33 @@ class TemporaryTorus(TemporaryPrimitive):
 
         self._ring_radius = 0.
         self._section_radius = 0.
-        geom_data = _define_geom_data(segments, is_smooth, True)
+        geom_data, normals, section_arrays = _define_geom_data(segments, is_smooth, True)
         self.create_geometry(geom_data)
         origin = self.origin
-        vs = shaders.torus.VERT_SHADER
-        fs = shaders.prim.FRAG_SHADER
-        shader = Shader.make(Shader.SL_GLSL, vs, fs)
-        origin.set_shader(shader, 1)
         origin.set_shader_input("ring_radius", 2.)
+        origin.set_shader_input("section_radius", 1.)
+        torus_shaded = shaders.Shaders.torus_shaded
+        torus_wire = shaders.Shaders.torus_wire
+
+        for child in origin.get_children():
+
+            vertex_data = child.node().modify_geom(0).modify_vertex_data()
+            mat = Mat4.translate_mat(2., 0., 0.)
+            vertex_data.transform_vertices(mat)
+            angle = 360. / segments["ring"]
+            axis_vec = Vec3.up()
+            index = 0 if child.name == "shaded" else 1
+
+            for i, rows in enumerate(section_arrays):
+                mat = Mat4.rotate_mat_normaxis(angle * i, axis_vec)
+                vertex_data.transform_vertices(mat, rows[index])
+
+            if child.name == "shaded":
+                normal_view = memoryview(vertex_data.modify_array(2)).cast("B").cast("f")
+                normal_view[:] = normals["smooth" if is_smooth else "flat"]
+                child.set_shader(torus_shaded)
+            else:
+                child.set_shader(torus_wire)
 
     def update_size(self, ring_radius=None, section_radius=None):
 
@@ -175,85 +212,76 @@ class TemporaryTorus(TemporaryPrimitive):
 
 class Torus(Primitive):
 
-    def __init__(self, model):
+    def __getstate__(self):
 
-        prop_ids = ["segments", "radius_ring", "radius_section", "smoothness"]
+        state = Primitive.__getstate__(self)
+        del state["_normals"]
+        del state["_section_arrays"]
 
-        Primitive.__init__(self, "torus", model, prop_ids)
+        return state
 
-        self._segments = {"ring": 3, "section": 3}
-        self._segments_backup = {"ring": 3, "section": 3}
-        self._ring_radius = 0.
-        self._section_radius = 0.
-        self._is_smooth = True
-        self._smoothing = {}
-
-    def define_geom_data(self):
-
-        return _define_geom_data(self._segments, self._is_smooth)
-
-    def update(self, data):
-
-        self._smoothing = data["smoothing"]
-
-    def create(self, segments, is_smooth):
+    def __init__(self, model, segments, is_smooth, picking_col_id, geom_data,
+                 normals, arrays):
 
         self._segments = segments
         self._is_smooth = is_smooth
+        self._ring_radius = 0.
+        self._section_radius = 0.
+        self._normals = normals
+        self._section_arrays = arrays
 
-        for step in Primitive.create(self, _get_mesh_density(segments)):
-            yield
+        prop_ids = ["segments", "radius_ring", "radius_section", "smoothness"]
 
-        self.update_initial_coords()
+        Primitive.__init__(self, "torus", model, prop_ids, picking_col_id, geom_data)
+
+    def recreate(self):
+
+        geom_data, normals, arrays = _define_geom_data(self._segments, self._is_smooth)
+        self._normals = normals
+        self._section_arrays = arrays
+        Primitive.recreate(self, geom_data)
 
     def set_segments(self, segments):
 
         if self._segments == segments:
             return False
 
-        self._segments_backup = self._segments
         self._segments = segments
 
         return True
 
-    def __set_new_vertex_position(self, pos_old):
-
-        # original ring radius: 2.
-        # original cross section radius: 1.
-        pos_tmp = Point3(pos_old)
-        pos_tmp.z = 0.
-        # compute the horizontal distance to the vertex from the torus center
-        d = pos_tmp.length()
-        d = 2. / max(.0001, d)
-        # compute the center of the cross section to which the vertex belongs
-        section_center = Vec3(pos_old.x * d, pos_old.y * d, 0.)
-        # compute the vector pointing from the center of the cross section to
-        # the vertex
-        pos_vec = pos_old - section_center
-        # the length of pos_vec should be 1. (the original cross section radius),
-        # so it can be multiplied by the new cross section radius without prior
-        # normalization
-        pos_vec *= self._section_radius
-        # compute the new section center, keeping in mind that the original ring
-        # radius equals 2.
-        section_center *= .5 * self._ring_radius
-        # get the new vertex position by adding the updated pos_vec to the new
-        # cross section center
-        pos_new = Point3(section_center + pos_vec)
-
-        return pos_new
-
     def __update_size(self):
 
-        self.reset_initial_coords()
-        self.geom_data_obj.reposition_vertices(self.__set_new_vertex_position)
+        ring_radius = self._ring_radius
+        section_radius = self._section_radius
+        tmp_mat = Mat4.scale_mat(section_radius) * Mat4.translate_mat(ring_radius, 0., 0.)
+        angle = 360. / self._segments["ring"]
+        axis_vec = Vec3.up()
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+        tan_space_array = vertex_data.modify_array(3)
+
+        for i, geom in enumerate((self.geom, self.aux_geom)):
+
+            vertex_data = geom.node().modify_geom(0).modify_vertex_data()
+            pos_view = memoryview(vertex_data.modify_array(0)).cast("B").cast("f")
+            pos_view[:] = self.initial_coords[i]
+            vertex_data.transform_vertices(tmp_mat)
+
+            for j, rows in enumerate(self._section_arrays):
+                mat = Mat4.rotate_mat_normaxis(angle * j, axis_vec)
+                vertex_data.transform_vertices(mat, rows[i])
+
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(3, tan_space_array)
+        self.__update_normals()
+        self.update_poly_centers()
+
+        self.model.bbox.update(self.geom.get_tight_bounds())
 
     def init_size(self, ring_radius, section_radius):
 
-        origin = self.origin
         self._ring_radius = max(ring_radius, .001)
         self._section_radius = max(section_radius, .001)
-
         self.__update_size()
 
     def set_ring_radius(self, radius):
@@ -283,6 +311,21 @@ class Torus(Primitive):
 
         return True
 
+    def __update_normals(self):
+
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+        normal_view = memoryview(vertex_data.modify_array(2)).cast("B").cast("f")
+        normal_view[:] = self._normals["smooth" if self._is_smooth else "flat"]
+
+        if self.has_inverted_geometry():
+            geom = self.geom.node().modify_geom(0)
+            vertex_data = geom.get_vertex_data().reverse_normals()
+            geom.set_vertex_data(vertex_data)
+
+    def unlock_geometry(self, unlocked_geom):
+
+        Primitive.unlock_geometry(self, unlocked_geom, update_normal_data=True)
+
     def get_data_to_store(self, event_type, prop_id=""):
 
         if event_type == "prop_change" and prop_id in self.get_type_property_ids():
@@ -290,27 +333,28 @@ class Torus(Primitive):
             data = {}
             data[prop_id] = {"main": self.get_property(prop_id)}
 
-            if prop_id == "segments":
-                data.update(self.get_geom_data_backup().get_data_to_store("deletion"))
-                data.update(self.geom_data_obj.get_data_to_store("creation"))
-                self.remove_geom_data_backup()
-            elif prop_id == "smoothness":
-                data.update(self.geom_data_obj.get_data_to_store())
-            elif prop_id in ("radius_ring", "radius_section"):
-                data.update(self.geom_data_obj.get_property_to_store("subobj_transform",
-                                                                              "prop_change", "all"))
-
             return data
 
         return Primitive.get_data_to_store(self, event_type, prop_id)
 
-    def cancel_geometry_recreation(self, info):
+    def get_property(self, prop_id, for_remote_update=False):
 
-        Primitive.cancel_geometry_recreation(self, info)
-
-        if info == "creation":
-            self._segments = self._segments_backup
-            Mgr.update_remotely("selected_obj_prop", "torus", "segments", self._segments)
+        if prop_id == "segments":
+            if for_remote_update:
+                return self._segments
+            else:
+                return {"count": self._segments, "pos_data": self.initial_coords,
+                        "normals": self._normals, "section_arrays": self._section_arrays,
+                        "geom_data": self.geom_data, "geom": self.geom_for_pickling,
+                        "aux_geom": self.aux_geom_for_pickling}
+        elif prop_id == "radius_ring":
+            return self._ring_radius
+        elif prop_id == "radius_section":
+            return self._section_radius
+        elif prop_id == "smoothness":
+            return self._is_smooth
+        else:
+            return Primitive.get_property(self, prop_id, for_remote_update)
 
     def set_property(self, prop_id, value, restore=""):
 
@@ -325,17 +369,29 @@ class Torus(Primitive):
 
             if restore:
                 segments = value["count"]
-                self.restore_initial_coords(value["pos_data"])
+                self.initial_coords = value["pos_data"]
+                self._normals = value["normals"]
+                self._section_arrays = value["section_arrays"]
+                self.geom_data = value["geom_data"]
+                self.geom = value["geom"]
+                self.aux_geom = value["aux_geom"]
+                self.model.bbox.update(self.geom.get_tight_bounds())
+                self.setup_geoms()
             else:
                 segments = self._segments.copy()
                 segments.update(value)
+
+            task = self.__update_size
+            sort = PendingTasks.get_sort("set_normals", "object") - 1
+            PendingTasks.add(task, "upd_size", "object", sort, id_prefix=obj_id)
+            self.model.update_group_bbox()
 
             change = self.set_segments(segments)
 
             if change:
 
                 if not restore:
-                    self.recreate_geometry(_get_mesh_density(segments))
+                    self.recreate()
 
                 update_app()
 
@@ -371,10 +427,11 @@ class Torus(Primitive):
 
             change = self.set_smooth(value)
 
-            if change and not restore:
-                task = lambda: self.geom_data_obj.set_smoothing(iter(self._smoothing.values())
-                                                                         if value else None)
-                PendingTasks.add(task, "set_poly_smoothing", "object", id_prefix=obj_id)
+            if restore:
+                task = self.__update_normals
+                PendingTasks.add(task, "set_normals", "object", id_prefix=obj_id)
+            elif change:
+                self.__update_normals()
 
             if change:
                 update_app()
@@ -384,28 +441,6 @@ class Torus(Primitive):
         else:
 
             return Primitive.set_property(self, prop_id, value, restore)
-
-    def get_property(self, prop_id, for_remote_update=False):
-
-        if prop_id == "segments":
-            if for_remote_update:
-                return self._segments
-            else:
-                return {"count": self._segments, "pos_data": self.get_initial_coords()}
-        elif prop_id == "radius_ring":
-            return self._ring_radius
-        elif prop_id == "radius_section":
-            return self._section_radius
-        elif prop_id == "smoothness":
-            return self._is_smooth
-        else:
-            return Primitive.get_property(self, prop_id, for_remote_update)
-
-    def finalize(self):
-
-        self.__update_size()
-
-        Primitive.finalize(self)
 
 
 class TorusManager(PrimitiveManager):
@@ -441,6 +476,14 @@ class TorusManager(PrimitiveManager):
 
         return PrimitiveManager.setup(self, creation_phases, status_text)
 
+    def define_geom_data(self):
+
+        prop_defaults = self.get_property_defaults()
+        segments = prop_defaults["segments"]
+        is_smooth = prop_defaults["smoothness"]
+
+        return _define_geom_data(segments, is_smooth)
+
     def create_temp_primitive(self, color, pos):
 
         segs = self.get_property_defaults()["segments"]
@@ -451,20 +494,14 @@ class TorusManager(PrimitiveManager):
 
         return tmp_prim
 
-    def create_primitive(self, model):
+    def create_primitive(self, model, picking_col_id, geom_data):
 
-        prim = Torus(model)
         prop_defaults = self.get_property_defaults()
         segments = prop_defaults["segments"]
-        poly_count = _get_mesh_density(segments)
-        progress_steps = (poly_count // 20) * 4
-        gradual = progress_steps > 80
+        is_smooth = prop_defaults["smoothness"]
+        prim = Torus(model, segments, is_smooth, picking_col_id, *geom_data)
 
-        for step in prim.create(segments, prop_defaults["smoothness"]):
-            if gradual:
-                yield
-
-        yield prim, gradual
+        return prim
 
     def init_primitive_size(self, prim, size=None):
 

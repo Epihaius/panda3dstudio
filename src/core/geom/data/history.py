@@ -662,7 +662,7 @@ class HistoryMixin:
         if gradual:
             GD["progress_steps"] = progress_steps
 
-        for step in self.create_geometry(gradual=gradual, restore=True):
+        for _ in self.create_geometry(gradual=gradual, restore=True):
             if gradual:
                 yield True
 
@@ -697,7 +697,7 @@ class HistoryMixin:
         self.__init_geometry_restore()
 
         if polys_to_remove:
-            for step in self.__remove_polys(list(polys_to_remove.values())):
+            for _ in self.__remove_polys(list(polys_to_remove.values())):
                 if gradual:
                     yield True
 
@@ -724,11 +724,11 @@ class HistoryMixin:
                 yield True
 
         if polys_to_restore:
-            for step in self.__restore_polys(list(polys_to_restore.values())):
+            for _ in self.__restore_polys(list(polys_to_restore.values())):
                 if gradual:
                     yield True
 
-        for step in self.__finalize_geometry_restore():
+        for _ in self.__finalize_geometry_restore():
             if gradual:
                 yield True
 
@@ -985,7 +985,7 @@ class HistoryMixin:
 
             for vert in poly_verts:
                 vert.offset_row_index(row_index_offset)
-                pos = vert.get_initial_pos()
+                pos = vert.get_pos()
                 pos_writer.add_data3(pos)
                 col_writer.add_data4(picking_color)
 
@@ -1176,8 +1176,10 @@ class HistoryMixin:
             vertex_data_poly.set_array(i, GeomVertexArrayData(poly_array))
 
         lines_prim = GeomLines(Geom.UH_static)
+        lines_prim.set_index_type(Geom.NT_uint32)
         lines_prim.reserve_num_vertices(count * 2)
         tris_prim = GeomTriangles(Geom.UH_static)
+        tris_prim.set_index_type(Geom.NT_uint32)
         poly_count = 0
 
         for poly in ordered_polys:
@@ -1199,6 +1201,7 @@ class HistoryMixin:
         geom_node.modify_geom(0).add_primitive(tris_prim)
 
         points_prim = GeomPoints(Geom.UH_static)
+        points_prim.set_index_type(Geom.NT_uint32)
         points_prim.reserve_num_vertices(count)
         points_prim.add_next_vertices(count)
         vert_picking_geom.add_primitive(GeomPoints(points_prim))

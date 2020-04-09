@@ -294,7 +294,6 @@ class CreationPhaseManager:
         self.__disable_snap(reset_grid=True)
 
         Mgr.remove_task("draw_object")
-        process = None
 
         if cancel or not self._obj.is_valid():
 
@@ -302,47 +301,18 @@ class CreationPhaseManager:
 
         else:
 
-            finalization = self._obj.finalize()
+            self._obj.finalize()
+            name = Mgr.get("next_obj_name", self._obj_type)
+            Mgr.update_remotely("next_obj_name", name)
 
-            if finalization:
+            if self._has_color:
+                self.set_next_object_color()
 
-                def finalize():
-
-                    next(finalization)
-
-                    for step in finalization:
-                        yield True
-
-                    obj_type = self._obj_type
-                    name = Mgr.get("next_obj_name", obj_type)
-                    Mgr.update_remotely("next_obj_name", name)
-
-                    if self._add_to_hist:
-                        self.add_history(self._obj.toplevel_obj)
-
-                    yield False
-
-                process = finalize()
-
-            else:
-
-                obj_type = self._obj_type
-                name = Mgr.get("next_obj_name", obj_type)
-                Mgr.update_remotely("next_obj_name", name)
-
-                if self._has_color:
-                    self.set_next_object_color()
-
-                if self._add_to_hist:
-                    self.add_history(self._obj.toplevel_obj)
+            if self._add_to_hist:
+                self.add_history(self._obj.toplevel_obj)
 
         Mgr.notify("creation_ended")
         Mgr.enter_state("creation_mode")
-
-        if process and next(process):
-            Mgr.update_remotely("screenshot", "create")
-            descr = f"Creating {self._obj_type}..."
-            Mgr.do_gradually(process, "creation", descr, cancellable=True)
 
         self._obj = None
         self._current_creation_phase = 0
