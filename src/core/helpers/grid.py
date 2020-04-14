@@ -1,4 +1,5 @@
 from ..base import *
+import array
 
 
 class Grid:
@@ -8,7 +9,6 @@ class Grid:
         self.origin = GD.world.attach_new_node("grid")
         self._grid_lines = self.origin.attach_new_node("grid_lines")
         self._axes = self._grid_lines.attach_new_node("grid_axis_lines")
-        self._axis_lines = {}
         self._grid_planes = {}
         self._planes = {}
         self._plane_hprs = {"xy": (0., 0., 0.), "xz": (0., 90., 0.), "yz": (0., 0., 90.)}
@@ -16,9 +16,6 @@ class Grid:
         self._horizon_point_pivot = None
         self._horizon_point = None
         self._axis_indicator = None
-        self._projector_pivot = None
-        self._projector = None
-        self._projector_lens = None
 
         Mgr.expose("grid", lambda: self)
         Mgr.add_app_updater("active_grid_plane", self.__set_plane)
@@ -57,53 +54,9 @@ class Grid:
         self.__create_horizon()
         self.__create_axis_indicator()
 
-        for i, axis_id in enumerate("xyz"):
-            axis_line = self.__create_line(axis_id)
-            axis_line.reparent_to(self._axes)
-            color = VBase3()
-            color[i] = 1.
-            axis_line.set_color(*color)
-            self._axis_lines[axis_id] = axis_line
-
-        # to make the axis lines show on top of any grid lines without causing
-        # z-fighting, they can be put (together with the grid planes) into a
-        # fixed bin - that is drawn *after* objects in the default bin - with
-        # a lower draw_order than the grid planes, so they are drawn after
-        # those also
-        self._axes.set_bin("fixed", 2)
-        # no need to write the axis lines to the depth buffer - they will be drawn
-        # last anyway - as long as depth *testing* is NOT disabled for them, so the
-        # depth of previously drawn geometry will be taken into consideration
-        # (except for the depth of the grid planes, as these should not be written
-        # to the depth buffer either, eliminating the z-fighting problem)
-        self._axes.set_depth_write(False)
-
-        # also add the grid planes to the fixed cull bin, but with a higher draw_order
-        # than the axis lines, so the latter are drawn afterwards;
-        # do NOT write the grid planes to the depth buffer, so their depth is not
-        # taken into account when drawing the axis lines (which will therefore be
-        # drawn completely on top of the grid planes without any z-fighting);
-        # as with the axis lines, depth testing *must* be enabled for them so they
-        # are drawn correctly with respect to previously drawn geometry
-        for plane in self._grid_planes.values():
-            plane.set_bin("fixed", 1)
-            plane.set_depth_write(False)
-
         self.origin.set_transparency(TransparencyAttrib.M_alpha)
-        tex_stage = TextureStage.default
-        lens = PerspectiveLens()
-        lens.fov = 145.
-        lens_node = LensNode("grid_proj_lens", lens)
-        self._projector_pivot = self.origin.attach_new_node("grid_proj_origin")
-        self._projector = self._projector_pivot.attach_new_node("grid_projector")
-        self._projector_lens = self._projector.attach_new_node(lens_node)
-        self._projector_lens.set_p(-90.)
-        self._grid_lines.set_tex_gen(tex_stage, TexGenAttrib.M_world_position)
-        self._grid_lines.set_tex_projector(tex_stage, GD.world, self._projector_lens)
-        tex = Mgr.load_tex(GFX_PATH + "gridfade.png")
-        tex.wrap_u = Texture.WM_clamp
-        tex.wrap_v = Texture.WM_clamp
-        self._grid_lines.set_texture(tex_stage, tex)
+        self._grid_lines.set_shader(shaders.Shaders.grid)
+        self._grid_lines.set_shader_input("offset", Vec3())
 
         for i, axis_id in enumerate("xyz"):
             plane_id = "xyz".replace(axis_id, "")
@@ -142,17 +95,15 @@ class Grid:
 
         vertex_format = GeomVertexFormat.get_v3()
         vertex_data = GeomVertexData("horizon_data", vertex_format, Geom.UH_static)
+        vertex_data.unclean_set_num_rows(3)
+        data_view = memoryview(vertex_data.modify_array(0)).cast("B").cast("f")
+        data_view[:] = array.array("f", (-10., 10., 0., 10., 10., 0., 0., -10., 0.))
         horizon_geom = Geom(vertex_data)
-
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3(-10., 10., 0.)
-        pos_writer.add_data3(10., 10., 0.)
-        pos_writer.add_data3(0., -10., 0.)
-
         horizon_line = GeomLines(Geom.UH_static)
-        horizon_line.add_vertices(0, 1)
-        horizon_line.add_vertices(1, 2)
-        horizon_line.add_vertices(0, 2)
+        prim_array = horizon_line.modify_vertices()
+        prim_array.unclean_set_num_rows(6)
+        prim_view = memoryview(prim_array).cast("B").cast("H")
+        prim_view[:] = array.array("H", (0, 1, 1, 2, 0, 2))
         horizon_geom.add_primitive(horizon_line)
         horizon_node = GeomNode("horizon")
         horizon_node.add_geom(horizon_geom)
@@ -167,31 +118,33 @@ class Grid:
 
     def __create_axis_indicator(self):
 
-        vertex_format = GeomVertexFormat.get_v3c4()
+        vertex_format = GeomVertexFormat()
+        array_format = GeomVertexArrayFormat()
+        array_format.add_column(InternalName.make("vertex"), 3, Geom.NT_float32, Geom.C_point)
+        array_format.add_column(InternalName.make("color"), 4, Geom.NT_float32, Geom.C_color)
+        vertex_format.add_array(array_format)
+        vertex_format = GeomVertexFormat.register_format(vertex_format)
         vertex_data = GeomVertexData("axis_indicator_data", vertex_format, Geom.UH_static)
+        vertex_data.unclean_set_num_rows(6)
+        data_view = memoryview(vertex_data.modify_array(0)).cast("B").cast("f")
+        data_array = array.array("f", [])
         axis_indicator_geom = Geom(vertex_data)
-
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        col_writer = GeomVertexWriter(vertex_data, "color")
+        axis_indicator_line = GeomLines(Geom.UH_static)
 
         for i in range(3):
-
             pos = VBase3()
             pos[i] = 5.
-
             color = VBase4(0., 0., 0., 1.)
             color[i] = .35
+            data_array.extend((0., 0., 0.))
+            data_array.extend(color)
+            data_array.extend(pos)
+            data_array.extend(color)
+            axis_indicator_line.add_next_vertices(2)
 
-            pos_writer.add_data3(0., 0., 0.)
-            pos_writer.add_data3(pos)
-
-            col_writer.add_data4(color)
-            col_writer.add_data4(color)
-
-            axis_indicator_line = GeomLines(Geom.UH_static)
-            axis_indicator_line.add_vertices(i * 2, i * 2 + 1)
-            axis_indicator_geom.add_primitive(axis_indicator_line)
-
+        data_view[:] = data_array
+        vertex_data.set_format(GeomVertexFormat.get_v3c4())
+        axis_indicator_geom.add_primitive(axis_indicator_line)
         axis_indicator_node = GeomNode("axis_indicator")
         axis_indicator_node.add_geom(axis_indicator_geom)
         self._axis_indicator = self.origin.attach_new_node(axis_indicator_node)
@@ -204,18 +157,18 @@ class Grid:
     def __create_line(self, axis_id):
 
         coord_index = "xyz".index(axis_id)
-        pos1 = VBase3()
-        pos1[coord_index] = -1000.
-        pos2 = VBase3()
-        pos2[coord_index] = 1000.
-
+        data_array = array.array("f", [])
+        pos = VBase3()
+        pos[coord_index] = -1000.
+        data_array.extend(pos)
+        pos = VBase3()
+        pos[coord_index] = 1000.
+        data_array.extend(pos)
         vertex_format = GeomVertexFormat.get_v3()
         vertex_data = GeomVertexData("gridline_data", vertex_format, Geom.UH_static)
-
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        pos_writer.add_data3(pos1)
-        pos_writer.add_data3(pos2)
-
+        vertex_data.unclean_set_num_rows(2)
+        data_view = memoryview(vertex_data.modify_array(0)).cast("B").cast("f")
+        data_view[:] = data_array
         line = GeomLines(Geom.UH_static)
         line.add_vertices(0, 1)
         line_geom = Geom(vertex_data)
@@ -289,29 +242,36 @@ class Grid:
 
         # Create the grid points (used for snapping)
 
-        vertex_format = GeomVertexFormat.get_v3c4()
+        vertex_format = GeomVertexFormat()
+        array_format = GeomVertexArrayFormat()
+        array_format.add_column(InternalName.make("vertex"), 3, Geom.NT_float32, Geom.C_point)
+        array_format.add_column(InternalName.make("color"), 4, Geom.NT_float32, Geom.C_color)
+        vertex_format.add_array(array_format)
+        vertex_format = GeomVertexFormat.register_format(vertex_format)
         vertex_data = GeomVertexData("gridpoint_data", vertex_format, Geom.UH_static)
-        pos_writer = GeomVertexWriter(vertex_data, "vertex")
-        col_writer = GeomVertexWriter(vertex_data, "color")
+        vertex_data.unclean_set_num_rows(40000)
+        data_view = memoryview(vertex_data.modify_array(0)).cast("B").cast("f")
+        data_array = array.array("f", [])
         index1 = "xyz".index(axis_id1)
         index2 = "xyz".index(axis_id2)
         start_color = VBase4(100. / 255.)
         start_color.w = 254. / 255.
 
         for i1 in range(-1000, 1000, 10):
-
             for i2 in range(-1000, 1000, 10):
-
                 pos = Point3()
                 pos[index1] = i1
                 pos[index2] = i2
-                pos_writer.add_data3(pos)
+                data_array.extend(pos)
                 color = VBase4(start_color)
                 color[index1] = (i1 / 10 + 100) / 255.
                 color[index2] = (i2 / 10 + 100) / 255.
-                col_writer.add_data4(color)
+                data_array.extend(color)
 
+        data_view[:] = data_array
+        vertex_data.set_format(GeomVertexFormat.get_v3c4())
         points = GeomPoints(Geom.UH_static)
+        points.reserve_num_vertices(40000)
         points.add_next_vertices(40000)
         point_geom = Geom(vertex_data)
         point_geom.add_primitive(points)
@@ -319,6 +279,7 @@ class Grid:
         point_node.add_geom(point_geom)
         grid_points_np = node_path.attach_new_node(point_node)
         grid_points_np.hide(Mgr.get("render_mask"))
+        grid_points_np.set_shader_off()
 
         return node_path
 
@@ -365,8 +326,6 @@ class Grid:
 
         if force or scale != self._scale:
             self._grid_planes[self._active_plane_id].set_scale(scale)
-            self._axis_lines[axis_id1].set_scale(scale)
-            self._axis_lines[axis_id2].set_scale(scale)
             self._scale = scale
             spacing_str = str(self._spacing * scale)
             Mgr.update_app("gridspacing", spacing_str)
@@ -377,44 +336,19 @@ class Grid:
         offset = VBase3()
         offset[a_index] = a_offset
         offset[b_index] = b_offset
+        self._grid_lines.set_shader_input("offset", offset / scale)
         self._grid_planes[self._active_plane_id].set_pos(offset)
         offset = VBase3()
         offset[a_index] = a_offset
-        self._axis_lines[axis_id1].set_pos(offset)
         offset = VBase3()
         offset[b_index] = b_offset
-        self._axis_lines[axis_id2].set_pos(offset)
 
         if lens_type == "persp":
-            self._projector_pivot.set_pos(cam_pos)
-            self._projector.set_h(cam.get_h(self._projector_pivot))
             self._horizon_point_pivot.set_pos(cam_pos)
             self._horizon_point.set_h(cam.get_h(self._horizon_point_pivot))
             proj = -5. * c / (5. + abs(c))
             pos = self.origin.get_relative_point(self._horizon_point, Point3(0., 100., proj))
             self._axis_indicator.set_pos(pos)
-        else:
-            cam_vec = self._projector_pivot.get_relative_vector(cam, Vec3.forward())
-            cam_vec.normalize()
-            alpha = min(1., max(0., abs(V3D(0., 0., 1.) * V3D(cam_vec)) - .5) * 4.)
-            self._grid_lines.set_alpha_scale(alpha)
-
-    def adjust_to_lens(self):
-
-        tex_stage = TextureStage.default
-
-        if GD.cam.lens_type == "persp":
-            self._grid_lines.clear_color_scale()
-            self._grid_lines.set_tex_projector(tex_stage, GD.world, self._projector_lens)
-            tex = Mgr.load_tex(GFX_PATH + "gridfade.png")
-            tex.wrap_u = Texture.WM_clamp
-            tex.wrap_v = Texture.WM_clamp
-            self._grid_lines.set_texture(tex_stage, tex)
-        else:
-            self._grid_lines.clear_tex_projector()
-            self._grid_lines.clear_texture()
-
-        self.update(force=True)
 
     def __change_plane(self, plane_id):
 
@@ -426,14 +360,12 @@ class Grid:
         axis_id1, axis_id2 = plane_id
         axis_id3 = "xyz".replace(axis_id1, "").replace(axis_id2, "")
 
-        self._axis_lines[axis_id1].show()
-        self._axis_lines[axis_id2].show()
-        self._axis_lines[axis_id3].hide()
-
         hpr = self._plane_hprs[plane_id]
         self._horizon_line.set_hpr(hpr)
         self._horizon_point_pivot.set_hpr(hpr)
-        self._projector_pivot.set_hpr(hpr)
+        vec = Vec3()
+        vec["xyz".index(axis_id3)] = 1.
+        self._grid_lines.set_shader_input("plane_normal", vec)
 
     def align_to_view(self, align=True):
 

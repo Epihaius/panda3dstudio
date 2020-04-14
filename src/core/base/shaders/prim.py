@@ -4,7 +4,6 @@
 FRAG_SHADER = """
     #version 150 compatibility
 
-    uniform sampler2D p3d_Texture0;
     uniform struct PandaMaterial {
         vec4 ambient;
         vec4 diffuse;

@@ -1,6 +1,6 @@
 from panda3d.core import Shader
 from . import (region_sel, region_sel_point, region_sel_subobj, region_sel_normal,
-    normal, surface_normal, extrusion_inset, solidify, prim, cone, torus,
+    grid, normal, surface_normal, extrusion_inset, solidify, prim, cone, torus,
     locked_wireframe, snap)
 
 
@@ -8,6 +8,8 @@ class Shaders:
 
     region_sel_mask = Shader.make(Shader.SL_GLSL, region_sel.VERT_SHADER_MASK,
         region_sel.FRAG_SHADER_MASK)
+    grid = Shader.make(Shader.SL_GLSL, grid.VERT_SHADER, grid.FRAG_SHADER,
+        grid.GEOM_SHADER)
     normal = Shader.make(Shader.SL_GLSL, normal.VERT_SHADER, normal.FRAG_SHADER,
         normal.GEOM_SHADER)
     surface_normal = Shader.make(Shader.SL_GLSL, surface_normal.VERT_SHADER,

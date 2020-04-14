@@ -748,7 +748,7 @@ class ViewManager:
         cam.lens_type = lens_type
         cam.zoom = zoom
         cam.update()
-        Mgr.get("grid").adjust_to_lens()
+        Mgr.get("grid").update(force=True)
         Mgr.get("picking_cam").adjust_to_lens()
         Mgr.get("transf_gizmo").adjust_to_lens(current_lens_type, lens_type)
 
@@ -770,7 +770,7 @@ class ViewManager:
         Mgr.update_app("render_mode", self.render_mode)
 
         if current_lens_type != lens_type:
-            Mgr.get("grid").adjust_to_lens()
+            Mgr.get("grid").update(force=True)
             Mgr.get("picking_cam").adjust_to_lens()
             Mgr.get("transf_gizmo").adjust_to_lens(current_lens_type, lens_type)
 
@@ -1378,7 +1378,7 @@ class ViewManager:
             Mgr.update_app("render_mode", self.render_mode)
 
             if current_lens_type != lens_type:
-                Mgr.get("grid").adjust_to_lens()
+                Mgr.get("grid").update(force=True)
                 Mgr.get("picking_cam").adjust_to_lens()
                 Mgr.get("transf_gizmo").adjust_to_lens(current_lens_type, lens_type)
 

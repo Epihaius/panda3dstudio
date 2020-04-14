@@ -181,6 +181,7 @@ FRAG_SHADER = """
         vec4 ambient;
     } p3d_LightModel;
 
+    in vec2 texcoord;
     in vec3 eye_vec;
     in vec3 eye_normal;
     in vec4 g_color;
@@ -257,7 +258,7 @@ FRAG_SHADER = """
         }
 
         // Final Color
-        f_color = vec4(lightcolor, 1.) * g_color;
+        f_color = vec4(lightcolor, 1.) * g_color * texture(p3d_Texture0, texcoord);
 
     }
 """

@@ -57,6 +57,7 @@ class ViewGizmo:
 
         self._handle_root = self._root.attach_new_node("handle_root")
         self._handle_root_main = self._handle_root.attach_new_node("handle_root_main")
+        self._handle_root_main.set_shader_auto(True)
         self._handle_root_aux = self._handle_root.attach_new_node("handle_root_aux")
         self._handle_root_aux.set_two_sided(True)
         self._handle_root_aux.set_transparency(TransparencyAttrib.M_alpha)
