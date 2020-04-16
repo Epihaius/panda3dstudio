@@ -308,11 +308,22 @@ class UnlockedGeomProperties:
 
         section.add((0, 5))
 
-        text = "Copy direction..."
+        btn_sizer = Sizer("horizontal")
+        section.add(btn_sizer, expand=True)
+
+        text = "Flip"
+        tooltip_text = "Flip selected normals"
+        btn = PanelButton(section, text, "", tooltip_text, self.__flip_normals)
+        self._btns["flip_normals"] = btn
+        btn_sizer.add(btn, proportion=1.)
+
+        btn_sizer.add((5, 0))
+
+        text = "Copy dir. ..."
         tooltip_text = "Copy selected normals' direction from picked normal"
         btn = PanelButton(section, text, "", tooltip_text, self.__copy_normal_direction)
         self._btns["copy_normal_dir"] = btn
-        section.add(btn, alignment="center_h")
+        btn_sizer.add(btn, proportion=1.)
 
         # ************************* Edge section ******************************
 
@@ -995,6 +1006,10 @@ class UnlockedGeomProperties:
     def __lock_normals(self, lock=True):
 
         Mgr.update_remotely("normal_lock", lock)
+
+    def __flip_normals(self):
+
+        Mgr.update_remotely("normal_flip")
 
     def __copy_normal_direction(self):
 

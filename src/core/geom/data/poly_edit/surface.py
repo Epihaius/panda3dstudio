@@ -52,6 +52,7 @@ class SurfaceMixin:
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
         shared_normals = self.shared_normals
+        locked_normals = self.locked_normals
         combined_subobjs = {"vert": merged_verts, "edge": merged_edges, "normal": shared_normals}
         tmp_combined_subobjs = {}
         xformed_verts = self._transformed_verts
@@ -246,9 +247,17 @@ class SurfaceMixin:
 
                 if vert1.lock_normal(locked_normal2):
                     lock_change.add(vert1_id)
+                    if locked_normal2:
+                        locked_normals.add(vert1_id)
+                    else:
+                        locked_normals.discard(vert1_id)
 
                 if vert2.lock_normal(locked_normal1):
                     lock_change.add(vert2_id)
+                    if locked_normal1:
+                        locked_normals.add(vert2_id)
+                    else:
+                        locked_normals.discard(vert2_id)
 
                 edge1_id = vert1.edge_ids[0]
                 edge2_id = vert2.edge_ids[1]
@@ -937,6 +946,7 @@ class SurfaceManager:
             new_geom_data_obj.finalize_geometry()
             new_geom_data_obj.update_poly_centers()
             new_geom_data_obj.update_poly_normals()
+            new_geom_data_obj.init_normal_length()
             new_model.register(restore=False)
             new_model.bbox.update(new_geom_data_obj.origin.get_tight_bounds())
 
@@ -996,6 +1006,7 @@ class SurfaceManager:
                     new_geom_data_obj.finalize_geometry()
                     new_geom_data_obj.update_poly_centers()
                     new_geom_data_obj.update_poly_normals()
+                    new_geom_data_obj.init_normal_length()
                     new_model.register(restore=False)
                     new_model.bbox.update(new_geom_data_obj.origin.get_tight_bounds())
 

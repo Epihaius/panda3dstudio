@@ -26,6 +26,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         del state["merged_verts"]
         del state["merged_edges"]
         del state["shared_normals"]
+        del state["locked_normals"]
         del state["_poly_smoothing"]
         del state["ordered_polys"]
         del state["_subobjs"]
@@ -46,6 +47,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
         self.merged_verts = {}
         self.merged_edges = {}
         self.shared_normals = {}
+        self.locked_normals = set()
         self._poly_smoothing = {}
         self.ordered_polys = []
         self.is_tangent_space_initialized = False
@@ -323,6 +325,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         subobjs = self._subobjs
         verts = subobjs["vert"]
+        locked_normals = self.locked_normals
         self._data_row_count = count = len(verts)
         tri_vert_count = sum([len(poly) for poly in self.ordered_polys])
 
@@ -373,6 +376,9 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
             for vert in poly.vertices:
 
                 vert.offset_row_index(row_index_offset)
+
+                if vert.has_locked_normal():
+                    locked_normals.add(vert.id)
 
                 if not restore:
                     pos_writer.add_data3(vert.get_pos())

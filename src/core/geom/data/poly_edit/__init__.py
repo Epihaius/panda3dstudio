@@ -97,6 +97,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
         shared_normals = self.shared_normals
+        locked_normals = self.locked_normals
         row_ranges_to_keep = SparseArray()
         row_ranges_to_keep.set_range(0, self._data_row_count)
 
@@ -158,6 +159,8 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
                 shared_normal = shared_normals[vert_id]
                 shared_normal.discard(vert_id)
                 del shared_normals[vert_id]
+
+            locked_normals.discard(vert_id)
 
         for edge in edges_to_delete:
 
@@ -382,9 +385,10 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
             self.update_selection("poly", selected_polys, [])
 
         if selected_normal_ids:
-            selected_normals = (shared_normals[normal_id] for normal_id in selected_normal_ids)
+            selected_normals = set(shared_normals[normal_id] for normal_id in selected_normal_ids)
             self.update_selection("normal", selected_normals, [])
 
+        self.update_locked_normal_selection(None, None, locked_normals, [])
         self.update_subobject_indices()
 
         poly_ids = [poly.id for poly in polys_to_delete]
@@ -404,6 +408,7 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
 
         merged_verts = self.merged_verts
         merged_edges = self.merged_edges
+        locked_normals = self.locked_normals
         subobjs = self._subobjs
         verts = subobjs["vert"]
         edges = subobjs["edge"]
@@ -432,6 +437,9 @@ class PolygonEditMixin(CreationMixin, TriangulationMixin, SmoothingMixin,
         edge_ids_to_add = set(selected_edge_ids)
 
         for vert in new_verts:
+
+            if vert.has_locked_normal():
+                locked_normals.add(vert.id)
 
             normal_change.add(vert.id)
             normal_lock_change.add(vert.id)

@@ -803,6 +803,23 @@ class TransformMixin:
             if add_to_hist:
                 self.add_transform_history("custom", "Aim {} at point")
 
+    def flip_normals(self):
+
+        if self._obj_level == "normal":
+
+            geom_data_objs = self._groups
+
+            for geom_data_obj in geom_data_objs:
+                geom_data_obj.flip_normals()
+                geom_data_obj.finalize_normal_transform()
+
+            if len(self._objs) == 1:
+                h, p, r = self._objs[0].get_hpr(Mgr.get("grid").origin)
+                transform_values = {"rotate": (p, r, h)}
+                Mgr.update_remotely("transform_values", transform_values)
+
+            self.add_transform_history("custom", "Flip {}")
+
     def update_transform_values(self):
 
         if len(self._objs) == 1:

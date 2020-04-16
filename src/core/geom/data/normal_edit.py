@@ -239,6 +239,7 @@ class NormalEditMixin:
     def __init__(self):
 
         self.shared_normals = {}
+        self.locked_normals = set()
         self._normal_sharing_change = False
         self._normal_lock_change = set()
         self._normal_change = set()
@@ -544,6 +545,7 @@ class NormalEditMixin:
 
         verts = self._subobjs["vert"]
         shared_normals = self.shared_normals
+        locked_normals = self.locked_normals
         merged_verts = self.merged_verts
         merged_verts_to_update = set()
         lock_change = self._normal_lock_change
@@ -561,7 +563,10 @@ class NormalEditMixin:
 
                 if verts[v_id].lock_normal(lock):
 
-                    if not lock:
+                    if lock:
+                        locked_normals.add(v_id)
+                    else:
+                        locked_normals.discard(v_id)
                         merged_verts_to_update.add(merged_vert)
 
                     lock_change.add(v_id)
@@ -868,7 +873,7 @@ class NormalEditMixin:
         for vert_id, time_id in time_ids.items():
             verts[vert_id].set_previous_property_time("normal_lock", time_id)
 
-        locked_normal_ids = []
+        locked_normal_ids = self.locked_normals
         unlocked_normal_ids = []
 
         for vert_id, locked in normal_lock.items():
@@ -880,9 +885,10 @@ class NormalEditMixin:
             vert.lock_normal(locked)
 
             if locked:
-                locked_normal_ids.append(vert_id)
+                locked_normal_ids.add(vert_id)
             else:
                 unlocked_normal_ids.append(vert_id)
+                locked_normal_ids.discard(vert_id)
 
         self.update_locked_normal_selection(None, None, locked_normal_ids, unlocked_normal_ids)
 
@@ -1177,6 +1183,16 @@ class NormalEditMixin:
 
         return GeomVertexArrayData(normal_array)
 
+    def __update_geoms(self, normal_array):
+
+        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
+        vertex_data = geom.modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
+        vertex_data.set_array(2, normal_array)
+        vertex_data = self._vertex_data["poly"]
+        vertex_data.set_array(2, normal_array)
+
     def prepare_normal_transform(self, normal_array, update_geoms=True):
 
         self._transf_start_data["pos_array"] = GeomVertexArrayData(normal_array)
@@ -1184,13 +1200,7 @@ class NormalEditMixin:
         if update_geoms:
             geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
             geom.modify_vertex_data().set_array(2, normal_array)
-            geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
-            vertex_data = geom.modify_vertex_data()
-            vertex_data.set_array(2, normal_array)
-            vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
-            vertex_data.set_array(2, normal_array)
-            vertex_data = self._vertex_data["poly"]
-            vertex_data.set_array(2, normal_array)
+            self.__update_geoms(normal_array)
 
     def init_normal_transform(self):
 
@@ -1228,13 +1238,7 @@ class NormalEditMixin:
 
         normal_array = tmp_vertex_data.get_array(2)
         vertex_data.set_array(2, normal_array)
-        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
-        vertex_data = geom.modify_vertex_data()
-        vertex_data.set_array(2, normal_array)
-        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(2, normal_array)
-        vertex_data = self._vertex_data["poly"]
-        vertex_data.set_array(2, normal_array)
+        self.__update_geoms(normal_array)
 
     def aim_selected_normals(self, point, ref_node, toward=True):
 
@@ -1261,13 +1265,24 @@ class NormalEditMixin:
 
         normal_array = tmp_vertex_data.get_array(2)
         vertex_data.set_array(2, normal_array)
-        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
+        self.__update_geoms(normal_array)
+
+    def flip_normals(self):
+
+        rows = self._rows_to_transf["normal"]
+
+        if not rows:
+            return
+
+        scale_mat = Mat4.scale_mat(-1., -1., -1.)
+        geom = self._geoms["normal"]["pickable"].node().modify_geom(0)
         vertex_data = geom.modify_vertex_data()
+        tmp_vertex_data = GeomVertexData(vertex_data)
+        tmp_vertex_data.set_array(0, self.get_normal_array())
+        tmp_vertex_data.transform_vertices(scale_mat, rows)
+        normal_array = tmp_vertex_data.get_array(0)
         vertex_data.set_array(2, normal_array)
-        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(2, normal_array)
-        vertex_data = self._vertex_data["poly"]
-        vertex_data.set_array(2, normal_array)
+        self.__update_geoms(normal_array)
 
     def transform_normals(self, transf_type, value):
 
@@ -1344,13 +1359,7 @@ class NormalEditMixin:
             normal_writer.set_data3(normal)
 
         normal_array = vertex_data.get_array(2)
-        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
-        vertex_data = geom.modify_vertex_data()
-        vertex_data.set_array(2, normal_array)
-        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(2, normal_array)
-        vertex_data = self._vertex_data["poly"]
-        vertex_data.set_array(2, normal_array)
+        self.__update_geoms(normal_array)
 
     def finalize_normal_transform(self, cancelled=False, lock_normals=True):
 
@@ -1425,13 +1434,7 @@ class NormalEditMixin:
 
         normal_array = tmp_vertex_data.get_array(2)
         vertex_data.set_array(2, normal_array)
-        geom = self._geoms["normal"]["sel_state"].node().modify_geom(0)
-        vertex_data = geom.modify_vertex_data()
-        vertex_data.set_array(2, normal_array)
-        vertex_data = self._toplvl_node.modify_geom(0).modify_vertex_data()
-        vertex_data.set_array(2, normal_array)
-        vertex_data = self._vertex_data["poly"]
-        vertex_data.set_array(2, normal_array)
+        self.__update_geoms(normal_array)
 
         self._normal_change.update(sel_ids)
         model = self.toplevel_obj
@@ -1721,7 +1724,8 @@ class NormalManager:
 
             self._pixel_under_mouse = pixel_under_mouse
 
-        not_hilited = pixel_under_mouse in (VBase4(), VBase4(1., 1., 1., 1.))
+        color = tuple(round(c * 255.) for c in pixel_under_mouse)
+        not_hilited = color in ((0., 0., 0., 0.), (255., 255., 255., 255.))
         cursor_id = "main" if not_hilited else "select"
 
         if GD["subobj_edit_options"]["pick_by_aiming"]:

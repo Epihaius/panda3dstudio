@@ -851,6 +851,7 @@ class HistoryMixin:
         subobjs = self._subobjs
         verts = subobjs["vert"]
         ordered_polys = self.ordered_polys
+        locked_normal_ids = self.locked_normals
 
         poly_index = min(ordered_polys.index(poly) for poly in polys_to_remove)
         polys_to_offset = ordered_polys[poly_index:]
@@ -864,6 +865,7 @@ class HistoryMixin:
 
         for poly in polys_to_remove:
 
+            locked_normal_ids.difference_update(poly.vertex_ids)
             poly_verts = poly.vertices
             vert = poly_verts[0]
             row = vert.row_index

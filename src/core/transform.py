@@ -794,6 +794,7 @@ class TransformationManager:
         Mgr.accept("restore_xform_backup", self.__restore_xform_backup)
         Mgr.add_app_updater("transf_component", self.__set_transform_component)
         Mgr.add_app_updater("componentwise_xform", self.__update_componentwise_xform)
+        Mgr.add_app_updater("normal_flip", self.__flip_normals)
 
         add_state = Mgr.add_state
         add_state("transforming", -1)
@@ -1110,6 +1111,14 @@ class TransformationManager:
             Mgr.do("update_xform_target_type", objs_to_transform, reset=True)
 
         self._objs_to_transform = []
+
+    def __flip_normals(self):
+
+        active_obj_level = GD["active_obj_level"]
+        selection = Mgr.get("selection")
+
+        if selection and active_obj_level == "normal":
+            selection.flip_normals()
 
     def __get_sorted_hierarchy(self, objects):
         """

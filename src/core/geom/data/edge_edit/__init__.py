@@ -916,7 +916,8 @@ class EdgeEditManager(EdgeMergeManager, EdgeBridgeManager):
 
             self._pixel_under_mouse = pixel_under_mouse
 
-        not_hilited = pixel_under_mouse in (VBase4(), VBase4(1., 1., 1., 1.))
+        color = tuple(round(c * 255.) for c in pixel_under_mouse)
+        not_hilited = color in ((0., 0., 0., 0.), (255., 255., 255., 255.))
         cursor_id = "main" if not_hilited else "select"
 
         if GD["subobj_edit_options"]["pick_by_aiming"]:
