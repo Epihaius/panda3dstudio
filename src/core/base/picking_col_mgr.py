@@ -1,6 +1,6 @@
+from panda3d.core import SparseArray
 from .mgr import CoreManager as Mgr
 from .base import Notifiers, PendingTasks
-from functools import reduce
 
 
 # All managers of pickable objects should derive from the following class
@@ -86,62 +86,17 @@ class PickingColorIDManager:
 
         self._mgrs[self.get_managed_object_type()] = self
 
-        self._id_ranges = [(1, 2 ** 24)]
-        self._ids_to_recover = set()
-        self._ids_to_discard = set()
+        self._id_ranges = SparseArray.range(1, 2 ** 24)
+        self._ids_to_recover = SparseArray()
+        self._ids_to_discard = SparseArray()
         self._id_ranges_backup = None
 
     def reset(self):
 
-        self._id_ranges = [(1, 2 ** 24)]
-        self._ids_to_recover = set()
-        self._ids_to_discard = set()
+        self._id_ranges = SparseArray.range(1, 2 ** 24)
+        self._ids_to_recover = SparseArray()
+        self._ids_to_discard = SparseArray()
         Notifiers.reg.debug(f'"{self.get_managed_object_type()}" picking color IDs reset.')
-
-    def __get_ranges(self, lst):
-
-        l = iter([None] + lst[:-1])
-        m = iter(lst[1:] + [None])
-
-        return list(zip([i for i in lst if i - 1 != next(l)],
-                   [i + 1 for i in [i for i in lst if i + 1 != next(m)]]))
-
-    def __merge_ranges(self, range_list, next_range):
-
-        if range_list:
-
-            prev_range_start, prev_range_end = range_list[-1]
-            next_range_start, next_range_end = next_range
-
-            if prev_range_end == next_range_start:
-                del range_list[-1]
-                range_list.append((prev_range_start, next_range_end))
-                return range_list
-
-        return range_list + [next_range]
-
-    def __split_ranges(self, range_list, next_range):
-
-        if range_list:
-
-            prev_range_start, prev_range_end = range_list[-1]
-            next_range_start, next_range_end = next_range
-
-            if next_range_start < prev_range_end:
-
-                del range_list[-1]
-
-                if prev_range_start != next_range_start:
-                    range_list.append((prev_range_start, next_range_start))
-
-                if prev_range_end != next_range_end:
-                    min_range_end = min(prev_range_end, next_range_end)
-                    max_range_end = max(prev_range_end, next_range_end)
-                    range_list.append((min_range_end, max_range_end))
-
-                return range_list
-
-        return range_list + [next_range]
 
     def get_next_picking_color_id(self):
 
@@ -150,110 +105,93 @@ class PickingColorIDManager:
             # can be created
             return
 
-        next_id, range_end = self._id_ranges.pop(0)
-
-        if next_id + 1 < range_end:
-            self._id_ranges.insert(0, (next_id + 1, range_end))
+        next_id = self._id_ranges.get_lowest_on_bit()
+        self._id_ranges.clear_bit(next_id)
 
         return next_id
 
     def recover_picking_color_id(self, color_id):
         """ Recover the given color ID, so it can be used again """
 
-        if color_id in self._ids_to_recover:
+        if self._ids_to_recover.get_bit(color_id):
             Notifiers.reg.warning(f'!!!!!! {self.get_managed_object_type()} picking color ID '
                                   f'already recovered!')
 
-        self._ids_to_recover.add(color_id)
+        self._ids_to_recover.set_bit(color_id)
 
     def recover_picking_color_ids(self, color_ids):
         """ Recover the given color IDs, so they can be used again. """
 
-        if self._ids_to_recover.intersection(color_ids):
+        s = SparseArray()
+        [s.set_bit(i) for i in color_ids]
+
+        if self._ids_to_recover & s:
             Notifiers.reg.warning(f'!!!!!! {self.get_managed_object_type()} picking color IDs '
                                   f'already recovered!')
 
-        self._ids_to_recover.update(color_ids)
+        self._ids_to_recover |= s
         Notifiers.reg.debug(f'****** {self.get_managed_object_type()} picking color IDs '
-                            f'recovered:\n{self.__get_ranges(sorted(self._ids_to_recover))}')
+                            f'to be recovered:\n{self._ids_to_recover}')
 
     def discard_picking_color_id(self, color_id):
         """ Discard the given color ID, so it can no longer be used """
 
-        if color_id in self._ids_to_discard:
+        if self._ids_to_discard.get_bit(color_id):
             Notifiers.reg.warning(f'!!!!!! {self.get_managed_object_type()} picking color ID '
                                   f'already discarded!')
 
-        self._ids_to_discard.add(color_id)
+        self._ids_to_discard.set_bit(color_id)
 
     def discard_picking_color_ids(self, color_ids):
         """ Discard the given color IDs, so they can no longer be used. """
 
-        if self._ids_to_discard.intersection(color_ids):
+        s = SparseArray()
+        [s.set_bit(i) for i in color_ids]
+
+        if self._ids_to_discard & s:
             Notifiers.reg.warning(f'!!!!!! {self.get_managed_object_type()} picking color IDs '
                                   f'already discarded!')
 
-        self._ids_to_discard.update(color_ids)
+        self._ids_to_discard |= s
         Notifiers.reg.debug(f'****** {self.get_managed_object_type()} picking color IDs '
-                            f'discarded:\n{self.__get_ranges(sorted(self._ids_to_discard))}')
+                            f'to be discarded:\n{self._ids_to_discard}')
 
     def update_picking_color_id_ranges(self):
 
         id_ranges = self._id_ranges
-        set_to_recover = self._ids_to_recover
-        set_to_discard = self._ids_to_discard
+        ids_to_recover = self._ids_to_recover
+        ids_to_discard = self._ids_to_discard
 
-        if not (set_to_recover or set_to_discard):
+        if not (ids_to_recover or ids_to_discard):
             return
 
         Notifiers.reg.debug(f'++++++ Updating {self.get_managed_object_type()} '
                             f'picking color IDs ranges, starting with:\n{id_ranges}')
 
-        # remove the common IDs from both sets
-        if not set_to_recover.isdisjoint(set_to_discard):
-            set_to_recover ^= set_to_discard
-            set_to_discard &= set_to_recover
-            set_to_recover -= set_to_discard
+        # remove the common IDs from both arrays
+        if ids_to_recover.has_bits_in_common(ids_to_discard):
+            ids_to_recover ^= ids_to_discard
+            ids_to_discard &= ids_to_recover
+            ids_to_recover &= ~ids_to_discard
 
-        if set_to_recover:
-            id_ranges_to_recover = self.__get_ranges(sorted(set_to_recover))
+        if ids_to_recover:
             Notifiers.reg.debug(f'++++++ Recovering {self.get_managed_object_type()} '
-                                f'picking color IDs:\n{id_ranges_to_recover}')
-            id_ranges += id_ranges_to_recover
-            id_ranges.sort()
-            id_ranges[:] = reduce(self.__merge_ranges, id_ranges[:], [])
+                                f'picking color IDs:\n{ids_to_recover}')
+            id_ranges |= ids_to_recover
 
-        if set_to_discard:
-            id_ranges_to_discard = self.__get_ranges(sorted(set_to_discard))
+        if ids_to_discard:
             Notifiers.reg.debug(f'++++++ Discarding {self.get_managed_object_type()} '
-                                f'picking color IDs:\n{id_ranges_to_discard}')
-            id_ranges += id_ranges_to_discard
-            id_ranges.sort()
-            id_ranges[:] = reduce(self.__split_ranges, id_ranges[:], [])
+                                f'picking color IDs:\n{ids_to_discard}')
+            id_ranges &= ~ids_to_discard
 
-        self._ids_to_recover = set()
-        self._ids_to_discard = set()
+        ids_to_recover.clear()
+        ids_to_discard.clear()
         Notifiers.reg.debug(f'++++++ New {self.get_managed_object_type()} '
                             f'picking color ID ranges:\n{id_ranges}')
 
-        # check integrity
-        for rng1, rng2 in zip(id_ranges[:-1], id_ranges[1:]):
-            if rng1[1] >= rng2[0]:
-                # something went wrong; create scene and log files to submit for debugging
-                Notifiers.reg.info('(error): An error occurred with '
-                                   f'{self.get_managed_object_type()} '
-                                   f'object ID management:\n{id_ranges}')
-                import shutil
-                shutil.copy("p3ds.log", "corrupt_object_ids.log")
-                Mgr.update_locally("scene", "save", "corrupt_object_ids.p3ds", set_saved_state=False)
-                msg = "An error occurred with object ID management;\n" \
-                      "files 'corrupt_object_ids.p3ds' and 'corrupt_object_ids.log' have\n" \
-                      "been created to submit for debugging."
-                raise AssertionError(msg)
-
     def create_id_ranges_backup(self):
 
-        self._id_ranges_backup = self._id_ranges[:]
+        self._id_ranges_backup = SparseArray(self._id_ranges)
         Notifiers.reg.debug(f'"{self.get_managed_object_type()}" picking color IDs '
                             f'backup created:\n{self._id_ranges_backup}')
 
