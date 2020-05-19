@@ -1,7 +1,7 @@
 from .base import *
 
 
-FILE_VERSION = "1.0.0"
+FILE_VERSION = "1.1.0"
 
 
 class SceneManager:
@@ -216,11 +216,11 @@ class SceneManager:
                         valid_file = False
                     if int(n1) < int(n2):
                         Mgr.update_remotely("scene_load_error", path,
-                            prefix + "_older_version", handlers)
+                            prefix + "_older_version", version, handlers)
                         break
                     elif int(n1) > int(n2):
                         Mgr.update_remotely("scene_load_error", path,
-                            prefix + "_newer_version", handlers)
+                            prefix + "_newer_version", version, handlers)
                         break
 
         if valid_file:

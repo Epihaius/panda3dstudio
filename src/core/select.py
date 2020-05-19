@@ -365,9 +365,9 @@ class SelectionManager:
         self._obj_id = None
         self._selection = Selection()
         sel_sets = {"top": {}, "vert": {}, "normal": {}, "edge": {}, "poly": {},
-                    "uv_vert": {}, "uv_edge": {}, "uv_poly": {}}
+                    "uv_vert": {}, "uv_edge": {}, "uv_poly": {}, "uv_part": {}}
         sel_names = {"top": {}, "vert": {}, "normal": {}, "edge": {}, "poly": {},
-                     "uv_vert": {}, "uv_edge": {}, "uv_poly": {}}
+                     "uv_vert": {}, "uv_edge": {}, "uv_poly": {}, "uv_part": {}}
         self._selection_sets = {"sets": sel_sets, "names": sel_names}
         self._pixel_under_mouse = None
 
@@ -1688,6 +1688,9 @@ class SelectionManager:
         self._selection_sets = selection_sets
         sets = selection_sets["sets"]
         names = selection_sets["names"]
+        # for backwards compatibility
+        sets.setdefault("uv_part", {})
+        names.setdefault("uv_part", {})
 
         for obj_level in sets:
 

@@ -633,7 +633,7 @@ class GeomDataObject(SelectionMixin, GeomTransformMixin, HistoryMixin,
 
         geom_copy = self.toplevel_geom.copy_to(GD.world)
         geom_copy.detach_node()
-        vertex_data_copy = geom_copy.node().modify_geom(0).get_vertex_data()
+        vertex_data_copy = geom_copy.node().get_geom(0).get_vertex_data()
         vertex_data_copy = vertex_data_copy.set_color((1., 1., 1., 1.))
         geom_copy.node().modify_geom(0).set_vertex_data(vertex_data_copy)
         geom_copy.set_texture(TextureStage.default, texture)

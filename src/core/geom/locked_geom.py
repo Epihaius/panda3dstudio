@@ -180,8 +180,7 @@ class LockedGeomBase:
         aux_geom.set_shader_input("two_sided", GD["two_sided"])
         snap_type_id = PickableTypes.get_id("snap_geom") / 255.
         aux_geom.set_shader_input("snap_type_id", snap_type_id)
-        aux_geom.hide(Mgr.get("render_mask"))
-        aux_geom.hide(Mgr.get("picking_mask"))
+        aux_geom.hide(Mgr.get("render_mask") | Mgr.get("picking_mask"))
         picking_col_id_str = str(self.picking_color_id)
         self.geom.set_tag("picking_color", picking_col_id_str)
         aux_geom.set_tag("picking_color", picking_col_id_str + "_wire")
@@ -600,7 +599,7 @@ class LockedGeomBase:
             np = NodePath("state")
             np.set_shader(shaders.Shaders.snap[snap_target_type], 1)
             snap_type_id = PickableTypes.get_id("snap_geom") / 255.
-            np.set_shader_input("snap_type_id", snap_type_id)
+            np.set_shader_input("snap_type_id", snap_type_id, 1)
             np.set_shader_input("inverted", self._inverted_geometry, 1)
             np.set_shader_input("two_sided", GD["two_sided"], 1)
             state = np.get_state()
@@ -703,6 +702,7 @@ class LockedGeomBase:
 
             geom_data_obj.set_initial_vertex_colors()
             geom_data_obj.update_vertex_colors()
+            geom_data_obj.set_uv_set_names(self.get_uv_set_names())
 
             self._geometry_unlock_started = False
             self._geometry_unlock_ended = True
@@ -890,12 +890,21 @@ class LockedGeom(LockedGeomBase):
         self._initial_vertex_colors = dest_vert_data.get_array(1)
         geom.node().modify_geom(0).set_vertex_data(dest_vert_data)
         dest_vert_data = geom.node().modify_geom(0).modify_vertex_data()
-        num_rows = src_vert_data.get_num_rows()
         uv_set_list = [InternalName.get_texcoord()]
         uv_set_list += [InternalName.get_texcoord_name(str(i)) for i in range(1, 8)]
         src_uv_set_names = ["", "1", "2", "3", "4", "5", "6", "7"]
+        uv_format = GeomVertexFormat()
+
+        for uv_set_name in src_format.get_texcoords():
+            uv_array_format = GeomVertexArrayFormat()
+            uv_array_format.add_column(uv_set_name, 2, Geom.NT_float32, Geom.C_texcoord)
+            uv_format.add_array(uv_array_format)
+
+        uv_format = GeomVertexFormat.register_format(uv_format)
 
         material, uv_set_names = render_state_to_material(render_state, src_format, materials)
+        src_uv_views = {}
+        src_vert_data = src_vert_data.convert_to(uv_format)
 
         for src_uv_set, dest_uv_set in uv_set_names.items():
 
@@ -903,12 +912,32 @@ class LockedGeom(LockedGeomBase):
             uv_name = src_uv_set.name
             uv_name = "" if uv_name == "texcoord" else src_uv_set.basename
             src_uv_set_names[uv_set_id] = uv_name
-            uv_reader = GeomVertexReader(src_vert_data, src_uv_set)
-            uv_writer = GeomVertexWriter(dest_vert_data, dest_uv_set)
+            index = uv_format.get_array_with(src_uv_set)
 
-            for i in range(num_rows):
-                uv = uv_reader.get_data2()
-                uv_writer.set_data2(uv)
+            if index > -1:
+                uv_view = memoryview(src_vert_data.get_array(index)).cast("B").cast("f")
+                uv_name = dest_uv_set.name
+                uv_set_id = 0 if uv_name == "texcoord" else int(dest_uv_set.basename)
+                src_uv_views[uv_set_id] = uv_view
+
+        for uv_set_id in range(8):
+
+            uv_view = memoryview(dest_vert_data.modify_array(4 + uv_set_id)).cast("B").cast("f")
+
+            if uv_set_id in src_uv_views:
+                uv_view[:] = src_uv_views[uv_set_id]
+            else:
+                src_uv_views[uv_set_id] = uv_view
+
+        if update_model:
+            for p in geom_data:
+                for v in p["verts"]:
+                    # the UV data wasn't filled in at import yet; instead, the vertex
+                    # row index was stored
+                    row = v["uvs"]
+                    v["uvs"] = uvs = {}
+                    for uv_set_id in range(8):
+                        uvs[uv_set_id] = tuple(src_uv_views[uv_set_id][row*2:row*2+2])
 
         self._uv_set_names = src_uv_set_names
 
@@ -1651,6 +1680,7 @@ class LockedGeomManager(ObjectManager, LockedGeomManagerBase):
             geom_data = self.__define_geom_data(geom_data_obj)
             locked_geom = self.__create(geom, geom_data, model=model)
             locked_geom.register(restore=False)
+            locked_geom.set_uv_set_names(geom_data_obj.get_uv_set_names())
             data.update(locked_geom.get_data_to_store("creation"))
             obj_data[model.id] = data
             geom_data_obj.destroy()

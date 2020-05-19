@@ -48,14 +48,14 @@ def _define_geom_data(segments, smooth, temp=False):
 
             vert_id += 1
 
-    positions_lower = positions_main[-segments - 1:]
-    positions_upper = positions_main[:segments + 1]
-    positions_upper.reverse()
+    positions_bottom = positions_main[-segments - 1:]
+    positions_top = positions_main[:segments + 1]
+    positions_top.reverse()
 
     if not temp:
-        uvs_lower = uvs_main[-segments - 1:]
-        uvs_upper = uvs_main[:segments + 1]
-        uvs_upper.reverse()
+        uvs_bottom = uvs_main[-segments - 1:]
+        uvs_top = uvs_main[:segments + 1]
+        uvs_top.reverse()
         flat_normals = array.array("f", [])
         smooth_normals = array.array("f", [])
         normals = {"flat": flat_normals, "smooth": smooth_normals}
@@ -118,7 +118,7 @@ def _define_geom_data(segments, smooth, temp=False):
         vi3 = vi2 - 1
         vert_ids = (vi2, vi3)
 
-        cap_positions = [Point3(*positions_upper[vi]) for vi in vert_ids]
+        cap_positions = [Point3(*positions_top[vi]) for vi in vert_ids]
         cap_positions.append(Point3(*pole_pos))
         plane = Plane(*cap_positions)
         poly_normal = plane.get_normal()
@@ -138,16 +138,16 @@ def _define_geom_data(segments, smooth, temp=False):
 
         if temp:
             for vi in vert_ids:
-                normal = Vec3(*positions_upper[vi]) if smooth else poly_normal
-                tri_data.append({"pos": positions_upper[vi], "normal": normal})
+                normal = Vec3(*positions_top[vi]) if smooth else poly_normal
+                tri_data.append({"pos": positions_top[vi], "normal": normal})
         else:
             for vi in vert_ids:
-                pos = positions_upper[vi]
-                smooth_normal = Vec3(*positions_upper[vi])
+                pos = positions_top[vi]
+                smooth_normal = Vec3(*positions_top[vi])
                 flat_normals.extend(poly_normal)
                 smooth_normals.extend(smooth_normal)
                 normal = smooth_normal if smooth else poly_normal
-                uv = uvs_upper[vi]
+                uv = uvs_top[vi]
                 tri_data.append({"pos": pos, "normal": normal, "uvs": {0: uv},
                                  "pos_ind": pos_objs.index(pos)})
 
@@ -169,7 +169,7 @@ def _define_geom_data(segments, smooth, temp=False):
         vi3 = vi2 - 1
         vert_ids = (vi2, vi3)
 
-        cap_positions = [Point3(*positions_lower[vi])  for vi in vert_ids]
+        cap_positions = [Point3(*positions_bottom[vi])  for vi in vert_ids]
         cap_positions.append(Point3(*pole_pos))
         plane = Plane(*cap_positions)
         poly_normal = plane.get_normal()
@@ -189,16 +189,16 @@ def _define_geom_data(segments, smooth, temp=False):
 
         if temp:
             for vi in vert_ids:
-                normal = Vec3(*positions_lower[vi]) if smooth else poly_normal
-                tri_data.append({"pos": positions_lower[vi], "normal": normal})
+                normal = Vec3(*positions_bottom[vi]) if smooth else poly_normal
+                tri_data.append({"pos": positions_bottom[vi], "normal": normal})
         else:
             for vi in vert_ids:
-                pos = positions_lower[vi]
-                smooth_normal = Vec3(*positions_lower[vi])
+                pos = positions_bottom[vi]
+                smooth_normal = Vec3(*positions_bottom[vi])
                 flat_normals.extend(poly_normal)
                 smooth_normals.extend(smooth_normal)
                 normal = smooth_normal if smooth else poly_normal
-                uv = uvs_lower[vi]
+                uv = uvs_bottom[vi]
                 tri_data.append({"pos": pos, "normal": normal, "uvs": {0: uv},
                                  "pos_ind": pos_objs.index(pos)})
 
@@ -255,6 +255,8 @@ class Sphere(Primitive):
 
         Primitive.__init__(self, "sphere", model, prop_ids, picking_col_id, geom_data)
 
+        self.uv_mats = [[Mat4(Mat4.ident_mat())] for uv_set_id in range(8)]
+
     def setup_geoms(self, restore=False):
 
         Primitive.setup_geoms(self)
@@ -262,6 +264,48 @@ class Sphere(Primitive):
         if restore:
             task = self.__update_normals
             PendingTasks.add(task, "set_normals", "object", id_prefix=self.toplevel_obj.id)
+
+    def create_parts(self, start_color_id):
+
+        segments = self._segments
+        a = (segments // 2 - 2) * segments * 4
+        a_ = (segments // 2 - 2) * segments * 6
+        b = a + segments * 6
+        data_row_count = b
+        prim_row_count = a_ + segments * 6
+        data_row_ranges = [(0, data_row_count)]
+        prim_row_ranges = [(0, prim_row_count)]
+
+        uv_rows = [(b - 1, b - 3, b - (segments - 1) * 3 - 3,
+            a + (segments - 1) * 3 + 2, a + (segments - 2) * 3 + 3, a)]
+
+        seam_rows_main = []
+        a = segments * 6
+        b = (segments - 1) * 3
+        c = b * 2
+
+        for i in range(segments // 2 - 2):
+            seam_rows_main.extend((i * a, i * a + 1))
+            seam_rows_main.extend((i * a + c + 4, i * a + c + 5))
+
+        d = a_
+        seam_rows_main.extend((d, d + 1, d + b, d + b + 2))
+        d += segments * 3
+        seam_rows_main.extend((d, d + 1, d + b, d + b + 2))
+        seam_rows = [seam_rows_main]
+
+        return Primitive.create_parts(self, data_row_ranges, prim_row_ranges,
+            uv_rows, seam_rows, start_color_id)
+
+    def apply_uv_matrices(self):
+
+        mats = self.uv_mats
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+
+        for uv_set_id in range(8):
+            uv_mats = mats[uv_set_id]
+            mat = uv_mats[0]
+            Mgr.do("transform_primitive_uvs", vertex_data, uv_set_id, mat)
 
     def recreate(self):
 
@@ -338,6 +382,9 @@ class Sphere(Primitive):
             data = {}
             data[prop_id] = {"main": self.get_property(prop_id)}
 
+            if prop_id == "segments":
+                data["uvs"] = {"main": self.get_property("uvs")}
+
             return data
 
         return Primitive.get_data_to_store(self, event_type, prop_id)
@@ -377,6 +424,9 @@ class Sphere(Primitive):
                 self.aux_geom = value["aux_geom"]
                 self.model.bbox.update(self.geom.get_tight_bounds())
                 self.setup_geoms(restore)
+                vertex_data = self.geom.node().get_geom(0).get_vertex_data()
+                uv_view = memoryview(vertex_data.get_array(4)).cast("B").cast("f")
+                self.default_uvs = array.array("f", uv_view)
 
             task = self.__update_size
             sort = PendingTasks.get_sort("set_normals", "object") - 1

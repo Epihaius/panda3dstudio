@@ -452,7 +452,7 @@ class UVTemplateSaver:
 
     def __save_uv_template(self, filename):
 
-        UVMgr.do("clear_unselected_poly_state")
+        UVMgr.do("init_template_saving")
 
         res = self._size
         props = FrameBufferProperties()
@@ -500,7 +500,7 @@ class UVTemplateSaver:
         cam.detach_node()
         GD.showbase.graphicsEngine.remove_window(tex_buffer)
 
-        UVMgr.do("reset_unselected_poly_state")
+        UVMgr.do("finalize_template_saving")
 
 
 MainObjects.add_class(PickingCamera, "uv")

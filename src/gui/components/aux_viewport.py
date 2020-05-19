@@ -350,7 +350,7 @@ class AuxiliaryViewport:
                            self.__swap_viewports, proportion=1.)
         btn_bar.add_button("make_adjacent", "icon_viewport_adjacent", "Place viewports side-by-side",
                            lambda: self.__overlay(False), proportion=1.)
-        btn_bar.add_button("close", "icon_viewport_close", "Close auxiliary viewport",
+        btn_bar.add_button("exit", "icon_viewport_exit", "",
                            self.__close, proportion=1.)
         self._on_close = None
         self._btn_bar = btn_bar
@@ -376,7 +376,7 @@ class AuxiliaryViewport:
                            self.__swap_viewports, proportion=1.)
         btn_bar.add_button("overlay", "icon_viewport_overlaid", "Overlay auxiliary viewport",
                            self.__overlay, proportion=1.)
-        btn_bar.add_button("close", "icon_viewport_close", "Close auxiliary viewport",
+        btn_bar.add_button("exit", "icon_viewport_exit", "",
                            self.__close, proportion=1.)
         self._btn_bar_adj = btn_bar
         subsizer.add(btn_bar, expand=True)
@@ -616,6 +616,10 @@ class AuxiliaryViewport:
 
         self._interface_name = interface_name
         self._on_close = on_close
+        btn = self._btn_bar.get_buttons()[-1]
+        btn.set_tooltip_text(f"Exit {interface_name} interface")
+        btn = self._btn_bar_adj.get_buttons()[-1]
+        btn.set_tooltip_text(f"Exit {interface_name} interface")
         ToolTip.hide()
 
         Mgr.add_cursor_region("aux_viewport", self._cursor_region)
@@ -767,8 +771,8 @@ class AuxiliaryViewport:
             command = lambda task: on_close()
             Mgr.do_next_frame(command, "on_close_aux_viewport")
 
-        title = f"Close {self._interface_name} interface"
-        message = f"The {self._interface_name} interface needs to be closed and any changes saved."
+        title = f"Exit {self._interface_name} interface"
+        message = f"The {self._interface_name} interface needs to be exited and any changes saved."
         message += "\n\nContinue?"
         MessageDialog(title=title,
                       message=message,

@@ -54,7 +54,7 @@ class ExportPanel(Panel):
         self._fields[val_id] = field
         sizer.add(field, proportion=1., alignment="center_v")
 
-        group = section.add_group("Polygon color")
+        group = section.add_group("Polygon / Prim. part color")
         sizer = Sizer("horizontal")
         group.add(sizer, expand=True)
 
@@ -62,7 +62,7 @@ class ExportPanel(Panel):
         sizer.add(PanelText(group, text), alignment="center_v")
         sizer.add((5, 0))
 
-        dialog_title = "Pick polygon color"
+        dialog_title = "Pick polygon / primitive part color"
         command = lambda col: self.__handle_subobj_rgb("poly", col)
         colorbox = PanelColorBox(group, command, dialog_title=dialog_title)
         self._colorboxes["poly_rgb"] = colorbox

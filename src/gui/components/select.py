@@ -59,7 +59,7 @@ class SetsComboBox(ToolbarComboBox):
 
         self._menus = menus = {"top": self.get_popup_menu()}
 
-        for obj_level in ("vert", "normal", "edge", "poly", "uv_vert", "uv_edge", "uv_poly"):
+        for obj_level in ("vert", "normal", "edge", "poly", "uv_vert", "uv_edge", "uv_poly", "uv_part"):
             menus[obj_level] = self.create_popup_menu()
 
         Mgr.add_app_updater("selection_set", self.__update)
@@ -346,7 +346,7 @@ class SelectionPanel(Panel):
         set_menus2 = {"top": combobox2.get_popup_menu()}
         self._menus = {"set1": set_menus1, "set2": set_menus2}
 
-        for obj_level in ("vert", "normal", "edge", "poly", "uv_vert", "uv_edge", "uv_poly"):
+        for obj_level in ("vert", "normal", "edge", "poly", "uv_vert", "uv_edge", "uv_poly", "uv_part"):
             set_menus1[obj_level] = combobox1.create_popup_menu()
             set_menus2[obj_level] = combobox2.create_popup_menu()
 

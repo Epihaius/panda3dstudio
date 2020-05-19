@@ -1251,7 +1251,8 @@ class SelectionManager:
             return
 
         for obj in Mgr.get("selection_top"):
-            obj.geom_obj.geom_data_obj.init_subobj_picking(obj_lvl)
+            if obj.type == "model" and obj.geom_type == "unlocked_geom":
+                obj.geom_obj.geom_data_obj.init_subobj_picking(obj_lvl)
 
     def __init_selection_via_poly(self, picked_poly, op):
 

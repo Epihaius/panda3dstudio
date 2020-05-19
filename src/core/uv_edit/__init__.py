@@ -1,5 +1,6 @@
 from .base import *
 from .data import UVDataObject
+from .prim import UVPrimitive
 from .cam import UVNavigationMixin, UVTemplateSaver
 from .uv_select import UVSelectionMixin
 from .uv_transform import UVTransformationMixin
@@ -23,11 +24,15 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         cam = uv_space.attach_new_node(cam_node)
         cam.set_pos(.5, -10., .5)
         geom_root = uv_space.attach_new_node("uv_geom_root")
+        unlocked_geom_root = geom_root.attach_new_node("uv_unlocked_geom_root")
+        prim_geom_root = geom_root.attach_new_node("uv_prim_geom_root")
         GD.uv_space = uv_space
         GD.uv_cam = cam
         GD.uv_cam_node = cam_node
         GD.uv_cam_lens = lens
         GD.uv_geom_root = geom_root
+        GD.uv_unlocked_geom_root = unlocked_geom_root
+        GD.uv_prim_geom_root = prim_geom_root
         UVMgr.init(verbose=True)
 
         uv_edit_options = {
@@ -41,8 +46,11 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
 
         self._uv_registry = {}
         self._uv_data_objs = {}
-        self._uv_set_names = {}
         self._uv_data_obj_copies = {}
+        self._uv_prim_part_registry = {}
+        self._uv_prims = {}
+        self._uv_prim_copies = {}
+        self._uv_set_names = {}
         self._models = []
 
         UVNavigationMixin.__init__(self)
@@ -86,12 +94,14 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         poly_unsel_state_np.set_bin("background", 10)
         poly_unsel_state_np.set_transparency(TransparencyAttrib.M_alpha)
         poly_unsel_color = VBase4(.3, .3, .3, .5)
+        part_unsel_color = VBase4(.3, .3, .3, .5)
         poly_unsel_state_np.set_color(poly_unsel_color)
 
         # A separate LensNode projects the selection texture onto selected polygons
 
         poly_sel_state_np = NodePath(poly_unsel_state_np.node().make_copy())
         poly_sel_color = VBase4(1., 0., 0., 1.)
+        part_sel_color = VBase4(1., 0., 0., 1.)
         poly_sel_state_np.set_color(poly_sel_color)
         tex_stage = TextureStage("uv_poly_selection")
         tex_stage.set_mode(TextureStage.M_add)
@@ -109,15 +119,17 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         poly_unsel_state = poly_unsel_state_np.get_state()
         poly_sel_state = poly_sel_state_np.get_state()
         poly_sel_effects = poly_sel_state_np.get_effects()
-        color = VBase4(0., .7, .5, 1.)
-        poly_sel_state_np.set_color(color)
+        poly_sel_state_np.set_color(0., .7, .5, 1.)
         tmp_poly_sel_state = poly_sel_state_np.get_state()
         self._poly_colors = {"unselected": poly_unsel_color, "selected": poly_sel_color}
+        self._part_colors = {"unselected": part_unsel_color, "selected": part_sel_color}
         self._poly_states = {"unselected": poly_unsel_state, "selected": poly_sel_state,
                              "tmp_selected": tmp_poly_sel_state}
+        self._part_states = {"unselected": poly_unsel_state, "selected": poly_sel_state}
         UVMgr.expose("vert_render_state", lambda: vert_state)
         UVMgr.expose("edge_render_state", lambda: edge_state)
         UVMgr.expose("poly_states", lambda: self._poly_states)
+        UVMgr.expose("part_states", lambda: self._part_states)
         UVMgr.expose("poly_selection_effects", lambda: poly_sel_effects)
 
         vert_colors = {"selected": (1., 0., 0., 1.), "unselected": (.5, .5, 1., 1.)}
@@ -126,8 +138,8 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         self._uv_sel_colors = {"vert": vert_colors, "edge": edge_colors, "seam": seam_colors}
         UVMgr.expose("uv_selection_colors", lambda: self._uv_sel_colors)
 
-        UVMgr.accept("clear_unselected_poly_state", self.__clear_unselected_poly_state)
-        UVMgr.accept("reset_unselected_poly_state", self.__reset_unselected_poly_state)
+        UVMgr.accept("init_template_saving", self.__init_template_saving)
+        UVMgr.accept("finalize_template_saving", self.__finalize_template_saving)
         UVMgr.accept("start_drawing_aux_picking_viz", self.__start_drawing_aux_picking_viz)
         UVMgr.accept("end_drawing_aux_picking_viz", self.__end_drawing_aux_picking_viz)
 
@@ -211,6 +223,7 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         Mgr.add_app_updater("uv_name", self.__set_uv_name, interface_id="uv")
         Mgr.add_app_updater("uv_name_target_select", self.__select_uv_name_target, interface_id="uv")
         Mgr.add_app_updater("poly_color", self.__update_poly_color, interface_id="uv")
+        Mgr.add_app_updater("part_color", self.__update_part_color, interface_id="uv")
         Mgr.add_app_updater("picking_via_poly", self.__set_uv_picking_via_poly, interface_id="uv")
         Mgr.add_app_updater("viewport", self.__handle_viewport_resize, interface_id="uv")
         Mgr.add_app_updater("vert_break", self.__break_vertices, interface_id="uv")
@@ -218,6 +231,7 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         Mgr.add_app_updater("edge_stitch", self.__stitch_edges, interface_id="uv")
         Mgr.add_app_updater("poly_detach", self.__detach_polygons, interface_id="uv")
         Mgr.add_app_updater("poly_stitch", self.__stitch_polygons, interface_id="uv")
+        Mgr.add_app_updater("part_uv_defaults_reset", self.__reset_default_part_uvs, interface_id="uv")
 
         self._grid.add_interface_updaters()
         self._uv_template_saver.add_interface_updaters()
@@ -230,19 +244,29 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
             r, g, b, a = self._poly_colors[sel_state]
             Mgr.update_interface_remotely("uv", "poly_color", sel_state, "rgb", (r, g, b))
             Mgr.update_interface_remotely("uv", "poly_color", sel_state, "alpha", a)
+            r, g, b, a = self._part_colors[sel_state]
+            Mgr.update_interface_remotely("uv", "part_color", sel_state, "rgb", (r, g, b))
+            Mgr.update_interface_remotely("uv", "part_color", sel_state, "alpha", a)
 
-        self.__create_uv_data()
+        self.__create_unlocked_uv_data()
+        self.__create_primitive_uv_data()
         self.create_selections()
 
         self._obj_lvl = "poly"
+
+        for model in self._models:
+            if model.geom_type != "unlocked_geom":
+                self._obj_lvl = "part"
+                break
+
+        Mgr.update_interface_remotely("uv", "uv_level", self._obj_lvl)
         self.__update_object_level()
 
         uv_set_names = self._uv_set_names
         target_names = {}
 
         for model in self._models:
-            geom_data_obj = model.geom_obj.geom_data_obj
-            uv_set_names[geom_data_obj] = geom_data_obj.get_uv_set_names()[:]
+            uv_set_names[model] = model.geom_obj.get_uv_set_names()[:]
             target_names[model.id] = model.name
 
         Mgr.update_interface_remotely("uv", "uv_name_targets", target_names)
@@ -283,16 +307,25 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
 
         return self._uv_data_objs[self._uv_set_id][geom_data_obj]
 
-    def __create_uv_data(self):
+    def __create_unlocked_uv_data(self):
 
-        models = self._models
         uv_set_id = self._uv_set_id
-        self._uv_registry[uv_set_id] = uv_registry = {"vert": {}, "edge": {}, "poly": {}}
+        self._uv_registry[uv_set_id] = reg = {"vert": {}, "edge": {}, "poly": {}}
         self._uv_data_objs[uv_set_id] = uv_data_objs = {}
 
-        for model in models:
+        for model in (m for m in self._models if m.geom_type == "unlocked_geom"):
             geom_data_obj = model.geom_obj.geom_data_obj
-            uv_data_objs[geom_data_obj] = UVDataObject(uv_set_id, uv_registry, geom_data_obj)
+            uv_data_objs[geom_data_obj] = UVDataObject(uv_set_id, reg, geom_data_obj)
+
+    def __create_primitive_uv_data(self):
+
+        uv_set_id = self._uv_set_id
+        self._uv_prim_part_registry[uv_set_id] = prim_part_reg = {}
+        self._uv_prims[uv_set_id] = uv_prims = {}
+
+        for model in (m for m in self._models if m.geom_type != "unlocked_geom"):
+            prim = model.geom_obj
+            uv_prims[prim] = UVPrimitive(uv_set_id, prim_part_reg, prim)
 
     def __destroy_uv_data(self):
 
@@ -300,12 +333,19 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
             for uv_data_obj in uv_data_objs.values():
                 uv_data_obj.destroy()
 
-        for geom_data_obj, uv_data_obj in self._uv_data_obj_copies.items():
+        for geom_data_obj in self._uv_data_obj_copies:
             geom_data_obj.clear_copied_uvs()
+
+        for uv_prims in self._uv_prims.values():
+            for uv_prim in uv_prims.values():
+                uv_prim.destroy()
 
         self._uv_registry.clear()
         self._uv_data_objs.clear()
         self._uv_data_obj_copies.clear()
+        self._uv_prim_part_registry.clear()
+        self._uv_prims.clear()
+        self._uv_prim_copies.clear()
         self._uv_set_names.clear()
 
     def __update_object_level(self):
@@ -337,40 +377,66 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         for uv_data_obj in uv_data_objs.values():
             uv_data_obj.hide()
 
+        uv_prims = self._uv_prims[self._uv_set_id]
+
+        for uv_prim in uv_prims.values():
+            uv_prim.hide()
+
         self._uv_set_id = uv_set_id
+        obj_lvl = self._obj_lvl
+        update_obj_lvl = False
 
         if uv_set_id in self._uv_data_objs:
 
             uv_data_objs = self._uv_data_objs[uv_set_id]
 
             for geom_data_obj, uv_data_obj in uv_data_objs.items():
+
                 geom_data_obj.set_tex_seams(uv_set_id)
-                uv_data_obj.show_subobj_level(self._obj_lvl)
+
+                if obj_lvl != "part":
+                    uv_data_obj.show_subobj_level(obj_lvl)
+
                 uv_data_obj.show()
 
         else:
 
-            self.__create_uv_data()
-            self.create_selections()
+            self.__create_unlocked_uv_data()
+            self.create_subobj_selections()
+            update_obj_lvl = True
+
+        if uv_set_id in self._uv_prims:
+
+            uv_prims = self._uv_prims[uv_set_id]
+
+            for prim, uv_prim in uv_prims.items():
+                uv_prim.show()
+
+        else:
+
+            self.__create_primitive_uv_data()
+            self.create_part_selection()
+            update_obj_lvl = True
+
+        if update_obj_lvl:
             self.__update_object_level()
 
         uv_set_names = self._uv_set_names
         uv_names = {}
 
         for model in self._models:
-            geom_data_obj = model.geom_obj.geom_data_obj
-            uv_set_name = uv_set_names[geom_data_obj][uv_set_id]
+            uv_set_name = uv_set_names[model][uv_set_id]
             uv_names[model.id] = uv_set_name
 
         Mgr.update_interface_remotely("uv", "target_uv_name", uv_names)
 
         self.update_selection()
 
-        for obj_lvl in ("vert", "edge", "poly"):
+        for obj_lvl in ("vert", "edge", "poly", "part"):
 
             selection = self._selections[uv_set_id][obj_lvl]
 
-            if obj_lvl == "poly":
+            if obj_lvl in ("poly", "part"):
 
                 color_ids = [subobj.picking_color_id for subobj in selection]
 
@@ -388,62 +454,93 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
 
     def __copy_uv_set(self):
 
-        pick_via_poly = GD["uv_edit_options"]["pick_via_poly"]
-
-        if pick_via_poly:
-            self.__set_uv_picking_via_poly(False)
-
         uv_set_id = self._uv_set_id
-        uv_data_objs = self._uv_data_objs[uv_set_id]
-        copies = self._uv_data_obj_copies
+        obj_lvl = self._obj_lvl
 
-        for geom_data_obj, uv_data_obj in uv_data_objs.items():
-            copies[geom_data_obj] = uv_data_obj.copy()
-            geom_data_obj.copy_uvs(uv_set_id)
+        if obj_lvl == "part":
 
-        if pick_via_poly:
-            self.__set_uv_picking_via_poly(True)
+            uv_prims = self._uv_prims[uv_set_id]
+            copies = self._uv_prim_copies
+
+            for prim, uv_prim in uv_prims.items():
+                copies[prim] = uv_prim.copy()
+                prim.copy_uvs(uv_set_id)
+
+        else:
+
+            pick_via_poly = GD["uv_edit_options"]["pick_via_poly"]
+
+            if pick_via_poly:
+                self.__set_uv_picking_via_poly(False)
+
+            uv_data_objs = self._uv_data_objs[uv_set_id]
+            copies = self._uv_data_obj_copies
+
+            for geom_data_obj, uv_data_obj in uv_data_objs.items():
+                copies[geom_data_obj] = uv_data_obj.copy()
+                geom_data_obj.copy_uvs(uv_set_id)
+
+            if pick_via_poly:
+                self.__set_uv_picking_via_poly(True)
 
     def __paste_uv_set(self):
 
-        copies = self._uv_data_obj_copies
+        obj_lvl = self._obj_lvl
+        copies = self._uv_prim_copies if obj_lvl == "part" else self._uv_data_obj_copies
 
         if not copies:
             return
 
         uv_set_id = self._uv_set_id
-        self._uv_registry[uv_set_id] = uv_registry = {"vert": {}, "edge": {}, "poly": {}}
-        uv_data_objs = self._uv_data_objs[uv_set_id]
-        self.create_selections()
-        selections = {"vert": [], "edge": [], "poly": []}
-        del selections[self._obj_lvl]
 
-        for geom_data_obj, uv_data_obj in uv_data_objs.copy().items():
+        if obj_lvl == "part":
 
-            uv_data_obj.destroy()
-            copy = copies[geom_data_obj].copy(uv_set_id)
-            copy.show()
-            uv_data_objs[geom_data_obj] = copy
+            self._uv_prim_part_registry[uv_set_id] = uv_registry = {}
+            uv_prims = self._uv_prims[uv_set_id]
+            self.create_part_selection()
 
-            for subobj_type in ("vert", "edge", "poly"):
-                uv_registry[subobj_type].update({s.picking_color_id: s
-                                                for s in copy.get_subobjects(subobj_type).values()})
+            for prim, uv_prim in uv_prims.copy().items():
+                uv_prim.destroy(destroy_world_parts=False)
+                copy = copies[prim].copy(uv_set_id)
+                copy.show()
+                uv_prims[prim] = copy
+                uv_registry.update({p.picking_color_id: p for p in copy.parts})
+                prim.paste_uvs(uv_set_id)
+
+        else:
+
+            self._uv_registry[uv_set_id] = uv_registry = {"vert": {}, "edge": {}, "poly": {}}
+            uv_data_objs = self._uv_data_objs[uv_set_id]
+            self.create_subobj_selections()
+            selections = {"vert": [], "edge": [], "poly": []}
+            del selections[self._obj_lvl]
+
+            for geom_data_obj, uv_data_obj in uv_data_objs.copy().items():
+
+                uv_data_obj.destroy()
+                copy = copies[geom_data_obj].copy(uv_set_id)
+                copy.show()
+                uv_data_objs[geom_data_obj] = copy
+
+                for subobj_type in ("vert", "edge", "poly"):
+                    uv_registry[subobj_type].update({s.picking_color_id: s for s in
+                                                    copy.get_subobjects(subobj_type).values()})
+
+                for subobj_type in selections:
+                    selections[subobj_type].extend(copy.get_selection(subobj_type))
+
+                geom_data_obj.paste_uvs(uv_set_id)
 
             for subobj_type in selections:
-                selections[subobj_type].extend(copy.get_selection(subobj_type))
-
-            geom_data_obj.paste_uvs(uv_set_id)
-
-        for subobj_type in selections:
-            self._selections[uv_set_id][subobj_type].set(selections[subobj_type])
+                self._selections[uv_set_id][subobj_type].set(selections[subobj_type])
 
         self.__update_object_level()
 
-        for obj_lvl in ("vert", "edge", "poly"):
+        for obj_lvl in ("vert", "edge", "poly", "part"):
 
             selection = self._selections[uv_set_id][obj_lvl]
 
-            if obj_lvl == "poly":
+            if obj_lvl in ("poly", "part"):
 
                 color_ids = [subobj.picking_color_id for subobj in selection]
 
@@ -463,8 +560,7 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
 
         model = Mgr.get("model", model_id)
         uv_set_id = self._uv_set_id
-        geom_data_obj = model.geom_obj.geom_data_obj
-        uv_set_names = self._uv_set_names[geom_data_obj][:]
+        uv_set_names = self._uv_set_names[model][:]
         del uv_set_names[uv_set_id]
 
         if uv_set_name == "" and "" in uv_set_names:
@@ -473,39 +569,66 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         if uv_set_name != "":
             uv_set_name = get_unique_name(uv_set_name, uv_set_names)
 
-        self._uv_set_names[geom_data_obj][uv_set_id] = uv_set_name
+        self._uv_set_names[model][uv_set_id] = uv_set_name
         Mgr.update_interface_remotely("uv", "uv_name", uv_set_name)
 
     def __select_uv_name_target(self, model_id):
 
         model = Mgr.get("model", model_id)
         uv_set_id = self._uv_set_id
-        geom_data_obj = model.geom_obj.geom_data_obj
-        uv_set_name = self._uv_set_names[geom_data_obj][uv_set_id]
+        uv_set_name = self._uv_set_names[model][uv_set_id]
         Mgr.update_interface_remotely("uv", "uv_name", uv_set_name)
 
-    def __clear_unselected_poly_state(self):
+    def __init_template_saving(self):
 
-        uv_data_objs = self._uv_data_objs[self._uv_set_id]
+        obj_lvl = self._obj_lvl
         state = RenderState.make_empty()
+        uv_template_mask = UVMgr.get("template_mask")
 
-        for uv_data_obj in uv_data_objs.values():
-            uv_data_obj.set_poly_state("unselected", state)
+        if obj_lvl == "part":
 
-    def __reset_unselected_poly_state(self):
+            GD.uv_prim_geom_root.show_through(uv_template_mask)
+            uv_prims = self._uv_prims[self._uv_set_id]
 
-        uv_data_objs = self._uv_data_objs[self._uv_set_id]
+            for uv_prim in uv_prims.values():
+                uv_prim.set_part_state("unselected", state)
+
+        else:
+
+            GD.uv_unlocked_geom_root.show_through(uv_template_mask)
+            uv_data_objs = self._uv_data_objs[self._uv_set_id]
+
+            for uv_data_obj in uv_data_objs.values():
+                uv_data_obj.set_poly_state("unselected", state)
+
+    def __finalize_template_saving(self):
+
+        obj_lvl = self._obj_lvl
         state = self._poly_states["unselected"]
+        uv_template_mask = UVMgr.get("template_mask")
 
-        for uv_data_obj in uv_data_objs.values():
-            uv_data_obj.set_poly_state("unselected", state)
+        if obj_lvl == "part":
 
-    def __update_poly_color(self, sel_state, channels, value):
+            GD.uv_prim_geom_root.hide(uv_template_mask)
+            uv_prims = self._uv_prims[self._uv_set_id]
 
-        poly_colors = self._poly_colors
-        poly_states = self._poly_states
-        color = poly_colors[sel_state]
-        state = poly_states[sel_state]
+            for uv_prim in uv_prims.values():
+                uv_prim.set_part_state("unselected", state)
+
+        else:
+
+            GD.uv_unlocked_geom_root.hide(uv_template_mask)
+            uv_data_objs = self._uv_data_objs[self._uv_set_id]
+
+            for uv_data_obj in uv_data_objs.values():
+                uv_data_obj.set_poly_state("unselected", state)
+
+    def __update_subobj_color(self, obj_lvl, sel_state, channels, value):
+
+        colors = self._poly_colors if obj_lvl == "poly" else self._part_colors
+        states = self._poly_states if obj_lvl == "poly" else self._part_states
+        color = colors[sel_state]
+        state = states[sel_state]
 
         if channels == "rgb":
             for i in range(3):
@@ -515,16 +638,31 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
 
         state = state.add_attrib(ColorAttrib.make_flat(color))
 
-        poly_colors[sel_state] = color
-        poly_states[sel_state] = state
+        colors[sel_state] = color
+        states[sel_state] = state
 
-        for uv_data_objs in self._uv_data_objs.values():
-            for uv_data_obj in uv_data_objs.values():
-                uv_data_obj.set_poly_state(sel_state, state)
+        if obj_lvl == "poly":
+            for uv_data_objs in self._uv_data_objs.values():
+                for uv_data_obj in uv_data_objs.values():
+                    uv_data_obj.set_poly_state(sel_state, state)
+        else:
+            for uv_prims in self._uv_prims.values():
+                for uv_prim in uv_prims.values():
+                    uv_prim.set_part_state(sel_state, state)
 
-        r, g, b, a = poly_colors[sel_state]
-        value = {"rgb": (r, g, b), "alpha": a}[channels]
-        Mgr.update_interface_remotely("uv", "poly_color", sel_state, channels, value)
+        r, g, b, a = colors[sel_state]
+
+        return {"rgb": (r, g, b), "alpha": a}[channels]
+
+    def __update_poly_color(self, sel_state, channels, value):
+
+        new_value = self.__update_subobj_color("poly", sel_state, channels, value)
+        Mgr.update_interface_remotely("uv", "poly_color", sel_state, channels, new_value)
+
+    def __update_part_color(self, sel_state, channels, value):
+
+        new_value = self.__update_subobj_color("part", sel_state, channels, value)
+        Mgr.update_interface_remotely("uv", "part_color", sel_state, channels, new_value)
 
     def __set_uv_picking_via_poly(self, via_poly=False):
 
@@ -612,14 +750,13 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
         uv_set_names = self._uv_set_names
 
         for model in self._models:
+            if model.geom_obj.set_uv_set_names(uv_set_names[model]):
+                uv_name_change.append(model)
 
-            geom_data_obj = model.geom_obj.geom_data_obj
-
-            if geom_data_obj.set_uv_set_names(uv_set_names[geom_data_obj]):
-                uv_name_change.append(geom_data_obj)
-
-        geom_data_objs = iter(self._uv_data_objs[self._uv_set_id].keys())
-        changed_objs = [obj for obj in geom_data_objs if obj.get_uv_change()]
+        geom_data_objs = self._uv_data_objs[self._uv_set_id]
+        changed_objs = [obj.toplevel_obj for obj in geom_data_objs if obj.get_uv_change()]
+        primitives = self._uv_prims[self._uv_set_id]
+        changed_objs.extend(obj.model for obj in primitives if obj.uvs_changed)
 
         if not (uv_name_change or changed_objs):
             return
@@ -633,9 +770,14 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
 
             names = []
 
-            for geom_data_obj in uv_name_change:
-                model = geom_data_obj.toplevel_obj
-                obj_data[model.id] = geom_data_obj.get_data_to_store("prop_change", "uv_set_names")
+            for model in uv_name_change:
+
+                if model.geom_type == "unlocked_geom":
+                    geom_data_obj = model.geom_obj.geom_data_obj
+                    obj_data[model.id] = geom_data_obj.get_data_to_store("prop_change", "uv_set_names")
+                else:
+                    obj_data[model.id] = model.geom_obj.get_data_to_store("prop_change", "uv_set_names")
+
                 names.append(model.name)
 
             if len(names) > 1:
@@ -651,9 +793,14 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
 
             names = []
 
-            for geom_data_obj in changed_objs:
-                model = geom_data_obj.toplevel_obj
-                data = geom_data_obj.get_data_to_store("prop_change", "uvs")
+            for model in changed_objs:
+
+                if model.geom_type == "unlocked_geom":
+                    geom_data_obj = model.geom_obj.geom_data_obj
+                    data = geom_data_obj.get_data_to_store("prop_change", "uvs")
+                else:
+                    data = model.geom_obj.get_data_to_store("prop_change", "uvs")
+
                 obj_data.setdefault(model.id, {}).update(data)
                 names.append(model.name)
 
@@ -669,42 +816,46 @@ class UVEditor(UVNavigationMixin, UVSelectionMixin, UVTransformationMixin):
     def __break_vertices(self):
 
         selection = self._selections[self._uv_set_id]["vert"]
-        uv_data_objs = selection.uv_data_objects
 
-        for data_obj in uv_data_objs:
+        for data_obj in selection.uv_data_objects:
             data_obj.break_vertices()
 
     def __split_edges(self):
 
         selection = self._selections[self._uv_set_id]["edge"]
-        uv_data_objs = selection.uv_data_objects
 
-        for data_obj in uv_data_objs:
+        for data_obj in selection.uv_data_objects:
             data_obj.split_edges()
 
     def __stitch_edges(self):
 
         selection = self._selections[self._uv_set_id]["edge"]
-        uv_data_objs = selection.uv_data_objects
 
-        for data_obj in uv_data_objs:
+        for data_obj in selection.uv_data_objects:
             data_obj.stitch_edges()
 
     def __detach_polygons(self):
 
         selection = self._selections[self._uv_set_id]["poly"]
-        uv_data_objs = selection.uv_data_objects
 
-        for data_obj in uv_data_objs:
+        for data_obj in selection.uv_data_objects:
             data_obj.detach_polygons()
 
     def __stitch_polygons(self):
 
         selection = self._selections[self._uv_set_id]["poly"]
-        uv_data_objs = selection.uv_data_objects
 
-        for data_obj in uv_data_objs:
+        for data_obj in selection.uv_data_objects:
             data_obj.stitch_polygons()
+
+    def __reset_default_part_uvs(self):
+
+        selection = self._selections[self._uv_set_id]["part"]
+
+        for uv_prim in selection.uv_prims:
+            uv_prim.reset_default_part_uvs()
+
+        selection.update()
 
 
 MainObjects.add_class(UVEditor, "uv")

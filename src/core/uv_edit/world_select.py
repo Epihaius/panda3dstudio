@@ -12,7 +12,8 @@ class SelectionManager:
         self._obj_lvl = "top"
         self._color_id = None
         self._models = []
-        self._selections = {"vert": set(), "edge": set(), "poly": set()}
+        self._prim_part_registry = {}
+        self._selections = {"vert": set(), "edge": set(), "poly": set(), "part": set()}
         self._selection_op = "replace"
         self._original_poly_sel = {}
         self._restore_pick_via_poly = False
@@ -77,8 +78,10 @@ class SelectionManager:
         def get_grouped_models(group, models):
 
             for member in group.get_members():
-                if member.type == "model" and not (member.geom_type != "unlocked_geom"
-                        or member.bbox.has_zero_size_owner):
+                if member.type == "model" and not (member.geom_type == "locked_geom"
+                        or member.bbox.has_zero_size_owner) and (
+                        # for backward compatibility
+                        member.geom_type == "unlocked_geom" or member.geom_obj.can_edit_uvs()):
                     models.append(member)
                 elif member.type == "group" and not (member.is_open()
                         or member.get_member_types_id() == "collision"):
@@ -87,8 +90,10 @@ class SelectionManager:
         models = []
 
         for obj in objs:
-            if obj.type == "model" and not (obj.geom_type != "unlocked_geom"
-                    or obj.bbox.has_zero_size_owner):
+            if obj.type == "model" and not (obj.geom_type == "locked_geom"
+                    or obj.bbox.has_zero_size_owner) and (
+                    # for backward compatibility
+                    obj.geom_type == "unlocked_geom" or obj.geom_obj.can_edit_uvs()):
                 models.append(obj)
             elif obj.type == "group" and not (obj.is_open()
                     or obj.get_member_types_id() == "collision"):
@@ -107,7 +112,9 @@ class SelectionManager:
         def process_grouped_models(group, selection):
 
             for member in group.get_members():
-                if member.type == "model" and member.geom_type == "unlocked_geom":
+                if member.type == "model" and member.geom_type != "locked_geom" and (
+                        # for backward compatibility
+                        member.geom_type == "unlocked_geom" or member.geom_obj.can_edit_uvs()):
                     if accessible:
                         selection.add([member], add_to_hist=False, update=False)
                         member.bbox.origin.detach_node()
@@ -158,16 +165,25 @@ class SelectionManager:
             selection = Mgr.get("selection_top")
             models = self._models = self.__get_models(selection)
             original_poly_sel = self._original_poly_sel
+            color_id = 1
 
             for model in models:
 
-                geom_data_obj = model.geom_obj.geom_data_obj
-                original_poly_sel[geom_data_obj] = geom_data_obj.get_selection("poly")
-                geom_data_obj.clear_selection("poly", False)
+                if model.geom_type == "unlocked_geom":
 
-                for subobj_lvl in ("vert", "edge"):
-                    geom_data_obj.create_selection_backup(subobj_lvl)
-                    geom_data_obj.clear_selection(subobj_lvl, False)
+                    geom_data_obj = model.geom_obj.geom_data_obj
+                    original_poly_sel[geom_data_obj] = geom_data_obj.get_selection("poly")
+                    geom_data_obj.clear_selection("poly", False)
+
+                    for subobj_lvl in ("vert", "edge"):
+                        geom_data_obj.create_selection_backup(subobj_lvl)
+                        geom_data_obj.clear_selection(subobj_lvl, False)
+
+                else:  # model primitive
+
+                    prim_parts = model.geom_obj.create_parts(color_id)
+                    color_id += len(prim_parts)
+                    self._prim_part_registry.update({p.picking_color_id: p for p in prim_parts})
 
             self.__make_grouped_models_accessible(selection)
 
@@ -188,14 +204,17 @@ class SelectionManager:
 
             for model in self._models:
 
-                geom_data_obj = model.geom_obj.geom_data_obj
+                if model.geom_type == "unlocked_geom":
 
-                for subobj_lvl in ("vert", "edge", "poly"):
-                    geom_data_obj.clear_selection(subobj_lvl, update_verts_to_transf=False, force=True)
-                    geom_data_obj.restore_selection_backup(subobj_lvl)
+                    geom_data_obj = model.geom_obj.geom_data_obj
 
-                poly_sel = original_poly_sel[geom_data_obj]
-                geom_data_obj.update_selection("poly", poly_sel, [], False)
+                    for subobj_lvl in ("vert", "edge", "poly"):
+                        geom_data_obj.clear_selection(subobj_lvl,
+                            update_verts_to_transf=False, force=True)
+                        geom_data_obj.restore_selection_backup(subobj_lvl)
+
+                    poly_sel = original_poly_sel[geom_data_obj]
+                    geom_data_obj.update_selection("poly", poly_sel, [], False)
 
             if self._restore_pick_via_poly:
                 GD["subobj_edit_options"]["pick_via_poly"] = True
@@ -221,14 +240,14 @@ class SelectionManager:
         self._obj_lvl = "top"
         self._color_id = None
         self._models = []
-        self._selections = {"vert": set(), "edge": set(), "poly": set()}
+        self._prim_part_registry = {}
+        self._selections = {"vert": set(), "edge": set(), "poly": set(), "part": set()}
         self._original_poly_sel = {}
         self._restore_pick_via_poly = False
         self._restore_pick_by_aiming = False
 
     def set_object_level(self, obj_lvl):
 
-        self._obj_lvl = obj_lvl
         GD["active_obj_level"] = obj_lvl
         obj_root = Mgr.get("object_root")
         picking_mask = Mgr.get("picking_mask")
@@ -241,8 +260,11 @@ class SelectionManager:
             GD.cam.const_size_obj_root.show(picking_mask)
 
             for model in models:
-                geom_data_obj = model.geom_obj.geom_data_obj
-                geom_data_obj.show_top_level()
+                if model.geom_type == "unlocked_geom":
+                    geom_data_obj = model.geom_obj.geom_data_obj
+                    geom_data_obj.show_top_level()
+                else:
+                    model.geom_obj.show_parts(False)
 
             Mgr.update_remotely("selection_set", "replace", obj_lvl)
 
@@ -251,13 +273,36 @@ class SelectionManager:
             obj_root.hide(picking_mask)
             GD.cam.const_size_obj_root.hide(picking_mask)
             color = UVMgr.get("uv_selection_colors")["seam"]["unselected"]
+            uv_masks = UVMgr.get("render_mask") | UVMgr.get("picking_mask")
 
-            for model in models:
-                geom_data_obj = model.geom_obj.geom_data_obj
-                geom_data_obj.show_subobj_level(obj_lvl)
-                geom_data_obj.show_tex_seams(obj_lvl, color)
+            if obj_lvl == "part":
+
+                GD.uv_unlocked_geom_root.hide(uv_masks)
+                GD.uv_prim_geom_root.show(uv_masks)
+
+                for model in models:
+                    if model.geom_type == "unlocked_geom":
+                        geom_data_obj = model.geom_obj.geom_data_obj
+                        geom_data_obj.show_top_level()
+                    else:
+                        model.geom_obj.show_parts()
+
+            else:
+
+                GD.uv_unlocked_geom_root.show(uv_masks)
+                GD.uv_prim_geom_root.hide(uv_masks)
+
+                for model in models:
+                    if model.geom_type == "unlocked_geom":
+                        geom_data_obj = model.geom_obj.geom_data_obj
+                        geom_data_obj.show_subobj_level(obj_lvl)
+                        geom_data_obj.show_tex_seams(obj_lvl, color)
+                    else:
+                        model.geom_obj.show_parts(False)
 
             Mgr.update_remotely("selection_set", "replace", "uv_" + obj_lvl)
+
+        self._obj_lvl = obj_lvl
 
     def __update_cursor(self, task):
 
@@ -322,18 +367,28 @@ class SelectionManager:
         if not pickable_type:
             return "", None
 
-        picked_obj = Mgr.get(pickable_type, color_id)
+        if self._obj_lvl == "part":
+            picked_obj = self._prim_part_registry.get(color_id)
+        else:
+            picked_obj = Mgr.get(pickable_type, color_id)
 
         return (pickable_type, picked_obj) if picked_obj else ("", None)
 
     def __get_all_subobjs(self, obj_lvl):
 
         subobjs = []
-        geom_data_objs = [model.geom_obj.geom_data_obj
-                          for model in self._models]
 
-        for geom_data_obj in geom_data_objs:
-            subobjs.extend(geom_data_obj.get_subobjects(obj_lvl).values())
+        if obj_lvl == "part":
+
+            subobjs.extend(self._prim_part_registry.values())
+
+        else:
+
+            geom_data_objs = [m.geom_obj.geom_data_obj for m in self._models
+                              if m.geom_type == "unlocked_geom"]
+
+            for geom_data_obj in geom_data_objs:
+                subobjs.extend(geom_data_obj.get_subobjects(obj_lvl).values())
 
         return subobjs
 
@@ -358,8 +413,8 @@ class SelectionManager:
         selection.update(new_sel - old_sel)
         color_ids = set()
 
-        if obj_lvl == "poly":
-            color_ids.update(poly.picking_color_id for poly in selection)
+        if obj_lvl in ("poly", "part"):
+            color_ids.update(p.picking_color_id for p in selection)
         else:
             for subobj in selection:
                 color_ids.update(subobj.picking_color_ids)
@@ -387,8 +442,8 @@ class SelectionManager:
         selection.update(new_sel)
         color_ids = set()
 
-        if obj_lvl == "poly":
-            color_ids.update(poly.picking_color_id for poly in selection)
+        if obj_lvl in ("poly", "part"):
+            color_ids.update(p.picking_color_id for p in selection)
         else:
             for subobj in selection:
                 color_ids.update(subobj.picking_color_ids)
@@ -409,7 +464,7 @@ class SelectionManager:
         obj_lvl = self._obj_lvl
         selection = self._selections[obj_lvl]
 
-        if obj_lvl == "poly":
+        if obj_lvl in ("poly", "part"):
             return set(obj.id for obj in selection)
         else:
             return set(obj_id for obj in selection for obj_id in obj)
@@ -417,21 +472,30 @@ class SelectionManager:
     def __apply_selection_set(self, sel_set):
 
         obj_lvl = self._obj_lvl
-        get_uv_data_obj = self._uv_editor.get_uv_data_object
-        geom_data_objs = [model.geom_obj.geom_data_obj
-                          for model in self._models]
         uv_objs = {}
 
-        for geom_data_obj in geom_data_objs:
+        if obj_lvl == "part":
 
-            uv_data_obj = get_uv_data_obj(geom_data_obj)
+            uv_set_id = UVMgr.get("active_uv_set")
+            subobjs = (self._prim_part_registry[i] for i in sel_set)
+            uv_objs = {s.uv_parts[uv_set_id].id: s.uv_parts[uv_set_id] for s in subobjs}
 
-            if obj_lvl == "vert":
-                uv_objs.update(uv_data_obj.merged_verts)
-            elif obj_lvl == "edge":
-                uv_objs.update(uv_data_obj.merged_edges)
-            elif obj_lvl == "poly":
-                uv_objs.update(uv_data_obj.get_subobjects(obj_lvl))
+        else:
+
+            get_uv_data_obj = self._uv_editor.get_uv_data_object
+            geom_data_objs = [model.geom_obj.geom_data_obj
+                              for model in self._models]
+
+            for geom_data_obj in geom_data_objs:
+
+                uv_data_obj = get_uv_data_obj(geom_data_obj)
+
+                if obj_lvl == "vert":
+                    uv_objs.update(uv_data_obj.merged_verts)
+                elif obj_lvl == "edge":
+                    uv_objs.update(uv_data_obj.merged_edges)
+                elif obj_lvl == "poly":
+                    uv_objs.update(uv_data_obj.get_subobjects(obj_lvl))
 
         new_sel = set(uv_objs.get(obj_id) for obj_id in sel_set)
         new_sel.discard(None)
@@ -440,8 +504,8 @@ class SelectionManager:
         selection.update(new_sel)
         color_ids = set()
 
-        if obj_lvl == "poly":
-            color_ids.update(poly.picking_color_id for poly in selection)
+        if obj_lvl in ("poly", "part"):
+            color_ids.update(p.picking_color_id for p in selection)
         else:
             for subobj in selection:
                 color_ids.update(subobj.picking_color_ids)
@@ -512,7 +576,8 @@ class SelectionManager:
                     if len(merged_edge) > 1:
                         obj = None
 
-        elif obj_lvl == "poly":
+        elif obj_lvl in ("poly", "part"):
+
             obj = picked_obj
 
         if self._picked_poly:
@@ -525,8 +590,14 @@ class SelectionManager:
     def __get_selected_uv_objects(self, subobjs):
 
         obj_lvl = self._obj_lvl
-        get_uv_data_obj = self._uv_editor.get_uv_data_object
         selected_uv_objs = set()
+
+        if obj_lvl == "part":
+            uv_set_id = UVMgr.get("active_uv_set")
+            selected_uv_objs.update(s.uv_parts[uv_set_id] for s in subobjs)
+            return selected_uv_objs
+
+        get_uv_data_obj = self._uv_editor.get_uv_data_object
 
         if obj_lvl == "poly":
 
@@ -578,16 +649,20 @@ class SelectionManager:
 
         obj_lvl = self._obj_lvl
         selection = self._selections[obj_lvl]
-        subobj = Mgr.get(obj_lvl, self._color_id)
+
+        if obj_lvl == "part":
+            subobj = self._prim_part_registry.get(self._color_id)
+        else:
+            subobj = Mgr.get(obj_lvl, self._color_id)
+
         op = self._selection_op
         sync_selection = True
 
         if subobj:
 
-            merged_subobj = subobj.merged_subobj
-            geom_data_obj = subobj.geom_data_obj
-
-            if obj_lvl != "poly" and GD["uv_edit_options"]["pick_via_poly"]:
+            if obj_lvl not in ("poly", "part") and GD["uv_edit_options"]["pick_via_poly"]:
+                merged_subobj = subobj.merged_subobj
+                geom_data_obj = subobj.geom_data_obj
                 poly = self._picked_poly
                 ids = set(poly.vertex_ids if obj_lvl == "vert" else poly.edge_ids)
                 ids.intersection_update(merged_subobj)
@@ -618,8 +693,8 @@ class SelectionManager:
 
             color_ids = set()
 
-            if obj_lvl == "poly":
-                color_ids.update(poly.picking_color_id for poly in selection)
+            if obj_lvl in ("poly", "part"):
+                color_ids.update(p.picking_color_id for p in selection)
             else:
                 for subobj in selection:
                     color_ids.update(subobj.picking_color_ids)
@@ -633,17 +708,33 @@ class SelectionManager:
 
         subobjs = {}
         index_offset = 0
+        models = (m for m in self._models if (m.geom_type != "unlocked_geom") == (obj_lvl == "part"))
 
-        for obj in self._models:
+        if obj_lvl == "part":
 
-            geom_data_obj = obj.geom_obj.geom_data_obj
-            indexed_subobjs = geom_data_obj.get_indexed_subobjects(obj_lvl)
+            for obj in models:
 
-            for index, subobj in indexed_subobjs.items():
-                subobjs[index + index_offset] = subobj
+                primitive = obj.geom_obj
+                parts = primitive.parts
 
-            geom_data_obj.origin.set_shader_input("index_offset", index_offset)
-            index_offset += len(indexed_subobjs)
+                for index, part in enumerate(parts):
+                    subobjs[index + index_offset] = part
+
+                primitive.set_index_offset(index_offset)
+                index_offset += len(parts)
+
+        else:
+
+            for obj in models:
+
+                geom_data_obj = obj.geom_obj.geom_data_obj
+                indexed_subobjs = geom_data_obj.get_indexed_subobjects(obj_lvl)
+
+                for index, subobj in indexed_subobjs.items():
+                    subobjs[index + index_offset] = subobj
+
+                geom_data_obj.origin.set_shader_input("index_offset", index_offset)
+                index_offset += len(indexed_subobjs)
 
         ge = GD.graphics_engine
         obj_count = len(subobjs)
@@ -741,8 +832,8 @@ class SelectionManager:
             selection -= old_sel & new_sel
             selection |= new_sel - old_sel
 
-        if obj_lvl == "poly":
-            color_ids.update(poly.picking_color_id for poly in selection)
+        if obj_lvl in ("poly", "part"):
+            color_ids.update(p.picking_color_id for p in selection)
         else:
             for subobj in selection:
                 color_ids.update(subobj.picking_color_ids)
@@ -767,7 +858,7 @@ class SelectionManager:
         # temporarily select picked poly
         geom_data_obj.update_selection("poly", [self._picked_poly], [], False)
 
-        for model in Mgr.get("selection_top"):
+        for model in (m for m in Mgr.get("selection_top") if m.geom_type == "unlocked_geom"):
 
             other_geom_data_obj = model.geom_obj.geom_data_obj
 
@@ -861,7 +952,7 @@ class SelectionManager:
 
         geom_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 
-        for model in Mgr.get("selection_top"):
+        for model in (m for m in Mgr.get("selection_top") if m.geom_type == "unlocked_geom"):
 
             other_geom_data_obj = model.geom_obj.geom_data_obj
 
@@ -883,7 +974,7 @@ class SelectionManager:
         geom_data_obj = self._picked_poly.geom_data_obj
         geom_data_obj.prepare_subobj_picking_via_poly(subobj_lvl)
 
-        for model in Mgr.get("selection_top"):
+        for model in (m for m in Mgr.get("selection_top") if m.geom_type == "unlocked_geom"):
 
             other_geom_data_obj = model.geom_obj.geom_data_obj
 
@@ -903,21 +994,35 @@ class SelectionManager:
         selection.clear()
         subobjects = set()
         uv_objects = set()
+        uv_set_id = UVMgr.get("active_uv_set")
 
-        for color_id in color_ids:
-            subobj = Mgr.get(obj_lvl, color_id)
-            subobjects.add(subobj.merged_subobj)
-            geom_data_obj = subobj.geom_data_obj
-            uv_data_obj = self._uv_editor.get_uv_data_object(geom_data_obj)
-            uv_objects.add(uv_data_obj.get_subobject(obj_lvl, subobj.id).merged_subobj)
+        if obj_lvl == "part":
+            for color_id in color_ids:
+                subobj = self._prim_part_registry[color_id]
+                subobjects.add(subobj)
+                uv_objects.add(subobj.uv_parts[uv_set_id])
+        else:
+            for color_id in color_ids:
+                subobj = Mgr.get(obj_lvl, color_id)
+                subobjects.add(subobj.merged_subobj)
+                geom_data_obj = subobj.geom_data_obj
+                uv_data_obj = self._uv_editor.get_uv_data_object(geom_data_obj)
+                uv_objects.add(uv_data_obj.get_subobject(obj_lvl, subobj.id).merged_subobj)
 
-        models = self._models
+        models = [m for m in self._models if ((m.geom_type != "unlocked_geom") == (obj_lvl == "part"))]
         subobj_sel = {}
         selection.update(uv_objects)
 
-        if obj_lvl == "edge":
+        if obj_lvl == "part":
 
-            uv_set_id = UVMgr.get("active_uv_set")
+            for model in models:
+                model.geom_obj.set_selected_parts([])
+
+            for subobj in subobjects:
+                subobj_sel.setdefault(subobj.owner, []).append(subobj)
+
+        elif obj_lvl == "edge":
+
             colors = UVMgr.get("uv_selection_colors")["seam"]
             color = colors["unselected"]
 
@@ -939,8 +1044,12 @@ class SelectionManager:
                 geom_data_obj = subobj.geom_data_obj
                 subobj_sel.setdefault(geom_data_obj, []).append(subobj)
 
-        for geom_data_obj, subobjs in subobj_sel.items():
-            geom_data_obj.update_selection(obj_lvl, subobjs, [], False)
+        if obj_lvl == "part":
+            for primitive, subobjs in subobj_sel.items():
+                primitive.set_selected_parts(subobjs)
+        else:
+            for geom_data_obj, subobjs in subobj_sel.items():
+                geom_data_obj.update_selection(obj_lvl, subobjs, [], False)
 
         if hide_sets:
             Mgr.update_remotely("selection_set", "hide_name")

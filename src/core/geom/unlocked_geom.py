@@ -143,9 +143,18 @@ class UnlockedGeom:
 
         self.geom_data_obj.init_tangent_space()
 
+    @property
+    def is_tangent_space_initialized(self):
+
+        return self.geom_data_obj.is_tangent_space_initialized
+
     def bake_texture(self, texture):
 
         self.geom_data_obj.bake_texture(texture)
+
+    def get_initial_vertex_colors(self):
+
+        return self.geom_data_obj.get_initial_vertex_colors()
 
     def has_vertex_colors(self):
 
@@ -190,18 +199,17 @@ class UnlockedGeom:
 
         self.geom_data_obj.show_top_level()
 
-    @property
-    def is_tangent_space_initialized(self):
-
-        return self.geom_data_obj.is_tangent_space_initialized
-
     def set_normal_length(self, normal_length, state="done"):
 
         return self.geom_data_obj.set_normal_length(normal_length, state)
 
-    def get_initial_vertex_colors(self):
+    def get_uv_set_names(self):
 
-        return self.geom_data_obj.get_initial_vertex_colors()
+        return self.geom_data_obj.get_uv_set_names()
+
+    def set_uv_set_names(self, uv_set_names):
+
+        return self.geom_data_obj.set_uv_set_names(uv_set_names)
 
     def get_subdivision_data(self):
 

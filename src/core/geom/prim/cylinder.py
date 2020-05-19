@@ -22,64 +22,63 @@ def _define_geom_data(segments, smooth, temp=False):
 
     vert_id = 0
 
-    for i in range(segs_h + 1):
+    for i in range(segs_c):
 
-        z = 1. - i / segs_h
+        angle_h = angle * i
+        x = cos(angle_h)
+        y = sin(angle_h)
 
-        for j in range(segs_c + 1):
+        if not temp:
+            u = i / segs_c
 
-            angle_h = angle * j
-            x = cos(angle_h)
-            y = sin(angle_h)
+        for j in range(segs_h + 1):
 
-            if j < segs_c:
-                pos = (x, y, z)
-                pos_obj = PosObj(pos)
-                pos_objs.append(pos_obj)
-            else:
-                pos_obj = positions_main[vert_id - segs_c]
-
+            z = j / segs_h
+            pos_obj = PosObj((x, y, z))
+            pos_objs.append(pos_obj)
             positions_main.append(pos_obj)
 
             if not temp:
-                u = j / segs_c
                 uvs_main.append((u, z))
 
             vert_id += 1
 
+    positions_main.extend(positions_main[:segs_h + 1])
+
+    if not temp:
+        for u, v in uvs_main[:segs_h + 1]:
+            uvs_main.append((1., v))
+
     if segs_cap:
 
-        positions_cap_lower = positions_main[-segs_c - 1:]
-        positions_cap_upper = positions_main[:segs_c + 1]
-        positions_cap_upper.reverse()
+        positions_cap_bottom = positions_main[::segs_h + 1]
+        positions_cap_top = positions_main[segs_h::segs_h + 1][::-1]
 
         if not temp:
-            uvs_cap_lower = []
-            uvs_cap_upper = []
+            uvs_cap_bottom = []
+            uvs_cap_top = []
 
         def add_cap_data(cap):
 
             # Add data related to vertices along the cap segments
 
-            if cap == "lower":
+            if cap == "bottom":
 
-                positions = positions_cap_lower
-
-                if not temp:
-                    uvs = uvs_cap_lower
-
+                positions = positions_cap_bottom
                 z = 0.
                 y_factor = 1.
 
+                if not temp:
+                    uvs = uvs_cap_bottom
+
             else:
 
-                positions = positions_cap_upper
-
-                if not temp:
-                    uvs = uvs_cap_upper
-
+                positions = positions_cap_top
                 z = 1.
                 y_factor = -1.
+
+                if not temp:
+                    uvs = uvs_cap_top
 
             vert_id = segs_c + 1
 
@@ -124,8 +123,8 @@ def _define_geom_data(segments, smooth, temp=False):
             if not temp:
                 uvs.append((.5, .5))
 
-        add_cap_data("lower")
-        add_cap_data("upper")
+        add_cap_data("bottom")
+        add_cap_data("top")
 
     # Define faces
 
@@ -144,12 +143,12 @@ def _define_geom_data(segments, smooth, temp=False):
 
         return normal
 
-    for i in range(segs_h):
+    for i in range(segs_c):
 
-        s = segs_c + 1
+        s = segs_h + 1
         k = i * s
 
-        for j in range(segs_c):
+        for j in range(segs_h):
 
             vi1 = k + j
             vi2 = vi1 + s
@@ -189,21 +188,21 @@ def _define_geom_data(segments, smooth, temp=False):
 
         def define_cap_faces(cap):
 
-            if cap == "lower":
+            if cap == "bottom":
 
-                positions = positions_cap_lower
+                positions = positions_cap_bottom
                 sign = 1.
 
                 if not temp:
-                    uvs = uvs_cap_lower
+                    uvs = uvs_cap_bottom
 
             else:
 
-                positions = positions_cap_upper
+                positions = positions_cap_top
                 sign = -1.
 
                 if not temp:
-                    uvs = uvs_cap_upper
+                    uvs = uvs_cap_top
 
             # Define quadrangular faces of cap
 
@@ -274,8 +273,8 @@ def _define_geom_data(segments, smooth, temp=False):
                 poly_data = {"verts": tri_data, "tris": tris}
                 geom_data.append(poly_data)
 
-        define_cap_faces("lower")
-        define_cap_faces("upper")
+        define_cap_faces("bottom")
+        define_cap_faces("top")
 
     return geom_data if temp else (geom_data, normals)
 
@@ -338,6 +337,8 @@ class Cylinder(Primitive):
 
         Primitive.__init__(self, "cylinder", model, prop_ids, picking_col_id, geom_data)
 
+        self.uv_mats = [[Mat4(Mat4.ident_mat()) for _ in range(3)] for uv_set_id in range(8)]
+
     def setup_geoms(self, restore=False):
 
         Primitive.setup_geoms(self)
@@ -345,6 +346,135 @@ class Cylinder(Primitive):
         if restore:
             task = self.__update_normals
             PendingTasks.add(task, "set_normals", "object", id_prefix=self.toplevel_obj.id)
+
+    def create_parts(self, start_color_id):
+
+        segments = self._segments
+        segs_c = segments["circular"]
+        segs_h = segments["height"]
+        segs_cap = segments["caps"]
+        data_row_ranges = []
+        end_index = segs_c * segs_h * 4
+        data_row_ranges.append((0, end_index))
+
+        if segs_cap:
+            start_index = end_index
+            size = self.geom.node().get_geom(0).get_vertex_data().get_num_rows()
+            cap_size = (size - start_index) // 2
+            end_index = start_index + cap_size
+            data_row_ranges.append((start_index, end_index))
+            start_index = end_index
+            end_index = start_index + cap_size
+            data_row_ranges.append((start_index, end_index))
+
+        end_index = segs_c * segs_h * 6
+        prim_row_ranges = [(0, end_index)]
+
+        if segs_cap:
+            start_index = end_index
+            size = self.geom.node().get_geom(0).get_primitive(0).get_num_vertices()
+            cap_size = (size - start_index) // 2
+            end_index = start_index + cap_size
+            prim_row_ranges.append((start_index, end_index))
+            start_index = end_index
+            end_index = start_index + cap_size
+            prim_row_ranges.append((start_index, end_index))
+
+        row1 = 0
+        row3 = segs_c * segs_h * 4 - 2
+        row2 = row3 - segs_h * 4 + 3
+        row4 = segs_h * 4 - 1
+        uv_rows_main = (row1, row2, row3, row4)
+        uv_rows = [uv_rows_main]
+
+        if segs_cap:
+            if segs_cap > 1:
+                row1 = segs_c * segs_h * 4 + 3
+                uv_rows_cap = [row1]
+                for i in range(1, segs_c):
+                    uv_rows_cap.append(row1 + i * 4)
+                uv_rows.append(uv_rows_cap[::-1])
+                row1 += segs_c * ((segs_cap - 1) * 4 + 3) - 3
+                uv_rows_cap = [row1]
+                for i in range(1, segs_c):
+                    uv_rows_cap.append(row1 + i * 4)
+                uv_rows.append(uv_rows_cap[::-1])
+            else:
+                row1 = segs_c * segs_h * 4 + 1
+                uv_rows_cap = [row1]
+                for i in range(1, segs_c):
+                    uv_rows_cap.append(row1 + i * 3)
+                uv_rows.append(uv_rows_cap)
+                row1 += segs_c * segs_cap * 3
+                uv_rows_cap = [row1]
+                for i in range(1, segs_c):
+                    uv_rows_cap.append(row1 + i * 3)
+                uv_rows.append(uv_rows_cap)
+
+        seam_rows_main = []
+        a = segs_h * 6
+        b = (segs_h - 1) * 6
+        c = (segs_c - 1) * segs_h * 6
+        for i in range(segs_h):
+            seam_rows_main.extend([i * 6 + 3, i * 6 + 5])
+        for i in range(segs_c):
+            seam_rows_main.extend([i * a, i * a + 1, i * a + b + 2, i * a + b + 4, i * a + b + 5])
+        for i in range(segs_h):
+            seam_rows_main.extend([c + i * 6 + 1, c + i * 6 + 2, c + i * 6 + 4])
+        seam_rows = [seam_rows_main]
+
+        if segs_cap:
+            if segs_cap > 1:
+                row1 = segs_c * segs_h * 6 + 3
+                seam_rows_cap = [row1, row1 + 2]
+                for i in range(1, segs_c):
+                    seam_rows_cap.extend([row1 + i * 6, row1 + i * 6 + 2])
+                seam_rows.append(seam_rows_cap)
+                row1 += segs_c * ((segs_cap - 1) * 6 + 3)
+                seam_rows_cap = [row1, row1 + 2]
+                for i in range(1, segs_c):
+                    seam_rows_cap.extend([row1 + i * 6, row1 + i * 6 + 2])
+                seam_rows.append(seam_rows_cap)
+            else:
+                row1 = segs_c * segs_h * 6 + 1
+                seam_rows_cap = [row1, row1 + 1]
+                for i in range(1, segs_c):
+                    seam_rows_cap.extend([row1 + i * 3, row1 + i * 3 + 1])
+                seam_rows.append(seam_rows_cap)
+                row1 += segs_c * segs_cap * 3
+                seam_rows_cap = [row1, row1 + 1]
+                for i in range(1, segs_c):
+                    seam_rows_cap.extend([row1 + i * 3, row1 + i * 3 + 1])
+                seam_rows.append(seam_rows_cap)
+
+        return Primitive.create_parts(self, data_row_ranges, prim_row_ranges,
+            uv_rows, seam_rows, start_color_id)
+
+    def apply_uv_matrices(self):
+
+        mats = self.uv_mats
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+        segments = self._segments
+        segs_c = segments["circular"]
+        segs_h = segments["height"]
+        segs_cap = segments["caps"]
+        end_index = segs_c * segs_h * 4
+        row_ranges = [(0, end_index)]
+
+        if segs_cap:
+            start_index = end_index
+            size = vertex_data.get_num_rows()
+            cap_size = (size - start_index) // 2
+            end_index = start_index + cap_size
+            row_ranges.append((start_index, end_index))
+            start_index = end_index
+            end_index = start_index + cap_size
+            row_ranges.append((start_index, end_index))
+
+        for uv_set_id in range(8):
+            for mat, (start_row, end_row) in zip(mats[uv_set_id], row_ranges):
+                rows = SparseArray.range(start_row, end_row - start_row)
+                Mgr.do("transform_primitive_uvs", vertex_data, uv_set_id, mat, rows)
 
     def recreate(self):
 
@@ -381,7 +511,6 @@ class Cylinder(Primitive):
 
         self._radius = max(radius, .001)
         self._height = max(abs(height), .001) * (-1. if height < 0. else 1.)
-
         self.__update_size()
 
     def set_radius(self, radius):
@@ -433,6 +562,9 @@ class Cylinder(Primitive):
             data = {}
             data[prop_id] = {"main": self.get_property(prop_id)}
 
+            if prop_id == "segments":
+                data["uvs"] = {"main": self.get_property("uvs")}
+
             return data
 
         return Primitive.get_data_to_store(self, event_type, prop_id)
@@ -475,6 +607,9 @@ class Cylinder(Primitive):
                 self.aux_geom = value["aux_geom"]
                 self.model.bbox.update(self.geom.get_tight_bounds())
                 self.setup_geoms(restore)
+                vertex_data = self.geom.node().get_geom(0).get_vertex_data()
+                uv_view = memoryview(vertex_data.get_array(4)).cast("B").cast("f")
+                self.default_uvs = array.array("f", uv_view)
             else:
                 segments = self._segments.copy()
                 segments.update(value)

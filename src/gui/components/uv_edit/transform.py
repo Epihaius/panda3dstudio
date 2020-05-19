@@ -303,8 +303,11 @@ class TransformToolbar(Toolbar):
 
             value_id = (transform_type, False)
 
-            for axis, value in zip("uv", values):
-                self._fields[axis].set_value(value_id, value)
+            if transform_type == "rotate":
+                self._fields["w"].set_value(value_id, values[0])
+            else:
+                for axis, value in zip("uv", values):
+                    self._fields[axis].set_value(value_id, value)
 
         if transf_type:
             self.__show_field_text()

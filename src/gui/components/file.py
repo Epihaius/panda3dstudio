@@ -124,26 +124,26 @@ class FileManager:
 
         Mgr.do("close_aux_viewport", task)
 
-    def __handle_load_error(self, filename, error_type, handlers=None):
+    def __handle_load_error(self, filename, error_type, version="", handlers=None):
 
         name = Filename(filename).to_os_specific()
 
         if error_type == "read":
-            msg = "The following file could not be read:\n\n" + name
+            msg = f"The following file could not be read:\n\n{name}"
         elif error_type == "id":
-            msg = "The following file does not appear\nto be a valid scene file:\n\n" + name
+            msg = f"The following file does not appear\nto be a valid scene file:\n\n{name}"
         elif error_type == "major_older_version":
-            msg = ("The version of the following scene\nfile is outdated:\n\n" + name
+            msg = (f"The version of the following scene file is outdated:\n\n{name}"
                   + "\n\nIt cannot be loaded by the current version of this program.")
         elif error_type == "major_newer_version":
-            msg = ("The following scene file was created\nby a newer version of this"
-                  " program:\n\n" + name + "\n\nPlease upgrade before trying to load it.")
+            msg = ("The following scene file was created by a newer version\nof this"
+                  f" program:\n\n{name}\n\nPlease upgrade before trying to load it.")
         elif error_type in ("minor_older_version", "patched_older_version"):
-            msg = ("The version of the following scene\nfile is outdated:\n\n" + name
+            msg = (f"The version ({version}) of the following scene file is outdated:\n\n{name}"
                   + "\n\nLoading it may lead to bugs.\n\nLoad it anyway?")
         elif error_type in ("minor_newer_version", "patched_newer_version"):
-            msg = ("The following scene file was created\nby a newer version of this"
-                  " program:\n\n" + name + "\n\nLoading it may lead to bugs."
+            msg = (f"The following scene file (version {version}) was created\nby a newer"
+                  f" version of this program:\n\n{name}\n\nLoading it may lead to bugs."
                   "\n\nLoad it anyway?")
 
         if error_type in ("minor_older_version", "patched_older_version",

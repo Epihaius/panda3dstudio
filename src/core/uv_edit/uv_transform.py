@@ -26,7 +26,21 @@ class TransformMixin:
 
         count = len(self._objs)
 
-        if self._obj_level == "vert":
+        if self._obj_level == "part":
+
+            if len(self._objs) == 1:
+                u, v = self._objs[0].get_pos()
+                transform_values = {"translate": (u, v)}
+                rotation = self._objs[0].get_rotation()
+                transform_values.update({"rotate": (rotation,)})
+                su, sv = self._objs[0].get_scale()
+                transform_values.update({"scale": (su, sv)})
+            else:
+                transform_values = None
+
+            Mgr.update_interface_remotely("uv", "transform_values", transform_values)
+
+        elif self._obj_level == "vert":
 
             if count == 1:
                 u, _, v = self._objs[0].get_pos()
@@ -59,36 +73,66 @@ class TransformMixin:
             GD["uv_selection_count"] = count
             Mgr.update_interface("uv", "selection_count")
 
-    def set_transform_component(self, transf_type, axis, value, is_rel_value):
+    def set_transform_component(self, transf_type, axis, value, is_rel_value, mat=None):
 
         obj_lvl = self._obj_level
-        uv_data_objs = self.uv_data_objects
 
-        for uv_data_obj in uv_data_objs:
-            uv_data_obj.init_transform()
+        if obj_lvl == "part":
+
+            uv_prims = self.uv_prims
+
+            if is_rel_value:
+                for uv_prim in uv_prims:
+                    uv_prim.init_transform()
+
+        else:
+
+            uv_data_objs = self.uv_data_objects
+
+            for uv_data_obj in uv_data_objs:
+                uv_data_obj.init_transform()
 
         if is_rel_value:
 
-            if transf_type == "translate":
-                if axis == "u":
-                    transform = Vec3(value, 0., 0.)
-                else:
-                    transform = Vec3(0., 0., value)
-            elif transf_type == "rotate":
-                hpr = VBase3(0., 0., value)
-                transform = Quat()
-                transform.set_hpr(hpr)
-            elif transf_type == "scale":
-                if axis == "u":
-                    transform = Vec3(max(.01, value), 1., 1.)
-                else:
-                    transform = Vec3(1., 1., max(.01, value))
+            if obj_lvl == "part":
+                for uv_prim in uv_prims:
+                    uv_prim.transform_selection(mat)
+                    uv_prim.finalize_transform(mat)
+            else:
+                for uv_data_obj in uv_data_objs:
+                    uv_data_obj.transform_selection(obj_lvl, mat)
+                    uv_data_obj.finalize_transform()
 
-            for uv_data_obj in uv_data_objs:
-                uv_data_obj.transform_selection(obj_lvl, transf_type, transform)
-                uv_data_obj.finalize_transform()
+            if len(self._objs) == 1:
+                if obj_lvl == "part":
+                    u, v = self._objs[0].get_pos()
+                    transform_values = {"translate": (u, v)}
+                    rotation = self._objs[0].get_rotation()
+                    transform_values.update({"rotate": (rotation,)})
+                    su, sv = self._objs[0].get_scale()
+                    transform_values.update({"scale": (su, sv)})
+                    Mgr.update_interface_remotely("uv", "transform_values", transform_values)
+                elif obj_lvl == "vert":
+                    u, _, v = self._objs[0].get_pos()
+                    transform_values = {"translate": (u, v)}
+                    Mgr.update_interface_remotely("uv", "transform_values", transform_values)
+
+        elif obj_lvl == "part":
+
+            for uv_prim in uv_prims:
+                uv_prim.set_transform_component(transf_type, axis, value)
+
+            if len(self._objs) == 1:
+                u, v = self._objs[0].get_pos()
+                transform_values = {"translate": (u, v)}
+                rotation = self._objs[0].get_rotation()
+                transform_values.update({"rotate": (rotation,)})
+                su, sv = self._objs[0].get_scale()
+                transform_values.update({"scale": (su, sv)})
+                Mgr.update_interface_remotely("uv", "transform_values", transform_values)
 
         else:
+
             # set absolute coordinate for selected vertices
 
             for uv_data_obj in uv_data_objs:
@@ -105,27 +149,55 @@ class TransformMixin:
 
     def init_transform(self):
 
-        for uv_data_obj in self.uv_data_objects:
-            uv_data_obj.init_transform()
+        if self._obj_level == "part":
+            for uv_prim in self.uv_prims:
+                uv_prim.init_transform()
+        else:
+            for uv_data_obj in self.uv_data_objects:
+                uv_data_obj.init_transform()
 
-    def transform(self, transf_type, value):
+    def transform(self, mat):
 
         obj_lvl = self._obj_level
 
-        for uv_data_obj in self.uv_data_objects:
-            uv_data_obj.transform_selection(obj_lvl, transf_type, value)
+        if obj_lvl == "part":
+            for uv_prim in self.uv_prims:
+                uv_prim.transform_selection(mat)
+        else:
+            for uv_data_obj in self.uv_data_objects:
+                uv_data_obj.transform_selection(obj_lvl, mat)
 
-    def finalize_transform(self, cancelled=False):
+    def finalize_transform(self, mat, cancelled=False):
 
-        for uv_data_obj in self.uv_data_objects:
-            uv_data_obj.finalize_transform(cancelled)
+        obj_lvl = self._obj_level
+
+        if obj_lvl == "part":
+            for uv_prim in self.uv_prims:
+                uv_prim.finalize_transform(mat, cancelled)
+        else:
+            for uv_data_obj in self.uv_data_objects:
+                uv_data_obj.finalize_transform(cancelled)
 
         if not cancelled:
 
             self.update_center_pos()
             UVMgr.get("transf_gizmo").set_pos(self.get_center_pos())
 
-            if self._obj_level == "vert":
+            if obj_lvl == "part":
+
+                if len(self._objs) == 1:
+                    u, v = self._objs[0].get_pos()
+                    transform_values = {"translate": (u, v)}
+                    rotation = self._objs[0].get_rotation()
+                    transform_values.update({"rotate": (rotation,)})
+                    su, sv = self._objs[0].get_scale()
+                    transform_values.update({"scale": (su, sv)})
+                else:
+                    transform_values = None
+
+                Mgr.update_interface_remotely("uv", "transform_values", transform_values)
+
+            elif obj_lvl == "vert":
 
                 if len(self._objs) == 1:
                     u, _, v = self._objs[0].get_pos()
@@ -147,7 +219,7 @@ class UVTransformationMixin:
         for transf_type, axes in (("translate", "uv"), ("scale", "uv")):
             GD.set_default(f"uv_axis_constraints_{transf_type}", axes)
 
-        for obj_lvl in ("vert", "edge", "poly"):
+        for obj_lvl in ("vert", "edge", "poly", "part"):
             rel_values[obj_lvl] = {"translate": True, "rotate": True, "scale": True}
 
         copier = lambda data: {key: value.copy() for key, value in data.items()}
@@ -159,6 +231,7 @@ class UVTransformationMixin:
         self._transf_axis = None
         self._rot_origin = Point3()
         self._rot_start_vec = V3D()
+        self._mat = None
 
         UVMgr.accept("init_transform", self.__init_transform)
 
@@ -182,8 +255,48 @@ class UVTransformationMixin:
 
     def __set_transform_component(self, transf_type, axis, value, is_rel_value):
 
+        mat = None
+
+        if is_rel_value:
+
+            if transf_type == "translate":
+
+                if axis == "u":
+                    translation_vec = Vec3(value, 0., 0.)
+                else:
+                    translation_vec = Vec3(0., 0., value)
+
+                mat = Mat4.translate_mat(translation_vec)
+
+            elif transf_type == "rotate":
+
+                hpr = VBase3(0., 0., value)
+                rotation = Quat()
+                rotation.set_hpr(hpr)
+                tc_pos = UVMgr.get("selection_center")
+                quat_mat = Mat4()
+                rotation.extract_to_matrix(quat_mat)
+                offset_mat = Mat4.translate_mat(-tc_pos)
+                mat = offset_mat * quat_mat
+                offset_mat = Mat4.translate_mat(tc_pos)
+                mat *= offset_mat
+
+            elif transf_type == "scale":
+
+                if axis == "u":
+                    scaling = Vec3(max(.01, value), 1., 1.)
+                else:
+                    scaling = Vec3(1., 1., max(.01, value))
+
+                tc_pos = UVMgr.get("selection_center")
+                mat = Mat4.scale_mat(scaling)
+                offset_mat = Mat4.translate_mat(-tc_pos)
+                mat = offset_mat * mat
+                offset_mat = Mat4.translate_mat(tc_pos)
+                mat *= offset_mat
+
         selection = self._selections[self._uv_set_id][self._obj_lvl]
-        selection.set_transform_component(transf_type, axis, value, is_rel_value)
+        selection.set_transform_component(transf_type, axis, value, is_rel_value, mat)
 
     def __init_transform(self, transf_start_pos):
 
@@ -212,8 +325,9 @@ class UVTransformationMixin:
     def __end_transform(self, cancel=False):
 
         Mgr.remove_task("transform_selection")
-        self._selection.finalize_transform(cancel)
+        self._selection.finalize_transform(self._mat, cancel)
         self._selection = None
+        self._mat = None
 
     def __init_translation(self):
 
@@ -235,7 +349,10 @@ class UVTransformationMixin:
         if self._transf_axis is not None:
             translation_vec = translation_vec.project(self._transf_axis)
 
-        self._selection.transform("translate", translation_vec)
+        mat = Mat4.translate_mat(translation_vec)
+        self._mat = mat
+
+        self._selection.transform(mat)
 
         return task.cont
 
@@ -269,7 +386,16 @@ class UVTransformationMixin:
         rotation = Quat()
         rotation.set_hpr(hpr)
 
-        self._selection.transform("rotate", rotation)
+        tc_pos = UVMgr.get("selection_center")
+        quat_mat = Mat4()
+        rotation.extract_to_matrix(quat_mat)
+        offset_mat = Mat4.translate_mat(-tc_pos)
+        mat = offset_mat * quat_mat
+        offset_mat = Mat4.translate_mat(tc_pos)
+        mat *= offset_mat
+        self._mat = mat
+
+        self._selection.transform(mat)
 
         return task.cont
 
@@ -312,6 +438,14 @@ class UVTransformationMixin:
             scaling = VBase3(1., 1., 1.)
             scaling[0 if axis_constraints == "u" else 2] = scaling_factor
 
-        self._selection.transform("scale", scaling)
+        tc_pos = UVMgr.get("selection_center")
+        mat = Mat4.scale_mat(scaling)
+        offset_mat = Mat4.translate_mat(-tc_pos)
+        mat = offset_mat * mat
+        offset_mat = Mat4.translate_mat(tc_pos)
+        mat *= offset_mat
+        self._mat = mat
+
+        self._selection.transform(mat)
 
         return task.cont

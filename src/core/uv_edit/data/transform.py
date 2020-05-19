@@ -13,8 +13,7 @@ class TransformMixin:
             for subobj_lvl in ("vert", "edge", "poly"):
                 self._update_verts_to_transform(subobj_lvl)
 
-        self._transf_start_data = {"bounds": None, "pos_array": None}
-        self._pos_arrays = {"main": None, "edge": None}
+        self._pos_arrays = {"start": None, "main": None, "edge": None}
 
     def update_vertex_positions(self, vertex_ids):
 
@@ -65,7 +64,7 @@ class TransformMixin:
             poly.update_center_pos()
 
         geom = geoms["vert"]["sel_state"]
-        geom.node().modify_geom(0).modify_vertex_data() # updates bounds
+        geom.node().modify_geom(0).modify_vertex_data()  # updates bounds
         bounds = geom.node().get_bounds()
 
         if bounds.radius == 0.:
@@ -124,10 +123,8 @@ class TransformMixin:
     def init_transform(self):
 
         geom_node = self._geoms["vert"]["sel_state"].node()
-        start_data = self._transf_start_data
-        start_data["bounds"] = geom_node.get_bounds()
         pos_array = self._vertex_data_poly.modify_array(0)
-        start_data["pos_array"] = GeomVertexArrayData(pos_array)
+        self._pos_arrays["start"] = GeomVertexArrayData(pos_array)
 
         geoms = self._geoms
 
@@ -160,7 +157,7 @@ class TransformMixin:
 
         vertex_data = self._vertex_data_poly
         tmp_vertex_data = GeomVertexData(vertex_data)
-        tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
+        tmp_vertex_data.set_array(0, GeomVertexArrayData(self._pos_arrays["start"]))
         index = "u_v".index(axis)
         pos_rewriter = GeomVertexRewriter(tmp_vertex_data, "vertex")
 
@@ -183,7 +180,7 @@ class TransformMixin:
         to_view[:size] = from_view
         to_view[size:] = from_view
 
-    def transform_selection(self, subobj_lvl, transf_type, value):
+    def transform_selection(self, subobj_lvl, mat):
 
         rows = self._rows_to_transf[subobj_lvl]
 
@@ -192,31 +189,7 @@ class TransformMixin:
 
         vertex_data = self._vertex_data_poly
         tmp_vertex_data = GeomVertexData(vertex_data)
-        tmp_vertex_data.set_array(0, GeomVertexArrayData(self._transf_start_data["pos_array"]))
-
-        if transf_type == "translate":
-
-            mat = Mat4.translate_mat(value)
-
-        elif transf_type == "rotate":
-
-            tc_pos = UVMgr.get("selection_center")
-            quat_mat = Mat4()
-            value.extract_to_matrix(quat_mat)
-            offset_mat = Mat4.translate_mat(-tc_pos)
-            mat = offset_mat * quat_mat
-            offset_mat = Mat4.translate_mat(tc_pos)
-            mat *= offset_mat
-
-        elif transf_type == "scale":
-
-            tc_pos = UVMgr.get("selection_center")
-            mat = Mat4.scale_mat(value)
-            offset_mat = Mat4.translate_mat(-tc_pos)
-            mat = offset_mat * mat
-            offset_mat = Mat4.translate_mat(tc_pos)
-            mat *= offset_mat
-
+        tmp_vertex_data.set_array(0, GeomVertexArrayData(self._pos_arrays["start"]))
         tmp_vertex_data.transform_vertices(mat, rows)
         pos_array = GeomVertexArrayData(tmp_vertex_data.get_array(0))
         vertex_data.set_array(0, pos_array)
@@ -232,14 +205,13 @@ class TransformMixin:
 
     def finalize_transform(self, cancelled=False):
 
-        start_data = self._transf_start_data
         vertex_data = self._vertex_data_poly
+        node = self._geoms["vert"]["sel_state"].node()
+        node.modify_geom(0).modify_vertex_data()  # updates bounds
 
         if cancelled:
 
-            bounds = start_data["bounds"]
-
-            pos_array_start = start_data["pos_array"]
+            pos_array_start = self._pos_arrays["start"]
             vertex_data.set_array(0, pos_array_start)
             from_view = memoryview(pos_array_start).cast("B")
 
@@ -252,10 +224,6 @@ class TransformMixin:
             to_view[size:] = from_view
 
         else:
-
-            geom = self._geoms["vert"]["sel_state"]
-            geom.node().modify_geom(0).modify_vertex_data() # updates bounds
-            bounds = geom.node().get_bounds()
 
             geom_data_obj = self.geom_data_obj
             geom_verts = geom_data_obj.get_subobjects("vert")
@@ -286,9 +254,10 @@ class TransformMixin:
 
             geom_data_obj.apply_uv_edits(vert_ids, uv_set_id)
 
+        bounds = node.get_bounds()
+
         if bounds.radius == 0.:
             bounds = BoundingSphere(bounds.center, .1)
 
         self.origin.node().set_bounds(bounds)
-        start_data.clear()
-        self._pos_arrays = {"main": None, "edge": None}
+        self._pos_arrays = {"start": None, "main": None, "edge": None}

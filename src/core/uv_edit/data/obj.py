@@ -48,7 +48,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
             vertex_data_poly = None
             model = geom_data_obj.toplevel_obj
             name = f"{model.id}_uv_origin"
-            origin = GD.uv_geom_root.attach_new_node(name)
+            origin = GD.uv_unlocked_geom_root.attach_new_node(name)
             origin.node().final = True
             geoms = {}
 
@@ -93,7 +93,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         indexed_subobjs = {}
         vertex_data_poly = GeomVertexData(self._vertex_data_poly)
         origin = self.origin
-        origin_copy = origin.copy_to(GD.uv_geom_root)
+        origin_copy = origin.copy_to(GD.uv_unlocked_geom_root)
         origin_copy.detach_node()
         geoms = {}
         geoms["seam"] = origin_copy.find("**/seam_geom")
@@ -365,6 +365,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         geom_node.add_geom(points_geom)
         vert_pickable_geom = origin.attach_new_node(geom_node)
         vert_pickable_geom.hide(masks)
+        vert_pickable_geom.hide(uv_template_mask)
         geoms["vert"]["pickable"] = vert_pickable_geom
 
         vert_sel_state_geom = vert_pickable_geom.copy_to(origin)
@@ -373,6 +374,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         vertex_data.set_array(1, new_data.get_array(1))
         vert_sel_state_geom.set_state(UVMgr.get("vert_render_state"))
         vert_sel_state_geom.name = "vert_sel_state_geom"
+        vert_sel_state_geom.hide(uv_template_mask)
         geoms["vert"]["sel_state"] = vert_sel_state_geom
 
         lines_geom = Geom(vertex_data_edge)
@@ -389,10 +391,10 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         new_data = vertex_data.set_color(sel_colors["edge"]["unselected"])
         vertex_data.set_array(1, new_data.get_array(1))
         edge_sel_state_geom.name = "edge_sel_state_geom"
+        edge_sel_state_geom.hide(uv_template_mask)
         geoms["edge"]["sel_state"] = edge_sel_state_geom
         self.clear_selection("edge")
 
-        edge_pickable_geom.show_through(uv_template_mask)
         edge_pickable_geom.set_tag("uv_template", "edge")
         color = self.geom_data_obj.toplevel_obj.get_color()
         edge_pickable_geom.set_color(color)
@@ -420,7 +422,6 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
         poly_sel_state_geom.set_effects(UVMgr.get("poly_selection_effects"))
         poly_sel_state_geom.set_bin("background", 10)
         poly_sel_state_geom.hide(picking_mask)
-        poly_sel_state_geom.show_through(uv_template_mask)
         poly_sel_state_geom.set_tag("uv_template", "poly")
         geoms["poly"]["sel_state"] = poly_sel_state_geom
 
@@ -738,7 +739,7 @@ class UVDataObject(SelectionMixin, TransformMixin, VertexEditMixin,
 
     def show(self):
 
-        self.origin.reparent_to(GD.uv_geom_root)
+        self.origin.reparent_to(GD.uv_unlocked_geom_root)
 
     def hide(self):
 

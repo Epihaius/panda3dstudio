@@ -33,6 +33,11 @@ class UVSelection(TransformMixin):
 
         return set(obj.uv_data_obj for obj in self._objs)
 
+    @property
+    def uv_prims(self):
+
+        return set(obj.owner for obj in self._objs)
+
     def set(self, objs):
 
         self._objs = objs
@@ -54,16 +59,31 @@ class UVSelection(TransformMixin):
         if not sel_to_add:
             return False
 
-        uv_data_objs = {}
-
-        for obj in sel_to_add:
-            uv_data_obj = obj.uv_data_obj
-            uv_data_objs.setdefault(uv_data_obj, []).append(obj)
-
-        for uv_data_obj, objs in uv_data_objs.items():
-            uv_data_obj.update_selection(self._obj_level, objs, [])
-
         sel.extend(sel_to_add)
+        obj_lvl = self._obj_level
+
+        if obj_lvl == "part":
+
+            uv_prims = {}
+
+            for obj in sel:
+                uv_prim = obj.owner
+                uv_prims.setdefault(uv_prim, []).append(obj)
+
+            for uv_prim, objs in uv_prims.items():
+                uv_prim.set_selected_parts(objs)
+
+        else:
+
+            uv_data_objs = {}
+
+            for obj in sel_to_add:
+                uv_data_obj = obj.uv_data_obj
+                uv_data_objs.setdefault(uv_data_obj, []).append(obj)
+
+            for uv_data_obj, objs in uv_data_objs.items():
+                uv_data_obj.update_selection(obj_lvl, objs, [])
+
         self.update()
 
         return True
@@ -78,17 +98,40 @@ class UVSelection(TransformMixin):
         if not common:
             return False
 
-        uv_data_objs = {}
-
         for obj in common:
             sel.remove(obj)
-            uv_data_obj = obj.uv_data_obj
-            uv_data_objs.setdefault(uv_data_obj, []).append(obj)
 
-        for uv_data_obj, objs in uv_data_objs.items():
-            uv_data_obj.update_selection(self._obj_level, [], objs)
+        obj_lvl = self._obj_level
+
+        if obj_lvl == "part":
+
+            uv_prims = {}
+
+            for obj in old_sel:
+                uv_prim = obj.owner
+                uv_prims[uv_prim] = []
+
+            for obj in sel:
+                uv_prim = obj.owner
+                uv_prims.setdefault(uv_prim, []).append(obj)
+
+            for uv_prim, objs in uv_prims.items():
+                uv_prim.set_selected_parts(objs)
+
+        else:
+
+            uv_data_objs = {}
+
+            for obj in common:
+                uv_data_obj = obj.uv_data_obj
+                uv_data_objs.setdefault(uv_data_obj, []).append(obj)
+
+            for uv_data_obj, objs in uv_data_objs.items():
+                uv_data_obj.update_selection(obj_lvl, [], objs)
 
         self.update()
+
+        return True
 
     def replace(self, subobjs, add_to_hist=True):
 
@@ -102,39 +145,64 @@ class UVSelection(TransformMixin):
             new_sel -= common
 
         if not (old_sel or new_sel):
-            return
+            return False
 
-        uv_data_objs = {}
+        del sel[:]
+        sel.extend(subobjs)
+        obj_lvl = self._obj_level
 
-        for old_obj in old_sel:
-            sel.remove(old_obj)
-            uv_data_obj = old_obj.uv_data_obj
-            uv_data_objs.setdefault(uv_data_obj, {"sel": [], "desel": []})["desel"].append(old_obj)
+        if obj_lvl == "part":
 
-        for new_obj in new_sel:
-            uv_data_obj = new_obj.uv_data_obj
-            uv_data_objs.setdefault(uv_data_obj, {"sel": [], "desel": []})["sel"].append(new_obj)
+            uv_prims = {}
 
-        for uv_data_obj, objs in uv_data_objs.items():
-            uv_data_obj.update_selection(self._obj_level, objs["sel"], objs["desel"])
+            for obj in old_sel:
+                uv_prim = obj.owner
+                uv_prims[uv_prim] = []
 
-        sel.extend(new_sel)
+            for obj in sel:
+                uv_prim = obj.owner
+                uv_prims.setdefault(uv_prim, []).append(obj)
+
+            for uv_prim, objs in uv_prims.items():
+                uv_prim.set_selected_parts(objs)
+
+        else:
+
+            uv_data_objs = {}
+
+            for old_obj in old_sel:
+                uv_data_obj = old_obj.uv_data_obj
+                uv_data_objs.setdefault(uv_data_obj, {"sel": [], "desel": []})["desel"].append(old_obj)
+
+            for new_obj in new_sel:
+                uv_data_obj = new_obj.uv_data_obj
+                uv_data_objs.setdefault(uv_data_obj, {"sel": [], "desel": []})["sel"].append(new_obj)
+
+            for uv_data_obj, objs in uv_data_objs.items():
+                uv_data_obj.update_selection(obj_lvl, objs["sel"], objs["desel"])
 
         self.update()
+
+        return True
 
     def clear(self, add_to_hist=True):
 
         if not self._objs:
-            return
+            return False
 
         obj_lvl = self._obj_level
 
-        for uv_data_obj in set(obj.uv_data_obj for obj in self._objs):
-            uv_data_obj.clear_selection(obj_lvl)
+        if obj_lvl == "part":
+            for uv_prim in set(obj.owner for obj in self._objs):
+                uv_prim.set_selected_parts([])
+        else:
+            for uv_data_obj in set(obj.uv_data_obj for obj in self._objs):
+                uv_data_obj.clear_selection(obj_lvl)
 
         self._objs = []
-
         self.update()
+
+        return True
 
     def update(self):
 
@@ -943,19 +1011,36 @@ class UVSelectionMixin:
 
         uv_set_id = self._uv_set_id
         obj_lvl = self._obj_lvl
-        uv_data_objs = self._uv_data_objs[uv_set_id].values()
         subobjs = {}
         index_offset = 0
 
-        for uv_data_obj in uv_data_objs:
+        if obj_lvl == "part":
 
-            indexed_subobjs = uv_data_obj.get_indexed_subobjects(obj_lvl)
+            uv_prims = self._uv_prims[uv_set_id].values()
 
-            for index, subobj in indexed_subobjs.items():
-                subobjs[index + index_offset] = subobj
+            for uv_prim in uv_prims:
 
-            uv_data_obj.origin.set_shader_input("index_offset", index_offset)
-            index_offset += len(indexed_subobjs)
+                parts = uv_prim.parts
+
+                for index, part in enumerate(parts):
+                    subobjs[index + index_offset] = part
+
+                uv_prim.geom.set_shader_input("index_offset", index_offset)
+                index_offset += len(parts)
+
+        else:
+
+            uv_data_objs = self._uv_data_objs[uv_set_id].values()
+
+            for uv_data_obj in uv_data_objs:
+
+                indexed_subobjs = uv_data_obj.get_indexed_subobjects(obj_lvl)
+
+                for index, subobj in indexed_subobjs.items():
+                    subobjs[index + index_offset] = subobj
+
+                uv_data_obj.origin.set_shader_input("index_offset", index_offset)
+                index_offset += len(indexed_subobjs)
 
         obj_count = len(subobjs)
         uv_edit_options = GD["uv_edit_options"]
@@ -1006,13 +1091,20 @@ class UVSelectionMixin:
                 texels = memoryview(tex.get_ram_image()).cast("I")
                 sel_edges_by_seam = obj_lvl == "edge" and uv_edit_options["sel_edges_by_seam"]
 
-                for i, mask in enumerate(texels):
-                    for j in range(32):
-                        if mask & (1 << j):
-                            index = 32 * i + j
-                            subobj = subobjs[index].merged_subobj
-                            if not sel_edges_by_seam or len(subobj) == 1:
-                                sel.update(subobj.special_selection)
+                if obj_lvl == "part":
+                    for i, mask in enumerate(texels):
+                        for j in range(32):
+                            if mask & (1 << j):
+                                index = 32 * i + j
+                                sel.add(subobjs[index])
+                else:
+                    for i, mask in enumerate(texels):
+                        for j in range(32):
+                            if mask & (1 << j):
+                                index = 32 * i + j
+                                subobj = subobjs[index].merged_subobj
+                                if not sel_edges_by_seam or len(subobj) == 1:
+                                    sel.update(subobj.special_selection)
 
             state_np.clear_attrib(ShaderAttrib)
 
@@ -1049,8 +1141,8 @@ class UVSelectionMixin:
             selection.remove(old_sel & new_sel)
             selection.add(new_sel - old_sel)
 
-        if obj_lvl == "poly":
-            color_ids.update(poly.picking_color_id for poly in selection)
+        if obj_lvl in ("poly", "part"):
+            color_ids.update(p.picking_color_id for p in selection)
         else:
             for subobj in selection:
                 color_ids.update(subobj.picking_color_ids)
@@ -1165,8 +1257,12 @@ class UVSelectionMixin:
 
             subobjs = []
 
-            for uv_data_obj in self._uv_data_objs[self._uv_set_id].values():
-                subobjs.extend(uv_data_obj.get_selection(obj_lvl))
+            if obj_lvl == "part":
+                for uv_prim in self._uv_prims[self._uv_set_id].values():
+                    subobjs.extend(uv_prim.get_selected_parts())
+            else:
+                for uv_data_obj in self._uv_data_objs[self._uv_set_id].values():
+                    subobjs.extend(uv_data_obj.get_selection(obj_lvl))
 
             selections[obj_lvl] = UVSelection(obj_lvl, subobjs)
 
@@ -1218,7 +1314,10 @@ class UVSelectionMixin:
         if pickable_type == "transf_gizmo":
             return "transf_gizmo", self._transf_gizmo.select_handle(color_id)
 
-        picked_obj = self._uv_registry[self._uv_set_id][pickable_type].get(color_id)
+        if pickable_type == "primitive_part":
+            picked_obj = self._uv_prim_part_registry[self._uv_set_id].get(color_id)
+        else:
+            picked_obj = self._uv_registry[self._uv_set_id][pickable_type].get(color_id)
 
         return (pickable_type, picked_obj) if picked_obj else ("", None)
 
@@ -1291,7 +1390,7 @@ class UVSelectionMixin:
                 if obj and GD["uv_edit_options"]["sel_edges_by_seam"] and len(obj) > 1:
                     obj = None
 
-        elif obj_lvl == "poly":
+        elif obj_lvl in ("poly", "part"):
 
             obj = picked_obj
 
@@ -1307,8 +1406,13 @@ class UVSelectionMixin:
         obj_lvl = self._obj_lvl
         uv_set_id = self._uv_set_id
         selection = self._selections[uv_set_id][obj_lvl]
-        subobj = self._uv_registry[uv_set_id][obj_lvl].get(self._color_id)
-        subobj = subobj.merged_subobj if subobj else None
+
+        if obj_lvl == "part":
+            subobj = self._uv_prim_part_registry[uv_set_id].get(self._color_id)
+        else:
+            subobj = self._uv_registry[uv_set_id][obj_lvl].get(self._color_id)
+            subobj = subobj.merged_subobj if subobj else None
+
         sync_selection = True
         op = self._selection_op
 
@@ -1331,18 +1435,18 @@ class UVSelectionMixin:
 
                     else:
 
-                        selection.replace(subobj.special_selection)
+                        selection.replace([subobj] if obj_lvl == "part" else subobj.special_selection)
 
                     if check_mouse:
                         Mgr.enter_state("checking_mouse_offset", "uv")
 
                 else:
 
-                    selection.replace(subobj.special_selection)
+                    selection.replace([subobj] if obj_lvl == "part" else subobj.special_selection)
 
             elif op == "add":
 
-                new_sel = set(subobj.special_selection)
+                new_sel = set([subobj] if obj_lvl == "part" else subobj.special_selection)
                 selection.add(new_sel)
                 transform_allowed = GD["active_uv_transform_type"]
 
@@ -1351,13 +1455,13 @@ class UVSelectionMixin:
 
             elif op == "remove":
 
-                new_sel = set(subobj.special_selection)
+                new_sel = set([subobj] if obj_lvl == "part" else subobj.special_selection)
                 selection.remove(new_sel)
 
             elif op == "toggle":
 
                 old_sel = set(selection)
-                new_sel = set(subobj.special_selection)
+                new_sel = set([subobj] if obj_lvl == "part" else subobj.special_selection)
                 selection.remove(old_sel & new_sel)
                 selection.add(new_sel - old_sel)
 
@@ -1381,8 +1485,8 @@ class UVSelectionMixin:
 
             color_ids = set()
 
-            if obj_lvl == "poly":
-                color_ids.update(poly.picking_color_id for poly in selection)
+            if obj_lvl in ("poly", "part"):
+                color_ids.update(p.picking_color_id for p in selection)
             else:
                 for subobj in selection:
                     color_ids.update(subobj.picking_color_ids)
@@ -1397,13 +1501,19 @@ class UVSelectionMixin:
         obj_lvl = self._obj_lvl
         uv_set_id = self._uv_set_id
         selection = self._selections[uv_set_id][obj_lvl]
-        subobj = self._uv_registry[uv_set_id][obj_lvl].get(self._color_id)
-        subobj = subobj.merged_subobj
-        color_ids = set()
-        selection.replace(subobj.special_selection)
 
-        if obj_lvl == "poly":
-            color_ids.update(poly.picking_color_id for poly in selection)
+        if obj_lvl == "part":
+            subobj = self._uv_prim_part_registry[uv_set_id].get(self._color_id)
+            selection.replace([subobj])
+        else:
+            subobj = self._uv_registry[uv_set_id][obj_lvl].get(self._color_id)
+            subobj = subobj.merged_subobj
+            selection.replace(subobj.special_selection)
+
+        color_ids = set()
+
+        if obj_lvl in ("poly", "part"):
+            color_ids.update(p.picking_color_id for p in selection)
         else:
             for subobj in selection:
                 color_ids.update(subobj.picking_color_ids)
@@ -1414,9 +1524,15 @@ class UVSelectionMixin:
 
         obj_lvl = self._obj_lvl
         uv_set_id = self._uv_set_id
-        uv_registry = self._uv_registry[uv_set_id][obj_lvl]
         selection = self._selections[uv_set_id][obj_lvl]
-        subobjects = set(uv_registry[color_id].merged_subobj for color_id in color_ids)
+
+        if obj_lvl == "part":
+            uv_registry = self._uv_prim_part_registry[uv_set_id]
+            subobjects = set(uv_registry[color_id] for color_id in color_ids)
+        else:
+            uv_registry = self._uv_registry[uv_set_id][obj_lvl]
+            subobjects = set(uv_registry[color_id].merged_subobj for color_id in color_ids)
+
         selection.replace(subobjects)
 
     def __init_selection_via_poly(self, picked_poly):
@@ -1579,8 +1695,19 @@ class UVSelectionMixin:
 
     def create_selections(self):
 
-        obj_lvls = ("vert", "edge", "poly")
+        obj_lvls = ("vert", "edge", "poly", "part")
         self._selections[self._uv_set_id] = {lvl: UVSelection(lvl) for lvl in obj_lvls}
+
+    def create_subobj_selections(self):
+
+        obj_lvls = ("vert", "edge", "poly")
+
+        for lvl in obj_lvls:
+            self._selections.setdefault(self._uv_set_id, {})[lvl] = UVSelection(lvl)
+
+    def create_part_selection(self):
+
+        self._selections.setdefault(self._uv_set_id, {})["part"] = UVSelection("part")
 
     def delete_selections(self):
 

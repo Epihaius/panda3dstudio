@@ -308,6 +308,7 @@ class BamExporter:
         self.geom_obj = self.child.geom_obj
         self.geom_type = self.child.geom_type
         self.geom_data_obj = None
+        self.uv_set_names = self.geom_obj.get_uv_set_names()
         self.__check_geom_type()
 
     def __check_geom_type(self):
@@ -316,12 +317,10 @@ class BamExporter:
 
             self.geom_data_obj = self.geom_obj.geom_data_obj
             self.node = Mgr.do("merge_duplicate_verts", self.geom_data_obj)
-            self.uv_set_names = self.geom_data_obj.get_uv_set_names()
 
         else:
 
             self.node = NodePath(self.geom_obj.geom.node().make_copy())
-            self.uv_set_names = self.geom_obj.get_uv_set_names()
 
             for key in self.node.get_tag_keys():
                 self.node.clear_tag(key)

@@ -194,6 +194,93 @@ class Box(Primitive):
 
         Primitive.__init__(self, "box", model, prop_ids, picking_col_id, geom_data)
 
+        self.uv_mats = [[Mat4(Mat4.ident_mat()) for _ in range(6)] for uv_set_id in range(8)]
+
+    def create_parts(self, start_color_id):
+
+        segments = self._segments
+        segs_x = segments["x"]
+        segs_y = segments["y"]
+        segs_z = segments["z"]
+        # plane order: YZ, ZX, XY
+        side_segs = ((segs_y, segs_z), (segs_z, segs_x), (segs_x, segs_y))
+        data_row_counts = (segs_y * segs_z * 4, segs_x * segs_z * 4, segs_x * segs_y * 4)
+        prim_row_counts = (segs_y * segs_z * 6, segs_x * segs_z * 6, segs_x * segs_y * 6)
+        data_row_ranges = []
+        prim_row_ranges = []
+        uv_rows = []
+        data_start_row = prim_start_row = 0
+
+        for data_row_count, prim_row_count, (segs1, segs2) in zip(data_row_counts,
+                prim_row_counts, side_segs):
+            data_row_ranges.append((data_start_row, data_start_row + data_row_count))
+            row1 = data_start_row
+            row2 = row1 + 1 + segs1 * (segs2 - 1) * 4
+            row3 = row2 + 1 + (segs1 - 1) * 4
+            row4 = row1 - 1 + segs1 * 4
+            uv_rows.append((row1, row2, row3, row4))
+            data_start_row += data_row_count
+            data_row_ranges.append((data_start_row, data_start_row + data_row_count))
+            row1 = data_start_row
+            row2 = row1 - 3 + segs1 * 4
+            row3 = row1 - 2 + data_row_count
+            row4 = row1 + 3 + segs1 * (segs2 - 1) * 4
+            uv_rows.append((row1, row2, row3, row4))
+            data_start_row += data_row_count
+            prim_row_ranges.append((prim_start_row, prim_start_row + prim_row_count))
+            prim_start_row += prim_row_count
+            prim_row_ranges.append((prim_start_row, prim_start_row + prim_row_count))
+            prim_start_row += prim_row_count
+
+        seam_rows = []
+        d = 0
+
+        for (segs1, segs2) in side_segs:
+            seam_rows_side = sum(([d + i * 6, d + i * 6 + 2] for i in range(segs1)), [])
+            a = segs1 * 6
+            b = (segs1 - 1) * 6
+            c = segs1 * (segs2 - 1) * 6
+            for i in range(segs2):
+                seam_rows_side.extend([d + i * a + 3, d + i * a + 4, d + i * a + b + 1,
+                    d + i * a + b + 2])
+            for i in range(segs1):
+                seam_rows_side.extend([d + c + i * 6 + 4, d + c + i * 6 + 5])
+            seam_rows.append(seam_rows_side)
+            d += segs1 * segs2 * 6
+            seam_rows_side = sum(([d + i * 6, d + i * 6 + 1] for i in range(segs1)), [])
+            a = segs1 * 6
+            b = (segs1 - 1) * 6
+            c = segs1 * (segs2 - 1) * 6
+            for i in range(segs2):
+                seam_rows_side.extend([d + i * a + 3, d + i * a + 5, d + i * a + b + 1,
+                    d + i * a + b + 2])
+            for i in range(segs1):
+                seam_rows_side.extend([d + c + i * 6 + 4, d + c + i * 6 + 5])
+            seam_rows.append(seam_rows_side)
+            d += segs1 * segs2 * 6
+
+        return Primitive.create_parts(self, data_row_ranges, prim_row_ranges,
+            uv_rows, seam_rows, start_color_id)
+
+    def apply_uv_matrices(self):
+
+        mats = self.uv_mats
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+        segments = self._segments
+        segs_x = segments["x"]
+        segs_y = segments["y"]
+        segs_z = segments["z"]
+        # plane order: YZ, ZX, XY
+        c1, c2, c3 = segs_y * segs_z * 4, segs_x * segs_z * 4, segs_x * segs_y * 4
+        row_counts = (c1, c1, c2, c2, c3, c3)
+
+        for uv_set_id in range(8):
+            start_row = 0
+            for mat, row_count in zip(mats[uv_set_id], row_counts):
+                rows = SparseArray.range(start_row, row_count)
+                start_row += row_count
+                Mgr.do("transform_primitive_uvs", vertex_data, uv_set_id, mat, rows)
+
     def recreate(self):
 
         geom_data = _define_geom_data(self._segments)
@@ -273,6 +360,9 @@ class Box(Primitive):
             data = {}
             data[prop_id] = {"main": self.get_property(prop_id)}
 
+            if prop_id == "segments":
+                data["uvs"] = {"main": self.get_property("uvs")}
+
             return data
 
         return Primitive.get_data_to_store(self, event_type, prop_id)
@@ -311,6 +401,9 @@ class Box(Primitive):
                 self.aux_geom = value["aux_geom"]
                 self.model.bbox.update(self.geom.get_tight_bounds())
                 self.setup_geoms()
+                vertex_data = self.geom.node().get_geom(0).get_vertex_data()
+                uv_view = memoryview(vertex_data.get_array(4)).cast("B").cast("f")
+                self.default_uvs = array.array("f", uv_view)
             else:
                 segments = self._segments.copy()
                 segments.update(value)
@@ -653,8 +746,10 @@ class BoxManager(PrimitiveManager):
             box_origin.set_transform(obj.origin.get_net_transform())
             box = obj.geom_obj
             side_data = box.get_side_data()
+            box_mats = box.uv_mats
+            uv_mats = [[[box_mats[uv_set_id][i]] for uv_set_id in range(8)] for i in range(6)]
 
-            for side_id, data in side_data.items():
+            for (side_id, data), mats in zip(side_data.items(), uv_mats):
 
                 name = box_name + " " + side_id
                 name = get_unique_name(name, obj_names)
@@ -664,6 +759,7 @@ class BoxManager(PrimitiveManager):
                 segments = data["segs"]
                 inverted = box.has_inverted_geometry()
                 plane = Mgr.do("create_custom_plane", name, x, y, segments, pos, inverted)
+                plane.geom_obj.set_initial_uv_matrices(mats)
                 plane.register(restore=False)
                 planes.append(plane)
                 plane_pivot = plane.pivot

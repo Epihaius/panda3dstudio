@@ -357,7 +357,9 @@ class Components:
                 GD["active_obj_level"] = "top"
                 Mgr.update_app("active_obj_level")
 
-            Mgr.enter_state("uv_edit_mode")
+            task = lambda: Mgr.enter_state("uv_edit_mode")
+            task_id = "enter_uv_edit_mode"
+            PendingTasks.add(task, task_id, sort=1)
 
         self._file_mgr = FileManager(menubar)
         self.exit_handler = self._file_mgr.on_exit

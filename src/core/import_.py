@@ -387,16 +387,8 @@ class ImportManager:
         dest_format = Mgr.get("vertex_format_full")
         dest_vert_data = src_vert_data.convert_to(dest_format)
         pos_view = memoryview(dest_vert_data.get_array(0)).cast("B").cast("f")
-        normal_reader = GeomVertexReader(dest_vert_data, "normal")
-        col_reader = GeomVertexReader(dest_vert_data, "color")
-
-        uv_set_list = [InternalName.get_texcoord()]
-        uv_set_list += [InternalName.get_texcoord_name(str(i)) for i in range(1, 8)]
-        uv_readers = []
-
-        for uv_set_id in range(8):
-            uv_reader = GeomVertexReader(dest_vert_data, uv_set_list[uv_set_id])
-            uv_readers.append(uv_reader)
+        col_view = memoryview(dest_vert_data.get_array(1)).cast("B")
+        normal_view = memoryview(dest_vert_data.get_array(2)).cast("B").cast("f")
 
         processed_data = {}
         tris_by_edge = {}
@@ -585,19 +577,11 @@ class ImportManager:
                     coords.append(pos)
 
                 vert_data["pos"] = pos
-                normal_reader.set_row(row)
-                vert_data["normal"] = Vec3(normal_reader.get_data3())
-                col_reader.set_row(row)
-                vert_data["color"] = tuple(x for x in col_reader.get_data4())
-
-                uvs = {}
-
-                for uv_set_id, uv_reader in enumerate(uv_readers):
-                    uv_reader.set_row(row)
-                    u, v = uv_reader.get_data2()
-                    uvs[uv_set_id] = (u, v)
-
-                vert_data["uvs"] = uvs
+                vert_data["color"] = tuple(col_view[row*4:row*4+4])
+                vert_data["normal"] = Vec3(*normal_view[row*3:row*3+3])
+                # instead of filling in the UV data, store the vertex row index for now
+                # so the UV coordinates can be set later when creating the LockedGeom
+                vert_data["uvs"] = row
                 processed_data[row] = vert_data
 
             poly_verts = [processed_data[i] for i in index_list]

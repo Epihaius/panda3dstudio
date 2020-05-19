@@ -234,6 +234,43 @@ class Torus(Primitive):
 
         Primitive.__init__(self, "torus", model, prop_ids, picking_col_id, geom_data)
 
+        self.uv_mats = [[Mat4(Mat4.ident_mat())] for uv_set_id in range(8)]
+
+    def create_parts(self, start_color_id):
+
+        segments = self._segments
+        segs_r = segments["ring"]
+        segs_s = segments["section"]
+        data_row_count = segs_r * segs_s * 4
+        prim_row_count = segs_r * segs_s * 6
+        data_row_ranges = [(0, data_row_count)]
+        prim_row_ranges = [(0, prim_row_count)]
+
+        uv_rows = [(0, segs_s * 4 - 3, data_row_count - 2, segs_s * (segs_r - 1) * 4 + 3)]
+
+        seam_rows_main = sum(([i * 6, i * 6 + 1] for i in range(segs_s)), [])
+        a = segs_s * 6
+        b = (segs_s - 1) * 6
+        c = segs_s * (segs_r - 1) * 6
+        for i in range(segs_r):
+            seam_rows_main.extend([i * a + 3, i * a + 5, i * a + b + 1, i * a + b + 2])
+        for i in range(segs_s):
+            seam_rows_main.extend([c + i * 6 + 4, c + i * 6 + 5])
+        seam_rows = [seam_rows_main]
+
+        return Primitive.create_parts(self, data_row_ranges, prim_row_ranges,
+            uv_rows, seam_rows, start_color_id)
+
+    def apply_uv_matrices(self):
+
+        mats = self.uv_mats
+        vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
+
+        for uv_set_id in range(8):
+            uv_mats = mats[uv_set_id]
+            mat = uv_mats[0]
+            Mgr.do("transform_primitive_uvs", vertex_data, uv_set_id, mat)
+
     def recreate(self):
 
         geom_data, normals, arrays = _define_geom_data(self._segments, self._is_smooth)
@@ -333,6 +370,9 @@ class Torus(Primitive):
             data = {}
             data[prop_id] = {"main": self.get_property(prop_id)}
 
+            if prop_id == "segments":
+                data["uvs"] = {"main": self.get_property("uvs")}
+
             return data
 
         return Primitive.get_data_to_store(self, event_type, prop_id)
@@ -377,6 +417,9 @@ class Torus(Primitive):
                 self.aux_geom = value["aux_geom"]
                 self.model.bbox.update(self.geom.get_tight_bounds())
                 self.setup_geoms()
+                vertex_data = self.geom.node().get_geom(0).get_vertex_data()
+                uv_view = memoryview(vertex_data.get_array(4)).cast("B").cast("f")
+                self.default_uvs = array.array("f", uv_view)
             else:
                 segments = self._segments.copy()
                 segments.update(value)
