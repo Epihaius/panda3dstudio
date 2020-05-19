@@ -15,8 +15,9 @@ Requirements:
 
 ***
 ## NOTE
-The most recent release (v1.0.0) breaks backwards compatibility with the previous version (v0.9.0).
+Release v1.0.0 breaks backwards compatibility with release v0.9.0.
 Please finish your current projects first and export the models you have created before upgrading.
+Also, while version 1.1.0 allows loading v1.0.0 scene files, it will never be possible to edit the UVs of the model primitives loaded from these files, and editing these primitives (such as changing their number of segments) can lead to a crash.
 ***
 
 
