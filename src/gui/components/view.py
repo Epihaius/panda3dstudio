@@ -3,347 +3,8 @@ from ..text import Text
 from ..button import *
 from ..menu import Menu
 from ..dialog import *
+from ..dialogs import *
 from ..scroll import *
-
-
-class BackgroundDialog(Dialog):
-
-    def __init__(self):
-
-        extra_button_data = (("Apply", "", self.__on_yes, None, 1.),)
-
-        Dialog.__init__(self, "View background", "okcancel", on_yes=self.__on_yes,
-                        extra_button_data=extra_button_data)
-
-        self._fields = fields = {}
-        self._checkbuttons = checkbtns = {}
-        self._data = data = {}
-        current_view_id = GD["view"]
-        view_ids = ("front", "back", "left", "right", "bottom", "top")
-        view_id = current_view_id if current_view_id in view_ids else "front"
-        data.update(GD["view_backgrounds"][view_id])
-        data["view"] = view_id
-        client_sizer = self.get_client_sizer()
-
-        subsizer = Sizer("horizontal")
-        borders = (20, 20, 10, 20)
-        client_sizer.add(subsizer, expand=True, borders=borders)
-
-        text = "File..."
-        tooltip_text = "Load background image"
-        btn = DialogButton(self, text, "", tooltip_text, self.__load_image)
-        subsizer.add(btn, alignment="center_v")
-        val_id = "filename"
-        field = DialogInputField(self, val_id, "string", self.__handle_value, 100)
-        filename = data[val_id]
-        field.set_text(os.path.basename(filename) if filename else "<None>")
-        field.set_input_init(self.__init_filename_input)
-        field.set_input_parser(self.__check_filename)
-        field.set_value_parser(self.__parse_filename)
-        fields[val_id] = field
-        borders = (10, 0, 0, 0)
-        subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
-
-        subsizer = Sizer("horizontal")
-        borders = (20, 20, 10, 0)
-        client_sizer.add(subsizer, borders=borders)
-
-        get_command = lambda val_id: lambda val: self.__handle_value(val_id, val)
-
-        val_id = "show"
-        text = "Show image"
-        checkbtn = DialogCheckButton(self, get_command(val_id), text)
-        checkbtn.check(data[val_id])
-        checkbtns[val_id] = checkbtn
-        borders = (0, 20, 0, 0)
-        subsizer.add(checkbtn, alignment="center_v", borders=borders)
-
-        val_id = "in_foreground"
-        text = "in foreground instead of background"
-        checkbtn = DialogCheckButton(self, get_command(val_id), text)
-        checkbtn.check(data[val_id])
-        checkbtns[val_id] = checkbtn
-        subsizer.add(checkbtn, alignment="center_v")
-
-        subsizer = Sizer("horizontal")
-        borders = (20, 20, 10, 0)
-        client_sizer.add(subsizer, expand=True, borders=borders)
-
-        text = DialogText(self, "Opacity:")
-        subsizer.add(text, alignment="center_v")
-        val_id = "alpha"
-        field = DialogSpinnerField(self, "alpha", "float", (0., 1.), .001,
-                                   self.__handle_value, 100, has_slider=True)
-        field.set_value(data[val_id])
-        fields[val_id] = field
-        borders = (10, 0, 0, 0)
-        subsizer.add(field, proportion=1., alignment="center_v", borders=borders)
-
-        group = DialogWidgetGroup(self, "Image offset")
-        borders = (20, 20, 0, 0)
-        client_sizer.add(group, expand=True, borders=borders)
-
-        subsizer = Sizer("horizontal")
-        group.add(subsizer, expand=True)
-
-        text = DialogText(group, "Local X:")
-        borders = (0, 10, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
-        val_id = "x"
-        field = DialogSpinnerField(group, val_id, "float", None, .01,
-                                   self.__handle_value, 100)
-        field.set_value(data[val_id])
-        fields[val_id] = field
-        subsizer.add(field, proportion=1., alignment="center_v")
-
-        text = DialogText(group, "Local Y:")
-        borders = (20, 10, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
-        val_id = "y"
-        field = DialogSpinnerField(group, val_id, "float", None, .01,
-                                   self.__handle_value, 100)
-        field.set_value(data[val_id])
-        fields[val_id] = field
-        subsizer.add(field, proportion=1., alignment="center_v")
-
-        group = DialogWidgetGroup(self, "Image size")
-        borders = (20, 20, 0, 10)
-        client_sizer.add(group, expand=True, borders=borders)
-
-        subsizer = Sizer("horizontal")
-        group.add(subsizer, expand=True)
-
-        text = DialogText(group, "Width:")
-        borders = (0, 10, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
-        val_id = "width"
-        field = DialogSpinnerField(group, val_id, "float", (.001, None), .001,
-                                   self.__handle_value, 100)
-        field.set_value(data[val_id])
-        field.set_input_parser(self.__parse_size_input)
-        fields[val_id] = field
-        subsizer.add(field, proportion=1., alignment="center_v")
-
-        text = DialogText(group, "Height:")
-        borders = (20, 10, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
-        val_id = "height"
-        field = DialogSpinnerField(group, val_id, "float", (.001, None), .001,
-                                   self.__handle_value, 100)
-        field.set_value(data[val_id])
-        field.set_input_parser(self.__parse_size_input)
-        fields[val_id] = field
-        subsizer.add(field, proportion=1., alignment="center_v")
-
-        val_id = "fixed_aspect_ratio"
-        text = "Maintain bitmap aspect ratio"
-        checkbtn = DialogCheckButton(group, get_command(val_id), text)
-        checkbtn.check(data[val_id])
-        checkbtns[val_id] = checkbtn
-        borders = (0, 0, 0, 2)
-        group.add(checkbtn, borders=borders)
-
-        group = DialogWidgetGroup(self, "Flip image")
-        borders = (20, 20, 0, 10)
-        client_sizer.add(group, expand=True, borders=borders)
-
-        subsizer = Sizer("horizontal")
-        group.add(subsizer)
-
-        val_id = "flip_h"
-        text = "Horizontally"
-        checkbtn = DialogCheckButton(group, get_command(val_id), text)
-        checkbtn.check(data[val_id])
-        checkbtns[val_id] = checkbtn
-        borders = (0, 20, 0, 0)
-        subsizer.add(checkbtn, alignment="center_v", borders=borders)
-
-        val_id = "flip_v"
-        text = "Vertically"
-        checkbtn = DialogCheckButton(group, get_command(val_id), text)
-        checkbtn.check(data[val_id])
-        checkbtns[val_id] = checkbtn
-        subsizer.add(checkbtn, alignment="center_v")
-
-        text = "Reset"
-        tooltip_text = "Clear background and set default values"
-        btn = DialogButton(self, text, "", tooltip_text, self.__reset)
-        borders = (0, 0, 0, 20)
-        client_sizer.add(btn, alignment="center_h", borders=borders)
-
-        subsizer = Sizer("horizontal")
-        borders = (20, 20, 20, 20)
-        client_sizer.add(subsizer, expand=True, borders=borders)
-
-        text = DialogText(self, "Apply to view:")
-        borders = (0, 5, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
-
-        combobox = DialogComboBox(self, 150, tooltip_text="View")
-        self._combobox = combobox
-        subsizer.add(combobox, proportion=1., alignment="center_v")
-
-        def get_command(view_id):
-
-            def set_view():
-
-                self._combobox.select_item(view_id)
-                self.__handle_value("view", view_id)
-
-            return set_view
-
-        for view_id in ("front", "back", "left", "right", "bottom", "top", "all"):
-            combobox.add_item(view_id, view_id, get_command(view_id))
-
-        combobox.update_popup_menu()
-        view_id = data["view"]
-        combobox.select_item(view_id)
-
-        self.finalize()
-
-    def close(self, answer=""):
-
-        self._checkbuttons = None
-        self._fields = None
-
-        Dialog.close(self, answer)
-
-    def __reset(self):
-
-        fields = self._fields
-        fields["filename"].set_value("")
-        fields["filename"].set_text("<None>")
-        fields["alpha"].set_value(1.)
-        fields["x"].set_value(0.)
-        fields["y"].set_value(0.)
-        fields["width"].set_value(1.)
-        fields["height"].set_value(1.)
-        checkbtns = self._checkbuttons
-        checkbtns["show"].check()
-        checkbtns["in_foreground"].check(False)
-        checkbtns["fixed_aspect_ratio"].check()
-        checkbtns["flip_h"].check(False)
-        checkbtns["flip_v"].check(False)
-        data = self._data
-        data["filename"] = ""
-        data["show"] = True
-        data["in_foreground"] = False
-        data["alpha"] = 1.
-        data["x"] = 0.
-        data["y"] = 0.
-        data["width"] = 1.
-        data["height"] = 1.
-        data["fixed_aspect_ratio"] = True
-        data["bitmap_aspect_ratio"] = 1.
-        data["flip_h"] = False
-        data["flip_v"] = False
-
-    def __load_image(self):
-
-        def load(filename):
-
-            config_data = GD["config"]
-            texfile_paths = config_data["texfile_paths"]
-            path = os.path.dirname(filename)
-
-            if path not in texfile_paths:
-                texfile_paths.append(path)
-
-            with open("config", "wb") as config_file:
-                pickle.dump(config_data, config_file, -1)
-
-            data = self._data
-            self._fields["filename"].set_value(filename)
-            data["filename"] = filename
-            img = PNMImage()
-            img.read(Filename.from_os_specific(filename))
-            w, h = img.size
-            ratio = h / w
-            data["bitmap_aspect_ratio"] = ratio
-
-            if data["fixed_aspect_ratio"]:
-                width = data["width"]
-                height = width * ratio
-                self._fields["height"].set_value(height)
-                data["height"] = height
-
-        file_types = ("Bitmap files|bmp;jpg;png", "All types|*")
-
-        FileDialog(title="Load background image",
-                   ok_alias="Load",
-                   on_yes=load,
-                   file_op="read",
-                   file_types=file_types)
-
-    def __init_filename_input(self):
-
-        field = self._fields["filename"]
-        filename = self._data["filename"]
-
-        if filename:
-            field.set_input_text(filename)
-        else:
-            field.clear(forget=False)
-
-    def __check_filename(self, filename):
-
-        return filename if (not filename or os.path.exists(filename)) else None
-
-    def __parse_filename(self, filename):
-
-        if filename:
-
-            img = PNMImage()
-            img.read(Filename.from_os_specific(filename))
-            w, h = img.size
-            ratio = h / w
-            self._data["bitmap_aspect_ratio"] = ratio
-
-            if self._data["fixed_aspect_ratio"]:
-                width = self._data["width"]
-                height = width * ratio
-                self._fields["height"].set_value(height)
-                self._data["height"] = height
-
-        return os.path.basename(filename) if filename else "<None>"
-
-    def __parse_size_input(self, input_text):
-
-        try:
-            return max(.001, abs(float(eval(input_text))))
-        except:
-            return None
-
-    def __handle_value(self, value_id, value, state="done"):
-
-        data = self._data
-
-        if value_id == "fixed_aspect_ratio" and value:
-
-            ratio = data["bitmap_aspect_ratio"]
-            width = data["width"]
-            height = width * ratio
-            self._fields["height"].set_value(height)
-            data["height"] = height
-
-        elif data["fixed_aspect_ratio"]:
-
-            ratio = data["bitmap_aspect_ratio"]
-
-            if value_id == "width":
-                height = value * ratio
-                self._fields["height"].set_value(height)
-                data["height"] = height
-            elif value_id == "height":
-                width = value / ratio
-                self._fields["width"].set_value(width)
-                data["width"] = width
-
-        data[value_id] = value
-
-    def __on_yes(self):
-
-        Mgr.update_remotely("view", "background", self._data)
 
 
 def _request_view_name(command, default_name=None):
@@ -378,15 +39,15 @@ class ViewManager:
         mod_code = mod_key_codes["shift"]
         hotkeys = [(accel, mod_code) for accel in accelerators]
 
-        get_command = lambda view_id: lambda: Mgr.update_app("view", "set", view_id)
-
         for view_id, name, accel, hotkey in zip(view_ids, names, accelerators, hotkeys):
-            menu.add(view_id, name, get_command(view_id), item_type="radio")
+            command = lambda v=view_id: Mgr.update_app("view", "set", v)
+            menu.add(view_id, name, command, item_type="radio")
             menu.set_item_hotkey(view_id, hotkey, f"Shift+{accel.upper()}")
 
         mod_code = mod_key_codes["shift"] | mod_key_codes["alt"]
         hotkey = ("b", mod_code)
-        menu.add("bottom", "Bottom", get_command("bottom"), item_type="radio", index=6)
+        command = lambda: Mgr.update_app("view", "set", "bottom")
+        menu.add("bottom", "Bottom", command, item_type="radio", index=6)
         menu.check_radio_item("persp")
         menu.set_item_hotkey("bottom", hotkey, "Shift+Alt+B")
         item = main_menu.add("user_views", "User views", item_type="submenu")
@@ -418,7 +79,7 @@ class ViewManager:
 
         def command():
 
-            task = lambda: BackgroundDialog()
+            task = lambda: ViewBackgroundDialog()
             PendingTasks.add(task, "show_background_dialog")
 
         main_menu.add("background_image", "Background image...", command)
@@ -506,9 +167,9 @@ class ViewManager:
 
         name = view_name.replace("User ", "", 1)
         name = name.replace("ortho - " if name.startswith("o") else "persp - ", "", 1)
-        get_handler = lambda view_id: lambda: Mgr.update_app("view", "set", view_id)
+        handler = lambda: Mgr.update_app("view", "set", view_id)
         menu = self._user_view_menu
-        menu.add(view_id, name, get_handler(view_id), item_type="radio", update=True)
+        menu.add(view_id, name, handler, item_type="radio", update=True)
         menu.check_radio_item(view_id)
         self._std_view_menu.clear_radio_check()
 
@@ -653,20 +314,14 @@ class ViewTileCard(WidgetCard):
 
 class ViewTileButton(Button):
 
-    _gfx = {
-        "normal": (("viewtile_button_normal",),),
-        "hilited": (("viewtile_button_hilited",),),
-        "pressed": (("viewtile_button_pressed",),),
-        "active": (("viewtile_button_active",),)
-    }
-
     def __init__(self, parent):
 
-        command = lambda: self.set_active(Mgr.do("toggle_view_tiles"))
+        gfx_ids = Skin.atlas.gfx_ids["viewtile_button"]
 
-        Button.__init__(self, parent, self._gfx, "", "", "Toggle view tiles", command,
+        Button.__init__(self, parent, gfx_ids, "", "", "Toggle view tiles",
                         button_type="view_tile_button")
 
+        self.command = lambda: self.set_active(Mgr.do("toggle_view_tiles"))
         self._menu = main_menu = Menu()
         item = main_menu.add("std_views", "Standard views", item_type="submenu")
         self._std_view_menu = menu = item.get_submenu()
@@ -674,10 +329,9 @@ class ViewTileButton(Button):
         view_ids = ("persp", "ortho", "back", "front", "left", "right", "bottom", "top")
         names = ("Perspective", "Orthographic", "Back", "Front", "Left", "Right", "Bottom", "Top")
 
-        get_command = lambda view_id: lambda: Mgr.update_app("view", "set", view_id)
-
         for view_id, name in zip(view_ids, names):
-            menu.add(view_id, name, get_command(view_id), item_type="radio")
+            command = lambda v=view_id: Mgr.update_app("view", "set", v)
+            menu.add(view_id, name, command, item_type="radio")
 
         menu.check_radio_item("persp")
         item = main_menu.add("user_views", "User views", item_type="submenu")
@@ -701,9 +355,9 @@ class ViewTileButton(Button):
 
         name = view_name.replace("User ", "", 1)
         name = name.replace("ortho - " if name.startswith("o") else "persp - ", "", 1)
-        get_handler = lambda view_id: lambda: Mgr.update_app("view", "set", view_id)
+        handler = lambda: Mgr.update_app("view", "set", view_id)
         menu = self._user_view_menu
-        menu.add(view_id, name, get_handler(view_id), item_type="radio", update=True)
+        menu.add(view_id, name, handler, item_type="radio", update=True)
         menu.check_radio_item(view_id)
         self._std_view_menu.clear_radio_check()
 
@@ -757,17 +411,18 @@ class ViewLabel(Text):
 
     def __init__(self, parent, text):
 
-        skin_text = Skin["text"]["view_label"]
+        skin_text = Skin.text["view_label"]
+
         Text.__init__(self, parent, skin_text["font"], skin_text["color"], text)
 
         self.widget_type = "view_label"
 
     def post_process_image(self, image):
 
-        color = Skin["colors"]["view_label_shadow"]
+        color = Skin.colors["view_label_shadow"]
         text_img = self.get_font().create_image(self.get_text(), color)
-        offset_x = Skin["options"]["view_label_shadow_offset_x"]
-        offset_y = Skin["options"]["view_label_shadow_offset_y"]
+        offset_x = Skin.options["view_label_shadow_offset_x"]
+        offset_y = Skin.options["view_label_shadow_offset_y"]
         d_w = 1 + max(1, abs(offset_x))
         d_h = 1 + max(1, abs(offset_y))
         w_t, h_t = text_img.size
@@ -780,30 +435,24 @@ class ViewLabel(Text):
 
     def use_main_text_attribs(self, main=True):
 
-        skin_text = Skin["text"]["view_label" if main else "view_label_hilited"]
+        skin_text = Skin.text["view_label" if main else "view_label_hilited"]
         self.set_font(skin_text["font"])
         self.set_color(skin_text["color"])
 
 
 class ViewTile(Button):
 
-    _gfx = {
-        "normal": (("viewtile_normal",),),
-        "hilited": (("viewtile_hilited",),),
-        "pressed": (("viewtile_pressed",),),
-        "active": (("viewtile_active",),)
-    }
-
     def __init__(self, parent, view_type, view_id, view_name, text):
 
-        command = lambda: Mgr.update_app("view", "set", view_id)
+        gfx_ids = Skin.atlas.gfx_ids["viewtile"]
 
-        Button.__init__(self, parent, self._gfx, text, "", "", command, button_type="view_tile")
+        Button.__init__(self, parent, gfx_ids, text, "", "", button_type="view_tile")
 
+        self.command = lambda: Mgr.update_app("view", "set", view_id)
         self._view_type = view_type
         self._view_id = view_id
         self._view_name = view_name
-        self.node.reparent_to(parent.get_widget_root_node())
+        self.node.reparent_to(parent.widget_root_node)
 
     def get_view_type(self):
 
@@ -875,9 +524,9 @@ class ViewScrollBar(ScrollBar):
 
         self._has_mouse = False
 
-    def _create_thumb(self, pane, thumb_gfx_data, cull_bin, scroll_dir, inner_border_id):
+    def _create_thumb(self, pane, thumb_gfx_ids, cull_bin, scroll_dir, inner_border_id):
 
-        return ViewScrollThumb(self, pane, thumb_gfx_data, cull_bin, scroll_dir, inner_border_id)
+        return ViewScrollThumb(self, pane, thumb_gfx_ids, cull_bin, scroll_dir, inner_border_id)
 
     def on_enter(self):
 
@@ -900,9 +549,9 @@ class ViewScrollBar(ScrollBar):
 
 class ViewPaneFrame(ScrollPaneFrame):
 
-    def _create_bar(self, pane, bar_gfx_data, thumb_gfx_data, cull_bin, scroll_dir, inner_border_id):
+    def _create_bar(self, pane, bar_gfx_ids, thumb_gfx_ids, cull_bin, scroll_dir, inner_border_id):
 
-        return ViewScrollBar(self, pane, bar_gfx_data, thumb_gfx_data, cull_bin, scroll_dir,
+        return ViewScrollBar(self, pane, bar_gfx_ids, thumb_gfx_ids, cull_bin, scroll_dir,
                              inner_border_id)
 
 
@@ -913,39 +562,22 @@ class ViewPane(ScrollPane):
         pane_id = "viewtile_pane"
         scroll_dir = "vertical"
         cull_bin = "gui"
-        frame_gfx_data = {}
-        bar_gfx_data = {}
-        thumb_gfx_data = {
-            "normal": (
-                ("viewtile_scrollthumb_normal_topleft", "viewtile_scrollthumb_normal_top",
-                 "viewtile_scrollthumb_normal_topright"),
-                ("viewtile_scrollthumb_normal_left", "viewtile_scrollthumb_normal_center",
-                 "viewtile_scrollthumb_normal_right"),
-                ("viewtile_scrollthumb_normal_bottomleft", "viewtile_scrollthumb_normal_bottom",
-                 "viewtile_scrollthumb_normal_bottomright")
-            ),
-            "hilited": (
-                ("viewtile_scrollthumb_hilited_topleft", "viewtile_scrollthumb_hilited_top",
-                 "viewtile_scrollthumb_hilited_topright"),
-                ("viewtile_scrollthumb_hilited_left", "viewtile_scrollthumb_hilited_center",
-                 "viewtile_scrollthumb_hilited_right"),
-                ("viewtile_scrollthumb_hilited_bottomleft", "viewtile_scrollthumb_hilited_bottom",
-                 "viewtile_scrollthumb_hilited_bottomright")
-            )
-        }
+        frame_gfx_ids = {}
+        bar_gfx_ids = {}
+        thumb_gfx_ids = Skin.atlas.gfx_ids["viewtile_scrollthumb"]
         bar_inner_border_id = "viewtile_scrollbar"
-        ScrollPane.__init__(self, card, pane_id, scroll_dir, cull_bin, frame_gfx_data, bar_gfx_data,
-             thumb_gfx_data, bar_inner_border_id, frame_has_mouse_region=False, append_scrollbar=False)
 
-        self.sizer.ignore_stretch = True
+        ScrollPane.__init__(self, card, pane_id, scroll_dir, cull_bin, frame_gfx_ids, bar_gfx_ids,
+             thumb_gfx_ids, bar_inner_border_id, frame_has_mouse_region=False, append_scrollbar=False)
+
         self._tile_sizers = tile_sizers = {}
-        sizer = GridSizer(columns=2)
+        sizer = Sizer("horizontal", 2)
         tile_sizers["std"] = sizer
-        borders = (5, 5, 5, 5)
+        borders = l, r, b, t = Skin.atlas.inner_borders["viewtile_pane"]
         self.sizer.add(sizer, borders=borders)
-        sizer = GridSizer(columns=2)
+        sizer = Sizer("horizontal", 2)
         tile_sizers["user"] = sizer
-        borders = (5, 5, 5, 0)
+        borders = (l, r, b, 0)
         self.sizer.add(sizer, borders=borders)
         self.set_transparent()
         task = self.setup
@@ -962,15 +594,15 @@ class ViewPane(ScrollPane):
         mask.sort = 10
         self.mouse_watcher.add_region(mask)
 
-    def _create_frame(self, parent, scroll_dir, cull_bin, gfx_data, bar_gfx_data,
-            thumb_gfx_data, bar_inner_border_id, has_mouse_region=True):
+    def _create_frame(self, parent, scroll_dir, cull_bin, gfx_ids, bar_gfx_ids,
+            thumb_gfx_ids, bar_inner_border_id, has_mouse_region=True):
 
-        return ViewPaneFrame(parent, self, gfx_data, bar_gfx_data, thumb_gfx_data,
+        return ViewPaneFrame(parent, self, gfx_ids, bar_gfx_ids, thumb_gfx_ids,
                              cull_bin, scroll_dir, bar_inner_border_id, has_mouse_region)
 
     def _copy_widget_images(self, pane_image): 
 
-        root_node = self.get_widget_root_node()
+        root_node = self.widget_root_node
 
         for tile in self._tiles:
             x, y = tile.get_pos(ref_node=root_node)
@@ -996,7 +628,7 @@ class ViewPane(ScrollPane):
             x, y, w, h = GD["viewport"]["aux_region"]
             x_offset, y_offset = self.get_pos(from_root=True)
             x -= x_offset
-            y -= y_offset - self.get_scrollthumb().get_offset()
+            y -= y_offset - self.scrollthumb.get_offset()
             self._mouse_region_mask.frame = (x, x + w, -y - h, -y)
             self._mouse_region_mask.active = True
 
@@ -1009,13 +641,13 @@ class ViewPane(ScrollPane):
     def remove_tile(self, tile):
 
         self._tiles.remove(tile)
-        self._tile_sizers["user"].remove_item(tile.sizer_item, destroy=True)
+        self._tile_sizers["user"].remove_cell(tile.sizer_cell, destroy=True)
         self.reset_sub_image_index()
 
     def clear_tiles(self):
 
         del self._tiles[8:]
-        self._tile_sizers["user"].clear(destroy_items=True)
+        self._tile_sizers["user"].clear(destroy_cells=True)
         self.reset_sub_image_index()
 
 
@@ -1025,18 +657,18 @@ class ViewTileManager:
 
         self._card = card = ViewTileCard(Mgr.get("window"))
         self._sizer = sizer = Sizer("horizontal")
-        sizer.add(card, proportion=1., expand=True)
+        sizer.add(card, proportions=(1., 1.))
         self._pane = pane = ViewPane(card)
         card_sizer = card.sizer
         subsizer = Sizer("horizontal")
         card_sizer.add(subsizer)
         btn = ViewTileButton(card)
-        borders = (5, 5, 5, 5)
+        borders = Skin.atlas.outer_borders["viewtile_button"]
         subsizer.add(btn, borders=borders)
         self._view_label = view_label = ViewLabel(card, "Perspective")
-        subsizer.add(view_label, alignment="center_v")
-        card_sizer.add(pane.frame, proportion=1.)
-        self._space_item = card_sizer.add((0, 20))
+        subsizer.add(view_label, alignments=("min", "center"))
+        card_sizer.add(pane.frame, proportions=(0., 1.))
+        card_sizer.add((0, Skin.options["viewtile_pane_bottom_offset"]))
         self._view_tiles = {}
         self._user_view_ids = []
         self._view_tile_regions = []
@@ -1055,7 +687,7 @@ class ViewTileManager:
 
         node = GD.viewport_origin.attach_new_node("scrollthumb_offset")
         self._scrollthumb_offset_node = node
-        pane.get_scrollthumb().quad.reparent_to(node)
+        pane.scrollthumb.quad.reparent_to(node)
 
         menu_std = Menu()
         menu_user = Menu()
@@ -1114,7 +746,7 @@ class ViewTileManager:
 
             self.__update_sizer()
             sizer = pane.sizer
-            sizer.item_size_locked = True
+            sizer.cell_size_locked = True
             sizer.mouse_regions_locked = True
 
         PendingTasks.add(task, "lock_tiles")
@@ -1126,7 +758,7 @@ class ViewTileManager:
         pane = self._pane
         pane_mouse_watcher = pane.mouse_watcher
         gui_mouse_watcher = Mgr.get("mouse_watcher")
-        scrollthumb = pane.get_scrollthumb()
+        scrollthumb = pane.scrollthumb
         scrollbar = scrollthumb.parent
         self._view_tiles_shown = shown = not self._view_tiles_shown
 
@@ -1225,9 +857,9 @@ class ViewTileManager:
         w, h = GD["viewport"]["size_aux" if viewport_id == "main" else "size"]
         sizer = self._sizer
         h_min = sizer.update_min_size()[1]
-        size = (w, min(h, h_min + self._pane.sizer.virtual_size[1]))
+        size = (w, min(h, h_min + self._pane.virtual_size[1]))
         sizer.set_size(size)
-        sizer.calculate_positions(pos)
+        sizer.update_positions(pos)
         sizer.update_images()
         sizer.update_mouse_region_frames()
         quad = self._card.quad
@@ -1260,10 +892,10 @@ class ViewTileManager:
         self._view_tile_regions.append(region)
         self.__set_active_view(view_id)
         sizer = pane.sizer
-        sizer.item_size_locked = False
+        sizer.cell_size_locked = False
         sizer.mouse_regions_locked = False
         self.__update_sizer()
-        sizer.item_size_locked = True
+        sizer.cell_size_locked = True
         sizer.mouse_regions_locked = True
 
         if not self._view_tiles_shown:
@@ -1278,10 +910,10 @@ class ViewTileManager:
         self._view_tile_regions.remove(region)
         self._pane.remove_tile(tile)
         sizer = self._pane.sizer
-        sizer.item_size_locked = False
+        sizer.cell_size_locked = False
         sizer.mouse_regions_locked = False
         self.__update_sizer()
-        sizer.item_size_locked = True
+        sizer.cell_size_locked = True
         sizer.mouse_regions_locked = True
 
     def __clear_user_views(self):
@@ -1295,10 +927,10 @@ class ViewTileManager:
         self._user_view_ids = []
         self._pane.clear_tiles()
         sizer = self._pane.sizer
-        sizer.item_size_locked = False
+        sizer.cell_size_locked = False
         sizer.mouse_regions_locked = False
         self.__update_sizer()
-        sizer.item_size_locked = True
+        sizer.cell_size_locked = True
         sizer.mouse_regions_locked = True
 
     def __rename_user_view(self, lens_type, view_id, view_name):

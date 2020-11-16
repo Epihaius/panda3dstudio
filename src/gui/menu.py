@@ -4,11 +4,11 @@ from .button import Button
 
 class MenuSeparator(Widget):
 
-    _gfx = {"": (("menu_separator_left", "menu_separator_center", "menu_separator_right"),)}
-
     def __init__(self, parent):
 
-        Widget.__init__(self, "menu_separator", parent, self._gfx, has_mouse_region=False)
+        gfx_ids = {"": Skin.atlas.gfx_ids["separator"]["menu"]}
+
+        Widget.__init__(self, "menu_separator", parent, gfx_ids, has_mouse_region=False)
 
     def get_submenu(self):
 
@@ -23,66 +23,47 @@ class MenuSeparator(Widget):
 
 class MenuItem(Button):
 
-    _gfx = {
-        "normal": (("menu_item_normal_left", "menu_item_normal_center",
-                   "menu_item_normal_right"),),
-        "hilited": (("menu_item_hilited_left", "menu_item_hilited_center",
-                   "menu_item_hilited_right"),)
-    }
     _checkmark = None
     _radio_bullet = None
 
-    def __init__(self, parent, item_id, text, command=None, item_type="normal", radio_group=""):
+    def __init__(self, parent, item_id, text, command=None, item_type="normal", radio_group_id=""):
 
         if not self._checkmark:
-            x, y, w, h = TextureAtlas["regions"]["checkmark"]
+            gfx_id = Skin.atlas.gfx_ids["checkmark"][""][0][0]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
             MenuItem._checkmark = img = PNMImage(w, h, 4)
-            img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
-            img *= Skin["colors"]["menu_item_checkmark"]
+            img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
+            img *= Skin.colors["menu_item_checkmark"]
 
         if not self._radio_bullet:
-            x, y, w, h = TextureAtlas["regions"]["bullet"]
+            gfx_id = Skin.atlas.gfx_ids["bullet"][""][0][0]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
             MenuItem._radio_bullet = img = PNMImage(w, h, 4)
-            img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
-            img *= Skin["colors"]["menu_item_bullet"]
+            img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
+            img *= Skin.colors["menu_item_bullet"]
 
-        gfx_data = self._gfx.copy()
+        gfx_ids = Skin.atlas.gfx_ids[f"menu_item_{item_type}"]
 
-        if item_type == "submenu":
-            gfx_data["normal"] = (("menu_item_normal_left", "menu_item_normal_center",
-                                  "menu_item_normal_right+arrow"),)
-            gfx_data["hilited"] = (("menu_item_hilited_left", "menu_item_hilited_center",
-                                   "menu_item_hilited_right+arrow"),)
-        elif item_type == "check":
-            gfx_data["normal"] = (("menu_item_normal_left+checkbox", "menu_item_normal_center",
-                                  "menu_item_normal_right"),)
-            gfx_data["hilited"] = (("menu_item_hilited_left+checkbox", "menu_item_hilited_center",
-                                   "menu_item_hilited_right"),)
-        elif item_type == "radio":
-            gfx_data["normal"] = (("menu_item_normal_left+radiobox", "menu_item_normal_center",
-                                  "menu_item_normal_right"),)
-            gfx_data["hilited"] = (("menu_item_hilited_left+radiobox", "menu_item_hilited_center",
-                                   "menu_item_hilited_right"),)
+        Button.__init__(self, parent, gfx_ids, text, text_alignment="left",
+                        button_type="menu_item")
 
         if command:
-            task = lambda t: command()
-            item_command = lambda: Mgr.do_next_frame(task, "item_command")
+            item_command = lambda: Mgr.do_next_frame(lambda t: command(), "item_command")
         else:
             item_command = None
 
-        Button.__init__(self, parent, gfx_data, text, command=item_command, text_alignment="left",
-                        button_type="menu_item")
-
         self.widget_type = "menu_item"
+        self.command = item_command
         w, h = self.min_size
-        self.set_size((w + 20, h), is_min=True)
+        offset = Skin.options["menu_item_hotkey_offset"]
+        self.set_size((w + offset, h), is_min=True)
         self.mouse_region.sort = parent.sort + 1
         self.id = item_id
-        self._item_type = item_type
+        self.item_type = item_type
         self._hotkey_label = None
         self._hotkey_label_disabled = None
         self._is_checked = False
-        self._radio_group = radio_group
+        self.radio_group_id = radio_group_id
         self._submenu = Menu(self, is_submenu=True) if item_type == "submenu" else None
 
         if self._submenu:
@@ -96,14 +77,6 @@ class MenuItem(Button):
         if self._submenu:
             self._submenu.destroy()
             self._submenu = None
-
-    def get_item_type(self):
-
-        return self._item_type
-
-    def get_radio_group(self):
-
-        return self._radio_group
 
     def update_sort(self):
 
@@ -214,11 +187,11 @@ class MenuItem(Button):
             image.blend_sub_image(label, x, y, 0, 0)
 
         if self._is_checked:
-            if self._item_type == "check":
-                l, r, b, t = TextureAtlas["outer_borders"]["menu_item_checkbox"]
+            if self.item_type == "check":
+                l, r, b, t = Skin.atlas.outer_borders["menu_item_checkbox"]
                 image.blend_sub_image(self._checkmark, l, t, 0, 0)
-            elif self._item_type == "radio":
-                l, r, b, t = TextureAtlas["outer_borders"]["menu_item_radiobox"]
+            elif self.item_type == "radio":
+                l, r, b, t = Skin.atlas.outer_borders["menu_item_radiobox"]
                 image.blend_sub_image(self._radio_bullet, l, t, 0, 0)
 
         return image
@@ -229,7 +202,8 @@ class MenuItem(Button):
             return False
 
         w, h = self.min_size
-        self.set_size((w + 20, h), is_min=True)
+        offset = Skin.options["menu_item_hotkey_offset"]
+        self.set_size((w + offset, h), is_min=True)
 
         return True
 
@@ -241,11 +215,11 @@ class MenuItem(Button):
         Button.set_hotkey(self, hotkey, hotkey_text, interface_id)
 
         if hotkey_text:
-            skin_text = Skin["text"]["menu_item"]
+            skin_text = Skin.text["menu_item"]
             font = skin_text["font"]
             color = skin_text["color"]
             self._hotkey_label = font.create_image(hotkey_text, color)
-            color = Skin["colors"]["disabled_menu_item_text"]
+            color = Skin.colors["disabled_menu_item_text"]
             self._hotkey_label_disabled = font.create_image(hotkey_text, color)
         else:
             self._hotkey_label = None
@@ -286,7 +260,7 @@ class MenuItem(Button):
 
     def check(self, is_checked=True):
 
-        if self._item_type in ("check", "radio"):
+        if self.item_type in ("check", "radio"):
             self._is_checked = is_checked
             Button.on_leave(self, force=True)
 
@@ -296,12 +270,12 @@ class MenuItem(Button):
 
     def on_left_down(self):
 
-        if self._item_type == "check":
+        if self.item_type == "check":
             self._is_checked = not self._is_checked
-        elif self._item_type == "radio" and not self._is_checked:
+        elif self.item_type == "radio" and not self._is_checked:
             self._is_checked = True
             self.parent.check_radio_item(self.id)
-        elif self._item_type != "normal":
+        elif self.item_type != "normal":
             return
 
         Button.on_left_down(self)
@@ -409,7 +383,7 @@ class Menu(WidgetCard):
 
     def __init__(self, parent=None, is_submenu=False, on_hide=None):
 
-        WidgetCard.__init__(self, "menu", parent)
+        WidgetCard.__init__(self, "menu", parent, is_root_container=True)
 
         if not self._listener:
             Menu._listener = listener = DirectObject()
@@ -426,9 +400,10 @@ class Menu(WidgetCard):
         self._item_offset = (0, 0)
         sizer = Sizer("vertical")
         self._item_sizer = subsizer = Sizer("vertical")
-        sizer.add(subsizer, expand=True)
+        subsizer.set_column_proportion(0, 1.)
+        sizer.add(subsizer)
         subsizer = Sizer("horizontal")
-        sizer.add(subsizer, expand=True)
+        sizer.add(subsizer)
         self._label_sizer = label_sizer = Sizer("vertical")
         self._hotkey_label_sizer = hotkey_label_sizer = Sizer("vertical")
         subsizer.add(label_sizer)
@@ -454,12 +429,27 @@ class Menu(WidgetCard):
         self._hotkey_label_sizer = None
         self._mouse_regions = []
 
+    def clear(self):
+
+        self._items = {}
+        self._radio_items = {}
+        self._active_item = None
+        self._item_sizer.clear()
+        self._label_sizer.clear()
+        self._hotkey_label_sizer.clear()
+        self._mouse_regions = [self.mouse_region]
+
+        parent = self.parent
+
+        if parent is not Mgr.get("window"):
+            parent.enable(False)
+
     def update(self, update_initial_pos=True):
 
         sizer = self.sizer
         size = sizer.update_min_size()
         sizer.set_size(size)
-        sizer.calculate_positions()
+        sizer.update_positions()
         self.update_mouse_region_frames()
         self.update_images()
 
@@ -529,10 +519,10 @@ class Menu(WidgetCard):
 
         if item.set_text(text):
 
-            sizer_item = item.sizer_item
-            index = self._item_sizer.items.index(sizer_item)
-            sizer_item = self._label_sizer.items[index]
-            self._label_sizer.remove_item(sizer_item)
+            sizer_cell = item.sizer_cell
+            index = self._item_sizer.cells.index(sizer_cell)
+            sizer_cell = self._label_sizer.cells[index]
+            self._label_sizer.remove_cell(sizer_cell)
             self._label_sizer.add((item.min_size[0], 0), index=index)
 
             if update:
@@ -545,10 +535,10 @@ class Menu(WidgetCard):
 
         if item.set_hotkey(hotkey, hotkey_text, interface_id):
 
-            sizer_item = item.sizer_item
-            index = self._item_sizer.items.index(sizer_item)
-            sizer_item = self._hotkey_label_sizer.items[index]
-            self._hotkey_label_sizer.remove_item(sizer_item)
+            sizer_cell = item.sizer_cell
+            index = self._item_sizer.cells.index(sizer_cell)
+            sizer_cell = self._hotkey_label_sizer.cells[index]
+            self._hotkey_label_sizer.remove_cell(sizer_cell)
             hotkey_label = item.get_hotkey_label()
             w = hotkey_label.size[0] if hotkey_label else 0
             self._hotkey_label_sizer.add((w, 0), index=index)
@@ -568,23 +558,23 @@ class Menu(WidgetCard):
 
         item = self._items[item_id]
         item.check()
-        other_radio_items = self._radio_items[item.get_radio_group()][:]
+        other_radio_items = self._radio_items[item.radio_group_id][:]
         other_radio_items.remove(item)
 
         for other_item in other_radio_items:
             other_item.check(False)
 
-    def get_checked_radio_item_id(self, radio_group=""):
+    def get_checked_radio_item_id(self, radio_group_id=""):
 
-        radio_items = self._radio_items.get(radio_group, [])
+        radio_items = self._radio_items.get(radio_group_id, [])
 
         for item in radio_items:
             if item.is_checked():
                 return item.id
 
-    def clear_radio_check(self, radio_group=""):
+    def clear_radio_check(self, radio_group_id=""):
 
-        radio_items = self._radio_items.get(radio_group, [])
+        radio_items = self._radio_items.get(radio_group_id, [])
 
         for item in radio_items:
             if item.is_checked():
@@ -598,7 +588,7 @@ class Menu(WidgetCard):
 
         return self._active_item.get_submenu().get_last_shown_submenu()
 
-    def add(self, item_id, item_text="", item_command=None, item_type="normal", radio_group="",
+    def add(self, item_id, item_text="", item_command=None, item_type="normal", radio_group_id="",
             index=None, update=False):
 
         if item_id in self._items:
@@ -607,15 +597,15 @@ class Menu(WidgetCard):
         if item_type == "separator":
             item = MenuSeparator(self)
         else:
-            item = MenuItem(self, item_id, item_text, item_command, item_type, radio_group)
+            item = MenuItem(self, item_id, item_text, item_command, item_type, radio_group_id)
 
         self._items[item_id] = item
-        self._item_sizer.add(item, expand=True, index=index)
+        self._item_sizer.add(item, index=index)
         self._label_sizer.add((item.min_size[0], 0), index=index)
         self._hotkey_label_sizer.add((0, 0), index=index)
 
         if item_type == "radio":
-            self._radio_items.setdefault(radio_group, []).append(item)
+            self._radio_items.setdefault(radio_group_id, []).append(item)
 
         if update:
             self.update()
@@ -636,7 +626,7 @@ class Menu(WidgetCard):
 
         item.set_parent(self)
         self._items[item_id] = item
-        self._item_sizer.add_item(item.sizer_item, index)
+        self._item_sizer.add_cell(item.sizer_cell, index)
         self._label_sizer.add((item.min_size[0], 0), index=index)
         hotkey_label = item.get_hotkey_label()
         w = hotkey_label.size[0] if hotkey_label else 0
@@ -674,17 +664,17 @@ class Menu(WidgetCard):
 
         del self._items[item_id]
 
-        if menu_item.get_item_type() == "radio":
-            radio_group = menu_item.get_radio_group()
-            self._radio_items[radio_group].remove(menu_item)
+        if menu_item.item_type == "radio":
+            radio_group_id = menu_item.radio_group_id
+            self._radio_items[radio_group_id].remove(menu_item)
 
-        sizer_item = menu_item.sizer_item
-        index = self._item_sizer.items.index(sizer_item)
-        self._item_sizer.remove_item(sizer_item)
-        sizer_item = self._label_sizer.items[index]
-        self._label_sizer.remove_item(sizer_item)
-        sizer_item = self._hotkey_label_sizer.items[index]
-        self._hotkey_label_sizer.remove_item(sizer_item)
+        sizer_cell = menu_item.sizer_cell
+        index = self._item_sizer.cells.index(sizer_cell)
+        self._item_sizer.remove_cell(sizer_cell)
+        sizer_cell = self._label_sizer.cells[index]
+        self._label_sizer.remove_cell(sizer_cell)
+        sizer_cell = self._hotkey_label_sizer.cells[index]
+        self._hotkey_label_sizer.remove_cell(sizer_cell)
 
         if destroy:
             menu_item.destroy()
@@ -713,9 +703,9 @@ class Menu(WidgetCard):
     def get_item_index(self, item_id):
 
         item = self._items[item_id]
-        sizer_item = item.sizer_item
+        sizer_cell = item.sizer_cell
 
-        return self._item_sizer.items.index(sizer_item)
+        return self._item_sizer.cells.index(sizer_cell)
 
     def is_empty(self):
 
@@ -873,22 +863,26 @@ class Menu(WidgetCard):
         self._item_sizer.update_images()
         width, height = self.get_size()
 
-        tex_atlas = TextureAtlas["image"]
-        tex_atlas_regions = TextureAtlas["regions"]
+        tex_atlas = Skin.atlas.image
+        tex_atlas_regions = Skin.atlas.regions
+        gfx_ids = Skin.atlas.gfx_ids["menu"][""]
+        border_topleft_id, border_top_id, border_topright_id = gfx_ids[0]
+        border_left_id, _, border_right_id = gfx_ids[1]
+        border_bottomleft_id, border_bottom_id, border_bottomright_id = gfx_ids[2]
 
-        x_tl, y_tl, w_tl, h_tl = tex_atlas_regions["menu_border_topleft"]
+        x_tl, y_tl, w_tl, h_tl = tex_atlas_regions[border_topleft_id]
         self._item_offset = (w_tl, h_tl)
         width += w_tl
         height += h_tl
-        x, y, w, h = tex_atlas_regions["menu_border_bottomright"]
+        x, y, w, h = tex_atlas_regions[border_bottomright_id]
         width += w
         height += h
 
         img = PNMImage(width, height, 4)
 
         img.copy_sub_image(tex_atlas, 0, 0, x_tl, y_tl, w_tl, h_tl)
-        x_t, y_t, w_t, h_t = tex_atlas_regions["menu_border_top"]
-        x_tr, y_tr, w_tr, h_tr = tex_atlas_regions["menu_border_topright"]
+        x_t, y_t, w_t, h_t = tex_atlas_regions[border_top_id]
+        x_tr, y_tr, w_tr, h_tr = tex_atlas_regions[border_topright_id]
         part_img = PNMImage(w_t, h_t, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x_t, y_t, w_t, h_t)
         scaled_w = width - w_tl - w_tr
@@ -896,8 +890,8 @@ class Menu(WidgetCard):
         scaled_img.unfiltered_stretch_from(part_img)
         img.copy_sub_image(scaled_img, w_tl, 0, 0, 0)
         img.copy_sub_image(tex_atlas, w_tl + scaled_w, 0, x_tr, y_tr, w_tr, h_tr)
-        x_l, y_l, w_l, h_l = tex_atlas_regions["menu_border_left"]
-        x_bl, y_bl, w_bl, h_bl = tex_atlas_regions["menu_border_bottomleft"]
+        x_l, y_l, w_l, h_l = tex_atlas_regions[border_left_id]
+        x_bl, y_bl, w_bl, h_bl = tex_atlas_regions[border_bottomleft_id]
         part_img = PNMImage(w_l, h_l, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x_l, y_l, w_l, h_l)
         scaled_h = height - h_tl - h_bl
@@ -905,15 +899,15 @@ class Menu(WidgetCard):
         scaled_img.unfiltered_stretch_from(part_img)
         img.copy_sub_image(scaled_img, 0, h_tl, 0, 0)
         img.copy_sub_image(tex_atlas, 0, h_tl + scaled_h, x_bl, y_bl, w_bl, h_bl)
-        x_r, y_r, w_r, h_r = tex_atlas_regions["menu_border_right"]
-        x_br, y_br, w_br, h_br = tex_atlas_regions["menu_border_bottomright"]
+        x_r, y_r, w_r, h_r = tex_atlas_regions[border_right_id]
+        x_br, y_br, w_br, h_br = tex_atlas_regions[border_bottomright_id]
         part_img = PNMImage(w_r, h_r, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x_r, y_r, w_r, h_r)
         scaled_img = PNMImage(w_r, scaled_h, 4)
         scaled_img.unfiltered_stretch_from(part_img)
         img.copy_sub_image(scaled_img, w_tl + scaled_w, h_tr, 0, 0)
         img.copy_sub_image(tex_atlas, w_tl + scaled_w, h_tr + scaled_h, x_br, y_br, w_br, h_br)
-        x_b, y_b, w_b, h_b = tex_atlas_regions["menu_border_bottom"]
+        x_b, y_b, w_b, h_b = tex_atlas_regions[border_bottom_id]
         part_img = PNMImage(w_b, h_b, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x_b, y_b, w_b, h_b)
         scaled_img = PNMImage(scaled_w, h_b, 4)

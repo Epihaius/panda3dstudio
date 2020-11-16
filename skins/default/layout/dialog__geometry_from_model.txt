@@ -1,0 +1,17 @@
+name = Add geometry from model
+title = Add geometry from {model_descr}
+default_size = 0 0
+checkbutton delete
+    container = dialog
+    text = Delete source geometry
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 50 50 0 20
+checkbutton keep
+    container = dialog
+    text = Keep empty source {model_text}
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 70 50 20 0

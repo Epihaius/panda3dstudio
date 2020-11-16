@@ -352,7 +352,7 @@ class EdgeBridgeMixin:
             dest_vert1 = merged_verts[dest_vert1_id]
             dest_vert2 = merged_verts[dest_vert2_id]
 
-            for merged_vert in set([src_vert1, src_vert2, dest_vert1, dest_vert2]):
+            for merged_vert in {src_vert1, src_vert2, dest_vert1, dest_vert2}:
                 for vert_id in merged_vert:
                     if verts[vert_id].polygon_id in selected_poly_ids:
                         update_polys_to_transf = True

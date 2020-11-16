@@ -1,0 +1,2285 @@
+title = Object properties
+default_size = 0 0
+panel_section selection
+    title = Selection
+    default_size = 0 0
+    hidden = 0
+group 4
+    container = panel_section selection
+    title = Choice from name box
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+radiobuttongroup selection
+    container = group 4
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobutton deselect
+    text = Deselect
+radiobutton deselect_others
+    text = Deselect others
+radiobutton center
+    text = Center in view
+panel_section id
+    title = Name and color
+    default_size = 0 0
+    hidden = 0
+sizer 12
+    container = panel_section id
+    name = name & color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+combobox name
+    container = sizer 12
+    field_width = 120
+    icon_id = 
+    text = 
+    tooltip_text = Selected object(s)
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 5 10 0 0
+colorbox object
+    container = sizer 12
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+panel_section create
+    title = Creation
+    default_size = 0 0
+    hidden = 1
+group 17
+    container = panel_section create
+    title = Interactive
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton auto_align_grid
+    container = group 17
+    text = Auto-align grid
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+text -
+    container = group 17
+    text = (No effect if creation start|snaps to grid points)
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 30 0 0 0
+group 21
+    container = panel_section create
+    title = Non-interactive
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+group 23
+    container = group 21
+    title = Position
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+radiobuttongroup creation
+    container = group 23
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobutton grid_pos
+    text = Coord. system origin
+radiobutton cam_target_pos
+    text = Camera target
+button create_obj
+    container = group 21
+    icon_id = 
+    text = Create object
+    tooltip_text = 
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 10
+panel_section box_props
+    title = Box properties
+    default_size = 0 0
+    hidden = 1
+group 31
+    container = panel_section box_props
+    title = Size
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 33
+    container = group 31
+    name = box size
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 33
+    text = X (width):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field box_size_x
+    container = sizer 33
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 33
+    text = Y (depth):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field box_size_y
+    container = sizer 33
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 33
+    text = Z (height):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field box_size_z
+    container = sizer 33
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 40
+    container = panel_section box_props
+    title = Segments
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 42
+    container = group 40
+    name = box segments
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 42
+    text = X (width):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field box_segments_x
+    container = sizer 42
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 42
+    text = Y (depth):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field box_segments_y
+    container = sizer 42
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 42
+    text = Z (height):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field box_segments_z
+    container = sizer 42
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+button box_to_planes
+    container = panel_section box_props
+    icon_id = 
+    text = Convert to planes
+    tooltip_text = Turn sides into separate plane primitives
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 10 10 0 10
+panel_section cone_props
+    title = Cone properties
+    default_size = 0 0
+    hidden = 1
+sizer 52
+    container = panel_section cone_props
+    name = cone properties
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 52
+    text = Bottom radius:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cone_radius_bottom
+    container = sizer 52
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 52
+    text = Top radius:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cone_radius_top
+    container = sizer 52
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 52
+    text = Height:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cone_height
+    container = sizer 52
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 59
+    container = panel_section cone_props
+    title = Segments
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 61
+    container = group 59
+    name = cone segments
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 61
+    text = Circular:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cone_segments_circular
+    container = sizer 61
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 61
+    text = Height:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cone_segments_height
+    container = sizer 61
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 61
+    text = Caps:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cone_segments_caps
+    container = sizer 61
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton cone_smoothness
+    container = panel_section cone_props
+    text = Smooth
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+panel_section cylinder_props
+    title = Cylinder properties
+    default_size = 0 0
+    hidden = 1
+sizer 71
+    container = panel_section cylinder_props
+    name = cylinder properties
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 71
+    text = Radius:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cylinder_radius
+    container = sizer 71
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 71
+    text = Height:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cylinder_height
+    container = sizer 71
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 76
+    container = panel_section cylinder_props
+    title = Segments
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 78
+    container = group 76
+    name = cylinder segments
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 78
+    text = Circular:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cylinder_segments_circular
+    container = sizer 78
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 78
+    text = Height:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cylinder_segments_height
+    container = sizer 78
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 78
+    text = Caps:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field cylinder_segments_caps
+    container = sizer 78
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton cylinder_smoothness
+    container = panel_section cylinder_props
+    text = Smooth
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+panel_section sphere_props
+    title = Sphere properties
+    default_size = 0 0
+    hidden = 1
+sizer 88
+    container = panel_section sphere_props
+    name = sphere properties
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 88
+    text = Radius:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field sphere_radius
+    container = sizer 88
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 88
+    text = Segments:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field sphere_segments
+    container = sizer 88
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton sphere_smoothness
+    container = panel_section sphere_props
+    text = Smooth
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+panel_section torus_props
+    title = Torus properties
+    default_size = 0 0
+    hidden = 1
+sizer 96
+    container = panel_section torus_props
+    name = torus properties
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 96
+    text = Ring radius:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field radius_ring
+    container = sizer 96
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 96
+    text = Section radius:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field radius_section
+    container = sizer 96
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 101
+    container = panel_section torus_props
+    title = Segments
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 103
+    container = group 101
+    name = torus segments
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 103
+    text = Ring:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field segments_ring
+    container = sizer 103
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 103
+    text = Section:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field segments_section
+    container = sizer 103
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton torus_smoothness
+    container = panel_section torus_props
+    text = Smooth
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+panel_section plane_props
+    title = Plane properties
+    default_size = 0 0
+    hidden = 1
+group 111
+    container = panel_section plane_props
+    title = Size
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 113
+    container = group 111
+    name = plane size
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 113
+    text = X (length):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field plane_size_x
+    container = sizer 113
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 113
+    text = Y (width):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field plane_size_y
+    container = sizer 113
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 118
+    container = panel_section plane_props
+    title = Segments
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 120
+    container = group 118
+    name = plane segments
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 120
+    text = X (length):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field plane_segments_x
+    container = sizer 120
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 120
+    text = Y (width):
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field plane_segments_y
+    container = sizer 120
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_section dummy_props
+    title = Dummy helper properties
+    default_size = 0 0
+    hidden = 1
+sizer 127
+    container = panel_section dummy_props
+    name = dummy viz
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+checkbutton box_viz
+    container = sizer 127
+    text = Show box
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 5 0
+checkbutton cross_viz
+    container = sizer 127
+    text = Show cross
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 20 0 5 0
+sizer 130
+    container = panel_section dummy_props
+    name = dummy size
+    prim_dir = horizontal
+    prim_limit = 3
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 130
+    text = Box size:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field dummy_size
+    container = sizer 130
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+space 133
+    container = sizer 130
+    name = space 1
+    size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+text -
+    container = sizer 130
+    text = Cross size:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field dummy_cross_size
+    container = sizer 130
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 130
+    text = %
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+sizer 137
+    container = panel_section dummy_props
+    name = dummy constant screen size
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 5 5
+checkbutton dummy_const_size_state
+    container = sizer 137
+    text = Const. screen size:
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field dummy_const_size
+    container = sizer 137
+    field_type = input
+    width = 40
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton dummy_on_top
+    container = panel_section dummy_props
+    text = Draw on top
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+panel_section point_props
+    title = Point helper properties
+    default_size = 0 0
+    hidden = 1
+sizer 143
+    container = panel_section point_props
+    name = point size & on top
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 5 0
+text -
+    container = sizer 143
+    text = Size:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field point_size
+    container = sizer 143
+    field_type = input
+    width = 45
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton point_on_top
+    container = sizer 143
+    text = Draw on top
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 20 0 0 0
+group 147
+    container = panel_section point_props
+    title = Color
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 149
+    container = group 147
+    name = point color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+text -
+    container = sizer 149
+    text = Unselected:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox point_unselected_color
+    container = sizer 149
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+text -
+    container = sizer 149
+    text = Selected:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 10 5 0 0
+colorbox point_selected_color
+    container = sizer 149
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+panel_section tex_projector_props
+    title = Tex. projector properties
+    default_size = 0 0
+    hidden = 1
+sizer 156
+    container = panel_section tex_projector_props
+    name = tex. projector size
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton tex_proj_on
+    container = sizer 156
+    text = On
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 20 0 0
+text -
+    container = sizer 156
+    text = Size:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field tex_proj_size
+    container = sizer 156
+    field_type = input
+    width = 80
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 160
+    container = panel_section tex_projector_props
+    title = Projection type
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+radiobuttongroup tex_proj_type
+    container = group 160
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobutton orthographic
+    text = Orthographic
+radiobutton perspective
+    text = Perspective
+group 165
+    container = panel_section tex_projector_props
+    title = Lens/Film
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 167
+    container = group 165
+    name = tex. proj. lens/film
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 167
+    text = Width:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field film_w
+    container = sizer 167
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 167
+    text = Height:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field film_h
+    container = sizer 167
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 167
+    text = X offset:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field film_x
+    container = sizer 167
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 167
+    text = Y offset:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field film_y
+    container = sizer 167
+    field_type = input
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_section tex_projector_targets
+    title = Projector targets
+    default_size = 0 0
+    hidden = 1
+combobox tex_proj_target
+    container = panel_section tex_projector_targets
+    field_width = 50
+    icon_id = 
+    text = 
+    tooltip_text = Selected target
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 5 5 5 0
+sizer 179
+    container = panel_section tex_projector_targets
+    name = target edit
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 5 5 0 0
+button tex_proj_pick_target
+    container = sizer 179
+    icon_id = 
+    text = Pick...
+    tooltip_text = Add target model
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button tex_proj_remove_target
+    container = sizer 179
+    icon_id = 
+    text = Remove
+    tooltip_text = Remove selected target
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button tex_proj_clear_target
+    container = sizer 179
+    icon_id = 
+    text = Clear
+    tooltip_text = Remove all targets
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 185
+    container = panel_section tex_projector_targets
+    title = Target poly selection
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 187
+    container = group 185
+    name = tex. proj. target polys
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton use_poly_sel
+    container = sizer 187
+    text = Use
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+checkbutton show_poly_sel
+    container = sizer 187
+    text = Show
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+text -
+    container = panel_section tex_projector_targets
+    text = Affected UV sets:
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 5 5 5 10
+field tex_proj_uv_set_ids
+    container = panel_section tex_projector_targets
+    field_type = input
+    width = 50
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 5 5 5 0
+button tex_proj_apply_uvs
+    container = panel_section tex_projector_targets
+    icon_id = 
+    text = Apply UVs
+    tooltip_text = Bake UVs into target vertices
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 0
+panel_section group_props
+    title = Group properties
+    default_size = 0 0
+    hidden = 1
+sizer 197
+    container = panel_section group_props
+    name = group edit
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 0:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button group_open
+    container = sizer 197
+    icon_id = 
+    text = Open
+    tooltip_text = Make members accessible
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton recursive_open
+    container = sizer 197
+    text = recursively
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+button group_close
+    container = sizer 197
+    icon_id = 
+    text = Close
+    tooltip_text = Make members inaccessible
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+space 201
+    container = sizer 197
+    name = space 2
+    size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+button group_dissolve
+    container = sizer 197
+    icon_id = 
+    text = Dissolve
+    tooltip_text = Ungroup members and delete
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton recursive_dissolve
+    container = sizer 197
+    text = recursively
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+group 204
+    container = panel_section group_props
+    title = Member types
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+combobox member_types
+    container = group 204
+    field_width = 145
+    icon_id = 
+    text = 
+    tooltip_text = Member types
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 207
+    container = panel_section group_props
+    title = Member selection
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+checkbutton recursive_member_selection
+    container = group 207
+    text = Recursively
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 3 0
+checkbutton subgroup_selection
+    container = group 207
+    text = Select subgroups
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 3 0
+button select_members
+    container = group 207
+    icon_id = 
+    text = Select
+    tooltip_text = Open group and select members
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 0
+panel_section locked_geom_props
+    title = Options
+    default_size = 0 0
+    hidden = 1
+group 214
+    container = panel_section locked_geom_props
+    title = Vertex normals
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 216
+    container = group 214
+    name = vertex normals
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton normal_viz
+    container = sizer 216
+    text = Show
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+colorbox locked_geom_normal
+    container = sizer 216
+    proportions = 1.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+sizer 221
+    container = group 214
+    name = normal length
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 221
+    text = Length:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field locked_geom_normal_length
+    container = sizer 221
+    field_type = input_spinner
+    width = 80
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 224
+    container = panel_section locked_geom_props
+    title = UV set names
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 226
+    container = group 224
+    name = UV sets
+    prim_dir = horizontal
+    prim_limit = 4
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 0:1.0 1:1.0 2:1.0 3:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 5 5 5 5
+button locked_geom_uv_set_0
+    container = sizer 226
+    icon_id = 
+    text = 0
+    tooltip_text = UV set 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button locked_geom_uv_set_1
+    container = sizer 226
+    icon_id = 
+    text = 1
+    tooltip_text = UV set 1
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button locked_geom_uv_set_2
+    container = sizer 226
+    icon_id = 
+    text = 2
+    tooltip_text = UV set 2
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button locked_geom_uv_set_3
+    container = sizer 226
+    icon_id = 
+    text = 3
+    tooltip_text = UV set 3
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button locked_geom_uv_set_4
+    container = sizer 226
+    icon_id = 
+    text = 4
+    tooltip_text = UV set 4
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button locked_geom_uv_set_5
+    container = sizer 226
+    icon_id = 
+    text = 5
+    tooltip_text = UV set 5
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button locked_geom_uv_set_6
+    container = sizer 226
+    icon_id = 
+    text = 6
+    tooltip_text = UV set 6
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button locked_geom_uv_set_7
+    container = sizer 226
+    icon_id = 
+    text = 7
+    tooltip_text = UV set 7
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+field locked_geom_uv_set_name
+    container = group 224
+    field_type = input
+    width = 140
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+panel_section subobj_lvl
+    title = Subobject level
+    default_size = 0 0
+    hidden = 1
+sizer 238
+    container = panel_section subobj_lvl
+    name = subobj levels
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 0:1.0 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button unlocked_geom_vert
+    container = sizer 238
+    icon_id = 
+    text = Vertex
+    tooltip_text = Vertex level
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button unlocked_geom_normal
+    container = sizer 238
+    icon_id = 
+    text = Normal
+    tooltip_text = Normal level
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button unlocked_geom_edge
+    container = sizer 238
+    icon_id = 
+    text = Edge
+    tooltip_text = Edge level
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button unlocked_geom_poly
+    container = sizer 238
+    icon_id = 
+    text = Polygon
+    tooltip_text = Polygon level
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+panel_section sel_conversion
+    title = Selection conversion
+    default_size = 0 0
+    hidden = 1
+group 245
+    container = panel_section sel_conversion
+    title = Conversion type:
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+radiobuttongroup sel_conversion_type
+    container = group 245
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 10 5
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobutton touching
+    text = touching
+radiobutton containing
+    text = containing
+radiobutton bordering
+    text = bordering
+button sel_conversion
+    container = panel_section sel_conversion
+    icon_id = 
+    text = Auto-convert selection
+    tooltip_text = Convert sel. when switching to other subobj. level
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 10
+panel_section vert_props
+    title = Vertices
+    default_size = 0 0
+    hidden = 1
+sizer 254
+    container = panel_section vert_props
+    name = pick verts via poly
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton pick_vert_via_poly
+    container = sizer 254
+    text = Pick via polygon
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton pick_vert_by_aiming
+    container = sizer 254
+    text = aim
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = center center
+    borders = 0 0 0 0
+sizer 259
+    container = panel_section vert_props
+    name = break verts
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button break_verts
+    container = sizer 259
+    icon_id = 
+    text = Break
+    tooltip_text = Break selected vertices
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton vert_normal_preserve
+    container = sizer 259
+    text = Lock normals
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = center center
+    borders = 0 0 0 0
+sizer 264
+    container = panel_section vert_props
+    name = smooth/sharpen verts
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button smooth_verts
+    container = sizer 264
+    icon_id = 
+    text = Smooth
+    tooltip_text = Smooth selected vertices
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button sharpen_verts
+    container = sizer 264
+    icon_id = 
+    text = Sharpen
+    tooltip_text = Sharpen selected vertices
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+panel_section normal_props
+    title = Vertex normals
+    default_size = 0 0
+    hidden = 1
+sizer 270
+    container = panel_section normal_props
+    name = pick normals via poly
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton pick_normal_via_poly
+    container = sizer 270
+    text = Pick via polygon
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton pick_normal_by_aiming
+    container = sizer 270
+    text = aim
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = center center
+    borders = 0 0 0 0
+sizer 275
+    container = panel_section normal_props
+    name = normal length
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 275
+    text = Length:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field unlocked_geom_normal_length
+    container = sizer 275
+    field_type = input_spinner
+    width = 80
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 278
+    container = panel_section normal_props
+    name = normal edit
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 0:1.0 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button unify_normals
+    container = sizer 278
+    icon_id = 
+    text = Unify
+    tooltip_text = Average selected normals
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button separate_normals
+    container = sizer 278
+    icon_id = 
+    text = Separate
+    tooltip_text = Separate selected normals
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button lock_normals
+    container = sizer 278
+    icon_id = 
+    text = Lock
+    tooltip_text = Lock selected normals
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button unlock_normals
+    container = sizer 278
+    icon_id = 
+    text = Unlock
+    tooltip_text = Unlock selected normals
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button flip_normals
+    container = sizer 278
+    icon_id = 
+    text = Flip
+    tooltip_text = Flip selected normals
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button copy_normal_dir
+    container = sizer 278
+    icon_id = 
+    text = Copy dir. ...
+    tooltip_text = Copy selected normals' direction from picked normal
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+panel_section edge_props
+    title = Edges
+    default_size = 0 0
+    hidden = 1
+sizer 292
+    container = panel_section edge_props
+    name = pick edges via poly
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton pick_edge_via_poly
+    container = sizer 292
+    text = Pick via polygon
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton pick_edge_by_aiming
+    container = sizer 292
+    text = aim
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = center center
+    borders = 0 0 0 0
+checkbutton sel_edges_by_border
+    container = panel_section edge_props
+    text = Select by border
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+sizer 298
+    container = panel_section edge_props
+    name = split edges
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button split_edges
+    container = sizer 298
+    icon_id = 
+    text = Split
+    tooltip_text = Split selected edges
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton edge_normal_preserve
+    container = sizer 298
+    text = Lock normals
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = center center
+    borders = 0 0 0 0
+sizer 303
+    container = panel_section edge_props
+    name = merge & bridge edges
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button merge_edges
+    container = sizer 303
+    icon_id = 
+    text = Merge...
+    tooltip_text = Merge picked edge (selection) with target
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button bridge_edges
+    container = sizer 303
+    icon_id = 
+    text = Bridge...
+    tooltip_text = Create poly(s) between picked edge (selection) and target
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 307
+    container = panel_section edge_props
+    name = bridge segments
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 307
+    text = Bridge segments:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field edge_bridge_segments
+    container = sizer 307
+    field_type = input
+    width = 40
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 310
+    container = panel_section edge_props
+    name = smooth/sharpen edges
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button smooth_edges
+    container = sizer 310
+    icon_id = 
+    text = Smooth
+    tooltip_text = Smooth selected edges
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button sharpen_edges
+    container = sizer 310
+    icon_id = 
+    text = Sharpen
+    tooltip_text = Sharpen selected edges
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+panel_section poly_props
+    title = Polygons
+    default_size = 0 0
+    hidden = 1
+checkbutton poly_normal_preserve
+    container = panel_section poly_props
+    text = Auto-lock border normals
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+sizer 317
+    container = panel_section poly_props
+    name = create & detach polys
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button create_poly
+    container = sizer 317
+    icon_id = 
+    text = Create...
+    tooltip_text = Create single polygon
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button detach_poly
+    container = sizer 317
+    icon_id = 
+    text = Detach
+    tooltip_text = Detach selected polygons
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button turn_diagonals
+    container = panel_section poly_props
+    icon_id = 
+    text = Turn diagonals...
+    tooltip_text = Turn any diagonals of a selected polygon
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+group 322
+    container = panel_section poly_props
+    title = Contiguous surfaces
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+checkbutton sel_polys_by_surface
+    container = group 322
+    text = Select by surface
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+sizer 325
+    container = group 322
+    name = invert & doubleside surfaces
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button invert_surfaces
+    container = sizer 325
+    icon_id = 
+    text = Invert
+    tooltip_text = Invert surfaces containing selected polygons
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button doubleside_surfaces
+    container = sizer 325
+    icon_id = 
+    text = Doubleside
+    tooltip_text = Doubleside surfaces containing selected polygons
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button make_model
+    container = group 322
+    icon_id = 
+    text = To new model(s)...
+    tooltip_text = Create new model(s) out of surfaces containing selected polygons
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+group 330
+    container = panel_section poly_props
+    title = Extrusion/inset
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+text -
+    container = group 330
+    text = Extrusion vector type:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 5 0
+combobox extrusion_vector_type
+    container = group 330
+    field_width = 100
+    icon_id = 
+    text = 
+    tooltip_text = Extrusion vector type
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 5 0
+sizer 334
+    container = group 330
+    name = extrusion/inset
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 334
+    text = Extrusion:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field poly_extrusion
+    container = sizer 334
+    field_type = input_spinner
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 334
+    text = Inset:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field poly_inset
+    container = sizer 334
+    field_type = input_spinner
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton inset_individual
+    container = group 330
+    text = Individual polygons
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+sizer 340
+    container = group 330
+    name = preview & apply extr./inset
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button preview_inset
+    container = sizer 340
+    icon_id = 
+    text = Preview
+    tooltip_text = Preview extrusion and inset
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button apply_inset
+    container = sizer 340
+    icon_id = 
+    text = Apply
+    tooltip_text = Extrude/inset selected polygons
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 344
+    container = panel_section poly_props
+    title = Polygon smoothing
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+checkbutton sel_polys_by_smoothing
+    container = group 344
+    text = Select by smoothing
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 5 0
+button upd_poly_smoothing
+    container = group 344
+    icon_id = 
+    text = Update
+    tooltip_text = Update polygon smoothing
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 10 0
+sizer 348
+    container = group 344
+    name = smoothing
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 0:1.0 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button smooth_polys
+    container = sizer 348
+    icon_id = 
+    text = Smooth
+    tooltip_text = Smooth selected polygons
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button unsmooth_polys
+    container = sizer 348
+    icon_id = 
+    text = Unsmooth
+    tooltip_text = Unsmooth selected polygons
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button smooth_all
+    container = sizer 348
+    icon_id = 
+    text = Smooth all
+    tooltip_text = Smooth all polygons
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button unsmooth_all
+    container = sizer 348
+    icon_id = 
+    text = Unsm. all
+    tooltip_text = Unsmooth all polygons
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button smooth_with
+    container = group 344
+    icon_id = 
+    text = Smooth with other...
+    tooltip_text = Smooth selected polygons with another
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button unsmooth_with
+    container = group 344
+    icon_id = 
+    text = Unsmooth with other...
+    tooltip_text = Unsmooth selected polygons with another
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+panel_section geometry
+    title = Geometry
+    default_size = 0 0
+    hidden = 1
+sizer 357
+    container = panel_section geometry
+    name = attach geometry
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button add_geometry
+    container = sizer 357
+    icon_id = 
+    text = Add from...
+    tooltip_text = Add geometry from picked model to selected models
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 10 0 0
+checkbutton multiple_src_models
+    container = sizer 357
+    text = multiple
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+group 360
+    container = panel_section geometry
+    title = Solidification
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 362
+    container = group 360
+    name = solidification thickness & offset
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 362
+    text = Thickness:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field solidification_thickness
+    container = sizer 362
+    field_type = input_spinner
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 362
+    text = Offset:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field solidification_offset
+    container = sizer 362
+    field_type = input_spinner
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 367
+    container = group 360
+    name = preview & apply solidification
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button preview_solidification
+    container = sizer 367
+    icon_id = 
+    text = Preview
+    tooltip_text = Preview solidification of model surface
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button apply_solidification
+    container = sizer 367
+    icon_id = 
+    text = Apply
+    tooltip_text = Solidify model surface
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button lock_geometry
+    container = panel_section geometry
+    icon_id = 
+    text = Lock
+    tooltip_text = Disable geometry editing
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 10
+panel_section surface_props
+    title = Surface properties
+    default_size = 0 0
+    hidden = 1
+checkbutton inverted_geom
+    container = panel_section surface_props
+    text = Invert (render inside-out)
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+group 375
+    container = panel_section surface_props
+    title = Subdivision
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 377
+    container = group 375
+    name = subdivision
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button subdivision_surfaces
+    container = sizer 377
+    icon_id = 
+    text = Subdivide
+    tooltip_text = Smooth mesh using surface subdivision
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field subdivision_count
+    container = sizer 377
+    field_type = input_spinner
+    width = 10
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+text -
+    container = sizer 377
+    text = times
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 5 0 0 0
+group 381
+    container = panel_section surface_props
+    title = Tangent space
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+checkbutton tangent_flip
+    container = group 381
+    text = Flip tangent vectors
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+checkbutton bitangent_flip
+    container = group 381
+    text = Flip bitangent vectors
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+panel_container bottom
+    default_size = 0 0
+button unlock_geometry
+    container = panel_container bottom
+    icon_id = 
+    text = Unlock geometry
+    tooltip_text = Enable geometry editing at different (sub-)object levels
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 10 10 10 10

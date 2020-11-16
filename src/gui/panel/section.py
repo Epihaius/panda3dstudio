@@ -1,38 +1,15 @@
 from ..base import *
-from ..group import WidgetGroup
-
-
-class PanelWidgetGroup(WidgetGroup):
-
-    def __init__(self, parent, label=""):
-
-        WidgetGroup.__init__(self, parent, "panel_main", "panel", label)
-
-    def add_group(self, label="", add_top_border=True):
-
-        group = PanelWidgetGroup(self, label)
-        WidgetGroup.add_group(self, group, add_top_border)
-
-        return group
 
 
 class SectionHeader(Widget):
 
     images = {}
-    _gfx = {
-        "": (
-            ("panel_section_header_topleft", "panel_section_header_top",
-             "panel_section_header_topright"),
-            ("panel_section_header_left", "panel_section_header_center",
-             "panel_section_header_right"),
-            ("panel_section_header_bottomleft", "panel_section_header_bottom",
-             "panel_section_header_bottomright")
-        )
-    }
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "section_header", parent, self._gfx)
+        gfx_ids = {"": Skin.atlas.gfx_ids["panel_section"]["expanded_header"]}
+
+        Widget.__init__(self, "section_header", parent, gfx_ids)
 
     def set_size(self, size, includes_borders=True, is_min=False):
 
@@ -48,10 +25,11 @@ class SectionHeader(Widget):
         else:
             images = Widget.update_images(self)
             image = images[""]
-            x, y, w, h = TextureAtlas["regions"]["section_header_minus"]
+            gfx_id = Skin.atlas.gfx_ids["panel_section"]["header_signs"][0][0]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
             l = self.gfx_inner_borders[0]
             height = self.get_size()[1]
-            tex_atlas = TextureAtlas["image"]
+            tex_atlas = Skin.atlas.image
             image.blend_sub_image(tex_atlas, l, (height - h) // 2, x, y, w, h)
             SectionHeader.images = images
 
@@ -71,32 +49,21 @@ class CollapsedSectionHeader(Widget):
 
     images = {}
     height = 0
-    _gfx = {
-        "": (
-            ("panel_section_border_topleft", "panel_section_border_top",
-             "panel_section_border_topright"),
-            ("panel_section_border_left", "panel_main", "panel_section_border_right"),
-            ("panel_section_border_bottomleft", "panel_section_border_bottom",
-             "panel_section_border_bottomright")
-        )
-    }
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "section_header", parent, self._gfx)
+        gfx_ids = {"": Skin.atlas.gfx_ids["panel_section"]["collapsed_header"]}
+
+        Widget.__init__(self, "section_header", parent, gfx_ids)
 
         if not self.height:
             CollapsedSectionHeader.height = self.min_size[1]
 
-        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
-        self._hook_node = hook_node = self.node.attach_new_node("hook_node")
-        hook_node.set_pos(-l, 0, -self.height)
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
+        self.hook_node = self.node.attach_new_node("hook_node")
+        self.hook_node.set_pos(-l, 0, -self.height)
 
     def set_pos(self, pos): pass
-
-    def get_hook_node(self):
-
-        return self._hook_node
 
     def update_images(self):
 
@@ -105,10 +72,11 @@ class CollapsedSectionHeader(Widget):
         else:
             images = Widget.update_images(self)
             image = images[""]
-            x, y, w, h = TextureAtlas["regions"]["section_header_plus"]
+            gfx_id = Skin.atlas.gfx_ids["panel_section"]["header_signs"][0][1]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
             l = self.gfx_inner_borders[0]
             height = self.get_size()[1]
-            tex_atlas = TextureAtlas["image"]
+            tex_atlas = Skin.atlas.image
             image.blend_sub_image(tex_atlas, l, (height - h) // 2, x, y, w, h)
             CollapsedSectionHeader.images = images
 
@@ -121,39 +89,34 @@ class PanelSection(Widget):
 
     registry = {}
     collapsed_height = 0
-    _gfx = {
-        "": (
-            ("panel_section_border_topleft", "panel_section_border_top",
-             "panel_section_border_topright"),
-            ("panel_section_border_left", "panel_main", "panel_section_border_right"),
-            ("panel_section_border_bottomleft", "panel_section_border_bottom",
-             "panel_section_border_bottomright")
-        )
-    }
 
-    def __init__(self, parent, section_id, name="", hidden=False):
+    def __init__(self, parent, section_id, title="", hidden=False):
 
-        Widget.__init__(self, "panel_section", parent, self._gfx, hidden=hidden,
+        gfx_ids = {"": Skin.atlas.gfx_ids["panel_section"][""]}
+
+        Widget.__init__(self, "panel_section", parent, gfx_ids, hidden=hidden,
                         has_mouse_region=False)
 
         self.registry[section_id] = self
         self.id = section_id
 
         sizer = Sizer("vertical")
+        sizer.set_column_proportion(0, 1.)
         Widget.sizer.fset(self, sizer)
         self._header = header = SectionHeader(self)
         self._collapsed_header = collapsed_header = CollapsedSectionHeader(self)
-        sizer.add(header, expand=True)
+        sizer.add(header)
         self._client_sizer = client_sizer = Sizer("vertical")
-        l, r, b, t = TextureAtlas["inner_borders"]["section"]
+        client_sizer.set_column_proportion(0, 1.)
+        l, r, b, t = Skin.atlas.inner_borders["section"]
         borders = (l, r, b, t)
-        sizer.add(client_sizer, expand=True, borders=borders)
+        sizer.add(client_sizer, borders=borders)
         header_region = header.mouse_region
         collapsed_header_region = collapsed_header.mouse_region
         mouse_watcher = parent.mouse_watcher
         mouse_watcher.remove_region(collapsed_header_region)
-        regions_expanded = set([header_region])
-        regions_collapsed = set([collapsed_header_region])
+        regions_expanded = {header_region}
+        regions_collapsed = {collapsed_header_region}
         self._mouse_region_groups = {"expanded": regions_expanded, "collapsed": regions_collapsed}
 
         if not PanelSection.collapsed_height:
@@ -163,19 +126,27 @@ class PanelSection(Widget):
 
         top_node = self.node
         top_node.name = f"section_top__{section_id}"
-        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
         top_node.set_pos(l, 0, -t)
         self._bottom_node = bottom_node = top_node.attach_new_node("section_bottom")
         bottom_node.set_x(-l)
-        collapsed_header.get_hook_node().reparent_to(top_node)
-        self._hook_node = bottom_node.attach_new_node(f"section_hook__{section_id}")
+        collapsed_header.hook_node.reparent_to(top_node)
+        self.hook_node = bottom_node.attach_new_node(f"section_hook__{section_id}")
 
         self._is_expanded = True
 
-        skin_text = Skin["text"]["panel_section_label"]
+        skin_text = Skin.text["panel_section_label"]
         font = skin_text["font"]
         color = skin_text["color"]
-        self._label = font.create_image(name, color)
+        self._label = font.create_image(title, color)
+        tex_atlas_regions = Skin.atlas.regions
+        gfx_ids = Skin.atlas.gfx_ids["panel_section"]["header_signs"]
+        offset = tex_atlas_regions[gfx_ids[0][0]][2]
+        offset += Skin.options["section_label_offset"]
+        gfx_ids = Skin.atlas.gfx_ids["panel_section"]["expanded_header"]
+        w_l = tex_atlas_regions[gfx_ids[0][0]][2]
+        w_r = tex_atlas_regions[gfx_ids[0][2]][2]
+        sizer.default_size = (w_l + offset + self._label.size[0] + w_r, 1)
 
     def finalize(self):
 
@@ -188,16 +159,9 @@ class PanelSection(Widget):
             if mouse_region:
                 mouse_region_group.add(mouse_region)
 
-        if self.is_hidden(check_ancestors=False):
+    def get_mouse_region_groups(self):
 
-            mouse_watcher = self.mouse_watcher
-
-            for mouse_region in mouse_region_group:
-                mouse_watcher.remove_region(mouse_region)
-
-    def get_hook_node(self):
-
-        return self._hook_node
+        return self._mouse_region_groups
 
     def get_collapsed_header(self):
 
@@ -213,7 +177,8 @@ class PanelSection(Widget):
     @sizer.setter
     def sizer(self, sizer): pass
 
-    def get_client_sizer(self):
+    @property
+    def client_sizer(self):
 
         return self._client_sizer
 
@@ -223,23 +188,6 @@ class PanelSection(Widget):
         self._bottom_node.set_z(-height)
 
         return new_size
-
-    def add(self, *args, **kwargs):
-
-        self._client_sizer.add(*args, **kwargs)
-
-    def add_group(self, label="", add_top_border=True):
-
-        group = PanelWidgetGroup(self, label)
-
-        if add_top_border:
-            l, r, b, t = TextureAtlas["inner_borders"]["section"]
-            borders = (0, 0, 0, t)
-            self._client_sizer.add(group, expand=True, borders=borders)
-        else:
-            self._client_sizer.add(group, expand=True)
-
-        return group
 
     def expand(self, expand=True):
 
@@ -276,9 +224,9 @@ class PanelSection(Widget):
                     mouse_watcher.add_region(region)
 
         if expand:
-            self._hook_node.reparent_to(self._bottom_node)
+            self.hook_node.reparent_to(self._bottom_node)
         else:
-            self._hook_node.reparent_to(self._collapsed_header.get_hook_node())
+            self.hook_node.reparent_to(self._collapsed_header.hook_node)
 
         self.parent.handle_section_change(self, "expand" if expand else "collapse")
 
@@ -291,6 +239,9 @@ class PanelSection(Widget):
         if not Widget.hide(self, recurse=False):
             return False
 
+        self.sizer_cell.object = (0, 0)
+        self.sizer_cell.borders = None
+
         if self.parent.is_expanded():
 
             mouse_watcher = self.mouse_watcher
@@ -299,7 +250,7 @@ class PanelSection(Widget):
             for region in mouse_region_groups["expanded" if self._is_expanded else "collapsed"]:
                 mouse_watcher.remove_region(region)
 
-        self._hook_node.reparent_to(self.node.parent)
+        self.hook_node.reparent_to(self.node.parent)
 
         self.parent.handle_section_change(self, "hide")
 
@@ -309,6 +260,10 @@ class PanelSection(Widget):
 
         if not Widget.show(self, recurse=False):
             return False
+
+        self.sizer_cell.object = self
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
+        self.sizer_cell.borders = (l, r, 0, t)
 
         if self.parent.is_expanded():
 
@@ -331,9 +286,9 @@ class PanelSection(Widget):
                     mouse_watcher.add_region(region)
 
         if self._is_expanded:
-            self._hook_node.reparent_to(self._bottom_node)
+            self.hook_node.reparent_to(self._bottom_node)
         else:
-            self._hook_node.reparent_to(self._collapsed_header.get_hook_node())
+            self.hook_node.reparent_to(self._collapsed_header.hook_node)
 
         self.parent.handle_section_change(self, "show")
 
@@ -358,12 +313,11 @@ class PanelSection(Widget):
         if composed:
             width, height = self._collapsed_header.get_size()
             w, h = self._label.size
-            x = (width - w) // 2
+            gfx_ids = Skin.atlas.gfx_ids["panel_section"]["header_signs"]
+            offset = Skin.atlas.regions[gfx_ids[0][0]][2]
+            offset += Skin.options["section_label_offset"]
+            x = (width - w + offset) // 2
             y = (height - h) // 2 + 1
             image.blend_sub_image(self._label, x, y, 0, 0, w, h)
 
         return image
-
-    def get_mouse_region_groups(self):
-
-        return self._mouse_region_groups

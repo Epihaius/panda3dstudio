@@ -1,0 +1,64 @@
+name = Surface to model
+title = Create models from surfaces
+default_size = 0 0
+sizer 1187
+    container = dialog
+    name = name
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 0 20
+text -
+    container = sizer 1187
+    text = Model basename:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field name
+    container = sizer 1187
+    field_type = input
+    width = 200
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = dialog
+    text = Leave field empty to base name(s) on source model name(s).
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 50 50 0 5
+group 1191
+    container = dialog
+    title = Creation method
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 0 20
+radiobuttongroup creation_method
+    container = group 1191
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 5
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+radiobutton per_src
+    text = One model per source model
+radiobutton per_surface
+    text = One model per surface
+radiobutton single
+    text = Single model
+checkbutton copy
+    container = dialog
+    text = Copy surfaces
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 50 50 20 15

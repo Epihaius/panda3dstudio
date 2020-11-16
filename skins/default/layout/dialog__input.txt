@@ -1,0 +1,16 @@
+name = Input
+title = -
+default_size = 0 0
+placeholder text
+    container = dialog
+    size = 100 50
+    proportions = 1.0 0.0
+    alignments = center expand
+    borders = 50 50 30 30
+field input
+    container = dialog
+    field_type = input
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 50 50 30 0

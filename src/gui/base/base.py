@@ -13,20 +13,6 @@ if USING_TK:
 PLATFORM_ID = platform.system()
 
 
-TextureAtlas = {
-    "image": None,
-    "regions": {},
-    "inner_borders": {},
-    "outer_borders": {}
-}
-Skin = {
-    "text": {},
-    "cursors": {},
-    "colors": {},
-    "options": {}
-}
-
-
 class Font:
 
     def __init__(self, path, pixel_size, height, y, line_spacing):
@@ -93,142 +79,251 @@ class Font:
         return image
 
 
-def load_skin(skin_id):
+class TextureAtlas:
 
-    skin_path = os.path.join("skins", skin_id)
+    image = None
+    regions = {}
+    gfx_ids = {}
+    inner_borders = {}
+    outer_borders = {}
 
-    tex_atlas = PNMImage()
-    tex_atlas.read(Filename.from_os_specific(os.path.join(skin_path, "atlas.png")))
-    TextureAtlas["image"] = tex_atlas
-    tex_atlas_regions = TextureAtlas["regions"]
-    tex_atlas_inner_borders = TextureAtlas["inner_borders"]
-    tex_atlas_outer_borders = TextureAtlas["outer_borders"]
 
-    # Parse texture atlas data
+class Skin:
 
-    read_regions = False
-    read_inner_borders = False
-    read_outer_borders = False
-
-    with open(os.path.join(skin_path, "atlas.txt")) as atlas_txt:
-
-        for line in atlas_txt:
-
-            if line.startswith("#"):
-                continue
-            elif line.startswith("REGIONS"):
-                read_regions = True
-                read_inner_borders = False
-                read_outer_borders = False
-                continue
-            elif line.startswith("INNER_BORDERS"):
-                read_regions = False
-                read_inner_borders = True
-                read_outer_borders = False
-                continue
-            elif line.startswith("OUTER_BORDERS"):
-                read_regions = False
-                read_inner_borders = False
-                read_outer_borders = True
-                continue
-
-            if read_regions:
-                part_id, x, y, w, h = line.split()
-                tex_atlas_regions[part_id] = (int(x), int(y), int(w), int(h))
-            elif read_inner_borders:
-                widget_id, l, r, b, t = line.split()
-                tex_atlas_inner_borders[widget_id] = (int(l), int(r), int(b), int(t))
-            elif read_outer_borders:
-                widget_id, l, r, b, t = line.split()
-                tex_atlas_outer_borders[widget_id] = (int(l), int(r), int(b), int(t))
-
-    # Parse other skin data, like fonts and cursors
-
-    font_path = os.path.join(skin_path, "fonts")
-    cursor_path = os.path.join(skin_path, "cursors")
-    fonts = {}
+    atlas = TextureAtlas
+    layout = None
     text = {}
-    read_fonts = False
-    read_text = False
-    read_cursors = False
-    read_colors = False
-    read_options = False
+    cursors = {}
+    colors = {}
+    options = {}
 
-    def typecast(string, data_type):
+    @classmethod
+    def load(cls):
 
-        if data_type == "string":
-            return string
-        if data_type == "float":
-            return float(string)
-        if data_type == "int":
-            return int(string)
-        if data_type == "bool":
-            return bool(int(string))
+        from ..layout import Layout
 
-    with open(os.path.join(skin_path, "skin.txt")) as skin_txt:
+        cls.layout = Layout
+        config_data = GD["config"]
+        skin_id = config_data["skin"]
+        skin_path = os.path.join("skins", skin_id)
 
-        for line in skin_txt:
+        if not os.path.exists(skin_path):
 
-            if line.startswith("#"):
-                continue
-            elif line.startswith("FONTS"):
-                read_fonts = True
-                read_text = False
-                read_cursors = False
-                read_colors = False
-                read_options = False
-                continue
-            elif line.startswith("TEXT"):
-                read_fonts = False
-                read_text = True
-                read_cursors = False
-                read_colors = False
-                read_options = False
-                continue
-            elif line.startswith("CURSORS"):
-                read_fonts = False
-                read_text = False
-                read_cursors = True
-                read_colors = False
-                read_options = False
-                continue
-            elif line.startswith("COLORS"):
-                read_fonts = False
-                read_text = False
-                read_cursors = False
-                read_colors = True
-                read_options = False
-                continue
-            elif line.startswith("OPTIONS"):
-                read_fonts = False
-                read_text = False
-                read_cursors = False
-                read_colors = False
-                read_options = True
-                continue
+            Notifiers.gui.warning(f'Skin "{skin_id}" not found! Loading default skin.')
+            skin_path = os.path.join("skins", "default")
 
-            if read_fonts:
-                font_id, filename, pixel_size, height, y, line_spacing = line.split()
-                path = os.path.join(font_path, *filename.split("/"))
-                fonts[font_id] = Font(path, float(pixel_size), int(height), int(y), int(line_spacing))
-            elif read_text:
-                text_id, font_id, r, g, b, a = line.split()
-                text[text_id] = (font_id, (float(r), float(g), float(b), float(a)))
-            elif read_cursors:
-                cursor_id, filename = line.split()
-                path = os.path.join(cursor_path, filename)
-                filename = Filename.binary_filename(Filename.from_os_specific(path))
-                Skin["cursors"][cursor_id] = filename
-            elif read_colors:
-                prop_id, r, g, b, a = line.split()
-                Skin["colors"][prop_id] = (float(r), float(g), float(b), float(a))
-            elif read_options:
-                option, data_type, value = line.split()
-                Skin["options"][option] = typecast(value, data_type)
+            if not os.path.exists(skin_path):
+                Notifiers.gui.info('(error): Default skin not found!')
+                raise RuntimeError('Failed to load default skin!')
 
-            for text_id, text_data in text.items():
-                font_id, color = text_data
-                Skin["text"][text_id] = {"font": fonts[font_id], "color": color}
+            config_data["skin"] = "default"
+
+            with open("config", "wb") as config_file:
+                pickle.dump(config_data, config_file, -1)
+
+        atlas_png_path = os.path.join(skin_path, "atlas.png")
+        atlas_txt_path = os.path.join(skin_path, "atlas.txt")
+        skin_txt_path = os.path.join(skin_path, "skin.txt")
+        font_path = os.path.join(skin_path, "fonts")
+        cursor_path = os.path.join(skin_path, "cursors")
+
+        if not os.path.exists(atlas_png_path):
+            Notifiers.gui.info(f'(error): "{skin_id}" atlas PNG file not found!')
+            raise RuntimeError('Failed to load "atlas.png"!')
+
+        if not os.path.exists(atlas_txt_path):
+            Notifiers.gui.info(f'(error): "{skin_id}" atlas data file not found!')
+            raise RuntimeError('Failed to load "atlas.txt"!')
+
+        if not os.path.exists(skin_txt_path):
+            if skin_id == "default":
+                Notifiers.gui.info('(error): default skin data file not found!')
+                raise RuntimeError('Failed to load default "skin.txt"!')
+            else:
+                skin_txt_path = os.path.join("skins", "default", "skin.txt")
+                if not os.path.exists(skin_txt_path):
+                    Notifiers.gui.info('(error): default skin data file not found!')
+                    raise RuntimeError('Failed to load default "skin.txt"!')
+                else:
+                    Notifiers.gui.warning(f'Skin "{skin_id}" data not found! Loading default data.')
+
+        if not os.path.exists(font_path):
+            if skin_id == "default":
+                Notifiers.gui.info('(error): Default fonts not found!')
+                raise RuntimeError('Failed to load default fonts!')
+            else:
+                font_path = os.path.join("skins", "default", "fonts")
+                if not os.path.exists(font_path):
+                    Notifiers.gui.info('(error): Default fonts not found!')
+                    raise RuntimeError('Failed to load default fonts!')
+                else:
+                    Notifiers.gui.warning(f'"{skin_id}" fonts not found! Loading default fonts.')
+
+        if not os.path.exists(cursor_path):
+            if skin_id == "default":
+                Notifiers.gui.info('(error): Default cursors not found!')
+                raise RuntimeError('Failed to load default cursors!')
+            else:
+                cursor_path = os.path.join("skins", "default", "cursors")
+                if not os.path.exists(cursor_path):
+                    Notifiers.gui.info('(error): Default cursors not found!')
+                    raise RuntimeError('Failed to load default cursors!')
+                else:
+                    Notifiers.gui.warning(f'"{skin_id}" cursors not found! Loading default cursors.')
+
+        cls.atlas.image = PNMImage()
+        cls.atlas.image.read(Filename.from_os_specific(atlas_png_path))
+        tex_atlas_regions = cls.atlas.regions
+        tex_atlas_gfx_ids = cls.atlas.gfx_ids
+        tex_atlas_inner_borders = cls.atlas.inner_borders
+        tex_atlas_outer_borders = cls.atlas.outer_borders
+
+        # Parse texture atlas data
+
+        read_regions = False
+        read_gfx_ids = False
+        read_inner_borders = False
+        read_outer_borders = False
+
+        with open(atlas_txt_path) as atlas_txt:
+
+            for line in atlas_txt:
+
+                if line.startswith("#"):
+                    continue
+                elif line.startswith("REGIONS"):
+                    read_regions = True
+                    read_gfx_ids = False
+                    read_inner_borders = False
+                    read_outer_borders = False
+                    continue
+                elif line.startswith("GRAPHICS_IDS"):
+                    read_regions = False
+                    read_gfx_ids = True
+                    read_inner_borders = False
+                    read_outer_borders = False
+                    continue
+                elif line.startswith("INNER_BORDERS"):
+                    read_regions = False
+                    read_gfx_ids = False
+                    read_inner_borders = True
+                    read_outer_borders = False
+                    continue
+                elif line.startswith("OUTER_BORDERS"):
+                    read_regions = False
+                    read_gfx_ids = False
+                    read_inner_borders = False
+                    read_outer_borders = True
+                    continue
+
+                if read_regions:
+                    part_id, x, y, w, h = line.split()
+                    tex_atlas_regions[part_id] = (int(x), int(y), int(w), int(h))
+                elif read_gfx_ids:
+                    if line.startswith("        "):
+                        state_gfx.append(tuple(gfx_id.strip().lstrip("*") for gfx_id in line.split()))
+                    elif line.startswith("    "):
+                        state_id = line.strip()
+                        gfx_ids[state_id] = state_gfx = []
+                    else:
+                        widget_id = line.strip()
+                        tex_atlas_gfx_ids[widget_id] = gfx_ids = {}
+                elif read_inner_borders:
+                    widget_id, l, r, b, t = line.split()
+                    tex_atlas_inner_borders[widget_id] = (int(l), int(r), int(b), int(t))
+                elif read_outer_borders:
+                    widget_id, l, r, b, t = line.split()
+                    tex_atlas_outer_borders[widget_id] = (int(l), int(r), int(b), int(t))
+
+        # Parse other skin data, like fonts and cursors
+
+        fonts = {}
+        text = {}
+        read_fonts = False
+        read_text = False
+        read_cursors = False
+        read_colors = False
+        read_options = False
+
+        def typecast(string, data_type):
+
+            if data_type == "string":
+                return string
+            if data_type == "float":
+                return float(string)
+            if data_type == "int":
+                return int(string)
+            if data_type == "bool":
+                return bool(int(string))
+
+        with open(skin_txt_path) as skin_txt:
+
+            for line in skin_txt:
+
+                if line.startswith("#"):
+                    continue
+                elif line.startswith("FONTS"):
+                    read_fonts = True
+                    read_text = False
+                    read_cursors = False
+                    read_colors = False
+                    read_options = False
+                    continue
+                elif line.startswith("TEXT"):
+                    read_fonts = False
+                    read_text = True
+                    read_cursors = False
+                    read_colors = False
+                    read_options = False
+                    continue
+                elif line.startswith("CURSORS"):
+                    read_fonts = False
+                    read_text = False
+                    read_cursors = True
+                    read_colors = False
+                    read_options = False
+                    continue
+                elif line.startswith("COLORS"):
+                    read_fonts = False
+                    read_text = False
+                    read_cursors = False
+                    read_colors = True
+                    read_options = False
+                    continue
+                elif line.startswith("OPTIONS"):
+                    read_fonts = False
+                    read_text = False
+                    read_cursors = False
+                    read_colors = False
+                    read_options = True
+                    continue
+
+                if read_fonts:
+                    font_id, filename, pixel_size, height, y, line_spacing = line.split()
+                    path = os.path.join(font_path, *filename.split("/"))
+                    fonts[font_id] = Font(path, float(pixel_size), int(height), int(y),
+                        int(line_spacing))
+                elif read_text:
+                    text_id, font_id, r, g, b, a = line.split()
+                    text[text_id] = (font_id, (float(r), float(g), float(b), float(a)))
+                elif read_cursors:
+                    cursor_id, filename = line.split()
+                    path = os.path.join(cursor_path, filename)
+                    filename = Filename.binary_filename(Filename.from_os_specific(path))
+                    cls.cursors[cursor_id] = filename
+                elif read_colors:
+                    prop_id, r, g, b, a = line.split()
+                    cls.colors[prop_id] = (float(r), float(g), float(b), float(a))
+                elif read_options:
+                    option, data_type, value = line.split()
+                    cls.options[option] = typecast(value, data_type)
+
+                for text_id, text_data in text.items():
+                    font_id, color = text_data
+                    cls.text[text_id] = {"font": fonts[font_id], "color": color}
+
+        skin_options = Layout.load()
+        cls.options.update(skin_options)
 
 
 def get_relative_region_frame(x, y, width, height, ref_width, ref_height):

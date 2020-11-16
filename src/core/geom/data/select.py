@@ -283,7 +283,7 @@ class SelectionMixin:
             vertex_data = geoms["sel_state"].node().modify_geom(0).modify_vertex_data()
             color = Mgr.get("subobj_selection_colors")[subobj_lvl]["unselected"]
             new_data = vertex_data.set_color(color)
-            vertex_data.set_array(1, new_data.get_array(1))
+            vertex_data.set_array(1, new_data.arrays[1])
 
         self._selected_subobj_ids[subobj_lvl] = []
 

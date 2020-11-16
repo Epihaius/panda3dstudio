@@ -1,0 +1,62 @@
+name = History
+title = History
+default_size = 0 0
+text -
+    container = dialog
+    text = Left-click an entry to select a range of events to be undone and/or redone (left-click it again to select none).|Right-click an entry for more options.|NOTE: rejected events will be permanently deleted.
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 15 15 15 15
+sizer 1351
+    container = dialog
+    name = buttons
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 20 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 15 15 15 15
+dropdown_button milestone
+    container = sizer 1351
+    icon_id = 
+    text = To milestone...
+    tooltip_text = 
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+dropdown_button rejected_hist
+    container = sizer 1351
+    icon_id = 
+    text = To rejected history...
+    tooltip_text = 
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+button current_event
+    container = sizer 1351
+    icon_id = 
+    text = To current event
+    tooltip_text = 
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+placeholder pane
+    container = dialog
+    size = 700 300
+    proportions = 1.0 1.0
+    alignments = expand expand
+    borders = 15 15 15 15
+#
+OPTIONS
+#
+hist_dialog_scrollpane_width        int     700
+hist_dialog_scrollpane_height       int     300
+# the gap between the "Archive" and "OK" buttons, as a multiple of the default gap size
+hist_dialog_archive_btn_gap_mult    float   4.
+# the width of the column containing the timestamps
+timestamp_column_width              int     260
+# the thickness of the rectangle around the current event entry
+history_entry_rect_thickness        int     1

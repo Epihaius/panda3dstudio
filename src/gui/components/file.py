@@ -1,6 +1,6 @@
 from ..base import *
 from ..dialog import *
-from .import_dialog import ImportDialog
+from ..dialogs import *
 
 
 class FileManager:

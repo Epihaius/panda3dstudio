@@ -1,5 +1,4 @@
 from .base import *
-from .dialog import *
 
 
 class ColorBox(Widget):
@@ -7,31 +6,35 @@ class ColorBox(Widget):
     _box_size = (0, 0)
     _disabled_img = None
     _multi_img = None
+    _color_dialog_cls = None
 
     @classmethod
-    def init(cls):
+    def init(cls, color_dialog_cls):
 
-        x, y, w, h = TextureAtlas["regions"]["color_disabled"]
+        gfx_id = Skin.atlas.gfx_ids["colorbox"]["disabled"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         cls._disabled_img = img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
-        x, y, w, h = TextureAtlas["regions"]["color_multi"]
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
+        gfx_id = Skin.atlas.gfx_ids["colorbox"]["multi"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         cls._multi_img = img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
 
-        options = Skin["options"]
+        options = Skin.options
         cls._box_size = (options["colorbox_width"], options["colorbox_height"])
+        cls._color_dialog_cls = color_dialog_cls
 
-    def __init__(self, parent, command=None, color=None, dialog_title=""):
+    def __init__(self, parent):
 
-        Widget.__init__(self, "colorbox", parent, gfx_data={})
+        Widget.__init__(self, "colorbox", parent, gfx_ids={})
 
         self.set_size(self._box_size, is_min=True)
 
-        self._command = command if command else lambda color: None
-        self._color = color
+        self._command = lambda color: None
+        self._color = None
         self._color_type = "single"
         self._is_clicked = False
-        self._dialog_title = dialog_title if dialog_title else "Pick color"
+        self._dialog_title = "Pick color"
         self._delay_card_update = False
 
     def destroy(self):
@@ -39,6 +42,50 @@ class ColorBox(Widget):
         Widget.destroy(self)
 
         self._command = lambda color: None
+
+    @property
+    def command(self):
+
+        return self._command
+
+    @command.setter
+    def command(self, command):
+
+        self._command = command if command else lambda color: None
+
+    @property
+    def dialog_title(self):
+
+        return self._dialog_title
+
+    @dialog_title.setter
+    def dialog_title(self, dialog_title):
+
+        self._dialog_title = dialog_title if dialog_title else "Pick color"
+
+    @property
+    def color_type(self):
+
+        return self._color_type
+
+    @color_type.setter
+    def color_type(self, color_type):
+
+        if self._color_type != color_type:
+            self._color_type = color_type
+            self.__update_card_image()
+
+    @property
+    def color(self):
+
+        return self._color
+
+    @color.setter
+    def color(self, color):
+
+        if self._color != color:
+            self._color = color
+            self.__update_card_image()
 
     def delay_card_update(self, delay=True):
 
@@ -118,21 +165,6 @@ class ColorBox(Widget):
 
         if self._is_clicked:
             color = self._color if self._color else (1., 1., 1.)
-            ColorDialog(title=self._dialog_title, color=color, on_yes=self.__set_color)
+            self._color_dialog_cls(title=self._dialog_title, color=color,
+                on_yes=self.__set_color)
             self._is_clicked = False
-
-    def set_color_type(self, color_type="single"):
-
-        if self._color_type != color_type:
-            self._color_type = color_type
-            self.__update_card_image()
-
-    def set_color(self, color):
-
-        if self._color != color:
-            self._color = color
-            self.__update_card_image()
-
-    def get_color(self):
-
-        return self._color

@@ -1,0 +1,193 @@
+name = Transform
+title = {transf_type} selection
+default_size = 0 0
+sizer 1216
+    container = dialog
+    name = angles
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 20
+    component_id = rotate
+button x
+    container = sizer 1216
+    icon_id = 
+    text = X
+    tooltip_text = Rotate about X-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = rotate
+button y
+    container = sizer 1216
+    icon_id = 
+    text = Y
+    tooltip_text = Rotate about Y-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = rotate
+button z
+    container = sizer 1216
+    icon_id = 
+    text = Z
+    tooltip_text = Rotate about Z-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = rotate
+text -
+    container = sizer 1216
+    text = Offset angle:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+    component_id = rotate
+field rot_axis
+    container = sizer 1216
+    field_type = input_slider
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = rotate
+sizer 1087
+    container = dialog
+    name = main
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 10
+    component_id = transform
+sizer 1088
+    container = sizer 1087
+    name = linked values
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 5
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = transform
+button xyz
+    container = sizer 1088
+    icon_id = 
+    text = X=Y=Z
+    tooltip_text = Make all values equal
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+button xy
+    container = sizer 1088
+    icon_id = 
+    text = X=Y
+    tooltip_text = Make X and Y values equal
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+button yz
+    container = sizer 1088
+    icon_id = 
+    text = Y=Z
+    tooltip_text = Make Y and Z values equal
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+button xz
+    container = sizer 1088
+    icon_id = 
+    text = X=Z
+    tooltip_text = Make X and Z values equal
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+group 1093
+    container = sizer 1087
+    title = Offset {value_type}
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+sizer 1095
+    container = group 1093
+    name = offsets
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+text -
+    container = sizer 1095
+    text = X:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = transform
+field x
+    container = sizer 1095
+    field_type = input_spinner
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+text -
+    container = sizer 1095
+    text = Y:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = transform
+field y
+    container = sizer 1095
+    field_type = input_spinner
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+text -
+    container = sizer 1095
+    text = Z:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = transform
+field z
+    container = sizer 1095
+    field_type = input_spinner
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = transform
+checkbutton preview
+    container = dialog
+    text = Preview
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 20 0 15 20

@@ -1,0 +1,625 @@
+name = Snap
+title = Snap options ({snap_descr})
+default_size = 0 0
+group 1058
+    container = dialog
+    title = Snap from:
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 10
+    component_id = transform
+radiobuttongroup src_type
+    container = group 1058
+    prim_dir = vertical
+    prim_limit = 2
+    gaps = 10 5
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = transform
+radiobutton grid_point
+    text = grid point
+radiobutton vert
+    text = vertex
+radiobutton obj_center
+    text = object center
+radiobutton edge
+    text = edge center
+radiobutton obj_pivot
+    text = object pivot
+radiobutton poly
+    text = polygon center
+radiobutton transf_center
+    text = transform center
+    component_id = translate
+group 1068
+    container = dialog
+    title = Snap to:
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 10
+    component_id = target options
+radiobuttongroup tgt_type
+    container = group 1068
+    prim_dir = vertical
+    prim_limit = 2
+    gaps = 10 5
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = target options
+radiobutton grid_point
+    text = grid point
+radiobutton vert
+    text = vertex
+radiobutton obj_center
+    text = object center
+radiobutton edge
+    text = edge center
+radiobutton obj_pivot
+    text = object pivot
+radiobutton poly
+    text = polygon center
+radiobutton increment
+    text = {incr_type} increment
+    component_id = increment
+sizer 1078
+    container = group 1068
+    name = target point size & increment (transform)
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 10
+    component_id = target options
+text -
+    container = sizer 1078
+    text = Target point size:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = target options
+field size
+    container = sizer 1078
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = target options
+text -
+    container = sizer 1078
+    text = {incr_descr}:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 10 0 0 0
+    component_id = increment
+field increment
+    container = sizer 1078
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = increment
+group 1083
+    container = dialog
+    title = Display
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 10
+    component_id = display (transform)
+sizer 1085
+    container = group 1083
+    name = display (transform)
+    prim_dir = horizontal
+    prim_limit = 4
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = display (transform)
+checkbutton show_marker
+    container = sizer 1085
+    text = Target point marker
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = display (transform)
+text -
+    container = sizer 1085
+    text = Size:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 15 0 0 0
+    component_id = display (transform)
+field marker_size
+    container = sizer 1085
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = display (transform)
+checkbutton show_rubber_band
+    container = sizer 1085
+    text = Rubber band
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 25 0 0 0
+    component_id = display (transform)
+checkbutton show_proj_marker
+    container = sizer 1085
+    text = Projected point marker
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = display (transform)
+text -
+    container = sizer 1085
+    text = Size:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 15 0 0 0
+    component_id = display (transform)
+field proj_marker_size
+    container = sizer 1085
+    field_type = input_spinner
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = display (transform)
+checkbutton show_proj_line
+    container = sizer 1085
+    text = Projection line
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 25 0 0 0
+    component_id = display (transform)
+checkbutton use_axis_constraints
+    container = dialog
+    text = Use axis constraints (snap to projection of target point onto transform plane/axis)
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 20 10 15 10
+    component_id = transform
+group 1095
+    container = dialog
+    title = Marker display
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 20 10
+    component_id = marker display
+sizer 1097
+    container = group 1095
+    name = marker display
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = marker display
+checkbutton show_marker
+    container = sizer 1097
+    text = Show
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = marker display
+text -
+    container = sizer 1097
+    text = Size:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 15 0 0 0
+    component_id = marker display
+field marker_size
+    container = sizer 1097
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = marker display
+group 1101
+    container = dialog
+    title = Creation start
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 10
+    component_id = creation
+sizer 1103
+    container = group 1101
+    name = enable & marker display
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 20 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 5 0 0
+    component_id = creation
+checkbutton enable_snapping
+    container = sizer 1103
+    text = Enable snapping
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+group 1105
+    container = sizer 1103
+    title = Marker display
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = creation
+sizer 1107
+    container = group 1105
+    name = marker display (creation start)
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = creation
+checkbutton show_marker
+    container = sizer 1107
+    text = Show
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+text -
+    container = sizer 1107
+    text = Size:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 15 0 0 0
+    component_id = creation
+field marker_size
+    container = sizer 1107
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+group 1111
+    container = group 1101
+    title = Snap to:
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 5 5 10
+    component_id = creation
+sizer 1113
+    container = group 1111
+    name = target point
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 30 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = creation
+radiobuttongroup tgt_type
+    container = sizer 1113
+    prim_dir = horizontal
+    prim_limit = 3
+    gaps = 10 5
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+radiobutton grid_point
+    text = grid point
+radiobutton obj_center
+    text = object center
+radiobutton obj_pivot
+    text = object pivot
+radiobutton vert
+    text = vertex
+radiobutton edge
+    text = edge center
+radiobutton poly
+    text = polygon center
+sizer 1121
+    container = sizer 1113
+    name = target point size
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 2
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+text -
+    container = sizer 1121
+    text = Target point size:
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = creation
+field size_creation_start
+    container = sizer 1121
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = creation
+group 1124
+    container = dialog
+    title = Creation phases
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 20 10
+    component_id = creation
+sizer 1126
+    container = group 1124
+    name = phases
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = creation
+checkbutton phase_1
+    container = sizer 1126
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+button phase_1
+    container = sizer 1126
+    icon_id = 
+    text = Phase 1
+    tooltip_text = Creation phase 1 settings
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+checkbutton phase_2
+    container = sizer 1126
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 15 0 0 0
+    component_id = creation
+button phase_2
+    container = sizer 1126
+    icon_id = 
+    text = Phase 2
+    tooltip_text = Creation phase 2 settings
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+checkbutton phase_3
+    container = sizer 1126
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 15 0 0 0
+    component_id = creation
+button phase_3
+    container = sizer 1126
+    icon_id = 
+    text = Phase 3
+    tooltip_text = Creation phase 3 settings
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+group 1133
+    container = group 1124
+    title = Snap to:
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 5 0 10
+    component_id = creation
+radiobuttongroup tgt_type_creation_phase
+    container = group 1133
+    prim_dir = horizontal
+    prim_limit = 4
+    gaps = 10 5
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = creation
+radiobutton grid_point
+    text = grid point
+radiobutton obj_center
+    text = object center
+radiobutton obj_pivot
+    text = object pivot
+radiobutton increment
+    text = offset increment
+radiobutton vert
+    text = vertex
+radiobutton edge
+    text = edge center
+radiobutton poly
+    text = polygon center
+sizer 1143
+    container = group 1133
+    name = target point size & increment (creation phase)
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 10
+    component_id = creation
+text -
+    container = sizer 1143
+    text = Target point size:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+field size
+    container = sizer 1143
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+text -
+    container = sizer 1143
+    text = Offset increment:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 10 0 0 0
+    component_id = creation
+field increment
+    container = sizer 1143
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+group 1148
+    container = group 1124
+    title = Display
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 5 5 10
+    component_id = creation
+sizer 1150
+    container = group 1148
+    name = display (creation phase)
+    prim_dir = horizontal
+    prim_limit = 4
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = creation
+checkbutton show_marker_creation_phase
+    container = sizer 1150
+    text = Target point marker
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+text -
+    container = sizer 1150
+    text = Size:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 15 0 0 0
+    component_id = creation
+field marker_size_creation_phase
+    container = sizer 1150
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+space 1154
+    container = sizer 1150
+    name = space
+    size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = creation
+checkbutton show_proj_marker
+    container = sizer 1150
+    text = Projected point marker
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+text -
+    container = sizer 1150
+    text = Size:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 15 0 0 0
+    component_id = creation
+field proj_marker_size
+    container = sizer 1150
+    field_type = input_spinner
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = creation
+checkbutton show_proj_line
+    container = sizer 1150
+    text = Projection line
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 25 0 0 0
+    component_id = creation

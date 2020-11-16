@@ -5,7 +5,7 @@ from ...toolbar import *
 
 class TransformButtons(ToggleButtonGroup):
 
-    def __init__(self, toolbar):
+    def __init__(self, buttons):
 
         ToggleButtonGroup.__init__(self)
 
@@ -17,10 +17,10 @@ class TransformButtons(ToggleButtonGroup):
 
         self.set_default_toggle("", (toggle_on_default, lambda: None))
 
-        btn_data = {
-            "translate": ("icon_translate", "Select and translate", [("w", 0), "W"]),
-            "rotate": ("icon_rotate", "Select and rotate", [("e", 0), "E"]),
-            "scale": ("icon_scale", "Select and scale", [("r", 0), "R"])
+        hotkeys = {
+            "translate": [("w", 0), "W"],
+            "rotate": [("e", 0), "E"],
+            "scale": [("r", 0), "R"]
         }
 
         def add_toggle(transf_type):
@@ -32,9 +32,8 @@ class TransformButtons(ToggleButtonGroup):
                 Mgr.update_app("status", ["select_uvs", transf_type, "idle"], "uv")
 
             toggle = (toggle_on, lambda: None)
-            icon_id, tooltip_text, hotkey = btn_data[transf_type]
-            btn = ToolbarButton(toolbar, icon_id=icon_id, tooltip_text=tooltip_text)
-            btn.set_hotkey(*hotkey, "uv")
+            btn = buttons[transf_type]
+            btn.set_hotkey(*hotkeys[transf_type], "uv")
             btn.enable_hotkey(False)
             self.add_button(btn, transf_type, toggle)
 
@@ -44,26 +43,36 @@ class TransformButtons(ToggleButtonGroup):
 
 class AxisButtons(ButtonGroup):
 
-    def __init__(self):
+    def __init__(self, buttons):
 
         ButtonGroup.__init__(self)
+
+        for axis_id in "uvw":
+
+            btn = buttons[axis_id]
+            btn.command = lambda a=axis_id: self.__set_axis_constraint(a)
+            self.add_button(btn, axis_id)
+
+            if axis_id != "w":
+                btn.set_hotkey((axis_id, 0), axis_id.upper(), "uv")
+                btn.enable_hotkey(False)
 
         self._axes = {"": ""}
 
     def update_axis_constraints(self, transf_type, axes):
 
-        for axis in "uvw":
-            self.get_button(axis).active = False
+        for axis_id in "uvw":
+            self.get_button(axis_id).active = False
 
         if not transf_type:
             return
 
         self._axes[transf_type] = axes
 
-        for axis in axes:
-            self.get_button(axis).active = True
+        for axis_id in axes:
+            self.get_button(axis_id).active = True
 
-    def __set_axis_constraint(self, axis):
+    def __set_axis_constraint(self, axis_id):
 
         tt = GD["active_uv_transform_type"]
 
@@ -71,49 +80,39 @@ class AxisButtons(ButtonGroup):
             return
 
         if tt == "rotate":
-            self.get_button(axis).active = True
+            self.get_button(axis_id).active = True
             return
 
         old_axes = self._axes[tt]
 
         if len(self._axes[tt]) == 1:
-            if axis == self._axes[tt]:
-                self._axes[tt] = "uv".replace(axis, "")
+            if axis_id == self._axes[tt]:
+                self._axes[tt] = "uv".replace(axis_id, "")
             else:
-                self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
+                self._axes[tt] = "".join(sorted(self._axes[tt] + axis_id))
         else:
-            if axis in self._axes[tt]:
-                self._axes[tt] = self._axes[tt].replace(axis, "")
+            if axis_id in self._axes[tt]:
+                self._axes[tt] = self._axes[tt].replace(axis_id, "")
             else:
-                self._axes[tt] = axis
+                self._axes[tt] = axis_id
 
         Mgr.update_interface("uv", "axis_constraints", tt, self._axes[tt])
-
-    def create_button(self, toolbar, axis):
-
-        icon_id = f"icon_{axis}"
-        tooltip_text = f"Transform about {axis.upper()}-axis"
-        command = lambda: self.__set_axis_constraint(axis)
-        btn = ToolbarButton(toolbar, "", icon_id, tooltip_text, command)
-        self.add_button(btn, axis)
-
-        if axis != "w":
-            btn.set_hotkey((axis, 0), axis.upper(), "uv")
-            btn.enable_hotkey(False)
-
-        return btn
 
 
 class TransformToolbar(Toolbar):
 
     def __init__(self, parent):
 
-        Toolbar.__init__(self, parent, "uv_transform", "UV Transform")
+        Toolbar.__init__(self, parent, "uv_transform")
+
+        widgets = Skin.layout.create(self, "uv_transform")
+        self._transform_btns = TransformButtons(widgets["buttons"])
+        self._axis_btns = AxisButtons(widgets["buttons"])
+        self._offsets_btn = offsets_btn = widgets["buttons"]["offsets"]
+        self._checkbuttons = checkbuttons = widgets["checkbuttons"]
+        self._fields = fields = widgets["fields"]
 
         self._uv_lvl = "poly"
-
-        self._checkbuttons = {}
-        self._transform_btns = btns = TransformButtons(self)
 
         def set_active_transform_off():
 
@@ -123,38 +122,22 @@ class TransformToolbar(Toolbar):
 
         self.add_hotkey(("q", 0), set_active_transform_off, "uv")
 
-        borders = (0, 5, 0, 0)
         get_handles_toggler = lambda transf_type: lambda shown: \
             self.__toggle_transform_handles(transf_type, shown)
 
         for transf_type in ("translate", "rotate", "scale"):
-            checkbtn = ToolbarCheckButton(self, get_handles_toggler(transf_type))
+            checkbtn = checkbuttons[transf_type]
+            checkbtn.command = get_handles_toggler(transf_type)
             checkbtn.check()
-            self._checkbuttons[transf_type] = checkbtn
-            self.add(checkbtn, borders=borders, alignment="center_v")
-            btn = btns.get_button(transf_type)
-            self.add(btn, borders=borders, alignment="center_v")
 
-        self.add(ToolbarSeparator(self), borders=borders)
-
-        self._axis_btns = AxisButtons()
-        self._fields = {}
-
-        get_value_handler = lambda axis: lambda value_id, value, state="done": \
-            self.__handle_value(axis, value_id, value, state)
-
-        font = Skin["text"]["input2"]["font"]
+        font = Skin.text["input2"]["font"]
         is_relative_value = True
 
-        for axis in "uvw":
+        for axis_id in "uvw":
 
-            axis_btn = self._axis_btns.create_button(self, axis)
-            self.add(axis_btn, borders=borders, alignment="center_v")
-
-            field = ToolbarMultiValField(self, 80)
-            self._fields[axis] = field
-            self.add(field, borders=borders, alignment="center_v")
-            handler = get_value_handler(axis)
+            field = fields[axis_id]
+            handler = lambda value_id, value, state="done", a=axis_id: \
+                self.__handle_value(a, value_id, value, state)
 
             for transf_type in ("translate", "rotate", "scale"):
                 field.add_value((transf_type, not is_relative_value), "float", handler)
@@ -162,13 +145,9 @@ class TransformToolbar(Toolbar):
                 field.add_value(value_id, "float", handler, font)
                 field.set_value(value_id, 1. if transf_type == "scale" else 0.)
 
-        icon_id = "icon_offsets"
-        tooltip_text = "Input relative values (offsets)"
-        btn = ToolbarButton(self, "", icon_id, tooltip_text, self.__toggle_relative_values)
+        offsets_btn.command = self.__toggle_relative_values
         btn_disabler = lambda: not GD["active_uv_transform_type"]
-        btn.add_disabler("no_transf", btn_disabler)
-        self._offsets_btn = btn
-        self.add(btn, borders=borders, alignment="center_v")
+        offsets_btn.add_disabler("no_transf", btn_disabler)
 
     def setup(self):
 
@@ -278,15 +257,15 @@ class TransformToolbar(Toolbar):
 
         self.__check_selection_count(transf_type)
 
-    def __handle_value(self, axis, value_id, value, state="done"):
+    def __handle_value(self, axis_id, value_id, value, state="done"):
 
         transf_type, is_rel_value = value_id
         Mgr.update_interface_remotely("uv", "transf_component", transf_type,
-                                      axis, value, is_rel_value)
+                                      axis_id, value, is_rel_value)
 
         if is_rel_value:
             val = 1. if transf_type == "scale" else 0.
-            self._fields[axis].set_value(value_id, val)
+            self._fields[axis_id].set_value(value_id, val)
 
     def __set_field_values(self, transform_data=None):
 
@@ -306,8 +285,8 @@ class TransformToolbar(Toolbar):
             if transform_type == "rotate":
                 self._fields["w"].set_value(value_id, values[0])
             else:
-                for axis, value in zip("uv", values):
-                    self._fields[axis].set_value(value_id, value)
+                for axis_id, value in zip("uv", values):
+                    self._fields[axis_id].set_value(value_id, value)
 
         if transf_type:
             self.__show_field_text()
@@ -358,7 +337,7 @@ class TransformToolbar(Toolbar):
 
         if sel_count > 1:
 
-            color = (.5, .5, .5, 1.)
+            color = Skin.text["input_disabled"]["color"]
 
             for field in self._fields.values():
                 field.set_text_color(color)

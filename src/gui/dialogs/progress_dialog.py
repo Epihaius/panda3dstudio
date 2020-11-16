@@ -1,42 +1,38 @@
-from .dialog import *
+from ..dialog import *
 
 
 class ProgressBarFrame(Widget):
 
-    _gfx = {
-        "": (
-            ("dialog_inset2_border_topleft", "dialog_inset2_border_top", "dialog_inset2_border_topright"),
-            ("dialog_inset2_border_left", "dialog_inset2_border_center", "dialog_inset2_border_right"),
-            ("dialog_inset2_border_bottomleft", "dialog_inset2_border_bottom", "dialog_inset2_border_bottomright")
-        )
-    }
-
     def __init__(self, parent):
 
-        Widget.__init__(self, "progress_bar_frame", parent, self._gfx, has_mouse_region=False)
+        gfx_ids = {"": Skin.atlas.gfx_ids["progress_bar"]["frame"]}
+
+        Widget.__init__(self, "progress_bar_frame", parent, gfx_ids, has_mouse_region=False)
 
     def set_progress_bar(self, progress_bar):
 
         sizer = Sizer("horizontal")
         self.sizer = sizer
-        x, y, w, h = TextureAtlas["regions"]["progress_bar_left"]
+        gfx_id = Skin.atlas.gfx_ids["progress_bar"][""][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         l, r, b, t = borders = self.gfx_inner_borders
         h += b + t
-        sizer.default_size = (500, h)
-        self._bar_sizer = bar_sizer = Sizer("horizontal")
-        sizer.add(bar_sizer, borders=borders, proportion=1.)
-        self._bar_item = bar_sizer.add(progress_bar)
-        self._space_item = bar_sizer.add((0, 0), proportion=1.)
+        sizer.default_size = (Skin.options["progress_dialog_bar_width"], h)
+        bar_sizer = Sizer("horizontal")
+        sizer.add(bar_sizer, proportions=(1., 0.), borders=borders)
+        bar_sizer.add(progress_bar)
+        bar_sizer.add((0, 0), proportions=(1., 0.))
 
 
 class ProgressBar(Widget):
 
-    _gfx = {"": (("progress_bar_left", "progress_bar_center", "progress_bar_right"),)}
-
     def __init__(self, dialog):
 
         frame = ProgressBarFrame(dialog)
-        Widget.__init__(self, "progress_bar", frame, self._gfx, has_mouse_region=False)
+        gfx_ids = {"": Skin.atlas.gfx_ids["progress_bar"][""]}
+
+        Widget.__init__(self, "progress_bar", frame, gfx_ids, has_mouse_region=False)
+
         frame.set_progress_bar(self)
 
         self._rate = 0.
@@ -67,15 +63,15 @@ class ProgressBar(Widget):
 
         if self._rate:
             self._progress = min(1., self._progress + self._rate)
-            sizer_item = self.sizer_item
-            sizer_item.proportion = self._progress
-            sizer = sizer_item.sizer
-            space_item = sizer.items[1]
-            space_item.proportion = 1. - self._progress
+            sizer_cell = self.sizer_cell
+            sizer_cell.proportions = (self._progress, 0.)
+            sizer = sizer_cell.sizer
+            space_cell = sizer.cells[1]
+            space_cell.proportions = (1. - self._progress, 0.)
             sizer.set_min_size_stale()
             sizer.update_min_size()
             sizer.set_size(sizer.get_size())
-            sizer.calculate_positions(sizer.get_pos())
+            sizer.update_positions(sizer.get_pos())
             sizer.update_images()
             self.__update_card_image()
 
@@ -90,18 +86,16 @@ class ProgressDialog(Dialog):
         elif on_cancel is None:
             on_cancel = lambda: Mgr.update_remotely("long_process_cancellation")
 
-        title = "Please wait..."
-
-        Dialog.__init__(self, title, choices, ok_alias, on_yes, on_no, on_cancel,
+        Dialog.__init__(self, "", choices, ok_alias, on_yes, on_no, on_cancel,
                         allow_escape=cancellable)
 
-        client_sizer = self.get_client_sizer()
-        borders = (50, 50, 30, 30)
-        text = DialogMessageText(self, message)
-        client_sizer.add(text, borders=borders, alignment="center_h")
-        self._progress_bar = bar = ProgressBar(self)
-        borders = (50, 50, 30, 0)
-        client_sizer.add(bar.frame, borders=borders, expand=True)
+        widgets = Skin.layout.create(self, "progress")
+        text_cell = widgets["placeholders"]["text"]
+        bar_cell = widgets["placeholders"]["bar"]
+
+        text_cell.object = DialogText(self, message, text_type="dialog_message")
+        self._progress_bar = ProgressBar(self)
+        bar_cell.object = self._progress_bar.frame
 
         self.finalize()
 

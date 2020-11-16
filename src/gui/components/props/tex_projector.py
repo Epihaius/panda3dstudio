@@ -3,7 +3,7 @@ from .base import *
 
 class TexProjectorProperties:
 
-    def __init__(self, panel):
+    def __init__(self, panel, widgets):
 
         self._panel = panel
         self._fields = {}
@@ -11,139 +11,73 @@ class TexProjectorProperties:
 
         self._targets = {}
 
-        section = panel.add_section("tex_projector_props", "Tex. projector properties", hidden=True)
-
-        text = "On"
-        checkbtn = PanelCheckButton(section, lambda on:
-            self.__handle_value("on", on), text)
+        checkbtn = widgets["checkbuttons"]["tex_proj_on"]
+        checkbtn.command = lambda on: self.__handle_value("on", on)
         self._checkbuttons["on"] = checkbtn
-        section.add(checkbtn)
 
-        borders = (0, 5, 0, 0)
-
-        sizer = Sizer("horizontal")
-        section.add(sizer)
-        text = "Size:"
-        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         val_id = "size"
-        field = PanelInputField(section, val_id, "float", self.__handle_value, 80)
+        field = widgets["fields"]["tex_proj_size"]
+        field.value_id = val_id
+        field.value_type = "float"
+        field.set_value_handler(self.__handle_value)
         field.set_input_parser(self.__parse_size_input)
         self._fields[val_id] = field
-        sizer.add(field, alignment="center_v")
 
-        group = section.add_group("Projection type")
-        radio_btns = PanelRadioButtonGroup(group, columns=1)
-        group.add(radio_btns.sizer)
-
-        get_command = lambda projection_type: lambda: self.__set_projection_type(projection_type)
+        radio_btns = widgets["radiobutton_groups"]["tex_proj_type"]
 
         for projection_type in ("orthographic", "perspective"):
-            radio_btns.add_button(projection_type, projection_type.title())
-            radio_btns.set_button_command(projection_type, get_command(projection_type))
+            command = lambda p=projection_type: self.__set_projection_type(p)
+            radio_btns.set_button_command(projection_type, command)
 
         radio_btns.set_selected_button("orthographic")
         self._radio_btns = radio_btns
 
-        group = section.add_group("Lens/Film")
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-        group.add(sizer, expand=True)
-        text = "Width:"
-        sizer.add(PanelText(group, text), alignment_v="center_v")
-        val_id = "film_w"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
-        field.set_input_parser(self.__parse_size_input)
-        self._fields[val_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
+        for val_id in ("film_w", "film_h", "film_x", "film_y"):
+            field = widgets["fields"][val_id]
+            field.value_id = val_id
+            field.value_type = "float"
+            field.set_value_handler(self.__handle_value)
+            field.set_input_parser(self.__parse_size_input)
+            self._fields[val_id] = field
 
-        text = "Height:"
-        sizer.add(PanelText(group, text), alignment_v="center_v")
-        val_id = "film_h"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
-        field.set_input_parser(self.__parse_size_input)
-        self._fields[val_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
+        self._target_combobox = widgets["comboboxes"]["tex_proj_target"]
 
-        text = "X offset:"
-        sizer.add(PanelText(group, text), alignment_v="center_v")
-        val_id = "film_x"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
-        field.set_input_parser(self.__parse_size_input)
-        self._fields[val_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
-
-        text = "Y offset:"
-        sizer.add(PanelText(group, text), alignment_v="center_v")
-        val_id = "film_y"
-        field = PanelInputField(group, val_id, "float", self.__handle_value, 80)
-        field.set_input_parser(self.__parse_size_input)
-        self._fields[val_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
-
-        section = panel.add_section("tex_projector_targets", "Projector targets", hidden=True)
-
-        self._target_combobox = PanelComboBox(section, 10, tooltip_text="Selected target")
-        borders = (5, 5, 5, 0)
-        section.add(self._target_combobox, expand=True, borders=borders)
-
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True, borders=borders)
-
-        borders = (0, 5, 0, 0)
-
-        text = "Pick"
-        btn = PanelButton(section, text, "", "Add target model", self.__pick_object)
+        btn = widgets["buttons"]["tex_proj_pick_target"]
+        btn.command = self.__pick_object
         self._pick_btn = btn
-        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        text = "Remove"
-        btn = PanelButton(section, text, "", "Remove selected target", self.__remove_target)
-        btn_sizer.add(btn, proportion=1., borders=borders)
+        btn = widgets["buttons"]["tex_proj_remove_target"]
+        btn.command = self.__remove_target
 
-        text = "Clear"
-        btn = PanelButton(section, text, "", "Remove all targets", self.__clear_targets)
-        btn_sizer.add(btn, proportion=1.)
+        btn = widgets["buttons"]["tex_proj_clear_target"]
+        btn.command = self.__clear_targets
 
-        group = section.add_group("Target poly selection")
-        sizer = Sizer("horizontal")
-        borders = (0, 0, 5, 0)
-        group.add(sizer, expand=True, borders=borders)
-
-        borders = (0, 5, 0, 0)
-
-        text = "Use"
-        checkbtn = PanelCheckButton(group, lambda val:
-            self.__handle_value("use_poly_sel", val), text)
+        checkbtn = widgets["checkbuttons"]["use_poly_sel"]
+        checkbtn.command = lambda val: self.__handle_value("use_poly_sel", val)
         checkbtn.enable(False)
         checkbtn.add_disabler("no_targets", lambda: not self._targets)
         self._checkbuttons["use_poly_sel"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((5, 0), proportion=1.)
-        text = "Show"
-        checkbtn = PanelCheckButton(group, lambda val:
-            self.__handle_value("show_poly_sel", val), text)
+
+        checkbtn = widgets["checkbuttons"]["show_poly_sel"]
+        checkbtn.command = lambda val: self.__handle_value("show_poly_sel", val)
         checkbtn.enable(False)
         checkbtn.add_disabler("no_targets", lambda: not self._targets)
         self._checkbuttons["show_poly_sel"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
 
-        text = "Affected UV sets:"
-        borders = (5, 5, 5, 10)
-        section.add(PanelText(group, text), alignment="center_h", borders=borders)
         val_id = "uv_set_ids"
-        field = PanelInputField(section, val_id, "custom", self.__handle_value, 10)
+        field = widgets["fields"]["tex_proj_uv_set_ids"]
+        field.value_id = val_id
+        field.value_type = "custom"
         field.set_input_parser(self.__parse_uv_set_id_input)
         field.set_value_parser(self.__parse_uv_set_ids)
+        field.set_value_handler(self.__handle_value)
         field.set_value(())
         field.enable(False)
         field.add_disabler("no_targets", lambda: not self._targets)
         self._fields[val_id] = field
-        borders = (5, 5, 5, 0)
-        section.add(field, expand=True, borders=borders)
 
-        text = "Apply UVs"
-        btn = PanelButton(section, text, "", "Bake UVs into target vertices", self.__apply_uvs)
-        section.add(btn, alignment="center_h")#, borders=borders)
+        btn = widgets["buttons"]["tex_proj_apply_uvs"]
+        btn.command = self.__apply_uvs
 
     def setup(self):
 
@@ -279,7 +213,7 @@ class TexProjectorProperties:
 
     def set_object_property_default(self, prop_id, value):
 
-        color = (1., 1., 0., 1.)
+        color = Skin.colors["default_value"]
 
         if prop_id == "on":
             self._checkbuttons["on"].check(value)
@@ -344,8 +278,8 @@ class TexProjectorProperties:
 
             for target_id in new_target_ids - old_target_ids:
                 target_name = target_names[target_id]
-                get_command = lambda target_id: lambda: self.__select_target(target_id)
-                combobox.add_item(target_id, target_name, get_command(target_id))
+                command = lambda t=target_id: self.__select_target(t)
+                combobox.add_item(target_id, target_name, command)
                 combobox.select_item(target_id)
 
             for target_id in old_target_ids - new_target_ids:
@@ -379,7 +313,7 @@ class TexProjectorProperties:
 
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
-        color = (.5, .5, .5, 1.) if multi_sel else None
+        color = Skin.text["input_disabled"]["color"] if multi_sel else None
 
         if multi_sel:
             self._checkbuttons["on"].check(False)

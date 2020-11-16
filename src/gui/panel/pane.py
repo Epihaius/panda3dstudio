@@ -1,50 +1,21 @@
 from ..base import *
-from ..menu import *
-from ..dialog import *
+from ..menu import Menu
+from ..dialog import Dialog
 from ..scroll import ScrollPaneFrame, ScrollPane
-from .panel import Panel
+from .panel import ControlPanel
 
 
-class PanelStack(ScrollPane):
+class ControlPane(ScrollPane):
 
     def __init__(self, frame_parent):
 
-        frame_gfx_data = {
-            "": (
-                ("panelstack_topleft", "panelstack_top", "panelstack_topright"),
-                ("panelstack_left", "panelstack_center", "panelstack_right"),
-                ("panelstack_bottomleft", "panelstack_bottom", "panelstack_bottomright")
-            )
-        }
-        bar_gfx_data = {
-            "": (
-                ("panel_scrollbar_topleft", "panel_scrollbar_top", "panel_scrollbar_topright"),
-                ("panel_scrollbar_left", "panel_scrollbar_center", "panel_scrollbar_right"),
-                ("panel_scrollbar_bottomleft", "panel_scrollbar_bottom", "panel_scrollbar_bottomright")
-            )
-        }
-        thumb_gfx_data = {
-            "normal": (
-                ("panel_scrollthumb_normal_topleft", "panel_scrollthumb_normal_top",
-                 "panel_scrollthumb_normal_topright"),
-                ("panel_scrollthumb_normal_left", "panel_scrollthumb_normal_center",
-                 "panel_scrollthumb_normal_right"),
-                ("panel_scrollthumb_normal_bottomleft", "panel_scrollthumb_normal_bottom",
-                 "panel_scrollthumb_normal_bottomright")
-            ),
-            "hilited": (
-                ("panel_scrollthumb_hilited_topleft", "panel_scrollthumb_hilited_top",
-                 "panel_scrollthumb_hilited_topright"),
-                ("panel_scrollthumb_hilited_left", "panel_scrollthumb_hilited_center",
-                 "panel_scrollthumb_hilited_right"),
-                ("panel_scrollthumb_hilited_bottomleft", "panel_scrollthumb_hilited_bottom",
-                 "panel_scrollthumb_hilited_bottomright")
-            )
-        }
-        append_scrollbar = not Skin["options"]["panel_scrollbar_left"]
+        frame_gfx_ids = {"": Skin.atlas.gfx_ids["scrollframe"]["panel"]}
+        bar_gfx_ids = {"": Skin.atlas.gfx_ids["scrollbar"]["panel"]}
+        thumb_gfx_ids = Skin.atlas.gfx_ids["panel_scrollthumb"]
+        append_scrollbar = not Skin.options["panel_scrollbar_left"]
 
-        ScrollPane.__init__(self, frame_parent, "panel_stack", "vertical", "gui", frame_gfx_data,
-                            bar_gfx_data, thumb_gfx_data, "panelstack_scrollbar",
+        ScrollPane.__init__(self, frame_parent, "control_pane", "vertical", "gui", frame_gfx_ids,
+                            bar_gfx_ids, thumb_gfx_ids, "control_pane_scrollbar",
                             append_scrollbar=append_scrollbar)
 
         self._panels = []
@@ -55,6 +26,8 @@ class PanelStack(ScrollPane):
         self._panel_heights = []
         self._is_contents_locked = False
         self._clicked_panel = None
+
+        self.sizer.set_column_proportion(0, 1.)
 
         self._menu = menu = Menu()
         item = menu.add("panels", "Panels", item_type="submenu")
@@ -108,10 +81,10 @@ class PanelStack(ScrollPane):
 
         submenu.add("expand_sections", "Expand all", command)
 
-    def _create_frame(self, parent, scroll_dir, cull_bin, gfx_data, bar_gfx_data,
-                      thumb_gfx_data, bar_inner_border_id, has_mouse_region=True):
+    def _create_frame(self, parent, scroll_dir, cull_bin, gfx_ids, bar_gfx_ids,
+                      thumb_gfx_ids, bar_inner_border_id, has_mouse_region=True):
 
-        return ScrollPaneFrame(parent, self, gfx_data, bar_gfx_data, thumb_gfx_data,
+        return ScrollPaneFrame(parent, self, gfx_ids, bar_gfx_ids, thumb_gfx_ids,
                                cull_bin, scroll_dir, bar_inner_border_id, has_mouse_region)
 
     def _get_mask_sort(self):
@@ -137,33 +110,36 @@ class PanelStack(ScrollPane):
 
         return True
 
-    def __get_scroll_command(self, panel):
+    def __scroll_to_panel(self, panel):
 
-        def scroll_to_panel():
-
-            offset = panel.get_pos(from_root=True)[1]
-            self.get_scrollthumb().set_offset(offset)
-
-        return scroll_to_panel
+        offset = panel.get_pos(from_root=True)[1]
+        self.scrollthumb.set_offset(offset)
 
     def finalize(self):
 
+        self.sizer.default_size = (self.virtual_size[0], 1)
         heights = self._panel_heights
         menu = self._panel_menu
         panel_menu_items = self._panel_menu_items
         command = lambda: None
+        update = False
 
         for panel in self._panels:
-            panel.finalize()
-            heights.append(panel.get_size()[1])
-            command = self.__get_scroll_command(panel)
-            item = menu.add(f"panel_{panel.id}", panel.name, command)
+            update = panel.finalize() or update
+            command = lambda p=panel: self.__scroll_to_panel(p)
+            item = menu.add(f"panel_{panel.id}", panel.title, command)
             panel_menu_items.append(item)
 
         self._menu.update()
 
-        self._sizer.item_size_locked = True
-        self._sizer.mouse_regions_locked = True
+        for panel in self._panels:
+            heights.append(panel.get_size()[1])
+
+        if update:
+            Mgr.get("window").update(Mgr.get("window_size"))
+
+        self.sizer.cell_size_locked = True
+        self.sizer.mouse_regions_locked = True
         self._is_contents_locked = True
 
     def destroy(self):
@@ -184,12 +160,12 @@ class PanelStack(ScrollPane):
         WidgetCard.set_pos(self, pos)
 
         x, y = self.get_pos(from_root=True)
-        self.get_widget_root_node().set_pos(x, 0, -y + self.get_scrollthumb().get_offset())
+        self.widget_root_node.set_pos(x, 0, -y + self.scrollthumb.get_offset())
 
     def add_panel(self, panel):
 
         self._panels.append(panel)
-        self._sizer.add(panel, expand=True)
+        self.sizer.add(panel)
 
     def get_panels(self):
 
@@ -209,8 +185,7 @@ class PanelStack(ScrollPane):
 
         heights = self._panel_heights
         new_heights = heights[:]
-        sizer = self.sizer
-        h_virt_new = h_virt = sizer.virtual_size[1]
+        h_virt_new = self.virtual_size[1]
         regions_to_copy = []
         prev_i = 0
         w = 0
@@ -224,7 +199,7 @@ class PanelStack(ScrollPane):
 
                 w, h = panel.get_size()
                 old_height = heights[i]
-                new_height = h if panel.is_expanded() else Panel.collapsed_height
+                new_height = h if panel.is_expanded() else ControlPanel.collapsed_height
                 new_heights[i] = new_height
                 h_virt_new += new_height - old_height
                 dh = sum(heights[prev_i:i])
@@ -261,7 +236,7 @@ class PanelStack(ScrollPane):
         tex = self.texture
         tex.load(img_new)
         self._image = img_new
-        sizer.virtual_size = (w, h_virt_new)
+        self.virtual_size = (w, h_virt_new)
 
         tex_offset_y = self.quad.get_tex_offset(TextureStage.default)[1]
 
@@ -281,7 +256,7 @@ class PanelStack(ScrollPane):
         quad.set_y(-1.)
         quad.set_tex_scale(TextureStage.default, *tex_scale)
         self.reset_sub_image_index()
-        self._scrollthumb.update()
+        self.scrollthumb.update()
         self.update_mouse_region_frames()
         index = 0
 
@@ -309,7 +284,7 @@ class PanelStack(ScrollPane):
 
         heights = self._panel_heights
         new_heights = heights[:]
-        h_virt_new = h_virt = self._sizer.virtual_size[1]
+        h_virt_new = self.virtual_size[1]
         regions_to_copy = []
         prev_i = 0
 
@@ -332,7 +307,7 @@ class PanelStack(ScrollPane):
             elif panel in self._panels_to_show:
 
                 w, h = panel.get_size()
-                new_height = h if panel.is_expanded() else Panel.collapsed_height
+                new_height = h if panel.is_expanded() else ControlPanel.collapsed_height
                 new_heights[i] = new_height
                 h_virt_new += new_height
                 dh = sum(heights[prev_i:i])
@@ -366,7 +341,7 @@ class PanelStack(ScrollPane):
         tex = self.texture
         tex.load(img_new)
         self._image = img_new
-        self._sizer.virtual_size = (w, h_virt_new)
+        self.virtual_size = (w, h_virt_new)
 
         tex_offset_y = self._quad.get_tex_offset(TextureStage.default)[1]
         self._quad.detach_node()
@@ -378,7 +353,7 @@ class PanelStack(ScrollPane):
         r = x + width
         b = -(y + min(height, h_virt_new))
         t = -y
-        cm = CardMaker("panel_stack_quad")
+        cm = CardMaker("control_pane_quad")
         cm.set_frame(l, r, b, t)
         self._quad = quad = NodePath(cm.generate())
 
@@ -389,7 +364,7 @@ class PanelStack(ScrollPane):
         quad.set_y(-1.)
         quad.set_tex_scale(TextureStage.default, *tex_scale)
         self.reset_sub_image_index()
-        self._scrollthumb.update()
+        self.scrollthumb.update()
         self.update_mouse_region_frames()
         index = 0
 
@@ -434,8 +409,8 @@ class PanelStack(ScrollPane):
     def hide(self):
 
         self._quad.detach_node()
-        self._scrollthumb.quad.detach_node()
-        self._scrollthumb.hide()
+        self.scrollthumb.quad.detach_node()
+        self.scrollthumb.hide()
         self.frame.get_scrollbar().hide()
         mw = self.get_mouse_watcher_nodepath()
         mw.detach_node()
@@ -445,8 +420,8 @@ class PanelStack(ScrollPane):
 
         gui_root = Mgr.get("gui_root")
         self._quad.reparent_to(gui_root)
-        self._scrollthumb.quad.reparent_to(gui_root)
-        self._scrollthumb.show()
+        self.scrollthumb.quad.reparent_to(gui_root)
+        self.scrollthumb.show()
         self.frame.get_scrollbar().show()
         mw = self.get_mouse_watcher_nodepath()
         mw.reparent_to(GD.showbase.mouseWatcher.parent)

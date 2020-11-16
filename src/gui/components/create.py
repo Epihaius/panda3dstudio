@@ -8,32 +8,28 @@ class CreationManager:
 
         creation_data = {}
 
-        def get_handler(object_type):
+        def set_creation_type(object_type):
 
-            def handler():
+            if GD["active_obj_level"] != "top":
+                GD["active_obj_level"] = "top"
+                Mgr.update_app("active_obj_level")
 
-                if GD["active_obj_level"] != "top":
-                    GD["active_obj_level"] = "top"
-                    Mgr.update_app("active_obj_level")
-
-                if not GD["active_creation_type"]:
-                    GD["active_creation_type"] = object_type
-                    Mgr.enter_state("creation_mode")
-                elif GD["active_creation_type"] != object_type:
-                    Mgr.update_app("interactive_creation", "changed")
-                    GD["active_creation_type"] = object_type
-                    Mgr.enter_state("creation_mode")
-                    Mgr.update_app("selected_obj_types", (object_type,))
-                    Mgr.update_app("interactive_creation", "started")
-                    if GD["snap"]["on"]["creation"]:
-                        Mgr.update_app("status", ["create", object_type, "snap_idle"])
-                    else:
-                        Mgr.update_app("status", ["create", object_type, "idle"])
-
-            return handler
+            if not GD["active_creation_type"]:
+                GD["active_creation_type"] = object_type
+                Mgr.enter_state("creation_mode")
+            elif GD["active_creation_type"] != object_type:
+                Mgr.update_app("interactive_creation", "changed")
+                GD["active_creation_type"] = object_type
+                Mgr.enter_state("creation_mode")
+                Mgr.update_app("selected_obj_types", (object_type,))
+                Mgr.update_app("interactive_creation", "started")
+                if GD["snap"]["on"]["creation"]:
+                    Mgr.update_app("status", ["create", object_type, "snap_idle"])
+                else:
+                    Mgr.update_app("status", ["create", object_type, "idle"])
 
         for object_type, object_type_name in ObjectTypes.get_types().items():
-            handler = get_handler(object_type)
+            handler = lambda t=object_type: set_creation_type(t)
             creation_data[object_type] = {"name": object_type_name, "handler": handler}
 
         menu = menubar.add_menu("create", "Create")

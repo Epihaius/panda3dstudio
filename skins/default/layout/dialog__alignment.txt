@@ -1,0 +1,624 @@
+name = Alignment
+title = Align {align_descr}
+default_size = 0 0
+group 2
+    container = dialog
+    title = {dir_align_descr}
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 10
+    component_id = direction
+sizer 4
+    container = group 2
+    name = 3D coord axes
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 10 0
+    component_id = local axes
+checkbutton all_axes
+    container = sizer 4
+    text = XYZ
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = local axes
+space 6
+    container = sizer 4
+    name = space 1
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = local axes
+checkbutton x_axis
+    container = sizer 4
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = local axes
+button x_axis
+    container = sizer 4
+    icon_id = 
+    text = X
+    tooltip_text = {src_descr} X-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+    component_id = local axes
+space 9
+    container = sizer 4
+    name = space 2
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = local axes
+checkbutton y_axis
+    container = sizer 4
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = local axes
+button y_axis
+    container = sizer 4
+    icon_id = 
+    text = Y
+    tooltip_text = {src_descr} Y-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+    component_id = local axes
+space 12
+    container = sizer 4
+    name = space 3
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = local axes
+checkbutton z_axis
+    container = sizer 4
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = local axes
+button z_axis
+    container = sizer 4
+    icon_id = 
+    text = Z
+    tooltip_text = {src_descr} Z-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+    component_id = local axes
+space 15
+    container = sizer 4
+    name = space 4
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = local axes
+checkbutton axis
+    container = group 2
+    text = Align {local_axis_descr} axis:
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 5 0 10 0
+    component_id = axis toggle
+text -
+    container = group 2
+    text = Target axis:
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 10 0
+    component_id = target axis
+radiobuttongroup axis
+    container = group 2
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    expand = 1
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 10 0
+    component_id = direction axis
+radiobutton x
+    text = X-axis
+radiobutton y
+    text = Y-axis
+radiobutton z
+    text = Z-axis
+checkbutton invert
+    container = group 2
+    text = Invert
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 5 0 0 0
+    component_id = direction
+group 23
+    container = group 2
+    title = Target point
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 5 5 10
+    component_id = point aimed at
+radiobuttongroup tgt_point
+    container = group 23
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    expand = 1
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = point aimed at
+radiobutton pivot
+    text = Pivot
+radiobutton center
+    text = Center
+group 28
+    container = dialog
+    title = Align {pt_align_descr}
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 10
+    component_id = center to point
+text -
+    container = group 28
+    text = Along the {axes_descr} axes:
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 5 0
+    component_id = center to point
+sizer 31
+    container = group 28
+    name = 2D coord. axes
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = center 2D coords
+checkbutton all_coords
+    container = sizer 31
+    text = XY
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 2D coords
+space 33
+    container = sizer 31
+    name = space 1
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 2D coords
+checkbutton x_coord
+    container = sizer 31
+    text = X
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 2D coords
+space 35
+    container = sizer 31
+    name = space 2
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 2D coords
+checkbutton y_coord
+    container = sizer 31
+    text = Y
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 2D coords
+space 37
+    container = sizer 31
+    name = space 3
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 2D coords
+sizer 38
+    container = group 28
+    name = 3D coord. axes
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = center 3D coords
+checkbutton all_coords
+    container = sizer 38
+    text = XYZ
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+    component_id = center 3D coords
+space 40
+    container = sizer 38
+    name = space 1
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 3D coords
+checkbutton x_coord
+    container = sizer 38
+    text = X
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 0 0
+    component_id = center 3D coords
+space 42
+    container = sizer 38
+    name = space 2
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 3D coords
+checkbutton y_coord
+    container = sizer 38
+    text = Y
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 0 0
+    component_id = center 3D coords
+space 44
+    container = sizer 38
+    name = space 3
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 3D coords
+checkbutton z_coord
+    container = sizer 38
+    text = Z
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 0 0
+    component_id = center 3D coords
+space 46
+    container = sizer 38
+    name = space 4
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = center 3D coords
+checkbutton per_vertex
+    container = group 28
+    text = Per vertex in selection
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 5 0 0 10
+    component_id = center per vertex
+group 48
+    container = dialog
+    title = Align {pt_align_descr}
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 0 10
+    component_id = point to point
+sizer 50
+    container = group 48
+    name = 2D coord. axes
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = point 2D coords
+checkbutton all_coords
+    container = sizer 50
+    text = XY
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = point 2D coords
+space 52
+    container = sizer 50
+    name = space 1
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = point 2D coords
+checkbutton x_coord
+    container = sizer 50
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = point 2D coords
+button x_coord
+    container = sizer 50
+    icon_id = 
+    text = X
+    tooltip_text = {axes_descr} X-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+    component_id = point 2D coords
+space 55
+    container = sizer 50
+    name = space 2
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = point 2D coords
+checkbutton y_coord
+    container = sizer 50
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = point 2D coords
+button y_coord
+    container = sizer 50
+    icon_id = 
+    text = Y
+    tooltip_text = {axes_descr} Y-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+    component_id = point 2D coords
+space 58
+    container = sizer 50
+    name = space 3
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = point 2D coords
+sizer 59
+    container = group 48
+    name = 3D coord. axes
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 0 0 0
+    component_id = point 3D coords
+checkbutton all_coords
+    container = sizer 59
+    text = XYZ
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 0 0
+    component_id = point 3D coords
+space 61
+    container = sizer 59
+    name = space 1
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = point 3D coords
+checkbutton x_coord
+    container = sizer 59
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = point 3D coords
+button x_coord
+    container = sizer 59
+    icon_id = 
+    text = X
+    tooltip_text = {axes_descr} X-axis
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+    component_id = point 3D coords
+space 64
+    container = sizer 59
+    name = space 2
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = point 3D coords
+checkbutton y_coord
+    container = sizer 59
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+    component_id = point 3D coords
+button y_coord
+    container = sizer 59
+    icon_id = 
+    text = Y
+    tooltip_text = {axes_descr} Y-axis
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 5 0 0 0
+    component_id = point 3D coords
+space 67
+    container = sizer 59
+    name = space 3
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = point 3D coords
+checkbutton z_coord
+    container = sizer 59
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+    component_id = point 3D coords
+button z_coord
+    container = sizer 59
+    icon_id = 
+    text = Z
+    tooltip_text = {axes_descr} Z-axis
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 5 0 0 0
+    component_id = point 3D coords
+space 70
+    container = sizer 59
+    name = space 4
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = point 3D coords
+group 71
+    container = group 48
+    title = Sel. object(s)
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 5 0 5
+    component_id = source point
+radiobuttongroup sel_point
+    container = group 71
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 10 2
+    expand = 1
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = source point
+radiobutton pivot
+    text = Pivot
+radiobutton center
+    text = Center
+radiobutton min
+    text = Minimum
+radiobutton max
+    text = Maximum
+group 78
+    container = group 48
+    title = Target object
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 5 5 0 5
+    component_id = target point
+radiobuttongroup tgt_point
+    container = group 78
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 10 2
+    expand = 1
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = target point
+radiobutton pivot
+    text = Pivot
+radiobutton center
+    text = Center
+radiobutton min
+    text = Minimum
+radiobutton max
+    text = Maximum
+checkbutton local_minmax
+    container = group 48
+    text = Local min./max. (ignore {cs_descr} coord. sys.)
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 5 0 0 5
+    component_id = point to point
+button all_axes
+    container = group 48
+    icon_id = 
+    text = For all axes
+    tooltip_text = Use these settings for all axes
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 5 5 5 5
+    component_id = point to point
+checkbutton per_vertex
+    container = group 48
+    text = Per vertex in selection
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 5 0 0 5
+    component_id = point per vertex
+checkbutton planar
+    container = dialog
+    text = Make planar
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 20 0 0 10
+    component_id = planar
+checkbutton preview
+    container = dialog
+    text = Preview
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 20 0 15 10

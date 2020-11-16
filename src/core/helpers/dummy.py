@@ -496,7 +496,7 @@ class Dummy(TopLevelObject):
 
         self._type_prop_ids = ["viz", "size", "cross_size", "const_size_state",
                                "const_size", "on_top"]
-        self._viz = set(["box", "cross"])
+        self._viz = {"box", "cross"}
         self._size = 0.
         self._cross_size = 100.  # percentage of main (box) size
         self._is_const_size = False
@@ -894,7 +894,7 @@ class DummyManager(ObjectManager, CreationPhaseManager, ObjPropDefaultsManager):
         CreationPhaseManager.__init__(self, "dummy")
         ObjPropDefaultsManager.__init__(self, "dummy")
 
-        self.set_property_default("viz", set(["box", "cross"]))
+        self.set_property_default("viz", {"box", "cross"})
         self.set_property_default("size", 1.)
         self.set_property_default("cross_size", 100.)
         self.set_property_default("const_size_state", False)

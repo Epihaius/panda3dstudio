@@ -29,7 +29,7 @@ class ToolTip:
     @classmethod
     def create_label(cls, text, text_color=None):
 
-        skin_text = Skin["text"]["tooltip"]
+        skin_text = Skin.text["tooltip"]
 
         if text_color:
             color = text_color
@@ -37,17 +37,30 @@ class ToolTip:
             color = skin_text["color"]
 
         font = skin_text["font"]
-        colors = Skin["colors"]
+        colors = Skin.colors
+        thickness = Skin.options["tooltip_border_thickness"]
+        offset = Skin.options["tooltip_border_offset"]
         image = font.create_image(text, color)
         w, h = image.size
-        label = PNMImage(w + 8, h + 8, 4)
+        w += (thickness + offset) * 2
+        h += (thickness + offset) * 2
+        label = PNMImage(w, h, 4)
         painter = PNMPainter(label)
-        fill = PNMBrush.make_pixel(colors["tooltip_background"])
-        pen = PNMBrush.make_pixel(colors["tooltip_border"])
-        painter.fill = fill
-        painter.pen = pen
-        painter.draw_rectangle(0, 0, w + 7, h + 7)
-        label.blend_sub_image(image, 4, 4, 0, 0)
+        brush_border = PNMBrush.make_pixel(colors["tooltip_border"])
+        brush_backgr = PNMBrush.make_pixel(colors["tooltip_background"])
+
+        if thickness == 1:
+            painter.pen = brush_border
+            painter.fill = brush_backgr
+            painter.draw_rectangle(0, 0, w - 1, h - 1)
+        else:
+            painter.pen = PNMBrush.make_transparent()
+            painter.fill = brush_border
+            painter.draw_rectangle(0, 0, w - 1, h - 1)
+            painter.fill = brush_backgr
+            painter.draw_rectangle(thickness, thickness, w - 1 - thickness, h - 1 - thickness)
+
+        label.blend_sub_image(image, thickness + offset, thickness + offset, 0, 0)
 
         return label
 

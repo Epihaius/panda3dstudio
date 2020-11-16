@@ -3,38 +3,28 @@ from .base import *
 
 class SphereProperties:
 
-    def __init__(self, panel):
+    def __init__(self, panel, widgets):
 
         self._panel = panel
         self._fields = {}
         self._checkbuttons = {}
 
-        section = panel.add_section("sphere_props", "Sphere properties", hidden=True)
-
         prop_ids = ("radius", "segments")
         val_types = ("float", "int")
 
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-        section.add(sizer, expand=True)
-
         for prop_id, val_type in zip(prop_ids, val_types):
-            text = f"{prop_id.title()}:"
-            sizer.add(PanelText(section, text), alignment_v="center_v")
-            field = PanelInputField(section, prop_id, val_type, self.__handle_value, 80)
+            field = widgets["fields"][f"sphere_{prop_id}"]
+            field.value_id = prop_id
+            field.value_type = val_type
+            field.set_value_handler(self.__handle_value)
             self._fields[prop_id] = field
-            sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         self._fields["radius"].set_input_parser(self.__parse_radius_input)
         self._fields["segments"].set_input_parser(self.__parse_segments_input)
 
-        section.add((0, 5))
-
-        text = "Smooth"
-        checkbox = PanelCheckButton(section, lambda val:
-            self.__handle_value("smoothness", val), text)
-        checkbox.check(True)
+        checkbox = widgets["checkbuttons"]["sphere_smoothness"]
+        checkbox.command = lambda val: self.__handle_value("smoothness", val)
         self._checkbuttons["smoothness"] = checkbox
-        section.add(checkbox)
 
     def setup(self): pass
 
@@ -74,7 +64,7 @@ class SphereProperties:
 
     def set_object_property_default(self, prop_id, value):
 
-        color = (1., 1., 0., 1.)
+        color = Skin.colors["default_value"]
 
         if prop_id == "smoothness":
             self._checkbuttons["smoothness"].check(value)
@@ -97,7 +87,7 @@ class SphereProperties:
 
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
-        color = (.5, .5, .5, 1.) if multi_sel else None
+        color = Skin.text["input_disabled"]["color"] if multi_sel else None
 
         if multi_sel:
             self._checkbuttons["smoothness"].check(False)

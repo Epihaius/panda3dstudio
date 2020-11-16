@@ -36,13 +36,13 @@ class TextControl:
     @classmethod
     def init(cls):
 
-        delay = Skin["options"]["inputfield_caret_blink_delay"]
+        delay = Skin.options["inputfield_caret_blink_delay"]
         Mgr.add_task(delay, cls.__blink_caret, "blink_input_caret")
 
     def __init__(self, field, font, color, cull_bin=("gui", 3)):
 
         self._field = field
-        self._font = font if font else Skin["text"]["input"]["font"]
+        self._font = font if font else Skin.text["input"]["font"]
         self._color = color
         self._text = ""
         self._label = None
@@ -65,10 +65,10 @@ class TextControl:
         root.hide()
         self._image = PNMImage(w, h, 4)
         cm.name = "input_caret"
-        w_c = Skin["options"]["inputfield_caret_width"]
-        h_c = Skin["options"]["inputfield_caret_height"]
+        w_c = Skin.options["inputfield_caret_width"]
+        h_c = Skin.options["inputfield_caret_height"]
         self._caret_offset_node = offset_node = root.attach_new_node("offset_node")
-        margin = Skin["options"]["inputfield_margin"]
+        margin = Skin.options["inputfield_margin"]
         y = (h - h_c) // 2
         l = -w_c // 2
         r = l + w_c
@@ -104,23 +104,20 @@ class TextControl:
     def __update_caret(self):
 
         w, h = self._field.get_size()
-        margin = Skin["options"]["inputfield_margin"]
+        margin = Skin.options["inputfield_margin"]
         w -= margin
         x = self._font.calc_width(self._text[:self._caret_pos])
         caret = self._caret
         caret.set_x(x)
-        w_c = Skin["options"]["inputfield_caret_width"]
-        h_c = Skin["options"]["inputfield_caret_height"]
+        w_c = Skin.options["inputfield_caret_width"]
+        h_c = Skin.options["inputfield_caret_height"]
         x, y, z = caret.get_pos(self._root)
         x = int(x) - w_c // 2
         y = int(-z)
-        img1 = PNMImage(w_c, h_c)
-        img1.fill(1., 1., 1.)
-        img2 = PNMImage(img1)
-        img2.copy_sub_image(self._image, 0, 0, x, y, w_c, h_c)
+        img = PNMImage(w_c, h_c)
+        img.copy_sub_image(self._image, 0, 0, x, y, w_c, h_c)
         # invert the image colors
-        img1 -= img2
-        self._caret_tex.load(img1)
+        self._caret_tex.load(~img)
         caret.show()
 
     def set_scissor_effect(self, effect):
@@ -139,7 +136,7 @@ class TextControl:
         self._label = None
         self._label_offset = 0
         self._caret_pos = 0
-        self._caret_offset_node.set_x(Skin["options"]["inputfield_margin"])
+        self._caret_offset_node.set_x(Skin.options["inputfield_margin"])
         self._char_positions = []
         self._char_pos_stale = False
         self._selection_anchor = 0
@@ -147,18 +144,20 @@ class TextControl:
         self.__update_image()
         self.__update_caret()
 
-    def set_color(self, color):
-
-        self._color = color
-
-    def get_color(self):
+    @property
+    def color(self):
 
         return self._color
+
+    @color.setter
+    def color(self, color):
+
+        self._color = color
 
     def __scroll(self):
 
         w, h = self._field.get_size()
-        margin = Skin["options"]["inputfield_margin"]
+        margin = Skin.options["inputfield_margin"]
         w_ = w - margin * 2
         w_t = self._font.calc_width(self._text[:self._caret_pos])
         label_offset = self._label_offset
@@ -176,11 +175,17 @@ class TextControl:
 
         return True
 
-    def set_text(self, text):
+    @property
+    def text(self):
+
+        return self._text
+
+    @text.setter
+    def text(self, text):
 
         self._text = text
         self._selection_anchor = self._caret_pos = len(text)
-        self._caret_offset_node.set_x(Skin["options"]["inputfield_margin"])
+        self._caret_offset_node.set_x(Skin.options["inputfield_margin"])
         self._char_pos_stale = True
         self._label_offset = 0
         self.create_label()
@@ -362,10 +367,6 @@ class TextControl:
                 self.__update_image()
                 self.__update_caret()
 
-    def get_text(self):
-
-        return self._text
-
     def get_selected_text(self):
 
         start_pos = min(self._caret_pos, self._selection_anchor)
@@ -399,7 +400,7 @@ class TextControl:
             r.update()
 
             try:
-                text = r.selection_get(selection="CLIPBOARD")
+                text = r.clipboard_get()
             except:
                 r.destroy()
                 return
@@ -418,14 +419,14 @@ class TextControl:
 
         w, h = self._field.get_size()
         image = PNMImage(w, h, 4)
-        r, g, b, a = Skin["colors"]["inputfield_background"]
+        r, g, b, a = Skin.colors["inputfield_background"]
         image.fill(r, g, b)
         image.alpha_fill(a)
         label = self._label
 
         if label:
             w_l, h_l = label.size
-            x = margin = Skin["options"]["inputfield_margin"]
+            x = margin = Skin.options["inputfield_margin"]
             y = (h - h_l) // 2
             w_ = w - margin * 2
             image.blend_sub_image(label, x, y, self._label_offset, 0, w_, h_l)
@@ -453,8 +454,8 @@ class TextControl:
                 end_pos = max(self._caret_pos, self._selection_anchor)
                 x = self._font.calc_width(self._text[:start_pos])
                 txt = self._text[start_pos:end_pos]
-                color_fg = Skin["text"]["input_selection"]["color"]
-                color_bg = Skin["colors"]["input_selection_background"]
+                color_fg = Skin.text["input_selection"]["color"]
+                color_bg = Skin.colors["input_selection_background"]
                 label_sel = self._font.create_image(txt, color_fg, color_bg)
                 label.copy_sub_image(label_sel, x, 0, 0, 0)
 
@@ -489,20 +490,21 @@ class SliderControl:
     @classmethod
     def init(cls):
 
-        x, y, w, h = TextureAtlas["regions"]["slider_mark"]
+        gfx_id = Skin.atlas.gfx_ids["slider"]["mark"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         cls._mark = img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
-        cls._font = Skin["text"]["slider"]["font"]
-        cls._default_text_color = Skin["text"]["slider"]["color"]
-        cls._color = Skin["colors"]["slider"]
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
+        cls._font = Skin.text["slider"]["font"]
+        cls._default_text_color = Skin.text["slider"]["color"]
+        cls._color = Skin.colors["slider"]
 
-    def __init__(self, field, value_type="float", value_range=(0., 1.), cull_bin=("gui", 3)):
+    def __init__(self, field, cull_bin=("gui", 3)):
 
         self._field = field
         self._text_color = self._default_text_color
-        self._range = value_range
-        self._value = value_range[0]
-        self._value_type = value_type
+        self._range = (0., 1.)
+        self._value = 0.
+        self._value_type = "float"
         cm = CardMaker("slider")
         cm.set_frame(0, 1., -1., 0)
         w, h = field.get_size()
@@ -617,7 +619,7 @@ class SliderControl:
 
         w, h = self._field.get_size()
         image = PNMImage(w, h, 4)
-        r, g, b, a = Skin["colors"]["inputfield_background"]
+        r, g, b, a = Skin.colors["inputfield_background"]
         image.fill(r, g, b)
         image.alpha_fill(a)
 
@@ -634,7 +636,7 @@ class SliderControl:
         x = (w - w_l) // 2
         y = (h - h_l) // 2
         start, end = self._range
-        w -= Skin["options"]["slider_mark_thickness"]
+        w -= Skin.options["slider_mark_thickness"]
         w = int(w * (val - start) / (end - start))
         painter.draw_rectangle(0, 0, w, h)
         image.blend_sub_image(self._mark * self._color, w, 0, 0, 0)
@@ -673,7 +675,7 @@ class InputField(Widget):
     # each time region masks are needed, check for each existing MouseWatcher if its name is in
     # the above dict; if so, retrieve the previously created region mask, otherwise create a
     # region mask for it and add it to the dict;
-    # the sort of the region mask for the MouseWatcher named "panel_stack" needs to be 105, the
+    # the sort of the region mask for the MouseWatcher named "control_pane" needs to be 105, the
     # sort of the other region masks must be lower than 100
     _mouse_watchers = None
     _listener = DirectObject()
@@ -691,9 +693,9 @@ class InputField(Widget):
         cls._mouse_region_mask = MouseWatcherRegion("inputfield_mask", -d, d, -d, d)
         cls._mouse_region_mask.sort = 90
 
-        cls._default_text_color = Skin["text"]["input"]["color"]
-        cls._default_back_color = Skin["colors"]["inputfield_background"]
-        cls._height = Skin["options"]["inputfield_height"]
+        cls._default_text_color = Skin.text["input"]["color"]
+        cls._default_back_color = Skin.colors["inputfield_background"]
+        cls._height = Skin.options["inputfield_height"]
 
         def accept_input():
 
@@ -852,7 +854,7 @@ class InputField(Widget):
         if mouse_watcher_name in cls._mouse_region_masks:
             return cls._mouse_region_masks[mouse_watcher_name]
 
-        if mouse_watcher_name == "panel_stack":
+        if mouse_watcher_name == "control_pane":
             mouse_region_mask = MouseWatcherRegion(cls._mouse_region_mask)
             mouse_region_mask.sort = 105
         else:
@@ -883,12 +885,10 @@ class InputField(Widget):
 
         InputField._default_input_parsers[value_type] = parser
 
-    def __init__(self, parent, value_id, value_type, handler, width, border_gfx_data, image_offset,
-                 font=None, text_color=None, back_color=None, sort=110, cull_bin=("gui", 3),
-                 on_accept=None, on_reject=None, on_key_enter=None, on_key_escape=None,
-                 allow_reject=True):
+    def __init__(self, parent, width, border_gfx_ids, image_offset, font=None,
+                 text_color=None, back_color=None, sort=110, cull_bin=("gui", 3)):
 
-        Widget.__init__(self, "input_field", parent, gfx_data={})
+        Widget.__init__(self, "input_field", parent, gfx_ids={})
 
         self.image_offset = image_offset
         self.mouse_region.sort = sort
@@ -896,37 +896,35 @@ class InputField(Widget):
         self._text_color = text_color if text_color else self._default_text_color
         self._back_color = back_color if back_color else self._default_back_color
 
-        self._width = int(width * Skin["options"]["inputfield_width_scale"])
         self._text_ctrl = None
+        l, r, b, t = self._field_borders
+        min_width = max(width, r + l)
+        self._width = int(min_width * Skin.options["inputfield_width_scale"])
         size = (self._width, self._height)
         self.set_size(size, is_min=True)
-        self._border_gfx_data = border_gfx_data
+        self._border_gfx_ids = border_gfx_ids
         self._border_image = self.__create_border_image()
         self._text_ctrl = TextControl(self, font, self._text_color, cull_bin)
         self._delay_card_update = False
         self._scissor_effect = None
 
         self._cull_bin = cull_bin
-        self._on_accept = on_accept
-        self._on_reject = on_reject
-        self._on_key_enter = on_key_enter if on_key_enter else lambda: None
-        self._on_key_escape = on_key_escape if on_key_escape else lambda: None
-        self._allows_reject = allow_reject
+        self._on_accept = None
+        self._on_reject = None
+        self._on_key_enter = lambda: None
+        self._on_key_escape = lambda: None
+        self._allows_reject = True
         self._is_text_shown = True
         self._is_clicked = False
         self._selecting_text = False
         self._text = ""
         self._value = None
-        self._value_id = value_id
-        self._value_type = value_type
+        self._value_id = ""
+        self._value_type = ""
         self._input_init = lambda: None
         self._input_parser = None
         self._value_parser = None
-
-        if handler:
-            self._value_handler = handler
-        else:
-            self._value_handler = lambda value_id, value, state: None
+        self._value_handler = lambda value_id, value, state: None
 
         self._popup_menu = None
         self._manage_popup_menu = True
@@ -956,6 +954,26 @@ class InputField(Widget):
         self._popup_menu = None
         self._listener.ignore_all()
 
+    def set_width(self, width):
+
+        if self._width == width:
+            return False
+
+        l, r, b, t = self._field_borders
+        min_width = max(width, r + l)
+        self._width = int(min_width * Skin.options["inputfield_width_scale"])
+        size = (self._width, self._height)
+        self.set_size(size, is_min=True)
+
+        if self.sizer_cell:
+            self.sizer_cell.sizer.set_min_size_stale()
+
+        return True
+
+    def set_value_handler(self, value_handler):
+
+        self._value_handler = value_handler
+
     def __create_border_image(self):
 
         w, h = self.get_size()
@@ -964,8 +982,8 @@ class InputField(Widget):
         borders_v = b + t
         width = w + borders_h
         height = h + borders_v
-        gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_ids = {"": self._border_gfx_ids}
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -1064,7 +1082,7 @@ class InputField(Widget):
             if label:
                 w, h = self.get_size()
                 w_l, h_l = label.size
-                x = margin = Skin["options"]["inputfield_margin"]
+                x = margin = Skin.options["inputfield_margin"]
                 y = (h - h_l) // 2
                 w -= margin * 2
                 image.blend_sub_image(label, x, y, 0, 0, w, h_l)
@@ -1277,7 +1295,7 @@ class InputField(Widget):
                 watcher.add_region(region_mask)
 
             txt_ctrl = self._text_ctrl
-            txt_ctrl.set_text(self._text)
+            txt_ctrl.text = self._text
             pos = self.get_pos(ref_node=self._ref_node)
             txt_ctrl.show(pos)
             self._input_init()
@@ -1381,9 +1399,25 @@ class InputField(Widget):
 
         return parser(value) if parser else None
 
-    def get_value_id(self):
+    @property
+    def value_id(self):
 
         return self._value_id
+
+    @value_id.setter
+    def value_id(self, value_id):
+
+        self._value_id = value_id
+
+    @property
+    def value_type(self):
+
+        return self._value_type
+
+    @value_type.setter
+    def value_type(self, value_type):
+
+        self._value_type = value_type
 
     def __reset_cursor(self):
 
@@ -1420,7 +1454,7 @@ class InputField(Widget):
 
         txt_ctrl = self._text_ctrl
         old_text = self._text
-        input_text = txt_ctrl.get_text()
+        input_text = txt_ctrl.text
 
         value = self.__parse_input(input_text)
         valid = False
@@ -1443,7 +1477,7 @@ class InputField(Widget):
         if valid:
 
             self._value = value
-            txt_ctrl.set_text(val_str)
+            txt_ctrl.text = val_str
             self.on_input_commit()
 
             if self._is_text_shown:
@@ -1456,7 +1490,7 @@ class InputField(Widget):
 
         else:
 
-            txt_ctrl.set_text(old_text)
+            txt_ctrl.text = old_text
 
         txt_ctrl.hide()
         self.__reset_cursor()
@@ -1472,11 +1506,11 @@ class InputField(Widget):
 
         txt_ctrl = self._text_ctrl
         old_text = self._text
-        input_text = txt_ctrl.get_text()
+        input_text = txt_ctrl.text
 
         if input_text != old_text:
             if old_text:
-                txt_ctrl.set_text(old_text)
+                txt_ctrl.text = old_text
             else:
                 txt_ctrl.clear()
 
@@ -1506,8 +1540,8 @@ class InputField(Widget):
 
         if state != "done" and self.has_slider_control():
             update_card_image = True
-        elif txt_ctrl.get_text() != val_str:
-            txt_ctrl.set_text(val_str)
+        elif txt_ctrl.text != val_str:
+            txt_ctrl.text = val_str
             update_card_image = True
 
         if update_card_image and self._is_text_shown:
@@ -1523,7 +1557,7 @@ class InputField(Widget):
 
     def set_input_text(self, text):
 
-        self._text_ctrl.set_text(text)
+        self._text_ctrl.text = text
 
     def get_text(self):
 
@@ -1534,7 +1568,7 @@ class InputField(Widget):
         if self._text == text:
             return False
 
-        self._text_ctrl.set_text(text)
+        self._text_ctrl.text = text
         self._text = text
 
         if self._is_text_shown:
@@ -1557,17 +1591,17 @@ class InputField(Widget):
 
     def get_text_color(self):
 
-        return self._text_ctrl.get_color()
+        return self._text_ctrl.color
 
     def set_text_color(self, color=None):
 
         txt_ctrl = self._text_ctrl
 
-        if txt_ctrl.get_color() == color:
+        if txt_ctrl.color == color:
             return False
 
-        txt_ctrl.set_color(color if color else self._text_color)
-        txt_ctrl.set_text(self._text)
+        txt_ctrl.color = color if color else self._text_color
+        txt_ctrl.text = self._text
 
         if self._is_text_shown:
             self.__update_card_image()
@@ -1638,9 +1672,9 @@ class InputField(Widget):
 
 class SpinnerButton(Button):
 
-    def __init__(self, parent, gfx_data):
+    def __init__(self, parent, gfx_ids):
 
-        Button.__init__(self, parent, gfx_data)
+        Button.__init__(self, parent, gfx_ids)
 
         self.field = None
         self.direction = 1  # 1 for increment, -1 for decrement
@@ -1812,38 +1846,55 @@ class SpinnerButton(Button):
 
 class SpinnerInputField(Widget):
 
-    def __init__(self, parent, value_range, step, field, incr_btn, decr_btn, borders):
+    def __init__(self, parent, field, incr_btn, decr_btn, borders):
 
-        Widget.__init__(self, "input_field", parent, gfx_data={}, has_mouse_region=False)
+        Widget.__init__(self, "input_field", parent, gfx_ids={}, has_mouse_region=False)
 
         self.field = field
         field.parent = self
 
-        if not value_range:
-            value_range = (None, None)
-
         sizer = Sizer("horizontal")
         self.sizer = sizer
-        sizer.add(field, alignment="center_v", proportion=1.)
+        sizer.add(field, (1., 0.), ("expand", "center"))
         btn_sizer = Sizer("vertical")
-        sizer.add(btn_sizer, alignment="right", borders=borders)
+        sizer.add(btn_sizer, borders=borders)
         incr_btn.parent = self
         incr_btn.field = field
         incr_btn.direction = 1
-        incr_btn.value_range = value_range
-        incr_btn.step = step
+        incr_btn.value_range = (None, None)
+        incr_btn.step = 0
         btn_sizer.add(incr_btn)
         decr_btn.parent = self
         decr_btn.field = field
         decr_btn.direction = -1
-        decr_btn.value_range = value_range
-        decr_btn.step = step
+        decr_btn.value_range = (None, None)
+        decr_btn.step = 0
         btn_sizer.add(decr_btn)
 
     def __getattr__(self, attrib):
 
         if attrib not in self.__dict__:
             return getattr(self.field, attrib)
+
+    @property
+    def value_id(self):
+
+        return self.field.value_id
+
+    @value_id.setter
+    def value_id(self, value_id):
+
+        self.field.value_id = value_id
+
+    @property
+    def value_type(self):
+
+        return self.field.value_type
+
+    @value_type.setter
+    def value_type(self, value_type):
+
+        self.field.value_type = value_type
 
     def get_image(self, state=None, composed=True):
 
@@ -1883,14 +1934,16 @@ class SpinnerInputField(Widget):
 
         if self.field.has_slider_control():
             self.field.set_value_range(value_range, rescale_value, value_type)
+        elif value_type is not None:
+            self.field.value_type = value_type
 
-        for item in self.sizer.items[1].object.items:
-            item.object.value_range = value_range
+        for cell in self.sizer.cells[1].object.cells:
+            cell.object.value_range = value_range
 
     def set_step(self, step):
 
-        for item in self.sizer.items[1].object.items:
-            item.object.step = step
+        for cell in self.sizer.cells[1].object.cells:
+            cell.object.step = step
 
 
 class SliderMixin:
@@ -2104,18 +2157,16 @@ class SliderMixin:
 
 class SliderInputField(SliderMixin, InputField):
 
-    def __init__(self, parent, value_id, value_type, value_range, handler, width, border_gfx_data,
-                 image_offset, font=None, text_color=None, back_color=None, sort=110,
-                 cull_bin=("gui", 3), on_accept=None, on_reject=None, on_key_enter=None,
-                 on_key_escape=None, allow_reject=True):
+    def __init__(self, parent, width, border_gfx_ids, image_offset, font=None,
+                 text_color=None, back_color=None, sort=110, cull_bin=("gui", 3)):
 
         SliderMixin.__init__(self)
-        InputField.__init__(self, parent, value_id, value_type, handler, width, border_gfx_data,
-                            image_offset, font, text_color, back_color, sort, cull_bin, on_accept,
-                            on_reject, on_key_enter, on_key_escape, allow_reject)
+        InputField.__init__(self, parent, width, border_gfx_ids, image_offset, font,
+                            text_color, back_color, sort, cull_bin)
 
-        self._slider_ctrl = SliderControl(self, value_type, value_range, cull_bin)
-        self.set_value(self._slider_ctrl.get_value())
+        self.value_type = "float"
+        self._slider_ctrl = SliderControl(self, cull_bin)
+        self.set_value(0.)
 
     def destroy(self):
 
@@ -2157,17 +2208,15 @@ class SliderInputField(SliderMixin, InputField):
 
 class MultiValInputField(SliderMixin, InputField):
 
-    def __init__(self, parent, width, border_gfx_data, image_offset, font=None, text_color=None,
-                 back_color=None, sort=110, cull_bin=("gui", 3), on_accept=None, on_reject=None,
-                 on_key_enter=None, on_key_escape=None, allow_reject=True):
+    def __init__(self, parent, width, border_gfx_ids, image_offset, font=None, text_color=None,
+                 back_color=None, sort=110, cull_bin=("gui", 3)):
 
         self._text_ctrls = {}
         self._slider_ctrls = {}
 
         SliderMixin.__init__(self)
-        InputField.__init__(self, parent, "", "", None, width, border_gfx_data, image_offset,
-                            font, text_color, back_color, sort, cull_bin, on_accept, on_reject,
-                            on_key_enter, on_key_escape, allow_reject)
+        InputField.__init__(self, parent, width, border_gfx_ids, image_offset, font,
+                            text_color, back_color, sort, cull_bin)
 
         self._texts = {}
         self._value_id = None
@@ -2321,8 +2370,8 @@ class MultiValInputField(SliderMixin, InputField):
         self._texts[value_id] = val_str
         txt_ctrl = self._text_ctrls[value_id]
 
-        if txt_ctrl.get_text() != val_str:
-            txt_ctrl.set_text(val_str)
+        if txt_ctrl.text != val_str:
+            txt_ctrl.text = val_str
 
         if handle_value:
             self._value_handlers[value_id](value_id, value, state)
@@ -2338,7 +2387,7 @@ class MultiValInputField(SliderMixin, InputField):
             return False
 
         txt_ctrl = self._text_ctrls[value_id]
-        txt_ctrl.set_text(text)
+        txt_ctrl.text = text
         self._texts[value_id] = text
 
         if self._value_id == value_id:
@@ -2359,8 +2408,8 @@ class MultiValInputField(SliderMixin, InputField):
             return False
 
         for value_id, txt_ctrl in self._text_ctrls.items():
-            txt_ctrl.set_color(color if color else self._text_color)
-            txt_ctrl.set_text(self._texts[value_id])
+            txt_ctrl.color = color if color else self._text_color
+            txt_ctrl.text = self._texts[value_id]
 
         return True
 

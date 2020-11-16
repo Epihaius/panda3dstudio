@@ -220,7 +220,7 @@ class GUIManager:
         if cursor_id == "main":
             cursor_filename = Filename()
         else:
-            cursor_filename = Skin["cursors"][cursor_id]
+            cursor_filename = Skin.cursors[cursor_id]
 
         if region_id is None:
             cls._app_mgr.set_cursor("gui", cursor_filename)

@@ -1,136 +1,9 @@
 from .base import *
 
 
-class SurfaceToModelDialog(Dialog):
-
-    def __init__(self):
-
-        title = "Create models from surfaces"
-
-        Dialog.__init__(self, title, choices="okcancel", on_yes=self.__on_yes)
-
-        self._model_basename = ""
-        self._creation_method = "per_src"
-        self._copy_surfaces = False
-
-        client_sizer = self.get_client_sizer()
-
-        subsizer = Sizer("horizontal")
-        borders = (50, 50, 0, 20)
-        client_sizer.add(subsizer, expand=True, borders=borders)
-
-        text = DialogText(self, "Model basename:")
-        borders = (0, 5, 0, 0)
-        subsizer.add(text, alignment="center_v", borders=borders)
-        field = DialogInputField(self, "name", "string", self.__handle_name, 200)
-        field.set_input_parser(self.__parse_input)
-        subsizer.add(field, proportion=1., alignment="center_v")
-
-        text = DialogText(self, "Leave field empty to base name(s) on source model name(s).")
-        borders = (50, 50, 0, 5)
-        client_sizer.add(text, borders=borders)
-
-        group = DialogWidgetGroup(self, "Creation method")
-        borders = (50, 50, 0, 20)
-        client_sizer.add(group, expand=True, borders=borders)
-
-        radio_btns = DialogRadioButtonGroup(group, columns=1, gap_v=5)
-
-        def get_command(method_id):
-
-            def command():
-
-                self._creation_method = method_id
-
-            return command
-
-        method_ids = ("per_src", "per_surface", "single")
-        method_names = ("One model per source model", "One model per surface", "Single model")
-
-        for method_id, method_name in zip(method_ids, method_names):
-            radio_btns.add_button(method_id, method_name)
-            radio_btns.set_button_command(method_id, get_command(method_id))
-
-        radio_btns.set_selected_button("per_src")
-        group.add(radio_btns.sizer)
-
-        text = "Copy surfaces"
-        checkbtn = DialogCheckButton(self, self.__copy_surfaces, text)
-        borders = (50, 50, 20, 15)
-        client_sizer.add(checkbtn, borders=borders)
-
-        self.finalize()
-
-    def __parse_input(self, input_text):
-
-        self._input = input_text.strip()
-
-        return self._input
-
-    def __handle_name(self, value_id, name, state):
-
-        self._model_basename = name
-
-    def __copy_surfaces(self, copy_surfaces):
-
-        self._copy_surfaces = copy_surfaces
-
-    def __on_yes(self):
-
-        Mgr.update_remotely("poly_surface_to_model", "create", self._model_basename,
-                            self._creation_method, self._copy_surfaces)
-
-
-class GeometryFromModelDialog(Dialog):
-
-    def __init__(self, model_name=None):
-
-        if model_name is None:
-            title = 'Add geometry from other models'
-        else:
-            title = f'Add geometry from "{model_name}"'
-
-        Dialog.__init__(self, title, choices="okcancel", on_yes=self.__on_yes)
-
-        self._delete_src_geometry = True
-        self._keep_src_models = False
-
-        client_sizer = self.get_client_sizer()
-
-        text = "Delete source geometry"
-        checkbtn = DialogCheckButton(self, self.__delete_src_geometry, text)
-        checkbtn.check()
-        borders = (50, 50, 0, 20)
-        client_sizer.add(checkbtn, borders=borders)
-
-        text = "Keep empty source model"
-
-        if model_name is None:
-            text += "s"
-
-        checkbtn = DialogCheckButton(self, self.__keep_src_models, text)
-        borders = (70, 50, 20, 0)
-        client_sizer.add(checkbtn, borders=borders)
-
-        self.finalize()
-
-    def __delete_src_geometry(self, delete_src_geometry):
-
-        self._delete_src_geometry = delete_src_geometry
-
-    def __keep_src_models(self, keep_src_models):
-
-        self._keep_src_models = keep_src_models
-
-    def __on_yes(self):
-
-        Mgr.update_remotely("geometry_from_model", "add",
-            self._delete_src_geometry, self._keep_src_models)
-
-
 class UnlockedGeomProperties:
 
-    def __init__(self, panel):
+    def __init__(self, panel, widgets):
 
         self._panel = panel
         self._fields = {}
@@ -143,19 +16,11 @@ class UnlockedGeomProperties:
 
         # ************************* Subobject level section *******************
 
-        section = panel.add_section("subobj_lvl", "Subobject level", hidden=True)
-
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
-        section.add(sizer, expand=True)
-
         subobj_types = ("vert", "normal", "edge", "poly")
-        subobj_names = ("Vertex", "Normal", "Edge", "Polygon")
         get_level_setter = lambda subobj_type: lambda: self.__set_subobj_level(subobj_type)
 
-        for subobj_type, subobj_name in zip(subobj_types, subobj_names):
-            tooltip_text = f"{subobj_name} level"
-            btn = PanelButton(section, subobj_name, "", tooltip_text)
-            sizer.add(btn, proportion_h=1.)
+        for subobj_type in subobj_types:
+            btn = widgets["buttons"][f"unlocked_geom_{subobj_type}"]
             toggle = (get_level_setter(subobj_type), lambda: None)
             self._subobj_btns.add_button(btn, subobj_type, toggle)
 
@@ -163,344 +28,177 @@ class UnlockedGeomProperties:
 
         # ******************* Selection conversion section ********************
 
-        section = panel.add_section("sel_conversion", "Selection conversion", hidden=True)
-
-        group = section.add_group("Conversion type:")
-
-        radio_btns = PanelRadioButtonGroup(group, columns=2, gap_h=10, gap_v=5)
-        btn_ids = texts = ("touching", "containing", "bordering")
-
-        for btn_id, text in zip(btn_ids, texts):
-            radio_btns.add_button(btn_id, text)
-
+        radio_btns = widgets["radiobutton_groups"]["sel_conversion_type"]
         radio_btns.set_selected_button("touching")
         self._radio_btns["sel_conversion_type"] = radio_btns
-        group.add(radio_btns.sizer)
 
-        section.add((0, 10))
-
-        text = "Auto-convert selection"
-        tooltip_text = "Convert sel. when switching to other subobj. level"
-        btn = PanelButton(section, text, "", tooltip_text)
+        btn = widgets["buttons"]["sel_conversion"]
         btn.command = self.__toggle_auto_selection_conversion
         self._btns["sel_conversion"] = btn
-        section.add(btn, alignment="center_h")
 
         # ************************* Vertex section ****************************
 
-        section = panel.add_section("vert_props", "Vertices", hidden=True)
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "Pick via polygon"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
+        checkbtn = widgets["checkbuttons"]["pick_vert_via_poly"]
+        checkbtn.command = self.__handle_picking_via_poly
         self._checkbuttons["pick_vert_via_poly"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((5, 0), proportion=1.)
-        text = "aim"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
+
+        checkbtn = widgets["checkbuttons"]["pick_vert_by_aiming"]
+        checkbtn.command = self.__handle_picking_by_aiming
         self._checkbuttons["pick_vert_by_aiming"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
 
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "Break"
-        tooltip_text = "Break selected vertices"
-        btn = PanelButton(section, text, "", tooltip_text, self.__break_vertices)
+        btn = widgets["buttons"]["break_verts"]
+        btn.command = self.__break_vertices
         self._btns["break_verts"] = btn
-        sizer.add(btn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-        text = "Lock normals"
-        checkbtn = PanelCheckButton(section, self.__handle_normal_preserve, text)
+
+        checkbtn = widgets["checkbuttons"]["vert_normal_preserve"]
+        checkbtn.command = self.__handle_normal_preserve
         self._checkbuttons["vert_normal_preserve"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
 
-        section.add((0, 5))
-
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
-
-        borders = (0, 5, 0, 0)
-
-        text = "Smooth"
-        tooltip_text = "Smooth selected vertices"
-        btn = PanelButton(section, text, "", tooltip_text, self.__smooth_vertices)
+        btn = widgets["buttons"]["smooth_verts"]
+        btn.command = self.__smooth_vertices
         self._btns["smooth_verts"] = btn
-        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        text = "Sharpen"
-        tooltip_text = "Sharpen selected vertices"
-        btn = PanelButton(section, text, "", tooltip_text, lambda: self.__smooth_vertices(False))
+        btn = widgets["buttons"]["sharpen_verts"]
+        btn.command = lambda: self.__smooth_vertices(False)
         self._btns["sharpen_verts"] = btn
-        btn_sizer.add(btn, proportion=1.)
 
         # ************************* Normal section ****************************
 
-        section = panel.add_section("normal_props", "Vertex normals", hidden=True)
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "Pick via polygon"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
+        checkbtn = widgets["checkbuttons"]["pick_normal_via_poly"]
+        checkbtn.command = self.__handle_picking_via_poly
         self._checkbuttons["pick_normal_via_poly"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((5, 0), proportion=1.)
-        text = "aim"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
+
+        checkbtn = widgets["checkbuttons"]["pick_normal_by_aiming"]
+        checkbtn.command = self.__handle_picking_by_aiming
         self._checkbuttons["pick_normal_by_aiming"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
 
-        sizer = Sizer("horizontal")
-        section.add(sizer)
-
-        text = "Length:"
-        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         prop_id = "normal_length"
-        field = PanelSpinnerField(section, prop_id, "float", (.001, None), .001,
-                                  self.__handle_value, 80)
+        field = widgets["fields"]["unlocked_geom_normal_length"]
+        field.value_id = prop_id
         field.set_input_parser(self.__parse_length_input)
+        field.set_value_handler(self.__handle_value)
+        field.set_value_range((.001, None), False, "float")
+        field.set_step(.001)
         self._fields[prop_id] = field
-        sizer.add(field, alignment="center_v")
 
-        section.add((0, 5))
-
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
-
-        text = "Unify"
-        tooltip_text = "Average selected normals"
-        btn = PanelButton(section, text, "", tooltip_text, self.__unify_normals)
+        btn = widgets["buttons"]["unify_normals"]
+        btn.command = self.__unify_normals
         self._btns["unify_normals"] = btn
-        btn_sizer.add(btn, proportion=1.)
 
-        btn_sizer.add((5, 0))
-
-        text = "Separate"
-        tooltip_text = "Separate selected normals"
-        btn = PanelButton(section, text, "", tooltip_text, lambda: self.__unify_normals(False))
+        btn = widgets["buttons"]["separate_normals"]
+        btn.command = lambda: self.__unify_normals(False)
         self._btns["separate_normals"] = btn
-        btn_sizer.add(btn, proportion=1.)
 
-        section.add((0, 5))
-
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
-
-        text = "Lock"
-        tooltip_text = "Lock selected normals"
-        btn = PanelButton(section, text, "", tooltip_text, self.__lock_normals)
+        btn = widgets["buttons"]["lock_normals"]
+        btn.command = self.__lock_normals
         self._btns["lock_normals"] = btn
-        btn_sizer.add(btn, proportion=1.)
 
-        btn_sizer.add((5, 0))
-
-        text = "Unlock"
-        tooltip_text = "Unlock selected normals"
-        btn = PanelButton(section, text, "", tooltip_text, lambda: self.__lock_normals(False))
+        btn = widgets["buttons"]["unlock_normals"]
+        btn.command = lambda: self.__lock_normals(False)
         self._btns["unlock_normals"] = btn
-        btn_sizer.add(btn, proportion=1.)
 
-        section.add((0, 5))
-
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
-
-        text = "Flip"
-        tooltip_text = "Flip selected normals"
-        btn = PanelButton(section, text, "", tooltip_text, self.__flip_normals)
+        btn = widgets["buttons"]["flip_normals"]
+        btn.command = self.__flip_normals
         self._btns["flip_normals"] = btn
-        btn_sizer.add(btn, proportion=1.)
 
-        btn_sizer.add((5, 0))
-
-        text = "Copy dir. ..."
-        tooltip_text = "Copy selected normals' direction from picked normal"
-        btn = PanelButton(section, text, "", tooltip_text, self.__copy_normal_direction)
+        btn = widgets["buttons"]["copy_normal_dir"]
+        btn.command = self.__copy_normal_direction
         self._btns["copy_normal_dir"] = btn
-        btn_sizer.add(btn, proportion=1.)
 
         # ************************* Edge section ******************************
 
-        section = panel.add_section("edge_props", "Edges", hidden=True)
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "Pick via polygon"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
+        checkbtn = widgets["checkbuttons"]["pick_edge_via_poly"]
+        checkbtn.command = self.__handle_picking_via_poly
         self._checkbuttons["pick_edge_via_poly"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((5, 0), proportion=1.)
-        text = "aim"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
+
+        checkbtn = widgets["checkbuttons"]["pick_edge_by_aiming"]
+        checkbtn.command = self.__handle_picking_by_aiming
         self._checkbuttons["pick_edge_by_aiming"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
 
         def handler(by_border):
 
             GD["subobj_edit_options"]["sel_edges_by_border"] = by_border
 
-        text = "Select by border"
-        checkbtn = PanelCheckButton(section, handler, text)
+        checkbtn = widgets["checkbuttons"]["sel_edges_by_border"]
+        checkbtn.command = handler
         self._checkbuttons["sel_edges_by_border"] = checkbtn
-        section.add(checkbtn)
 
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "Split"
-        tooltip_text = "Split selected edges"
-        btn = PanelButton(section, text, "", tooltip_text, self.__split_edges)
+        btn = widgets["buttons"]["split_edges"]
+        btn.command = self.__split_edges
         self._btns["split_edges"] = btn
-        sizer.add(btn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-        text = "Lock normals"
-        checkbtn = PanelCheckButton(section, self.__handle_normal_preserve, text)
+
+        checkbtn = widgets["checkbuttons"]["edge_normal_preserve"]
+        checkbtn.command = self.__handle_normal_preserve
         self._checkbuttons["edge_normal_preserve"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
 
-        section.add((0, 5))
-
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
-
-        text = "Merge..."
-        tooltip_text = "Merge picked edge (selection) with target"
-        btn = PanelButton(section, text, "", tooltip_text, self.__merge_edges)
+        btn = widgets["buttons"]["merge_edges"]
+        btn.command = self.__merge_edges
         self._btns["merge_edges"] = btn
-        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        text = "Bridge..."
-        tooltip_text = "Create poly(s) between picked edge (selection) and target"
-        btn = PanelButton(section, text, "", tooltip_text, self.__bridge_edges)
+        btn = widgets["buttons"]["bridge_edges"]
+        btn.command = self.__bridge_edges
         self._btns["bridge_edges"] = btn
-        btn_sizer.add(btn, proportion=1.)
-
-        sizer = Sizer("horizontal")
-        section.add(sizer)
 
         def handler(value_id, segments, state="done"):
 
             GD["subobj_edit_options"]["edge_bridge_segments"] = segments
 
-        text = "Bridge segments:"
-        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         prop_id = "edge_bridge_segments"
-        field = PanelInputField(section, prop_id, "int", handler, 40)
+        field = widgets["fields"][prop_id]
+        field.value_id = prop_id
+        field.value_type = "int"
         field.set_input_parser(self.__parse_edge_bridge_segs_input)
+        field.set_value_handler(handler)
         field.set_value(1)
         self._fields[prop_id] = field
-        sizer.add(field, alignment="center_v")
 
-        section.add((0, 5))
-
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
-
-        text = "Smooth"
-        tooltip_text = "Smooth selected edges"
-        btn = PanelButton(section, text, "", tooltip_text, self.__smooth_edges)
+        btn = widgets["buttons"]["smooth_edges"]
+        btn.command = self.__smooth_edges
         self._btns["smooth_edges"] = btn
-        btn_sizer.add(btn, proportion=1., borders=borders)
 
-        text = "Sharpen"
-        tooltip_text = "Sharpen selected edges"
-        btn = PanelButton(section, text, "", tooltip_text, lambda: self.__smooth_edges(False))
+        btn = widgets["buttons"]["sharpen_edges"]
+        btn.command = lambda: self.__smooth_edges(False)
         self._btns["sharpen_edges"] = btn
-        btn_sizer.add(btn, proportion=1.)
 
         # ************************* Polygon section ***************************
 
-        section = panel.add_section("poly_props", "Polygons", hidden=True)
-
-        text = "Auto-lock border normals"
-        checkbtn = PanelCheckButton(section, self.__handle_normal_preserve, text)
+        checkbtn = widgets["checkbuttons"]["poly_normal_preserve"]
+        checkbtn.command = self.__handle_normal_preserve
         self._checkbuttons["poly_normal_preserve"] = checkbtn
-        section.add(checkbtn)
 
-        section.add((0, 5))
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "Create..."
-        tooltip_text = "Create single polygon"
-        btn = PanelButton(section, text, "", tooltip_text, self.__toggle_poly_creation)
+        btn = widgets["buttons"]["create_poly"]
+        btn.command = self.__toggle_poly_creation
         self._btns["create_poly"] = btn
-        sizer.add(btn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
 
-        text = "Detach"
-        tooltip_text = "Detach selected polygons"
-        btn = PanelButton(section, text, "", tooltip_text, self.__detach_polygons)
+        btn = widgets["buttons"]["detach_poly"]
+        btn.command = self.__detach_polygons
         self._btns["detach_poly"] = btn
-        sizer.add(btn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
 
-        section.add((0, 5))
-
-        text = "Turn diagonals..."
-        tooltip_text = "Turn any diagonals of a selected polygon"
-        btn = PanelButton(section, text, "", tooltip_text, self.__turn_diagonals)
+        btn = widgets["buttons"]["turn_diagonals"]
+        btn.command = self.__turn_diagonals
         self._btns["turn_diagonals"] = btn
-        section.add(btn)
-
-        group = section.add_group("Contiguous surfaces")
 
         def handler(by_surface):
 
             GD["subobj_edit_options"]["sel_polys_by_surface"] = by_surface
 
-        text = "Select by surface"
-        checkbtn = PanelCheckButton(group, handler, text)
+        checkbtn = widgets["checkbuttons"]["sel_polys_by_surface"]
+        checkbtn.command = handler
         self._checkbuttons["sel_polys_by_surface"] = checkbtn
-        group.add(checkbtn)
 
-        group.add((0, 6))
-
-        sizer = Sizer("horizontal")
-        group.add(sizer, expand=True)
-
-        text = "Invert"
-        tooltip_text = "Invert surfaces containing selected polygons"
-        btn = PanelButton(group, text, "", tooltip_text, self.__invert_poly_surfaces)
+        btn = widgets["buttons"]["invert_surfaces"]
+        btn.command = self.__invert_poly_surfaces
         self._btns["invert_surfaces"] = btn
-        sizer.add(btn)
 
-        sizer.add((0, 0), proportion=1.)
+        btn = widgets["buttons"]["doubleside_surfaces"]
+        btn.command = self.__doubleside_poly_surfaces
+        self._btns["doubleside_surfaces"] = btn
 
-        text = "Doubleside"
-        tooltip_text = "Doubleside surfaces containing selected polygons"
-        btn = PanelButton(group, text, "", tooltip_text, self.__doubleside_poly_surfaces)
-        self._btns["invert_surfaces"] = btn
-        sizer.add(btn)
-
-        sizer.add((0, 0), proportion=1.)
-
-        group.add((0, 5))
-
-        text = "To new model(s)..."
-        tooltip_text = "Create new model(s) out of surfaces containing selected polygons"
-        btn = PanelButton(group, text, "", tooltip_text, self.__init_surf_to_model)
+        btn = widgets["buttons"]["make_model"]
+        btn.command = self.__init_surf_to_model
         self._btns["make_model"] = btn
-        group.add(btn)
 
-        group = section.add_group("Extrusion/inset")
-
-        text = "Extrusion vector type:"
-        borders = (0, 0, 5, 0)
-        group.add(PanelText(group, text), borders=borders)
-
-        combobox = PanelComboBox(group, 100, tooltip_text="Extrusion vector type")
-        group.add(combobox, expand=True, borders=borders)
+        combobox = widgets["comboboxes"]["extrusion_vector_type"]
 
         vec_types = ("avg_poly_normal1", "avg_poly_normal2", "vert_normal")
         vec_type_descr = (
@@ -509,224 +207,134 @@ class UnlockedGeomProperties:
             "vertex normal"
         )
 
-        def get_command(vec_type_id, vec_type):
+        def set_vec_type(vec_type_id, vec_type):
 
-            def set_vec_type():
-
-                combobox.select_item(vec_type)
-                Mgr.update_remotely("poly_extr_inset", "extr_vec_type", vec_type_id)
-
-            return set_vec_type
+            combobox.select_item(vec_type)
+            Mgr.update_remotely("poly_extr_inset", "extr_vec_type", vec_type_id)
 
         for i, (vec_type, descr) in enumerate(zip(vec_types, vec_type_descr)):
-            combobox.add_item(vec_type, descr, get_command(i, vec_type))
+            command = lambda vt_id=i, vt=vec_type: set_vec_type(vt_id, vt)
+            combobox.add_item(vec_type, descr, command)
 
         combobox.update_popup_menu()
 
-        subsizer = GridSizer(columns=2, gap_h=5)
-        subsizer.set_column_proportion(1, 1.)
-        group.add(subsizer, expand=True)
-
-        borders = (0, 5, 0, 0)
-
         prop_id = "poly_extrusion"
-        text = "Extrusion:"
-        subsizer.add(PanelText(group, text), alignment_v="center_v", borders=borders)
         handler = lambda *args: Mgr.update_remotely("poly_extr_inset", "extrusion", args[1])
-        field = PanelSpinnerField(group, prop_id, "float", None, .1, handler, 80)
+        field = widgets["fields"][prop_id]
+        field.value_id = prop_id
+        field.set_value_handler(handler)
+        field.set_value_range(None, False, "float")
+        field.set_step(.1)
         field.set_value(0.)
         self._fields[prop_id] = field
-        subsizer.add(field, expand_h=True, alignment_v="center_v")
 
         prop_id = "poly_inset"
-        text = "Inset:"
-        subsizer.add(PanelText(group, text), alignment_v="center_v", borders=borders)
         handler = lambda *args: Mgr.update_remotely("poly_extr_inset", "inset", args[1])
-        field = PanelSpinnerField(group, prop_id, "float", None, .01, handler, 80)
+        field = widgets["fields"][prop_id]
+        field.value_id = prop_id
+        field.set_value_handler(handler)
+        field.set_value_range(None, False, "float")
+        field.set_step(.01)
         field.set_value(0.)
         self._fields[prop_id] = field
-        subsizer.add(field, expand_h=True, alignment_v="center_v")
 
-        borders = (0, 0, 0, 5)
-
-        text = "Individual polygons"
-        command = lambda arg: Mgr.update_remotely("poly_extr_inset", "individual", arg)
-        checkbtn = PanelCheckButton(group, command, text)
+        checkbtn = widgets["checkbuttons"]["inset_individual"]
+        checkbtn.command = lambda arg: Mgr.update_remotely("poly_extr_inset", "individual", arg)
         self._checkbuttons["inset_individual"] = checkbtn
-        group.add(checkbtn, borders=borders)
 
-        subsizer = Sizer("horizontal")
-        group.add(subsizer, expand=True, borders=borders)
-
-        tooltip_text = "Preview extrusion and inset"
-        btn = PanelButton(group, "Preview", "", tooltip_text)
+        btn = widgets["buttons"]["preview_inset"]
         btn.command = self.__preview_poly_extr_inset
         self._btns["preview_inset"] = btn
-        subsizer.add(btn, proportion=1.)
 
-        subsizer.add((10, 0))
-
-        tooltip_text = "Extrude/inset selected polygons"
-        btn = PanelButton(group, "Apply", "", tooltip_text)
+        btn = widgets["buttons"]["apply_inset"]
         btn.command = lambda: Mgr.update_remotely("poly_extr_inset", "apply")
         self._btns["apply_inset"] = btn
-        subsizer.add(btn, proportion=1.)
-
-        group = section.add_group("Polygon smoothing")
 
         def handler(by_smoothing):
 
             GD["subobj_edit_options"]["sel_polys_by_smoothing"] = by_smoothing
 
-        text = "Select by smoothing"
-        checkbtn = PanelCheckButton(group, handler, text)
+        checkbtn = widgets["checkbuttons"]["sel_polys_by_smoothing"]
+        checkbtn.command = handler
         self._checkbuttons["sel_polys_by_smoothing"] = checkbtn
-        group.add(checkbtn)
 
-        group.add((0, 6))
-
-        text = "Update"
-        tooltip_text = "Update polygon smoothing"
-        btn = PanelButton(group, text, "", tooltip_text, self.__update_polygon_smoothing)
+        btn = widgets["buttons"]["upd_poly_smoothing"]
+        btn.command = self.__update_polygon_smoothing
         self._btns["upd_poly_smoothing"] = btn
-        group.add(btn, alignment="center_h")
 
-        group.add((0, 10))
-
-        borders = (0, 5, 0, 0)
-
-        btn_sizer = Sizer("horizontal")
-        group.add(btn_sizer, expand=True)
-        subsizer1 = Sizer("vertical")
-        btn_sizer.add(subsizer1, proportion=1., borders=borders)
-        subsizer2 = Sizer("vertical")
-        btn_sizer.add(subsizer2, proportion=1.)
-
-        text = "Smooth"
-        tooltip_text = "Smooth selected polygons"
-        btn = PanelButton(group, text, "", tooltip_text, self.__smooth_polygons)
+        btn = widgets["buttons"]["smooth_polys"]
+        btn.command = self.__smooth_polygons
         self._btns["smooth_polys"] = btn
-        subsizer1.add(btn, expand=True)
 
-        text = "Unsmooth"
-        tooltip_text = "Flatten selected polygons"
-        btn = PanelButton(group, text, "", tooltip_text, lambda: self.__smooth_polygons(False))
+        btn = widgets["buttons"]["unsmooth_polys"]
+        btn.command = lambda: self.__smooth_polygons(False)
         self._btns["unsmooth_polys"] = btn
-        subsizer2.add(btn, expand=True)
 
-        borders = (0, 0, 0, 5)
-
-        btn_sizer = Sizer("horizontal")
-        group.add(btn_sizer, expand=True)
-
-        text = "Smooth all"
-        tooltip_text = "Smooth all polygons"
-        btn = PanelButton(group, text, "", tooltip_text, self.__smooth_all)
+        btn = widgets["buttons"]["smooth_all"]
+        btn.command = self.__smooth_all
         self._btns["smooth_all"] = btn
-        subsizer1.add(btn, expand=True, borders=borders)
 
-        text = "Unsm. all"
-        tooltip_text = "Flatten all polygons"
-        btn = PanelButton(group, text, "", tooltip_text, lambda: self.__smooth_all(False))
+        btn = widgets["buttons"]["unsmooth_all"]
+        btn.command = lambda: self.__smooth_all(False)
         self._btns["unsmooth_all"] = btn
-        subsizer2.add(btn, expand=True, borders=borders)
 
-        group.add((0, 5))
-
-        borders = (0, 5, 0, 0)
-
-        text = "Smooth with other..."
-        tooltip_text = "Smooth selected polygons with another"
-        btn = PanelButton(group, text, "", tooltip_text, self.__pick_poly_to_smooth_with)
+        btn = widgets["buttons"]["smooth_with"]
+        btn.command = self.__pick_poly_to_smooth_with
         self._btns["smooth_with"] = btn
-        group.add(btn, expand=True)
 
-        group.add((0, 5))
-
-        text = "Unsmooth with other..."
-        tooltip_text = "Unsmooth selected polygons with another"
-        btn = PanelButton(group, text, "", tooltip_text, lambda: self.__pick_poly_to_smooth_with(False))
+        btn = widgets["buttons"]["unsmooth_with"]
+        btn.command = lambda: self.__pick_poly_to_smooth_with(False)
         self._btns["unsmooth_with"] = btn
-        group.add(btn, expand=True)
 
         # **************************** Geometry section ************************
 
-        section = panel.add_section("geometry", "Geometry", hidden=True)
-
-        subsizer = Sizer("horizontal")
-        section.add(subsizer, expand=True)
-
-        text = "Add from..."
-        tooltip_text = "Add geometry from picked model to selected models"
-        btn = PanelButton(section, text, "", tooltip_text)
+        btn = widgets["buttons"]["add_geometry"]
         btn.command = self.__toggle_geometry_from_model
         self._btns["add_geometry"] = btn
-        subsizer.add(btn, alignment="center_v")
-
-        borders = (5, 0, 0, 0)
 
         def handler(multiple):
 
             Mgr.update_remotely("geometry_from_model", "multiple", multiple)
             src_descr = "chosen models" if multiple else "picked model"
             tooltip_text = f"Add geometry from {src_descr} to selected models"
-            self._btns["add_geometry"].set_tooltip_text(tooltip_text)
+            self._btns["add_geometry"].tooltip_text = tooltip_text
 
-        text = "multiple"
-        checkbtn = PanelCheckButton(section, handler, text)
+        checkbtn = widgets["checkbuttons"]["multiple_src_models"]
+        checkbtn.command = handler
         self._checkbuttons["multiple_src_models"] = checkbtn
-        subsizer.add(checkbtn, alignment="center_v", borders=borders)
-
-        group = section.add_group("Solidification")
-
-        subsizer = GridSizer(columns=2, gap_h=5)
-        subsizer.set_column_proportion(1, 1.)
-        group.add(subsizer, expand=True)
 
         prop_id = "solidification_thickness"
-        text = "Thickness:"
-        subsizer.add(PanelText(group, text), alignment_v="center_v", borders=borders)
         handler = lambda *args: Mgr.update_remotely("solidification", "thickness", args[1])
-        field = PanelSpinnerField(group, prop_id, "float", (0., None), .1, handler, 80)
+        field = widgets["fields"][prop_id]
+        field.value_id = prop_id
         field.set_input_parser(self.__parse_solidification_thickness)
+        field.set_value_handler(handler)
+        field.set_value_range((0., None), False, "float")
+        field.set_step(.1)
         field.set_value(0.)
         self._fields[prop_id] = field
-        subsizer.add(field, expand_h=True, alignment_v="center_v")
 
         prop_id = "solidification_offset"
-        text = "Offset:"
-        subsizer.add(PanelText(group, text), alignment_v="center_v", borders=borders)
         handler = lambda *args: Mgr.update_remotely("solidification", "offset", args[1])
-        field = PanelSpinnerField(group, prop_id, "float", None, .01, handler, 80)
+        field = widgets["fields"][prop_id]
+        field.value_id = prop_id
+        field.set_value_handler(handler)
+        field.set_value_range(None, False, "float")
+        field.set_step(.01)
         field.set_value(0.)
         self._fields[prop_id] = field
-        subsizer.add(field, expand_h=True, alignment_v="center_v")
 
-        borders = (0, 0, 0, 5)
-
-        subsizer = Sizer("horizontal")
-        group.add(subsizer, expand=True, borders=borders)
-
-        tooltip_text = "Preview solidification of model surface"
-        btn = PanelButton(group, "Preview", "", tooltip_text)
+        btn = widgets["buttons"]["preview_solidification"]
         btn.command = self.__preview_solidification
         self._btns["preview_solidification"] = btn
-        subsizer.add(btn, proportion=1.)
 
-        subsizer.add((10, 0))
-
-        tooltip_text = "Solidify model surface"
-        btn = PanelButton(group, "Apply", "", tooltip_text)
+        btn = widgets["buttons"]["apply_solidification"]
         btn.command = lambda: Mgr.update_remotely("solidification", "apply")
         self._btns["apply_solidification"] = btn
-        subsizer.add(btn, proportion=1.)
 
-        tooltip_text = "Disable geometry editing"
-        btn = PanelButton(section, "Lock", "", tooltip_text)
+        btn = widgets["buttons"]["lock_geometry"]
         btn.command = lambda: Mgr.update_remotely("geometry_access", False)
         self._btns["lock_geometry"] = btn
-        borders = (0, 0, 0, 10)
-        section.add(btn, alignment="center_h", borders=borders)
 
         # **************************************************************************
 
@@ -1175,7 +783,7 @@ class UnlockedGeomProperties:
         field = self._fields[prop_id]
         field.show_text()
         field.set_value(value)
-        field.set_text_color((1., 1., 0., 1.))
+        field.set_text_color(Skin.colors["default_value"])
 
     def set_object_property(self, prop_id, value):
 
@@ -1190,7 +798,7 @@ class UnlockedGeomProperties:
             field.set_text_color()
             field.show_text()
         else:
-            field.set_text_color((.5, .5, .5, 1.))
+            field.set_text_color(Skin.text["input_disabled"]["color"])
             field.show_text(False)
 
     def check_selection_count(self):
@@ -1199,7 +807,7 @@ class UnlockedGeomProperties:
 
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
-        color = (.5, .5, .5, 1.) if multi_sel else None
+        color = Skin.text["input_disabled"]["color"] if multi_sel else None
 
         for prop_id, field in self._fields.items():
             if prop_id not in ("normal_length", "edge_bridge_segments",

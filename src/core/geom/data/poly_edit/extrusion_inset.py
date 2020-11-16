@@ -71,7 +71,7 @@ class ExtrusionInsetMixin:
             """
 
             poly = polys[poly_id]
-            poly_ids = set([poly_id])
+            poly_ids = {poly_id}
             neighbor_ids = list(get_poly_neighbor_ids(poly) & target_poly_ids)
 
             while neighbor_ids:

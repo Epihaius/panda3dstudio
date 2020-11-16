@@ -7,6 +7,7 @@ class Text(Widget):
 
         self.type = "widget"
         self.widget_type = "text"
+        self.is_root_container = False
         self._parent = parent
         self._font = font
         self._color = color
@@ -18,7 +19,7 @@ class Text(Widget):
         self._image = img = self.__create_image(text)
         self._size = self._min_size = (w, h) = img.size
         self._sizer = None
-        self.sizer_item = None
+        self.sizer_cell = None
         self.mouse_region = None
         self._is_hidden = False
 
@@ -30,7 +31,7 @@ class Text(Widget):
 
         self._parent = None
         self._sizer = None
-        self.sizer_item = None
+        self.sizer_cell = None
 
     def post_process_image(self, image):
         """ Override in derived class """
@@ -40,6 +41,10 @@ class Text(Widget):
     def __create_image(self, text):
 
         return self.post_process_image(self._font.create_image(text, self._color))
+
+    def get_text(self):
+
+        return self._text
 
     def set_text(self, text, force=False):
 
@@ -53,9 +58,9 @@ class Text(Widget):
 
         return True
 
-    def get_text(self):
+    def get_font(self):
 
-        return self._text
+        return self._font
 
     def set_font(self, font, update=True):
 
@@ -65,9 +70,9 @@ class Text(Widget):
             self._image = img = self.__create_image(self._text)
             self._size = self._min_size = (w, h) = img.size
 
-    def get_font(self):
+    def get_color(self):
 
-        return self._font
+        return self._color
 
     def set_color(self, color, update=True):
 
@@ -76,10 +81,6 @@ class Text(Widget):
         if update:
             self._image = img = self.__create_image(self._text)
             self._size = self._min_size = (w, h) = img.size
-
-    def get_color(self):
-
-        return self._color
 
     def set_size(self, size, includes_borders=True, is_min=False):
 
@@ -122,7 +123,7 @@ class Label(Widget):
         self._image = img = self.__create_image(text)
         self._size = self._min_size = (w, h) = img.size
         self._sizer = None
-        self.sizer_item = None
+        self.sizer_cell = None
 
         self.mouse_region = None
         self._is_hidden = False
@@ -135,7 +136,7 @@ class Label(Widget):
 
         self._parent = None
         self._sizer = None
-        self.sizer_item = None
+        self.sizer_cell = None
 
     def post_process_image(self, image):
         """ Override in derived class """
@@ -168,6 +169,10 @@ class Label(Widget):
 
         return self.post_process_image(image)
 
+    def get_text(self):
+
+        return self._text
+
     def set_text(self, text, force=False):
 
         if not text or (not force and self._text == text):
@@ -180,41 +185,37 @@ class Label(Widget):
 
         return True
 
-    def get_text(self):
+    def get_font(self):
 
-        return self._text
+        return self._font
 
     def set_font(self, font):
 
         self._font = font
 
-    def get_font(self):
+    def get_text_color(self):
 
-        return self._font
+        return self._text_color
 
     def set_text_color(self, color):
 
         self._text_color = color
 
-    def get_text_color(self):
+    def get_back_color(self):
 
-        return self._text_color
+        return self._back_color
 
     def set_back_color(self, color):
 
         self._back_color = color
 
-    def get_back_color(self):
+    def get_edge_color(self):
 
-        return self._back_color
+        return self._edge_color
 
     def set_edge_color(self, color):
 
         self._edge_color = color
-
-    def get_edge_color(self):
-
-        return self._edge_color
 
     def set_size(self, size, includes_borders=True, is_min=False):
 

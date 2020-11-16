@@ -7,14 +7,15 @@ class Widget:
     registry = {}
     _count = 0
 
-    def __init__(self, widget_type, parent, gfx_data, initial_state="", hidden=False,
-                 has_mouse_region=True):
+    def __init__(self, widget_type, parent, gfx_ids, initial_state="", hidden=False,
+                 has_mouse_region=True, is_root_container=False):
 
         self.type = "widget"
         self.widget_type = widget_type
+        self.is_root_container = is_root_container
         self._parent = parent
         self.node = parent.node.attach_new_node("widget") if parent else NodePath("widget")
-        self._gfx_data = gfx_data
+        self._gfx_ids = gfx_ids
         self._current_state = initial_state
         self._is_hidden = hidden or not parent
         # this flag is relevant only for container widgets like panels
@@ -25,11 +26,11 @@ class Widget:
         self.image_offset = (0, 0)
         self._images = {}
 
-        tex_atlas_regions = TextureAtlas["regions"]
+        tex_atlas_regions = Skin.atlas.regions
         h_sizes = []
         v_sizes = []
 
-        for parts in gfx_data.values():
+        for parts in gfx_ids.values():
             if parts:
                 for part_id in parts[0]:
                     x, y, w, h = tex_atlas_regions[part_id]
@@ -54,7 +55,8 @@ class Widget:
 
         self._size = self._min_size = self._gfx_size = (w, h)
         self._sizer = None
-        self.sizer_item = None
+        # the SizerCell this widget is inside of
+        self.sizer_cell = None
         # inner borders are derived from the widget graphics
         self._gfx_inner_borders = (border_left, border_right, border_bottom, border_top)
         # custom inner borders are specified by the user in the texture atlas;
@@ -90,7 +92,7 @@ class Widget:
             self._sizer.destroy()
             self._sizer = None
 
-        self.sizer_item = None
+        self.sizer_cell = None
 
         if self._parent:
 
@@ -146,6 +148,15 @@ class Widget:
             return self._parent.get_ancestor(widget_type)
 
     @property
+    def root_container(self):
+
+        if self.is_root_container:
+            return self
+
+        if self._parent:
+            return self._parent.root_container
+
+    @property
     def card(self):
 
         return self._parent.card
@@ -172,7 +183,7 @@ class Widget:
 
     def has_state(self, state):
 
-        return state in self._gfx_data
+        return state in self._gfx_ids
 
     @property
     def state(self):
@@ -182,7 +193,7 @@ class Widget:
     @state.setter
     def state(self, state):
 
-        if state in self._gfx_data:
+        if state in self._gfx_ids:
             self._current_state = state
 
     def get_pos(self, ref_node=None, from_root=False):
@@ -298,8 +309,8 @@ class Widget:
         if not (width and height):
             return
 
-        tex_atlas = TextureAtlas["image"]
-        tex_atlas_regions = TextureAtlas["regions"]
+        tex_atlas = Skin.atlas.image
+        tex_atlas_regions = Skin.atlas.regions
         images = self._images
         l, r, b, t = self._gfx_inner_borders
         borders_h = l + r
@@ -323,7 +334,7 @@ class Widget:
 
             return scaled_img
 
-        for state, part_rows in self._gfx_data.items():
+        for state, part_rows in self._gfx_ids.items():
 
             if not part_rows:
                 images[state] = None
@@ -526,15 +537,16 @@ class Widget:
 
 class WidgetCard:
 
-    def __init__(self, widget_type, parent=None):
+    def __init__(self, widget_type, parent=None, is_root_container=False):
 
         self.type = "widget"
         self.widget_type = widget_type
+        self.is_root_container = is_root_container
         self._parent = parent if parent else Mgr.get("window")
         self.node = self._parent.node.attach_new_node("card")
         self._size = self._min_size = (0, 0)
         self._sizer = None
-        self.sizer_item = None
+        self.sizer_cell = None
         self._transparent = False
         self._quad = None
         self.create_quad()
@@ -558,7 +570,7 @@ class WidgetCard:
             self._sizer.destroy()
             self._sizer = None
 
-        self.sizer_item = None
+        self.sizer_cell = None
 
         if self._quad:
             self._quad.detach_node()
@@ -597,6 +609,15 @@ class WidgetCard:
 
         if self._parent:
             return self._parent.get_ancestor(widget_type)
+
+    @property
+    def root_container(self):
+
+        if self.is_root_container:
+            return self
+
+        if self._parent:
+            return self._parent.root_container
 
     def set_transparent(self, transparent=True):
 

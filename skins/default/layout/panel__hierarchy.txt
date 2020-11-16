@@ -1,0 +1,168 @@
+title = Hierarchy
+default_size = 0 0
+panel_section linking
+    title = Object linking
+    default_size = 0 0
+    hidden = 0
+checkbutton show_links
+    container = panel_section linking
+    text = Show links
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+group 885
+    container = panel_section linking
+    title = Link
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 887
+    container = group 885
+    name = link
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button sel_linking_mode
+    container = sizer 887
+    icon_id = 
+    text = Selection
+    tooltip_text = Link selected objects to target object
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+button obj_linking_mode
+    container = sizer 887
+    icon_id = 
+    text = Pick...
+    tooltip_text = Link single object to target object
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 893
+    container = panel_section linking
+    title = Unlink
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 895
+    container = group 893
+    name = unlink
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button unlink
+    container = sizer 895
+    icon_id = 
+    text = Selection
+    tooltip_text = Unlink selected objects
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+button obj_unlinking_mode
+    container = sizer 895
+    icon_id = 
+    text = Pick...
+    tooltip_text = Unlink single object
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton group_member_linking_allowed
+    container = panel_section linking
+    text = Affect group membership:
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 10
+checkbutton group_member_linking_open_groups_only
+    container = panel_section linking
+    text = affect open groups only
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 20 0 0 0
+checkbutton group_member_linking_unlink_only
+    container = panel_section linking
+    text = unlink only
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 20 0 0 0
+panel_section transforms
+    title = Transforms
+    default_size = 0 0
+    hidden = 0
+sizer 906
+    container = panel_section transforms
+    name = transform target types
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 0:1.0 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button geom
+    container = sizer 906
+    icon_id = 
+    text = Geom only
+    tooltip_text = Transform geometry only
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button reset_geom
+    container = sizer 906
+    icon_id = 
+    text = Reset geom
+    tooltip_text = Reset geometry to original transform
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button pivot
+    container = sizer 906
+    icon_id = 
+    text = Pivot only
+    tooltip_text = Transform pivot only
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button reset_pivot
+    container = sizer 906
+    icon_id = 
+    text = Reset pivot
+    tooltip_text = Reset pivot to original transform
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button links
+    container = sizer 906
+    icon_id = 
+    text = Links only
+    tooltip_text = Transform hierarchy links only
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button no_children
+    container = sizer 906
+    icon_id = 
+    text = No children
+    tooltip_text = Don't transform child objects
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0

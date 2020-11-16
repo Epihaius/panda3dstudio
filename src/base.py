@@ -122,6 +122,7 @@ class Notifiers:
 
 
 # Create Panda3D notifiers for different categories
+Notifiers.gui = Notifiers.create("GUI")
 Notifiers.imprt = Notifiers.create("Import")
 Notifiers.mgr = Notifiers.create("Manager")
 Notifiers.reg = Notifiers.create("Registry")

@@ -1,0 +1,170 @@
+title = Template export
+default_size = 0 0
+panel_section export_options
+    title = Export options
+    default_size = 0 0
+    hidden = 0
+sizer 228
+    container = panel_section export_options
+    name = template size
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 228
+    text = Width, height:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field size
+    container = sizer 228
+    field_type = input
+    width = 80
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 231
+    container = panel_section export_options
+    title = Edge color
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 233
+    container = group 231
+    name = edge color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 233
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox edge_rgb
+    container = sizer 233
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = sizer 233
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field edge_alpha
+    container = sizer 233
+    field_type = input_slider
+    width = 45
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 238
+    container = panel_section export_options
+    title = Polygon / Prim. part color
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 240
+    container = group 238
+    name = poly/part color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 240
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox poly_rgb
+    container = sizer 240
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = sizer 240
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field poly_alpha
+    container = sizer 240
+    field_type = input_slider
+    width = 45
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 245
+    container = panel_section export_options
+    title = Seam color
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 247
+    container = group 245
+    name = seam color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 247
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox seam_rgb
+    container = sizer 247
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = sizer 247
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field seam_alpha
+    container = sizer 247
+    field_type = input_slider
+    width = 45
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_container bottom
+    default_size = 0 0
+button export
+    container = panel_container bottom
+    icon_id = 
+    text = Export
+    tooltip_text = Export UV template
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 10

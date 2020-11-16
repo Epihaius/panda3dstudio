@@ -10,7 +10,7 @@ class PolygonEditMixin:
 
         polys = self._subobjs["poly"]
         poly = polys[poly_id]
-        poly_ids = set([poly_id])
+        poly_ids = {poly_id}
         neighbor_ids = list(poly.neighbor_ids)
 
         while neighbor_ids:

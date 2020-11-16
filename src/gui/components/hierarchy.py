@@ -3,150 +3,85 @@ from ..button import *
 from ..panel import *
 
 
-class HierarchyPanel(Panel):
+class HierarchyPanel(ControlPanel):
 
-    def __init__(self, stack):
+    def __init__(self, pane):
 
-        Panel.__init__(self, stack, "hierarchy", "Hierarchy")
+        ControlPanel.__init__(self, pane, "hierarchy")
 
-        self._checkbuttons = {}
-        self._btns = {}
+        widgets = Skin.layout.create(self, "hierarchy")
+        self._btns = widgets["buttons"]
+        self._checkbuttons = widgets["checkbuttons"]
+
         self._toggle_btns = ToggleButtonGroup()
         toggle = (self.__set_xform_target_type, lambda: None)
         self._toggle_btns.set_default_toggle("all", toggle)
 
         # ********************** Object linking section ************************
 
-        section = self.add_section("linking", "Object linking")
+        checkbtn = self._checkbuttons["show_links"]
+        checkbtn.command = self.__toggle_link_visibility
 
-        text = "Show links"
-        checkbtn = PanelCheckButton(section, self.__toggle_link_visibility, text)
-        self._checkbuttons["show_links"] = checkbtn
-        section.add(checkbtn)
-
-        group = section.add_group("Link")
-        subsizer = Sizer("horizontal")
-        group.add(subsizer, alignment="center_v", expand=True)
-
-        subsizer.add((0, 0), proportion=1.)
-
-        text = "Selection"
-        tooltip_text = "Link selected objects to target object"
         command = lambda: self.__toggle_linking_mode("sel_linking_mode")
-        btn = PanelButton(group, text, "", tooltip_text, command)
-        self._btns["sel_linking_mode"] = btn
-        subsizer.add(btn, alignment="center_v")
+        btn = self._btns["sel_linking_mode"]
+        btn.command = command
 
-        subsizer.add((0, 0), proportion=1.)
-
-        text = "Pick..."
-        tooltip_text = "Link single object to target object"
         command = lambda: self.__toggle_linking_mode("obj_linking_mode")
-        btn = PanelButton(group, text, "", tooltip_text, command)
-        self._btns["obj_linking_mode"] = btn
-        subsizer.add(btn, alignment="center_v")
+        btn = self._btns["obj_linking_mode"]
+        btn.command = command
 
-        subsizer.add((0, 0), proportion=1.)
+        btn = self._btns["unlink"]
+        btn.command = self.__unlink_selection
 
-        group = section.add_group("Unlink")
-        subsizer = Sizer("horizontal")
-        group.add(subsizer, alignment="center_v", expand=True)
-
-        subsizer.add((0, 0), proportion=1.)
-
-        text = "Selection"
-        tooltip_text = "Unlink selected objects"
-        command = self.__unlink_selection
-        btn = PanelButton(group, text, "", tooltip_text, command)
-        subsizer.add(btn, alignment="center_v")
-
-        subsizer.add((0, 0), proportion=1.)
-
-        text = "Pick..."
-        tooltip_text = "Unlink single object"
         command = lambda: self.__toggle_linking_mode("obj_unlinking_mode")
-        btn = PanelButton(group, text, "", tooltip_text, command)
-        self._btns["obj_unlinking_mode"] = btn
-        subsizer.add(btn, alignment="center_v")
+        btn = self._btns["obj_unlinking_mode"]
+        btn.command = command
 
-        subsizer.add((0, 0), proportion=1.)
-
-        text = "Affect group membership:"
-        checkbtn = PanelCheckButton(section, self.__toggle_group_member_linking, text)
+        checkbtn = self._checkbuttons["group_member_linking_allowed"]
+        checkbtn.command = self.__toggle_group_member_linking
         checkbtn.check()
-        self._checkbuttons["group_member_linking_allowed"] = checkbtn
-        borders = (0, 0, 0, 10)
-        section.add(checkbtn, borders=borders)
 
-        text = "affect open groups only"
-        checkbtn = PanelCheckButton(section, self.__toggle_open_group_member_linking, text)
+        checkbtn = self._checkbuttons["group_member_linking_open_groups_only"]
+        checkbtn.command = self.__toggle_open_group_member_linking
         checkbtn.check()
-        self._checkbuttons["group_member_linking_open_groups_only"] = checkbtn
-        borders = (20, 0, 0, 0)
-        section.add(checkbtn, borders=borders)
 
-        text = "unlink only"
-        checkbtn = PanelCheckButton(section, self.__toggle_group_member_unlink_only, text)
+        checkbtn = self._checkbuttons["group_member_linking_unlink_only"]
+        checkbtn.command = self.__toggle_group_member_unlink_only
         checkbtn.check()
-        self._checkbuttons["group_member_linking_unlink_only"] = checkbtn
-        section.add(checkbtn, borders=borders)
 
         # ************************ Transforms section **************************
 
         disabler = lambda: GD["active_obj_level"] != "top"
 
-        section = self.add_section("transforms", "Transforms")
-
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
-        section.add(sizer, expand=True)
-
-        text = "Geom only"
-        tooltip_text = "Transform geometry only"
-        btn = PanelButton(section, text, "", tooltip_text)
+        btn = self._btns["geom"]
         btn.add_disabler("subobj_lvl", disabler)
         toggle = (lambda: self.__set_xform_target_type("geom"), lambda: None)
         self._toggle_btns.add_button(btn, "geom", toggle)
-        sizer.add(btn, proportion_h=1.)
 
-        text = "Reset geom"
-        tooltip_text = "Reset geometry to original transform"
         command = lambda: Mgr.update_app("geom_reset")
-        btn = PanelButton(section, text, "", tooltip_text, command)
+        btn = self._btns["reset_geom"]
+        btn.command = command
         btn.add_disabler("subobj_lvl", disabler)
-        self._btns["reset_geom"] = btn
-        sizer.add(btn, proportion_h=1.)
 
-        text = "Pivot only"
-        tooltip_text = "Transform pivot only"
-        btn = PanelButton(section, text, "", tooltip_text)
+        btn = self._btns["pivot"]
         btn.add_disabler("subobj_lvl", disabler)
         toggle = (lambda: self.__set_xform_target_type("pivot"), lambda: None)
         self._toggle_btns.add_button(btn, "pivot", toggle)
-        sizer.add(btn, proportion_h=1.)
 
-        text = "Reset pivot"
-        tooltip_text = "Reset pivot to original transform"
         command = lambda: Mgr.update_app("pivot_reset")
-        btn = PanelButton(section, text, "", tooltip_text, command)
+        btn = self._btns["reset_pivot"]
+        btn.command = command
         btn.add_disabler("subobj_lvl", disabler)
-        self._btns["reset_pivot"] = btn
-        sizer.add(btn, proportion_h=1.)
 
-        text = "Links only"
-        tooltip_text = "Transform hierarchy links only"
-        btn = PanelButton(section, text, "", tooltip_text)
+        btn = self._btns["links"]
         btn.add_disabler("subobj_lvl", disabler)
         toggle = (lambda: self.__set_xform_target_type("links"), lambda: None)
         self._toggle_btns.add_button(btn, "links", toggle)
-        sizer.add(btn, proportion_h=1.)
 
-        text = "No children"
-        tooltip_text = "Don't transform child objects"
-        btn = PanelButton(section, text, "", tooltip_text)
+        btn = self._btns["no_children"]
         btn.add_disabler("subobj_lvl", disabler)
         toggle = (lambda: self.__set_xform_target_type("no_children"), lambda: None)
         self._toggle_btns.add_button(btn, "no_children", toggle)
-        sizer.add(btn, proportion_h=1.)
 
         # **********************************************************************
 

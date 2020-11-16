@@ -176,7 +176,7 @@ class HistoryEvent:
 
     def update_milestone(self):
 
-        if self._is_milestone_tmp is not self._is_milestone:
+        if self._is_milestone_tmp not in (None, self._is_milestone):
             self._is_milestone = self._is_milestone_tmp
             self.modify_milestone_count(self._is_milestone)
 
@@ -511,8 +511,8 @@ class HistoryManager:
         obj_data = event_data["objects"]
         obj_ids = event_data["object_ids"]
 
-        objects = {obj_id: set([("creation" if (k == "object" and v) else k)
-                   for k, v in prop_data.items()]) for obj_id, prop_data
+        objects = {obj_id: {("creation" if (k == "object" and v) else k)
+                   for k, v in prop_data.items()} for obj_id, prop_data
                    in obj_data.items()}
 
         data = {"objects": objects,
@@ -1203,7 +1203,7 @@ class HistoryManager:
             return
 
         event = self._hist_events[self._prev_time_id]
-        merge_time_ids = set([str(self._prev_time_id)])
+        merge_time_ids = {str(self._prev_time_id)}
         prev_event = event.get_previous_event()
 
         while prev_event:

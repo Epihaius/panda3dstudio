@@ -1,14 +1,12 @@
 from ..base import *
 from ..button import *
 from ..toolbar import *
-from ..dialog import *
-from .transform_dialogs import (TransformOptionsDialog, TransformDialog, CoordSysDialog,
-                                TransfCenterDialog, StoredTransformDialog)
+from ..dialogs import *
 
 
 class TransformButtons(ToggleButtonGroup):
 
-    def __init__(self, toolbar):
+    def __init__(self, buttons):
 
         ToggleButtonGroup.__init__(self)
 
@@ -20,10 +18,10 @@ class TransformButtons(ToggleButtonGroup):
 
         self.set_default_toggle("", (toggle_on_default, lambda: None))
 
-        btn_data = {
-            "translate": ("icon_translate", "Select and translate", [("w", 0), "W"]),
-            "rotate": ("icon_rotate", "Select and rotate", [("e", 0), "E"]),
-            "scale": ("icon_scale", "Select and scale", [("r", 0), "R"])
+        hotkeys = {
+            "translate": [("w", 0), "W"],
+            "rotate": [("e", 0), "E"],
+            "scale": [("r", 0), "R"]
         }
 
         def add_toggle(transf_type):
@@ -40,9 +38,8 @@ class TransformButtons(ToggleButtonGroup):
                     Mgr.update_app("status", ["select", transf_type, "idle"])
 
             toggle = (toggle_on, lambda: None)
-            icon_id, tooltip_text, hotkey = btn_data[transf_type]
-            btn = ToolbarButton(toolbar, icon_id=icon_id, tooltip_text=tooltip_text)
-            btn.set_hotkey(*hotkey)
+            btn = buttons[transf_type]
+            btn.set_hotkey(*hotkeys[transf_type])
             self.add_button(btn, transf_type, toggle)
 
         for transf_type in ("translate", "rotate", "scale"):
@@ -51,16 +48,22 @@ class TransformButtons(ToggleButtonGroup):
 
 class AxisButtons(ButtonGroup):
 
-    def __init__(self):
+    def __init__(self, buttons):
 
         ButtonGroup.__init__(self)
+
+        for axis_id in "xyz":
+            btn = buttons[axis_id]
+            btn.command = lambda a=axis_id: self.__set_axis_constraint(a)
+            btn.set_hotkey((axis_id, 0), axis_id.upper())
+            self.add_button(btn, axis_id)
 
         self._axes = {"": ""}
 
     def update_axis_constraints(self, transf_type, axes):
 
-        for axis in "xyz":
-            self.get_button(axis).active = False
+        for axis_id in "xyz":
+            self.get_button(axis_id).active = False
 
         if not transf_type:
             return
@@ -70,10 +73,10 @@ class AxisButtons(ButtonGroup):
 
         self._axes[transf_type] = axes
 
-        for axis in axes:
-            self.get_button(axis).active = True
+        for axis_id in axes:
+            self.get_button(axis_id).active = True
 
-    def __set_axis_constraint(self, axis):
+    def __set_axis_constraint(self, axis_id):
 
         tt = GD["active_transform_type"]
 
@@ -85,276 +88,51 @@ class AxisButtons(ButtonGroup):
         if tt == "translate":
 
             if len(self._axes[tt]) == 1:
-                if axis == self._axes[tt]:
-                    self._axes[tt] = "xyz".replace(axis, "")
+                if axis_id == self._axes[tt]:
+                    self._axes[tt] = "xyz".replace(axis_id, "")
                 else:
-                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
+                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis_id))
             else:
-                if axis in self._axes[tt]:
-                    self._axes[tt] = self._axes[tt].replace(axis, "")
+                if axis_id in self._axes[tt]:
+                    self._axes[tt] = self._axes[tt].replace(axis_id, "")
                 else:
-                    self._axes[tt] = axis
+                    self._axes[tt] = axis_id
 
         elif tt == "rotate":
 
-            if axis != self._axes[tt]:
-                self._axes[tt] = axis
+            if axis_id != self._axes[tt]:
+                self._axes[tt] = axis_id
 
         elif tt == "scale":
 
             if len(self._axes[tt]) == 1:
-                if axis != self._axes[tt]:
-                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
+                if axis_id != self._axes[tt]:
+                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis_id))
             else:
-                if axis in self._axes[tt]:
-                    self._axes[tt] = self._axes[tt].replace(axis, "")
+                if axis_id in self._axes[tt]:
+                    self._axes[tt] = self._axes[tt].replace(axis_id, "")
                 else:
-                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis))
+                    self._axes[tt] = "".join(sorted(self._axes[tt] + axis_id))
 
         Mgr.update_app("axis_constraints", tt, self._axes[tt])
-
-    def create_button(self, toolbar, axis):
-
-        icon_id = f"icon_{axis}"
-        tooltip_text = f"Transform about {axis.upper()}-axis"
-        command = lambda: self.__set_axis_constraint(axis)
-        btn = ToolbarButton(toolbar, "", icon_id, tooltip_text, command)
-        btn.set_hotkey((axis, 0), axis.upper())
-        self.add_button(btn, axis)
-
-        return btn
-
-
-class CoordSysComboBox(ToolbarComboBox):
-
-    def __init__(self, toolbar):
-
-        icon_id = "icon_coord_sys"
-        tooltip_text = "Reference coordinate system"
-
-        ToolbarComboBox.__init__(self, toolbar, 100, icon_id=icon_id, tooltip_text=tooltip_text)
-
-        self._has_tmp_text = False
-
-        def add_coord_sys_entry(cs_type, text):
-
-            def set_coord_sys():
-
-                self._has_tmp_text = False
-                Mgr.update_remotely("grid_alignment", "cancel")
-                Mgr.update_app("coord_sys", cs_type)
-
-            self.add_item(cs_type, text, set_coord_sys)
-
-        for cs in (("world", "World"), ("view", "View"), ("local", "Local")):
-            add_coord_sys_entry(*cs)
-
-        def start_coord_sys_picking():
-
-            if GD["active_obj_level"] != "top":
-                GD["active_obj_level"] = "top"
-                Mgr.update_app("active_obj_level")
-
-            Mgr.enter_state("coord_sys_picking_mode")
-            self.select_none()
-            self.select_item("object")
-            self._has_tmp_text = True
-
-        self.add_item("object", "Pick object...", start_coord_sys_picking, persistent=True)
-
-        def enter_snap_mode():
-
-            Mgr.enter_state("coord_origin_snap_mode")
-            self.select_none()
-            self.select_item("snap_pt")
-            self._has_tmp_text = True
-            Mgr.update_locally("object_snap", "enable", True, True)
-
-        self.add_item("snap_pt", "Snap to point...", enter_snap_mode, persistent=True)
-
-        def set_custom_xform():
-
-            Mgr.exit_state("coord_sys_picking_mode")
-            Mgr.exit_state("coord_origin_snap_mode")
-            self.select_none()
-            self.select_item("custom")
-            self._has_tmp_text = True
-            tint = Skin["colors"]["combobox_field_tint_pick"]
-            self.set_field_tint(tint)
-            CoordSysDialog(self)
-
-        self.add_item("custom", "Custom transform...", set_custom_xform, persistent=True)
-
-        menu = self.get_popup_menu()
-        item = menu.add("align", "Align to", item_type="submenu")
-        submenu = item.get_submenu()
-
-        def add_align_target_type_entry(target_type, target_descr):
-
-            def set_target_type():
-
-                Mgr.update_remotely("grid_alignment", "pick_target", target_type)
-                self.select_none()
-                self.select_item("custom")
-                self.set_text("Align...")
-                self._has_tmp_text = True
-                tint = Skin["colors"]["combobox_field_tint_pick"]
-                self.set_field_tint(tint)
-
-            submenu.add(target_type, target_descr, set_target_type)
-
-        target_types = ("view", "object", "obj_point", "surface")
-        target_descr = ("view", "object", "object (aim at point)", "surface")
-
-        for target_type, descr in zip(target_types, target_descr):
-            add_align_target_type_entry(target_type, descr)
-
-        menu.add("sep0", item_type="separator")
-        self.add_item("store", "Store...", lambda: self.__show_dialog("store"))
-        self.add_item("restore", "Restore...", lambda: self.__show_dialog("restore"))
-
-        self.update_popup_menu()
-
-        Mgr.add_app_updater("coord_sys", self.__update)
-
-    def __show_dialog(self, command_id):
-
-        StoredTransformDialog(command_id, "coordinate system", "coord_sys")
-
-    def __update_obj_name(self, name):
-
-        if not self._has_tmp_text:
-            self.set_text(name)
-
-    def __update(self, coord_sys_type, obj_name=None):
-
-        if Mgr.is_state_active("coord_sys_picking_mode"):
-            Mgr.exit_state("coord_sys_picking_mode")
-        elif Mgr.is_state_active("coord_origin_snap_mode"):
-            Mgr.exit_state("coord_origin_snap_mode")
-        elif Mgr.is_state_active("alignment_target_picking_mode"):
-            Mgr.exit_state("alignment_target_picking_mode")
-
-        self.select_item(coord_sys_type)
-
-        if coord_sys_type == "object":
-            self.set_text(obj_name.get_value())
-            obj_name.add_updater("coord_sys", self.__update_obj_name)
-        elif coord_sys_type == "custom":
-            self.set_text("Custom")
-            self._has_tmp_text = False
-
-        self._has_tmp_text = False
-        self.set_field_tint(None)
-
-
-class TransfCenterComboBox(ToolbarComboBox):
-
-    def __init__(self, toolbar):
-
-        icon_id = "icon_transf_center"
-        tooltip_text = "Transform center"
-
-        ToolbarComboBox.__init__(self, toolbar, 100, icon_id=icon_id, tooltip_text=tooltip_text)
-
-        self._has_tmp_text = False
-
-        def add_transf_center_type(tc_type, text):
-
-            def set_transf_center():
-
-                self._has_tmp_text = False
-                Mgr.update_app("transf_center", tc_type)
-
-            self.add_item(tc_type, text, set_transf_center)
-
-        for tc in (
-            ("adaptive", "Adaptive"), ("sel_center", "Selection center"),
-            ("pivot", "Pivot"), ("cs_origin", "Ref. coord. origin")
-        ):
-            add_transf_center_type(*tc)
-
-        def start_transf_center_picking():
-
-            if GD["active_obj_level"] != "top":
-                GD["active_obj_level"] = "top"
-                Mgr.update_app("active_obj_level")
-
-            Mgr.enter_state("transf_center_picking_mode")
-            self.select_none()
-            self.select_item("object")
-            self._has_tmp_text = True
-
-        self.add_item("object", "Pick object...", start_transf_center_picking, persistent=True)
-
-        def enter_snap_mode():
-
-            Mgr.enter_state("transf_center_snap_mode")
-            self.select_none()
-            self.select_item("snap_pt")
-            self._has_tmp_text = True
-            Mgr.update_locally("object_snap", "enable", True, True)
-
-        self.add_item("snap_pt", "Snap to point...", enter_snap_mode, persistent=True)
-
-        def set_custom_coords():
-
-            Mgr.exit_state("transf_center_picking_mode")
-            Mgr.exit_state("transf_center_snap_mode")
-            self.select_none()
-            self.select_item("custom")
-            self._has_tmp_text = True
-            tint = Skin["colors"]["combobox_field_tint_pick"]
-            self.set_field_tint(tint)
-            TransfCenterDialog(self)
-
-        self.add_item("custom", "Custom coords...", set_custom_coords, persistent=True)
-
-        menu = self.get_popup_menu()
-        menu.add("sep0", item_type="separator")
-        self.add_item("store", "Store...", lambda: self.__show_dialog("store"))
-        self.add_item("restore", "Restore...", lambda: self.__show_dialog("restore"))
-
-        self.update_popup_menu()
-
-        Mgr.add_app_updater("transf_center", self.__update)
-
-    def __show_dialog(self, command_id):
-
-        StoredTransformDialog(command_id, "transform center", "transf_center")
-
-    def __update_obj_name(self, name):
-
-        if not self._has_tmp_text:
-            self.set_text(name)
-
-    def __update(self, transf_center_type, obj_name=None):
-
-        if Mgr.is_state_active("transf_center_picking_mode"):
-            Mgr.exit_state("transf_center_picking_mode")
-        elif Mgr.is_state_active("transf_center_snap_mode"):
-            Mgr.exit_state("transf_center_snap_mode")
-
-        self.select_item(transf_center_type)
-
-        if transf_center_type == "object":
-            self.set_text(obj_name.get_value())
-            obj_name.add_updater("transf_center", self.__update_obj_name)
-        elif transf_center_type == "custom":
-            self.set_text("Custom")
-            self._has_tmp_text = False
-
-        self._has_tmp_text = False
-        self.set_field_tint(None)
 
 
 class TransformToolbar(Toolbar):
 
     def __init__(self, parent):
 
-        Toolbar.__init__(self, parent, "transform", "Transform")
+        Toolbar.__init__(self, parent, "transform")
 
-        self._transform_btns = btns = TransformButtons(self)
+        widgets = Skin.layout.create(self, "transform")
+        self._transform_btns = TransformButtons(widgets["buttons"])
+        self._axis_btns = AxisButtons(widgets["buttons"])
+        self._offsets_btn = offsets_btn = widgets["buttons"]["offsets"]
+        self._fields = fields = widgets["fields"]
+        self._comboboxes = widgets["comboboxes"]
+
+        self.__setup_coord_sys_combobox()
+        self.__setup_transf_center_combobox()
+        Mgr.expose("coord_sys_combobox", lambda: self._comboboxes["coord_sys"])
 
         def set_active_transform_off():
 
@@ -364,36 +142,20 @@ class TransformToolbar(Toolbar):
 
         self.add_hotkey(("q", 0), set_active_transform_off)
 
-        borders = (0, 5, 0, 0)
-
-        for transf_type in ("translate", "rotate", "scale"):
-            btn = btns.get_button(transf_type)
-            self.add(btn, borders=borders, alignment="center_v")
-
-        self.add(ToolbarSeparator(self), borders=borders)
-
-        self._axis_btns = AxisButtons()
-        self._fields = {}
-
-        get_value_handler = lambda axis: lambda value_id, value, state="done": \
-            self.__handle_value(axis, value_id, value, state)
-
-        font = Skin["text"]["input2"]["font"]
+        font = Skin.text["input2"]["font"]
         is_relative_value = True
         btn_disabler = lambda: not GD["active_transform_type"]
         self._axis_btns.add_disabler("no_transf", btn_disabler)
+        offsets_btn.command = self.__toggle_relative_values
+        offsets_btn.add_disabler("no_transf", btn_disabler)
         field_disabler = lambda: not (GD["active_transform_type"] and GD["selection_count"])
 
-        for axis in "xyz":
+        for axis_id in "xyz":
 
-            axis_btn = self._axis_btns.create_button(self, axis)
-            self.add(axis_btn, borders=borders, alignment="center_v")
-
-            field = ToolbarMultiValField(self, 80)
+            field = fields[axis_id]
             field.add_disabler("no_transf_or_sel", field_disabler)
-            self._fields[axis] = field
-            self.add(field, borders=borders, alignment="center_v")
-            handler = get_value_handler(axis)
+            handler = lambda value_id, value, state="done", a=axis_id: \
+                self.__handle_value(a, value_id, value, state)
 
             for transf_type in ("translate", "rotate", "scale"):
                 field.add_value((transf_type, not is_relative_value), "float", handler)
@@ -401,29 +163,11 @@ class TransformToolbar(Toolbar):
                 field.add_value(value_id, "float", handler, font)
                 field.set_value(value_id, 1. if transf_type == "scale" else 0.)
 
-        icon_id = "icon_offsets"
-        tooltip_text = "Input relative values (offsets)"
-        btn = ToolbarButton(self, "", icon_id, tooltip_text, self.__toggle_relative_values)
-        btn.add_disabler("no_transf", btn_disabler)
-        self._offsets_btn = btn
-        self.add(btn, borders=borders, alignment="center_v")
-
-        self.add(ToolbarSeparator(self), borders=borders)
-
-        self._comboboxes = {}
-        combobox = CoordSysComboBox(self)
-        self._comboboxes["coord_sys"] = combobox
-        Mgr.expose("coord_sys_combobox", lambda: self._comboboxes["coord_sys"])
-        self.add(combobox, borders=borders, alignment="center_v")
-        combobox = TransfCenterComboBox(self)
-        self._comboboxes["transf_center"] = combobox
-        self.add(combobox, alignment="center_v")
-
         self._axis_btns.enable(False)
         self.__enable_fields(False)
         self.__show_field_text(False)
-        self._offsets_btn.active = False
-        self._offsets_btn.enable(False)
+        offsets_btn.active = False
+        offsets_btn.enable(False)
 
         tools_menu = Mgr.get("tool_options_menu")
         item = tools_menu.add("transforms", "Transforms", self.__show_options_dialog)
@@ -474,6 +218,8 @@ class TransformToolbar(Toolbar):
         Mgr.add_app_updater("selection_count", self.__check_selection_count)
         Mgr.add_app_updater("active_obj_level", self.__show_values)
         Mgr.add_app_updater("componentwise_xform", TransformDialog)
+        Mgr.add_app_updater("coord_sys", self.__update_coord_sys)
+        Mgr.add_app_updater("transf_center", self.__update_transf_center)
 
         Mgr.accept("update_offset_btn", self.__update_offset_btn)
 
@@ -489,7 +235,7 @@ class TransformToolbar(Toolbar):
 
             def enter_picking_mode(prev_state_id, active):
 
-                tint = Skin["colors"]["combobox_field_tint_pick"]
+                tint = Skin.colors["combobox_field_tint_pick"]
                 self._comboboxes[picking_type].set_field_tint(tint)
                 Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
 
@@ -509,7 +255,7 @@ class TransformToolbar(Toolbar):
 
             def enter_snap_mode(prev_state_id, active):
 
-                tint = Skin["colors"]["combobox_field_tint_pick"]
+                tint = Skin.colors["combobox_field_tint_pick"]
                 combobox_id = "coord_sys" if snap_type == "coord_origin" else snap_type
                 self._comboboxes[combobox_id].set_field_tint(tint)
                 Mgr.do("set_viewport_border_color", "viewport_frame_pick_objects")
@@ -530,6 +276,222 @@ class TransformToolbar(Toolbar):
 
         for snap_type in ("coord_origin", "transf_center"):
             add_snap_mode(snap_type)
+
+    def __setup_coord_sys_combobox(self):
+
+        combobox = self._comboboxes["coord_sys"]
+        self._has_tmp_coord_sys_text = False
+
+        def add_coord_sys_entry(cs_type, text):
+
+            def set_coord_sys():
+
+                self._has_tmp_coord_sys_text = False
+                Mgr.update_remotely("grid_alignment", "cancel")
+                Mgr.update_app("coord_sys", cs_type)
+
+            combobox.add_item(cs_type, text, set_coord_sys)
+
+        for cs in (("world", "World"), ("view", "View"), ("local", "Local")):
+            add_coord_sys_entry(*cs)
+
+        def start_coord_sys_picking():
+
+            if GD["active_obj_level"] != "top":
+                GD["active_obj_level"] = "top"
+                Mgr.update_app("active_obj_level")
+
+            Mgr.enter_state("coord_sys_picking_mode")
+            combobox = self._comboboxes["coord_sys"]
+            combobox.select_none()
+            combobox.select_item("object")
+            self._has_tmp_coord_sys_text = True
+
+        combobox.add_item("object", "Pick object...", start_coord_sys_picking, persistent=True)
+
+        def enter_snap_mode():
+
+            Mgr.enter_state("coord_origin_snap_mode")
+            combobox = self._comboboxes["coord_sys"]
+            combobox.select_none()
+            combobox.select_item("snap_pt")
+            self._has_tmp_coord_sys_text = True
+            Mgr.update_locally("object_snap", "enable", True, True)
+
+        combobox.add_item("snap_pt", "Snap to point...", enter_snap_mode, persistent=True)
+
+        def set_custom_xform():
+
+            Mgr.exit_state("coord_sys_picking_mode")
+            Mgr.exit_state("coord_origin_snap_mode")
+            combobox = self._comboboxes["coord_sys"]
+            combobox.select_none()
+            combobox.select_item("custom")
+            self._has_tmp_coord_sys_text = True
+            tint = Skin.colors["combobox_field_tint_pick"]
+            combobox.set_field_tint(tint)
+            CoordSysDialog(combobox)
+
+        combobox.add_item("custom", "Custom transform...", set_custom_xform, persistent=True)
+
+        menu = combobox.get_popup_menu()
+        item = menu.add("align", "Align to", item_type="submenu")
+        submenu = item.get_submenu()
+
+        def add_align_target_type_entry(target_type, target_descr):
+
+            def set_target_type():
+
+                Mgr.update_remotely("grid_alignment", "pick_target", target_type)
+                combobox = self._comboboxes["coord_sys"]
+                combobox.select_none()
+                combobox.select_item("custom")
+                combobox.set_text("Align...")
+                self._has_tmp_coord_sys_text = True
+                tint = Skin.colors["combobox_field_tint_pick"]
+                combobox.set_field_tint(tint)
+
+            submenu.add(target_type, target_descr, set_target_type)
+
+        target_types = ("view", "object", "obj_point", "surface")
+        target_descr = ("view", "object", "object (aim at point)", "surface")
+
+        for target_type, descr in zip(target_types, target_descr):
+            add_align_target_type_entry(target_type, descr)
+
+        menu.add("sep0", item_type="separator")
+        combobox.add_item("store", "Store...", lambda: self.__show_coord_sys_dialog("store"))
+        combobox.add_item("restore", "Restore...", lambda: self.__show_coord_sys_dialog("restore"))
+
+        combobox.update_popup_menu()
+
+    def __show_coord_sys_dialog(self, command_id):
+
+        StoredTransformDialog(command_id, "coordinate system", "coord_sys")
+
+    def __update_coord_sys_obj_name(self, name):
+
+        if not self._has_tmp_coord_sys_text:
+            self._comboboxes["coord_sys"].set_text(name)
+
+    def __update_coord_sys(self, coord_sys_type, obj_name=None):
+
+        combobox = self._comboboxes["coord_sys"]
+
+        if Mgr.is_state_active("coord_sys_picking_mode"):
+            Mgr.exit_state("coord_sys_picking_mode")
+        elif Mgr.is_state_active("coord_origin_snap_mode"):
+            Mgr.exit_state("coord_origin_snap_mode")
+        elif Mgr.is_state_active("alignment_target_picking_mode"):
+            Mgr.exit_state("alignment_target_picking_mode")
+
+        combobox.select_item(coord_sys_type)
+
+        if coord_sys_type == "object":
+            combobox.set_text(obj_name.get_value())
+            obj_name.add_updater("coord_sys", self.__update_coord_sys_obj_name)
+        elif coord_sys_type == "custom":
+            combobox.set_text("Custom")
+            self._has_tmp_coord_sys_text = False
+
+        self._has_tmp_coord_sys_text = False
+        combobox.set_field_tint(None)
+
+    def __setup_transf_center_combobox(self):
+
+        combobox = self._comboboxes["transf_center"]
+        self._has_tmp_transf_center_text = False
+
+        def add_transf_center_type(tc_type, text):
+
+            def set_transf_center():
+
+                self._has_tmp_transf_center_text = False
+                Mgr.update_app("transf_center", tc_type)
+
+            combobox.add_item(tc_type, text, set_transf_center)
+
+        for tc in (
+            ("adaptive", "Adaptive"), ("sel_center", "Selection center"),
+            ("pivot", "Pivot"), ("cs_origin", "Ref. coord. origin")
+        ):
+            add_transf_center_type(*tc)
+
+        def start_transf_center_picking():
+
+            if GD["active_obj_level"] != "top":
+                GD["active_obj_level"] = "top"
+                Mgr.update_app("active_obj_level")
+
+            Mgr.enter_state("transf_center_picking_mode")
+            combobox = self._comboboxes["transf_center"]
+            combobox.select_none()
+            combobox.select_item("object")
+            self._has_tmp_transf_center_text = True
+
+        combobox.add_item("object", "Pick object...", start_transf_center_picking, persistent=True)
+
+        def enter_snap_mode():
+
+            Mgr.enter_state("transf_center_snap_mode")
+            combobox = self._comboboxes["transf_center"]
+            combobox.select_none()
+            combobox.select_item("snap_pt")
+            self._has_tmp_transf_center_text = True
+            Mgr.update_locally("object_snap", "enable", True, True)
+
+        combobox.add_item("snap_pt", "Snap to point...", enter_snap_mode, persistent=True)
+
+        def set_custom_coords():
+
+            Mgr.exit_state("transf_center_picking_mode")
+            Mgr.exit_state("transf_center_snap_mode")
+            combobox = self._comboboxes["transf_center"]
+            combobox.select_none()
+            combobox.select_item("custom")
+            self._has_tmp_transf_center_text = True
+            tint = Skin.colors["combobox_field_tint_pick"]
+            combobox.set_field_tint(tint)
+            TransfCenterDialog(combobox)
+
+        combobox.add_item("custom", "Custom coords...", set_custom_coords, persistent=True)
+
+        menu = combobox.get_popup_menu()
+        menu.add("sep0", item_type="separator")
+        combobox.add_item("store", "Store...", lambda: self.__show_transf_center_dialog("store"))
+        combobox.add_item("restore", "Restore...", lambda: self.__show_transf_center_dialog("restore"))
+
+        combobox.update_popup_menu()
+
+    def __show_transf_center_dialog(self, command_id):
+
+        StoredTransformDialog(command_id, "transform center", "transf_center")
+
+    def __update_transf_center_obj_name(self, name):
+
+        if not self._has_tmp_transf_center_text:
+            self._comboboxes["transf_center"].set_text(name)
+
+    def __update_transf_center(self, transf_center_type, obj_name=None):
+
+        combobox = self._comboboxes["transf_center"]
+
+        if Mgr.is_state_active("transf_center_picking_mode"):
+            Mgr.exit_state("transf_center_picking_mode")
+        elif Mgr.is_state_active("transf_center_snap_mode"):
+            Mgr.exit_state("transf_center_snap_mode")
+
+        combobox.select_item(transf_center_type)
+
+        if transf_center_type == "object":
+            combobox.set_text(obj_name.get_value())
+            obj_name.add_updater("transf_center", self.__update_transf_center_obj_name)
+        elif transf_center_type == "custom":
+            combobox.set_text("Custom")
+            self._has_tmp_transf_center_text = False
+
+        self._has_tmp_transf_center_text = False
+        combobox.set_field_tint(None)
 
     def __show_options_dialog(self):
 
@@ -571,14 +533,14 @@ class TransformToolbar(Toolbar):
 
         self.__check_selection_count(transf_type)
 
-    def __handle_value(self, axis, value_id, value, state="done"):
+    def __handle_value(self, axis_id, value_id, value, state="done"):
 
         transf_type, is_rel_value = value_id
-        Mgr.update_remotely("transf_component", transf_type, axis, value, is_rel_value)
+        Mgr.update_remotely("transf_component", transf_type, axis_id, value, is_rel_value)
 
         if is_rel_value:
             val = 1. if transf_type == "scale" else 0.
-            self._fields[axis].set_value(value_id, val)
+            self._fields[axis_id].set_value(value_id, val)
 
     def __set_field_values(self, transform_data=None):
 
@@ -597,8 +559,8 @@ class TransformToolbar(Toolbar):
 
             value_id = (transform_type, False)
 
-            for axis, value in zip("xyz", values):
-                self._fields[axis].set_value(value_id, value)
+            for axis_id, value in zip("xyz", values):
+                self._fields[axis_id].set_value(value_id, value)
 
         if transf_type:
             self.__show_field_text()
@@ -629,7 +591,7 @@ class TransformToolbar(Toolbar):
 
         if sel_count > 1:
 
-            color = (.5, .5, .5, 1.)
+            color = Skin.text["input_disabled"]["color"]
 
             for field in self._fields.values():
                 field.set_text_color(color)

@@ -113,6 +113,7 @@ viewport_frame_pick_objects             0. 1. 1. 1.
 viewport_frame_group_objects            1. .5 1. 1.
 viewport_frame_link_objects             1. .5 1. 1.
 viewport_frame_edit_uvs                 .4 1. .4 1.
+viewport_frame_simulate                 1. .7 .4 1.
 selection_region_shape_default          1. 1. 1. 1.
 selection_region_shape_enclose          1. 1. .7 1.
 selection_region_fill_default           .5 .5 .75 .5
@@ -145,32 +146,49 @@ panel_checkbox_back                     .2 .15 .3 1.
 toolbar_checkmark                       .5 .7 .9 1.
 toolbar_checkbox_back                   .2 .15 .3 1.
 dialog_bullet                           1. 1. 1. 1.
+dialog_bullet_disabled                  .5 .5 .5 1.
 dialog_checkmark                        1. 1. 1. 1.
+dialog_checkmark_disabled               .5 .5 .5 1.
 dialog_radiobox_back                    .2 .15 .3 1.
 dialog_checkbox_back                    .2 .15 .3 1.
 tooltip_background                      .2 .15 .3 1.
 tooltip_border                          .6 .3 .9 1.
+selected_object_name_tag                1. 1. 0. 1.
+unselected_object_name_tag              1. 1. 1. 1.
 view_label_shadow                       0. 0. 0. 1.
+history_current_entry_rect              0. 0. 0. 1.
 history_entry_unselected                .765 .765 .87 1.
 history_entry_unselected_alt            .808 .796 .89 1.
 history_entry_selected                  .882 .922 .988 1.
 history_entry_selected_alt              .925 .953 1. 1.
 list_entry_unselected                   .765 .765 .87 1.
 list_entry_selected                     .882 .922 .988 1.
+default_value                           1. 1. 0. 1.
+import_dialog_lines                     0. 0. 0. 1.
 # the following is used to darken everything below the topmost dialog; set alpha to 0. to disable
 dialog_background_overlay               .2 .2 .2 .5
 #
 OPTIONS
 #
-# The skin options, in the following format:
+# The general skin options, in the following format:
 #
 # [option ID] [data type] [value]
 #
+viewport_border_thickness       int     3
+# space to left and right of a menu button
+menu_button_border              int     10
+statusbar_mode_area_min_width   int     170
+# the minimum position at which the left and right areas of the statusbar are sized proportionately
+statusbar_proportional_sep      int     400
 scrollthumb_thickness           int     10
 integrate_scrollbar_in_frame    bool    1
 panel_scrollbar_left            bool    0
-# the number of rows of files in a file dialog
-file_row_count                  int     10
+section_label_offset            int     5
+group_title_offset              int     4
+menu_item_hotkey_offset         int     20
+toolbar_margin                  int     10
+tooltip_border_thickness        int     1
+tooltip_border_offset           int     3
 combobox_field_height           int     18
 inputfield_margin               int     5
 inputfield_width_scale          float   1.
@@ -190,13 +208,11 @@ dialog_title_top                int     4
 dialog_bottom_height            int     42
 # the width of the Yes/No/OK/Cancel buttons at the bottom of a dialog
 dialog_standard_button_width    int     110
-colorgradient_width             int     256
-colorgradient_height            int     256
-small_colorswatch_width         int     30
-small_colorswatch_height        int     20
-large_colorswatch_width         int     60
-large_colorswatch_height        int     30
+# the space between the Yes/No/OK/Cancel buttons at the bottom of a dialog
+dialog_standard_button_gap      int     20
 # the number of pixels a pane is scrolled when using the mouse wheel
 scroll_step                     int     20
 view_label_shadow_offset_x      int     1
 view_label_shadow_offset_y      int     1
+# the minimum space between the bottom of the viewtile pane and the bottom of the viewport
+viewtile_pane_bottom_offset     int     20

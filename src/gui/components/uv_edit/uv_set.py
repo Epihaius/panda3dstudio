@@ -3,19 +3,18 @@ from ...button import *
 from ...panel import *
 
 
-class UVSetPanel(Panel):
+class UVSetPanel(ControlPanel):
 
-    def __init__(self, stack):
+    def __init__(self, pane):
 
-        Panel.__init__(self, stack, "uv_set", "UV sets")
+        ControlPanel.__init__(self, pane, "uv_set")
 
-        self._btns = {}
-        self._comboboxes = {}
-        self._fields = {}
+        widgets = Skin.layout.create(self, "uv_set")
+        self._btns = btns = widgets["buttons"]
+        self._comboboxes = widgets["comboboxes"]
+        self._fields = widgets["fields"]
 
         # *********************** Active UV set section ************************
-
-        section = self.add_section("active_uv_set", "Active UV set")
 
         self._uv_set_btns = uv_set_btns = ToggleButtonGroup()
 
@@ -24,59 +23,28 @@ class UVSetPanel(Panel):
             self._uv_set_btns.set_active_button(str(uv_set_id))
             Mgr.update_interface_remotely("uv", "active_uv_set", uv_set_id)
 
-        get_command = lambda i: lambda: set_active_uv_set(i)
-
-        sizer = GridSizer(rows=0, columns=4, gap_h=5, gap_v=5)
-        borders = (5, 5, 5, 5)
-        section.add(sizer, expand=True, borders=borders)
-
         for i in range(8):
-            text = str(i)
-            tooltip_text = f"UV set {i}"
-            btn = PanelButton(section, text, "", tooltip_text)
-            toggle = (get_command(i), lambda: None)
+            btn = btns[str(i)]
+            command = lambda set_id=i: set_active_uv_set(set_id)
+            toggle = (command, lambda: None)
             uv_set_btns.add_button(btn, str(i), toggle)
-            sizer.add(btn, proportion_h=1.)
 
         uv_set_btns.set_active_button("0")
 
-        btn_sizer = Sizer("horizontal")
-        borders = (10, 10, 0, 10)
-        section.add(btn_sizer, expand=True, borders=borders)
+        btn = btns["copy"]
+        btn.command = lambda: Mgr.update_interface_remotely("uv", "uv_set_copy")
 
-        text = "Copy"
-        tooltip_text = "Copy active UV set"
-        command = lambda: Mgr.update_interface_remotely("uv", "uv_set_copy")
-        btn = PanelButton(section, text, "", tooltip_text, command)
-        btn_sizer.add(btn, proportion=1.)
-        btn_sizer.add((20, 0))
-
-        text = "Paste"
-        tooltip_text = "Replace active UV set with copied one"
-        command = lambda: Mgr.update_interface_remotely("uv", "uv_set_paste")
-        btn = PanelButton(section, text, "", tooltip_text, command)
-        btn_sizer.add(btn, proportion=1.)
+        btn = btns["paste"]
+        btn.command = lambda: Mgr.update_interface_remotely("uv", "uv_set_paste")
 
         # ************************ UV set name section *************************
 
-        section = self.add_section("uv_set_name", "Active UV set name")
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "For"
-        borders = (0, 5, 0, 0)
-        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
-        combobox = PanelComboBox(section, 60, tooltip_text="Object")
-        self._comboboxes["uv_name_target"] = combobox
-        sizer.add(combobox, proportion=1., alignment="center_v")
-
         val_id = "uv_name"
-        field = PanelInputField(section, val_id, "string", self.__handle_value, 50)
+        field = self._fields[val_id]
+        field.value_id = val_id
+        field.value_type = "string"
         field.set_input_parser(self.__parse_uv_name)
-        self._fields[val_id] = field
-        borders = (0, 0, 0, 10)
-        section.add(field, expand=True, borders=borders)
+        field.set_value_handler(self.__handle_value)
 
     def setup(self):
 
@@ -108,10 +76,9 @@ class UVSetPanel(Panel):
             name_field.enable(False)
             return
 
-        get_command = lambda obj_id: lambda: self.__select_uv_name_target(obj_id)
-
         for obj_id, name in names.items():
-            combobox.add_item(obj_id, name, get_command(obj_id))
+            command = lambda o=obj_id: self.__select_uv_name_target(o)
+            combobox.add_item(obj_id, name, command)
 
         combobox.update_popup_menu()
         obj_id = list(names.keys())[0]

@@ -3,273 +3,121 @@ from ...button import *
 from ...panel import *
 
 
-class SubobjectPanel(Panel):
+class SubobjectPanel(ControlPanel):
 
-    def __init__(self, stack):
+    def __init__(self, pane):
 
-        Panel.__init__(self, stack, "subobj", "Subobject level")
+        ControlPanel.__init__(self, pane, "subobj")
 
-        self._btns = {}
-        self._comboboxes = {}
-        self._checkbuttons = {}
-        self._colorboxes = {}
-        self._fields = {}
-        self._radio_btns = {}
+        widgets = Skin.layout.create(self, "subobj")
+        self._btns = btns = widgets["buttons"]
+        self._checkbuttons = checkbuttons = widgets["checkbuttons"]
+        self._colorboxes = colorboxes = widgets["colorboxes"]
+        self._fields = fields = widgets["fields"]
         self._uv_lvl_btns = uv_lvl_btns = ToggleButtonGroup()
+
         self._prev_obj_lvl = ""
         self._subobj_state_ids = {"vert": [], "edge": [], "poly": [], "part": []}
 
-        top_container = self.get_top_container()
-
-        btn_sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=5)
-        borders = (5, 5, 10, 5)
-        top_container.add(btn_sizer, expand=True, borders=borders)
-
-        get_command = lambda subobj_type: lambda: self.__set_subobj_level(subobj_type)
         subobj_types = ("vert", "edge", "poly", "part")
-        subobj_text = ("Vertex", "Edge", "Polygon", "Prim. part")
-        tooltip_texts = tuple(f"{t} level" for t in subobj_text[:3]) + ("Primitive part level",)
-        btns = []
 
-        for subobj_type, text, tooltip_text in zip(subobj_types, subobj_text, tooltip_texts):
-            btn = PanelButton(top_container, text, "", tooltip_text)
-            toggle = (get_command(subobj_type), lambda: None)
+        for subobj_type in subobj_types:
+            btn = btns[subobj_type]
+            command = lambda s=subobj_type: self.__set_subobj_level(s)
+            toggle = (command, lambda: None)
             uv_lvl_btns.add_button(btn, subobj_type, toggle)
-            btns.append(btn)
-            btn_sizer.add(btn, expand_h=True)
-
-        btn_sizer.set_column_proportion(0, 1.)
-        btn_sizer.set_column_proportion(1, 1.)
 
         # ************************* Vertex section ****************************
 
-        section = self.add_section("uv_vert_props", "Vertices")
+        checkbtn = checkbuttons["pick_vert_via_poly"]
+        checkbtn.command = self.__handle_picking_via_poly
 
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
+        checkbtn = checkbuttons["pick_vert_by_aiming"]
+        checkbtn.command = self.__handle_picking_by_aiming
 
-        text = "Pick via polygon"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
-        self._checkbuttons["pick_vert_via_poly"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((5, 0), proportion=1.)
-        text = "aim"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
-        self._checkbuttons["pick_vert_by_aiming"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
-
-        section.add((0, 10))
-
-        text = "Break"
-        tooltip_text = "Break selected vertices"
-        btn = PanelButton(section, text, "", tooltip_text, self.__break_vertices)
-        self._btns["break_verts"] = btn
-        section.add(btn)
+        btn = btns["break_verts"]
+        btn.command = self.__break_vertices
 
         # ************************* Edge section ******************************
 
-        section = self.add_section("uv_edge_props", "Edges")
+        checkbtn = checkbuttons["pick_edge_via_poly"]
+        checkbtn.command = self.__handle_picking_via_poly
 
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "Pick via polygon"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_via_poly, text)
-        self._checkbuttons["pick_edge_via_poly"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((5, 0), proportion=1.)
-        text = "aim"
-        checkbtn = PanelCheckButton(section, self.__handle_picking_by_aiming, text)
-        self._checkbuttons["pick_edge_by_aiming"] = checkbtn
-        sizer.add(checkbtn, alignment="center_v")
-        sizer.add((0, 0), proportion=1.)
+        checkbtn = checkbuttons["pick_edge_by_aiming"]
+        checkbtn.command = self.__handle_picking_by_aiming
 
         def handler(by_seam):
 
             GD["uv_edit_options"]["sel_edges_by_seam"] = by_seam
 
-        text = "Select by seam"
-        checkbtn = PanelCheckButton(section, handler, text)
-        self._checkbuttons["sel_edges_by_seam"] = checkbtn
-        section.add(checkbtn)
+        checkbtn = checkbuttons["sel_edges_by_seam"]
+        checkbtn.command = handler
 
-        section.add((0, 10))
+        btn = btns["split_edges"]
+        btn.command = self.__split_edges
 
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
-
-        text = "Split"
-        tooltip_text = "Split selected edges"
-        btn = PanelButton(section, text, "", tooltip_text, self.__split_edges)
-        self._btns["split_edges"] = btn
-        btn_sizer.add(btn, proportion=1.)
-
-        btn_sizer.add((5, 0))
-
-        text = "Stitch"
-        tooltip_text = "Stitch selected seam edges"
-        btn = PanelButton(section, text, "", tooltip_text, self.__stitch_edges)
-        self._btns["stitch_edges"] = btn
-        btn_sizer.add(btn, proportion=1.)
+        btn = btns["stitch_edges"]
+        btn.command = self.__stitch_edges
 
         # ************************* Polygon section ***************************
-
-        section = self.add_section("uv_poly_props", "Polygons")
 
         def handler(by_cluster):
 
             GD["uv_edit_options"]["sel_polys_by_cluster"] = by_cluster
 
-        text = "Select by cluster"
-        checkbtn = PanelCheckButton(section, handler, text)
-        self._checkbuttons["sel_polys_by_cluster"] = checkbtn
-        section.add(checkbtn)
+        checkbtn = checkbuttons["sel_polys_by_cluster"]
+        checkbtn.command = handler
 
-        section.add((0, 10))
+        btn = btns["detach_polys"]
+        btn.command = self.__detach_polygons
 
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
+        btn = btns["stitch_polys"]
+        btn.command = self.__stitch_polygons
 
-        text = "Detach"
-        tooltip_text = "Detach selected polygons"
-        btn = PanelButton(section, text, "", tooltip_text, self.__detach_polygons)
-        self._btns["detach_polys"] = btn
-        btn_sizer.add(btn, proportion=1.)
+        colorbox = colorboxes["unselected_poly_rgb"]
+        colorbox.command = lambda col: self.__handle_poly_rgb("unselected", col)
+        colorbox.dialog_title = "Pick unselected polygon color"
 
-        btn_sizer.add((5, 0))
-
-        text = "Stitch"
-        tooltip_text = "Stitch selected polygon seam edges"
-        btn = PanelButton(section, text, "", tooltip_text, self.__stitch_polygons)
-        self._btns["stitch_polys"] = btn
-        btn_sizer.add(btn, proportion=1.)
-
-        section.add((0, 5))
-
-        group = section.add_group("Color")
-
-        text = "Unselected"
-        group.add(PanelText(group, text))
-
-        group.add((0, 6))
-
-        sizer = Sizer("horizontal")
-        group.add(sizer)
-
-        text = "RGB:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
-        dialog_title = "Pick unselected polygon color"
-        command = lambda col: self.__handle_poly_rgb("unselected", col)
-        colorbox = PanelColorBox(group, command, dialog_title=dialog_title)
-        self._colorboxes["unselected_poly_rgb"] = colorbox
-        sizer.add(colorbox, alignment="center_v")
-        sizer.add((5, 0))
-        text = "Alpha:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
         val_id = "unselected_poly_alpha"
-        field = PanelSliderField(group, val_id, "float", (0., 1.),
-                                 self.__handle_poly_value, 50)
-        self._fields[val_id] = field
-        sizer.add(field, alignment="center_v")
+        field = fields[val_id]
+        field.value_id = val_id
+        field.set_value_handler(self.__handle_poly_value)
+        field.set_value_range((0., 1.), False, "float")
 
-        group.add((0, 10))
+        colorbox = colorboxes["selected_poly_rgb"]
+        colorbox.command = lambda col: self.__handle_poly_rgb("selected", col)
+        colorbox.dialog_title = "Pick selected polygon color"
 
-        text = "Selected"
-        group.add(PanelText(group, text))
-
-        group.add((0, 6))
-
-        sizer = Sizer("horizontal")
-        group.add(sizer)
-
-        text = "RGB:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
-        dialog_title = "Pick selected polygon color"
-        command = lambda col: self.__handle_poly_rgb("selected", col)
-        colorbox = PanelColorBox(group, command, dialog_title=dialog_title)
-        self._colorboxes["selected_poly_rgb"] = colorbox
-        sizer.add(colorbox, alignment="center_v")
-        sizer.add((5, 0))
-        text = "Alpha:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
         val_id = "selected_poly_alpha"
-        field = PanelSliderField(group, val_id, "float", (0., 1.),
-                                 self.__handle_poly_value, 50)
-        self._fields[val_id] = field
-        sizer.add(field, alignment="center_v")
+        field = fields[val_id]
+        field.value_id = val_id
+        field.set_value_handler(self.__handle_poly_value)
+        field.set_value_range((0., 1.), False, "float")
 
         # ********************* Primitive part section ***********************
 
-        section = self.add_section("uv_part_props", "Primitive parts")
+        btn = btns["reset_part_uvs"]
+        btn.command = self.__reset_default_part_uvs
 
-        text = "Reset UVs to defaults"
-        tooltip_text = "Reset UVs of selected parts to their default values"
-        btn = PanelButton(section, text, "", tooltip_text, self.__reset_default_part_uvs)
-        self._btns["reset_part_uvs"] = btn
-        section.add(btn, alignment="center_h")
+        colorbox = colorboxes["unselected_part_rgb"]
+        colorbox.command = lambda col: self.__handle_part_rgb("unselected", col)
+        colorbox.dialog_title = "Pick unselected primitive part color"
 
-        section.add((0, 5))
-
-        group = section.add_group("Color")
-
-        text = "Unselected"
-        group.add(PanelText(group, text))
-
-        group.add((0, 6))
-
-        sizer = Sizer("horizontal")
-        group.add(sizer)
-
-        text = "RGB:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
-        dialog_title = "Pick unselected primitive part color"
-        command = lambda col: self.__handle_part_rgb("unselected", col)
-        colorbox = PanelColorBox(group, command, dialog_title=dialog_title)
-        self._colorboxes["unselected_part_rgb"] = colorbox
-        sizer.add(colorbox, alignment="center_v")
-        sizer.add((5, 0))
-        text = "Alpha:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
         val_id = "unselected_part_alpha"
-        field = PanelSliderField(group, val_id, "float", (0., 1.),
-                                 self.__handle_part_value, 50)
-        self._fields[val_id] = field
-        sizer.add(field, alignment="center_v")
+        field = fields[val_id]
+        field.value_id = val_id
+        field.set_value_handler(self.__handle_part_value)
+        field.set_value_range((0., 1.), False, "float")
 
-        group.add((0, 10))
+        colorbox = colorboxes["selected_part_rgb"]
+        colorbox.command = lambda col: self.__handle_part_rgb("selected", col)
+        colorbox.dialog_title = "Pick selected primitive part color"
 
-        text = "Selected"
-        group.add(PanelText(group, text))
-
-        group.add((0, 6))
-
-        sizer = Sizer("horizontal")
-        group.add(sizer)
-
-        text = "RGB:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
-        dialog_title = "Pick selected primitive part color"
-        command = lambda col: self.__handle_part_rgb("selected", col)
-        colorbox = PanelColorBox(group, command, dialog_title=dialog_title)
-        self._colorboxes["selected_part_rgb"] = colorbox
-        sizer.add(colorbox, alignment="center_v")
-        sizer.add((5, 0))
-        text = "Alpha:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
         val_id = "selected_part_alpha"
-        field = PanelSliderField(group, val_id, "float", (0., 1.),
-                                 self.__handle_part_value, 50)
-        self._fields[val_id] = field
-        sizer.add(field, alignment="center_v")
+        field = fields[val_id]
+        field.value_id = val_id
+        field.set_value_handler(self.__handle_part_value)
+        field.set_value_range((0., 1.), False, "float")
 
     def setup(self):
 
@@ -367,7 +215,7 @@ class SubobjectPanel(Panel):
     def __set_poly_color(self, sel_state, channels, value):
 
         if channels == "rgb":
-            self._colorboxes[f"{sel_state}_poly_rgb"].set_color(value[:3])
+            self._colorboxes[f"{sel_state}_poly_rgb"].color = value[:3]
         elif channels == "alpha":
             prop_id = f"{sel_state}_poly_alpha"
             self._fields[prop_id].set_value(value)
@@ -385,7 +233,7 @@ class SubobjectPanel(Panel):
     def __set_part_color(self, sel_state, channels, value):
 
         if channels == "rgb":
-            self._colorboxes[f"{sel_state}_part_rgb"].set_color(value[:3])
+            self._colorboxes[f"{sel_state}_part_rgb"].color = value[:3]
         elif channels == "alpha":
             prop_id = f"{sel_state}_part_alpha"
             self._fields[prop_id].set_value(value)

@@ -1,0 +1,161 @@
+title = Selection
+default_size = 0 0
+panel_section sets
+    title = Sets
+    default_size = 0 0
+    hidden = 0
+combobox set1
+    container = panel_section sets
+    field_width = 100
+    icon_id = 
+    text = 
+    tooltip_text = Primary set
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 84
+    container = panel_section sets
+    name = primary set editing
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button edit_set_name
+    container = sizer 84
+    icon_id = icon_caret
+    text = 
+    tooltip_text = Edit primary set name
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button copy_set
+    container = sizer 84
+    icon_id = icon_copy
+    text = 
+    tooltip_text = Create copy of primary set
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button create_set
+    container = sizer 84
+    icon_id = icon_add
+    text = 
+    tooltip_text = Create new set from current selection
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button remove_set
+    container = sizer 84
+    icon_id = icon_remove
+    text = 
+    tooltip_text = Delete primary set
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 92
+    container = panel_section sets
+    name = clear & apply
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button clear_sets
+    container = sizer 92
+    icon_id = 
+    text = Clear
+    tooltip_text = Delete all sets
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button apply_set
+    container = sizer 92
+    icon_id = 
+    text = Apply
+    tooltip_text = Select objects in primary set
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 96
+    container = panel_section sets
+    title = Combine with
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+combobox set2
+    container = group 96
+    field_width = 100
+    icon_id = 
+    text = 
+    tooltip_text = Secondary set
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 99
+    container = group 96
+    name = combine sets
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button union
+    container = sizer 99
+    icon_id = icon_union
+    text = 
+    tooltip_text = Union
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button intersection
+    container = sizer 99
+    icon_id = icon_intersection
+    text = 
+    tooltip_text = Intersection
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button difference
+    container = sizer 99
+    icon_id = icon_difference
+    text = 
+    tooltip_text = Difference
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button sym_diff
+    container = sizer 99
+    icon_id = icon_sym_diff
+    text = 
+    tooltip_text = Symmetric difference
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+radiobuttongroup result
+    container = group 96
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+radiobutton in_place
+    text = Modify primary set
+radiobutton new
+    text = Create new set

@@ -1,0 +1,129 @@
+title = Material
+default_size = 0 0
+combobox map_type
+    container = toolbar
+    field_width = 95
+    icon_id = 
+    text = 
+    tooltip_text = Selected texture map
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button load_map
+    container = toolbar
+    icon_id = icon_open
+    text = 
+    tooltip_text = Load texture map
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button clear_map
+    container = toolbar
+    icon_id = icon_clear_one
+    text = 
+    tooltip_text = Clear selected texture map
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button clear_all_maps
+    container = toolbar
+    icon_id = icon_clear_all
+    text = 
+    tooltip_text = Clear all texture maps
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+checkbutton color_type
+    container = toolbar
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox color_type
+    container = toolbar
+    field_width = 95
+    icon_id = 
+    text = 
+    tooltip_text = Selected material color
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox color_type
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button apply_color
+    container = toolbar
+    icon_id = icon_apply_one
+    text = 
+    tooltip_text = Apply selected material color
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = toolbar
+    text = Shininess:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field shininess
+    container = toolbar
+    field_type = input_spinner
+    width = 70
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button apply_shininess
+    container = toolbar
+    icon_id = icon_apply_one
+    text = 
+    tooltip_text = Apply shininess
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button apply_all
+    container = toolbar
+    icon_id = icon_apply_all
+    text = 
+    tooltip_text = Apply all material properties
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button reset_all
+    container = toolbar
+    icon_id = icon_reset_all
+    text = 
+    tooltip_text = Reset all material properties
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button clear_material
+    container = toolbar
+    icon_id = icon_clear
+    text = 
+    tooltip_text = Clear material
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0

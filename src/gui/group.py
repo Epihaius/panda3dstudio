@@ -3,54 +3,69 @@ from .base import *
 
 class WidgetGroup(Widget):
 
-    _gfx = {
-        "": (
-            ("widget_group_topleft", "widget_group_top", "widget_group_topright"),
-            ("widget_group_left", "widget_group_center", "widget_group_right"),
-            ("widget_group_bottomleft", "widget_group_bottom", "widget_group_bottomright")
-        )
-    }
+    def __init__(self, parent, title_bg_tex_id, text_id, title=""):
 
-    def __init__(self, parent, label_bg_tex_id, text_id, label=""):
+        gfx_ids = Skin.atlas.gfx_ids["widget_group"]
 
-        Widget.__init__(self, "group", parent, self._gfx, has_mouse_region=False)
+        Widget.__init__(self, "group", parent, gfx_ids, has_mouse_region=False)
 
-        x, y, w, h = TextureAtlas["regions"][label_bg_tex_id]
+        self._title_bg_tex_id = title_bg_tex_id
+        self._text_id = text_id
+        tex_atlas_regions = Skin.atlas.regions
+        x, y, w, h = tex_atlas_regions[title_bg_tex_id]
         img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
-        skin_text = Skin["text"][text_id]
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
+        skin_text = Skin.text[text_id]
         font = skin_text["font"]
         color = skin_text["color"]
-        label_img = font.create_image(label, color)
+        offset = Skin.options["group_title_offset"]
+        label_img = font.create_image(title, color)
         w, h = label_img.size
-        scaled_img = PNMImage(w + 8, h, 4)
+        scaled_img = PNMImage(w + offset * 2, h, 4)
         scaled_img.unfiltered_stretch_from(img)
-        scaled_img.blend_sub_image(label_img, 4, 0, 0, 0)
+        scaled_img.blend_sub_image(label_img, offset, 0, 0, 0)
         self._label = scaled_img
+        self._title = title
 
         sizer = Sizer("vertical")
+        sizer.set_column_proportion(0, 1.)
+        sizer.set_row_proportion(0, 1.)
         self.sizer = sizer
+        w_l = tex_atlas_regions[gfx_ids[""][0][0]][2]
+        w_r = tex_atlas_regions[gfx_ids[""][0][2]][2]
+        sizer.default_size = (int(round((w_l + w_r) * 1.5)) + w + offset * 2, 1)
         self._client_sizer = client_sizer = Sizer("vertical")
-        l, r, b, t = TextureAtlas["inner_borders"]["widget_group"]
+        client_sizer.set_column_proportion(0, 1.)
+        l, r, b, t = Skin.atlas.inner_borders["widget_group"]
         borders = (l, r, b, t + h)
-        sizer.add(client_sizer, proportion=1., expand=True, borders=borders)
+        sizer.add(client_sizer, borders=borders)
 
-    def get_client_sizer(self):
+    @property
+    def client_sizer(self):
 
         return self._client_sizer
 
-    def add(self, *args, **kwargs):
+    def set_title(self, title):
 
-        self._client_sizer.add(*args, **kwargs)
-
-    def add_group(self, group, add_top_border=True):
-
-        if add_top_border:
-            l, r, b, t = TextureAtlas["inner_borders"]["widget_group"]
-            borders = (0, 0, 0, t)
-            self._client_sizer.add(group, expand=True, borders=borders)
-        else:
-            self._client_sizer.add(group, expand=True)
+        tex_atlas_regions = Skin.atlas.regions
+        gfx_ids = Skin.atlas.gfx_ids["widget_group"]
+        x, y, w, h = tex_atlas_regions[self._title_bg_tex_id]
+        img = PNMImage(w, h, 4)
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
+        skin_text = Skin.text[self._text_id]
+        font = skin_text["font"]
+        color = skin_text["color"]
+        offset = Skin.options["group_title_offset"]
+        label_img = font.create_image(title, color)
+        w, h = label_img.size
+        scaled_img = PNMImage(w + offset * 2, h, 4)
+        scaled_img.unfiltered_stretch_from(img)
+        scaled_img.blend_sub_image(label_img, offset, 0, 0, 0)
+        self._label = scaled_img
+        self._title = title
+        w_l = tex_atlas_regions[gfx_ids[""][0][0]][2]
+        w_r = tex_atlas_regions[gfx_ids[""][0][2]][2]
+        self.sizer.default_size = (int(round((w_l + w_r) * 1.5)) + w + offset * 2, 1)
 
     def update_images(self, recurse=True, size=None):
 
@@ -59,8 +74,9 @@ class WidgetGroup(Widget):
         if not (width and height):
             return
 
-        tex_atlas = TextureAtlas["image"]
-        tex_atlas_regions = TextureAtlas["regions"]
+        tex_atlas = Skin.atlas.image
+        tex_atlas_regions = Skin.atlas.regions
+        gfx_ids = Skin.atlas.gfx_ids["widget_group"]
         images = self._images
         l, r, b, t = self.gfx_inner_borders
         borders_h = l + r
@@ -68,7 +84,7 @@ class WidgetGroup(Widget):
         h_half = self._label.size[1] // 2
         height2 = height - h_half
 
-        for state, part_rows in self._gfx.items():
+        for state, part_rows in gfx_ids.items():
 
             img = PNMImage(width, height, 4)
             images[state] = img
@@ -127,7 +143,7 @@ class WidgetGroup(Widget):
         image = Widget.get_image(self, state, composed)
 
         if composed:
-            x = self.gfx_inner_borders[0] + 3
+            x = int(round(self.gfx_inner_borders[0] * 1.5))
             image.blend_sub_image(self._label, x, 0, 0, 0, *self._label.size)
         else:
             parent_img = self.parent.get_image(composed=False)

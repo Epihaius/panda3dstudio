@@ -3,37 +3,26 @@ from .base import *
 
 class TorusProperties:
 
-    def __init__(self, panel):
+    def __init__(self, panel, widgets):
 
         self._panel = panel
         self._fields = {}
         self._checkbuttons = {}
         self._segments_default = {"ring": 3, "section": 3}
 
-        section = panel.add_section("torus_props", "Torus properties", hidden=True)
-
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-        section.add(sizer, expand=True)
-
-        for spec in ("ring", "section"):
-            text = f"{spec.title()} radius:"
-            sizer.add(PanelText(section, text), alignment_v="center_v")
-            prop_id = f"radius_{spec}"
-            field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
+        for prop_id in ("radius_ring", "radius_section"):
+            field = widgets["fields"][prop_id]
+            field.value_id = prop_id
+            field.value_type = "float"
+            field.set_value_handler(self.__handle_value)
             self._fields[prop_id] = field
-            sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        group = section.add_group("Segments")
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-        group.add(sizer, expand=True)
-
-        for spec in ("ring", "section"):
-            prop_id = f"segments_{spec}"
-            text = f"{spec.title()}:"
-            sizer.add(PanelText(group, text), alignment_v="center_v")
-            field = PanelInputField(group, prop_id, "int", self.__handle_value, 80)
+        for prop_id in ("segments_ring", "segments_section"):
+            field = widgets["fields"][prop_id]
+            field.value_id = prop_id
+            field.value_type = "int"
+            field.set_value_handler(self.__handle_value)
             self._fields[prop_id] = field
-            sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         for spec in ("ring", "section"):
             prop_id = f"radius_{spec}"
@@ -41,13 +30,9 @@ class TorusProperties:
             prop_id = f"segments_{spec}"
             self._fields[prop_id].set_input_parser(self.__parse_segments_input)
 
-        section.add((0, 5))
-
-        text = "Smooth"
-        checkbtn = PanelCheckButton(section, lambda val:
-            self.__handle_value("smoothness", val), text)
+        checkbtn = widgets["checkbuttons"]["torus_smoothness"]
+        checkbtn.command = lambda val: self.__handle_value("smoothness", val)
         self._checkbuttons["smoothness"] = checkbtn
-        section.add(checkbtn)
 
     def setup(self): pass
 
@@ -98,7 +83,7 @@ class TorusProperties:
 
     def set_object_property_default(self, prop_id, value):
 
-        color = (1., 1., 0., 1.)
+        color = Skin.colors["default_value"]
 
         if prop_id == "smoothness":
             self._checkbuttons["smoothness"].check(value)
@@ -134,7 +119,7 @@ class TorusProperties:
 
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
-        color = (.5, .5, .5, 1.) if multi_sel else None
+        color = Skin.text["input_disabled"]["color"] if multi_sel else None
 
         if multi_sel:
             self._checkbuttons["smoothness"].check(False)

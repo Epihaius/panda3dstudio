@@ -1,0 +1,148 @@
+title = UV sets
+default_size = 0 0
+panel_section active_uv_set
+    title = Active UV set
+    default_size = 0 0
+    hidden = 0
+sizer 118
+    container = panel_section active_uv_set
+    name = UV sets
+    prim_dir = horizontal
+    prim_limit = 4
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 0:1.0 1:1.0 2:1.0 3:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 5 5 5 5
+button 0
+    container = sizer 118
+    icon_id = 
+    text = 0
+    tooltip_text = UV set 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button 1
+    container = sizer 118
+    icon_id = 
+    text = 1
+    tooltip_text = UV set 1
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button 2
+    container = sizer 118
+    icon_id = 
+    text = 2
+    tooltip_text = UV set 2
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button 3
+    container = sizer 118
+    icon_id = 
+    text = 3
+    tooltip_text = UV set 3
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button 4
+    container = sizer 118
+    icon_id = 
+    text = 4
+    tooltip_text = UV set 4
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button 5
+    container = sizer 118
+    icon_id = 
+    text = 5
+    tooltip_text = UV set 5
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button 6
+    container = sizer 118
+    icon_id = 
+    text = 6
+    tooltip_text = UV set 6
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button 7
+    container = sizer 118
+    icon_id = 
+    text = 7
+    tooltip_text = UV set 7
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 127
+    container = panel_section active_uv_set
+    name = copy & paste
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 20 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 10 10 0 10
+button copy
+    container = sizer 127
+    icon_id = 
+    text = Copy
+    tooltip_text = Copy active UV set
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button paste
+    container = sizer 127
+    icon_id = 
+    text = Paste
+    tooltip_text = Replace active UV set with copied one
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+panel_section uv_set_name
+    title = Active UV set name
+    default_size = 0 0
+    hidden = 0
+sizer 133
+    container = panel_section uv_set_name
+    name = UV name target
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 133
+    text = For
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox uv_name_target
+    container = sizer 133
+    field_width = 60
+    icon_id = 
+    text = 
+    tooltip_text = Object
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field uv_name
+    container = panel_section uv_set_name
+    field_type = input
+    width = 50
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10

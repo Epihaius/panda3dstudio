@@ -10,7 +10,7 @@ class ViewGizmo:
         self._size_max = .2
         self._size_delta = self._size_max - self._size_min
         dr = GD.window.make_display_region(1. - size, 1., 1. - size, 1.)
-        self._display_region = dr
+        self.display_region = dr
         dr.sort = 2
         gizmo_cam_node = Camera("view_gizmo_cam")
         self._root = NodePath("view_gizmo_root")
@@ -57,7 +57,7 @@ class ViewGizmo:
 
         self._handle_root = self._root.attach_new_node("handle_root")
         self._handle_root_main = self._handle_root.attach_new_node("handle_root_main")
-        self._handle_root_main.set_shader_auto(True)
+        self._handle_root_main.set_shader_auto()
         self._handle_root_aux = self._handle_root.attach_new_node("handle_root_aux")
         self._handle_root_aux.set_two_sided(True)
         self._handle_root_aux.set_transparency(TransparencyAttrib.M_alpha)
@@ -108,14 +108,14 @@ class ViewGizmo:
         self._size_delta = self._size_max - self._size_min
         size = self._size = self._size_max if self._reached_full_size else self._size_min
         size_v = size * w / h * aspect_ratio
-        self._display_region.dimensions = (r - size * w, r, t - size_v * h, t)
+        self.display_region.dimensions = (r - size * w, r, t - size_v * h, t)
         self._mouse_region.frame = (1. - 2. * size, 1., 1. - 2. * size_v, 1.)
 
     def __increment_region_sort(self, incr=0):
 
-        sort = self._display_region.sort
-        self._display_region.sort = sort + incr
-        self._world_axes_tripod.get_display_region().sort = sort + incr
+        sort = self.display_region.sort
+        self.display_region.sort = sort + incr
+        self._world_axes_tripod.display_region.sort = sort + incr
 
     def __create_icon(self, icon_name, color_id):
 
@@ -554,7 +554,7 @@ class ViewGizmo:
         w = r - l
         h = t - b
         size_v = size * w / h * aspect_ratio
-        self._display_region.dimensions = (r - size * w, r, t - size_v * h, t)
+        self.display_region.dimensions = (r - size * w, r, t - size_v * h, t)
         self._mouse_region.frame = (1. - 2. * size, 1., 1. - 2. * size_v, 1.)
 
     def __expand_region(self, task):
@@ -977,7 +977,7 @@ class WorldAxesTripod:
         dr.set_lens_index(1)
         dr.set_clear_color_active(False)
         dr.set_clear_depth_active(True)
-        self._display_region = dr
+        self.display_region = dr
 
         self._root = camera.attach_new_node("world_axes")
         self._root.set_pos(-5., 10., 0.)
@@ -1038,10 +1038,6 @@ class WorldAxesTripod:
         Mgr.add_app_updater("viewport", self.__update_region_size)
         Mgr.add_app_updater("nav_indicator_color", self.__set_indicator_color)
 
-    def get_display_region(self):
-
-        return self._display_region
-
     def __set_indicator_color(self, color):
 
         self._nav_indic.set_color(color)
@@ -1056,7 +1052,7 @@ class WorldAxesTripod:
         ref_w = win_w * w
         size = self._pixel_size / ref_w
         size_v = size * w / h * aspect_ratio
-        self._display_region.dimensions = (l, l + size * w, b, b + size_v * h)
+        self.display_region.dimensions = (l, l + size * w, b, b + size_v * h)
 
     def __create_axis_tripod(self):
 

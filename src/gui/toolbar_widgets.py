@@ -13,7 +13,7 @@ class ToolbarText(Text):
 
     def __init__(self, parent, text):
 
-        skin_text = Skin["text"]["toolbar"]
+        skin_text = Skin.text["toolbar"]
         Text.__init__(self, parent, skin_text["font"], skin_text["color"], text)
 
         self.widget_type = "toolbar_text"
@@ -21,31 +21,137 @@ class ToolbarText(Text):
 
 class ToolbarSeparator(Widget):
 
-    _gfx = {"": (("toolbar_separator",),)}
+    def __init__(self, parent):
+
+        gfx_ids = {"": Skin.atlas.gfx_ids["separator"]["toolbar"]}
+
+        Widget.__init__(self, "toolbar_separator", parent, gfx_ids, has_mouse_region=False)
+
+
+class GridSpacingBox(Widget):
+
+    _box_borders = ()
+    _border_image = None
+    _background_image = None
+    _img_offset = (0, 0)
+    _box_size = (0, 0)
+
+    @classmethod
+    def __set_borders(cls):
+
+        l, r, b, t = Skin.atlas.outer_borders["large_toolbar_inset"]
+        cls._box_borders = (l, r, b, t)
+        cls._img_offset = (-l, -t)
+
+    @classmethod
+    def __set_border_image(cls, border_image):
+
+        cls._border_image = border_image
+
+    @classmethod
+    def __set_background_image(cls):
+
+        tex_atlas = Skin.atlas.image
+        tex_atlas_regions = Skin.atlas.regions
+        gfx_id = Skin.atlas.gfx_ids["gridspacing_box"]["background"][0][0]
+        x, y, w, h = tex_atlas_regions[gfx_id]
+        cls._background_image = image = PNMImage(w, h, 4)
+        image.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
+        cls._box_size = (w, h)
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "toolbar_separator", parent, self._gfx, has_mouse_region=False)
+        if not self._box_borders:
+            self.__set_borders()
+
+        Widget.__init__(self, "gridspacing_box", parent, gfx_ids={})
+
+        if not self._border_image:
+            self.__set_background_image()
+            self.set_size(self._box_size, is_min=True)
+            self.__create_border_image()
+        else:
+            self.set_size(self._box_size, is_min=True)
+
+        skin_text = Skin.text["grid_spacing"]
+        self._font = skin_text["font"]
+        self._text_color = skin_text["color"]
+
+        self.image_offset = self._img_offset
+        self.outer_borders = self._box_borders
+        self._grid_spacing = str(0.)
+        self._grid_spacing_label = None
+
+        Mgr.add_app_updater("gridspacing", self.__update_grid_spacing)
+
+    def __create_border_image(self):
+
+        w, h = self.get_size()
+        l, r, b, t = self._box_borders
+        width = w + l + r
+        height = h + b + t
+        gfx_ids = Skin.atlas.gfx_ids["gridspacing_box"]
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
+        tmp_widget.set_size((width, height), is_min=True)
+        tmp_widget.update_images()
+        image = tmp_widget.get_image()
+        tmp_widget.destroy()
+
+        self.__set_border_image(image)
+
+    def __update_card_image(self):
+
+        if self.is_hidden():
+            return
+
+        image = self.get_image(composed=False)
+
+        if image:
+            w, h = image.size
+            img_offset_x, img_offset_y = self.image_offset
+            self.card.copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
+
+    def update_images(self, recurse=True, size=None): pass
+
+    def get_image(self, state=None, composed=True):
+
+        image = PNMImage(self._background_image)
+        bg_img = self._background_image
+        label = self._grid_spacing_label
+
+        if label:
+            w, h = self._box_size
+            w_l, h_l = label.size
+            x = (w - w_l) // 2
+            y = h - h_l
+            image.blend_sub_image(label, x, y, 0, 0)
+
+        border_img = self._border_image
+        w, h = border_img.size
+        img = PNMImage(w, h, 4)
+        img_offset_x, img_offset_y = self.image_offset
+        img.copy_sub_image(image, -img_offset_x, -img_offset_y, 0, 0)
+        img.blend_sub_image(border_img, 0, 0, 0, 0)
+
+        return img
+
+    def __update_grid_spacing(self, grid_spacing):
+
+        if self._grid_spacing != grid_spacing:
+            self._grid_spacing = grid_spacing
+            self._grid_spacing_label = self._font.create_image(grid_spacing, self._text_color)
+            self.__update_card_image()
+            offset_x, offset_y = self.image_offset
+            self.parent.update_composed_image(self, None, offset_x, offset_y)
 
 
 class ToolbarButton(Button):
 
-    _gfx = {
-        "normal": (("toolbar_button_normal_left", "toolbar_button_normal_center",
-                     "toolbar_button_normal_right"),),
-        "pressed": (("toolbar_button_pressed_left", "toolbar_button_pressed_center",
-                     "toolbar_button_pressed_right"),),
-        "hilited": (("toolbar_button_hilited_left", "toolbar_button_hilited_center",
-                     "toolbar_button_hilited_right"),),
-        "active": (("toolbar_button_active_left", "toolbar_button_active_center",
-                    "toolbar_button_active_right"),),
-        "disabled": (("toolbar_button_disabled_left", "toolbar_button_disabled_center",
-                    "toolbar_button_disabled_right"),)
-    }
+    def __init__(self, parent, text="", icon_id="", tooltip_text=""):
 
-    def __init__(self, parent, text="", icon_id="", tooltip_text="", command=None):
+        gfx_ids = Skin.atlas.gfx_ids["toolbar_button"]
 
-        Button.__init__(self, parent, self._gfx, text, icon_id, tooltip_text, command,
+        Button.__init__(self, parent, gfx_ids, text, icon_id, tooltip_text,
                         button_type="toolbar_button")
 
         self.widget_type = "toolbar_button"
@@ -79,21 +185,15 @@ class ToolbarButton(Button):
 class ToolbarSpinButton(Button):
 
     width = 0
-    _gfx = {
-        "up": {"normal": (("toolbar_spinner_up_normal",),),
-               "hilited": (("toolbar_spinner_up_hilited",),),
-               "pressed": (("toolbar_spinner_up_pressed",),)},
-        "down": {"normal": (("toolbar_spinner_down_normal",),),
-                 "hilited": (("toolbar_spinner_down_hilited",),),
-                 "pressed": (("toolbar_spinner_down_pressed",),)}
-    }
 
     def __init__(self, parent, toolbar_bundle, direction):
 
-        command = lambda: toolbar_bundle.spin_toolbar_rows(-1 if direction == "up" else 1)
-        Button.__init__(self, parent, self._gfx[direction], command=command)
+        gfx_ids = Skin.atlas.gfx_ids[f"toolbar_bundle_spin_{direction}_button"]
+
+        Button.__init__(self, parent, gfx_ids)
 
         self.widget_type = "toolbar_button"
+        self.command = lambda: toolbar_bundle.spin_toolbar_rows(-1 if direction == "up" else 1)
 
         self._toolbar_bundle = toolbar_bundle
         self._direction = direction
@@ -179,7 +279,6 @@ class ToolbarSpinButton(Button):
 
 class ToolbarCheckButton(CheckButton):
 
-    _border_gfx_data = (("toolbar_checkbox",),)
     _btn_borders = ()
     _img_offset = (0, 0)
     _box_img_offset = (0, 0)
@@ -188,11 +287,11 @@ class ToolbarCheckButton(CheckButton):
     @classmethod
     def __set_borders(cls):
 
-        l, _, b, t = TextureAtlas["outer_borders"]["toolbar_checkbox"]
+        l, _, b, t = Skin.atlas.outer_borders["toolbar_checkbox"]
         cls._box_img_offset = (-l, -t)
-        font = Skin["text"]["toolbar_checkbutton"]["font"]
+        font = Skin.text["toolbar_checkbutton"]["font"]
         h_f = font.get_height()
-        h = Skin["options"]["checkbox_height"]
+        h = Skin.options["checkbox_height"]
         dh = max(0, h_f - h) // 2
         b = max(0, b - dh)
         t = max(0, t - dh)
@@ -204,16 +303,15 @@ class ToolbarCheckButton(CheckButton):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command, text="", text_offset=5):
+    def __init__(self, parent, text="", text_offset=0):
 
         if not self._btn_borders:
             self.__set_borders()
 
-        mark_color = Skin["colors"]["toolbar_checkmark"]
-        back_color = Skin["colors"]["toolbar_checkbox_back"]
+        mark_color = Skin.colors["toolbar_checkmark"]
+        back_color = Skin.colors["toolbar_checkbox_back"]
 
-        CheckButton.__init__(self, parent, "toolbar", command, mark_color,
-                             back_color, text, text_offset)
+        CheckButton.__init__(self, parent, mark_color, back_color, text, text_offset)
 
         if not self._border_image:
             self.__create_border_image()
@@ -222,9 +320,10 @@ class ToolbarCheckButton(CheckButton):
 
     def __create_border_image(self):
 
-        x, y, w, h = TextureAtlas["regions"]["toolbar_checkbox"]
-        gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_id = Skin.atlas.gfx_ids["checkbox"]["toolbar"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
+        gfx_ids = {"": ((gfx_id,),)}
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((w, h), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -267,8 +366,6 @@ class ToolbarCheckButton(CheckButton):
 
 class ToolbarColorBox(ColorBox):
 
-    _border_gfx_data = (("small_toolbar_inset_border_left", "small_toolbar_inset_border_center",
-                         "small_toolbar_inset_border_right"),)
     _box_borders = ()
     _img_offset = (0, 0)
     _border_image = None
@@ -276,7 +373,7 @@ class ToolbarColorBox(ColorBox):
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["small_toolbar_inset"]
+        l, r, b, t = Skin.atlas.outer_borders["small_toolbar_inset"]
         cls._box_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
@@ -285,12 +382,12 @@ class ToolbarColorBox(ColorBox):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command=None, color=None, dialog_title=""):
+    def __init__(self, parent):
 
         if not self._box_borders:
             self.__set_borders()
 
-        ColorBox.__init__(self, parent, command, color, dialog_title)
+        ColorBox.__init__(self, parent)
 
         self.widget_type = "toolbar_colorbox"
 
@@ -306,8 +403,8 @@ class ToolbarColorBox(ColorBox):
         l, r, b, t = self._box_borders
         width = w + l + r
         height = h + b + t
-        gfx_data = {"": self._border_gfx_data}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_ids = {"": Skin.atlas.gfx_ids["colorbox"]["toolbar"]}
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -319,16 +416,28 @@ class ToolbarColorBox(ColorBox):
 
         return self._border_image
 
-    def set_color_type(self, color_type="single"):
+    @property
+    def color_type(self):
 
-        ColorBox.set_color_type(self, color_type)
+        return ColorBox.color_type.fget(self)
+
+    @color_type.setter
+    def color_type(self, color_type):
+
+        ColorBox.color_type.fset(self, color_type)
 
         offset_x, offset_y = self.image_offset
         self.parent.update_composed_image(self, None, offset_x, offset_y)
 
-    def set_color(self, color):
+    @property
+    def color(self):
 
-        ColorBox.set_color(self, color)
+        return ColorBox.color.fget(self)
+
+    @color.setter
+    def color(self, color):
+
+        ColorBox.color.fset(self, color)
 
         offset_x, offset_y = self.image_offset
         self.parent.update_composed_image(self, None, offset_x, offset_y)
@@ -336,15 +445,13 @@ class ToolbarColorBox(ColorBox):
 
 class GfxMixin:
 
-    _border_gfx_data = (("small_toolbar_inset_border_left", "small_toolbar_inset_border_center",
-                         "small_toolbar_inset_border_right"),)
     _field_borders = ()
     _img_offset = (0, 0)
 
     @classmethod
     def __set_field_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["small_toolbar_inset"]
+        l, r, b, t = Skin.atlas.outer_borders["small_toolbar_inset"]
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
@@ -366,14 +473,14 @@ class GfxMixin:
 
 class ToolbarInputField(GfxMixin, InputField):
 
-    def __init__(self, parent, value_id, value_type, handler, width,
-                 font=None, text_color=None, back_color=None,
-                 alt_field_borders=None, alt_border_gfx_data=None):
+    def __init__(self, parent, width, font=None, text_color=None, back_color=None,
+                 alt_field_borders=None, alt_border_gfx_ids=None):
 
         GfxMixin.__init__(self, alt_field_borders)
-        gfx_data = alt_border_gfx_data if alt_border_gfx_data else self._border_gfx_data
-        InputField.__init__(self, parent, value_id, value_type, handler, width,
-                            gfx_data, self._img_offset, font, text_color, back_color)
+        field_gfx_ids = Skin.atlas.gfx_ids["field"]["toolbar"]
+        gfx_ids = alt_border_gfx_ids if alt_border_gfx_ids else field_gfx_ids
+        InputField.__init__(self, parent, width, gfx_ids, self._img_offset,
+                            font, text_color, back_color)
 
         self.widget_type = "toolbar_input_field"
 
@@ -448,14 +555,13 @@ class ToolbarInputField(GfxMixin, InputField):
 
 class ToolbarSliderField(GfxMixin, SliderInputField):
 
-    def __init__(self, parent, value_id, value_type, value_range, handler,
-                 width, font=None, text_color=None, back_color=None,
-                 alt_field_borders=None, alt_border_gfx_data=None):
+    def __init__(self, parent, width, font=None, text_color=None, back_color=None,
+                 alt_field_borders=None, alt_border_gfx_ids=None):
 
         GfxMixin.__init__(self, alt_field_borders)
-        gfx_data = alt_border_gfx_data if alt_border_gfx_data else self._border_gfx_data
-        SliderInputField.__init__(self, parent, value_id, value_type, value_range,
-                                  handler, width, gfx_data, self._img_offset,
+        field_gfx_ids = Skin.atlas.gfx_ids["field"]["toolbar"]
+        gfx_ids = alt_border_gfx_ids if alt_border_gfx_ids else field_gfx_ids
+        SliderInputField.__init__(self, parent, width, gfx_ids, self._img_offset,
                                   font, text_color, back_color)
 
         self.widget_type = "toolbar_input_field"
@@ -534,8 +640,9 @@ class ToolbarMultiValField(GfxMixin, MultiValInputField):
     def __init__(self, parent, width, text_color=None, back_color=None):
 
         GfxMixin.__init__(self)
-        MultiValInputField.__init__(self, parent, width, self._border_gfx_data,
-                                    self._img_offset, text_color, back_color)
+        gfx_ids = Skin.atlas.gfx_ids["field"]["toolbar"]
+        MultiValInputField.__init__(self, parent, width, gfx_ids, self._img_offset,
+                                    text_color, back_color)
 
         self.widget_type = "toolbar_input_field"
 
@@ -596,9 +703,9 @@ class ToolbarMultiValField(GfxMixin, MultiValInputField):
 
 class ToolbarSpinnerButton(SpinnerButton):
 
-    def __init__(self, parent, gfx_data):
+    def __init__(self, parent, gfx_ids):
 
-        SpinnerButton.__init__(self, parent, gfx_data)
+        SpinnerButton.__init__(self, parent, gfx_ids)
 
         self.widget_type = "toolbar_spinner_button"
 
@@ -611,54 +718,38 @@ class ToolbarSpinnerField(SpinnerInputField):
     @classmethod
     def __create_border_image(cls):
 
-        x, y, w, h = TextureAtlas["regions"]["toolbar_spin_up_button_normal"]
-        l, r, b, t = TextureAtlas["outer_borders"]["small_toolbar_inset"]
+        gfx_id = Skin.atlas.gfx_ids["toolbar_spin_up_button"]["normal"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
+        l, r, b, t = Skin.atlas.outer_borders["small_toolbar_inset"]
         cls._img_offset = (l, t)
-        # spinner border image should not contain left border parts, so these are replaced with
-        # central parts
-        border_gfx_data = (("small_toolbar_inset_border_center", "small_toolbar_inset_border_center",
-                            "small_toolbar_inset_border_right"),)
-        gfx_data = {"": border_gfx_data}
-        tmp_widget = Widget("tmp", None, gfx_data, has_mouse_region=False)
+        gfx_ids = {"": Skin.atlas.gfx_ids["spinner"]["toolbar"]}
+        tmp_widget = Widget("tmp", None, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((w + r, h * 2 + b + t), is_min=True)
         tmp_widget.update_images()
         cls._border_image = tmp_widget.get_image()
         tmp_widget.destroy()
 
-    def __init__(self, parent, value_id, value_type, value_range, step, handler, width,
-                 font=None, text_color=None, back_color=None, has_slider=False):
+    def __init__(self, parent, width, font=None, text_color=None, back_color=None,
+                 has_slider=False):
 
         if not self._border_image:
             self.__create_border_image()
 
-        incr_btn_gfx_data = {
-            "normal": (("toolbar_spin_up_button_normal",),),
-            "hilited": (("toolbar_spin_up_button_hilited",),),
-            "pressed": (("toolbar_spin_up_button_pressed",),)
-        }
-        decr_btn_gfx_data = {
-            "normal": (("toolbar_spin_down_button_normal",),),
-            "hilited": (("toolbar_spin_down_button_hilited",),),
-            "pressed": (("toolbar_spin_down_button_pressed",),)
-        }
-        # field border image should not contain right border parts, so these are replaced with
-        # central parts
-        border_gfx_data = (("small_toolbar_inset_border_left", "small_toolbar_inset_border_center",
-                            "small_toolbar_inset_border_center"),)
-        l, r, b, t = TextureAtlas["outer_borders"]["small_toolbar_inset"]
+        gfx_ids = Skin.atlas.gfx_ids["spinner_field"]["toolbar"]
+        l, r, b, t = Skin.atlas.outer_borders["small_toolbar_inset"]
         borders = (l, 0, b, t)  # right field border offset must be zero
 
         if has_slider:
-            field = ToolbarSliderField(parent, value_id, value_type, value_range, handler, width,
-                                       font, text_color, back_color, borders, border_gfx_data)
+            field = ToolbarSliderField(parent, width, font, text_color, back_color, borders, gfx_ids)
         else:
-            field = ToolbarInputField(parent, value_id, value_type, handler, width, font,
-                                      text_color, back_color, borders, border_gfx_data)
+            field = ToolbarInputField(parent, width, font, text_color, back_color, borders, gfx_ids)
 
-        incr_btn = ToolbarSpinnerButton(parent, incr_btn_gfx_data)
-        decr_btn = ToolbarSpinnerButton(parent, decr_btn_gfx_data)
+        incr_btn_gfx_ids = Skin.atlas.gfx_ids["toolbar_spin_up_button"]
+        decr_btn_gfx_ids = Skin.atlas.gfx_ids["toolbar_spin_down_button"]
+        incr_btn = ToolbarSpinnerButton(parent, incr_btn_gfx_ids)
+        decr_btn = ToolbarSpinnerButton(parent, decr_btn_gfx_ids)
         borders = (0, r, b, t)  # left spinner border offset must be zero
-        SpinnerInputField.__init__(self, parent, value_range, step, field, incr_btn, decr_btn, borders)
+        SpinnerInputField.__init__(self, parent, field, incr_btn, decr_btn, borders)
 
     def get_border_image(self):
 
@@ -713,26 +804,22 @@ class ToolbarSpinnerField(SpinnerInputField):
 
 class ComboBoxInputField(InputField):
 
-    _border_gfx_data = (("toolbar_combobox_normal_left", "toolbar_combobox_normal_center",
-                         "toolbar_combobox_normal_right"),)
-    _border_gfx_data2 = (("toolbar_combobox2_normal_left", "toolbar_combobox_normal_center",
-                         "toolbar_combobox_normal_right"),)
     _field_borders = ()
     _img_offset = (0, 0)
-    _field_borders2 = ()
-    _img_offset2 = (0, 0)
+    _field_borders_icon = ()
+    _img_offset_icon = (0, 0)
     _height = 0
 
     @classmethod
     def __set_field_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["toolbar_combobox_field"]
+        l, r, b, t = Skin.atlas.outer_borders["toolbar_combobox_field"]
         cls._field_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
-        l, r, b, t = TextureAtlas["outer_borders"]["toolbar_combobox2_field"]
-        cls._field_borders2 = (l, r, b, t)
-        cls._img_offset2 = (-l, -t)
-        cls._height = Skin["options"]["combobox_field_height"]
+        l, r, b, t = Skin.atlas.outer_borders["toolbar_combobox_field+icon"]
+        cls._field_borders_icon = (l, r, b, t)
+        cls._img_offset_icon = (-l, -t)
+        cls._height = Skin.options["combobox_field_height"]
 
     def __init__(self, parent, value_id, value_type, handler, width,
                  font=None, text_color=None, back_color=None):
@@ -740,17 +827,22 @@ class ComboBoxInputField(InputField):
         if not self._field_borders:
             self.__set_field_borders()
 
-        gfx_data = self._border_gfx_data if parent.has_icon() else self._border_gfx_data2
-        img_offset = self._img_offset if parent.has_icon() else self._img_offset2
-        InputField.__init__(self, parent, value_id, value_type, handler, width, gfx_data,
-                            img_offset, font, text_color, back_color)
+        gfx_ids_no_icon = Skin.atlas.gfx_ids["combo_field"]["toolbar"]
+        gfx_ids_icon = Skin.atlas.gfx_ids["combo_field"]["toolbar+icon"]
+        gfx_ids = gfx_ids_icon if parent.has_icon() else gfx_ids_no_icon
+        img_offset = self._img_offset_icon if parent.has_icon() else self._img_offset
+        InputField.__init__(self, parent, width, gfx_ids, img_offset, font,
+                            text_color, back_color)
 
         self.widget_type = "toolbar_combo_field"
+        self.value_id = value_id
+        self.value_type = value_type
+        self.set_value_handler(handler)
 
     @property
     def outer_borders(self):
 
-        return self._field_borders if self.parent.has_icon() else self._field_borders2
+        return self._field_borders_icon if self.parent.has_icon() else self._field_borders
 
     def get_image(self, state=None, composed=True, draw_border=False, crop=True):
 
@@ -807,101 +899,70 @@ class ComboBoxInputField(InputField):
 
 class ToolbarComboBox(ComboBox):
 
-    _gfx = {
-        "normal": (("toolbar_combobox_normal_left", "toolbar_combobox_normal_center",
-                    "toolbar_combobox_normal_right"),),
-        "pressed": (("toolbar_combobox_pressed_left", "toolbar_combobox_pressed_center",
-                     "toolbar_combobox_pressed_right"),),
-        "hilited": (("toolbar_combobox_hilited_left", "toolbar_combobox_hilited_center",
-                     "toolbar_combobox_hilited_right"),),
-        "active": (("toolbar_combobox_pressed_left", "toolbar_combobox_pressed_center",
-                    "toolbar_combobox_pressed_right"),),
-        "disabled": (("toolbar_combobox_disabled_left", "toolbar_combobox_disabled_center",
-                    "toolbar_combobox_disabled_right"),)
-    }
-    _gfx2 = {
-        "normal": (("toolbar_combobox2_normal_left", "toolbar_combobox_normal_center",
-                    "toolbar_combobox_normal_right"),),
-        "pressed": (("toolbar_combobox2_pressed_left", "toolbar_combobox_pressed_center",
-                     "toolbar_combobox_pressed_right"),),
-        "hilited": (("toolbar_combobox2_hilited_left", "toolbar_combobox_hilited_center",
-                     "toolbar_combobox_hilited_right"),),
-        "active": (("toolbar_combobox2_pressed_left", "toolbar_combobox_pressed_center",
-                    "toolbar_combobox_pressed_right"),),
-        "disabled": (("toolbar_combobox2_disabled_left", "toolbar_combobox_disabled_center",
-                    "toolbar_combobox_disabled_right"),)
-    }
     _box_borders = ()
-    _box_borders2 = ()
+    _box_borders_icon = ()
     _field_offset = (0, 0)
-    _field_offset2 = (0, 0)
+    _field_offset_icon = (0, 0)
     _field_label_offset = (0, 0)
     _icon_offset = (0, 0)
     _menu_offsets = {"top": (0, 0), "bottom": (0, 0)}
-    _menu_offsets2 = {"top": (0, 0), "bottom": (0, 0)}
+    _menu_offsets_icon = {"top": (0, 0), "bottom": (0, 0)}
 
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["inner_borders"]["toolbar_combobox"]
+        l, r, b, t = Skin.atlas.inner_borders["toolbar_combobox"]
         cls._box_borders = (l, r, b, t)
         cls._field_offset = (l, t)
-        x, y, w, h = TextureAtlas["regions"]["toolbar_combobox_normal_left"]
+        gfx_id = Skin.atlas.gfx_ids["toolbar_combobox"]["normal"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         cls._menu_offsets["top"] = (l, t)
         cls._menu_offsets["bottom"] = (l, h - b)
-        l, r, b, t = TextureAtlas["inner_borders"]["toolbar_combobox2"]
-        cls._box_borders2 = (l, r, b, t)
-        cls._field_offset2 = (l, t)
-        x, y, w, h = TextureAtlas["regions"]["toolbar_combobox2_normal_left"]
-        cls._menu_offsets2["top"] = (l, t)
-        cls._menu_offsets2["bottom"] = (l, h - b)
-        l, r, b, t = TextureAtlas["inner_borders"]["toolbar_combobox_field"]
+        l, r, b, t = Skin.atlas.inner_borders["toolbar_combobox+icon"]
+        cls._box_borders_icon = (l, r, b, t)
+        cls._field_offset_icon = (l, t)
+        gfx_id = Skin.atlas.gfx_ids["toolbar_combobox+icon"]["normal"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
+        cls._menu_offsets_icon["top"] = (l, t)
+        cls._menu_offsets_icon["bottom"] = (l, h - b)
+        l, r, b, t = Skin.atlas.inner_borders["toolbar_combobox_field"]
         cls._field_label_offset = (l, t)
-        l, r, b, t = TextureAtlas["inner_borders"]["toolbar_combobox_icon_area"]
+        l, r, b, t = Skin.atlas.inner_borders["toolbar_combobox_icon_area"]
         cls._icon_offset = (l, t)
 
-    def __init__(self, parent, field_width, text="", icon_id="", tooltip_text="",
-                 editable=False, value_id="", value_type="string", handler=None):
+    def __init__(self, parent, field_width, text="", icon_id="", tooltip_text=""):
 
         if not self._box_borders:
             self.__set_borders()
 
-        if icon_id:
-            gfx_data = self._gfx
-        else:
-            gfx_data = self._gfx2
+        gfx_ids = Skin.atlas.gfx_ids["toolbar_combobox" + ("+icon" if icon_id else "")]
 
-        ComboBox.__init__(self, parent, field_width, gfx_data, text, icon_id,
-                          tooltip_text, editable)
+        ComboBox.__init__(self, parent, field_width, gfx_ids, text, icon_id, tooltip_text)
 
         self.widget_type = "toolbar_combobox"
 
-        x, y, w, h = TextureAtlas["regions"]["toolbar_combobox_field_back"]
+        gfx_id = Skin.atlas.gfx_ids["combo_field_back"]["toolbar"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         tmp_img = PNMImage(w, h, 4)
-        tmp_img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        tmp_img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
         img = PNMImage(field_width, h, 4)
         img.unfiltered_stretch_from(tmp_img)
         self.set_field_back_image(img)
-
-        if editable:
-            input_field = ComboBoxInputField(self, value_id, value_type,
-                                             handler, field_width)
-            self.set_input_field(input_field)
 
     @property
     def inner_borders(self):
 
         if self.has_icon():
-            return self._box_borders
+            return self._box_borders_icon
         else:
-            return self._box_borders2
+            return self._box_borders
 
     def get_field_offset(self):
 
         if self.has_icon():
-            return self._field_offset
+            return self._field_offset_icon
         else:
-            return self._field_offset2
+            return self._field_offset
 
     def get_field_label_offset(self):
 
@@ -914,9 +975,9 @@ class ToolbarComboBox(ComboBox):
     def get_menu_offset(self, edge="bottom"):
 
         if self.has_icon():
-            return self._menu_offsets[edge]
+            return self._menu_offsets_icon[edge]
         else:
-            return self._menu_offsets2[edge]
+            return self._menu_offsets[edge]
 
     def set_field_tint(self, tint=None):
 
@@ -937,6 +998,13 @@ class ToolbarComboBox(ComboBox):
 
         return True
 
+    def set_input_field(self, value_id, value_type, handler):
+
+        input_field = ComboBoxInputField(self, value_id, value_type, handler, self._field_width)
+        self.input_field = input_field
+
+        return input_field
+
     def show_input_field(self, show=True):
 
         if not ComboBox.show_input_field(self, show):
@@ -952,9 +1020,10 @@ class ToolbarComboBox(ComboBox):
 
         l, r, b, t = self.inner_borders
         width -= l + r
-        x, y, w, h = TextureAtlas["regions"]["toolbar_combobox_field_back"]
+        gfx_id = Skin.atlas.gfx_ids["combo_field_back"]["toolbar"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         tmp_img = PNMImage(w, h, 4)
-        tmp_img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        tmp_img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
         img = PNMImage(width, h, 4)
         img.unfiltered_stretch_from(tmp_img)
         self.set_field_back_image(img)

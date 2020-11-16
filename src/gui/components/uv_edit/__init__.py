@@ -11,7 +11,7 @@ class UVEditGUI:
 
     def __init__(self, main_components):
 
-        self._display_region = None
+        self.display_region = None
         self._mouse_watcher = None
         self._main_components = main_components
         self._components = components = {}
@@ -20,43 +20,50 @@ class UVEditGUI:
         toolbar = TransformToolbar(dock)
         toolbar.hide()
 
-        panel_stack = main_components["panel_stack"]
-        components["uv_set_panel"] = UVSetPanel(panel_stack)
-        components["subobj_panel"] = SubobjectPanel(panel_stack)
-        components["background_panel"] = BackgroundPanel(panel_stack)
-        components["export_panel"] = ExportPanel(panel_stack)
+        control_pane = main_components["control_pane"]
+        components["panels"] = panels = {}
+        panel_classes = {}
+        panel_classes["uv_set"] = UVSetPanel
+        panel_classes["subobj"] = SubobjectPanel
+        panel_classes["background"] = BackgroundPanel
+        panel_classes["export"] = ExportPanel
+
+        for panel_id in Skin.layout.control_panels["uv"]:
+            if panel_id in panel_classes:
+                panels[panel_id] = panel_classes[panel_id](control_pane)
+
         self._hotkey_prev = None
         self._is_enabled = False
 
-        Mgr.accept("update_uv_layout", self.__update_layout)
+        Mgr.accept("update_uv_toolbar_layout", self.__update_toolbar_layout)
 
-    def __create_layout(self):
-
-        config_data = GD["config"]
-
-        if config_data["gui_view"]["toolbars"]:
-            layout_data = config_data["gui_layout"]["uv"]
-            Mgr.do("create_layout", layout_data)
-
-    def __clear_layout(self):
+    def __create_toolbar_layout(self):
 
         config_data = GD["config"]
 
         if config_data["gui_view"]["toolbars"]:
-            layout_data = config_data["gui_layout"]["uv"]
-            Mgr.do("clear_layout", layout_data)
+            layout_data = config_data["gui_layout"]["toolbars"]["uv"]
+            Mgr.do("create_toolbar_layout", layout_data)
 
-    def __update_layout(self):
+    def __clear_toolbar_layout(self):
 
-        self.__clear_layout()
-        self.__create_layout()
+        config_data = GD["config"]
+
+        if config_data["gui_view"]["toolbars"]:
+            layout_data = config_data["gui_layout"]["toolbars"]["uv"]
+            Mgr.do("clear_toolbar_layout", layout_data)
+
+    def __update_toolbar_layout(self):
+
+        self.__clear_toolbar_layout()
+        self.__create_toolbar_layout()
         Mgr.do("update_window")
 
     def setup(self):
 
         def enter_editing_mode(prev_state_id, active):
 
-            color = Skin["colors"]["viewport_frame_edit_uvs"]
+            color = Skin.colors["viewport_frame_edit_uvs"]
             index = GD["viewport"]["active"]
             GD["viewport"][f"border_color{index}"] = color
             GD["viewport"][f"border{index}"].clear_color = color
@@ -97,17 +104,18 @@ class UVEditGUI:
                 disabler = lambda: "uv" in (GD["viewport"][1], GD["viewport"][2])
                 Mgr.do("disable_selection_dialog", "uv", disabler)
 
-                Mgr.do("clear_main_layout")
-                self.__create_layout()
+                Mgr.do("clear_main_toolbar_layout")
+                self.__create_toolbar_layout()
 
-                panel_stack = main_components["panel_stack"]
+                control_pane = main_components["control_pane"]
+                main_panel_ids = set(Skin.layout.control_panels["main"])
+                uv_panel_ids = set(Skin.layout.control_panels["uv"])
 
-                # Show all panels used in the UV interface
-
-                for panel_id in ("uv_set", "subobj", "background", "export"):
-                    panel = components[f"{panel_id}_panel"]
+                # show all panels used in the UV interface
+                for panel_id in uv_panel_ids - main_panel_ids:
+                    panel = components["panels"][panel_id]
                     panel.enable_hotkeys()
-                    panel_stack.show_panel(panel)
+                    control_pane.show_panel(panel)
 
                 toolbars = Toolbar.registry
 
@@ -119,22 +127,20 @@ class UVEditGUI:
                 transform_toolbar.add_interface_updaters()
                 transform_toolbar.enable_hotkeys()
 
-                components["subobj_panel"].setup()
-                components["subobj_panel"].add_interface_updaters()
-                components["uv_set_panel"].add_interface_updaters()
-                components["background_panel"].add_interface_updaters()
-                components["export_panel"].add_interface_updaters()
+                components["panels"]["subobj"].setup()
 
-                # Hide all panels used in the main interface
+                for panel in components["panels"].values():
+                    panel.add_interface_updaters()
 
-                for panel_id in ("hierarchy", "prop", "material"):
-                    panel = main_components[f"{panel_id}_panel"]
+                # hide all panels used in the main interface
+                for panel_id in main_panel_ids - uv_panel_ids:
+                    panel = main_components["panels"][panel_id]
                     panel.enable_hotkeys(False)
-                    panel_stack.show_panel(panel, False)
+                    control_pane.show_panel(panel, False)
 
                 on_close = lambda: Mgr.update_remotely("uv_interface", False)
                 region, mouse_watcher_node = Mgr.do("open_aux_viewport", "uv_edit", "UV", on_close)
-                self._display_region = region
+                self.display_region = region
                 self._mouse_watcher = mouse_watcher_node
 
                 Mgr.do("update_window")
@@ -146,8 +152,8 @@ class UVEditGUI:
 
             if not active:
 
-                region = self._display_region
-                self._display_region = None
+                region = self.display_region
+                self.display_region = None
                 GD.window.remove_display_region(region)
                 mouse_watcher = NodePath(self._mouse_watcher)
                 self._mouse_watcher = None
@@ -184,40 +190,36 @@ class UVEditGUI:
                 transform_toolbar = toolbars["uv_transform"]
                 transform_toolbar.enable_hotkeys(False)
 
-                self.__clear_layout()
-                Mgr.do("create_main_layout")
+                self.__clear_toolbar_layout()
+                Mgr.do("create_main_toolbar_layout")
 
-                panel_stack = main_components["panel_stack"]
+                control_pane = main_components["control_pane"]
+                main_panel_ids = set(Skin.layout.control_panels["main"])
+                uv_panel_ids = set(Skin.layout.control_panels["uv"])
 
-                # Hide all panels used in the UV interface
-
-                for panel_id in ("uv_set", "subobj", "background", "export"):
-                    panel = components[f"{panel_id}_panel"]
+                # hide all panels used in the UV interface
+                for panel_id in uv_panel_ids - main_panel_ids:
+                    panel = components["panels"][panel_id]
                     panel.enable_hotkeys(False)
-                    panel_stack.show_panel(panel, False)
+                    control_pane.show_panel(panel, False)
 
-                # Show all panels used in the main interface
-
-                for panel_id in ("hierarchy", "prop", "material"):
-                    panel = main_components[f"{panel_id}_panel"]
+                # show all panels used in the main interface
+                for panel_id in main_panel_ids - uv_panel_ids:
+                    panel = main_components["panels"][panel_id]
                     panel.enable_hotkeys()
-                    panel_stack.show_panel(panel)
+                    control_pane.show_panel(panel)
 
                 Mgr.do("update_window")
 
         add_state = Mgr.add_state
         add_state("uv_edit_mode", -10, enter_editing_mode, exit_editing_mode)
 
-        panel_stack = self._main_components["panel_stack"]
-        components = self._components
-        components["uv_set_panel"].setup()
-        components["subobj_panel"].setup()
-        components["background_panel"].setup()
-        components["export_panel"].setup()
-        panel_stack.show_panel(components["uv_set_panel"], False)
-        panel_stack.show_panel(components["subobj_panel"], False)
-        panel_stack.show_panel(components["background_panel"], False)
-        panel_stack.show_panel(components["export_panel"], False)
+        control_pane = self._main_components["control_pane"]
+        panels = self._components["panels"]
+
+        for panel in panels.values():
+            panel.setup()
+            control_pane.show_panel(panel, False)
 
     def __on_key_down(self, key=None):
 

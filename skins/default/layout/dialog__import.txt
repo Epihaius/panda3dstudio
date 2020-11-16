@@ -1,0 +1,36 @@
+name = Import
+title = Import options
+default_size = 0 0
+text -
+    container = dialog
+    text = Displayed below is the following object info, found in the chosen file:|    *    the type of object (regular geometry, collision geometry or a node of some other kind);|    *    the original name of the object ("<Unnamed>" if no name was found);|    *    the unique name the object will have in the scene (editable);|    *    the object hierarchy.
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 50 50 0 20
+checkbutton quadrangulate
+    container = dialog
+    text = Quadrangulate geometry
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 50 50 10 10
+placeholder pane
+    container = dialog
+    size = 500 100
+    proportions = 1.0 1.0
+    alignments = expand expand
+    borders = 50 50 20 0
+#
+BORDERS
+#
+imp_dialog_hierarchy    10 10 10 10
+imp_dialog_node_type    10 0 0 0
+imp_dialog_node_name    10 10 2 10
+imp_dialog_node_field   0 0 0 2
+#
+OPTIONS
+#
+imp_dialog_scrollpane_width     int     700
+imp_dialog_scrollpane_height    int     300
+imp_dialog_hierarchy_indent     int     50
+imp_dialog_field_min_width      int     100

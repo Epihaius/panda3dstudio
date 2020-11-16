@@ -3,70 +3,52 @@ from .base import *
 
 class DummyProperties:
 
-    def __init__(self, panel):
+    def __init__(self, panel, widgets):
 
         self._panel = panel
         self._fields = {}
         self._checkbuttons = {}
 
-        section = panel.add_section("dummy_props", "Dummy helper properties", hidden=True)
-
-        get_handler = lambda geom_type: lambda val: self.__handle_viz(geom_type, val)
-
         for geom_type in ("box", "cross"):
-            text = f"Show {geom_type}"
-            checkbtn = PanelCheckButton(section, get_handler(geom_type), text)
-            self._checkbuttons[f"{geom_type}_viz"] = checkbtn
-            section.add(checkbtn)
-            section.add((0, 5))
+            prop_id = f"{geom_type}_viz"
+            checkbtn = widgets["checkbuttons"][prop_id]
+            checkbtn.command = lambda val, t=geom_type: self.__handle_viz(t, val)
+            self._checkbuttons[prop_id] = checkbtn
 
-        sizer = GridSizer(rows=0, columns=3, gap_h=5, gap_v=2)
-        section.add(sizer, expand=True)
-
-        text = "Box size:"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
         prop_id = "size"
-        field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
+        field = widgets["fields"]["dummy_size"]
+        field.value_id = prop_id
+        field.value_type = "float"
+        field.set_value_handler(self.__handle_value)
         field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
-        sizer.add((0, 0))
 
-        text = "Cross size:"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
         prop_id = "cross_size"
-        field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
+        field = widgets["fields"]["dummy_cross_size"]
+        field.value_id = prop_id
+        field.value_type = "float"
+        field.set_value_handler(self.__handle_value)
         field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
-        text = "%"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
 
-        section.add((0, 5))
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
         prop_id = "const_size_state"
-        get_handler = lambda prop_id: lambda val: self.__handle_value(prop_id, val)
-        text = "Const. screen size:"
-        checkbtn = PanelCheckButton(section, get_handler(prop_id), text)
+        checkbtn = widgets["checkbuttons"]["dummy_const_size_state"]
+        checkbtn.command = lambda val, i=prop_id: self.__handle_value(i, val)
         self._checkbuttons[prop_id] = checkbtn
-        borders = (0, 5, 0, 0)
-        sizer.add(checkbtn, alignment="center_v", borders=borders)
+
         prop_id = "const_size"
-        field = PanelInputField(section, prop_id, "float", self.__handle_value, 40)
+        field = widgets["fields"]["dummy_const_size"]
+        field.value_id = prop_id
+        field.value_type = "float"
+        field.set_value_handler(self.__handle_value)
         field.set_value_parser(lambda value: f"{value :.1f}")
         field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
-        sizer.add(field, proportion=1., alignment="center_v")
-
-        section.add((0, 5))
 
         prop_id = "on_top"
-        text = "Draw on top"
-        checkbtn = PanelCheckButton(section, get_handler(prop_id), text)
+        checkbtn = widgets["checkbuttons"]["dummy_on_top"]
+        checkbtn.command = lambda val, i=prop_id: self.__handle_value(i, val)
         self._checkbuttons[prop_id] = checkbtn
-        section.add(checkbtn)
 
     def setup(self): pass
 
@@ -122,7 +104,7 @@ class DummyProperties:
 
     def set_object_property_default(self, prop_id, value):
 
-        color = (1., 1., 0., 1.)
+        color = Skin.colors["default_value"]
         checkbtns = self._checkbuttons
 
         if prop_id == "viz":
@@ -160,7 +142,7 @@ class DummyProperties:
 
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
-        color = (.5, .5, .5, 1.) if multi_sel else None
+        color = Skin.text["input_disabled"]["color"] if multi_sel else None
 
         for checkbtn in checkbtns.values():
             checkbtn.set_checkmark_color(color)

@@ -10,7 +10,7 @@ class GUI:
     def __init__(self, app_mgr, verbose=False):
 
         Mgr.init(app_mgr, verbose)
-        load_skin(GD["config"]["skin"])
+        Skin.load()
 
         self._hotkey_prev = None
 

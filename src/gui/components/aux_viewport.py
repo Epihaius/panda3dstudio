@@ -1,24 +1,17 @@
 from ..base import *
 from ..button import Button
 from ..tooltip import ToolTip
-from ..dialog import *
+from ..dialogs import *
 from direct.interval.IntervalGlobal import LerpColorScaleInterval, Sequence
 
 
 class ViewportButton(Button):
 
-    _gfx = {
-        "normal": (("viewport_button_normal_left", "viewport_button_normal_center",
-                    "viewport_button_normal_right"),),
-        "hilited": (("viewport_button_hilited_left", "viewport_button_hilited_center",
-                     "viewport_button_hilited_right"),),
-        "pressed": (("viewport_button_pressed_left", "viewport_button_pressed_center",
-                     "viewport_button_pressed_right"),)
-    }
+    def __init__(self, parent, name, icon_id, tooltip_text):
 
-    def __init__(self, parent, name, icon_id, tooltip_text, command):
+        gfx_ids = Skin.atlas.gfx_ids["viewport_button"]
 
-        Button.__init__(self, parent, self._gfx, "", icon_id, tooltip_text, command,
+        Button.__init__(self, parent, gfx_ids, "", icon_id, tooltip_text,
                         button_type="viewport_button")
 
         self._cursor_region = MouseWatcherRegion(f"viewport_button_{name}", 0., 0., 0., 0.)
@@ -51,17 +44,19 @@ class ViewportButtonBar(WidgetCard):
         self._is_hidden = False
         self._btns = []
 
-    def add_button(self, name, icon_id, tooltip_text, command, proportion=0.):
+    def add_button(self, name, icon_id, tooltip_text, command, proportions=(0., 0.)):
 
         sizer = self.sizer
-        btn = ViewportButton(self, name, icon_id, tooltip_text, command)
-        sizer.add(btn, proportion=proportion)
+        btn = ViewportButton(self, name, icon_id, tooltip_text)
+        btn.command = command
+        sizer.add(btn, proportions=proportions)
         self._btns.append(btn)
 
         if not self.height:
             ViewportButtonBar.height = btn.min_size[1]
 
-    def get_buttons(self):
+    @property
+    def buttons(self):
 
         return self._btns
 
@@ -299,7 +294,7 @@ class AdjacentViewportBorder(ViewportBorder):
 
         viz = self._frame_viz
         sizer = self._viewport.sizer
-        w = GD["viewport"]["size"][0] + 3
+        w = GD["viewport"]["size"][0] + Skin.options["viewport_border_thickness"]
         w += sizer.get_size()[0]
         sx = min(w, max(1, viz.get_pos()[0] - Mgr.get("mouse_pointer", 0).x))
         viz.set_sx(sx)
@@ -317,72 +312,66 @@ class AuxiliaryViewport:
         self._placement = "overlaid"  # alternative: "adjacent"
         self._viewport_sizer = viewport_sizer
         self._viewport_sizer_adj = adjacent_viewport_sizer
-        self._display_region = None
+        self.display_region = None
         self._cursor_region = MouseWatcherRegion("viewport2", 0., 0., 0., 0.)
         Mgr.expose("viewport2_cursor_region", lambda: self._cursor_region)
         self._mouse_region_mask = mask = MouseWatcherRegion("aux_viewport_mask", 0., 0., 0., 0.)
         flags = MouseWatcherRegion.SF_mouse_button | MouseWatcherRegion.SF_mouse_position
         mask.suppress_flags = flags
         mask.sort = 900
-        self._spacer_h_item = viewport_sizer.add((0, 0), proportion=100.)
+        self._spacer_h_cell = viewport_sizer.add((0, 0), proportions=(100., 0.))
         sizer = Sizer("vertical")
         self._sizer = subsizer = Sizer("horizontal")
         border_sizer = Sizer("vertical")
-        subsizer2 = Sizer("vertical")
+        self._btn_sizer = subsizer2 = Sizer("vertical")
         self._display_sizer = display_sizer = Sizer("horizontal")
-        display_sizer.default_size = (300, 200)
-        l, r, b, t = TextureAtlas["inner_borders"]["aux_viewport"]
-        r = b = 3
-        self._spacer_v_item = sizer.add((0, 0), proportion=100.)
-        sizer.add(subsizer, proportion=1., expand=True)
-        subsizer.add(border_sizer, expand=True)
-        subsizer.add(subsizer2, proportion=1., expand=True)
+        w_d, h_d = 300, 200
+        display_sizer.default_size = (w_d, h_d)
+        l, r, b, t = Skin.atlas.inner_borders["aux_viewport"]
+        r = b = thickness = Skin.options["viewport_border_thickness"]
+        self._spacer_v_cell = sizer.add((0, 0), proportions=(0., 100.))
+        sizer.add(subsizer, proportions=(1., 1.))
+        subsizer.add(border_sizer)
+        subsizer.add(subsizer2, (1., 1.))
         self._border_topleft = border = ViewportBorder(window, self, (l, t))
         border_sizer.add(border)
-        self._border_left = border = ViewportBorder(window, self, (l, 200), "vertical")
-        border_sizer.add(border, proportion=1.)
-        self._border_top = border = ViewportBorder(window, self, (300, t), "horizontal")
-        subsizer2.add(border, expand=True)
+        self._border_left = border = ViewportBorder(window, self, (l, h_d), "vertical")
+        border_sizer.add(border, (0., 1.))
+        self._border_top = border = ViewportBorder(window, self, (w_d, t), "horizontal")
+        subsizer2.add(border, (1., 0.))
         borders = (0, r, 0, 0)
-        subsizer2.add(display_sizer, proportion=1., expand=True, borders=borders)
+        subsizer2.add(display_sizer, (1., 1.), borders=borders)
         btn_bar = ViewportButtonBar(window)
         btn_bar.add_button("swap", "icon_viewport_swap", "Swap viewports",
-                           self.__swap_viewports, proportion=1.)
+                           self.__swap_viewports, proportions=(1., 0.))
         btn_bar.add_button("make_adjacent", "icon_viewport_adjacent", "Place viewports side-by-side",
-                           lambda: self.__overlay(False), proportion=1.)
+                           lambda: self.__overlay(False), proportions=(1., 0.))
         btn_bar.add_button("exit", "icon_viewport_exit", "",
-                           self.__close, proportion=1.)
+                           self.__close, proportions=(1., 0.))
         self._on_close = None
         self._btn_bar = btn_bar
         borders = (0, r, b, 0)
-        subsizer2.add(btn_bar, expand=True, borders=borders)
-        item = viewport_sizer.add(sizer, proportion=1., expand=True)
-        viewport_sizer.remove_item(item)
-        self.sizer_item = item
+        cell = subsizer2.add(btn_bar, borders=borders)
+        subsizer2.remove_cell(cell)
+        cell = viewport_sizer.add(sizer, (1., 1.))
+        viewport_sizer.remove_cell(cell)
+        self.sizer_cell = cell
 
         # Create the adjacent viewport components
 
         self._sizer_adj = sizer = Sizer("horizontal")
         self._display_sizer_adj = display_sizer = Sizer("horizontal")
-        display_sizer.default_size = (300, 200)
-        self._border_adj = border = AdjacentViewportBorder(window, self, (l, 206))
-        sizer.add(border, expand=True)
-        borders = (0, 3, 3, 3)
-        subsizer = Sizer("vertical")
-        sizer.add(subsizer, proportion=1., expand=True, borders=borders)
-        subsizer.add(display_sizer, proportion=1., expand=True)
-        btn_bar = ViewportButtonBar(window)
-        btn_bar.add_button("swap", "icon_viewport_swap", "Swap viewports",
-                           self.__swap_viewports, proportion=1.)
-        btn_bar.add_button("overlay", "icon_viewport_overlaid", "Overlay auxiliary viewport",
-                           self.__overlay, proportion=1.)
-        btn_bar.add_button("exit", "icon_viewport_exit", "",
-                           self.__close, proportion=1.)
-        self._btn_bar_adj = btn_bar
-        subsizer.add(btn_bar, expand=True)
-        item = adjacent_viewport_sizer.add(sizer, proportion=1., expand=True)
-        adjacent_viewport_sizer.remove_item(item)
-        self._sizer_item_adj = item
+        display_sizer.default_size = (w_d, h_d)
+        height = h_d + 2 * thickness
+        self._border_adj = border = AdjacentViewportBorder(window, self, (l, height))
+        sizer.add(border)
+        borders = (0,) + (thickness,) * 3
+        self._btn_sizer_adj = subsizer = Sizer("vertical")
+        sizer.add(subsizer, (1., 1.), borders=borders)
+        subsizer.add(display_sizer, (1., 1.))
+        cell = adjacent_viewport_sizer.add(sizer, (1., 1.))
+        adjacent_viewport_sizer.remove_cell(cell)
+        self._sizer_cell_adj = cell
 
         GD["viewport"]["aux_region"] = (0, 0, 0, 0)
 
@@ -403,11 +392,11 @@ class AuxiliaryViewport:
         GD["viewport"]["pos_aux"] = (x, y)
         GD["viewport"]["size_aux"] = (w, h)
         GD["viewport"]["frame_aux"] = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
-        l, r, b, t = TextureAtlas["inner_borders"]["aux_viewport"]
-        r = b = 3
+        l, r, b, t = Skin.atlas.inner_borders["aux_viewport"]
+        r = b = thickness = Skin.options["viewport_border_thickness"]
 
         if self._placement == "adjacent":
-            t = 3
+            t = thickness
 
         x -= l
         y -= t
@@ -415,7 +404,7 @@ class AuxiliaryViewport:
         h += ViewportButtonBar.height + b + t
         GD["viewport"]["aux_region"] = (x, y, w, h)
         l, r, b, t = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
-        self._display_region.dimensions = (l, r, b, t)
+        self.display_region.dimensions = (l, r, b, t)
         l_v, r_v, b_v, t_v = GD["viewport"]["frame"]
         w = r_v - l_v
         h = t_v - b_v
@@ -501,13 +490,14 @@ class AuxiliaryViewport:
         Mgr.remove_cursor_regions("aux_viewport")
         Mgr.add_cursor_region("aux_viewport", self._cursor_region)
 
+        for btn in self._btn_bar.buttons:
+            cursor_region = btn.get_cursor_region()
+            Mgr.add_cursor_region("aux_viewport", cursor_region)
+
         if overlaid:
-
             self._border_adj.hide()
-            self._btn_bar_adj.hide()
-            self._viewport_sizer_adj.remove_item(self._sizer_item_adj)
-            self._viewport_sizer_adj.sizer_item.proportion = 0.
-
+            self._viewport_sizer_adj.remove_cell(self._sizer_cell_adj)
+            self._viewport_sizer_adj.sizer_cell.proportions = (0., 0.)
             self._border_topleft.show()
             cursor_region = self._border_topleft.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
@@ -523,41 +513,40 @@ class AuxiliaryViewport:
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ew"
             Mgr.set_cursor(cursor_id, cursor_region.name)
-            self._btn_bar.show()
-
-            for btn in self._btn_bar.get_buttons():
-                cursor_region = btn.get_cursor_region()
-                Mgr.add_cursor_region("aux_viewport", cursor_region)
-
+            r = b = Skin.options["viewport_border_thickness"]
+            self._btn_bar.sizer_cell.borders = (0, r, b, 0)
+            btn = self._btn_bar.buttons[1]
+            btn.command = lambda: self.__overlay(False)
+            btn.tooltip_text = "Place viewports side-by-side"
+            btn.set_icon_id("icon_viewport_adjacent")
+            self._btn_sizer_adj.remove_cell(self._btn_bar.sizer_cell)
+            self._btn_sizer.add_cell(self._btn_bar.sizer_cell)
             viewport_sizer = self._viewport_sizer
-            viewport_sizer.add_item(self.sizer_item)
-
+            viewport_sizer.add_cell(self.sizer_cell)
         else:
-
             self._border_topleft.hide()
             self._border_top.hide()
             self._border_left.hide()
-            self._btn_bar.hide()
-            self._viewport_sizer.remove_item(self.sizer_item)
-
+            self._viewport_sizer.remove_cell(self.sizer_cell)
             self._border_adj.show()
             cursor_region = self._border_adj.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ew"
             Mgr.set_cursor(cursor_id, cursor_region.name)
-            self._btn_bar_adj.show()
-
-            for btn in self._btn_bar_adj.get_buttons():
-                cursor_region = btn.get_cursor_region()
-                Mgr.add_cursor_region("aux_viewport", cursor_region)
-
+            self._btn_bar.sizer_cell.borders = None
+            btn = self._btn_bar.buttons[1]
+            btn.command = self.__overlay
+            btn.tooltip_text = "Overlay auxiliary viewport"
+            btn.set_icon_id("icon_viewport_overlaid")
+            self._btn_sizer.remove_cell(self._btn_bar.sizer_cell)
+            self._btn_sizer_adj.add_cell(self._btn_bar.sizer_cell)
             viewport_sizer = self._viewport_sizer_adj
-            viewport_sizer.add_item(self._sizer_item_adj)
-            viewport_sizer.sizer_item.proportion = 1.
+            viewport_sizer.add_cell(self._sizer_cell_adj)
+            viewport_sizer.sizer_cell.proportions = (1., 1.)
 
         viewport_sizer.update_min_size()
         viewport_sizer.set_size(viewport_sizer.get_size())
-        viewport_sizer.calculate_positions(viewport_sizer.get_pos(from_root=True))
+        viewport_sizer.update_positions(viewport_sizer.get_pos(from_root=True))
         viewport_sizer.update_images()
         viewport_sizer.update_mouse_region_frames()
         Mgr.do("update_window")
@@ -579,16 +568,16 @@ class AuxiliaryViewport:
 
             if delta_x:
                 proportion = (w_v - w) / w
-                self._spacer_h_item.proportion = proportion
+                self._spacer_h_cell.proportions = (proportion, 0.)
 
             if delta_y:
                 proportion = (h_v - h) / h
-                self._spacer_v_item.proportion = proportion
+                self._spacer_v_cell.proportions = (0., proportion)
 
             viewport_sizer.set_min_size_stale()
             viewport_sizer.update_min_size()
             viewport_sizer.set_size(viewport_sizer.get_size())
-            viewport_sizer.calculate_positions(viewport_sizer.get_pos(from_root=True))
+            viewport_sizer.update_positions(viewport_sizer.get_pos(from_root=True))
             viewport_sizer.update_images()
             viewport_sizer.update_mouse_region_frames()
             self.update()
@@ -600,14 +589,14 @@ class AuxiliaryViewport:
             w1 = self._viewport_sizer.get_size()[0]
             w2 = viewport_sizer.get_size()[0]
             w1 += w2
-            sizer_item = self._viewport_sizer.sizer_item
+            sizer_cell = self._viewport_sizer.sizer_cell
             w2 -= delta_x
             w2 = min(w1, max(1, w2))
             proportion = max(.0001, (w1 - w2) / w2)
-            sizer_item.proportion = proportion
+            sizer_cell.proportions = (proportion, 1.)
             viewport_sizer.update_min_size()
             viewport_sizer.set_size(viewport_sizer.get_size())
-            viewport_sizer.calculate_positions(viewport_sizer.get_pos(from_root=True))
+            viewport_sizer.update_positions(viewport_sizer.get_pos(from_root=True))
             viewport_sizer.update_images()
             viewport_sizer.update_mouse_region_frames()
             Mgr.do("update_window")
@@ -616,16 +605,18 @@ class AuxiliaryViewport:
 
         self._interface_name = interface_name
         self._on_close = on_close
-        btn = self._btn_bar.get_buttons()[-1]
-        btn.set_tooltip_text(f"Exit {interface_name} interface")
-        btn = self._btn_bar_adj.get_buttons()[-1]
-        btn.set_tooltip_text(f"Exit {interface_name} interface")
+        btn = self._btn_bar.buttons[-1]
+        btn.tooltip_text = f"Exit {interface_name} interface"
         ToolTip.hide()
+        self._btn_bar.show()
+
+        for btn in self._btn_bar.buttons:
+            cursor_region = btn.get_cursor_region()
+            Mgr.add_cursor_region("aux_viewport", cursor_region)
 
         Mgr.add_cursor_region("aux_viewport", self._cursor_region)
 
         if self._placement == "overlaid":
-
             self._border_topleft.show()
             cursor_region = self._border_topleft.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
@@ -641,41 +632,29 @@ class AuxiliaryViewport:
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ew"
             Mgr.set_cursor(cursor_id, cursor_region.name)
-            self._btn_bar.show()
-
-            for btn in self._btn_bar.get_buttons():
-                cursor_region = btn.get_cursor_region()
-                Mgr.add_cursor_region("aux_viewport", cursor_region)
-
+            self._btn_sizer.add_cell(self._btn_bar.sizer_cell)
             viewport_sizer = self._viewport_sizer
-            viewport_sizer.add_item(self.sizer_item)
-
+            viewport_sizer.add_cell(self.sizer_cell)
         else:
-
             self._border_adj.show()
             cursor_region = self._border_adj.get_cursor_region()
             Mgr.add_cursor_region("aux_viewport", cursor_region)
             cursor_id = "move_ew"
             Mgr.set_cursor(cursor_id, cursor_region.name)
-            self._btn_bar_adj.show()
-
-            for btn in self._btn_bar_adj.get_buttons():
-                cursor_region = btn.get_cursor_region()
-                Mgr.add_cursor_region("aux_viewport", cursor_region)
-
+            self._btn_sizer_adj.add_cell(self._btn_bar.sizer_cell)
             viewport_sizer = self._viewport_sizer_adj
-            viewport_sizer.add_item(self._sizer_item_adj)
-            viewport_sizer.sizer_item.proportion = 1.
+            viewport_sizer.add_cell(self._sizer_cell_adj)
+            viewport_sizer.sizer_cell.proportions = (1., 1.)
 
         viewport_sizer.update_min_size()
         viewport_sizer.set_size(viewport_sizer.get_size())
-        viewport_sizer.calculate_positions(viewport_sizer.get_pos(from_root=True))
+        viewport_sizer.update_positions(viewport_sizer.get_pos(from_root=True))
         viewport_sizer.update_images()
         viewport_sizer.update_mouse_region_frames()
-        self._display_region = region = GD.window.make_display_region(0., 1., 0., 1.)
+        self.display_region = region = GD.window.make_display_region(0., 1., 0., 1.)
         region.active = True
         region.sort = 21
-        color = Skin["colors"]["viewport_frame_inactive"]
+        color = Skin.colors["viewport_frame_inactive"]
         region.clear_color = color
         region.clear_depth = 1000.
         region.set_clear_color_active(True)
@@ -735,21 +714,22 @@ class AuxiliaryViewport:
         GD["fps_meter_display_region"].dimensions = (r - 800./w, r, b, b + 600./h)
         GD.mouse_watcher.remove_region(self._mouse_region_mask)
         Mgr.remove_cursor_regions("aux_viewport")
+        self._btn_bar.hide()
+        cell = self._btn_bar.sizer_cell
+        cell.sizer.remove_cell(cell)
 
         if self._placement == "overlaid":
             self._border_topleft.hide()
             self._border_top.hide()
             self._border_left.hide()
-            self._btn_bar.hide()
-            self._viewport_sizer.remove_item(self.sizer_item)
+            self._viewport_sizer.remove_cell(self.sizer_cell)
         else:
             self._border_adj.hide()
-            self._btn_bar_adj.hide()
-            self._viewport_sizer_adj.remove_item(self._sizer_item_adj)
-            self._viewport_sizer_adj.sizer_item.proportion = 0.
+            self._viewport_sizer_adj.remove_cell(self._sizer_cell_adj)
+            self._viewport_sizer_adj.sizer_cell.proportions = (0., 0.)
 
-        region = self._display_region
-        self._display_region = None
+        region = self.display_region
+        self.display_region = None
         GD["viewport"]["border1"] = GD.window
         GD["viewport"]["border2"] = None
         GD.window.remove_display_region(region)

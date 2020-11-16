@@ -1,0 +1,31 @@
+title = Render mode
+default_size = 0 0
+button wire
+    container = toolbar
+    icon_id = icon_render_mode_wire
+    text = 
+    tooltip_text = Wire
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button shaded+wire
+    container = toolbar
+    icon_id = icon_render_mode_shaded+wire
+    text = 
+    tooltip_text = Shaded+Wire
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button two_sided
+    container = toolbar
+    icon_id = icon_two_sided
+    text = 
+    tooltip_text = Two-sided
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0

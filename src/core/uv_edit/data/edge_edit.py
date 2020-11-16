@@ -95,7 +95,7 @@ class EdgeEditMixin:
                         vert_ids_by_merged_edge[merged_edge] = vert_id
 
                         if vert_id not in vert_ids:
-                            vert_ids[vert_id] = set([vert_id])
+                            vert_ids[vert_id] = {vert_id}
 
             vert_ids = set(tuple(id_set) for id_set in vert_ids.values())
 

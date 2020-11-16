@@ -3,50 +3,31 @@ from .base import *
 
 class ConeProperties:
 
-    def __init__(self, panel):
+    def __init__(self, panel, widgets):
 
         self._panel = panel
         self._fields = {}
         self._checkbuttons = {}
         self._segments_default = {"circular": 3, "height": 1, "caps": 0}
 
-        section = panel.add_section("cone_props", "Cone properties", hidden=True)
-
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-        section.add(sizer, expand=True)
-
-        for spec in ("bottom", "top"):
-            text = f"{spec.title()} radius:"
-            sizer.add(PanelText(section, text), alignment_v="center_v")
-            prop_id = f"radius_{spec}"
-            field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
+        for prop_id in ("radius_bottom", "radius_top", "height"):
+            field = widgets["fields"][f"cone_{prop_id}"]
+            field.value_id = prop_id
+            field.value_type = "float"
+            field.set_value_handler(self.__handle_value)
             self._fields[prop_id] = field
-            sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        text = "Height:"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
-        prop_id = "height"
-        field = PanelInputField(section, prop_id, "float", self.__handle_value, 80)
-        self._fields[prop_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
-
-        group = section.add_group("Segments")
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-        group.add(sizer, expand=True)
-
-        for spec in ("circular", "height", "caps"):
-            prop_id = f"segments_{spec}"
-            text = f"{spec.title()}:"
-            sizer.add(PanelText(group, text), alignment_v="center_v")
-            field = PanelInputField(group, prop_id, "int", self.__handle_value, 80)
+        for prop_id in ("segments_circular", "segments_height", "segments_caps"):
+            field = widgets["fields"][f"cone_{prop_id}"]
+            field.value_id = prop_id
+            field.value_type = "int"
+            field.set_value_handler(self.__handle_value)
             self._fields[prop_id] = field
-            sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         get_parser = lambda radius_min: lambda input_text: \
             self.__parse_radius_input(input_text, radius_min)
 
-        for spec, val_min in (("bottom", .001), ("top", 0.)):
-            prop_id = f"radius_{spec}"
+        for prop_id, val_min in (("radius_bottom", .001), ("radius_top", 0.)):
             self._fields[prop_id].set_input_parser(get_parser(val_min))
 
         self._fields["height"].set_input_parser(self.__parse_height_input)
@@ -57,14 +38,9 @@ class ConeProperties:
         parser = lambda input_text: self.__parse_segments_input(input_text, 0)
         self._fields["segments_caps"].set_input_parser(parser)
 
-        section.add((0, 5))
-
-        text = "Smooth"
-        checkbtn = PanelCheckButton(section, lambda val:
-            self.__handle_value("smoothness", val), text)
-        checkbtn.check(True)
+        checkbtn = widgets["checkbuttons"]["cone_smoothness"]
+        checkbtn.command = lambda val: self.__handle_value("smoothness", val)
         self._checkbuttons["smoothness"] = checkbtn
-        section.add(checkbtn)
 
     def setup(self): pass
 
@@ -126,7 +102,7 @@ class ConeProperties:
 
     def set_object_property_default(self, prop_id, value):
 
-        color = (1., 1., 0., 1.)
+        color = Skin.colors["default_value"]
 
         if prop_id == "smoothness":
             self._checkbuttons["smoothness"].check(value)
@@ -162,7 +138,7 @@ class ConeProperties:
 
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
-        color = (.5, .5, .5, 1.) if multi_sel else None
+        color = Skin.text["input_disabled"]["color"] if multi_sel else None
 
         if multi_sel:
             self._checkbuttons["smoothness"].check(False)

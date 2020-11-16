@@ -1,0 +1,230 @@
+name = Transform options
+title = Transform options
+default_size = 0 0
+group 1069
+    container = dialog
+    title = Rotation
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 20 10
+sizer 1071
+    container = group 1069
+    name = drag method
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 10 0
+text -
+    container = sizer 1071
+    text = Interactive dragging method:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+combobox drag_method
+    container = sizer 1071
+    field_width = 150
+    icon_id = 
+    text = 
+    tooltip_text = Drag method
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 1074
+    container = group 1069
+    name = circle center
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+text -
+    container = sizer 1074
+    text = View-aligned circle center:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+radiobuttongroup circle_center
+    container = sizer 1074
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    expand = 1
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+radiobutton start_click_pos
+    text = start click position
+radiobutton gizmo_center
+    text = transf. gizmo center
+group 1079
+    container = group 1069
+    title = Display
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 10
+sizer 1081
+    container = group 1079
+    name = circle
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 5 0
+checkbutton show_circle
+    container = sizer 1081
+    text = View-aligned circle
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 1081
+    text = Radius:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 20 5 0 0
+field radius
+    container = sizer 1081
+    field_type = input_spinner
+    width = 50
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton scale_to_cursor
+    container = sizer 1081
+    text = Scale to cursor
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 20 0 0 0
+sizer 1086
+    container = group 1079
+    name = line
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+checkbutton show_line
+    container = sizer 1086
+    text = Line
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton thru_gizmo_center
+    container = sizer 1086
+    text = Through gizmo center
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 20 0 0 0
+text -
+    container = sizer 1086
+    text = Full rotation:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 20 5 0 0
+field full_roll_dist
+    container = sizer 1086
+    field_type = input_spinner
+    width = 50
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 1086
+    text = pixels
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+group 1092
+    container = group 1069
+    title = Auto-switch method
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 10
+sizer 1094
+    container = group 1092
+    name = alt. method
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+text -
+    container = sizer 1094
+    text = Alternative method:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+radiobuttongroup alt_method
+    container = sizer 1094
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    expand = 1
+    text_offset = 5
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+radiobutton circular_in_view_plane
+    text = circular in view plane
+radiobutton linear
+    text = linear
+sizer 1099
+    container = group 1092
+    name = threshold angle
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 5
+text -
+    container = sizer 1099
+    text = Threshold angle:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field threshold
+    container = sizer 1099
+    field_type = input_spinner_slider
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 1099
+    text = degrees
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0

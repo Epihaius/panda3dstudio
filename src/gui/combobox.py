@@ -7,12 +7,14 @@ class ComboBox(Button):
 
     _ref_node = NodePath("combobox_ref_node")
 
-    def __init__(self, parent, field_width, gfx_data, text="", icon_id="", tooltip_text="",
-                 editable=False):
+    def __init__(self, parent, field_width, gfx_ids, text="", icon_id="", tooltip_text=""):
 
-        Button.__init__(self, parent, gfx_data, tooltip_text=tooltip_text, command=self.__show_menu)
+        Button.__init__(self, parent, gfx_ids, tooltip_text=tooltip_text)
 
         self.widget_type = "combobox"
+        self.command = self.__show_menu
+
+        self._field_width = field_width
         self._field_text = text
         self._field_text_in_tooltip = True
 
@@ -25,12 +27,12 @@ class ComboBox(Button):
 
         self._is_field_active = False
         self._field_back_img = None
-        self._field_tint = Skin["colors"]["combobox_field_tint_default"]
+        self._field_tint = Skin.colors["combobox_field_tint_default"]
 
         self._input_field = None
 
         if text:
-            skin_text = Skin["text"]["combobox"]
+            skin_text = Skin.text["combobox"]
             font = skin_text["font"]
             color = skin_text["color"]
             self._field_label = font.create_image(text, color)
@@ -38,9 +40,9 @@ class ComboBox(Button):
             self._field_label = None
 
         if icon_id:
-            x, y, w, h = TextureAtlas["regions"][icon_id]
+            x, y, w, h = Skin.atlas.regions[icon_id]
             img = PNMImage(w, h, 4)
-            img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+            img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
             self._combo_icon = img
             self._combo_icon_disabled = icon_disabled = PNMImage(img)
             icon_disabled.make_grayscale()
@@ -55,11 +57,6 @@ class ComboBox(Button):
         w = field_width + l + r
         size = (w, h)
         self.set_size(size, is_min=True)
-
-        if editable:
-            sizer = Sizer("horizontal")
-            sizer.default_size = size
-            self.sizer = sizer
 
     def destroy(self):
 
@@ -313,7 +310,7 @@ class ComboBox(Button):
 
     def set_field_tint(self, tint=None):
 
-        new_tint = tint if tint else Skin["colors"]["combobox_field_tint_default"]
+        new_tint = tint if tint else Skin.colors["combobox_field_tint_default"]
 
         if self._field_tint == new_tint:
             return False
@@ -359,11 +356,11 @@ class ComboBox(Button):
 
         self._field_text = text
 
-        if self._field_text_in_tooltip and self._tooltip_text:
-            self.set_tooltip_text(self._tooltip_text + (": " + text if text else ""))
+        if self._field_text_in_tooltip and self.tooltip_text:
+            self.override_tooltip_text(self.tooltip_text + (": " + text if text else ""))
 
         if text:
-            skin_text = Skin["text"]["combobox"]
+            skin_text = Skin.text["combobox"]
             font = skin_text["font"]
             color = skin_text["color"]
             self._field_label = font.create_image(text, color)
@@ -414,14 +411,22 @@ class ComboBox(Button):
             self._popup_menu.remove(item_id)
             self._popup_menu.add_item(item, index, update=True)
 
-    def set_input_field(self, input_field):
-
-        self._input_field = input_field
-        self.sizer.add(input_field)
-
-    def get_input_field(self):
+    @property
+    def input_field(self):
 
         return self._input_field
+
+    @input_field.setter
+    def input_field(self, input_field):
+
+        self._input_field = input_field
+
+        if not self.sizer:
+            sizer = Sizer("horizontal")
+            sizer.default_size = self.min_size
+            self.sizer = sizer
+
+        self.sizer.add(input_field)
 
     def show_input_field(self, show=True):
 

@@ -2,25 +2,43 @@ from ..base import *
 from ..button import *
 from ..toolbar import *
 from ..panel import *
-from ..dialog import *
+from ..dialogs import *
 
 
-class RegionTypeComboBox(ToolbarComboBox):
+class SelectionToolbar(Toolbar):
 
-    def __init__(self, toolbar):
+    def __init__(self, parent):
 
-        tooltip_text = "Region type"
+        Toolbar.__init__(self, parent, "selection")
 
-        ToolbarComboBox.__init__(self, toolbar, 150, tooltip_text=tooltip_text)
+        widgets = Skin.layout.create(self, "selection")
+        self._btns = btns = widgets["buttons"]
+        self._comboboxes = widgets["comboboxes"]
+
+        btn = btns["region_select"]
+        btn.command = self.__toggle_region_select
+        mod_code = GD["mod_key_codes"]["alt"]
+        hotkey = ("s", mod_code)
+        btn.set_hotkey(hotkey, "Alt+S")
+
+        btn = btns["enclose"]
+        btn.command = self.__toggle_enclose
+
+        self.__setup_region_type_combobox()
+        self.__setup_selection_set_combobox()
+
+    def __setup_region_type_combobox(self):
+
+        combobox = self._comboboxes["region_type"]
 
         def add_region_type_entry(region_type, text):
 
             def set_region_type():
 
                 GD["region_select"]["type"] = region_type
-                self.select_item(region_type)
+                combobox.select_item(region_type)
 
-            self.add_item(region_type, text, set_region_type)
+            combobox.add_item(region_type, text, set_region_type)
 
         for entry_data in (
             ("rect", "Rectangle (from corner)"), ("rect_centered", "Rectangle (from center)"),
@@ -32,60 +50,54 @@ class RegionTypeComboBox(ToolbarComboBox):
         ):
             add_region_type_entry(*entry_data)
 
-        self.update_popup_menu()
+        combobox.update_popup_menu()
 
+    def __setup_selection_set_combobox(self):
 
-class SetsComboBox(ToolbarComboBox):
+        combobox = self._comboboxes["sets"]
 
-    def __init__(self, toolbar):
-
-        tooltip_text = "Selection set"
         val_id = "name"
         handler = lambda *args: self.__handle_name(args[1])
-
-        ToolbarComboBox.__init__(self, toolbar, 150, tooltip_text=tooltip_text,
-                                 editable=True, value_id=val_id,
-                                 handler=handler)
-
-        field = self.get_input_field()
+        field = combobox.set_input_field(val_id, "string", handler)
         field.set_input_init(self.__init_input)
         field.set_input_parser(self.__parse_name)
         field.set_text("Create selection set")
-        field.set_text_color(Skin["text"]["input_disabled"]["color"])
+        field.set_text_color(Skin.text["input_disabled"]["color"])
         field.set_on_accept(self.__accept_name)
         field.set_on_reject(self.__reject_name)
         self._field_text_color = None
-        self.set_text("")
+        combobox.set_text("")
 
-        self._menus = menus = {"top": self.get_popup_menu()}
+        self._menus = menus = {"top": combobox.get_popup_menu()}
 
-        for obj_level in ("vert", "normal", "edge", "poly", "uv_vert", "uv_edge", "uv_poly", "uv_part"):
-            menus[obj_level] = self.create_popup_menu()
+        for obj_level in ("vert", "normal", "edge", "poly",
+                "uv_vert", "uv_edge", "uv_poly", "uv_part"):
+            menus[obj_level] = combobox.create_popup_menu()
 
         Mgr.add_app_updater("selection_set", self.__update)
 
     def __init_input(self):
 
-        field = self.get_input_field()
+        field = self._comboboxes["sets"].input_field
         self._field_text_color = color = field.get_text_color()
 
-        if color == Skin["text"]["input_disabled"]["color"]:
+        if color == Skin.text["input_disabled"]["color"]:
             field.set_text_color(None)
             field.clear(forget=False)
 
     def __accept_name(self, valid):
 
         if not valid:
-            self.get_input_field().set_text_color(self._field_text_color)
+            self._comboboxes["sets"].input_field.set_text_color(self._field_text_color)
 
     def __reject_name(self):
 
-        self.get_input_field().set_text_color(self._field_text_color)
+        self._comboboxes["sets"].input_field.set_text_color(self._field_text_color)
 
     def __parse_name(self, input_text):
 
         name = input_text.strip()
-        old_name = self.get_input_field().get_text()
+        old_name = self._comboboxes["sets"].input_field.get_text()
 
         if name != old_name:
             return name if name else None
@@ -98,75 +110,84 @@ class SetsComboBox(ToolbarComboBox):
 
         def apply_set():
 
-            self.select_item(set_id)
-            text = self.get_item_text(set_id)
-            self.get_input_field().set_value(text)
-            self.get_input_field().set_text_color(None)
+            combobox = self._comboboxes["sets"]
+            combobox.select_item(set_id)
+            text = combobox.get_item_text(set_id)
+            combobox.input_field.set_value(text)
+            combobox.input_field.set_text_color(None)
             Mgr.update_remotely("object_selection", "apply_set", set_id)
 
-        self.add_item(set_id, name, apply_set, update=True)
+        combobox = self._comboboxes["sets"]
+        combobox.add_item(set_id, name, apply_set, update=True)
 
         if not is_copy:
-            self.select_item(set_id)
-            self.get_input_field().set_value(name)
-            self.get_input_field().set_text_color(None)
+            combobox.select_item(set_id)
+            combobox.input_field.set_value(name)
+            combobox.input_field.set_text_color(None)
 
     def __rename_set(self, set_id, name):
 
-        self.set_item_text(set_id, name)
+        combobox = self._comboboxes["sets"]
+        combobox.set_item_text(set_id, name)
 
-        if self.get_selected_item() == set_id:
-            self.get_input_field().set_value(name)
-            self.get_input_field().set_text_color(None)
+        if combobox.get_selected_item() == set_id:
+            combobox.input_field.set_value(name)
+            combobox.input_field.set_text_color(None)
 
     def __remove_set(self, set_id):
 
-        if self.get_selected_item() == set_id:
+        combobox = self._comboboxes["sets"]
+
+        if combobox.get_selected_item() == set_id:
             self.__hide_name()
 
-        self.remove_item(set_id)
+        combobox.remove_item(set_id)
 
     def __clear_sets(self):
 
-        item_ids = list(self.get_popup_menu().items.keys())
-        item_id = self.get_selected_item()
+        combobox = self._comboboxes["sets"]
+        item_ids = list(combobox.get_popup_menu().items.keys())
+        item_id = combobox.get_selected_item()
 
         if item_id is not None:
             item_ids.append(item_id)
             self.__hide_name()
 
         for item_id in item_ids:
-            self.remove_item(item_id)
+            combobox.remove_item(item_id)
 
     def __select_set(self, set_id, name):
 
-        self.select_item(set_id)
-        self.get_input_field().set_value(name)
-        self.get_input_field().set_text_color(None)
+        combobox = self._comboboxes["sets"]
+        combobox.select_item(set_id)
+        combobox.input_field.set_value(name)
+        combobox.input_field.set_text_color(None)
 
     def __hide_set(self, set_id):
 
-        if self.get_selected_item() == set_id:
+        if self._comboboxes["sets"].get_selected_item() == set_id:
             self.__hide_name()
 
     def __hide_name(self):
 
-        self.get_input_field().clear()
-        self.get_input_field().set_text("Create selection set")
-        self.get_input_field().set_text_color(Skin["text"]["input_disabled"]["color"])
-        self.select_none()
+        combobox = self._comboboxes["sets"]
+        combobox.input_field.clear()
+        combobox.input_field.set_text("Create selection set")
+        combobox.input_field.set_text_color(Skin.text["input_disabled"]["color"])
+        combobox.select_none()
 
     def __replace_sets(self, obj_level):
 
         self.__hide_name()
-        self.set_popup_menu(self._menus[obj_level])
+        self._comboboxes["sets"].set_popup_menu(self._menus[obj_level])
 
     def __reset_sets(self):
 
         self.__hide_name()
+        combobox = self._comboboxes["sets"]
 
         for menu in self._menus.values():
-            self.set_popup_menu(menu)
+            combobox.set_popup_menu(menu)
             self.__clear_sets()
 
     def __update(self, update_type="", *args):
@@ -192,41 +213,6 @@ class SetsComboBox(ToolbarComboBox):
         elif update_type == "reset":
             self.__reset_sets(*args)
 
-
-class SelectionToolbar(Toolbar):
-
-    def __init__(self, parent):
-
-        Toolbar.__init__(self, parent, "selection", "Selection")
-
-        self._btns = btns = {}
-        btn = ToolbarButton(self, icon_id="icon_region_sel",
-                            tooltip_text="Region-select objects by default",
-                            command=self.__toggle_region_select)
-        mod_code = GD["mod_key_codes"]["alt"]
-        hotkey = ("s", mod_code)
-        btn.set_hotkey(hotkey, "Alt+S")
-        btns["region_select"] = btn
-        borders = (0, 5, 0, 0)
-        self.add(btn, borders=borders, alignment="center_v")
-
-        self._comboboxes = {}
-        combobox = RegionTypeComboBox(self)
-        self._comboboxes["region_type"] = combobox
-        self.add(combobox, borders=borders, alignment="center_v")
-
-        btn = ToolbarButton(self, icon_id="icon_region_sel_enclose",
-                            tooltip_text="Only select fully enclosed objects",
-                            command=self.__toggle_enclose)
-        btns["enclose"] = btn
-        self.add(btn, borders=borders, alignment="center_v")
-
-        self.add(ToolbarSeparator(self), borders=borders)
-
-        combobox = SetsComboBox(self)
-        self._comboboxes["sets"] = combobox
-        self.add(combobox, borders=borders, alignment="center_v")
-
     def __toggle_region_select(self):
 
         is_default = not GD["region_select"]["is_default"]
@@ -237,7 +223,7 @@ class SelectionToolbar(Toolbar):
 
         enclose = not GD["region_select"]["enclose"]
         GD["region_select"]["enclose"] = enclose
-        colors = Skin["colors"]
+        colors = Skin.colors
         shape_color = colors[f'selection_region_shape_{"enclose" if enclose else "default"}']
         fill_color = colors[f'selection_region_fill_{"enclose" if enclose else "default"}']
         GD["region_select"]["shape_color"] = shape_color
@@ -246,26 +232,26 @@ class SelectionToolbar(Toolbar):
         self._btns["enclose"].active = enclose
 
 
-class SelectionPanel(Panel):
+class SelectionPanel(ControlPanel):
 
-    def __init__(self, stack):
+    def __init__(self, pane):
 
-        Panel.__init__(self, stack, "selection", "Selection")
+        ControlPanel.__init__(self, pane, "selection")
 
-        self._comboboxes = {}
-        self._fields = {}
-        self._btns = {}
-        self._radio_btns = {}
+        widgets = Skin.layout.create(self, "selection")
+        self._btns = btns = widgets["buttons"]
+        self._comboboxes = widgets["comboboxes"]
+        self._fields = widgets["fields"]
+        self._radio_btns = widgets["radiobutton_groups"]
 
         # **************************** Sets section ********************************
 
-        section = self.add_section("sets", "Sets")
-
         val_id = "name"
         handler = lambda *args: self.__handle_name(args[1])
-        combobox1 = PanelComboBox(section, 100, tooltip_text="Primary set",
-                                  editable=True, value_id=val_id,
-                                  handler=handler)
+        combobox1 = self._comboboxes["set1"]
+        field = combobox1.set_input_field(val_id, "string", handler)
+        field.set_input_parser(self.__parse_name)
+        self._fields[val_id] = field
 
         def select_current():
 
@@ -275,126 +261,48 @@ class SelectionPanel(Panel):
             self._btns["edit_set_name"].active = False
 
         combobox1.add_item("cur_sel", "<Current selection>", select_current, update=True)
-        self._comboboxes["set1"] = combobox1
-        section.add(combobox1, expand=True)
-
-        field = combobox1.get_input_field()
-        field.set_input_parser(self.__parse_name)
-        self._fields[val_id] = field
         combobox1.show_input_field(False)
 
-        section.add((0, 5))
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
+        btn = btns["edit_set_name"]
+        btn.command = self.__toggle_set_name_editable
 
-        icon_id = "icon_caret"
-        tooltip_text = "Edit primary set name"
-        btn = PanelButton(section, "", icon_id, tooltip_text, self.__toggle_set_name_editable)
-        self._btns["edit_set_name"] = btn
-        btn_sizer.add(btn, proportion=1.)
+        btn = btns["copy_set"]
+        btn.command = self.__copy_set
 
-        btn_sizer.add((5, 0))
+        btn = btns["create_set"]
+        btn.command = self.__create_set
 
-        icon_id = "icon_copy"
-        tooltip_text = "Create copy of primary set"
-        btn = PanelButton(section, "", icon_id, tooltip_text, self.__copy_set)
-        btn_sizer.add(btn, proportion=1.)
+        btn = btns["remove_set"]
+        btn.command = self.__remove_set
 
-        btn_sizer.add((5, 0))
+        btn = btns["clear_sets"]
+        btn.command = self.__clear_sets
 
-        icon_id = "icon_add"
-        tooltip_text = "Create new set from current selection"
-        btn = PanelButton(section, "", icon_id, tooltip_text, self.__create_set)
-        btn_sizer.add(btn, proportion=1.)
+        btn = btns["apply_set"]
+        btn.command = self.__apply_set
 
-        btn_sizer.add((5, 0))
-
-        icon_id = "icon_remove"
-        tooltip_text = "Delete primary set"
-        btn = PanelButton(section, "", icon_id, tooltip_text, self.__remove_set)
-        btn_sizer.add(btn, proportion=1.)
-
-        section.add((0, 5))
-        btn_sizer = Sizer("horizontal")
-        section.add(btn_sizer, expand=True)
-
-        text = "Clear"
-        tooltip_text = "Delete all sets"
-        btn = PanelButton(section, text, "", tooltip_text, self.__clear_sets)
-        btn_sizer.add(btn, proportion=1.)
-
-        btn_sizer.add((5, 0))
-
-        text = "Apply"
-        tooltip_text = "Select objects in primary set"
-        btn = PanelButton(section, text, "", tooltip_text, self.__apply_set)
-        btn_sizer.add(btn, proportion=1.)
-
-        group = section.add_group("Combine with")
-
-        combobox2 = PanelComboBox(group, 100, tooltip_text="Secondary set")
+        combobox2 = self._comboboxes["set2"]
 
         def select_current():
 
             self._comboboxes["set2"].select_item("cur_sel")
 
         combobox2.add_item("cur_sel", "<Current selection>", select_current, update=True)
-        self._comboboxes["set2"] = combobox2
-        group.add(combobox2, expand=True)
 
         set_menus1 = {"top": combobox1.get_popup_menu()}
         set_menus2 = {"top": combobox2.get_popup_menu()}
         self._menus = {"set1": set_menus1, "set2": set_menus2}
 
-        for obj_level in ("vert", "normal", "edge", "poly", "uv_vert", "uv_edge", "uv_poly", "uv_part"):
+        for obj_level in ("vert", "normal", "edge", "poly",
+                "uv_vert", "uv_edge", "uv_poly", "uv_part"):
             set_menus1[obj_level] = combobox1.create_popup_menu()
             set_menus2[obj_level] = combobox2.create_popup_menu()
 
-        group.add((0, 5))
-        btn_sizer = Sizer("horizontal")
-        group.add(btn_sizer, expand=True)
+        for op in ("union", "intersection", "difference", "sym_diff"):
+            btn = btns[op]
+            btn.command = lambda o=op: self.__combine_sets(o)
 
-        icon_id = "icon_union"
-        tooltip_text = "Union"
-        command = lambda: self.__combine_sets("union")
-        btn = PanelButton(group, "", icon_id, tooltip_text, command)
-        self._edit_mat_name_btn = btn
-        btn_sizer.add(btn, proportion=1.)
-
-        btn_sizer.add((5, 0))
-
-        icon_id = "icon_intersection"
-        tooltip_text = "Intersection"
-        command = lambda: self.__combine_sets("intersection")
-        btn = PanelButton(group, "", icon_id, tooltip_text, command)
-        btn_sizer.add(btn, proportion=1.)
-
-        btn_sizer.add((5, 0))
-
-        icon_id = "icon_difference"
-        tooltip_text = "Difference"
-        command = lambda: self.__combine_sets("difference")
-        btn = PanelButton(group, "", icon_id, tooltip_text, command)
-        btn_sizer.add(btn, proportion=1.)
-
-        btn_sizer.add((5, 0))
-
-        icon_id = "icon_sym_diff"
-        tooltip_text = "Symmetric difference"
-        command = lambda: self.__combine_sets("sym_diff")
-        btn = PanelButton(group, "", icon_id, tooltip_text, command)
-        btn_sizer.add(btn, proportion=1.)
-
-        group.add((0, 5))
-
-        radio_btns = PanelRadioButtonGroup(group, columns=1, gap_h=10)
-        btn_data = (("in_place", "Modify primary set"), ("new", "Create new set"))
-
-        for btn_id, text in btn_data:
-            radio_btns.add_button(btn_id, text)
-
-        self._radio_btns["result"] = radio_btns
-        group.add(radio_btns.sizer)
+        radio_btns = self._radio_btns["result"]
         radio_btns.set_selected_button("in_place")
 
         # **************************************************************************
@@ -604,13 +512,13 @@ class SelectionManager:
 
         menu.add("sep0", item_type="separator")
 
-        dialog_item = menu.add("name_select", "Select by name", self.__show_selection_dialog)
+        dialog_item = menu.add("name_select", "Select by name...", self.__show_selection_dialog)
         hotkey = ("n", 0)
         menu.set_item_hotkey("name_select", hotkey, "N")
 
         region_select = {"is_default": False, "type": "rect", "enclose": False}
-        region_select["shape_color"] = Skin["colors"]["selection_region_shape_default"]
-        region_select["fill_color"] = Skin["colors"]["selection_region_fill_default"]
+        region_select["shape_color"] = Skin.colors["selection_region_shape_default"]
+        region_select["fill_color"] = Skin.colors["selection_region_fill_default"]
         GD.set_default("region_select", region_select)
 
         def disable_selection_dialog(disabler_id=None, disabler=None):

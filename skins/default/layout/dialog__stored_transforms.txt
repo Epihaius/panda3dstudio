@@ -1,0 +1,153 @@
+name = Stored transforms
+title = {op_type} {target_name} {descr}
+default_size = 0 0
+group 1035
+    container = dialog
+    title = Find
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 20 20 10 20
+sizer 1037
+    container = group 1035
+    name = search options
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 2 0
+sizer 1038
+    container = sizer 1037
+    name = checkbtns
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 20 0 0
+checkbutton in_sel
+    container = sizer 1038
+    text = In selection
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 2 0
+checkbutton match_case
+    container = sizer 1038
+    text = Match case
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobuttongroup name_part
+    container = sizer 1037
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 10 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+radiobutton start
+    text = Start of name
+radiobutton end
+    text = End of name
+radiobutton sub
+    text = Substring
+radiobutton whole
+    text = Whole name
+sizer 1046
+    container = group 1035
+    name = search
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+field search
+    container = sizer 1046
+    field_type = input
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+button find_next
+    container = sizer 1046
+    icon_id = 
+    text = Next
+    tooltip_text = 
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 5 0 0 0
+placeholder pane
+    container = dialog
+    size = 300 200
+    proportions = 1.0 1.0
+    alignments = expand expand
+    borders = 20 20 10 10
+sizer 1050
+    container = dialog
+    name = edit
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 15 0
+button rename
+    container = sizer 1050
+    icon_id = 
+    text = Rename
+    tooltip_text = Rename selected {descr}
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+button delete
+    container = sizer 1050
+    icon_id = 
+    text = Delete
+    tooltip_text = Delete selected {descr}
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+button clear
+    container = sizer 1050
+    icon_id = 
+    text = Clear
+    tooltip_text = Delete all {descr}s
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+field name
+    container = dialog
+    field_type = input
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 20 20 15 0
+    component_id = name field
+#
+BORDERS
+#
+xform_dialog_entry_data     5 5 2 2
+xform_dialog_entry_column   5 5 0 0
+#
+OPTIONS
+#
+xform_dialog_scrollpane_width   int     300
+xform_dialog_scrollpane_height  int     200

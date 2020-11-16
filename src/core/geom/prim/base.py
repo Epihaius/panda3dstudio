@@ -963,23 +963,19 @@ class PrimitiveManager(CreationPhaseManager, ObjPropDefaultsManager, LockedGeomM
             phase_starter, phase_handler = phase_data
             phase_finisher = lambda: None
 
-        creation_starter = self.__get_prim_creation_starter(phase_starter)
+        creation_starter = lambda: self.__start_primitive_creation(phase_starter)
         creation_phases.insert(0, (creation_starter, phase_handler, phase_finisher))
 
         return CreationPhaseManager.setup(self, creation_phases, status_text)
 
-    def __get_prim_creation_starter(self, main_creation_func):
+    def __start_primitive_creation(self, main_creation_func):
 
-        def start_primitive_creation():
+        if not self.get_object():
+            next_color = self.get_next_object_color()
+            tmp_prim = self.create_temp_primitive(next_color, self.get_origin_pos())
+            self.init_object(tmp_prim)
 
-            if not self.get_object():
-                next_color = self.get_next_object_color()
-                tmp_prim = self.create_temp_primitive(next_color, self.get_origin_pos())
-                self.init_object(tmp_prim)
-
-            main_creation_func()
-
-        return start_primitive_creation
+        main_creation_func()
 
     def get_temp_primitive(self):
 

@@ -1,117 +1,62 @@
 from ...base import *
 from ...panel import *
-from ...dialog import FileDialog
+from ...dialogs import FileDialog
 
 
-class ExportPanel(Panel):
+class ExportPanel(ControlPanel):
 
-    def __init__(self, stack):
+    def __init__(self, pane):
 
-        Panel.__init__(self, stack, "export", "Template export")
+        ControlPanel.__init__(self, pane, "export")
 
-        self._btns = {}
-        self._colorboxes = {}
-        self._fields = {}
+        widgets = Skin.layout.create(self, "export")
+        self._btns = btns = widgets["buttons"]
+        self._colorboxes = colorboxes = widgets["colorboxes"]
+        self._fields = fields = widgets["fields"]
 
         # ************************* Options section ***************************
 
-        section = self.add_section("export_options", "Export options")
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
-        text = "Width, height:"
-        sizer.add(PanelText(section, text), alignment="center_v")
-        sizer.add((5, 0))
-
         val_id = "size"
-        field = PanelInputField(section, val_id, "int", self.__handle_value, 80)
+        field = fields[val_id]
+        field.value_id = val_id
+        field.value_type = "int"
+        field.set_value_handler(self.__handle_value)
         field.set_input_parser(self.__parse_size_input)
-        self._fields[val_id] = field
-        sizer.add(field, proportion=1., alignment="center_v")
 
-        group = section.add_group("Edge color")
-        sizer = Sizer("horizontal")
-        group.add(sizer, expand=True)
+        colorbox = colorboxes["edge_rgb"]
+        colorbox.command = lambda col: self.__handle_subobj_rgb("edge", col)
+        colorbox.dialog_title = "Pick edge color"
 
-        text = "RGB:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
-
-        dialog_title = "Pick edge color"
-        command = lambda col: self.__handle_subobj_rgb("edge", col)
-        colorbox = PanelColorBox(group, command, dialog_title=dialog_title)
-        self._colorboxes["edge_rgb"] = colorbox
-        sizer.add(colorbox, alignment="center_v")
-        sizer.add((5, 0))
-
-        text = "Alpha:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
         val_id = "edge_alpha"
-        field = PanelSliderField(group, val_id, "float", (0., 1.),
-                                 self.__handle_value, 45)
-        self._fields[val_id] = field
-        sizer.add(field, proportion=1., alignment="center_v")
+        field = fields[val_id]
+        field.value_id = val_id
+        field.set_value_handler(self.__handle_value)
+        field.set_value_range((0., 1.), False, "float")
 
-        group = section.add_group("Polygon / Prim. part color")
-        sizer = Sizer("horizontal")
-        group.add(sizer, expand=True)
+        colorbox = colorboxes["poly_rgb"]
+        colorbox.command = lambda col: self.__handle_subobj_rgb("poly", col)
+        colorbox.dialog_title = "Pick polygon / primitive part color"
 
-        text = "RGB:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
-
-        dialog_title = "Pick polygon / primitive part color"
-        command = lambda col: self.__handle_subobj_rgb("poly", col)
-        colorbox = PanelColorBox(group, command, dialog_title=dialog_title)
-        self._colorboxes["poly_rgb"] = colorbox
-        sizer.add(colorbox, alignment="center_v")
-        sizer.add((5, 0))
-
-        text = "Alpha:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
         val_id = "poly_alpha"
-        field = PanelSliderField(group, val_id, "float", (0., 1.),
-                                 self.__handle_value, 45)
-        self._fields[val_id] = field
-        sizer.add(field, proportion=1., alignment="center_v")
+        field = fields[val_id]
+        field.value_id = val_id
+        field.set_value_handler(self.__handle_value)
+        field.set_value_range((0., 1.), False, "float")
 
-        group = section.add_group("Seam color")
-        sizer = Sizer("horizontal")
-        group.add(sizer, expand=True)
+        colorbox = colorboxes["seam_rgb"]
+        colorbox.command = lambda col: self.__handle_subobj_rgb("seam", col)
+        colorbox.dialog_title = "Pick seam color"
 
-        text = "RGB:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
-
-        dialog_title = "Pick seam color"
-        command = lambda col: self.__handle_subobj_rgb("seam", col)
-        colorbox = PanelColorBox(group, command, dialog_title=dialog_title)
-        self._colorboxes["seam_rgb"] = colorbox
-        sizer.add(colorbox, alignment="center_v")
-        sizer.add((5, 0))
-
-        text = "Alpha:"
-        sizer.add(PanelText(group, text), alignment="center_v")
-        sizer.add((5, 0))
         val_id = "seam_alpha"
-        field = PanelSliderField(group, val_id, "float", (0., 1.),
-                                 self.__handle_value, 45)
-        self._fields[val_id] = field
-        sizer.add(field, proportion=1., alignment="center_v")
+        field = fields[val_id]
+        field.value_id = val_id
+        field.set_value_handler(self.__handle_value)
+        field.set_value_range((0., 1.), False, "float")
 
         # **************************************************************************
 
-        bottom_container = self.get_bottom_container()
-
-        text = "Export"
-        tooltip_text = "Export UV template"
-        btn = PanelButton(bottom_container, text, "", tooltip_text, self.__export)
-        self._btns["export"] = btn
-        borders = (0, 0, 10, 10)
-        bottom_container.add(btn, alignment="center_h", borders=borders)
+        btn = btns["export"]
+        btn.command = self.__export
 
     def setup(self): pass
 
@@ -164,4 +109,4 @@ class ExportPanel(Panel):
         if prop_id in ("size", "edge_alpha", "poly_alpha", "seam_alpha"):
             self._fields[prop_id].set_value(value)
         else:
-            self._colorboxes[prop_id].set_color(value[:3])
+            self._colorboxes[prop_id].color = value[:3]

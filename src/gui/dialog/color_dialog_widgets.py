@@ -1,5 +1,5 @@
-from .dialog import *
-import colorsys
+from ..base import *
+from ..menu import Menu
 
 
 class ColorSwatchGroup(Widget):
@@ -10,13 +10,13 @@ class ColorSwatchGroup(Widget):
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset2"]
+        l, r, b, t = Skin.atlas.outer_borders["dialog_inset2"]
         cls._group_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
-    def __init__(self, parent, command):
+    def __init__(self, parent):
 
-        Widget.__init__(self, "colorswatch_group", parent, gfx_data={})
+        Widget.__init__(self, "colorswatch_group", parent, gfx_ids={})
 
         if not self._group_borders:
             self.__set_borders()
@@ -25,7 +25,23 @@ class ColorSwatchGroup(Widget):
         self.outer_borders = self._group_borders
         self.mouse_region.sort = parent.sort + 1
 
-        self._command = command
+        self._command = lambda *args, **kwargs: None
+
+    def destroy(self):
+
+        Widget.destroy(self)
+
+        self.command = None
+
+    @property
+    def command(self):
+
+        return self._command
+
+    @command.setter
+    def command(self, command):
+
+        self._command = command if command else lambda *args, **kwargs: None
 
     def update_images(self, recurse=True, size=None):
 
@@ -82,8 +98,8 @@ class BasicColorGroup(ColorSwatchGroup):
     @classmethod
     def __create_swatches(cls):
 
-        w = Skin["options"]["small_colorswatch_width"]
-        h = Skin["options"]["small_colorswatch_height"]
+        w = Skin.options["small_colorswatch_width"]
+        h = Skin.options["small_colorswatch_height"]
         colors = (
                 ((1., 0., 0.), (1., .5, 0.), (1., 1., 0.), (.5, 1., 0.), (0., 1., 0.), (0., 1., .5)),
                 ((1., .5, .5), (1., .75, .5), (1., 1., .5), (.75, 1., .5), (.5, 1., .5), (.5, 1., .75)),
@@ -116,9 +132,9 @@ class BasicColorGroup(ColorSwatchGroup):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command):
+    def __init__(self, parent):
 
-        ColorSwatchGroup.__init__(self, parent, command)
+        ColorSwatchGroup.__init__(self, parent)
 
         if not self._swatches:
             self.__create_swatches()
@@ -135,8 +151,8 @@ class BasicColorGroup(ColorSwatchGroup):
         l, r, b, t = self._group_borders
         width = w + l + r
         height = h + b + t
-        gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_ids = Skin.atlas.gfx_ids["color_control"]
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -153,8 +169,8 @@ class CustomColorGroup(ColorSwatchGroup):
     @classmethod
     def __create_swatches(cls):
 
-        w = Skin["options"]["small_colorswatch_width"]
-        h = Skin["options"]["small_colorswatch_height"]
+        w = Skin.options["small_colorswatch_width"]
+        h = Skin.options["small_colorswatch_height"]
         colors = GD["config"]["custom_colors"]
         cls._swatches = img = PNMImage(w * 6, h * 5, 4)
         img.fill(1., 1., 1.)
@@ -173,9 +189,9 @@ class CustomColorGroup(ColorSwatchGroup):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command):
+    def __init__(self, parent):
 
-        ColorSwatchGroup.__init__(self, parent, command)
+        ColorSwatchGroup.__init__(self, parent)
 
         if not self._swatches:
             self.__create_swatches()
@@ -192,8 +208,8 @@ class CustomColorGroup(ColorSwatchGroup):
         l, r, b, t = self._group_borders
         width = w + l + r
         height = h + b + t
-        gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_ids = Skin.atlas.gfx_ids["color_control"]
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -216,8 +232,8 @@ class CustomColorGroup(ColorSwatchGroup):
             pickle.dump(config_data, config_file, -1)
 
         img = self._swatches
-        w = Skin["options"]["small_colorswatch_width"]
-        h = Skin["options"]["small_colorswatch_height"]
+        w = Skin.options["small_colorswatch_width"]
+        h = Skin.options["small_colorswatch_height"]
         swatch_img = PNMImage(w, h, 4)
         swatch_img.alpha_fill(1.)
         y = ((color_count % 30) // 6) * h
@@ -246,8 +262,8 @@ class HueSatControl(WidgetCard):
 
         from math import sin, pi
 
-        w = Skin["options"]["colorgradient_width"]
-        h = Skin["options"]["colorgradient_height"]
+        w = Skin.options["colorgradient_width"]
+        h = Skin.options["colorgradient_height"]
         w_ = w - 1.
         h_ = h - 1.
         rng = w_ / 3.
@@ -300,14 +316,15 @@ class HueSatControl(WidgetCard):
     @classmethod
     def __create_marker(cls):
 
-        x, y, w, h = TextureAtlas["regions"]["color_gradient_marker"]
+        gfx_id = Skin.atlas.gfx_ids["color_control"]["marker"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         cls._marker = img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
 
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset2"]
+        l, r, b, t = Skin.atlas.outer_borders["dialog_inset2"]
         cls._gradient_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
@@ -316,7 +333,7 @@ class HueSatControl(WidgetCard):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, command):
+    def __init__(self, parent):
 
         WidgetCard.__init__(self, "hue_sat_control", parent)
 
@@ -381,10 +398,7 @@ class HueSatControl(WidgetCard):
         self._picking_color = False
         self._marker_start_pos = (0., 0.)
         self._prev_mouse_pos = (0, 0)
-        self._command = command
-        r, g, b = self._gradient.get_xel(0, 0)
-        color = (r, g, b)
-        command(color, continuous=False, update_fields=True)
+        self._command = lambda *args, **kwargs: None
 
     def destroy(self):
 
@@ -392,6 +406,20 @@ class HueSatControl(WidgetCard):
 
         self._listener.ignore_all()
         self._listener = None
+        self.command = None
+
+    @property
+    def command(self):
+
+        return self._command
+
+    @command.setter
+    def command(self, command):
+
+        self._command = command if command else lambda *args, **kwargs: None
+        r, g, b = self._gradient.get_xel(0, 0)
+        color = (r, g, b)
+        self._command(color, continuous=False, update_fields=True)
 
     def __create_border_image(self):
 
@@ -400,8 +428,8 @@ class HueSatControl(WidgetCard):
         l, r, b, t = self._gradient_borders
         width = w + l + r
         height = h + b + t
-        gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_ids = Skin.atlas.gfx_ids["color_control"]
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -565,7 +593,7 @@ class LuminanceControl(WidgetCard):
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset2"]
+        l, r, b, t = Skin.atlas.outer_borders["dialog_inset2"]
         cls._gradient_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
@@ -577,9 +605,10 @@ class LuminanceControl(WidgetCard):
     @classmethod
     def __create_marker(cls):
 
-        x, y, w, h = TextureAtlas["regions"]["color_gradient_marker"]
+        gfx_id = Skin.atlas.gfx_ids["color_control"]["marker"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         cls._marker = img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
 
         w_b = cls._border_image.size[0]
         w_g = cls._gradient.size[0]
@@ -588,7 +617,7 @@ class LuminanceControl(WidgetCard):
         x -= offset_x
         cls._marker_x = .5 - (x / w_b) * w_b / h
 
-    def __init__(self, parent, command):
+    def __init__(self, parent):
 
         WidgetCard.__init__(self, "lum_control", parent)
 
@@ -662,7 +691,7 @@ class LuminanceControl(WidgetCard):
 
         self._picking_color = False
         self._prev_mouse_pos = (0, 0)
-        self._command = command
+        self._command = lambda *args, **kwargs: None
         self._main_color = (1., 0., 0.)
         self._luminance = self._luminance_start = .5
 
@@ -672,6 +701,17 @@ class LuminanceControl(WidgetCard):
 
         self._listener.ignore_all()
         self._listener = None
+        self.command = None
+
+    @property
+    def command(self):
+
+        return self._command
+
+    @command.setter
+    def command(self, command):
+
+        self._command = command if command else lambda *args, **kwargs: None
 
     def __create_border_image(self):
 
@@ -680,8 +720,8 @@ class LuminanceControl(WidgetCard):
         l, r, b, t = self._gradient_borders
         width = w + l + r
         height = h + b + t
-        gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_ids = Skin.atlas.gfx_ids["color_control"]
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -717,6 +757,8 @@ class LuminanceControl(WidgetCard):
 
     def __apply_luminance(self, continuous, update_fields):
 
+        import colorsys
+
         r, g, b = self._main_color
         h, l, s = colorsys.rgb_to_hls(r, g, b)
         r, g, b = colorsys.hls_to_rgb(h, self._luminance, s)
@@ -725,7 +767,7 @@ class LuminanceControl(WidgetCard):
     def set_main_color(self, color, continuous=False, update_fields=False):
 
         r, g, b = self._main_color = color
-        self._ts1.set_color((r, g, b, 1.))
+        self._ts1.color = (r, g, b, 1.)
         self.__apply_luminance(continuous, update_fields)
 
     def __pick_color(self, task):
@@ -799,7 +841,7 @@ class NewColorSwatch(WidgetCard):
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset2"]
+        l, r, b, t = Skin.atlas.outer_borders["dialog_inset2"]
         cls._swatch_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
@@ -812,8 +854,8 @@ class NewColorSwatch(WidgetCard):
 
         WidgetCard.__init__(self, "new_swatch", parent)
 
-        w = Skin["options"]["large_colorswatch_width"]
-        h = Skin["options"]["large_colorswatch_height"]
+        w = Skin.options["large_colorswatch_width"]
+        h = Skin.options["large_colorswatch_height"]
         self.set_size((w, h), is_min=True)
 
         if not self._swatch_borders:
@@ -828,8 +870,8 @@ class NewColorSwatch(WidgetCard):
         l, r, b, t = self._swatch_borders
         width = w + l + r
         height = h + b + t
-        gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_ids = Skin.atlas.gfx_ids["color_control"]
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -873,16 +915,18 @@ class NewColorSwatch(WidgetCard):
 
     def update_mouse_region_frames(self, exclude="", recurse=True): pass
 
-    def set_color(self, color):
+    @property
+    def color(self):
 
-        r, g, b = color
-        self._ts1.set_color((r, g, b, 1.))
-
-    def get_color(self):
-
-        r, g, b, a = self._ts1.get_color()
+        r, g, b, a = self._ts1.color
 
         return (r, g, b)
+
+    @color.setter
+    def color(self, color):
+
+        r, g, b = color
+        self._ts1.color = (r, g, b, 1.)
 
 
 class CurrentColorSwatch(Widget):
@@ -894,7 +938,7 @@ class CurrentColorSwatch(Widget):
     @classmethod
     def __set_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["dialog_inset2"]
+        l, r, b, t = Skin.atlas.outer_borders["dialog_inset2"]
         cls._swatch_borders = (l, r, b, t)
         cls._img_offset = (-l, -t)
 
@@ -903,13 +947,13 @@ class CurrentColorSwatch(Widget):
 
         cls._border_image = border_image
 
-    def __init__(self, parent, color, command):
+    def __init__(self, parent):
 
-        Widget.__init__(self, "current_swatch", parent, gfx_data={})
+        Widget.__init__(self, "current_swatch", parent, gfx_ids={})
 
         self.mouse_region.sort = parent.sort + 1
-        w = Skin["options"]["large_colorswatch_width"]
-        h = Skin["options"]["large_colorswatch_height"]
+        w = Skin.options["large_colorswatch_width"]
+        h = Skin.options["large_colorswatch_height"]
         self.set_size((w, h), is_min=True)
 
         if not self._swatch_borders:
@@ -917,8 +961,18 @@ class CurrentColorSwatch(Widget):
 
         self.image_offset = self._img_offset
         self.outer_borders = self._swatch_borders
-        self._color = color
-        self._command = command
+        self.color = (1., 1., 1.)
+        self._command = lambda *args, **kwargs: None
+
+    @property
+    def command(self):
+
+        return self._command
+
+    @command.setter
+    def command(self, command):
+
+        self._command = command if command else lambda *args, **kwargs: None
 
     def __create_border_image(self):
 
@@ -926,8 +980,8 @@ class CurrentColorSwatch(Widget):
         l, r, b, t = self._swatch_borders
         width = w + l + r
         height = h + b + t
-        gfx_data = {"": INSET2_BORDER_GFX_DATA}
-        tmp_widget = Widget("tmp", self.parent, gfx_data, has_mouse_region=False)
+        gfx_ids = Skin.atlas.gfx_ids["color_control"]
+        tmp_widget = Widget("tmp", self.parent, gfx_ids, has_mouse_region=False)
         tmp_widget.set_size((width, height), is_min=True)
         tmp_widget.update_images()
         image = tmp_widget.get_image()
@@ -944,7 +998,7 @@ class CurrentColorSwatch(Widget):
 
         border_img = self._border_image
         image = PNMImage(*border_img.size, 4)
-        image.fill(*self._color)
+        image.fill(*self.color)
         image.alpha_fill(1.)
         image.blend_sub_image(border_img, 0, 0, 0, 0)
 
@@ -963,245 +1017,4 @@ class CurrentColorSwatch(Widget):
 
     def on_left_down(self):
 
-        self._command(self._color, update_gradients=True)
-
-
-class ColorDialog(Dialog):
-
-    _clock = ClockObject()
-    _rgb_range_id = "255"
-
-    @classmethod
-    def __set_rgb_range(cls, range_id, fields):
-
-        cls._rgb_range_id = range_id
-        value_range = (0., 255.) if range_id == "255" else (0., 1.)
-        step = 1. if range_id == "255" else .001
-
-        for field in fields:
-            field.set_value_range(value_range)
-            field.set_step(step)
-
-    def __init__(self, title="", color=(1., 1., 1.), choices="okcancel", ok_alias="OK",
-                 on_yes=None, on_no=None, on_cancel=None):
-
-        def command():
-
-            if on_yes:
-                on_yes(self._new_color)
-
-        Dialog.__init__(self, title, choices, ok_alias, command, on_no, on_cancel)
-
-        self._controls = ctrls = {}
-        self._fields = fields = {}
-        client_sizer = self.get_client_sizer()
-        subsizer = Sizer("horizontal")
-        swatch_sizer = Sizer("vertical")
-        swatch_sizer.add(DialogText(self, "Basic colors:"))
-        basic_colors = BasicColorGroup(self, self.__set_color)
-        self._custom_colors = custom_colors = CustomColorGroup(self, self.__set_color)
-        btn = DialogButton(self, "Add New", command=self.__add_custom_color)
-        swatch_sizer.add(basic_colors)
-        swatch_sizer.add((0, 20))
-        swatch_sizer.add(DialogText(self, "Custom colors:"))
-        swatch_sizer.add(custom_colors)
-        swatch_sizer.add((0, 5))
-        swatch_sizer.add(btn, alignment="center_h")
-        borders = (20, 20, 10, 20)
-        subsizer.add(swatch_sizer, expand=True, borders=borders)
-        control_sizer = Sizer("vertical")
-        gradient_sizer = Sizer("horizontal")
-        control_subsizer = Sizer("horizontal")
-        control_sizer.add(gradient_sizer, expand=True, borders=borders)
-        borders = (20, 20, 10, 0)
-        control_sizer.add(control_subsizer, expand=True, borders=borders)
-        subsizer.add(control_sizer, expand=True)
-        client_sizer.add(subsizer, expand=True)
-
-        self._new_color = color
-        self._new_color_swatch = new_swatch = NewColorSwatch(self)
-        self._current_color_swatch = cur_swatch = CurrentColorSwatch(self, color, self.__set_color)
-        ctrls["luminance"] = lum_control = LuminanceControl(self, self.__set_color)
-        ctrls["hue_sat"] = hue_sat_control = HueSatControl(self, self.__set_main_luminance_color)
-        gradient_sizer.add(hue_sat_control)
-        borders = (20, 0, 0, 0)
-        gradient_sizer.add(lum_control, borders=borders)
-        main_swatch_sizer = Sizer("vertical")
-        gradient_sizer.add(main_swatch_sizer, expand=True, borders=borders)
-        main_swatch_sizer.add(DialogText(self, "New"), alignment="center_h")
-        main_swatch_sizer.add(new_swatch, proportion=1.)
-        main_swatch_sizer.add((0, 5))
-        main_swatch_sizer.add(DialogText(self, "Current"), alignment="center_h")
-        main_swatch_sizer.add(cur_swatch, proportion=1.)
-        rgb_field_sizer = Sizer("vertical")
-        hsl_field_sizer = Sizer("vertical")
-        control_subsizer.add(rgb_field_sizer, proportion=1., alignment="center_v")
-        control_subsizer.add((20, 0))
-        control_subsizer.add(hsl_field_sizer, proportion=1., alignment="center_v")
-        r_sizer = Sizer("horizontal")
-        r_sizer.add(DialogText(self, "R:"), alignment="center_v")
-        rgb_field_sizer.add(r_sizer, expand=True)
-        g_sizer = Sizer("horizontal")
-        g_sizer.add(DialogText(self, "G:"), alignment="center_v")
-        rgb_field_sizer.add(g_sizer, expand=True)
-        b_sizer = Sizer("horizontal")
-        b_sizer.add(DialogText(self, "B:"), alignment="center_v")
-        rgb_field_sizer.add(b_sizer, expand=True)
-        h_sizer = Sizer("horizontal")
-        h_sizer.add(DialogText(self, "H:"), alignment="center_v")
-        hsl_field_sizer.add(h_sizer, expand=True)
-        s_sizer = Sizer("horizontal")
-        s_sizer.add(DialogText(self, "S:"), alignment="center_v")
-        hsl_field_sizer.add(s_sizer, expand=True)
-        l_sizer = Sizer("horizontal")
-        l_sizer.add(DialogText(self, "L:"), alignment="center_v")
-        hsl_field_sizer.add(l_sizer, expand=True)
-
-        borders = (5, 0, 0, 0)
-        rgb_fields = []
-        handler = self.__handle_color_component
-
-        val_rng = (0., 255.) if self._rgb_range_id == "255" else (0., 1.)
-        step = 1. if self._rgb_range_id == "255" else .001
-        field = DialogSpinnerField(self, "red", "float", val_rng, step,
-                                  handler, 100, has_slider=True)
-        r_sizer.add(field, proportion=1., borders=borders)
-        rgb_fields.append(field)
-        fields["red"] = field
-        field = DialogSpinnerField(self, "green", "float", val_rng, step,
-                                  handler, 100, has_slider=True)
-        g_sizer.add(field, proportion=1., borders=borders)
-        rgb_fields.append(field)
-        fields["green"] = field
-        field = DialogSpinnerField(self, "blue", "float", val_rng, step,
-                                  handler, 100, has_slider=True)
-        b_sizer.add(field, proportion=1., borders=borders)
-        rgb_fields.append(field)
-        fields["blue"] = field
-
-        val_rng = (0., 1.)
-        step = .001
-        field = DialogSpinnerField(self, "hue", "float", val_rng, step,
-                                   handler, 100, has_slider=True)
-        h_sizer.add(field, proportion=1., borders=borders)
-        fields["hue"] = field
-        field = DialogSpinnerField(self, "sat", "float", val_rng, step,
-                                   handler, 100, has_slider=True)
-        s_sizer.add(field, proportion=1., borders=borders)
-        fields["sat"] = field
-        field = DialogSpinnerField(self, "lum", "float", val_rng, step,
-                                   handler, 100, has_slider=True)
-        l_sizer.add(field, proportion=1., borders=borders)
-        fields["lum"] = field
-
-        range_sizer = Sizer("horizontal")
-        borders = (20, 20, 20, 0)
-        control_sizer.add(range_sizer, expand=True, borders=borders)
-        range_sizer.add(DialogText(self, "RGB range:"), alignment="center_v")
-        radio_btns = DialogRadioButtonGroup(self, columns=2, gap_h=10)
-        radio_btns.add_button("255", "0-255")
-        command = lambda: self.__set_rgb_range("255", rgb_fields)
-        radio_btns.set_button_command("255", command)
-        radio_btns.add_button("1", "0-1")
-        command = lambda: self.__set_rgb_range("1", rgb_fields)
-        radio_btns.set_button_command("1", command)
-        radio_btns.set_selected_button(self._rgb_range_id)
-        borders = (5, 0, 0, 0)
-        range_sizer.add(radio_btns.sizer, alignment="center_v", borders=borders)
-
-        self.finalize()
-        self.__set_color(color, update_gradients=True)
-
-    def close(self, answer=""):
-
-        self._controls = None
-        self._fields = None
-        self._custom_colors = None
-        self._new_color_swatch = None
-        self._current_color_swatch = None
-
-        Dialog.close(self, answer)
-
-    def __set_main_luminance_color(self, color, continuous=False, update_fields=False):
-
-        self._controls["luminance"].set_main_color(color, continuous, update_fields)
-
-    def __set_color(self, color, continuous=False, update_fields=True, update_gradients=False):
-
-        self._new_color = color
-        self._new_color_swatch.set_color(color)
-        fields = self._fields
-
-        if fields:
-
-            if continuous:
-                if self._clock.real_time > .1:
-                    self._clock.reset()
-                else:
-                    update_fields = False
-
-            if update_fields:
-
-                rgb_scale = 255. if self._rgb_range_id == "255" else 1.
-                r, g, b = [c * rgb_scale for c in color]
-                fields["red"].set_value(r)
-                fields["green"].set_value(g)
-                fields["blue"].set_value(b)
-                h, l, s = colorsys.rgb_to_hls(*color)
-                fields["hue"].set_value(h)
-                fields["sat"].set_value(s)
-                fields["lum"].set_value(l)
-
-                if update_gradients:
-                    lum_ctrl = self._controls["luminance"]
-                    lum_ctrl.set_luminance(l)
-                    r, g, b = colorsys.hls_to_rgb(h, .5, s)
-                    lum_ctrl.set_main_color((r, g, b), continuous=False, update_fields=False)
-                    self._controls["hue_sat"].set_hue_sat(h, s)
-
-    def __handle_color_component(self, component_id, value, state="done"):
-
-        fields = self._fields
-        rgb_components = ["red", "green", "blue"]
-        hsl_components = ["hue", "sat", "lum"]
-        rgb_scale = 255. if self._rgb_range_id == "255" else 1.
-
-        if component_id in rgb_components:
-
-            r, g, b = [fields[c].get_value() / rgb_scale for c in rgb_components]
-            h, l, s = colorsys.rgb_to_hls(r, g, b)
-            fields["hue"].set_value(h)
-            fields["sat"].set_value(s)
-            fields["lum"].set_value(l)
-            self._controls["luminance"].set_luminance(l)
-            r_, g_, b_ = colorsys.hls_to_rgb(h, .5, s)
-            self._controls["luminance"].set_main_color((r_, g_, b_), continuous=False)
-            self._controls["hue_sat"].set_hue_sat(h, s)
-
-        else:
-
-            h, s, l = [fields[c].get_value() for c in hsl_components]
-            r, g, b = colorsys.hls_to_rgb(h, l, s)
-            fields["red"].set_value(r * rgb_scale)
-            fields["green"].set_value(g * rgb_scale)
-            fields["blue"].set_value(b * rgb_scale)
-
-            if component_id == "lum":
-                self._controls["luminance"].set_luminance(l)
-            else:
-                r_, g_, b_ = colorsys.hls_to_rgb(h, .5, s)
-                self._controls["luminance"].set_main_color((r_, g_, b_), continuous=False)
-                self._controls["hue_sat"].set_hue_sat(h, s)
-
-        self._new_color = color = (r, g, b)
-        self._new_color_swatch.set_color(color)
-
-    def __add_custom_color(self):
-
-        self._custom_colors.add_swatch(self._new_color)
-
-    def update_widget_positions(self):
-
-        self._new_color_swatch.update_quad_pos()
-        self._controls["luminance"].update_quad_pos()
-        self._controls["hue_sat"].update_quad_pos()
+        self._command(self.color, update_gradients=True)

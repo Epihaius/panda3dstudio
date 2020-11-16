@@ -1,0 +1,8 @@
+top
+    bundle
+        render_mode grid
+        history selection snap_align
+bottom
+    bundle
+        material
+        transform

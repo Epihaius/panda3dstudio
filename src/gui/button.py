@@ -4,55 +4,55 @@ from .tooltip import ToolTip
 
 class Button(Widget, HotkeyManager):
 
-    def __init__(self, parent, gfx_data, text="", icon_id="", tooltip_text="", command=None,
+    def __init__(self, parent, gfx_ids, text="", icon_id="", tooltip_text="",
                  text_alignment="center", icon_alignment="center", button_type="", hidden=False):
 
-        if gfx_data["normal"] and gfx_data["normal"][0][0] not in TextureAtlas["regions"]:
-            gfx_data["normal"] = ()
+        if gfx_ids["normal"] and gfx_ids["normal"][0][0] not in Skin.atlas.regions:
+            gfx_ids["normal"] = ()
 
-        if "disabled" in gfx_data:
-            if gfx_data["disabled"][0][0] not in TextureAtlas["regions"]:
-                del gfx_data["disabled"]
+        if "disabled" in gfx_ids:
+            if gfx_ids["disabled"][0][0] not in Skin.atlas.regions:
+                del gfx_ids["disabled"]
 
-        Widget.__init__(self, "button", parent, gfx_data, initial_state="normal", hidden=hidden)
+        Widget.__init__(self, "button", parent, gfx_ids, initial_state="normal", hidden=hidden)
 
         self._hotkey = None
         self._hotkey_text = ""
         self._interface_id = ""
-        self._text = text
         self._button_type = button_type
         self._group = None
-
-        if text:
-            skin_text = Skin["text"][button_type]
-            font = skin_text["font"]
-            color = skin_text["color"]
-            self._label = label = font.create_image(text, color)
-            color = Skin["colors"][f"disabled_{button_type}_text"]
-            self._label_disabled = font.create_image(text, color)
-            self.set_size((label.size[0], 0), includes_borders=False, is_min=True)
-        else:
-            self._label = self._label_disabled = None
+        self._text = ""
+        self._icon_id = ""
+        self._label = self._label_disabled = None
+        self._icon = self._icon_disabled = None
 
         if icon_id:
 
-            width, height = self.min_size
+            self._icon_id = icon_id
+            width, height = self.gfx_size
 
             if width < height:
                 self.set_size((height, height), is_min=True)
 
-            x, y, w, h = TextureAtlas["regions"][icon_id]
+            x, y, w, h = Skin.atlas.regions[icon_id]
             img = PNMImage(w, h, 4)
-            img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+            img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
             self._icon = img
             self._icon_disabled = icon_disabled = PNMImage(img)
             icon_disabled.make_grayscale()
             icon_disabled -= LColorf(0., 0., 0., .25)
             icon_disabled.make_rgb()
 
-        else:
+        elif text:
 
-            self._icon = self._icon_disabled = None
+            self._text = text
+            skin_text = Skin.text[button_type]
+            font = skin_text["font"]
+            color = skin_text["color"]
+            self._label = label = font.create_image(text, color)
+            color = Skin.colors[f"disabled_{button_type}_text"]
+            self._label_disabled = font.create_image(text, color)
+            self.set_size((label.size[0], 0), includes_borders=False, is_min=True)
 
         self._text_alignment = text_alignment
         self._icon_alignment = icon_alignment
@@ -60,7 +60,7 @@ class Button(Widget, HotkeyManager):
         self._has_mouse = False
         self._active = False
         self._delay_card_update = False
-        self._command = command if command else lambda: None
+        self._command = lambda: None
         self._tooltip_text = tooltip_text
 
         if tooltip_text:
@@ -95,19 +95,46 @@ class Button(Widget, HotkeyManager):
             return False
 
         self._text = text
+        self._label = self._label_disabled = None
 
         if text:
-            skin_text = Skin["text"][self._button_type]
+            skin_text = Skin.text[self._button_type]
             font = skin_text["font"]
             color = skin_text["color"]
             self._label = label = font.create_image(text, color)
-            color = Skin["colors"][f"disabled_{self._button_type}_text"]
+            color = Skin.colors[f"disabled_{self._button_type}_text"]
             self._label_disabled = font.create_image(text, color)
             width, height = label.size
             self.set_size((width, height), includes_borders=False, is_min=True)
-        else:
-            self._label = self._label_disabled = None
-            self.set_size((0, 0), is_min=True)
+            self.set_icon_id("")
+
+        return True
+
+    def get_icon_id(self):
+
+        return self._icon_id
+
+    def set_icon_id(self, icon_id=""):
+
+        if self._icon_id == icon_id:
+            return False
+
+        self._icon_id = icon_id
+        self._icon = self._icon_disabled = None
+
+        if icon_id:
+            width, height = self.gfx_size
+            width = max(width, height)
+            self.set_size((height, height), is_min=True)
+            x, y, w, h = Skin.atlas.regions[icon_id]
+            img = PNMImage(w, h, 4)
+            img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
+            self._icon = img
+            self._icon_disabled = icon_disabled = PNMImage(img)
+            icon_disabled.make_grayscale()
+            icon_disabled -= LColorf(0., 0., 0., .25)
+            icon_disabled.make_rgb()
+            self.set_text("")
 
         return True
 
@@ -320,7 +347,25 @@ class Button(Widget, HotkeyManager):
 
         self._command()
 
-    def set_tooltip_text(self, text):
+    @property
+    def tooltip_text(self):
+
+        return self._tooltip_text
+
+    @tooltip_text.setter
+    def tooltip_text(self, tooltip_text):
+
+        self._tooltip_text = tooltip_text
+
+        if tooltip_text:
+            self._tooltip_label = ToolTip.create_label(tooltip_text)
+        else:
+            self._tooltip_label = None
+
+        if self.mouse_watcher.get_over_region() == self.mouse_region:
+            ToolTip.update(self._tooltip_label) if self._tooltip_label else ToolTip.hide()
+
+    def override_tooltip_text(self, text):
 
         if text:
             self._tooltip_label = ToolTip.create_label(text)

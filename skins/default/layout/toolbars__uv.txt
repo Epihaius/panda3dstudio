@@ -1,0 +1,6 @@
+top
+    bundle
+        selection render_mode grid
+bottom
+    bundle
+        uv_transform

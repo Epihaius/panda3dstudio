@@ -1,5 +1,6 @@
 from ...base import *
 from ...dialog import *
+from ...dialogs import *
 from ...panel import *
 from ...button import *
 
@@ -19,7 +20,7 @@ class ObjectTypes:
         return cls._types
 
 
-class PropertyPanel(Panel):
+class PropertyPanel(ControlPanel):
 
     _property_classes = {}
     _properties = {}
@@ -29,161 +30,106 @@ class PropertyPanel(Panel):
 
         cls._property_classes[obj_type] = properties
 
-    def __init__(self, stack):
+    def __init__(self, pane):
 
-        Panel.__init__(self, stack, "obj_props", "Object properties")
+        ControlPanel.__init__(self, pane, "obj_props")
+
+        widgets = Skin.layout.create(self, "obj_props")
+
+        self._checkbuttons = {}
+        self._radiobtn_grps = {}
+        self._comboboxes = {}
 
         self._obj_types = ()
         self._sel_obj_types = ()
         self._sel_obj_count = 0
 
         self._colors = {
-            "disabled": Skin["text"]["input_disabled"]["color"],
-            "custom": (1., 1., 0., 1.)
+            "disabled": Skin.text["input_disabled"]["color"],
+            "default": Skin.colors["default_value"]
         }
-        self._checkbuttons = {}
-        self._radio_btns = {}
-        self._comboboxes = {}
 
         # ************************* Selection section **************************
 
-        section = self.add_section("selection", "Selection")
-
-        group = section.add_group("Choice from name box")
-        radio_btns = PanelRadioButtonGroup(group, columns=1)
-        radio_btns.add_button("deselect", "Deselect")
-        radio_btns.add_button("deselect_others", "Deselect others")
-        radio_btns.add_button("center", "Center in view")
+        radio_btns = widgets["radiobutton_groups"]["selection"]
         radio_btns.set_selected_button("deselect_others")
-        group.add(radio_btns.sizer)
-        self._radio_btns["selection"] = radio_btns
+        self._radiobtn_grps["selection"] = radio_btns
 
         # **************************** ID section ******************************
 
-        section = self.add_section("id", "Name and color")
-
-        sizer = Sizer("horizontal")
-        section.add(sizer, expand=True)
-
         val_id = "name"
-        handler = lambda *args: self.__handle_name(args[1])
-        combobox = PanelComboBox(section, 120, tooltip_text="Selected object(s)",
-                                 editable=True, value_id=val_id,
-                                 handler=handler)
+        combobox = widgets["comboboxes"][val_id]
         combobox.add_disabler("creating", lambda: GD["active_creation_type"])
         combobox.enable(False)
         self._comboboxes[val_id] = combobox
-        borders = (5, 10, 0, 0)
-        sizer.add(combobox, proportion=1., alignment="center_v", borders=borders)
-        field = combobox.get_input_field()
+        handler = lambda *args: self.__handle_name(args[1])
+        field = combobox.set_input_field(val_id, "string", handler)
         field.set_input_init(self.__init_input)
         field.show_text(False)
         field.enable(False)
         field.set_input_parser(self.__parse_object_name)
         self._name_field = field
 
-        title = "Pick object color"
-        self._colorbox = colorbox = PanelColorBox(section, self.__handle_color, dialog_title=title)
-        colorbox.set_color_type("")
+        colorbox = widgets["colorboxes"]["object"]
+        colorbox.command = self.__handle_color
+        colorbox.dialog_title = "Pick object color"
+        colorbox.color_type = ""
         colorbox.enable(False)
-        borders = (0, 5, 0, 0)
-        sizer.add(colorbox, alignment="center_v", borders=borders)
+        self._colorbox = colorbox
 
         # ************************* Creation section ***************************
-
-        section = self.add_section("create", "Creation", hidden=True)
-
-        group = section.add_group("Interactive", add_top_border=False)
 
         def command(on):
 
             GD["auto_grid_align"] = on
 
-        text = "Auto-align grid"
-        checkbtn = PanelCheckButton(group, command, text)
+        checkbtn = widgets["checkbuttons"]["auto_align_grid"]
+        checkbtn.command = command
         self._auto_grid_align_btn = checkbtn
-        group.add(checkbtn)
 
-        text = "(No effect if creation start\nsnaps to grid points)"
-        borders = (30, 0, 0, 0)
-        group.add(PanelText(group, text), borders=borders)
-
-        group = section.add_group("Non-interactive")
-
-        subgroup = group.add_group("Position", add_top_border=False)
-        radio_btns = PanelRadioButtonGroup(subgroup, columns=1)
-        radio_btns.add_button("grid_pos", "Coord. system origin")
-        radio_btns.add_button("cam_target_pos", "Camera target")
+        radio_btns = widgets["radiobutton_groups"]["creation"]
         radio_btns.set_selected_button("grid_pos")
-        self._radio_btns["creation"] = radio_btns
-        subgroup.add(radio_btns.sizer)
+        self._radiobtn_grps["creation"] = radio_btns
 
-        text = "Create object"
-        btn = PanelButton(group, text, command=self.__create_object)
-        borders = (0, 0, 0, 10)
-        group.add(btn, alignment="center_h", borders=borders)
+        btn = widgets["buttons"]["create_obj"]
+        btn.command = self.__create_object
 
         # **********************************************************************
 
         for obj_type, prop_cls in self._property_classes.items():
-            self._properties[obj_type] = prop_cls(self)
+            self._properties[obj_type] = prop_cls(self, widgets)
 
         # ********************** Surface properties section ********************
 
-        section = self.add_section("surface_props", "Surface properties", hidden=True)
-
-        command = lambda on: Mgr.update_remotely("inverted_geom", on)
-        text = "Invert (render inside-out)"
-        checkbtn = PanelCheckButton(section, command, text)
+        checkbtn = widgets["checkbuttons"]["inverted_geom"]
+        checkbtn.command = lambda on: Mgr.update_remotely("inverted_geom", on)
         self._checkbuttons["inverted_geom"] = checkbtn
-        borders = (2, 2, 2, 6)
-        section.add(checkbtn, borders=borders)
 
-        section.add((0, 8))
-
-        group = section.add_group("Subdivision")
-
-        sizer = Sizer("horizontal")
-        group.add(sizer, expand=True)
-
-        text = "Subdivide"
-        tooltip_text = "Smooth mesh using surface subdivision"
-        btn = PanelButton(group, text, "", tooltip_text, command=command)
+        btn = widgets["buttons"]["subdivision_surfaces"]
         btn.command = lambda: Mgr.update_remotely("subdivision_surfaces", "apply")
-        sizer.add(btn, alignment="center_v")
+
         prop_id = "subdivision_count"
-        handler = lambda *args: Mgr.update_remotely("subdivision_surfaces", "count", args[1])
-        field = PanelSpinnerField(group, prop_id, "int", (1, 4), 1, handler, 10)
+        field = widgets["fields"][prop_id]
+        field.value_id = prop_id
         field.set_input_parser(self.__parse_subdivision_count)
+        handler = lambda *args: Mgr.update_remotely("subdivision_surfaces", "count", args[1])
+        field.set_value_handler(handler)
+        field.set_value_range((1, 4), False, "int")
+        field.set_step(1)
         field.set_value(1)
-        borders = (5, 0, 0, 0)
-        sizer.add(field, proportion=1., alignment="center_v", borders=borders)
-        text = "times"
-        sizer.add(PanelText(group, text), alignment="center_v", borders=borders)
 
-        group = section.add_group("Tangent space")
-
-        command = lambda on: Mgr.update_remotely("tangent_flip", on)
-        text = "Flip tangent vectors"
-        checkbtn = PanelCheckButton(group, command, text)
+        checkbtn = widgets["checkbuttons"]["tangent_flip"]
+        checkbtn.command = lambda on: Mgr.update_remotely("tangent_flip", on)
         self._checkbuttons["tangent_flip"] = checkbtn
-        group.add(checkbtn)
 
-        command = lambda on: Mgr.update_remotely("bitangent_flip", on)
-        text = "Flip bitangent vectors"
-        checkbtn = PanelCheckButton(group, command, text)
+        checkbtn = widgets["checkbuttons"]["bitangent_flip"]
+        checkbtn.command = lambda on: Mgr.update_remotely("bitangent_flip", on)
         self._checkbuttons["bitangent_flip"] = checkbtn
-        group.add(checkbtn)
 
         # **********************************************************************
 
-        bottom_container = self.get_bottom_container()
-        text = "Unlock geometry"
-        tooltip_text = "Enable geometry editing at different (sub-)object levels"
-        command = self.__unlock_geometry
-        btn = PanelButton(bottom_container, text, "", tooltip_text, command)
-        borders = (10, 10, 10, 10)
-        bottom_container.add(btn, alignment="center_h", borders=borders)
+        btn = widgets["buttons"]["unlock_geometry"]
+        btn.command = self.__unlock_geometry
 
         def set_obj_prop(obj_type, prop_id, value):
 
@@ -255,10 +201,10 @@ class PropertyPanel(Panel):
             props = self._properties
             base_types = set(props[o_type].get_base_type() for o_type in obj_types)
 
-            if base_types and not base_types - set(["primitive", "locked_geom"]):
+            if base_types and not base_types - {"primitive", "locked_geom"}:
                 self.show_container("bottom")
 
-            if base_types and not base_types - set(["primitive", "locked_geom", "unlocked_geom"]):
+            if base_types and not base_types - {"primitive", "locked_geom", "unlocked_geom"}:
                 self.get_section("surface_props").show()
 
             self.get_section("create").hide()
@@ -294,7 +240,7 @@ class PropertyPanel(Panel):
 
     def __update_selection(self, obj_id):
 
-        radio_btn_id = self._radio_btns["selection"].get_selected_button()
+        radio_btn_id = self._radiobtn_grps["selection"].get_selected_button()
 
         if radio_btn_id == "deselect":
             Mgr.update_remotely("object_selection", "remove", obj_id)
@@ -321,10 +267,9 @@ class PropertyPanel(Panel):
             name = f"{count} Objects selected"
             combobox.add_item(None, name, lambda: None)
 
-        get_command = lambda obj_id: lambda: self.__update_selection(obj_id)
-
         for obj_id, name in names.items():
-            combobox.add_item(obj_id, name, get_command(obj_id))
+            command = lambda o=obj_id: self.__update_selection(o)
+            combobox.add_item(obj_id, name, command)
 
         if count == 1:
             name = names.popitem()[1]
@@ -338,7 +283,7 @@ class PropertyPanel(Panel):
     def __set_next_object_name(self, name):
 
         self._name_field.enable(ignore_parent=True)
-        self._name_field.set_text_color(self._colors["custom"])
+        self._name_field.set_text_color(self._colors["default"])
         self._name_field.set_value(name)
         self._name_field.show_text()
 
@@ -357,7 +302,7 @@ class PropertyPanel(Panel):
         if GD["active_creation_type"] != "":
             return
 
-        self._colorbox.set_color(color[:3])
+        self._colorbox.color = color[:3]
 
     def __set_next_object_color(self):
 
@@ -368,10 +313,10 @@ class PropertyPanel(Panel):
 
         next_color = GD[f"next_{obj_type}_color"]
         self._colorbox.enable(True if next_color else False)
-        self._colorbox.set_color_type("single" if next_color else "")
+        self._colorbox.color_type = "single" if next_color else ""
 
         if next_color:
-            self._colorbox.set_color(next_color)
+            self._colorbox.color = next_color
 
     def __check_selection_count(self, on_enable=False):
 
@@ -430,14 +375,13 @@ class PropertyPanel(Panel):
         if GD["active_obj_level"] == "top":
             count = GD["sel_color_count"]
             self._colorbox.enable(count > 0)
-            self._colorbox.set_color_type(("single" if count == 1 else "multi")
-                                          if count > 0 else "")
+            self._colorbox.color_type = ("single" if count == 1 else "multi") if count > 0 else ""
         else:
             self._colorbox.enable(False)
 
     def __create_object(self):
 
-        pos_id = self._radio_btns["creation"].get_selected_button()
+        pos_id = self._radiobtn_grps["creation"].get_selected_button()
         Mgr.update_app("creation", pos_id)
         self.__set_next_object_color()
 
@@ -449,7 +393,7 @@ class PropertyPanel(Panel):
 
     def enable(self, enable=True):
 
-        if not Panel.enable(self, enable):
+        if not ControlPanel.enable(self, enable):
             return
 
         if GD["active_creation_type"]:
@@ -470,7 +414,7 @@ class PropertyPanel(Panel):
     def __show(self, obj_types):
 
         creation_type = GD["active_creation_type"]
-        new_types = set([creation_type]) if creation_type else set(obj_types)
+        new_types = {creation_type} if creation_type else set(obj_types)
 
         if creation_type:
             self._comboboxes["name"].enable(False)
@@ -493,12 +437,12 @@ class PropertyPanel(Panel):
 
         base_types = set(props[o_type].get_base_type() for o_type in obj_types)
 
-        if base_types and not base_types - set(["primitive", "locked_geom"]):
+        if base_types and not base_types - {"primitive", "locked_geom"}:
             self.show_container("bottom")
         else:
             self.show_container("bottom", False)
 
-        if base_types and not base_types - set(["primitive", "locked_geom", "unlocked_geom"]):
+        if base_types and not base_types - {"primitive", "locked_geom", "unlocked_geom"}:
             self.get_section("surface_props").show()
         else:
             self.get_section("surface_props").hide()
@@ -517,7 +461,7 @@ class PropertyPanel(Panel):
         self._obj_types = obj_types
 
         if in_creation_mode:
-            self._colorbox.set_color_type("single")
+            self._colorbox.color_type = "single"
             self.__set_next_object_color()
 
         self._sel_obj_types = obj_types

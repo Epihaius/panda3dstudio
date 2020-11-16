@@ -1,0 +1,42 @@
+name = Message
+title = -
+default_size = 0 0
+sizer 913
+    container = dialog
+    name = main
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 30 30
+space 914
+    container = sizer 913
+    name = space left
+    size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+placeholder icon
+    container = sizer 913
+    size = 40 40
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 20 0 0
+    component_id = icon
+placeholder text
+    container = sizer 913
+    size = 100 50
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+space 917
+    container = sizer 913
+    name = space right
+    size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0

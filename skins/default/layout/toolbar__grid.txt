@@ -1,0 +1,23 @@
+title = Grid
+default_size = 0 0
+gridspacing_box -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button xz
+    container = toolbar
+    icon_id = icon_gridplane_xz
+    text = 
+    tooltip_text = Grid plane XZ
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button yz
+    container = toolbar
+    icon_id = icon_gridplane_yz
+    text = 
+    tooltip_text = Grid plane YZ
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0

@@ -1,0 +1,64 @@
+title = Background
+default_size = 0 0
+panel_container top
+    default_size = 0 0
+sizer 216
+    container = panel_container top
+    name = background
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 5 5 10 5
+button load
+    container = sizer 216
+    icon_id = 
+    text = Load
+    tooltip_text = Load background texture
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field tex_filename
+    container = sizer 216
+    field_type = input
+    width = 120
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 216
+    text = Brightness:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field brightness
+    container = sizer 216
+    field_type = input_spinner_slider
+    width = 80
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 216
+    text = Tiling:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field tiling
+    container = sizer 216
+    field_type = input_spinner
+    width = 40
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton show_on_models
+    container = panel_container top
+    text = Show on models
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 5 5 0 5

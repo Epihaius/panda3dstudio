@@ -1,61 +1,51 @@
 from ...base import *
 from ...panel import *
-from ...dialog import FileDialog
+from ...dialogs import FileDialog
 
 
-class BackgroundPanel(Panel):
+class BackgroundPanel(ControlPanel):
 
-    def __init__(self, stack):
+    def __init__(self, pane):
 
-        Panel.__init__(self, stack, "background", "Background")
+        ControlPanel.__init__(self, pane, "background")
 
-        self._checkbuttons = {}
-        self._fields = {}
+        widgets = Skin.layout.create(self, "background")
+        self._btns = btns = widgets["buttons"]
+        self._checkbuttons = checkbuttons = widgets["checkbuttons"]
+        self._fields = fields = widgets["fields"]
 
         self._tex_filename = ""
 
-        top_container = self.get_top_container()
-
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-        borders = (5, 5, 10, 5)
-        top_container.add(sizer, expand=True, borders=borders)
-
-        text = "Load"
-        tooltip_text = "Load background texture"
-        btn = PanelButton(top_container, text, "", tooltip_text, self.__load_tex)
-        sizer.add(btn, expand_h=True, alignment_v="center_v")
+        btn = btns["load"]
+        btn.command =  self.__load_tex
 
         val_id = "tex_filename"
         handler = lambda *args: self.__set_tex(args[1])
-        field = PanelInputField(top_container, val_id, "string", handler, 120)
+        field = fields[val_id]
+        field.value_id = val_id
+        field.value_type = "string"
+        field.set_value_handler(handler)
         field.set_input_init(self.__init_tex_filename_input)
         field.set_input_parser(self.__check_texture_filename)
         field.set_value_parser(self.__parse_texture_filename)
-        self._fields[val_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
 
-        text = "Brightness:"
-        sizer.add(PanelText(top_container, text), alignment_v="center_v")
         val_id = "brightness"
-        field = PanelSpinnerField(top_container, val_id, "float", (0., 1.), .01,
-                                  self.__handle_value, 80, has_slider=True)
-        self._fields[val_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
+        field = fields[val_id]
+        field.value_id = val_id
+        field.set_value_handler(self.__handle_value)
+        field.set_value_range((0., 1.), False, "float")
+        field.set_step(.01)
 
-        text = "Tiling:"
-        sizer.add(PanelText(top_container, text), alignment_v="center_v")
         val_id = "tiling"
-        field = PanelSpinnerField(top_container, val_id, "int", (0, None), 1,
-                                  self.__handle_value, 40)
+        field = fields[val_id]
+        field.value_id = val_id
         field.set_input_parser(self.__parse_tiling_input)
-        self._fields[val_id] = field
-        sizer.add(field, proportion_h=1., alignment_v="center_v")
+        field.set_value_handler(self.__handle_value)
+        field.set_value_range((0, None), False, "int")
+        field.set_step(1)
 
-        command = lambda val: self.__handle_value("show_on_models", val)
-        text = "Show on models"
-        checkbtn = PanelCheckButton(top_container, command, text)
-        self._checkbuttons["show_on_models"] = checkbtn
-        top_container.add(checkbtn, borders=borders)
+        checkbtn = checkbuttons["show_on_models"]
+        checkbtn.command = lambda val: self.__handle_value("show_on_models", val)
 
     def setup(self): pass
 

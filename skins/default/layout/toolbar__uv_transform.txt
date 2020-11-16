@@ -1,0 +1,105 @@
+title = UV Transform
+default_size = 0 0
+checkbutton translate
+    container = toolbar
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button translate
+    container = toolbar
+    icon_id = icon_translate
+    text = 
+    tooltip_text = Select and translate
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+checkbutton rotate
+    container = toolbar
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button rotate
+    container = toolbar
+    icon_id = icon_rotate
+    text = 
+    tooltip_text = Select and rotate
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+checkbutton scale
+    container = toolbar
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button scale
+    container = toolbar
+    icon_id = icon_scale
+    text = 
+    tooltip_text = Select and scale
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button u
+    container = toolbar
+    icon_id = icon_u
+    text = 
+    tooltip_text = Transform about U-axis
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field u
+    container = toolbar
+    field_type = input_multival
+    width = 80
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button v
+    container = toolbar
+    icon_id = icon_v
+    text = 
+    tooltip_text = Transform about V-axis
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field v
+    container = toolbar
+    field_type = input_multival
+    width = 80
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button w
+    container = toolbar
+    icon_id = icon_w
+    text = 
+    tooltip_text = Transform about W-axis
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field w
+    container = toolbar
+    field_type = input_multival
+    width = 80
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button offsets
+    container = toolbar
+    icon_id = icon_offsets
+    text = 
+    tooltip_text = Input relative values (offsets)
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0

@@ -8,12 +8,12 @@ class PanelHeader(Widget):
 
     images = {}
     height = 0
-    _gfx = {"": (("expanded_panel_header_left", "expanded_panel_header_center",
-            "expanded_panel_header_right"),)}
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "panel_header", parent, self._gfx)
+        gfx_ids = Skin.atlas.gfx_ids["expanded_panel_header"]
+
+        Widget.__init__(self, "panel_header", parent, gfx_ids)
 
         if not self.height:
             PanelHeader.height = self.min_size[1]
@@ -63,32 +63,26 @@ class PanelBottom(Button):
 
     images = {}
     height = 0
-    _gfx = {
-        "normal": (("expanded_panel_bottom_normal",),),
-        "hilited": (("expanded_panel_bottom_hilited",),)
-    }
 
     def __init__(self, parent):
 
-        Button.__init__(self, parent, self._gfx)
+        gfx_ids = Skin.atlas.gfx_ids["expanded_panel_bottom"]
+
+        Button.__init__(self, parent, gfx_ids)
 
         self.widget_type = "panel_bottom"
 
         if not self.height:
             PanelBottom.height = self.min_size[1]
 
-        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
         node = self.node
         node.name = "panel_bottom"
         node.set_z(-b)
-        self._hook_node = hook_node = node.attach_new_node("hook_node")
-        hook_node.set_z(-self.height)
+        self.hook_node = node.attach_new_node("hook_node")
+        self.hook_node.set_z(-self.height)
 
     def set_pos(self, pos): pass
-
-    def get_hook_node(self):
-
-        return self._hook_node
 
     def update_images(self):
 
@@ -100,11 +94,13 @@ class PanelBottom(Button):
 
             Widget.update_images(self)
             width, height = self.get_size()
-            tex_atlas = TextureAtlas["image"]
-            tex_atlas_regions = TextureAtlas["regions"]
+            tex_atlas = Skin.atlas.image
+            tex_atlas_regions = Skin.atlas.regions
+            gfx_ids = Skin.atlas.gfx_ids["expanded_panel_arrow"]
 
             for state in ("normal", "hilited"):
-                x, y, w, h = tex_atlas_regions[f"expanded_panel_arrow_{state}"]
+                gfx_id = gfx_ids[state][0][0]
+                x, y, w, h = tex_atlas_regions[gfx_id]
                 img = PNMImage(w, h, 4)
                 img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
                 image = self._images[state]
@@ -136,12 +132,12 @@ class CollapsedPanelHeader(Widget):
 
     images = {}
     height = 0
-    _gfx = {"": (("collapsed_panel_header_left", "collapsed_panel_header_center",
-            "collapsed_panel_header_right"),)}
 
     def __init__(self, parent):
 
-        Widget.__init__(self, "panel_header", parent, self._gfx, "", "horizontal")
+        gfx_ids = Skin.atlas.gfx_ids["collapsed_panel_header"]
+
+        Widget.__init__(self, "panel_header", parent, gfx_ids, "", "horizontal")
 
         if not self.height:
             CollapsedPanelHeader.height = self.min_size[1]
@@ -170,14 +166,12 @@ class CollapsedPanelBottom(Button):
 
     images = {}
     height = 0
-    _gfx = {
-        "normal": (("collapsed_panel_bottom_normal",),),
-        "hilited": (("collapsed_panel_bottom_hilited",),)
-    }
 
     def __init__(self, parent):
 
-        Button.__init__(self, parent, self._gfx)
+        gfx_ids = Skin.atlas.gfx_ids["collapsed_panel_bottom"]
+
+        Button.__init__(self, parent, gfx_ids)
 
         self.widget_type = "panel_bottom"
 
@@ -187,14 +181,10 @@ class CollapsedPanelBottom(Button):
         node = self.node
         node.name = "collapsed_panel_bottom"
         node.set_z(-CollapsedPanelHeader.height)
-        self._hook_node = hook_node = node.attach_new_node("hook_node")
-        hook_node.set_z(-self.height)
+        self.hook_node = node.attach_new_node("hook_node")
+        self.hook_node.set_z(-self.height)
 
     def set_pos(self, pos): pass
-
-    def get_hook_node(self):
-
-        return self._hook_node
 
     def update_images(self):
 
@@ -206,11 +196,13 @@ class CollapsedPanelBottom(Button):
 
             Widget.update_images(self)
             width, height = self.get_size()
-            tex_atlas = TextureAtlas["image"]
-            tex_atlas_regions = TextureAtlas["regions"]
+            tex_atlas = Skin.atlas.image
+            tex_atlas_regions = Skin.atlas.regions
+            gfx_ids = Skin.atlas.gfx_ids["collapsed_panel_arrow"]
 
             for state in ("normal", "hilited"):
-                x, y, w, h = tex_atlas_regions[f"collapsed_panel_arrow_{state}"]
+                gfx_id = gfx_ids[state][0][0]
+                x, y, w, h = tex_atlas_regions[gfx_id]
                 img = PNMImage(w, h, 4)
                 img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
                 image = self._images[state]
@@ -240,23 +232,23 @@ class CollapsedPanelBottom(Button):
 
 class PanelContainer(Widget):
 
-    _gfx = {"": (("panel_main",),)}
-
     def __init__(self, parent):
 
-        Widget.__init__(self, "panel_container", parent, self._gfx, "", has_mouse_region=False)
+        gfx_ids = Skin.atlas.gfx_ids["panel_container"]
 
-        sizer = Sizer("vertical")
-        self.sizer = sizer
+        Widget.__init__(self, "panel_container", parent, gfx_ids, "", has_mouse_region=False)
+
+        self.sizer = Sizer("vertical")
+        self.sizer.set_column_proportion(0, 1.)
         self._mouse_region_group = set()
 
-        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
         node = self.node
         node.name = "panel_container"
-        node.set_pos(l, 0, -t)
+        node.set_x(l)
         self._bottom_node = bottom_node = node.attach_new_node("panel_container_bottom")
         bottom_node.set_x(-l)
-        self._hook_node = hook_node = bottom_node.attach_new_node("hook_node")
+        self.hook_node = bottom_node.attach_new_node("container_hook_node")
 
     def finalize(self):
 
@@ -307,14 +299,6 @@ class PanelContainer(Widget):
 
         return self._mouse_region_group
 
-    def get_hook_node(self):
-
-        return self._hook_node
-
-    def add(self, *args, **kwargs):
-
-        self.sizer.add(*args, **kwargs)
-
     def hide(self):
 
         if not Widget.hide(self, recurse=False):
@@ -328,7 +312,7 @@ class PanelContainer(Widget):
             for region in mouse_region_group:
                 mouse_watcher.remove_region(region)
 
-        self._hook_node.reparent_to(self.node.parent)
+        self.hook_node.reparent_to(self.node.parent)
 
         return True
 
@@ -350,24 +334,26 @@ class PanelContainer(Widget):
                 if not widget.is_hidden():
                     mouse_watcher.add_region(region)
 
-        self._hook_node.reparent_to(self._bottom_node)
+        self.hook_node.reparent_to(self._bottom_node)
 
         return True
 
 
-class Panel(Widget):
+class ControlPanel(Widget):
 
     collapsed_height = 0
     _collapsed_img = None
-    _gfx = {"": (("panel_main",),)}
 
-    def __init__(self, stack, panel_id, name=""):
+    def __init__(self, pane, panel_id, title=" "):
 
-        Widget.__init__(self, "panel", stack, self._gfx)
+        gfx_ids = Skin.atlas.gfx_ids["control_panel"]
+
+        Widget.__init__(self, "panel", pane, gfx_ids, is_root_container=True)
 
         self.id = panel_id
-        self.name = name
+        self.title = title
         sizer = Sizer("vertical")
+        sizer.set_column_proportion(0, 1.)
         Widget.sizer.fset(self, sizer)
         self._top_container = None
         self._bottom_container = None
@@ -376,33 +362,34 @@ class Panel(Widget):
         self._collapsed_header = collapsed_header = CollapsedPanelHeader(self)
         self._collapsed_bottom = collapsed_bottom = CollapsedPanelBottom(self)
         self._client_sizer = client_sizer = Sizer("vertical")
-        sizer.add(header, expand=True)
-        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        client_sizer.set_column_proportion(0, 1.)
+        sizer.add(header)
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
         borders = (0, 0, b, 0)
-        sizer.add(client_sizer, expand=True, borders=borders)
-        sizer.add(bottom, expand=True)
+        sizer.add(client_sizer, borders=borders)
+        sizer.add(bottom)
         header_region = header.mouse_region
         bottom_region = bottom.mouse_region
         collapsed_header_region = collapsed_header.mouse_region
         collapsed_bottom_region = collapsed_bottom.mouse_region
-        mouse_watcher = stack.mouse_watcher
+        mouse_watcher = pane.mouse_watcher
         mouse_watcher.remove_region(collapsed_header_region)
         mouse_watcher.remove_region(collapsed_bottom_region)
-        regions_expanded = set([header_region, bottom_region, self.mouse_region])
-        regions_collapsed = set([collapsed_header_region, collapsed_bottom_region])
+        regions_expanded = {header_region, bottom_region, self.mouse_region}
+        regions_collapsed = {collapsed_header_region, collapsed_bottom_region}
         self._mouse_region_groups = {"expanded": regions_expanded, "collapsed": regions_collapsed}
 
-        if not Panel.collapsed_height:
-            Panel.collapsed_height = collapsed_header.height + collapsed_bottom.height
+        if not ControlPanel.collapsed_height:
+            ControlPanel.collapsed_height = collapsed_header.height + collapsed_bottom.height
 
         # Build the node hierarchy
 
-        prev_panels = stack.get_panels()
+        prev_panels = pane.get_panels()
 
         if prev_panels:
-            last_node = prev_panels[-1].get_hook_node()
+            last_node = prev_panels[-1].hook_node
         else:
-            last_node = stack.get_widget_root_node()
+            last_node = pane.widget_root_node
 
         top_node = self.node
         top_node.name = f"panel_top__{panel_id}"
@@ -410,26 +397,33 @@ class Panel(Widget):
         self._client_node = client_node = header.node.attach_new_node("panel_client")
         client_node.set_z(-header.height)
         bottom.node.reparent_to(client_node)
-        self._hook_node = bottom.get_hook_node().attach_new_node(f"panel_hook__{panel_id}")
+        self.hook_node = bottom.hook_node.attach_new_node(f"panel_hook__{panel_id}")
         collapsed_header_node = collapsed_header.node
         collapsed_header_node.reparent_to(top_node)
         collapsed_bottom.node.reparent_to(collapsed_header_node)
 
-        stack.add_panel(self)
+        pane.add_panel(self)
 
         self._sections = []
         self._last_section_hook_node = client_node
         self._is_expanded = True
         self._widgets_to_update = []
 
-        skin_text = Skin["text"]["panel_label"]
+        skin_text = Skin.text["panel_label"]
         font = skin_text["font"]
         color = skin_text["color"]
-        self._label = font.create_image(name, color)
+        self._label = font.create_image(title, color)
+        tex_atlas_regions = Skin.atlas.regions
+        gfx_ids = Skin.atlas.gfx_ids["expanded_panel_header"]
+        w_l = tex_atlas_regions[gfx_ids[""][0][0]][2]
+        w_r = tex_atlas_regions[gfx_ids[""][0][2]][2]
+        sizer.default_size = (w_l + self._label.size[0] + w_r, 1)
+
         self._is_dragged = False
         self._start_mouse_y = 0
         self._start_drag_offset = 0
         self._listener = DirectObject()
+        self._hidden_sections = []
 
     def finalize(self):
 
@@ -447,6 +441,10 @@ class Panel(Widget):
 
             section.finalize()
 
+            if section in self._hidden_sections:
+                section.hide()
+                section.sizer_cell.sizer.set_min_size_stale()
+
             if not section.is_hidden(check_ancestors=False):
                 mouse_regions = section.get_mouse_region_groups()["expanded"]
                 mouse_region_group.update(mouse_regions)
@@ -459,16 +457,26 @@ class Panel(Widget):
                 mouse_regions = self._bottom_container.get_mouse_region_group()
                 mouse_region_group.update(mouse_regions)
 
-    def destroy(self):
+        has_hidden_sections = True if self._hidden_sections else False
+        del self._hidden_sections
 
-        Widget.destroy(self)
+        return has_hidden_sections
 
-        self._listener.ignore_all()
-        self._listener = None
+    def set_title(self, title):
 
-    def get_hook_node(self):
+        if self.title == title:
+            return
 
-        return self._hook_node
+        self.title = title
+        skin_text = Skin.text["panel_label"]
+        font = skin_text["font"]
+        color = skin_text["color"]
+        self._label = font.create_image(title, color)
+        tex_atlas_regions = Skin.atlas.regions
+        gfx_ids = Skin.atlas.gfx_ids["expanded_panel_header"]
+        w_l = tex_atlas_regions[gfx_ids[""][0][0]][2]
+        w_r = tex_atlas_regions[gfx_ids[""][0][2]][2]
+        self.sizer.default_size = (w_l + self._label.size[0] + w_r, 1)
 
     def get_collapsed_header(self):
 
@@ -496,6 +504,11 @@ class Panel(Widget):
     @sizer.setter
     def sizer(self, sizer): pass
 
+    @property
+    def client_sizer(self):
+
+        return self._client_sizer
+
     def __offset_mouse_region_frames(self):
 
         exclude = "lr"
@@ -506,39 +519,49 @@ class Panel(Widget):
 
         self._widgets_to_update = []
 
-    def get_top_container(self):
+    def create_container(self, pos, update_mouse_regions=False):
 
-        if not self._top_container:
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
+        borders = (l, r, 0, 0)
+
+        if pos == "bottom":
+
+            if self._bottom_container:
+                return self._bottom_container
+
+            node = self._last_section_hook_node
+            child_node = node.get_child(0)
+            self._bottom_container = container = PanelContainer(self)
+            container.node.reparent_to(node)
+            hook_node = container.hook_node
+            child_node.reparent_to(hook_node)
+            self._client_sizer.add(container, borders=borders)
+
+            if update_mouse_regions:
+                self.add_mouse_regions(container.get_mouse_region_group())
+
+            return self._bottom_container
+
+        elif pos == "top":
+
+            if self._top_container:
+                return self._top_container
 
             client_node = self._client_node
             child_node = client_node.get_child(0)
-            self._top_container = top_container = PanelContainer(self)
-            top_container.node.reparent_to(client_node)
-            hook_node = top_container.get_hook_node()
+            self._top_container = container = PanelContainer(self)
+            container.node.reparent_to(client_node)
+            hook_node = container.hook_node
             child_node.reparent_to(hook_node)
-            l, r, b, t = TextureAtlas["inner_borders"]["panel"]
-            borders = (l, r, 0, t)
-            self._client_sizer.add(top_container, expand=True, borders=borders)
+            self._client_sizer.add(container, borders=borders)
+
+            if update_mouse_regions:
+                self.add_mouse_regions(container.get_mouse_region_group())
 
             if self._last_section_hook_node is client_node:
                 self._last_section_hook_node = hook_node
 
-        return self._top_container
-
-    def get_bottom_container(self):
-
-        if not self._bottom_container:
-            node = self._last_section_hook_node
-            child_node = node.get_child(0)
-            self._bottom_container = bottom_container = PanelContainer(self)
-            bottom_container.node.reparent_to(node)
-            hook_node = bottom_container.get_hook_node()
-            child_node.reparent_to(hook_node)
-            l, r, b, t = TextureAtlas["inner_borders"]["panel"]
-            borders = (l, r, 0, t)
-            self._client_sizer.add(bottom_container, expand=True, borders=borders)
-
-        return self._bottom_container
+            return self._top_container
 
     def show_container(self, container_id, show=True):
 
@@ -551,15 +574,14 @@ class Panel(Widget):
         w, h_old = self.get_size()
         h_c = container.get_size()[1]
         mouse_region_group = container.get_mouse_region_group()
-        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
 
         if show:
             groups_expanded.update(mouse_region_group)
             container.update_mouse_region_frames(exclude="lr")
-            h_new = h_old + h_c + t
+            h_new = h_old + h_c
         else:
             groups_expanded.difference_update(mouse_region_group)
-            h_new = h_old - h_c - t
+            h_new = h_old - h_c
 
         size = (w, h_new)
         self.sizer.set_size(size, force=True)
@@ -594,7 +616,7 @@ class Panel(Widget):
         w, h_old = self.get_size()
         h_s = changed_section.get_size()[1]
         mouse_region_groups = changed_section.get_mouse_region_groups()
-        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
 
         if change == "collapse":
 
@@ -686,9 +708,9 @@ class Panel(Widget):
                 mouse_watcher.add_region(region)
 
         if expand:
-            self._hook_node.reparent_to(self._bottom.get_hook_node())
+            self.hook_node.reparent_to(self._bottom.hook_node)
         else:
-            self._hook_node.reparent_to(self._collapsed_bottom.get_hook_node())
+            self.hook_node.reparent_to(self._collapsed_bottom.hook_node)
 
         self.parent.handle_panel_resize(self)
 
@@ -710,7 +732,7 @@ class Panel(Widget):
             collapsed_bottom_img = collapsed_bottom.get_image()
             h_cb = collapsed_bottom.get_size()[1]
             image.copy_sub_image(collapsed_bottom_img, 0, h_ch, 0, 0, w, h_cb)
-            Panel._collapsed_img = image
+            ControlPanel._collapsed_img = image
 
         return images
 
@@ -723,7 +745,7 @@ class Panel(Widget):
 
         if composed:
             width, height = self._header.get_size()
-            l, r, b, t = TextureAtlas["inner_borders"]["panel_header"]
+            l, r, b, t = Skin.atlas.inner_borders["panel_header"]
             w, h = self._label.size
             x = (width - w) // 2
             y = t + (height - b - t - h) // 2 + 1
@@ -731,20 +753,21 @@ class Panel(Widget):
 
         return image
 
-    def add_section(self, section_id, label="", hidden=False):
+    def add_section(self, section_id, title="", hidden=False):
 
-        section = PanelSection(self, section_id, label, hidden)
+        section = PanelSection(self, section_id, title)
         self._sections.append(section)
-        l, r, b, t = TextureAtlas["inner_borders"]["panel"]
+        l, r, b, t = Skin.atlas.inner_borders["panel"]
         borders = (l, r, 0, t)
-        self._client_sizer.add(section, expand=True, borders=borders)
+        self._client_sizer.add(section, borders=borders)
 
         section.node.reparent_to(self._last_section_hook_node)
-        hook_node = section.get_hook_node()
-        self._bottom.node.reparent_to(hook_node)
+        hook_node = section.hook_node
+        self._last_section_hook_node.get_child(0).reparent_to(hook_node)
 
         if hidden:
-            section.get_hook_node().reparent_to(self._last_section_hook_node)
+            hook_node.reparent_to(self._last_section_hook_node)
+            self._hidden_sections.append(section)
 
         self._last_section_hook_node = hook_node
 
@@ -775,7 +798,7 @@ class Panel(Widget):
         mouse_y = int(Mgr.get("mouse_pointer", 0).y)
 
         if mouse_y != self._start_mouse_y:
-            scrollthumb = self.parent.get_scrollthumb()
+            scrollthumb = self.parent.scrollthumb
             scrollthumb.set_offset(self._start_drag_offset - mouse_y + self._start_mouse_y)
 
         return task.cont
@@ -784,7 +807,7 @@ class Panel(Widget):
 
         self._is_dragged = True
         self._start_mouse_y = int(Mgr.get("mouse_pointer", 0).y)
-        scrollthumb = self.parent.get_scrollthumb()
+        scrollthumb = self.parent.scrollthumb
         self._start_drag_offset = scrollthumb.get_offset()
         Mgr.add_task(self.__drag, "drag panel")
         self._listener.accept("gui_mouse1-up", self.__on_left_up)
@@ -810,13 +833,14 @@ class Panel(Widget):
         if not Widget.hide(self, recurse=False):
             return False
 
+        self.sizer_cell.object = (0, 0)
         mouse_watcher = self.mouse_watcher
         mouse_region_groups = self._mouse_region_groups
 
         for region in mouse_region_groups["expanded" if self._is_expanded else "collapsed"]:
             mouse_watcher.remove_region(region)
 
-        self._hook_node.reparent_to(self.node.parent)
+        self.hook_node.reparent_to(self.node.parent)
 
         return True
 
@@ -825,6 +849,7 @@ class Panel(Widget):
         if not Widget.show(self, recurse=False):
             return False
 
+        self.sizer_cell.object = self
         mouse_watcher = self.mouse_watcher
         mouse_region_groups = self._mouse_region_groups
 
@@ -846,9 +871,9 @@ class Panel(Widget):
                 mouse_watcher.add_region(region)
 
         if self._is_expanded:
-            self._hook_node.reparent_to(self._bottom.get_hook_node())
+            self.hook_node.reparent_to(self._bottom.hook_node)
         else:
-            self._hook_node.reparent_to(self._collapsed_bottom.get_hook_node())
+            self.hook_node.reparent_to(self._collapsed_bottom.hook_node)
 
         return True
 

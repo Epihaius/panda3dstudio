@@ -3,55 +3,34 @@ from .base import *
 
 class PointProperties:
 
-    def __init__(self, panel):
+    def __init__(self, panel, widgets):
 
         self._panel = panel
         self._fields = {}
         self._checkbuttons = {}
         self._colorboxes = {}
 
-        section = panel.add_section("point_props", "Point helper properties", hidden=True)
-
-        borders = (0, 5, 0, 0)
-
-        sizer = Sizer("horizontal")
-        section.add(sizer)
-        text = "Size:"
-        sizer.add(PanelText(section, text), alignment="center_v", borders=borders)
         prop_id = "size"
-        field = PanelInputField(section, prop_id, "int", self.__handle_value, 45)
+        field = widgets["fields"]["point_size"]
+        field.value_id = prop_id
+        field.value_type = "int"
+        field.set_value_handler(self.__handle_value)
         field.set_input_parser(self.__parse_size_input)
         self._fields[prop_id] = field
-        sizer.add(field, alignment="center_v")
 
-        section.add((0, 5))
+        checkbtn = widgets["checkbuttons"]["point_on_top"]
+        checkbtn.command = self.__draw_on_top
+        self._checkbuttons["on_top"] = checkbtn
 
-        prop_id = "on_top"
-        text = "Draw on top"
-        checkbtn = PanelCheckButton(section, self.__draw_on_top, text)
-        self._checkbuttons[prop_id] = checkbtn
-        section.add(checkbtn)
+        colorbox = widgets["colorboxes"]["point_unselected_color"]
+        colorbox.command = lambda col: self.__handle_color("unselected", col)
+        colorbox.dialog_title = "Pick unselected point color"
+        self._colorboxes["point_unselected_color"] = colorbox
 
-        section.add((0, 5))
-
-        group = section.add_group("Color")
-        sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-        group.add(sizer, expand=True)
-        text = "Unselected:"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
-        title = "Pick unselected point color"
-        colorbox = PanelColorBox(group, lambda col: self.__handle_color("unselected", col),
-                                 dialog_title=title)
-        self._colorboxes["unselected_color"] = colorbox
-        sizer.add(colorbox, alignment_v="center_v")
-
-        text = "Selected:"
-        sizer.add(PanelText(section, text), alignment_v="center_v")
-        title = "Pick selected point color"
-        colorbox = PanelColorBox(group, lambda col: self.__handle_color("selected", col),
-                                 dialog_title=title)
-        self._colorboxes["selected_color"] = colorbox
-        sizer.add(colorbox, alignment_v="center_v")
+        colorbox = widgets["colorboxes"]["point_selected_color"]
+        colorbox.command = lambda col: self.__handle_color("selected", col)
+        colorbox.dialog_title = "Pick selected point color"
+        self._colorboxes["point_selected_color"] = colorbox
 
     def setup(self): pass
 
@@ -104,7 +83,7 @@ class PointProperties:
 
     def set_object_property_default(self, prop_id, value):
 
-        color = (1., 1., 0., 1.)
+        color = Skin.colors["default_value"]
         fields = self._fields
         checkbtns = self._checkbuttons
         colorboxes = self._colorboxes
@@ -118,7 +97,7 @@ class PointProperties:
             checkbtns[prop_id].check(value)
             checkbtns[prop_id].set_checkmark_color(color)
         elif prop_id in colorboxes:
-            colorboxes[prop_id].set_color(value[:3])
+            colorboxes[prop_id].color = value[:3]
 
     def set_object_property(self, prop_id, value):
 
@@ -131,7 +110,7 @@ class PointProperties:
         elif prop_id in checkbtns:
             checkbtns[prop_id].check(value)
         elif prop_id in colorboxes:
-            colorboxes[prop_id].set_color(value[:3])
+            colorboxes[prop_id].color = value[:3]
 
     def check_selection_count(self):
 
@@ -140,7 +119,7 @@ class PointProperties:
 
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
-        color = (.5, .5, .5, 1.) if multi_sel else None
+        color = Skin.text["input_disabled"]["color"] if multi_sel else None
 
         for checkbtn in checkbtns.values():
             checkbtn.set_checkmark_color(color)

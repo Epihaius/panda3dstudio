@@ -6,9 +6,10 @@ class SeparatorGhostImage:
 
     def __init__(self):
 
-        x, y, w, h = TextureAtlas["regions"]["statusbar_separator_ghost"]
+        gfx_id = Skin.atlas.gfx_ids["statusbar"]["separator_ghost"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
         tex = Texture("ghost_tex")
         tex.minfilter = SamplerState.FT_nearest
         tex.magfilter = SamplerState.FT_nearest
@@ -48,11 +49,11 @@ class SeparatorGhostImage:
 
 class StatusBarSeparator(Widget):
 
-    _gfx = {"": (("statusbar_separator",),)}
-
     def __init__(self, statusbar):
 
-        Widget.__init__(self, "statusbar_separator", statusbar, self._gfx)
+        gfx_ids = {"": Skin.atlas.gfx_ids["statusbar"]["separator"]}
+
+        Widget.__init__(self, "statusbar_separator", statusbar, gfx_ids)
 
         self._listener = DirectObject()
         self._mouse_start_x = 0
@@ -109,24 +110,25 @@ class StatusBarSeparator(Widget):
 
 class StatusBar(Widget):
 
-    _gfx = {"": (("statusbar_left", "statusbar_center", "statusbar_right"),)}
-
     def __init__(self, parent):
 
-        Widget.__init__(self, "statusbar", parent, self._gfx)
+        gfx_ids = {"": Skin.atlas.gfx_ids["statusbar"][""]}
+
+        Widget.__init__(self, "statusbar", parent, gfx_ids)
 
         sizer = Sizer("horizontal")
-        sizer.add((170, 0))
-        sizer.add((0, 0), proportion=0.)
+        sizer.add((Skin.options["statusbar_mode_area_min_width"], 0))
+        sizer.add((0, 0))
         self._separator = separator = StatusBarSeparator(self)
         sizer.add(separator)
-        sizer.add((0, 0), proportion=1.)
-        x, y, w, h = TextureAtlas["regions"]["statusbar_fader"]
+        sizer.add((0, 0), proportions=(1., 0))
+        gfx_id = Skin.atlas.gfx_ids["statusbar"]["fader"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         sizer.add((w + self.gfx_inner_borders[1], 0))
         sizer.default_size = self.min_size
         self.sizer = sizer
         img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
         self._text_fader = img
 
         self._mode_text = ""
@@ -184,7 +186,7 @@ class StatusBar(Widget):
     def __set_mode_text(self, text):
 
         self._mode_text = text
-        skin_text = Skin["text"]["status"]
+        skin_text = Skin.text["status"]
         font = skin_text["font"]
         color = skin_text["color"]
         self._mode_label = label = font.create_image(text, color)
@@ -207,7 +209,7 @@ class StatusBar(Widget):
     def __set_info_text(self, text):
 
         self._info_text = text
-        skin_text = Skin["text"]["status"]
+        skin_text = Skin.text["status"]
         font = skin_text["font"]
         color = skin_text["color"]
         self._info_label = label = font.create_image(text, color)
@@ -267,12 +269,13 @@ class StatusBar(Widget):
         w, h = size = self.get_size()
         w_sep = self._separator.min_size[0]
         sizer = self.sizer
-        sizer_item = sizer.pop_item(0)
-        x = sizer_item.object[0]
-        d = sizer.items[3].object[0]
+        sizer_cell = sizer.pop_cell(0)
+        x = sizer_cell.object[0]
+        d = sizer.cells[3].object[0]
+        x_prop = Skin.options["statusbar_proportional_sep"]
 
-        if x == 400:
-            x += (w - 400 - w_sep - d) * sizer.items[0].proportion
+        if x == x_prop:
+            x += (w - x_prop - w_sep - d) * sizer.cells[0].proportions[0]
 
         l, r, b, t = self.gfx_inner_borders
         x += offset
@@ -280,16 +283,16 @@ class StatusBar(Widget):
         x_max = w - w_sep - d
         x = min(x_max, max(x_min, x))
 
-        if x > 400:
-            p = float(w - 400 - w_sep - d)
-            proportion1 = (x - 400) / p
-            proportion2 = (p - (x - 400)) / p
-            sizer.items[0].proportion = proportion1
-            sizer.items[2].proportion = proportion2
-            x = 400
+        if x > x_prop:
+            p = float(w - x_prop - w_sep - d)
+            proportion1 = (x - x_prop) / p
+            proportion2 = (p - (x - x_prop)) / p
+            sizer.cells[0].proportions = (proportion1, 0.)
+            sizer.cells[2].proportions = (proportion2, 0.)
+            x = x_prop
         else:
-            sizer.items[0].proportion = 0.
-            sizer.items[2].proportion = 1.
+            sizer.cells[0].proportions = (0., 0.)
+            sizer.cells[2].proportions = (1., 0.)
 
         sizer.add((x, 0), index=0)
         sizer.update(size)

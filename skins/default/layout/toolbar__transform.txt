@@ -1,0 +1,107 @@
+title = Transform
+default_size = 0 0
+button translate
+    container = toolbar
+    icon_id = icon_translate
+    text = 
+    tooltip_text = Select and translate
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button rotate
+    container = toolbar
+    icon_id = icon_rotate
+    text = 
+    tooltip_text = Select and rotate
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button scale
+    container = toolbar
+    icon_id = icon_scale
+    text = 
+    tooltip_text = Select and scale
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button x
+    container = toolbar
+    icon_id = icon_x
+    text = 
+    tooltip_text = Transform about X-axis
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field x
+    container = toolbar
+    field_type = input_multival
+    width = 80
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button y
+    container = toolbar
+    icon_id = icon_y
+    text = 
+    tooltip_text = Transform about Y-axis
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field y
+    container = toolbar
+    field_type = input_multival
+    width = 80
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button z
+    container = toolbar
+    icon_id = icon_z
+    text = 
+    tooltip_text = Transform about Z-axis
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field z
+    container = toolbar
+    field_type = input_multival
+    width = 80
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button offsets
+    container = toolbar
+    icon_id = icon_offsets
+    text = 
+    tooltip_text = Input relative values (offsets)
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox coord_sys
+    container = toolbar
+    field_width = 100
+    icon_id = icon_coord_sys
+    text = 
+    tooltip_text = Reference coordinate system
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox transf_center
+    container = toolbar
+    field_width = 100
+    icon_id = icon_transf_center
+    text = 
+    tooltip_text = Transform center
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0

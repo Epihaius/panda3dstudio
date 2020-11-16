@@ -16,15 +16,15 @@ class Icon(Widget):
         self._image = img = self.__create_icon(icon_id)
         self._size = self._min_size = (w, h) = img.size
         self._sizer = None
-        self.sizer_item = None
+        self.sizer_cell = None
         self.mouse_region = None
         self._is_hidden = False
 
     def __create_icon(self, icon_id):
 
-        x, y, w, h = TextureAtlas["regions"][icon_id]
+        x, y, w, h = Skin.atlas.regions[icon_id]
         image = PNMImage(w, h, 4)
-        image.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        image.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
 
         return image
 
@@ -35,7 +35,7 @@ class Icon(Widget):
             self.node = None
 
         self._parent = None
-        self.sizer_item = None
+        self.sizer_cell = None
 
     def set_icon(self, icon_id):
 
@@ -89,15 +89,15 @@ class LayeredIcon(Widget):
         self._image = img = images[icon_ids[0]]
         self._size = self._min_size = (w, h) = img.size
         self._sizer = None
-        self.sizer_item = None
+        self.sizer_cell = None
         self.mouse_region = None
         self._is_hidden = False
 
     def __create_icon(self, icon_id):
 
-        x, y, w, h = TextureAtlas["regions"][icon_id]
+        x, y, w, h = Skin.atlas.regions[icon_id]
         image = PNMImage(w, h, 4)
-        image.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        image.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
 
         return image
 
@@ -108,7 +108,7 @@ class LayeredIcon(Widget):
             self.node = None
 
         self._parent = None
-        self.sizer_item = None
+        self.sizer_cell = None
 
     def update(self):
 

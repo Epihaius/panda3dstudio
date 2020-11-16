@@ -1,0 +1,1457 @@
+title = Materials
+default_size = 0 0
+panel_section scene
+    title = Scene
+    default_size = 0 0
+    hidden = 0
+button clear_scene_mats
+    container = panel_section scene
+    icon_id = 
+    text = Clear
+    tooltip_text = Remove materials from all objects in scene
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 0
+panel_section library
+    title = Library
+    default_size = 0 0
+    hidden = 0
+sizer 7
+    container = panel_section library
+    name = save & clear materials
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button save_lib
+    container = sizer 7
+    icon_id = 
+    text = Save
+    tooltip_text = Save material library
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button clear_lib
+    container = sizer 7
+    icon_id = 
+    text = Clear
+    tooltip_text = Remove all materials from library
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 11
+    container = panel_section library
+    title = Load/merge
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 13
+    container = group 11
+    name = load/merge
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button load_lib
+    container = sizer 13
+    icon_id = 
+    text = Load
+    tooltip_text = Load material library
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button merge_lib
+    container = sizer 13
+    icon_id = 
+    text = Merge
+    tooltip_text = Merge material library
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = group 11
+    text = From:
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 3 5
+radiobuttongroup lib_load_src
+    container = group 11
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobutton file
+    text = file
+radiobutton scene
+    text = scene
+text -
+    container = group 11
+    text = Duplicate materials:
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 3 5
+radiobuttongroup dupe_mat_load
+    container = group 11
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobutton skip
+    text = skip
+radiobutton copy
+    text = add as copy
+radiobutton replace
+    text = replace existing
+panel_section material
+    title = Material
+    default_size = 0 0
+    hidden = 0
+combobox material
+    container = panel_section material
+    field_width = 100
+    icon_id = 
+    text = 
+    tooltip_text = Selected material
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 29
+    container = panel_section material
+    name = material name edit
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button edit_mat_name
+    container = sizer 29
+    icon_id = icon_caret
+    text = 
+    tooltip_text = Edit selected material name
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button copy_mat
+    container = sizer 29
+    icon_id = icon_copy
+    text = 
+    tooltip_text = Add copy of selected material
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button add_mat
+    container = sizer 29
+    icon_id = icon_add
+    text = 
+    tooltip_text = Add new material
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button remove_mat
+    container = sizer 29
+    icon_id = icon_remove
+    text = 
+    tooltip_text = Remove selected material
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 37
+    container = panel_section material
+    title = Extract from objects
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 39
+    container = group 37
+    name = extract material
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button extract_mat
+    container = sizer 39
+    icon_id = 
+    text = Selection
+    tooltip_text = Extract materials from selected objects
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button owner_picking_extract
+    container = sizer 39
+    icon_id = 
+    text = Pick...
+    tooltip_text = Extract material from single object
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 43
+    container = panel_section material
+    title = Apply to objects
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 45
+    container = group 43
+    name = apply material
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button apply_mat
+    container = sizer 45
+    icon_id = 
+    text = Selection
+    tooltip_text = Apply sel. material to sel. objects
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button owner_picking_apply
+    container = sizer 45
+    icon_id = 
+    text = Pick...
+    tooltip_text = Apply sel. material to single object
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 49
+    container = panel_section material
+    title = Owner selection
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+button owner_select
+    container = group 49
+    icon_id = 
+    text = (De)select owners
+    tooltip_text = Select all objects having the sel. material
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 0
+text -
+    container = group 49
+    text = Current selection:
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 3 5
+radiobuttongroup owner_sel
+    container = group 49
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobutton replace
+    text = replace with owners
+radiobutton add_to
+    text = add owners
+radiobutton remove_from
+    text = remove owners
+panel_section basic_props
+    title = Basic properties
+    default_size = 0 0
+    hidden = 0
+sizer 59
+    container = panel_section basic_props
+    name = basic properties
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton show_vert_colors
+    container = sizer 59
+    text = Vertex colors
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+space 61
+    container = sizer 59
+    name = space 1
+    size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+text -
+    container = sizer 59
+    text = Flat color:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 29 0 0 0
+colorbox flat_color
+    container = sizer 59
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton diffuse
+    container = sizer 59
+    text = Diffuse color:
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+colorbox diffuse
+    container = sizer 59
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton ambient
+    container = sizer 59
+    text = Ambient color:
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+colorbox ambient
+    container = sizer 59
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton emissive
+    container = sizer 59
+    text = Emissive color:
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+colorbox emissive
+    container = sizer 59
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+checkbutton specular
+    container = sizer 59
+    text = Specular color:
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+colorbox specular
+    container = sizer 59
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+text -
+    container = sizer 59
+    text = Shininess:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 29 0 0 0
+field shininess
+    container = sizer 59
+    field_type = input
+    width = 60
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton alpha
+    container = sizer 59
+    text = Alpha:
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field alpha
+    container = sizer 59
+    field_type = input_slider
+    width = 60
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_section tex_maps
+    title = Texture maps
+    default_size = 0 0
+    hidden = 0
+sizer 78
+    container = panel_section tex_maps
+    name = texture map
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton tex_map
+    container = sizer 78
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox map_type
+    container = sizer 78
+    field_width = 135
+    icon_id = 
+    text = 
+    tooltip_text = Selected texture map
+    proportions = 1.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+group 81
+    container = panel_section tex_maps
+    title = Texture files
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 83
+    container = group 81
+    name = texture files
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button tex_map_file_main
+    container = sizer 83
+    icon_id = 
+    text = Main
+    tooltip_text = Load main texture for selected map
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field tex_map_file_main
+    container = sizer 83
+    field_type = input
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+button tex_map_file_alpha
+    container = sizer 83
+    icon_id = 
+    text = Alpha
+    tooltip_text = Load alpha texture for selected map
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field tex_map_file_alpha
+    container = sizer 83
+    field_type = input
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 88
+    container = panel_section tex_maps
+    name = border color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+text -
+    container = sizer 88
+    text = Border color:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox tex_map_border_color
+    container = sizer 88
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+group 91
+    container = panel_section tex_maps
+    title = Wrapping
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 93
+    container = group 91
+    name = wrap mode
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 93
+    text = U:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+combobox tex_map_wrap_u
+    container = sizer 93
+    field_width = 130
+    icon_id = 
+    text = 
+    tooltip_text = U wrap mode
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 93
+    text = V:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+combobox tex_map_wrap_v
+    container = sizer 93
+    field_width = 130
+    icon_id = 
+    text = 
+    tooltip_text = V wrap mode
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton tex_map_wrap_lock
+    container = group 91
+    text = Lock U and V modes
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+group 99
+    container = panel_section tex_maps
+    title = Filtering
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 101
+    container = group 99
+    name = filter mode
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 101
+    text = -:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+combobox tex_map_filter_min
+    container = sizer 101
+    field_width = 130
+    icon_id = 
+    text = 
+    tooltip_text = Minification filter
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 101
+    text = +:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+combobox tex_map_filter_mag
+    container = sizer 101
+    field_width = 130
+    icon_id = 
+    text = 
+    tooltip_text = Magnification filter
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 106
+    container = group 99
+    name = anisotropic level
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+text -
+    container = sizer 106
+    text = Anisotropic level:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field tex_map_anisotropic_degree
+    container = sizer 106
+    field_type = input_spinner_slider
+    width = 40
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_section tex_map_xform
+    title = Tex. map transform
+    default_size = 0 0
+    hidden = 0
+group 111
+    container = panel_section tex_map_xform
+    title = Offset
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 113
+    container = group 111
+    name = map offset
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 113
+    text = U:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field tex_map_offset_u
+    container = sizer 113
+    field_type = input_spinner
+    width = 35
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 113
+    text = V:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 10 5 0 0
+field tex_map_offset_v
+    container = sizer 113
+    field_type = input_spinner
+    width = 35
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 118
+    container = panel_section tex_map_xform
+    name = rotation
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+text -
+    container = sizer 118
+    text = Rotation:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field tex_map_rotate
+    container = sizer 118
+    field_type = input_spinner_slider
+    width = 50
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 121
+    container = panel_section tex_map_xform
+    title = Scale
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 123
+    container = group 121
+    name = map scale
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 123
+    text = U:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field tex_map_scale_u
+    container = sizer 123
+    field_type = input_spinner
+    width = 35
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 123
+    text = V:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 10 5 0 0
+field tex_map_scale_v
+    container = sizer 123
+    field_type = input_spinner
+    width = 35
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_section layers
+    title = Layers
+    default_size = 0 0
+    hidden = 0
+checkbutton layers
+    container = panel_section layers
+    text = Use layers|(overrides single color map)
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+sizer 131
+    container = panel_section layers
+    name = selected layer
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+checkbutton layer_on
+    container = sizer 131
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox layer
+    container = sizer 131
+    field_width = 100
+    icon_id = 
+    text = 
+    tooltip_text = Selected layer
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 134
+    container = panel_section layers
+    name = layer name edit
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+button edit_layer_name
+    container = sizer 134
+    icon_id = icon_caret
+    text = 
+    tooltip_text = Edit selected layer name
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button copy_layer
+    container = sizer 134
+    icon_id = icon_copy
+    text = 
+    tooltip_text = Add copy of selected layer
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button add_layer
+    container = sizer 134
+    icon_id = icon_add
+    text = 
+    tooltip_text = Add new layer
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button remove_layer
+    container = sizer 134
+    icon_id = icon_remove
+    text = 
+    tooltip_text = Remove selected layer
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 142
+    container = panel_section layers
+    name = sort & priority
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+text -
+    container = sizer 142
+    text = Sort:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field layer_sort
+    container = sizer 142
+    field_type = input
+    width = 40
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 142
+    text = Priority:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 10 5 0 0
+field layer_priority
+    container = sizer 142
+    field_type = input_spinner
+    width = 30
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_section layer_color
+    title = Layer color
+    default_size = 0 0
+    hidden = 0
+group 150
+    container = panel_section layer_color
+    title = Flat color
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 152
+    container = group 150
+    name = flat color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 152
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox layer_rgb
+    container = sizer 152
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = sizer 152
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field layer_alpha
+    container = sizer 152
+    field_type = input_slider
+    width = 60
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 157
+    container = panel_section layer_color
+    title = Color scale
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 159
+    container = group 157
+    name = color scale
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 159
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+radiobuttongroup layer_rgb_scale
+    container = sizer 159
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+radiobutton 1
+    text = 1
+radiobutton 2
+    text = 2
+radiobutton 4
+    text = 4
+text -
+    container = sizer 159
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+radiobuttongroup layer_alpha_scale
+    container = sizer 159
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+radiobutton 1
+    text = 1
+radiobutton 2
+    text = 2
+radiobutton 4
+    text = 4
+panel_section layer_tex
+    title = Layer texture
+    default_size = 0 0
+    hidden = 0
+group 172
+    container = panel_section layer_tex
+    title = Texture files
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 174
+    container = group 172
+    name = layer files
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 2
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button layer_file_main
+    container = sizer 174
+    icon_id = 
+    text = Main
+    tooltip_text = Load main texture for selected layer
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field layer_file_main
+    container = sizer 174
+    field_type = input
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+button layer_file_alpha
+    container = sizer 174
+    icon_id = 
+    text = Alpha
+    tooltip_text = Load alpha texture for selected layer
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field layer_file_alpha
+    container = sizer 174
+    field_type = input
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 179
+    container = panel_section layer_tex
+    name = layer border color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+text -
+    container = sizer 179
+    text = Border color:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox layer_border_color
+    container = sizer 179
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+group 182
+    container = panel_section layer_tex
+    title = Wrapping
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 184
+    container = group 182
+    name = layer wrap mode
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 184
+    text = U:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+combobox layer_wrap_u
+    container = sizer 184
+    field_width = 130
+    icon_id = 
+    text = 
+    tooltip_text = U wrap mode
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 184
+    text = V:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+combobox layer_wrap_v
+    container = sizer 184
+    field_width = 130
+    icon_id = 
+    text = 
+    tooltip_text = V wrap mode
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+checkbutton layer_wrap_lock
+    container = group 182
+    text = Lock U and V modes
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5
+group 190
+    container = panel_section layer_tex
+    title = Filtering
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 192
+    container = group 190
+    name = layer filter mode
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 192
+    text = -:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+combobox layer_filter_min
+    container = sizer 192
+    field_width = 130
+    icon_id = 
+    text = 
+    tooltip_text = Minification filter
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 192
+    text = +:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+combobox layer_filter_mag
+    container = sizer 192
+    field_width = 130
+    icon_id = 
+    text = 
+    tooltip_text = Magnification filter
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 197
+    container = group 190
+    name = layer anisotropic level
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+text -
+    container = sizer 197
+    text = Anisotropic level:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field layer_anisotropic_degree
+    container = sizer 197
+    field_type = input_spinner_slider
+    width = 40
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 200
+    container = panel_section layer_tex
+    name = UV set
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 5
+text -
+    container = sizer 200
+    text = UV set:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field layer_uv_set
+    container = sizer 200
+    field_type = input_spinner_slider
+    width = 40
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+panel_section layer_xform
+    title = Layer transform
+    default_size = 0 0
+    hidden = 0
+group 205
+    container = panel_section layer_xform
+    title = Offset
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 207
+    container = group 205
+    name = layer offset
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 207
+    text = U:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field layer_offset_u
+    container = sizer 207
+    field_type = input_spinner
+    width = 35
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 207
+    text = V:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 10 5 0 0
+field layer_offset_v
+    container = sizer 207
+    field_type = input_spinner
+    width = 35
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 212
+    container = panel_section layer_xform
+    name = layer rotation
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+text -
+    container = sizer 212
+    text = Rotation:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field layer_rotate
+    container = sizer 212
+    field_type = input_spinner_slider
+    width = 50
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+group 215
+    container = panel_section layer_xform
+    title = Scale
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+sizer 217
+    container = group 215
+    name = layer scale
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 217
+    text = U:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field layer_scale_u
+    container = sizer 217
+    field_type = input_spinner
+    width = 35
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 217
+    text = V:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 10 5 0 0
+field layer_scale_v
+    container = sizer 217
+    field_type = input_spinner
+    width = 35
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_section layer_blending
+    title = Layer blending
+    default_size = 0 0
+    hidden = 0
+group 224
+    container = panel_section layer_blending
+    title = Basic blending
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+combobox layer_blend_mode
+    container = group 224
+    field_width = 140
+    icon_id = 
+    text = 
+    tooltip_text = Blend mode
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 227
+    container = panel_section layer_blending
+    title = Advanced combining
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+text -
+    container = group 227
+    text = Using any combine mode|overrides basic blend mode
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+sizer 230
+    container = group 227
+    name = combine mode channels
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton layer_combine_channels_use
+    container = sizer 230
+    text = 
+    text_offset = 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox layer_combine_channels
+    container = sizer 230
+    field_width = 100
+    icon_id = 
+    text = 
+    tooltip_text = Channels
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+combobox layer_combine_mode
+    container = group 227
+    field_width = 140
+    icon_id = 
+    text = 
+    tooltip_text = Combine mode
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+group 234
+    container = group 227
+    title = Sources
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+combobox layer_combine_source_index
+    container = group 234
+    field_width = 125
+    icon_id = 
+    text = 
+    tooltip_text = Source type
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+combobox layer_combine_source
+    container = group 234
+    field_width = 125
+    icon_id = 
+    text = 
+    tooltip_text = Source
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+radiobuttongroup layer_combine_source_channels
+    container = group 234
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 10 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobutton rgb
+    text = RGB
+radiobutton 1-rgb
+    text = 1 - RGB
+radiobutton alpha
+    text = Alpha
+radiobutton 1-alpha
+    text = 1 - Alpha
+checkbutton layer_stored
+    container = group 227
+    text = Store layer
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 5

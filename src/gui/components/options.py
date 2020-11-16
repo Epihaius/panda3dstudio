@@ -1,5 +1,8 @@
 from ..base import *
-from ..dialog import *
+from ..dialogs import *
+
+
+LAYOUT_VERSION = "1.0"
 
 
 class OptionManager:
@@ -14,8 +17,8 @@ class OptionManager:
         item = gui_menu.add("gui_layout", "Layout", item_type="submenu")
         layout_menu = item.get_submenu()
         layout_menu.add("gui_layout_reset", "Reset", self.__reset_gui_layout)
-        layout_menu.add("gui_layout_load", "Load", self.__load_gui_layout)
-        layout_menu.add("gui_layout_save", "Save", self.__save_gui_layout)
+        layout_menu.add("gui_layout_load", "Load...", self.__load_gui_layout)
+        layout_menu.add("gui_layout_save", "Save...", self.__save_gui_layout)
         layout_menu.add("sep0", item_type="separator")
         item = gui_menu.add("gui_view", "Show", item_type="submenu")
         gui_view_menu = item.get_submenu()
@@ -44,8 +47,8 @@ class OptionManager:
         hotkey = ("x", mod_key_codes["ctrl"] | mod_key_codes["shift"])
         gui_view_menu.set_item_hotkey("show_none", hotkey, "Ctrl+Shift+X")
         gui_menu.add("sep0", item_type="separator")
-        item = gui_menu.add("gui_skin", "Skin", item_type="submenu")
-        command = self.__set_right_dock_side
+        item = gui_menu.add("gui_skin", "Select skin...", self.__select_skin)
+        command = self.__align_control_pane
         item = layout_menu.add("ctrl_pane_left", "Control pane left", command, item_type="check")
         self._menu_items = {"ctrl_pane_left": item}
         item = main_menu.add("tools", "Tools", item_type="submenu")
@@ -55,7 +58,7 @@ class OptionManager:
     def setup(self):
 
         layout = GD["config"]["gui_layout"]
-        self._menu_items["ctrl_pane_left"].check(layout["right_dock"] == "left")
+        self._menu_items["ctrl_pane_left"].check(layout["control_pane_alignment"] == "left")
         component_view = GD["config"]["gui_view"]
         items = self._component_view_items
 
@@ -110,11 +113,11 @@ class OptionManager:
         if component_types:
             Mgr.do("show_components", component_types, False)
 
-    def __set_right_dock_side(self):
+    def __align_control_pane(self):
 
         layout = GD["config"]["gui_layout"]
-        side = "right" if layout["right_dock"] == "left" else "left"
-        Mgr.do("set_right_dock_side", side)
+        alignment = "right" if layout["control_pane_alignment"] == "left" else "left"
+        Mgr.do("align_control_pane", alignment)
 
     def __reset_gui_layout(self):
 
@@ -127,8 +130,8 @@ class OptionManager:
             else:
                 Mgr.do("reset_layout_data", interface_id)
 
-            Mgr.do("set_right_dock_side", "right")
-            Mgr.do(f"update_{interface_id}_layout")
+            Mgr.do("align_control_pane", "right")
+            Mgr.do(f"update_{interface_id}_toolbar_layout")
             self._menu_items["ctrl_pane_left"].check(False)
 
         if interface_id == "main":
@@ -137,7 +140,7 @@ class OptionManager:
             interface_name = "UV"
 
         MessageDialog(title="Update GUI layout",
-                      message=f"Reset layout of {interface_name} interface only?",
+                      message=f"Reset toolbar layout of {interface_name} interface only?",
                       choices="yesnocancel",
                       on_yes=lambda: update_layout(of_all_interfaces=False),
                       on_no=update_layout)
@@ -154,9 +157,13 @@ class OptionManager:
                     if pickle.load(layout_file) != "Panda3D Studio GUI Layout":
                         self.__handle_load_error(filename, "id")
                         return
+                    if pickle.load(layout_file) != f"Version {LAYOUT_VERSION}":
+                        self.__handle_load_error(filename, "version")
+                        return
                     layout = pickle.load(layout_file)
                 except:
                     self.__handle_load_error(filename, "read")
+                    return
 
             def update_layout(of_all_interfaces=True):
 
@@ -164,15 +171,16 @@ class OptionManager:
                     config_data["gui_layout"] = layout
                 else:
                     config_data["gui_layout"][interface_id] = layout[interface_id]
-                    config_data["gui_layout"]["right_dock"] = layout["right_dock"]
+
+                alignment = layout["control_pane_alignment"]
+                config_data["gui_layout"]["control_pane_alignment"] = alignment
 
                 with open("config", "wb") as config_file:
                     pickle.dump(config_data, config_file, -1)
 
-                side = layout["right_dock"]
-                Mgr.do("set_right_dock_side", side)
-                Mgr.do(f"update_{interface_id}_layout")
-                self._menu_items["ctrl_pane_left"].check(side == "left")
+                Mgr.do("align_control_pane", alignment)
+                Mgr.do(f"update_{interface_id}_toolbar_layout")
+                self._menu_items["ctrl_pane_left"].check(alignment == "left")
 
             if interface_id == "main":
                 interface_name = "main"
@@ -180,7 +188,7 @@ class OptionManager:
                 interface_name = "UV"
 
             MessageDialog(title="Update GUI layout",
-                          message=f"Update layout of {interface_name} interface only?",
+                          message=f"Update toolbar layout of {interface_name} interface only?",
                           choices="yesnocancel",
                           on_yes=lambda: update_layout(of_all_interfaces=False),
                           on_no=update_layout)
@@ -202,8 +210,15 @@ class OptionManager:
                           icon_id="icon_exclamation")
         elif error_type == "id":
             MessageDialog(title="Error loading layout",
-                          message="The following file does not appear to be a valid"
+                          message="The following file does not appear to contain a valid"
                                   " layout:\n\n" + Filename(filename).to_os_specific(),
+                          choices="ok",
+                          icon_id="icon_exclamation")
+        elif error_type == "version":
+            MessageDialog(title="Error loading layout",
+                          message="The following layout file is not compatible with this"
+                                  "\nversion of the application:"
+                                  "\n\n" + Filename(filename).to_os_specific(),
                           choices="ok",
                           icon_id="icon_exclamation")
 
@@ -213,9 +228,14 @@ class OptionManager:
 
                 with open(filename, "wb") as layout_file:
                     pickle.dump("Panda3D Studio GUI Layout", layout_file, -1)
+                    pickle.dump(f"Version {LAYOUT_VERSION}", layout_file, -1)
                     pickle.dump(GD["config"]["gui_layout"], layout_file, -1)
 
         FileDialog(title="Save GUI layout",
                    ok_alias="Save", on_yes=on_yes, file_op="write",
                    incr_filename=True, file_types=("GUI layouts|p3dslayout", "All types|*"),
                    default_filename="")
+
+    def __select_skin(self):
+
+        SkinSelectionDialog()

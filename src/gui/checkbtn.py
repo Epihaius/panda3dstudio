@@ -9,35 +9,39 @@ class CheckButton(Widget):
     @classmethod
     def init(cls):
 
-        x, y, w, h = TextureAtlas["regions"]["checkmark"]
+        gfx_id = Skin.atlas.gfx_ids["checkmark"][""][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         cls._checkmark = img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
 
-        options = Skin["options"]
+        options = Skin.options
         cls._box_size = (options["checkbox_width"], options["checkbox_height"])
 
-    def __init__(self, parent, parent_type, command, mark_color, back_color,
-                 text="", text_offset=5):
+    def __init__(self, parent, mark_color, back_color, text="", text_offset=0):
 
-        Widget.__init__(self, parent_type + "_checkbutton", parent, gfx_data={})
+        container_type = parent.root_container.widget_type
+
+        Widget.__init__(self, container_type + "_checkbutton", parent, gfx_ids={})
 
         self._is_clicked = False
         self._is_checked = False
-        self._command = command
+        self._command = lambda checked: None
         self._default_mark_color = self._mark_color = mark_color
         self._default_back_color = self._back_color = back_color
         self._delay_card_update = False
+        self._text = text
         self._text_offset = text_offset
 
         if text:
-            widget_type = parent_type + "_checkbutton"
-            skin_text = Skin["text"][widget_type]
+            widget_type = container_type + "_checkbutton"
+            skin_text = Skin.text[widget_type]
             font = skin_text["font"]
             color = skin_text["color"]
             self._label = label = font.create_image(text, color)
-            color = Skin["colors"][f"disabled_{widget_type}_text"]
+            color = Skin.colors[f"disabled_{widget_type}_text"]
             self._label_disabled = font.create_image(text, color)
-            x, y, w, h = TextureAtlas["regions"][parent_type + "_checkbox"]
+            gfx_id = Skin.atlas.gfx_ids["checkbox"][container_type][0][0]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
             l, _, b, t = self._btn_borders
             w_l, h_l = label.size
             w += text_offset + w_l - l
@@ -48,15 +52,14 @@ class CheckButton(Widget):
             self.set_size(self._box_size, is_min=True)
 
         if not text:
-            widget_type = parent_type + "_checkbox"
-            l, r, b, t = TextureAtlas["outer_borders"][widget_type]
+            l, r, b, t = Skin.atlas.outer_borders[container_type + "_checkbox"]
             btn_borders = (l, r, b, t)
             img_offset = (-l, -t)
         elif "\n" in text:
-            l, _, b, t = TextureAtlas["outer_borders"][parent_type + "_checkbox"]
-            font = Skin["text"][parent_type + "_checkbutton"]["font"]
+            l, _, b, t = Skin.atlas.outer_borders[container_type + "_checkbox"]
+            font = Skin.text[container_type + "_checkbutton"]["font"]
             h_f = font.get_height() * (text.count("\n") + 1)
-            h = Skin["options"]["checkbox_height"]
+            h = Skin.options["checkbox_height"]
             dh = max(0, h_f - h) // 2
             b = max(0, b - dh)
             t = max(0, t - dh)
@@ -73,7 +76,88 @@ class CheckButton(Widget):
 
         Widget.destroy(self)
 
-        self._command = lambda: None
+        self._command = lambda checked: None
+
+    def get_text(self):
+
+        return self._text
+
+    def set_text(self, text):
+
+        if self._text == text:
+            return False
+
+        self._text = text
+        container_type = self.root_container.widget_type
+
+        if text:
+            widget_type = container_type + "_checkbutton"
+            skin_text = Skin.text[widget_type]
+            font = skin_text["font"]
+            color = skin_text["color"]
+            self._label = label = font.create_image(text, color)
+            color = Skin.colors[f"disabled_{widget_type}_text"]
+            self._label_disabled = font.create_image(text, color)
+            gfx_id = Skin.atlas.gfx_ids["checkbox"][container_type][0][0]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
+            l, _, b, t = self._btn_borders
+            w_l, h_l = label.size
+            w += self._text_offset + w_l - l
+            h = max(h - b - t, h_l)
+            self.set_size((w, h), is_min=True)
+        else:
+            self._label = self._label_disabled = None
+            self.set_size(self._box_size, is_min=True)
+
+        if not text:
+            widget_type = container_type + "_checkbox"
+            l, r, b, t = Skin.atlas.outer_borders[widget_type]
+            btn_borders = (l, r, b, t)
+            img_offset = (-l, -t)
+        elif "\n" in text:
+            l, _, b, t = Skin.atlas.outer_borders[container_type + "_checkbox"]
+            font = Skin.text[container_type + "_checkbutton"]["font"]
+            h_f = font.get_height() * (text.count("\n") + 1)
+            h = Skin.options["checkbox_height"]
+            dh = max(0, h_f - h) // 2
+            b = max(0, b - dh)
+            t = max(0, t - dh)
+            btn_borders = (l, 0, b, t)
+            img_offset = (-l, -t)
+        else:
+            btn_borders = self._btn_borders
+            img_offset = self._img_offset
+
+        self.outer_borders = btn_borders
+        self.image_offset = img_offset
+        self.create_base_image()
+
+        return True
+
+    def set_text_offset(self, text_offset):
+
+        if self._text_offset == text_offset:
+            return False
+
+        if self._text:
+            w, h = self.get_size()
+            w += text_offset - self._text_offset
+            self.set_size((w, h), is_min=True)
+
+        self._text_offset = text_offset
+        self.create_base_image()
+
+        return True
+
+    @property
+    def command(self):
+
+        return self._command
+
+    @command.setter
+    def command(self, command):
+
+        self._command = command if command else lambda checked: None
 
     def delay_card_update(self, delay=True):
 
@@ -94,13 +178,15 @@ class CheckButton(Widget):
         if not (image and parent):
             return
 
+        img_offset_x, img_offset_y = self.image_offset
+
         if self._label:
 
             x, y = self.get_pos()
             w, h = self.get_size()
-            img_offset_x, img_offset_y = self.image_offset
             w -= img_offset_x
             h -= img_offset_y
+            x += img_offset_x
             y += img_offset_y
             img = PNMImage(w, h, 4)
             parent_img = parent.get_image(composed=False)
@@ -114,7 +200,6 @@ class CheckButton(Widget):
         else:
 
             w, h = image.size
-            img_offset_x, img_offset_y = self.image_offset
             self.card.copy_sub_image(self, image, w, h, img_offset_x, img_offset_y)
 
     def __update_card_image(self):

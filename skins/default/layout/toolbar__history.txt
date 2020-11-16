@@ -1,0 +1,26 @@
+title = History
+default_size = 0 0
+button undo
+    container = toolbar
+    icon_id = icon_undo
+    text = 
+    tooltip_text = Undo
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button redo
+    container = toolbar
+    icon_id = icon_redo
+    text = 
+    tooltip_text = Redo
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button edit
+    container = toolbar
+    icon_id = icon_hist
+    text = 
+    tooltip_text = Edit history...
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0

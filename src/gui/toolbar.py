@@ -12,11 +12,12 @@ class ToolbarInsertionMarker:
         self._type = ""
         self._cards = cards = {}
         cm = CardMaker("insertion_marker")
-        tex_atlas_regions = TextureAtlas["regions"]
-        tex_atlas = TextureAtlas["image"]
+        tex_atlas_regions = Skin.atlas.regions
+        tex_atlas = Skin.atlas.image
+        gfx_ids = Skin.atlas.gfx_ids["toolbar_insertion_marker"]
 
         for marker_type in ("v", "h", "+"):
-            x, y, w, h = tex_atlas_regions[f"toolbar_insertion_marker_{marker_type}"]
+            x, y, w, h = tex_atlas_regions[gfx_ids[marker_type][0][0]]
             img = PNMImage(w, h, 4)
             img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
             tex = Texture("card_tex")
@@ -72,9 +73,10 @@ class ToolbarGhostImage:
 
     def __init__(self, toolbar_image):
 
-        x, y, w, h = TextureAtlas["regions"]["toolbar_fade"]
+        gfx_id = Skin.atlas.gfx_ids["toolbar"]["ghost"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
         img = PNMImage(w, h, 4)
-        img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+        img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
         width, height = toolbar_image.size
         image = PNMImage(width, height, 4)
         image.unfiltered_stretch_from(img)
@@ -106,8 +108,6 @@ class ToolbarGhostImage:
 
 class ToolbarBundleHandle(Widget):
 
-    _gfx = {"": (("toolbar_bundle_handle_left", "toolbar_bundle_handle_center",
-                  "toolbar_bundle_handle_right"),)}
     _grip_tooltip_label = None
     width = 0
 
@@ -128,7 +128,9 @@ class ToolbarBundleHandle(Widget):
 
     def __init__(self, parent, bundle):
 
-        Widget.__init__(self, "toolbar_bundle_handle", parent, self._gfx)
+        gfx_ids = {"": Skin.atlas.gfx_ids["toolbar"]["bundle_handle"]}
+
+        Widget.__init__(self, "toolbar_bundle_handle", parent, gfx_ids)
 
         if not self._grip_tooltip_label:
             self.__create_grip_tooltip_label()
@@ -140,14 +142,14 @@ class ToolbarBundleHandle(Widget):
 
         sizer = Sizer("horizontal")
         self.sizer = sizer
-        sizer.add((0, 0), proportion=1.)
+        sizer.add((0, 0), proportions=(1., 0.))
         spinner_sizer = Sizer("vertical")
-        borders = TextureAtlas["outer_borders"]["toolbar_spinner"]
-        sizer.add(spinner_sizer, expand=True, borders=borders)
+        borders = Skin.atlas.outer_borders["toolbar_spinner"]
+        sizer.add(spinner_sizer, proportions=(0., 1.), borders=borders)
         spin_up_btn = ToolbarSpinButton(self, bundle, "up")
         spin_down_btn = ToolbarSpinButton(self, bundle, "down")
         spinner_sizer.add(spin_up_btn)
-        spinner_sizer.add((0, 0), proportion=1.)
+        spinner_sizer.add((0, 0), proportions=(0., 1.))
         spinner_sizer.add(spin_down_btn)
         width = sizer.update_min_size()[0]
 
@@ -162,14 +164,12 @@ class ToolbarBundleHandle(Widget):
             return
 
         l, r, b, t = self.mouse_region.frame
-        borders = TextureAtlas["outer_borders"]["toolbar_spinner"]
+        borders = Skin.atlas.outer_borders["toolbar_spinner"]
         self.mouse_region.frame = (r - borders[1], r, b, t)
 
 
 class ToolbarRowHandle(Widget):
 
-    _gfx = {"": (("toolbar_row_handle_left", "toolbar_row_handle_center",
-                  "toolbar_row_handle_right"),)}
     _grip_tooltip_label = None
     min_width_in_bundle = 0
 
@@ -190,7 +190,9 @@ class ToolbarRowHandle(Widget):
 
     def __init__(self, row, parent):
 
-        Widget.__init__(self, "toolbar_row_handle", parent, self._gfx)
+        gfx_ids = {"": Skin.atlas.gfx_ids["toolbar"]["row_handle"]}
+
+        Widget.__init__(self, "toolbar_row_handle", parent, gfx_ids)
 
         if not self._grip_tooltip_label:
             self.__create_grip_tooltip_label()
@@ -201,7 +203,7 @@ class ToolbarRowHandle(Widget):
 
         sizer = Sizer("horizontal")
         self.sizer = sizer
-        sizer.add((0, 0), proportion=1.)
+        sizer.add((0, 0), proportions=(1., 0.))
         handle_id = self.widget_id
         mouse_watcher = self.mouse_watcher
         region_name = f"tb_row_grip_{handle_id}"
@@ -227,7 +229,8 @@ class ToolbarRowHandle(Widget):
 
         self._row = None
 
-    def get_row(self):
+    @property
+    def row(self):
 
         return self._row
 
@@ -237,14 +240,14 @@ class ToolbarRowHandle(Widget):
         sizer.add(bundle_handle)
         bundle_handle.set_parent(self)
         sizer.set_size(sizer.get_size())
-        sizer.calculate_positions()
+        sizer.update_positions()
         self._has_bundle_handle = True
 
     def pop_bundle_handle(self):
 
         self._has_bundle_handle = False
 
-        return self.sizer.pop_item().object
+        return self.sizer.pop_cell().object
 
     def has_bundle_handle(self):
 
@@ -262,7 +265,7 @@ class ToolbarRowHandle(Widget):
             return
 
         l, r, b, t = self.mouse_region.frame
-        borders = TextureAtlas["outer_borders"]["toolbar_spinner"]
+        borders = Skin.atlas.outer_borders["toolbar_spinner"]
         self._grip_mouse_region.frame = (l, l + borders[1], b, t)
 
     def update_mouse_region_frames(self, exclude="", recurse=True):
@@ -286,17 +289,17 @@ class ToolbarRowHandle(Widget):
             w_row = self._row.get_size()[0]
 
             if b + h * .7 < -y < t:
-                side = "top"
+                alignment = "top"
             elif b < -y < t - h * .7:
-                side = "bottom"
+                alignment = "bottom"
             else:
-                side = "center"
+                alignment = "center"
 
             positions = {"bottom": (w_row // 2, b), "top": (w_row // 2, t),
                          "center": ((l + r) // 2, (b + t) // 2)}
-            widget = self if side == "center" else self._row[0]
+            widget = self if alignment == "center" else self._row[0]
 
-            return widget, side, positions[side]
+            return widget, alignment, positions[alignment]
 
     def destroy_ghost_image(self):
 
@@ -373,7 +376,8 @@ class ToolbarRow:
         if self._bundle:
             self._bundle.set_parent(self, parent)
 
-    def get_handle(self):
+    @property
+    def handle(self):
 
         return self._handle
 
@@ -419,7 +423,8 @@ class ToolbarRow:
         if self._bundle:
             self._bundle.remove_menu_item(self, toolbar)
 
-    def get_toolbar_names(self):
+    @property
+    def toolbar_names(self):
 
         return [toolbar.name for toolbar in self._toolbars]
 
@@ -427,17 +432,20 @@ class ToolbarRow:
 
         return self._tooltip_label
 
-    def set_bundle(self, bundle):
-
-        self._bundle = bundle
-
-    def get_bundle(self):
+    @property
+    def bundle(self):
 
         if not self._bundle:
             self._bundle = ToolbarBundle(self)
 
         return self._bundle
 
+    @bundle.setter
+    def bundle(self, bundle):
+
+        self._bundle = bundle
+
+    @property
     def in_bundle(self):
 
         return self._bundle is not None
@@ -543,11 +551,12 @@ class ToolbarRow:
 class Toolbar(Widget, HotkeyManager):
 
     registry = {}
-    _gfx = {"": (("toolbar_left", "toolbar_center", "toolbar_right"),)}
 
     def __init__(self, parent, toolbar_id, name=""):
 
-        Widget.__init__(self, "toolbar", parent, self._gfx)
+        gfx_ids = {"": Skin.atlas.gfx_ids["toolbar"][""]}
+
+        Widget.__init__(self, "toolbar", parent, gfx_ids, is_root_container=True)
 
         self.registry[toolbar_id] = self
         self.id = toolbar_id
@@ -556,10 +565,12 @@ class Toolbar(Widget, HotkeyManager):
         self._row = None
         sizer = Sizer("horizontal")
         self.sizer = sizer
+        sizer.set_row_proportion(0, 1.)
         self._client_sizer = client_sizer = Sizer("horizontal")
-        client_sizer.add((10, 0))
-        borders = self.gfx_inner_borders
-        sizer.add(client_sizer, borders=borders, proportion=1., expand=True)
+        client_sizer.set_row_proportion(0, 1.)
+        l, r, b, t = self.gfx_inner_borders
+        borders = (l + Skin.options["toolbar_margin"], r, b, t)
+        sizer.add(client_sizer, borders=borders)
         region_name = f"toolbar_grip_{self.widget_id}"
         self._grip_mouse_region = MouseWatcherRegion(region_name, 0., 0., 0., 0.)
         self.mouse_watcher.add_region(self._grip_mouse_region)
@@ -568,51 +579,32 @@ class Toolbar(Widget, HotkeyManager):
         self._hotkey_handlers = {}
         self._interface_id = ""
 
-    def destroy(self):
+    def update_grip_tooltip_label(self):
 
-        self.mouse_watcher.remove_region(self._grip_mouse_region)
-        self._grip_mouse_region = None
-
-        Widget.destroy(self)
-
-        self._row = None
-        self._hotkeys = {}
+        self._grip_tooltip_label = ToolTip.create_label(f"Move {self.name} toolbar")
 
     def get_grip_tooltip_label(self):
 
         return self._grip_tooltip_label
 
-    def set_row(self, row):
-
-        self._row = row
-
-    def get_row(self):
+    @property
+    def row(self):
 
         return self._row
 
-    def get_client_sizer(self):
+    @row.setter
+    def row(self, row):
+
+        self._row = row
+
+    @property
+    def client_sizer(self):
 
         return self._client_sizer
 
-    def add(self, *args, **kwargs):
-
-        return self._client_sizer.add(*args, **kwargs)
-
-    def add_item(self, *args, **kwargs):
-
-        self._client_sizer.add_item(*args, **kwargs)
-
-    def remove_item(self, *args, **kwargs):
-
-        self._client_sizer.remove_item(*args, **kwargs)
-
-    def pop_item(self, *args, **kwargs):
-
-        return self._client_sizer.pop_item(*args, **kwargs)
-
     def set_size(self, size, includes_borders=True, is_min=False):
 
-        if not self.sizer.item_size_locked:
+        if not self.sizer.cell_size_locked:
             Widget.set_size(self, size, includes_borders, is_min)
 
     def get_image(self, state=None, composed=True):
@@ -657,10 +649,10 @@ class Toolbar(Widget, HotkeyManager):
 
     def update_images(self, recurse=True, size=None):
 
-        if not self.sizer.item_size_locked:
+        if not self.sizer.cell_size_locked:
             Widget.update_images(self, recurse, size)
             self._composed_image = Widget.get_image(self)
-            self.sizer.item_size_locked = True
+            self.sizer.cell_size_locked = True
 
     def update_mouse_region_frames(self, exclude="", recurse=True):
 
@@ -682,18 +674,18 @@ class Toolbar(Widget, HotkeyManager):
             w_row = self._row.get_size()[0]
 
             if b + h * .7 < -y < t:
-                side = "top"
+                alignment = "top"
             elif b < -y < t - h * .7:
-                side = "bottom"
+                alignment = "bottom"
             elif l < x < r - w * .5:
-                side = "left"
+                alignment = "left"
             else:
-                side = "right"
+                alignment = "right"
 
             positions = {"left": (l, (b + t) // 2), "right": (r, (b + t) // 2),
                          "bottom": (w_row // 2, b), "top": (w_row // 2, t)}
 
-            return self, side, positions[side]
+            return self, alignment, positions[alignment]
 
     def __update_ghost_image(self, task):
 
@@ -790,10 +782,10 @@ class ToolbarBundle:
 
         for toolbar in toolbar_row:
             toolbar_id = toolbar.id
-            command = self.__get_menu_command(toolbar_id)
+            command = lambda i=toolbar_id: self.__set_top_toolbar_row(i)
             menu.add(f"toolbar_{toolbar_id}", toolbar.name, command, item_type="radio")
 
-        row_handle = toolbar_row.get_handle()
+        row_handle = toolbar_row.handle
         row_handle.adjust_default_size(in_bundle=True)
         bundle_handle = ToolbarBundleHandle(row_handle, self)
         row_handle.set_bundle_handle(bundle_handle)
@@ -812,27 +804,23 @@ class ToolbarBundle:
         if not self._toolbar_rows:
             return
 
-        self._toolbar_rows[-1].get_handle().pop_bundle_handle().destroy()
+        self._toolbar_rows[-1].handle.pop_bundle_handle().destroy()
         self._toolbar_rows.clear()
         self._menu.destroy()
         self._menu = None
 
-    def __get_menu_command(self, toolbar_id):
+    def __set_top_toolbar_row(self, toolbar_id):
 
-        def command():
-
-            toolbar = Toolbar.registry[toolbar_id]
-            index = list(self._toolbar_rows).index(toolbar.get_row())
-            self.spin_toolbar_rows(len(self._toolbar_rows) - 1 - index)
-
-        return command
+        toolbar = Toolbar.registry[toolbar_id]
+        index = list(self._toolbar_rows).index(toolbar.row)
+        self.spin_toolbar_rows(len(self._toolbar_rows) - 1 - index)
 
     def add_menu_item(self, row, index_offset, toolbar):
 
         menu = self._menu
         index = menu.get_item_index(f"toolbar_{row[0].id}") + index_offset
         toolbar_id = toolbar.id
-        command = self.__get_menu_command(toolbar_id)
+        command = lambda: self.__set_top_toolbar_row(toolbar_id)
         item_id = f"toolbar_{toolbar_id}"
         menu.add(item_id, toolbar.name, command, item_type="radio", index=index, update=True)
 
@@ -843,7 +831,7 @@ class ToolbarBundle:
 
         for toolbar in toolbars[::-1]:
             toolbar_id = toolbar.id
-            command = self.__get_menu_command(toolbar_id)
+            command = lambda i=toolbar_id: self.__set_top_toolbar_row(i)
             item_id = f"toolbar_{toolbar_id}"
             menu.add(item_id, toolbar.name, command, item_type="radio", index=index)
 
@@ -866,7 +854,7 @@ class ToolbarBundle:
 
         for other_row in other_rows:
 
-            handle = other_row.get_handle()
+            handle = other_row.handle
             show = not handle.is_hidden()
             handle.set_parent(parent, show)
 
@@ -880,24 +868,24 @@ class ToolbarBundle:
             return
 
         prev_row = self._toolbar_rows[-1]
-        handle = prev_row.get_handle()
+        handle = prev_row.handle
         bundle_handle = handle.pop_bundle_handle()
-        row_sizer = handle.sizer_item.sizer
+        row_sizer = handle.sizer_cell.sizer
         row_sizer.clear()
         prev_row.hide()
 
-        if toolbar_row.in_bundle():
-            row_deque = toolbar_row.get_bundle().get_toolbar_rows()
+        if toolbar_row.in_bundle:
+            row_deque = toolbar_row.bundle.get_toolbar_rows()
             toolbar_rows = list(row_deque)
             row_deque.clear()
             # remove the handle from the added bundle, since it will be replaced with the one
             # belonging to this bundle
-            toolbar_row.get_handle().pop_bundle_handle().destroy()
+            toolbar_row.handle.pop_bundle_handle().destroy()
         else:
             toolbar_rows = [toolbar_row]
 
         self._toolbar_rows.extend(toolbar_rows)
-        toolbar_row.get_handle().set_bundle_handle(bundle_handle)
+        toolbar_row.handle.set_bundle_handle(bundle_handle)
 
         for other_row in toolbar_rows[:-1]:
             other_row.hide()
@@ -908,27 +896,27 @@ class ToolbarBundle:
 
         for row in toolbar_rows:
 
-            row.set_bundle(self)
-            handle = row.get_handle()
+            row.bundle = self
+            handle = row.handle
             show = not handle.is_hidden()
             handle.set_parent(parent, show)
 
             for toolbar in row[::-1]:
                 toolbar_id = toolbar.id
-                command = self.__get_menu_command(toolbar_id)
+                command = lambda i=toolbar_id: self.__set_top_toolbar_row(i)
                 item_id = f"toolbar_{toolbar_id}"
                 menu.add(item_id, toolbar.name, command, item_type="radio", index=index)
                 show = not toolbar.is_hidden()
                 toolbar.set_parent(parent, show)
 
         for toolbar in toolbar_row:
-            row_sizer.add_item(toolbar.sizer_item)
+            row_sizer.add_cell(toolbar.sizer_cell)
 
         for row in self._toolbar_rows:
-            row.get_handle().adjust_default_size(in_bundle=True)
-            size = row.get_handle().sizer.default_size
+            row.handle.adjust_default_size(in_bundle=True)
+            size = row.handle.sizer.default_size
 
-        row_sizer.add_item(toolbar_row.get_handle().sizer_item)
+        row_sizer.add_cell(toolbar_row.handle.sizer_cell)
 
         menu.update()
         menu.check_radio_item(f"toolbar_{toolbar_row[0].id}")
@@ -937,31 +925,31 @@ class ToolbarBundle:
 
         prev_row = self._toolbar_rows[-1]
         next_row = self._toolbar_rows[-2]
-        prev_row.set_bundle(None)
+        prev_row.bundle = None
         next_row.show()
 
-        prev_row.get_handle().adjust_default_size()
-        row_sizer = prev_row.get_handle().sizer_item.sizer
+        prev_row.handle.adjust_default_size()
+        row_sizer = prev_row.handle.sizer_cell.sizer
         row_sizer.clear()
 
         for toolbar in next_row:
-            sizer_item = toolbar.sizer_item
-            row_sizer.add_item(sizer_item)
+            sizer_cell = toolbar.sizer_cell
+            row_sizer.add_cell(sizer_cell)
 
-        sizer_item = next_row.get_handle().sizer_item
-        row_sizer.add_item(sizer_item)
+        sizer_cell = next_row.handle.sizer_cell
+        row_sizer.add_cell(sizer_cell)
 
         if len(self._toolbar_rows) == 2:
 
-            next_row.set_bundle(None)
-            next_row.get_handle().adjust_default_size()
+            next_row.bundle = None
+            next_row.handle.adjust_default_size()
             self.destroy()
 
         else:
 
             self._toolbar_rows.pop()
-            bundle_handle = prev_row.get_handle().pop_bundle_handle()
-            next_row.get_handle().set_bundle_handle(bundle_handle)
+            bundle_handle = prev_row.handle.pop_bundle_handle()
+            next_row.handle.set_bundle_handle(bundle_handle)
 
             menu = self._menu
 
@@ -989,14 +977,14 @@ class ToolbarBundle:
         def add_toolbar_row(sizer, row):
 
             for toolbar in row:
-                sizer.add_item(toolbar.sizer_item)
+                sizer.add_cell(toolbar.sizer_cell)
 
-            sizer.add_item(row.get_handle().sizer_item)
+            sizer.add_cell(row.handle.sizer_cell)
             row.show(recurse=False)
 
         other_rows = list(self._toolbar_rows)
         other_rows.remove(toolbar_row)
-        row_sizer = toolbar_row.get_handle().sizer_item.sizer
+        row_sizer = toolbar_row.handle.sizer_cell.sizer
         remove_toolbar_row(row_sizer, toolbar_row)
         size = toolbar_row.get_size()
 
@@ -1004,7 +992,7 @@ class ToolbarBundle:
             add_toolbar_row(row_sizer, other_row)
             row_sizer.update_min_size()
             row_sizer.set_size(size)
-            row_sizer.calculate_positions(row_sizer.get_pos())
+            row_sizer.update_positions(row_sizer.get_pos())
             row_sizer.update_images()
             row_sizer.update_mouse_region_frames()
             remove_toolbar_row(row_sizer, other_row)
@@ -1022,19 +1010,19 @@ class ToolbarBundle:
         if next_row == prev_row:
             w, h = next_row.get_size()
             image = next_row.get_image()
-            next_row.get_handle().card.copy_sub_image(next_row, image, w, h)
+            next_row.handle.card.copy_sub_image(next_row, image, w, h)
             return
 
-        handle = prev_row.get_handle()
-        row_sizer = handle.sizer_item.sizer
+        handle = prev_row.handle
+        row_sizer = handle.sizer_cell.sizer
         row_sizer.clear()
         bundle_handle = handle.pop_bundle_handle()
 
         for toolbar in next_row:
-            row_sizer.add_item(toolbar.sizer_item)
+            row_sizer.add_cell(toolbar.sizer_cell)
 
-        handle = next_row.get_handle()
-        row_sizer.add_item(handle.sizer_item)
+        handle = next_row.handle
+        row_sizer.add_cell(handle.sizer_cell)
         prev_row.hide()
         next_row.show()
         handle.set_bundle_handle(bundle_handle)
@@ -1046,9 +1034,9 @@ class ToolbarBundle:
         self._menu.check_radio_item(f"toolbar_{toolbar.id}")
 
         config_data = GD["config"]
-        side = toolbar.parent.get_side()
+        alignment = toolbar.parent.alignment
         toolbar_id = toolbar.id
-        toolbar_id_lists = config_data["gui_layout"][GD["active_interface"]][side]
+        toolbar_id_lists = config_data["gui_layout"]["toolbars"][GD["active_interface"]][alignment]
 
         for toolbar_id_list in toolbar_id_lists:
             if toolbar_id_list and toolbar_id in sum(toolbar_id_list, []):
@@ -1063,7 +1051,7 @@ class ToolbarBundle:
         rows = deque(self._toolbar_rows)
         rows.rotate(amount)
         row = rows[-1]
-        row.get_handle().card.copy_sub_image(row, row.get_image(), *row.get_size())
+        row.handle.card.copy_sub_image(row, row.get_image(), *row.get_size())
 
     def get_min_width(self):
 
@@ -1077,4 +1065,4 @@ class ToolbarBundle:
 __all__ = ("Toolbar", "ToolbarRow", "ToolbarText", "ToolbarInsertionMarker",
            "ToolbarSeparator", "ToolbarButton", "ToolbarInputField",
            "ToolbarSliderField", "ToolbarSpinnerField", "ToolbarMultiValField",
-           "ToolbarComboBox", "ToolbarCheckButton", "ToolbarColorBox")
+           "ToolbarComboBox", "ToolbarCheckButton", "ToolbarColorBox", "GridSpacingBox")

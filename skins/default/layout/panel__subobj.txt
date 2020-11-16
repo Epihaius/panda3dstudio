@@ -1,0 +1,412 @@
+title = Subobject level
+default_size = 0 0
+panel_container top
+    default_size = 0 0
+sizer 145
+    container = panel_container top
+    name = subobject levels
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 5 5
+    row_proportions = 
+    column_proportions = 0:1.0 1:1.0
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 5 5 10 10
+button vert
+    container = sizer 145
+    icon_id = 
+    text = Vertex
+    tooltip_text = Vertex level
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button edge
+    container = sizer 145
+    icon_id = 
+    text = Edge
+    tooltip_text = Edge level
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button poly
+    container = sizer 145
+    icon_id = 
+    text = Polygon
+    tooltip_text = Polygon level
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button part
+    container = sizer 145
+    icon_id = 
+    text = Prim. part
+    tooltip_text = Primitive part level
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+panel_section uv_vert_props
+    title = Vertices
+    default_size = 0 0
+    hidden = 0
+sizer 152
+    container = panel_section uv_vert_props
+    name = pick verts via poly
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton pick_vert_via_poly
+    container = sizer 152
+    text = Pick via polygon
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+space 154
+    container = sizer 152
+    name = space 1
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton pick_vert_by_aiming
+    container = sizer 152
+    text = aim
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+space 156
+    container = sizer 152
+    name = space 2
+    size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button break_verts
+    container = panel_section uv_vert_props
+    icon_id = 
+    text = Break
+    tooltip_text = Break selected vertices
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 10
+panel_section uv_edge_props
+    title = Edges
+    default_size = 0 0
+    hidden = 0
+sizer 160
+    container = panel_section uv_edge_props
+    name = pick edges via poly
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton pick_edge_via_poly
+    container = sizer 160
+    text = Pick via polygon
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+space 162
+    container = sizer 160
+    name = space 3
+    size = 10 0
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton pick_edge_by_aiming
+    container = sizer 160
+    text = aim
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+space 164
+    container = sizer 160
+    name = space 4
+    size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+checkbutton sel_edges_by_seam
+    container = panel_section uv_edge_props
+    text = Select by seam
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+sizer 166
+    container = panel_section uv_edge_props
+    name = split /stitch edges
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+button split_edges
+    container = sizer 166
+    icon_id = 
+    text = Split
+    tooltip_text = Split selected edges
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button stitch_edges
+    container = sizer 166
+    icon_id = 
+    text = Stitch
+    tooltip_text = Stitch selected seam edges
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+panel_section uv_poly_props
+    title = Polygons
+    default_size = 0 0
+    hidden = 0
+checkbutton sel_polys_by_cluster
+    container = panel_section uv_poly_props
+    text = Select by cluster
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+sizer 173
+    container = panel_section uv_poly_props
+    name = detach/stitch polys
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+button detach_polys
+    container = sizer 173
+    icon_id = 
+    text = Detach
+    tooltip_text = Detach selected polygons
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+button stitch_polys
+    container = sizer 173
+    icon_id = 
+    text = Stitch
+    tooltip_text = Stitch selected polygon seam edges
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+group 177
+    container = panel_section uv_poly_props
+    title = Color
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+text -
+    container = group 177
+    text = Unselected
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 5 0
+sizer 180
+    container = group 177
+    name = unselected poly color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+text -
+    container = sizer 180
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox unselected_poly_rgb
+    container = sizer 180
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = sizer 180
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field unselected_poly_alpha
+    container = sizer 180
+    field_type = input_slider
+    width = 50
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = group 177
+    text = Selected
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 10
+sizer 186
+    container = group 177
+    name = selected poly color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+text -
+    container = sizer 186
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox selected_poly_rgb
+    container = sizer 186
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = sizer 186
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field selected_poly_alpha
+    container = sizer 186
+    field_type = input_slider
+    width = 50
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+panel_section uv_part_props
+    title = Primitive parts
+    default_size = 0 0
+    hidden = 0
+button reset_part_uvs
+    container = panel_section uv_part_props
+    icon_id = 
+    text = Reset UVs to defaults
+    tooltip_text = Reset UVs of selected parts to their default values
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 0
+group 194
+    container = panel_section uv_part_props
+    title = Color
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 10
+text -
+    container = group 194
+    text = Unselected
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+sizer 197
+    container = group 194
+    name = unselected part color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+text -
+    container = sizer 197
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox unselected_part_rgb
+    container = sizer 197
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = sizer 197
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field unselected_part_alpha
+    container = sizer 197
+    field_type = input_slider
+    width = 50
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = group 194
+    text = Selected
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 10
+sizer 203
+    container = group 194
+    name = selected part color
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 5
+text -
+    container = sizer 203
+    text = RGB:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+colorbox selected_part_rgb
+    container = sizer 203
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+text -
+    container = sizer 203
+    text = Alpha:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+field selected_part_alpha
+    container = sizer 203
+    field_type = input_slider
+    width = 50
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0

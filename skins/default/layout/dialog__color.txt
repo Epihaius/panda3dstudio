@@ -1,0 +1,256 @@
+name = Color
+title = -
+default_size = 0 0
+sizer 2
+    container = dialog
+    name = main
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 3
+    container = sizer 2
+    name = swatches
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 20 20 10 20
+text -
+    container = sizer 3
+    text = Basic colors:
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+basic_color_swatches -
+    container = sizer 3
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 20 0
+text -
+    container = sizer 3
+    text = Custom colors:
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+custom_color_swatches -
+    container = sizer 3
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 5 0
+button add_new
+    container = sizer 3
+    icon_id = 
+    text = Add New
+    tooltip_text = 
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 0
+sizer 9
+    container = sizer 2
+    name = controls
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 0 0
+sizer 10
+    container = sizer 9
+    name = gradients
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 20 20 10 20
+hue_sat_control -
+    container = sizer 10
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+lum_control -
+    container = sizer 10
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 20 0 0 0
+sizer 13
+    container = sizer 10
+    name = new & current colors
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 20 0 0 0
+text -
+    container = sizer 13
+    text = New
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 0
+new_swatch -
+    container = sizer 13
+    proportions = 0.0 1.0
+    alignments = min expand
+    borders = 0 0 0 0
+text -
+    container = sizer 13
+    text = Current
+    proportions = 0.0 0.0
+    alignments = center min
+    borders = 0 0 0 5
+current_swatch -
+    container = sizer 13
+    proportions = 0.0 1.0
+    alignments = min expand
+    borders = 0 0 0 0
+sizer 18
+    container = sizer 9
+    name = sliders
+    prim_dir = horizontal
+    prim_limit = 4
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 1:1.0 3:1.0
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand min
+    borders = 20 20 10 0
+text -
+    container = sizer 18
+    text = R:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field red
+    container = sizer 18
+    field_type = input_spinner_slider
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 18
+    text = H:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 15 0 0 0
+field hue
+    container = sizer 18
+    field_type = input_spinner_slider
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 18
+    text = G:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field green
+    container = sizer 18
+    field_type = input_spinner_slider
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 18
+    text = S:
+    proportions = 0.0 0.0
+    alignments = max center
+    borders = 0 0 0 0
+field sat
+    container = sizer 18
+    field_type = input_spinner_slider
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 18
+    text = B:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+field blue
+    container = sizer 18
+    field_type = input_spinner_slider
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+text -
+    container = sizer 18
+    text = L:
+    proportions = 0.0 0.0
+    alignments = max center
+    borders = 0 0 0 0
+field lum
+    container = sizer 18
+    field_type = input_spinner_slider
+    width = 100
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+sizer 31
+    container = sizer 9
+    name = RGB range
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 20 20 20 0
+text -
+    container = sizer 31
+    text = RGB range:
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+radiobuttongroup rgb_range
+    container = sizer 31
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 10 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+radiobutton 255
+    text = 0-255
+radiobutton 1
+    text = 0-1
+#
+OPTIONS
+#
+colorgradient_width             int     256
+colorgradient_height            int     256
+small_colorswatch_width         int     30
+small_colorswatch_height        int     20
+large_colorswatch_width         int     60
+large_colorswatch_height        int     30

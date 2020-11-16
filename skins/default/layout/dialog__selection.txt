@@ -1,0 +1,344 @@
+name = Selection
+title = -
+default_size = 0 0
+sizer 995
+    container = dialog
+    name = main
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+sizer 996
+    container = sizer 995
+    name = search & select
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 1.0
+    alignments = expand expand
+    borders = 20 20 0 20
+group 997
+    container = sizer 996
+    title = Find
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+sizer 999
+    container = group 997
+    name = search options
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 2 0
+sizer 1000
+    container = sizer 999
+    name = checkbtns
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 20 0 0
+checkbutton in_sel
+    container = sizer 1000
+    text = In selection
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 2 0
+checkbutton match_case
+    container = sizer 1000
+    text = Match case
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 0 0 0 0
+radiobuttongroup name_part
+    container = sizer 999
+    prim_dir = horizontal
+    prim_limit = 2
+    gaps = 10 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0
+radiobutton start
+    text = Start of name
+radiobutton end
+    text = End of name
+radiobutton sub
+    text = Substring
+radiobutton whole
+    text = Whole name
+sizer 1008
+    container = group 997
+    name = search
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand min
+    borders = 0 0 0 0
+field search
+    container = sizer 1008
+    field_type = input
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+button find_next
+    container = sizer 1008
+    icon_id = 
+    text = Next
+    tooltip_text = 
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 5 0 0 0
+    component_id = single-select
+placeholder pane
+    container = sizer 996
+    size = 300 300
+    proportions = 1.0 1.0
+    alignments = expand expand
+    borders = 0 0 0 10
+sizer 1208
+    container = sizer 996
+    name = object selection
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 5
+    component_id = multi-select
+button select_all
+    container = sizer 1208
+    icon_id = 
+    text = All
+    tooltip_text = 
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = multi-select
+button select_none
+    container = sizer 1208
+    icon_id = 
+    text = None
+    tooltip_text = 
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = multi-select
+button select_inverse
+    container = sizer 1208
+    icon_id = 
+    text = Invert
+    tooltip_text = 
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = multi-select
+sizer 1012
+    container = sizer 995
+    name = sort & types
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 10
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 1.0
+    alignments = expand expand
+    borders = 0 20 0 20
+group 1013
+    container = sizer 1012
+    title = Sort by
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+sizer 1015
+    container = group 1013
+    name = sort
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+radiobuttongroup sort
+    container = sizer 1015
+    prim_dir = vertical
+    prim_limit = 0
+    gaps = 0 0
+    expand = 0
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+radiobutton name
+    text = Name
+radiobutton type
+    text = Type
+checkbutton sort_case
+    container = sizer 1015
+    text = Case-sensitive
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 20 0 0 0
+group 1020
+    container = sizer 1012
+    title = Object types
+    default_size = 0 0
+    proportions = 0.0 1.0
+    alignments = expand expand
+    borders = 0 0 0 0
+checkbutton model
+    container = group 1020
+    text = Models
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 2 0
+checkbutton helper
+    container = group 1020
+    text = Helpers
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 2 0
+checkbutton group
+    container = group 1020
+    text = Groups
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 2 0
+checkbutton light
+    container = group 1020
+    text = Lights
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 2 0
+checkbutton camera
+    container = group 1020
+    text = Cameras
+    text_offset = 5
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 0 0 2 0
+space 1027
+    container = group 1020
+    name = space 1
+    size = 0 10
+    proportions = 0.0 1.0
+    alignments = expand expand
+    borders = 0 0 0 0
+sizer 1028
+    container = group 1020
+    name = type selection
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+button all
+    container = sizer 1028
+    icon_id = 
+    text = All
+    tooltip_text = 
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+button none
+    container = sizer 1028
+    icon_id = 
+    text = None
+    tooltip_text = 
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+button invert
+    container = sizer 1028
+    icon_id = 
+    text = Invert
+    tooltip_text = 
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+group 1213
+    container = sizer 1012
+    title = Selection set
+    default_size = 0 0
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = multi-select
+combobox selection_set
+    container = group 1213
+    field_width = 150
+    icon_id = 
+    text = 
+    tooltip_text = Selection set
+    proportions = 0.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+    component_id = multi-select
+text -
+    container = dialog
+    text = Names of currently selected objects are preceded by an asterisk (\*).
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 20 20 20 20
+    component_id = single-select
+text -
+    container = dialog
+    text = Shift-click to select range; Ctrl-click to toggle selection state.|Names of currently selected objects are preceded by an asterisk (\*).
+    proportions = 0.0 0.0
+    alignments = min min
+    borders = 20 20 20 20
+    component_id = multi-select
+#
+BORDERS
+#
+sel_dialog_entry_data      5 5 2 2
+sel_dialog_entry_column    5 5 0 0
+#
+OPTIONS
+#
+sel_state_column_min_width      int     20
+sel_dialog_scrollpane_width     int     300
+sel_dialog_scrollpane_height    int     300

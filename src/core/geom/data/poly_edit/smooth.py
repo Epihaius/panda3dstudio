@@ -127,8 +127,8 @@ class SmoothingMixin:
         while polys_to_process:
 
             poly_id = polys_to_process.pop()
-            polys_to_smooth = set([poly_id])
-            neighbor_ids = set([poly_id])
+            polys_to_smooth = {poly_id}
+            neighbor_ids = {poly_id}
 
             while neighbor_ids:
 

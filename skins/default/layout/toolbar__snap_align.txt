@@ -1,0 +1,32 @@
+title = Snap/Align
+default_size = 0 0
+button snap
+    container = toolbar
+    icon_id = icon_snap
+    text = 
+    tooltip_text = Enable snapping
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button snap_options
+    container = toolbar
+    icon_id = icon_snap_options
+    text = 
+    tooltip_text = Set snap options
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox align_type
+    container = toolbar
+    field_width = 70
+    icon_id = 
+    text = Align to...
+    tooltip_text = Align selected (sub)object(s)
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0

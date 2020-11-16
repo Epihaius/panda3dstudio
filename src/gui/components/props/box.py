@@ -3,43 +3,31 @@ from .base import *
 
 class BoxProperties:
 
-    def __init__(self, panel):
+    def __init__(self, panel, widgets):
 
         self._panel = panel
         self._fields = {}
         self._segments_default = {"x": 1, "y": 1, "z": 1}
 
-        section = panel.add_section("box_props", "Box properties", hidden=True)
-
         axes = "xyz"
-        dimensions = ("width", "depth", "height")
         prop_types = ("size", "segments")
         val_types = ("float", "int")
         parsers = (self.__parse_dimension_input, self.__parse_segments_input)
 
         for prop_type, val_type, parser in zip(prop_types, val_types, parsers):
-
-            group = section.add_group(prop_type.title())
-            sizer = GridSizer(rows=0, columns=2, gap_h=5, gap_v=2)
-            group.add(sizer, expand=True)
-
-            for axis, dim in zip(axes, dimensions):
+            for axis in axes:
                 prop_id = f"{prop_type}_{axis}"
-                text = f"{axis.upper()} ({dim}):"
-                sizer.add(PanelText(group, text), alignment_v="center_v")
-                field = PanelInputField(group, prop_id, val_type, self.__handle_value, 80)
+                field = widgets["fields"][f"box_{prop_id}"]
+                field.value_id = prop_id
+                field.value_type = val_type
+                field.set_value_handler(self.__handle_value)
                 field.set_input_parser(parser)
                 self._fields[prop_id] = field
-                sizer.add(field, proportion_h=1., alignment_v="center_v")
 
         self._fields["size_z"].set_input_parser(self.__parse_height_input)
 
-        text = "Convert to planes"
-        tooltip_text = "Turn sides into separate plane primitives"
-        command = self.__replace_with_planes
-        btn = PanelButton(section, text, "", tooltip_text, command)
-        borders = (10, 10, 0, 10)
-        section.add(btn, alignment="center_h", borders=borders)
+        btn = widgets["buttons"]["box_to_planes"]
+        btn.command = self.__replace_with_planes
 
     def setup(self): pass
 
@@ -108,7 +96,7 @@ class BoxProperties:
 
     def set_object_property_default(self, prop_id, value):
 
-        color = (1., 1., 0., 1.)
+        color = Skin.colors["default_value"]
 
         if prop_id == "segments":
             self._segments_default.update(value)
@@ -142,7 +130,7 @@ class BoxProperties:
 
         sel_count = GD["selection_count"]
         multi_sel = sel_count > 1
-        color = (.5, .5, .5, 1.) if multi_sel else None
+        color = Skin.text["input_disabled"]["color"] if multi_sel else None
 
         for field in self._fields.values():
             field.set_text_color(color)

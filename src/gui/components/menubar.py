@@ -5,18 +5,11 @@ from ..menu import Menu
 
 class MenuButton(Button):
 
-    _gfx = {
-        "normal": (("menu_button_normal_side", "menu_button_normal_center",
-                   "menu_button_normal_side"),),
-        "pressed": (("menu_button_pressed_side", "menu_button_pressed_center",
-                   "menu_button_pressed_side"),),
-        "hilited": (("menu_button_hilited_side", "menu_button_hilited_center",
-                   "menu_button_hilited_side"),)
-    }
-
     def __init__(self, parent, text):
 
-        Button.__init__(self, parent, self._gfx, text, button_type="menu_button")
+        gfx_ids = Skin.atlas.gfx_ids["menu_button"]
+
+        Button.__init__(self, parent, gfx_ids, text, button_type="menu_button")
 
         self.widget_type = "menu_button"
 
@@ -26,7 +19,8 @@ class MenuButton(Button):
             self._menu.toggle()
 
         w, h = self.min_size
-        self.set_size((w + 20, h), is_min=True)
+        border = Skin.options["menu_button_border"]
+        self.set_size((w + border * 2, h), is_min=True)
         self._menu = Menu(self)
         self.command = command
 
@@ -128,17 +122,17 @@ class MenuButton(Button):
 
 class MenuBar(Widget):
 
-    _gfx = {"": (("menubar_main",),)}
-
     def __init__(self, parent):
 
-        Widget.__init__(self, "menubar", parent, self._gfx)
+        gfx_ids = Skin.atlas.gfx_ids["menubar"]
+
+        Widget.__init__(self, "menubar", parent, gfx_ids)
 
         sizer = Sizer("horizontal")
         sizer.default_size = (0, self.min_size[1])
         self.sizer = sizer
         self._client_sizer = client_sizer = Sizer("horizontal")
-        borders = (1, 1, 1, 1)
+        borders = Skin.atlas.inner_borders["menubar"]
         sizer.add(client_sizer, borders=borders)
         self._menus = {}
         self._btns = {}
@@ -175,13 +169,13 @@ class MenuBar(Widget):
 
         btn = self._btns[menu_id]
         btn.hide()
-        self._client_sizer.remove_item(btn.sizer_item)
+        self._client_sizer.remove_cell(btn.sizer_cell)
 
     def show_menu(self, menu_id, index=None):
 
         btn = self._btns[menu_id]
         btn.show()
-        self._client_sizer.add_item(btn.sizer_item, index=index)
+        self._client_sizer.add_cell(btn.sizer_cell, index=index)
 
     def set_active_button(self, button):
 

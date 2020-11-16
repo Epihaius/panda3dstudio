@@ -1,0 +1,19 @@
+name = Progress
+title = Please wait...
+default_size = 0 0
+placeholder text
+    container = dialog
+    size = 300 50
+    proportions = 1.0 0.0
+    alignments = center expand
+    borders = 50 50 30 30
+placeholder bar
+    container = dialog
+    size = 500 50
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 30 0
+#
+OPTIONS
+#
+progress_dialog_bar_width   int     500

@@ -1,0 +1,90 @@
+name = File
+title = -
+default_size = 0 0
+sizer 963
+    container = dialog
+    name = directory
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 20 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 0 20
+combobox directory
+    container = sizer 963
+    field_width = 100
+    icon_id = 
+    text = 
+    tooltip_text = Current folder
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+toolbutton dir_up
+    container = sizer 963
+    icon_id = icon_folder_up
+    text = 
+    tooltip_text = 
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+toolbutton new_dir
+    container = sizer 963
+    icon_id = icon_folder_new
+    text = 
+    tooltip_text = New folder
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+placeholder pane
+    container = dialog
+    size = 10 50
+    proportions = 1.0 1.0
+    alignments = expand expand
+    borders = 50 50 0 20
+sizer 968
+    container = dialog
+    name = file
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 5 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 20 20
+text -
+    container = sizer 968
+    text = File name:
+    proportions = 0.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+field filename
+    container = sizer 968
+    field_type = input
+    width = 100
+    proportions = 1.0 0.0
+    alignments = expand center
+    borders = 0 0 0 0
+combobox file_type
+    container = sizer 968
+    field_width = 100
+    icon_id = 
+    text = 
+    tooltip_text = File types
+    proportions = 0.5 0.0
+    alignments = expand center
+    borders = 5 0 0 0
+#
+OPTIONS
+#
+file_dialog_scrollpane_width    int     700
+# the width of the Incremental Save ("+") button
+file_dialog_incr_save_btn_width int     10
+# the number of rows of files
+file_row_count                  int     10
+file_btn_h_gap                  int     5
+file_btn_v_gap                  int     0

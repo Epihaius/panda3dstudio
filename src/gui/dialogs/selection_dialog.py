@@ -1,4 +1,4 @@
-from .dialog import *
+from ..dialog import *
 from .list_dialog import ListEntry, ListPane, ListDialog
 
 
@@ -10,13 +10,14 @@ class SelectionEntry(ListEntry):
 
         obj_id, obj_sel_state, obj_name, obj_type = obj_data
         self._obj_id = obj_id
+        width = Skin.options["sel_state_column_min_width"]
 
         data = (
-            ("", "*", "center", 20, 0.) if obj_sel_state else ("", "", "left", 20, 0.),
-            ("name", obj_name, "left", 0, 0.),
-            ("type", obj_type.title(), "right", 0, 1.)
+            ("", "*", "center", width, 0.) if obj_sel_state else ("", "", "min", width, 0.),
+            ("name", obj_name, "min", 0, 0.),
+            ("type", obj_type.title(), "max", 0, 1.)
         )
-        self.set_data(data)
+        self.set_data(data, Skin.layout.borders["sel_dialog_entry_data"])
 
     def get_object_id(self):
 
@@ -33,11 +34,16 @@ class SelectionEntry(ListEntry):
 
 class SelectionPane(ListPane):
 
-    def __init__(self, dialog, object_types, obj_data, multi_select):
+    def __init__(self, parent, object_types, obj_data, multi_select):
 
         column_data = (("sel_state", 0.), ("name", 1.), ("type", 0.))
+        borders = Skin.layout.borders["sel_dialog_entry_column"]
+        frame_client_size = (
+            Skin.options["sel_dialog_scrollpane_width"],
+            Skin.options["sel_dialog_scrollpane_height"]
+        )
 
-        ListPane.__init__(self, dialog, column_data, multi_select=multi_select)
+        ListPane.__init__(self, parent, column_data, borders, frame_client_size, multi_select)
 
         sel_dialog_config = GD["config"]["sel_dialog"]
         obj_types = object_types if object_types else sel_dialog_config["obj_types"]
@@ -185,136 +191,85 @@ class SelectionDialog(ListDialog):
         else:
             on_yes = lambda: handler(self._selection_ids)
 
-        ListDialog.__init__(self, title, "okcancel", ok_alias, on_yes, multi_select)
+        ListDialog.__init__(self, "", "okcancel", ok_alias, on_yes, multi_select)
+
+        component_ids = [f'{"multi" if multi_select else "single"}-select']
+        widgets = Skin.layout.create(self, "selection", component_ids=component_ids)
+
+        pane_cell = widgets["placeholders"]["pane"]
+        btns = widgets["buttons"]
+        loaded_checkbtns = widgets["checkbuttons"]
+        self._checkbuttons = checkbtns = {}
+        radio_btns = widgets["radiobutton_groups"]["sort"]
 
         self._selection_ids = []
-        self._checkbuttons = {}
         self._search_in_selection = False
         self._obj_types = ["model", "helper", "group", "light", "camera"]
-        client_sizer = self.get_client_sizer()
-        subsizer = Sizer("horizontal")
-        client_sizer.add(subsizer)
-        column1_sizer = Sizer("vertical")
-        borders = (20, 20, 0, 20)
-        subsizer.add(column1_sizer, proportion=1., expand=True, borders=borders)
 
         sel_dialog_config = GD["config"]["sel_dialog"]
         match_case = sel_dialog_config["search"]["match_case"]
         part = sel_dialog_config["search"]["part"]
 
-        group = self.create_find_group(self.__search_entries,
+        self.setup_search_interface(widgets, self.__search_entries,
             self.__set_search_option, match_case, part)
-        borders = (0, 0, 10, 0)
-        column1_sizer.add(group, expand=True, borders=borders)
 
         obj_data = {}
         sel_set_data = {}
         Mgr.update_remotely("object_selection", "get_data", obj_data, sel_set_data)
-        self.pane = pane = SelectionPane(self, object_types, obj_data, multi_select)
-        frame = pane.frame
-        borders = (0, 0, 5, 0)
-        column1_sizer.add(frame, proportion=1., expand=True, borders=borders)
+        parent = pane_cell.sizer.owner_widget
+        self.pane = pane = SelectionPane(parent, object_types, obj_data, multi_select)
+        pane_cell.object = pane.frame
 
         if multi_select:
-            btn_sizer = self.create_selection_buttons()
-            column1_sizer.add(btn_sizer, expand=True)
 
-        column2_sizer = Sizer("vertical")
-        borders = (0, 20, 0, 20)
-        subsizer.add(column2_sizer, proportion=1., expand=True, borders=borders)
+            self.setup_selection_buttons(widgets["buttons"])
 
-        group = DialogWidgetGroup(self, "Sort by")
-        borders = (0, 0, 10, 0)
-        column2_sizer.add(group, expand=True, borders=borders)
+            self._set_combobox = combobox = widgets["comboboxes"]["selection_set"]
+            sets = sel_set_data["sets"]
 
-        grp_subsizer = Sizer("horizontal")
-        group.add(grp_subsizer)
+            for set_id, set_name in sel_set_data["names"].items():
+                command = lambda s=set_id: self.__select_from_set(sets, s)
+                combobox.add_item(set_id, set_name, command, select_initial=False)
 
-        radio_btns = DialogRadioButtonGroup(group, columns=1)
+            combobox.update_popup_menu()
+
+        self.set_title(title)
+
         btn_ids = ("name", "type")
-        texts = ("Name", "Type")
-        get_command = lambda sort_by: lambda: self.__sort_entries(sort_by)
 
-        for btn_id, text in zip(btn_ids, texts):
-            radio_btns.add_button(btn_id, text)
-            radio_btns.set_button_command(btn_id, get_command(btn_id))
+        for btn_id in btn_ids:
+            command = lambda sort_by=btn_id: self.__sort_entries(sort_by)
+            radio_btns.set_button_command(btn_id, command)
 
         radio_btns.set_selected_button(sel_dialog_config["sort"])
-        grp_subsizer.add(radio_btns.sizer)
 
-        text = "Case-sensitive"
-        checkbtn = DialogCheckButton(group, lambda on:
-            self.__set_case_sort(on, object_types), text)
+        checkbtn = loaded_checkbtns["sort_case"]
+        checkbtn.command = lambda on: self.__set_case_sort(on, object_types)
         checkbtn.check(sel_dialog_config["sort_case"])
-        borders = (20, 0, 0, 0)
-        grp_subsizer.add(checkbtn, borders=borders, alignment="center_v")
+        checkbtns["sort_case"] = checkbtn
 
-        group = DialogWidgetGroup(self, "Object types")
-        borders = (0, 0, 10, 0)
-        column2_sizer.add(group, expand=True, proportion=1., borders=borders)
-
-        borders = (0, 20, 2, 0)
-        type_names = ("Models", "Helpers", "Groups", "Lights", "Cameras")
         obj_types = object_types if object_types else sel_dialog_config["obj_types"]
         checkbox_handler = lambda *args: self.__show_object_types(object_types)
 
-        for obj_type, type_name in zip(self._obj_types, type_names):
+        for obj_type in self._obj_types:
 
-            checkbtn = DialogCheckButton(group, checkbox_handler, type_name)
+            checkbtn = loaded_checkbtns[obj_type]
+            checkbtn.command = checkbox_handler
             checkbtn.check(obj_type in obj_types)
-            group.add(checkbtn, borders=borders)
-            self._checkbuttons[obj_type] = checkbtn
+            checkbtns[obj_type] = checkbtn
 
             if object_types and obj_type not in obj_types:
                 checkbtn.enable(False)
 
-        group.add((0, 10), proportion=1.)
+        enable = not object_types
 
-        btn_sizer = Sizer("horizontal")
-        group.add(btn_sizer, expand=True)
-        btns = []
-        btn = DialogButton(group, "All", command=lambda: self.__modify_types("all"))
-        btns.append(btn)
-        borders = (0, 5, 0, 0)
-        btn_sizer.add(btn, proportion=1., borders=borders)
-        btn = DialogButton(group, "None", command=lambda: self.__modify_types("none"))
-        btns.append(btn)
-        btn_sizer.add(btn, proportion=1., borders=borders)
-        btn = DialogButton(group, "Invert", command=lambda: self.__modify_types("invert"))
-        btns.append(btn)
-        btn_sizer.add(btn, proportion=1.)
-
-        if object_types:
-            for btn in btns:
-                btn.enable(False)
-
-        if multi_select:
-
-            group = DialogWidgetGroup(self, "Selection set")
-            column2_sizer.add(group, expand=True)
-
-            combobox = DialogComboBox(group, 150, tooltip_text="Selection set")
-            self._set_combobox = combobox
-            group.add(combobox, expand=True)
-            sets = sel_set_data["sets"]
-            get_command = lambda set_id: lambda: self.__select_from_set(sets, set_id)
-
-            for set_id, set_name in sel_set_data["names"].items():
-                combobox.add_item(set_id, set_name, get_command(set_id), select_initial=False)
-
-            combobox.update_popup_menu()
-
-        info = ""
-
-        if multi_select:
-            info += "Shift-click to select range; Ctrl-click to toggle selection state.\n"
-
-        info += "Names of currently selected objects are preceded by an asterisk (*)."
-        text = DialogText(self, info)
-        borders = (20, 20, 20, 20)
-        client_sizer.add(text, expand=True, borders=borders)
+        for btn_id in ("all", "none", "invert"):
+            btn = btns[btn_id]
+            btn.command = lambda t=btn_id: self.__modify_types(t)
+            btn.enable(enable)
 
         # the following code is necessary to update the width of the list entries
+        client_sizer = self.client_sizer
         client_sizer.update_min_size()
         client_sizer.set_size(client_sizer.get_size())
         self.pane.finalize()

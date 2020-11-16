@@ -1,0 +1,99 @@
+name = Tag
+title = Edit object tags
+default_size = 0 0
+sizer 1337
+    container = dialog
+    name = insets
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 40
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 0 20
+placeholder key
+    container = sizer 1337
+    size = 10 10
+    proportions = 1.0 1.0
+    alignments = expand expand
+    borders = 0 0 0 0
+placeholder value
+    container = sizer 1337
+    size = 10 10
+    proportions = 1.0 1.0
+    alignments = expand expand
+    borders = 0 0 0 0
+placeholder pane
+    container = dialog
+    size = 500 300
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 20 0
+sizer 1341
+    container = dialog
+    name = buttons
+    prim_dir = horizontal
+    prim_limit = 0
+    gaps = 0 0
+    row_proportions = 
+    column_proportions = 
+    default_size = 0 0
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 50 50 20 0
+space 1342
+    container = sizer 1341
+    name = space 1
+    size = 10 0
+    proportions = 0.5 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+button clear
+    container = sizer 1341
+    icon_id = 
+    text = Clear
+    tooltip_text = Remove all tags
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+space 1344
+    container = sizer 1341
+    name = space 2
+    size = 10 0
+    proportions = 0.5 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+button add
+    container = sizer 1341
+    icon_id = 
+    text = Add
+    tooltip_text = Add new tag
+    proportions = 1.0 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+space 1346
+    container = sizer 1341
+    name = space 3
+    size = 10 0
+    proportions = 0.5 0.0
+    alignments = expand expand
+    borders = 0 0 0 0
+text -
+    container = dialog
+    text = To remove a tag, input an empty string for the key, or right-click the key field and choose|'Remove tag' from the context menu.
+    proportions = 0.0 0.0
+    alignments = min expand
+    borders = 50 50 20 0
+#
+BORDERS
+#
+tag_dialog_key_field    10 5 0 5
+tag_dialog_value_field  5 10 0 5
+#
+OPTIONS
+#
+tag_dialog_scrollpane_width     int     500
+tag_dialog_scrollpane_height    int     300
+tag_dialog_field_min_width      int     100

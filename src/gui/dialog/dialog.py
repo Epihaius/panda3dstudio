@@ -1,5 +1,27 @@
-from .widgets import *
+from ..base import *
+from ..button import Button
 from ..tooltip import ToolTip
+
+
+class DialogStandardButton(Button):
+
+    def __init__(self, parent, text="", tooltip_text=""):
+
+        gfx_ids = Skin.atlas.gfx_ids["dialog_standard_button"]
+
+        Button.__init__(self, parent, gfx_ids, text, "", tooltip_text,
+                        button_type="dialog_standard_button")
+
+        self.widget_type = "dialog_standard_button"
+
+        self.mouse_region.sort = parent.sort + 1
+
+    def on_left_up(self):
+
+        if self.is_pressed():
+            Mgr.do("accept_field_input")
+
+        Button.on_left_up(self)
 
 
 class Dialog(WidgetCard):
@@ -10,7 +32,6 @@ class Dialog(WidgetCard):
     _mouse_region_mask.sort = 200
     _entered_suppressed_state = False
     _ignoring_events = False
-    _default_btn_width = 0
     _background_overlay = None
 
     @staticmethod
@@ -70,7 +91,7 @@ class Dialog(WidgetCard):
 
         if not dialogs:
 
-            if Skin["colors"]["dialog_background_overlay"][3]:
+            if Skin.colors["dialog_background_overlay"][3]:
                 cls._background_overlay.show()
 
             cls.__enter_suppressed_state()
@@ -79,7 +100,7 @@ class Dialog(WidgetCard):
 
                 watcher.add_region(region_mask)
 
-                if watcher.name == "panel_stack":
+                if watcher.name == "control_pane":
 
                     region = watcher.get_over_region()
 
@@ -117,7 +138,7 @@ class Dialog(WidgetCard):
 
                 watcher.remove_region(region_mask)
 
-                if watcher.name == "panel_stack":
+                if watcher.name == "control_pane":
                     watcher.set_enter_pattern("gui_region_enter")
                     watcher.set_leave_pattern("gui_region_leave")
 
@@ -195,14 +216,13 @@ class Dialog(WidgetCard):
     @classmethod
     def init(cls):
 
-        cls._default_btn_width = Skin["options"]["dialog_standard_button_width"]
         cls._listener = DirectObject()
         cls.enable_listener()
         cm = CardMaker("dialog_background_overlay")
         cm.set_frame(-1., 1., -1., 1.)
         overlay = Mgr.get("gui_root").parent.attach_new_node(cm.generate())
         overlay.set_transparency(TransparencyAttrib.M_alpha)
-        overlay.set_color(Skin["colors"]["dialog_background_overlay"])
+        overlay.set_color(Skin.colors["dialog_background_overlay"])
         overlay.hide()
         cls._background_overlay = overlay
 
@@ -212,7 +232,7 @@ class Dialog(WidgetCard):
     def __init__(self, title="", choices="ok", ok_alias="OK", on_yes=None, on_no=None,
                  on_cancel=None, extra_button_data=(), allow_escape=True):
 
-        WidgetCard.__init__(self, "dialog")
+        WidgetCard.__init__(self, "dialog", is_root_container=True)
 
         self.mouse_region = region = MouseWatcherRegion("dialog", 0., 0., 0., 0.)
         self.mouse_watcher.add_region(region)
@@ -221,7 +241,7 @@ class Dialog(WidgetCard):
 
         self.__add_dialog(self)
 
-        skin_text = Skin["text"]["dialog_title"]
+        skin_text = Skin.text["dialog_title"]
         font = skin_text["font"]
         color = skin_text["color"]
         self._title_label = label = font.create_image(title, color) if title else None
@@ -229,62 +249,98 @@ class Dialog(WidgetCard):
         sizer = Sizer("vertical")
         self.sizer = sizer
         self._client_sizer = client_sizer = Sizer("vertical")
-        client_sizer.default_size = (max(100, label.size[0]) + 20, 50)
-        sizer.add(client_sizer, expand=True)
+
+        if label:
+            w, h = sizer.default_size
+            tex_atlas_regions = Skin.atlas.regions
+            gfx_ids = Skin.atlas.gfx_ids["dialog"][""]
+            x_tl, y_tl, w_tl, h_tl = tex_atlas_regions[gfx_ids[0][0]]
+            x_tr, y_tr, w_tr, h_tr = tex_atlas_regions[gfx_ids[0][2]]
+            w = w_tl + w_tr + label.size[0]
+            sizer.default_size = (w, h)
+
+        sizer.add(client_sizer, proportions=(1., 1.))
         self._button_sizer = btn_sizer = Sizer("horizontal")
-        h_b = Skin["options"]["dialog_bottom_height"]
-        btn_sizer.add((0, h_b), proportion=1.)
-        width = self._default_btn_width
-        btn_sizer.add((width // 5, 0))
+        h_b = Skin.options["dialog_bottom_height"]
+        btn_sizer.add((0, h_b), proportions=(1., 0.))
+        width = Skin.options["dialog_standard_button_width"]
+        gap = Skin.options["dialog_standard_button_gap"]
+        btn_sizer.add((gap, 0))
 
         for text, tooltip_text, command, btn_width, gap_multiplier in extra_button_data:
-            btn = DialogStandardButton(self, text, tooltip_text, command)
+            btn = DialogStandardButton(self, text, tooltip_text)
+            btn.command = command
             w, h = btn.min_size
             w = max(w, width if btn_width is None else btn_width)
             btn.set_size((w, h), is_min=True)
-            btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((int(gap_multiplier * width / 5), 0))
+            btn_sizer.add(btn, alignments=("min", "center"))
+            btn_sizer.add((int(gap_multiplier * gap), 0))
 
         if "yes" in choices:
-            command = lambda: self.close("yes")
-            btn = DialogStandardButton(self, "Yes", command=command)
+            btn = DialogStandardButton(self, "Yes")
+            btn.command = lambda: self.close("yes")
             w, h = btn.min_size
             btn.set_size((width, h), is_min=True)
-            btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((width // 5, 0))
+            btn_sizer.add(btn, alignments=("min", "center"))
+            btn_sizer.add((gap, 0))
 
         if "no" in choices:
-            command = lambda: self.close("no")
-            btn = DialogStandardButton(self, "No", command=command)
+            btn = DialogStandardButton(self, "No")
+            btn.command = lambda: self.close("no")
             w, h = btn.min_size
             btn.set_size((width, h), is_min=True)
-            btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((width // 5, 0))
+            btn_sizer.add(btn, alignments=("min", "center"))
+            btn_sizer.add((gap, 0))
 
         if "ok" in choices:
-            command = lambda: self.close("yes")
-            btn = DialogStandardButton(self, ok_alias, command=command)
+            btn = DialogStandardButton(self, ok_alias)
+            btn.command = lambda: self.close("yes")
             w, h = btn.min_size
             btn.set_size((width, h), is_min=True)
-            btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((width // 5, 0))
+            btn_sizer.add(btn, alignments=("min", "center"))
+            btn_sizer.add((gap, 0))
 
         if "cancel" in choices:
-            btn = DialogStandardButton(self, "Cancel", command=self.close)
+            btn = DialogStandardButton(self, "Cancel")
+            btn.command = self.close
             w, h = btn.min_size
             btn.set_size((width, h), is_min=True)
-            btn_sizer.add(btn, alignment="center_v")
-            btn_sizer.add((width // 5, 0))
+            btn_sizer.add(btn, alignments=("min", "center"))
+            btn_sizer.add((gap, 0))
 
-        sizer.add(btn_sizer, expand=True)
+        sizer.add(btn_sizer, alignments=("expand", "min"))
         self._on_yes = on_yes if on_yes else lambda: None
         self._on_no = on_no if on_no else lambda: None
         self._on_cancel = on_cancel if on_cancel else lambda: None
-        l, r, b, t = TextureAtlas["inner_borders"]["dialog"]
+        l, r, b, t = Skin.atlas.inner_borders["dialog"]
         self._item_offset = (l, t)
         self._background_image = None
         self._mouse_start_pos = None
         self._drag_offset = None
+
+    @property
+    def gfx_size(self):
+
+        width = height = 0
+        h_b = Skin.options["dialog_bottom_height"]
+        height += h_b
+
+        tex_atlas = Skin.atlas.image
+        tex_atlas_regions = Skin.atlas.regions
+
+        bl, br, bb, bt = Skin.atlas.inner_borders["dialog"]
+        width += bl + br
+        height -= bb + bt
+        gfx_ids = Skin.atlas.gfx_ids["dialog"][""]
+
+        x_tl, y_tl, w_tl, h_tl = tex_atlas_regions[gfx_ids[0][0]]
+        x_tr, y_tr, w_tr, h_tr = tex_atlas_regions[gfx_ids[0][2]]
+        width += w_tl + w_tr
+        x_b, y_b, w_b, h_b = tex_atlas_regions[gfx_ids[2][1]]
+        x_t, y_t, w_t, h_t = tex_atlas_regions[gfx_ids[0][1]]
+        height += h_b + h_t
+
+        return width, height
 
     @property
     def sort(self):
@@ -325,7 +381,8 @@ class Dialog(WidgetCard):
 
         return self._dialogs[-1] is self
 
-    def get_client_sizer(self):
+    @property
+    def client_sizer(self):
 
         return self._client_sizer
 
@@ -338,11 +395,30 @@ class Dialog(WidgetCard):
 
         pass
 
+    def set_title(self, title):
+
+        def task():
+
+            skin_text = Skin.text["dialog_title"]
+            font = skin_text["font"]
+            color = skin_text["color"]
+            self._title_label = label = font.create_image(title, color)
+            w, h = self.gfx_size
+            tex_atlas_regions = Skin.atlas.regions
+            gfx_ids = Skin.atlas.gfx_ids["dialog"][""]
+            x_tl, y_tl, w_tl, h_tl = tex_atlas_regions[gfx_ids[0][0]]
+            x_tr, y_tr, w_tr, h_tr = tex_atlas_regions[gfx_ids[0][2]]
+            w = w_tl + w_tr + label.size[0]
+            self.sizer.default_size = (w, h)
+            self.update_layout()
+
+        PendingTasks.add(task, "set_dialog_title", id_prefix=id(self))
+
     def center_in_window(self):
 
         w, h = self.get_size()
         w_w, h_w = Mgr.get("window_size")
-        h_t = Skin["options"]["dialog_title_height"]
+        h_t = Skin.options["dialog_title_height"]
         x = (w_w - w) // 2
         y = (h_w - h + h_t) // 2
         pos = (x, y)
@@ -397,7 +473,7 @@ class Dialog(WidgetCard):
         l = x
         r = x + w
         b = -y - h
-        t = -y + Skin["options"]["dialog_title_height"]
+        t = -y + Skin.options["dialog_title_height"]
         self.mouse_region.frame = (l, r, b, t)
         self.sizer.update_mouse_region_frames()
         self._mouse_start_pos = None
@@ -407,23 +483,27 @@ class Dialog(WidgetCard):
 
         self.sizer.update_images()
         width, height = self.get_size()
-        h_b = Skin["options"]["dialog_bottom_height"]
+        h_b = Skin.options["dialog_bottom_height"]
         height -= h_b
         center_img = PNMImage(width, height, 4)
 
-        tex_atlas = TextureAtlas["image"]
-        tex_atlas_regions = TextureAtlas["regions"]
+        tex_atlas = Skin.atlas.image
+        tex_atlas_regions = Skin.atlas.regions
 
-        bl, br, bb, bt = TextureAtlas["inner_borders"]["dialog"]
+        bl, br, bb, bt = Skin.atlas.inner_borders["dialog"]
         width += bl + br
         height += bb + bt
 
         img = PNMImage(width, height, 4)
+        gfx_ids = Skin.atlas.gfx_ids["dialog"][""]
+        border_topleft_id, border_top_id, border_topright_id = gfx_ids[0]
+        border_left_id, main_id, border_right_id = gfx_ids[1]
+        border_bottomleft_id, border_bottom_id, border_bottomright_id = gfx_ids[2]
 
-        x_tl, y_tl, w_tl, h_tl = tex_atlas_regions["dialog_border_topleft"]
+        x_tl, y_tl, w_tl, h_tl = tex_atlas_regions[border_topleft_id]
         img.copy_sub_image(tex_atlas, 0, 0, x_tl, y_tl, w_tl, h_tl)
-        x_t, y_t, w_t, h_t = tex_atlas_regions["dialog_border_top"]
-        x_tr, y_tr, w_tr, h_tr = tex_atlas_regions["dialog_border_topright"]
+        x_t, y_t, w_t, h_t = tex_atlas_regions[border_top_id]
+        x_tr, y_tr, w_tr, h_tr = tex_atlas_regions[border_topright_id]
         part_img = PNMImage(w_t, h_t, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x_t, y_t, w_t, h_t)
         scaled_w = width - w_tl - w_tr
@@ -431,8 +511,8 @@ class Dialog(WidgetCard):
         scaled_img.unfiltered_stretch_from(part_img)
         img.copy_sub_image(scaled_img, w_tl, 0, 0, 0)
         img.copy_sub_image(tex_atlas, w_tl + scaled_w, 0, x_tr, y_tr, w_tr, h_tr)
-        x_l, y_l, w_l, h_l = tex_atlas_regions["dialog_border_left"]
-        x_bl, y_bl, w_bl, h_bl = tex_atlas_regions["dialog_border_bottomleft"]
+        x_l, y_l, w_l, h_l = tex_atlas_regions[border_left_id]
+        x_bl, y_bl, w_bl, h_bl = tex_atlas_regions[border_bottomleft_id]
         part_img = PNMImage(w_l, h_l, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x_l, y_l, w_l, h_l)
         scaled_h = height - h_tl - h_bl
@@ -440,21 +520,21 @@ class Dialog(WidgetCard):
         scaled_img.unfiltered_stretch_from(part_img)
         img.copy_sub_image(scaled_img, 0, h_tl, 0, 0)
         img.copy_sub_image(tex_atlas, 0, h_tl + scaled_h, x_bl, y_bl, w_bl, h_bl)
-        x_r, y_r, w_r, h_r = tex_atlas_regions["dialog_border_right"]
+        x_r, y_r, w_r, h_r = tex_atlas_regions[border_right_id]
         part_img = PNMImage(w_r, h_r, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x_r, y_r, w_r, h_r)
         scaled_img = PNMImage(w_r, scaled_h, 4)
         scaled_img.unfiltered_stretch_from(part_img)
         img.copy_sub_image(scaled_img, w_tl + scaled_w, h_tr, 0, 0)
-        x_br, y_br, w_br, h_br = tex_atlas_regions["dialog_border_bottomright"]
+        x_br, y_br, w_br, h_br = tex_atlas_regions[border_bottomright_id]
         img.copy_sub_image(tex_atlas, w_tl + scaled_w, h_tr + scaled_h, x_br, y_br, w_br, h_br)
-        x_b, y_b, w_b, h_b = tex_atlas_regions["dialog_border_bottom"]
+        x_b, y_b, w_b, h_b = tex_atlas_regions[border_bottom_id]
         part_img = PNMImage(w_b, h_b, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x_b, y_b, w_b, h_b)
         scaled_img = PNMImage(scaled_w, h_b, 4)
         scaled_img.unfiltered_stretch_from(part_img)
         img.copy_sub_image(scaled_img, w_tl, h_tr + scaled_h, 0, 0)
-        x, y, w, h = tex_atlas_regions["dialog_main"]
+        x, y, w, h = tex_atlas_regions[main_id]
         part_img = PNMImage(w, h, 4)
         part_img.copy_sub_image(tex_atlas, 0, 0, x, y, w, h)
         center_img.unfiltered_stretch_from(part_img)
@@ -464,9 +544,9 @@ class Dialog(WidgetCard):
 
         if label:
             w_l, h_l = label.size
-            h_title = Skin["options"]["dialog_title_height"]
+            h_title = Skin.options["dialog_title_height"]
             x = (width - w_l) // 2
-            y = (h_title - h_l) // 2 + Skin["options"]["dialog_title_top"]
+            y = (h_title - h_l) // 2 + Skin.options["dialog_title_top"]
             img.blend_sub_image(label, x, y, 0, 0)
 
         self._background_image = bg_image = PNMImage(width - bl, height - bt, 4)
@@ -513,7 +593,7 @@ class Dialog(WidgetCard):
         sizer = self.sizer
         size = sizer.update_min_size()
         sizer.set_size(size)
-        sizer.calculate_positions()
+        sizer.update_positions()
         self.update_images()
         self.center_in_window()
 
@@ -522,7 +602,7 @@ class Dialog(WidgetCard):
         sizer = self.sizer
         size = sizer.update_min_size()
         sizer.set_size(size)
-        sizer.calculate_positions()
+        sizer.update_positions()
         self.update_images()
         x, y = self.get_pos(from_root=True)
         self.quad.set_pos(x, 0, -y)
@@ -530,7 +610,7 @@ class Dialog(WidgetCard):
         l = x
         r = x + w
         b = -y - h
-        t = -y + Skin["options"]["dialog_title_height"]
+        t = -y + Skin.options["dialog_title_height"]
         self.mouse_region.frame = (l, r, b, t)
         sizer.update_mouse_region_frames()
         self.update_widget_positions()

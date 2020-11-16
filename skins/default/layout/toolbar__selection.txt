@@ -1,0 +1,41 @@
+title = Selection
+default_size = 0 0
+button region_select
+    container = toolbar
+    icon_id = icon_region_sel
+    text = 
+    tooltip_text = Region-select objects by default
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox region_type
+    container = toolbar
+    field_width = 150
+    icon_id = 
+    text = 
+    tooltip_text = Region type
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+button enclose
+    container = toolbar
+    icon_id = icon_region_sel_enclose
+    text = 
+    tooltip_text = Only select fully enclosed objects
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+toolbar_separator -
+    container = toolbar
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 5 0 0
+combobox sets
+    container = toolbar
+    field_width = 150
+    icon_id = 
+    text = 
+    tooltip_text = Selection set
+    proportions = 0.0 0.0
+    alignments = min center
+    borders = 0 0 0 0

@@ -1,4 +1,4 @@
-from .dialog import *
+from ..dialog import *
 from .message_dialog import MessageDialog
 from ..menu import Menu
 from direct.stdpy.file import *
@@ -35,14 +35,6 @@ def get_incremented_filename(filename, namestring):
 
 class FileButton(Button):
 
-    _gfx = {
-        "normal": (("file_button_normal_left", "file_button_normal_center",
-                     "file_button_normal_right"),),
-        "hilited": (("file_button_hilited_left", "file_button_hilited_center",
-                     "file_button_hilited_right"),),
-        "active": (("file_button_selected_left", "file_button_selected_center",
-                     "file_button_selected_right"),)
-    }
     _file_icon = None
     _dir_icon = None
     _candidate_btn = None
@@ -112,25 +104,32 @@ class FileButton(Button):
 
     def __init__(self, parent, filename, on_select=None, command=None, is_dir=False):
 
+        gfx_ids = Skin.atlas.gfx_ids["file_button"]
+
         if not self._file_icon:
-            x, y, w, h = TextureAtlas["regions"]["icon_file"]
+            gfx_id = gfx_ids["icon_file"][0][0]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
             FileButton._file_icon = img = PNMImage(w, h, 4)
-            img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+            img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
 
         if not self._dir_icon:
-            x, y, w, h = TextureAtlas["regions"]["icon_folder"]
+            gfx_id = gfx_ids["icon_folder"][0][0]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
             FileButton._dir_icon = img = PNMImage(w, h, 4)
-            img.copy_sub_image(TextureAtlas["image"], 0, 0, x, y, w, h)
+            img.copy_sub_image(Skin.atlas.image, 0, 0, x, y, w, h)
 
         if not self._popup_menu:
             self.__create_popup_menu()
 
-        Button.__init__(self, parent, self._gfx, filename, command=command,
-                        text_alignment="left", button_type="file_button")
+        gfx_ids = Skin.atlas.gfx_ids["file_button"]
+
+        Button.__init__(self, parent, gfx_ids, filename, text_alignment="left",
+                        button_type="file_button")
 
         self.widget_type = "file_button"
+        self.command = command
 
-        self.node.reparent_to(parent.get_widget_root_node())
+        self.node.reparent_to(parent.widget_root_node)
         self.mouse_region.sort = parent.sort + 1
         self._filename = filename
         self._on_select = on_select if on_select else lambda filename: None
@@ -168,7 +167,7 @@ class FileButton(Button):
             field_img = field.get_image()
             image.copy_sub_image(field_img, 0, 0, 0, 0)
 
-        l, r, b, t = TextureAtlas["outer_borders"]["icon_file"]
+        l, r, b, t = Skin.atlas.outer_borders["icon_file"]
 
         if self._is_dir:
             image.blend_sub_image(self._dir_icon, l, t, 0, 0)
@@ -205,14 +204,14 @@ class FileButton(Button):
                                   icon_id="icon_exclamation")
                     return
 
-            field.set_parent(self)
+            field.parent = self
             sizer = Sizer("horizontal")
-            sizer.add(field, proportion=1.)
+            sizer.add(field, proportions=(1., 0.))
             size = self.get_size()
             self.sizer = sizer
             sizer.default_size = size
             sizer.set_size(size)
-            sizer.calculate_positions()
+            sizer.update_positions()
             sizer.update_images()
             sizer.update_mouse_region_frames()
             field.set_text(self._filename)
@@ -222,10 +221,10 @@ class FileButton(Button):
         else:
 
             sizer = self.sizer
-            sizer.remove_item(sizer.items[0])
+            sizer.remove_cell(sizer.cells[0])
             sizer.destroy()
             self.sizer = None
-            field.set_parent(None)
+            field.parent = None
 
         self._is_name_field_shown = show
         Button.on_leave(self, force=True)
@@ -302,23 +301,8 @@ class FileButton(Button):
             self._on_select(self._filename)
 
 
-class FileDialogInputField(DialogInputField):
-
-    def __init__(self, parent, width, dialog=None, font=None, text_color=None,
-                 back_color=None, on_key_enter=None, on_key_escape=None):
-
-        DialogInputField.__init__(self, parent, "filename", "string", None, width, dialog,
-                                  font, text_color, back_color, on_key_enter=on_key_enter,
-                                  on_key_escape=on_key_escape)
-
-
 class FileButtonInputField(DialogInputField):
 
-    _alt_gfx = (
-            ("filename_field_topleft", "filename_field_top", "filename_field_topright"),
-            ("filename_field_left", "filename_field_center", "filename_field_right"),
-            ("filename_field_bottomleft", "filename_field_bottom", "filename_field_bottomright")
-    )
     _alt_borders = ()
     _alt_offset = (0, 0)
     _ref_node = NodePath("reference_node")
@@ -326,7 +310,7 @@ class FileButtonInputField(DialogInputField):
     @classmethod
     def __set_alt_borders(cls):
 
-        l, r, b, t = TextureAtlas["outer_borders"]["filename_field"]
+        l, r, b, t = Skin.atlas.outer_borders["filename_field"]
         cls._alt_borders = (l, r, b, t)
         cls._alt_offset = (-l, -t)
 
@@ -335,15 +319,22 @@ class FileButtonInputField(DialogInputField):
 
         cls._ref_node.set_pos(pos)
 
-    def __init__(self, handler, width, dialog=None, font=None, text_color=None, back_color=None):
+    def __init__(self, parent, handler, width, font=None, text_color=None, back_color=None):
 
         if not self._alt_borders:
             self.__set_alt_borders()
 
-        DialogInputField.__init__(self, None, "filename", "string", handler, width, dialog,
-                                  font, text_color, back_color, self.__hide_name_field,
-                                  self.__hide_name_field, alt_field_borders=self._alt_borders,
-                                  alt_border_gfx_data=self._alt_gfx, alt_image_offset=self._alt_offset)
+        gfx_ids = Skin.atlas.gfx_ids["file_button"]["field"]
+
+        DialogInputField.__init__(self, parent, width, font, text_color, back_color,
+                                  self._alt_borders, gfx_ids, self._alt_offset)
+
+        self.value_id = "filename"
+        self.value_type = "string"
+        self.set_value_handler(handler)
+        self.set_on_accept(self.__hide_name_field)
+        self.set_on_reject(self.__hide_name_field)
+        self.parent = None
 
     def __hide_name_field(self, *args):
 
@@ -352,13 +343,15 @@ class FileButtonInputField(DialogInputField):
 
 class FilePane(DialogScrollPane):
 
-    def __init__(self, dialog, path_handler, file_selection_handler, file_command, extensions,
+    def __init__(self, parent, path_handler, file_selection_handler, file_command, extensions,
                  default_filename):
 
-        x, y, w, h = TextureAtlas["regions"]["file_button_normal_left"]
-        height = h * Skin["options"]["file_row_count"]
-        frame_client_size = (700, height)
-        DialogScrollPane.__init__(self, dialog, "file_pane", "horizontal", frame_client_size)
+        gfx_id = Skin.atlas.gfx_ids["file_button"]["normal"][0][0]
+        x, y, w, h = Skin.atlas.regions[gfx_id]
+        height = h * Skin.options["file_row_count"]
+        frame_client_size = (Skin.options["file_dialog_scrollpane_width"], height)
+
+        DialogScrollPane.__init__(self, parent, "file_pane", "horizontal", frame_client_size)
 
         self._path_handler = path_handler
         self._file_selection_handler = file_selection_handler
@@ -378,16 +371,21 @@ class FilePane(DialogScrollPane):
             if not self._filename_field.parent.is_directory():
                 file_selection_handler(value)
 
-        field = FileButtonInputField(handler, 1, dialog)
+        dialog = parent.get_ancestor("dialog")
+        field = FileButtonInputField(dialog, handler, 1)
         field.set_input_parser(self.__rename_file)
-        field.set_scissor_effect(self.get_scissor_effect())
+        field.set_scissor_effect(self.scissor_effect)
         self._filename_field = field
+
+        self._btn_sizer = Sizer("vertical", Skin.options["file_row_count"],
+            (Skin.options["file_btn_h_gap"], Skin.options["file_btn_v_gap"]))
+        self.sizer.add(self._btn_sizer)
 
         self.__update_directory_list(update_layout=False)
 
     def _copy_widget_images(self, pane_image):
 
-        root_node = self.get_widget_root_node()
+        root_node = self.widget_root_node
 
         for btn in self._btns:
             x, y = btn.get_pos(ref_node=root_node)
@@ -442,34 +440,23 @@ class FilePane(DialogScrollPane):
                     subdirnames.append(item.get_filename().get_basename())
 
         self._btns = btns = []
-        sizer = self.sizer
-        sizer.clear(destroy_items=True)
+        sizer = self._btn_sizer
+        sizer.clear(destroy_cells=True)
 
         FileButton.set_selected_filebutton(None)
 
         f = lambda x, y: (x.casefold() > y.casefold()) - (x.casefold() < y.casefold())
 
-        def get_command(dir_path):
-
-            return lambda: self.set_directory(dir_path)
-
         for name in sorted(subdirnames, key=cmp_to_key(f)):
             path = join(directory_path, name)
-            command = get_command(path)
+            command = lambda p=path: self.set_directory(p)
             btns.append(FileButton(self, name, command=command, is_dir=True))
 
         for name in sorted(filenames, key=cmp_to_key(f)):
             btns.append(FileButton(self, name, self._file_selection_handler, self._file_command))
 
-        count = Skin["options"]["file_row_count"]
-
-        for column in (btns[i:i+count] for i in range(0, len(btns), count)):
-
-            column_sizer = Sizer("vertical")
-            sizer.add(column_sizer)
-
-            for btn in column:
-                column_sizer.add(btn, expand=True)
+        for btn in btns:
+            sizer.add(btn)
 
         if update_layout:
             self.update_layout()
@@ -544,22 +531,7 @@ class FilePane(DialogScrollPane):
                           icon_id="icon_exclamation")
             return False
 
-        sizer = self.sizer
-        sizer_item = button.sizer_item
-        column_sizer = sizer_item.sizer
-        column_sizer.remove_item(sizer_item)
-        prev_cs = column_sizer
-        index = sizer.items.index(column_sizer.sizer_item)
-
-        for column_sizer_item in sizer.items[index + 1:]:
-            column_sizer = column_sizer_item.object
-            sizer_item = column_sizer.pop_item(0)
-            prev_cs.add_item(sizer_item)
-            prev_cs = column_sizer
-
-        if len(column_sizer.items) == 0:
-            sizer.remove_item(column_sizer.sizer_item, destroy=True)
-
+        self._btn_sizer.remove_cell(button.sizer_cell)
         self._btns.remove(button)
         button.destroy()
         self.update_layout()
@@ -594,22 +566,10 @@ class FilePane(DialogScrollPane):
         command = lambda: self.set_directory(dir_path)
         btn = FileButton(self, dir_name, command=command, is_dir=True)
         self._btns.append(btn)
-        sizer = self.sizer
-
-        if len(sizer.items) == 0:
-            column_sizer = Sizer("vertical")
-            sizer.add(column_sizer)
-        else:
-            column_sizer = sizer.items[-1].object
-
-        if len(column_sizer.items) == Skin["options"]["file_row_count"]:
-            column_sizer = Sizer("vertical")
-            sizer.add(column_sizer)
-
-        column_sizer.add(btn, expand=True)
+        self._btn_sizer.add(btn)
         self.update_layout()
-        w_virt = sizer.virtual_size[0]
-        self.get_scrollthumb().set_offset(w_virt)
+        w_virt = self.virtual_size[0]
+        self.scrollthumb.set_offset(w_virt)
         btn.show_name_field()
 
 
@@ -654,10 +614,17 @@ class FileDialog(Dialog):
                 on_yes(Filename(join(self._current_path, self._filename)).to_os_specific())
 
         if file_op == "write" and incr_filename:
-            extra_button_data += (("+", "Save incrementally", self.__save_incrementally, 10, 1.),)
+            w = Skin.options["file_dialog_incr_save_btn_width"]
+            extra_button_data += (("+", "Save incrementally", self.__save_incrementally, w, 1.),)
 
         Dialog.__init__(self, title, choices, ok_alias, command, on_no, on_cancel,
                         extra_button_data)
+
+        widgets = Skin.layout.create(self, "file")
+        pane_cell = widgets["placeholders"]["pane"]
+        self._fields = fields = widgets["fields"]
+        comboboxes = widgets["comboboxes"]
+        btns = widgets["buttons"]
 
         self.accept_extra_dialog_events()
 
@@ -666,23 +633,27 @@ class FileDialog(Dialog):
 
         self._file_op = file_op
         self._extensions = file_types[0].split("|")[1]
-        self._fields = fields = {}
-        client_sizer = self.get_client_sizer()
-        dir_sizer = Sizer("horizontal")
-        borders = (50, 50, 0, 20)
-        client_sizer.add(dir_sizer, borders=borders, expand=True)
+
+        self._dir_combobox = dir_combobox = comboboxes["directory"]
+        val_id = "dir_path"
         handler = lambda *args: self.__handle_dir_path(args[1])
-        dir_combobox = DialogComboBox(self, 100, tooltip_text="Current folder",
-                                      editable=True, value_id="dir_path",
-                                      handler=handler)
-        self._dir_combobox = dir_combobox
-        field = dir_combobox.get_input_field()
+        field = dir_combobox.set_input_field(val_id, "string", handler)
         field.set_input_parser(self.__parse_dir_input)
         field.set_value_parser(self.__parse_dir_path)
         fields["dir_path"] = field
+
+        self._dir_up_btn = up_btn = btns["dir_up"]  # DialogToolButton
+        up_btn.command = self.__directory_up
+
+        self._file_pane = pane = FilePane(self, self.__set_current_path, self.set_filename,
+                                          lambda: self.close(answer="yes"), self._extensions,
+                                          default_filename)
+        pane_cell.object = pane.frame
+
+        self._new_dir_btn = new_btn = btns["new_dir"]  # DialogToolButton
+        new_btn.command = self._file_pane.create_subdirectory
+
         file_sys = VirtualFileSystem.get_global_ptr()
-        up_btn = DialogToolButton(self, icon_id="icon_folder_up", command=self.__directory_up)
-        self._dir_up_btn = up_btn
         cwd = file_sys.get_cwd()
         homedir = Filename.get_home_directory()
         self._recent_dirs = [cwd.get_fullpath(), homedir.get_fullpath()]
@@ -709,47 +680,31 @@ class FileDialog(Dialog):
                 else:
                     up_btn.enable()
                     tooltip_text = f'Up to "{Filename(path_up).to_os_specific()}"'
-                    up_btn.set_tooltip_text(tooltip_text)
+                    up_btn.tooltip_text = tooltip_text
 
         dir_combobox.add_item("cwd", cwd.to_os_specific(),
             lambda: set_path("cwd", cwd.get_fullpath()), persistent=True)
         recent_dirs = GD["config"]["recent_dirs"]
         self._recent_dirs.extend(recent_dirs)
-        get_command = lambda item_id, path: lambda: set_path(item_id, path)
 
         for i, path in enumerate(recent_dirs):
             item_id = str(i)
+            command = lambda i=item_id, p=path: set_path(i, p)
             dir_combobox.add_item(item_id, Filename(path).to_os_specific(),
-                get_command(item_id, path), persistent=True)
+                command, persistent=True)
 
         dir_combobox.add_item("homedir", homedir.to_os_specific(),
             lambda: set_path("homedir", homedir.get_fullpath()), persistent=True, update=True)
-        dir_sizer.add(dir_combobox, proportion=1., alignment="center_v")
-        borders = (20, 0, 0, 0)
-        dir_sizer.add(up_btn, borders=borders, alignment="center_v")
-        self._file_pane = pane = FilePane(self, self.__set_current_path, self.set_filename,
-                                          lambda: self.close(answer="yes"), self._extensions,
-                                          default_filename)
-        new_btn = DialogToolButton(self, icon_id="icon_folder_new", tooltip_text="New folder",
-                                   command=pane.create_subdirectory)
-        self._new_dir_btn = new_btn
-        dir_sizer.add(new_btn, borders=borders, alignment="center_v")
-        frame = pane.frame
-        borders = (50, 50, 0, 20)
-        client_sizer.add(frame, borders=borders, proportion=1., expand=True)
-        file_sizer = Sizer("horizontal")
-        borders = (50, 50, 20, 20)
-        client_sizer.add(file_sizer, borders=borders, expand=True)
-        text = DialogText(self, "File name:")
-        borders = (0, 10, 0, 0)
-        file_sizer.add(text, borders=borders, alignment="center_v")
-        on_key_enter = lambda: self.close(answer="yes")
-        field = FileDialogInputField(self, 100, on_key_enter=on_key_enter, on_key_escape=self.close)
+
+        field = fields["filename"]
+        field.value_id = "filename"
+        field.value_type = "string"
+        field.set_on_key_enter(lambda: self.close(answer="yes"))
+        field.set_on_key_escape(self.close)
         field.set_input_parser(self.__parse_filename_input)
         field.set_value_parser(self.__parse_filename)
-        fields["filename"] = field
-        file_sizer.add(field, proportion=1., alignment="center_v")
-        type_combobox = DialogComboBox(self, 100, tooltip_text="File types")
+
+        type_combobox = comboboxes["file_type"]
 
         def set_extensions(item_id, extensions):
 
@@ -762,12 +717,10 @@ class FileDialog(Dialog):
             type_descr, extensions = type_data.split("|")
             item_id = str(i)
             item_text = f'{type_descr} ({";".join(f"*.{ext}" for ext in extensions.split(";"))})'
-            get_command = lambda item_id, extensions: lambda: set_extensions(item_id, extensions)
-            type_combobox.add_item(item_id, item_text, get_command(item_id, extensions))
+            command = lambda i=item_id, e=extensions: set_extensions(i, e)
+            type_combobox.add_item(item_id, item_text, command)
 
         type_combobox.update_popup_menu()
-        borders = (10, 0, 0, 0)
-        file_sizer.add(type_combobox, borders=borders, proportion=.5, alignment="center_v")
 
         self.finalize()
 
@@ -882,7 +835,7 @@ class FileDialog(Dialog):
         else:
             up_btn.enable()
             tooltip_text = f'Up to "{Filename(path_up).to_os_specific()}"'
-            up_btn.set_tooltip_text(tooltip_text)
+            up_btn.tooltip_text = tooltip_text
 
     def set_filename(self, filename):
 

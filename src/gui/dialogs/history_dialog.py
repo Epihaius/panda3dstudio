@@ -1,20 +1,18 @@
-from ..dialog import *
 from ..button import Button
 from ..menu import Menu
 from ..icon import LayeredIcon
+from ..dialog import *
+from .message_dialog import MessageDialog
+from .input_dialog import InputDialog
 
 
 class ExpandButton(Button):
 
-    _gfx = {
-        "normal": (("expand_button_normal",),),
-        "active": (("expand_button_active",),),
-        "disabled": (("expand_button_disabled",),)
-    }
-
     def __init__(self, parent):
 
-        Button.__init__(self, parent, self._gfx, "", "", "")
+        gfx_ids = Skin.atlas.gfx_ids["hist_expand_button"]
+
+        Button.__init__(self, parent, gfx_ids, "", "", "")
 
         self.widget_type = "expand_button"
         self.mouse_region.sort = parent.sort
@@ -28,12 +26,6 @@ class ExpandButton(Button):
 
 class TimelineButton(Button):
 
-    _gfx = {
-        "normal": (("timeline_button_normal",),),
-        "hilited": (("timeline_button_hilited",),),
-        "pressed": (("timeline_button_pressed",),),
-        "active": (("timeline_button_active",),)
-    }
     _ref_node = NodePath("timeline_btn_ref_node")
     _menu_offsets = {}
 
@@ -44,10 +36,13 @@ class TimelineButton(Button):
 
     def __init__(self, parent, entries, commands):
 
-        Button.__init__(self, parent, self._gfx, "", "", "Choose timeline", self.__show_menu)
+        gfx_ids = Skin.atlas.gfx_ids["timeline_button"]
+
+        Button.__init__(self, parent, gfx_ids, "", "", "Choose timeline")
 
         self.widget_type = "timeline_button"
         self.mouse_region.sort = parent.sort
+        self.command = self.__show_menu
 
         self._menu = menu = Menu(on_hide=self.__on_hide)
 
@@ -62,8 +57,9 @@ class TimelineButton(Button):
         menu.update()
 
         if not self._menu_offsets:
-            x, y, w, h = TextureAtlas["regions"]["timeline_button_normal"]
-            x = w - 260
+            gfx_id = gfx_ids["normal"][0][0]
+            x, y, w, h = Skin.atlas.regions[gfx_id]
+            x = w - Skin.options["timestamp_column_width"]
             self._menu_offsets["top"] = (x, 0)
             self._menu_offsets["bottom"] = (x, h)
 
@@ -102,7 +98,7 @@ class HistoryEntry(Widget):
 
     def __init__(self, parent, event, index, is_on):
 
-        Widget.__init__(self, "hist_entry", parent, gfx_data={})
+        Widget.__init__(self, "hist_entry", parent, gfx_ids={})
 
         sort = parent.sort + 1
         self.sort = sort
@@ -115,7 +111,7 @@ class HistoryEntry(Widget):
         self._has_event_to_merge = False
         self._image = None
         self._is_selected = False
-        colors = Skin["colors"]
+        colors = Skin.colors
         self._colors = {
             "unselected": colors[f'history_entry_unselected{"_alt" if index % 2 else ""}'][:3],
             "selected": colors[f'history_entry_selected{"_alt" if index % 2 else ""}'][:3]
@@ -124,30 +120,32 @@ class HistoryEntry(Widget):
         sizer = Sizer("horizontal")
         self.sizer = sizer
         self._subsizer = subsizer = Sizer("horizontal")
-        subsizer.default_size = (260, 0)
+        w = Skin.options["timestamp_column_width"]
+        subsizer.default_size = (w, 0)
         sizer.add(subsizer)
-        icon_ids = ["icon_hist_entry_off", "icon_hist_entry_on", "icon_hist_entry_merge",
-                    "icon_hist_entry_delete"]
+
+        icon_ids = Skin.atlas.gfx_ids["hist_entry"]["icons"][0]
+        icon_off_id, icon_on_id, icon_merge_id, icon_del_id = icon_ids
         self._icon = icon = LayeredIcon(self, icon_ids)
 
         if is_on:
-            icon.show_icon("icon_hist_entry_on", True)
-            icon.show_icon("icon_hist_entry_off", False, update=True)
+            icon.show_icon(icon_on_id, True)
+            icon.show_icon(icon_off_id, False, update=True)
 
-        borders = (10, 0, 6, 6)
-        subsizer.add(icon, alignment="center_v", borders=borders)
+        l, r, b, t = Skin.atlas.inner_borders["history_entry"]
+        borders = (l, 0, b, t)
+        subsizer.add(icon, alignments=("min", "center"), borders=borders)
         text = DialogText(self, timestamp)
-        borders = (10, 0, 6, 6)
-        subsizer.add(text, alignment="center_v", borders=borders)
-        subsizer.add((0, 0), proportion=1.)
+        subsizer.add(text, alignments=("min", "center"), borders=borders)
+        subsizer.add((0, 0), proportions=(1., 0.))
         self._expand_btn = btn = ExpandButton(self)
         btn.enable(event.get_description_line_count() > 1)
         d = max(0, icon.get_size()[1] - btn.get_size()[1]) // 2
-        borders = (10, 0, 6 + d, 6 + d)
-        sizer.add(btn, borders=borders)
+        borders = (l, 0, b + d, t + d)
+        sizer.add(btn, alignments=("min", "min"), borders=borders)
         descr = event.get_description_start()
         self._description = text = DialogText(self, descr)
-        milestone_text = Skin["text"]["milestone"]
+        milestone_text = Skin.text["milestone"]
         self._text_attribs = {
             "dialog": {"font": text.get_font(), "color": text.get_color()},
             "milestone": {"font": milestone_text["font"], "color": milestone_text["color"]}
@@ -155,12 +153,11 @@ class HistoryEntry(Widget):
 
         if event.is_milestone():
             text_attr = self._text_attribs["milestone"]
-            text = self._description
             text.set_font(text_attr["font"], update=False)
             text.set_color(text_attr["color"])
 
-        borders = (10, 10, 6, 6)
-        sizer.add(text, alignment="center_v", borders=borders)
+        borders = (l, r, b, t)
+        sizer.add(text, alignments=("min", "center"), borders=borders)
 
     def get_event(self):
 
@@ -173,16 +170,16 @@ class HistoryEntry(Widget):
     def add_timeline_button(self, entries, commands):
 
         btn = TimelineButton(self, entries, commands)
-        self._subsizer.add(btn, alignment="center_v")
+        self._subsizer.add(btn, alignments=("min", "center"))
 
-    def add_timeline_item(self, item):
+    def add_timeline_cell(self, cell):
 
-        self._subsizer.add_item(item)
-        item.object.set_parent(self)
+        self._subsizer.add_cell(cell)
+        cell.object.set_parent(self)
 
-    def pop_timeline_item(self):
+    def pop_timeline_cell(self):
 
-        return self._subsizer.pop_item()
+        return self._subsizer.pop_cell()
 
     def set_selected(self, is_selected=True):
 
@@ -191,18 +188,20 @@ class HistoryEntry(Widget):
 
         self._is_selected = is_selected
         self._is_on = is_on = not self._is_on
+        icon_ids = Skin.atlas.gfx_ids["hist_entry"]["icons"][0]
+        icon_off_id, icon_on_id, icon_merge_id, icon_del_id = icon_ids
 
         if is_on and self._has_event_to_del:
 
             self._has_event_to_del = False
-            self._icon.show_icon("icon_hist_entry_delete", False)
+            self._icon.show_icon(icon_del_id, False)
             menu = self.get_ancestor("dialog").get_rejected_history_button().get_menu()
 
             if self in menu.items:
                 menu.remove(self, destroy=True, update=True)
 
-        self._icon.show_icon("icon_hist_entry_on", is_on)
-        self._icon.show_icon("icon_hist_entry_off", not is_on, update=True)
+        self._icon.show_icon(icon_on_id, is_on)
+        self._icon.show_icon(icon_off_id, not is_on, update=True)
         self.update_images()
         w, h = self.get_size()
 
@@ -222,12 +221,15 @@ class HistoryEntry(Widget):
         if (reject and self._is_on) or self._has_event_to_del == reject:
             return False
 
+        icon_ids = Skin.atlas.gfx_ids["hist_entry"]["icons"][0]
+        icon_off_id, icon_on_id, icon_merge_id, icon_del_id = icon_ids
+
         if reject and self._has_event_to_merge:
-            self._icon.show_icon("icon_hist_entry_merge", False)
+            self._icon.show_icon(icon_merge_id, False)
             self._has_event_to_merge = False
 
         self._has_event_to_del = reject
-        self._icon.show_icon("icon_hist_entry_delete", reject)
+        self._icon.show_icon(icon_del_id, reject)
         self._icon.update()
         self.update_images()
         w, h = self.get_size()
@@ -247,7 +249,9 @@ class HistoryEntry(Widget):
             return False
 
         self._has_event_to_merge = merge
-        self._icon.show_icon("icon_hist_entry_merge", merge, update=True)
+        icon_ids = Skin.atlas.gfx_ids["hist_entry"]["icons"][0]
+        icon_off_id, icon_on_id, icon_merge_id, icon_del_id = icon_ids
+        self._icon.show_icon(icon_merge_id, merge, update=True)
         self.update_images()
         w, h = self.get_size()
 
@@ -270,12 +274,12 @@ class HistoryEntry(Widget):
 
         if descr.set_text(text):
 
-            descr.sizer_item.sizer.set_min_size_stale()
+            descr.sizer_cell.sizer.set_min_size_stale()
             self.get_ancestor("dialog").update_layout()
-            item = self._subsizer.items[-1]
+            cell = self._subsizer.cells[-1]
 
-            if item.type == "widget":
-                menu = item.object.get_menu()
+            if cell.type == "widget":
+                menu = cell.object.get_menu()
                 timestamp = event.get_timestamp()
                 text = timestamp + "  |  " + event.get_description_start()
                 menu.set_item_text(self, text, update=True)
@@ -288,7 +292,7 @@ class HistoryEntry(Widget):
 
         if descr.set_text(text):
 
-            descr.sizer_item.sizer.set_min_size_stale()
+            descr.sizer_cell.sizer.set_min_size_stale()
 
             if update:
                 self.get_ancestor("dialog").update_layout()
@@ -301,7 +305,7 @@ class HistoryEntry(Widget):
         descr = self._description
         descr.set_font(text_attr["font"], update=False)
         descr.set_color(text_attr["color"])
-        descr.sizer_item.sizer.set_min_size_stale()
+        descr.sizer_cell.sizer.set_min_size_stale()
         self.get_ancestor("dialog").update_layout()
 
     def update_images(self, recurse=True, size=None):
@@ -313,12 +317,17 @@ class HistoryEntry(Widget):
         pane = self.get_ancestor("history_pane")
 
         if pane.get_current_entry() is self:
+
             painter = PNMPainter(image)
-            pen = PNMBrush.make_pixel((0., 0., 0., 1.))
-            fill = PNMBrush.make_transparent()
-            painter.pen = pen
-            painter.fill = fill
-            painter.draw_rectangle(262, 2, w - 3, h - 3)
+            brush_border = PNMBrush.make_pixel(Skin.colors["history_current_entry_rect"])
+            brush_fill = PNMBrush.make_transparent()
+            painter.pen = brush_border
+            painter.fill = brush_fill
+            width = Skin.options["timestamp_column_width"]
+            thickness = Skin.options["history_entry_rect_thickness"]
+
+            for i in range(thickness):
+                painter.draw_rectangle(width + 2 + i, 2 + i, w - 3 - i, h - 3 - i)
 
         if recurse:
             self.sizer.update_images()
@@ -399,10 +408,10 @@ class HistoryPanel(Widget):
 
     def __init__(self, parent, prev_panel, events, entry_offset, past):
 
-        Widget.__init__(self, "history_panel", parent, gfx_data={}, hidden=True,
+        Widget.__init__(self, "history_panel", parent, gfx_ids={}, hidden=True,
                         has_mouse_region=False)
 
-        self.node.reparent_to(parent.get_widget_root_node())
+        self.node.reparent_to(parent.widget_root_node)
 
         self._prev_panel = prev_panel
         self._prev_panels = prev_panel.get_previous_panels() + [prev_panel] if prev_panel else []
@@ -411,6 +420,7 @@ class HistoryPanel(Widget):
         self._entries = entries = []
 
         sizer = Sizer("vertical")
+        sizer.set_column_proportion(0, 1.)
         self.sizer = sizer
 
         for i, event in enumerate(events):
@@ -419,7 +429,7 @@ class HistoryPanel(Widget):
             is_on = is_current_entry or event in past
             entry = HistoryEntry(self, event, i + entry_offset, is_on)
             entries.append(entry)
-            sizer.add(entry, expand=True, index=0)
+            sizer.add(entry, index=0)
 
             if event.is_milestone():
                 parent.add_milestone(entry)
@@ -444,18 +454,18 @@ class HistoryPanel(Widget):
 
     def add_timeline_button(self, entries, commands):
 
-        entry = self.sizer.items[-1].object
+        entry = self.sizer.cells[-1].object
         entry.add_timeline_button(entries, commands)
 
-    def add_timeline_item(self, item):
+    def add_timeline_cell(self, cell):
 
-        entry = self.sizer.items[-1].object
-        entry.add_timeline_item(item)
+        entry = self.sizer.cells[-1].object
+        entry.add_timeline_cell(cell)
 
-    def pop_timeline_item(self):
+    def pop_timeline_cell(self):
 
-        entry = self.sizer.items[-1].object
-        return entry.pop_timeline_item()
+        entry = self.sizer.cells[-1].object
+        return entry.pop_timeline_cell()
 
     def update_images(self, recurse=True, size=None):
 
@@ -496,14 +506,34 @@ class HistoryPanel(Widget):
 
         return self._entries
 
+    def show(self):
+
+        Widget.show(self)
+
+        self.sizer_cell.object = self
+
+    def hide(self):
+
+        Widget.hide(self)
+
+        self.sizer_cell.object = (0, 0)
+
 
 class HistoryPane(DialogScrollPane):
 
-    def __init__(self, dialog, history, past, current_time_id):
+    def __init__(self, parent, history, past, current_time_id):
 
-        DialogScrollPane.__init__(self, dialog, "history_pane", "vertical", (700, 300))
+        frame_client_size = (
+            Skin.options["hist_dialog_scrollpane_width"],
+            Skin.options["hist_dialog_scrollpane_height"]
+        )
+
+        DialogScrollPane.__init__(self, parent, "history_pane", "vertical", frame_client_size)
+
         mouse_watcher = self.mouse_watcher
         mouse_watcher.remove_region(DialogInputField.get_mouse_region_mask())
+
+        self.sizer.set_column_proportion(0, 1.)
 
         self._start_time_id = history.get_time_id()
         self._current_time_id = current_time_id
@@ -530,25 +560,21 @@ class HistoryPane(DialogScrollPane):
             for entry in panel.get_entries():
                 entries[entry.get_event()] = entry
 
-        def get_command(panel):
+        def set_next_panel(panel):
 
-            def command():
+            clicked_panel = self._clicked_entry.parent
 
-                clicked_panel = self._clicked_entry.parent
-
-                if panel is not clicked_panel:
-                    item = clicked_panel.pop_timeline_item()
-                    self.__show_panel(clicked_panel, False)
-                    prev_panel = panel.get_previous_panel()
-                    prev_panel.set_next_panel(panel)
-                    self.__show_panel(panel)
-                    panel.add_timeline_item(item)
-                    scrollthumb = self.get_scrollthumb()
-                    h = self.sizer.virtual_size[1] - scrollthumb.get_offset()
-                    self.get_dialog().update_layout()
-                    scrollthumb.set_offset(self.sizer.virtual_size[1] - h)
-
-            return command
+            if panel is not clicked_panel:
+                cell = clicked_panel.pop_timeline_cell()
+                self.__show_panel(clicked_panel, False)
+                prev_panel = panel.get_previous_panel()
+                prev_panel.set_next_panel(panel)
+                self.__show_panel(panel)
+                panel.add_timeline_cell(cell)
+                scrollthumb = self.scrollthumb
+                h = self.virtual_size[1] - scrollthumb.get_offset()
+                self.get_dialog().update_layout()
+                scrollthumb.set_offset(self.virtual_size[1] - h)
 
         for panel in [start_panel] + panels:
 
@@ -567,7 +593,7 @@ class HistoryPane(DialogScrollPane):
                     for next_panel in next_panels:
                         start_entry = next_panel.get_entries()[0]
                         entries.append(start_entry)
-                        commands.append(get_command(next_panel))
+                        commands.append(lambda p=next_panel: set_next_panel(p))
 
                     panel0.add_timeline_button(entries, commands)
 
@@ -628,7 +654,8 @@ class HistoryPane(DialogScrollPane):
         if prev_panel:
             panel = HistoryPanel(self, prev_panel, events, event_index % 2, past)
             self._panels.append(panel)
-            self.sizer.add(panel, expand=True, index=0)
+            self.sizer.add(panel, index=0)
+            panel.sizer_cell.object = (0, 0)
             next_panels = prev_panel.get_next_panels()
             next_panels.append(panel)
         else:
@@ -642,7 +669,7 @@ class HistoryPane(DialogScrollPane):
 
     def _copy_widget_images(self, pane_image): 
 
-        root_node = self.get_widget_root_node()
+        root_node = self.widget_root_node
 
         for panel in self._panels:
             if not panel.is_hidden():
@@ -674,10 +701,10 @@ class HistoryPane(DialogScrollPane):
         for prev_panel in reversed(panel.get_previous_panels()):
 
             if prev_panel.get_next_panel() is not panel:
-                item = prev_panel.get_next_panel().pop_timeline_item()
-                panel.add_timeline_item(item)
+                cell = prev_panel.get_next_panel().pop_timeline_cell()
+                panel.add_timeline_cell(cell)
                 prev_panel.set_next_panel(panel)
-                menu = item.object.get_menu()
+                menu = cell.object.get_menu()
                 menu.check_radio_item(panel.get_entries()[0])
                 layout_stale = True
 
@@ -689,7 +716,7 @@ class HistoryPane(DialogScrollPane):
             self.get_dialog().update_layout()
 
         offset = entry.get_pos(from_root=True)[1]
-        self.get_scrollthumb().set_offset(offset)
+        self.scrollthumb.set_offset(offset)
 
     def __add_to_menu(self, menu, entry, update=True):
 
@@ -1358,39 +1385,28 @@ class HistoryDialog(Dialog):
             Mgr.update_app("history", "update", self._to_undo, self._to_redo, self._to_delete,
                            self._to_merge, self._to_restore, self._set_unsaved)
 
-        extra_button_data = (("Archive", "Merge all history", self.__archive_history, None, 4.),)
+        gap_mult = Skin.options["hist_dialog_archive_btn_gap_mult"]
+        extra_button_data = (("Archive", "Merge all history", self.__archive_history, None, gap_mult),)
         Dialog.__init__(self, "History", choices="okcancel", on_yes=update_history,
                         extra_button_data=extra_button_data)
+
+        widgets = Skin.layout.create(self, "history")
+        btns = widgets["buttons"]
 
         self._history = history
         self._history_root = history["root"]
         Mgr.expose("history_event", lambda time_id: self._history.get(time_id))
 
-        client_sizer = self.get_client_sizer()
+        self._milestone_btn = btns["milestone"]
+        self._rejected_hist_btn = btns["rejected_hist"]
 
-        text = DialogText(self,
-                          "Left-click an entry to select a range of events to"
-                          " be undone and/or redone"
-                          " (left-click it again to select none).\n"
-                          "Right-click an entry for more options."
-                          "\nNOTE: rejected events will be permanently deleted."
-                         )
-        borders = (15, 15, 15, 15)
-        client_sizer.add(text, borders=borders)
-
-        subsizer = Sizer("horizontal")
-        client_sizer.add(subsizer, borders=borders)
-        self._milestone_btn = btn = DialogDropdownButton(self, "To milestone...")
-        subsizer.add(btn)
-        subsizer.add((20, 0))
-        self._rejected_hist_btn = btn = DialogDropdownButton(self, "To rejected history...")
-        subsizer.add(btn)
-        subsizer.add((20, 0))
         self._hist_pane = pane = HistoryPane(self, self._history_root, past, time_id)
         frame = pane.frame
-        client_sizer.add(frame, proportion=1., expand=True, borders=borders)
-        btn = DialogButton(self, "To current event", command=pane.jump_to_current_entry)
-        subsizer.add(btn)
+        pane_cell = widgets["placeholders"]["pane"]
+        pane_cell.object = frame
+
+        btn = btns["current_event"]
+        btn.command = pane.jump_to_current_entry
 
         self.finalize()
 
