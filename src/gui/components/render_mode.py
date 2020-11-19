@@ -49,9 +49,9 @@ class RenderModeToolbar(Toolbar):
         widgets = Skin.layout.create(self, "render_mode")
         self._btns = RenderModeButtons(widgets["buttons"])
 
-        command = lambda: Mgr.update_remotely("two_sided")
-        hotkey = ("f5", 0)
         self._btn_two_sided = btn = widgets["buttons"]["two_sided"]
+        btn.command = lambda: Mgr.update_remotely("two_sided")
+        hotkey = ("f5", 0)
         btn.set_hotkey(hotkey, "F5")
 
         Mgr.add_app_updater("two_sided", self.__toggle_two_sided)
