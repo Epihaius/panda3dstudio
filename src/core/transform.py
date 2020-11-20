@@ -1538,6 +1538,9 @@ class TransformationManager:
             if self._transf_plane.intersects_line(point, near_point, far_point):
                 pos = grid_origin.get_relative_point(GD.world, self._transf_start_pos)
                 translation_vec = point - pos
+            else:
+                Mgr.do("set_projected_snap_marker_pos", None)
+                return task.cont
 
         if self._transf_axis is not None:
             if not snap_target_point or snap_settings["use_axis_constraints"]["translate"]:
