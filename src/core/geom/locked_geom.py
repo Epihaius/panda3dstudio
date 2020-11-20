@@ -1044,7 +1044,7 @@ class LockedGeom(LockedGeomBase):
             return False
 
         if self._normals_shown:
-            normals_geom = self.geom.find("**/normals_geom")
+            normals_geom = self.geom_root.find("**/normals_geom")
             normals_geom.set_color(color)
 
         self._normal_color = color
@@ -1057,7 +1057,7 @@ class LockedGeom(LockedGeomBase):
             return False
 
         if self._normals_shown:
-            normals_geom = self.geom.find("**/normals_geom")
+            normals_geom = self.geom_root.find("**/normals_geom")
             normals_geom.set_shader_input("normal_length", normal_length)
 
         if state == "done":
