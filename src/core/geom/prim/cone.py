@@ -553,7 +553,7 @@ class Cone(Primitive):
         for i in range(segs_h):
             seam_rows_main.extend([i * 6 + 3, i * 6 + 5])
         for i in range(segs_c):
-            seam_rows_main.extend([i * a, i * a + 1, i * a + b + 2, i * a + b + 4, i * a + b + 5])
+            seam_rows_main.extend([i * a, i * a + 1, i * a + b + 4, i * a + b + 5])
         for i in range(segs_h):
             seam_rows_main.extend([c + i * 6 + 1, c + i * 6 + 2, c + i * 6 + 4])
         seam_rows = [seam_rows_main]
