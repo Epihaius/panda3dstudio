@@ -880,6 +880,7 @@ class SurfaceManager:
             new_model.set_color(color, update_app=False)
             unlocked_geom = Mgr.do("create_unlocked_geom", new_model)
             new_geom_data_obj = unlocked_geom.geom_data_obj
+            origin = new_model.origin
             pivot = new_model.pivot
             pivot.set_hpr(0., 0., 0.)
             polys_to_copy = []
@@ -910,8 +911,8 @@ class SurfaceManager:
 
                     for poly in surface:
                         for vert in poly.vertices:
-                            vert.set_pos(vert.get_pos(pivot))
-                            vert.normal = pivot.get_relative_vector(model.pivot,
+                            vert.set_pos(vert.get_pos(origin))
+                            vert.normal = origin.get_relative_vector(model.origin,
                                 vert.normal * sign).normalized()
 
                 if surface_polys:
@@ -993,6 +994,7 @@ class SurfaceManager:
                     new_model = Mgr.do("create_model", new_model_id, name, Point3())
                     created_objs.append(new_model)
                     new_model.pivot.set_transform(GD.world, model.pivot.get_transform(GD.world))
+                    new_model.origin.set_transform(model.origin.get_transform())
                     color = tuple(random.random() * .4 + .5 for _ in range(3))
                     color += (1.,)
                     new_model.set_color(color, update_app=False)
@@ -1167,20 +1169,24 @@ class SurfaceManager:
 
             geom_data_obj = model.geom_obj.geom_data_obj
             changed_objs[model] = geom_data_obj
-            pivot = model.pivot
+            origin = model.origin
             dest_flip = -1. if geom_data_obj.has_inverted_geometry() else 1.
 
             for src_model, polys in ordered_polys.items():
-                src_pivot = src_model.pivot
+
+                src_origin = src_model.origin
                 src_flip = -1. if src_model.geom_obj.geom_data_obj.has_inverted_geometry() else 1.
                 sign = int(src_flip * dest_flip)
+
                 for poly in polys:
+
                     src_polys.append((poly, sign))
+
                     for vert in poly.vertices:
                         pos_backup[vert] = vert.get_pos()
                         normal_backup[vert] = vert.normal
-                        vert.set_pos(vert.get_pos(pivot))
-                        vert.normal = pivot.get_relative_vector(src_pivot,
+                        vert.set_pos(vert.get_pos(origin))
+                        vert.normal = origin.get_relative_vector(src_origin,
                             vert.normal * sign).normalized()
 
             new_polys = self.__copy_polygons(src_polys, geom_data_obj)
@@ -1204,6 +1210,8 @@ class SurfaceManager:
                 for vert in poly.vertices:
                     vert.set_pos(pos_backup[vert])
                     vert.normal = normal_backup[vert]
+
+            del src_polys[:]
 
         del pos_backup
         del normal_backup
