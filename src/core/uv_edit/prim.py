@@ -276,8 +276,6 @@ class UVPrimitive:
 
     def set_transform_component(self, transf_type, axis, value):
 
-        self.geom.node().clear_bounds()
-
         self.__set_start_positions()
         vertex_data = self.geom.node().modify_geom(0).modify_vertex_data()
         tmp_vertex_data = GeomVertexData(vertex_data)
@@ -334,13 +332,12 @@ class UVPrimitive:
         vertex_data = self.geom.get_child(0).node().modify_geom(0).modify_vertex_data()
         vertex_data.set_array(0, pos_array)
 
-        bounds = self.geom.node().get_bounds()
+        bounds = self.geom.get_child(0).node().get_bounds()
 
         if bounds.radius == 0.:
             bounds = BoundingSphere(bounds.center, .1)
 
         self.geom.node().set_bounds(bounds)
-        self.geom.get_child(0).node().set_bounds(bounds)
 
     def reset_default_part_uvs(self):
 
@@ -364,6 +361,12 @@ class UVPrimitive:
 
             part.set_default_transform()
 
+        bounds = self.geom.get_child(0).node().get_bounds()
+
+        if bounds.radius == 0.:
+            bounds = BoundingSphere(bounds.center, .1)
+
+        self.geom.node().set_bounds(bounds)
         self._primitive.reset_default_part_uvs(self.uv_set_id)
 
     def transform_selection(self, mat):
@@ -380,8 +383,6 @@ class UVPrimitive:
         vertex_data.set_array(0, pos_array)
 
     def finalize_transform(self, mat, cancelled=False):
-
-        self.geom.node().clear_bounds()
 
         if cancelled:
 
@@ -406,13 +407,12 @@ class UVPrimitive:
                 * Mat4.rotate_mat_normaxis(-90., Vec3.right()))
             primitive.transform_uvs(self.uv_set_id, part_indices, mat)
 
-        bounds = self.geom.node().get_bounds()
+        bounds = self.geom.get_child(0).node().get_bounds()
 
         if bounds.radius == 0.:
             bounds = BoundingSphere(bounds.center, .1)
 
         self.geom.node().set_bounds(bounds)
-        self.geom.get_child(0).node().set_bounds(bounds)
         self._pos_array_start = None
 
     def show(self):
