@@ -157,8 +157,15 @@ class TopLevelObject:
     @name.setter
     def name(self, name):
 
-        if self._name.get_value() == name:
+        old_name = self._name.get_value()
+
+        if name == old_name:
             return
+
+        obj_names = GD["obj_names"]
+
+        if old_name in obj_names:
+            obj_names.remove(old_name)
 
         self._name.set_value(name)
 
