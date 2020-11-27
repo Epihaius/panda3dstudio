@@ -577,7 +577,7 @@ class ImportManager:
                     coords.append(pos)
 
                 vert_data["pos"] = pos
-                vert_data["color"] = tuple(col_view[row*4:row*4+4])
+                vert_data["color"] = tuple(c / 255. for c in col_view[row*4:row*4+4])
                 vert_data["normal"] = Vec3(*normal_view[row*3:row*3+3])
                 # instead of filling in the UV data, store the vertex row index for now
                 # so the UV coordinates can be set later when creating the LockedGeom
