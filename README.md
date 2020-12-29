@@ -12,7 +12,7 @@ This project is still missing plenty of features, but it's already possible to d
 
 Requirements:
 * Windows or Linux (haven't tested on MacOS);
-* a recent development version of the Panda3D SDK with Python 3.x support (not older than [this one](http://buildbot.panda3d.org/downloads/94571aac93b5948adf0f4530cd6e6690408c6230/));
+* a recent version of the Panda3D SDK ([release 1.10.8](https://www.panda3d.org/download/sdk-1-10-8/) or newer);
 * a graphics card supporting OpenGL 4.2 or newer.
 
 ***
