@@ -32,15 +32,10 @@ class DialogInset(Widget):
 
         Widget.__init__(self, "dialog_inset", parent, gfx_ids, "", has_mouse_region=False)
 
-        sizer = Sizer("horizontal")
+        sizer = Sizer("vertical")
         self.sizer = sizer
-        self._client_sizer = client_sizer = Sizer("vertical")
-        sizer.add(client_sizer, (1., 1.), borders=self.gfx_inner_borders)
-
-    @property
-    def client_sizer(self):
-
-        return self._client_sizer
+        sizer.set_default_proportions(1., 1.)
+        self.sizer_borders = self.gfx_inner_borders
 
 
 class DialogText(Text):

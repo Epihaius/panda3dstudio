@@ -58,7 +58,7 @@ class MenuButton(Button):
         menu = self._menu
         w, h = menu.get_size()
         w_w, h_w = Mgr.get("window_size")
-        x_old, y_old = menu.get_pos(from_root=True)
+        x_old, y_old = menu.get_pos(net=True)
         x = max(0, min(x_old, w_w - w))
 
         if x != x_old:
@@ -125,15 +125,13 @@ class MenuBar(Widget):
     def __init__(self, parent):
 
         gfx_ids = Skin.atlas.gfx_ids["menubar"]
+        sizer_borders = Skin.atlas.inner_borders["menubar"]
 
-        Widget.__init__(self, "menubar", parent, gfx_ids)
+        Widget.__init__(self, "menubar", parent, gfx_ids, sizer_borders=sizer_borders)
 
         sizer = Sizer("horizontal")
         sizer.default_size = (0, self.min_size[1])
         self.sizer = sizer
-        self._client_sizer = client_sizer = Sizer("horizontal")
-        borders = Skin.atlas.inner_borders["menubar"]
-        sizer.add(client_sizer, borders=borders)
         self._menus = {}
         self._btns = {}
         self._active_button = None
@@ -146,7 +144,7 @@ class MenuBar(Widget):
     def add_menu(self, menu_id, menu_name=""):
 
         btn = MenuButton(self, menu_name)
-        self._client_sizer.add(btn)
+        self.sizer.add(btn)
         menu = btn.get_menu()
         self._menus[menu_id] = menu
         self._btns[menu_id] = btn
@@ -169,13 +167,13 @@ class MenuBar(Widget):
 
         btn = self._btns[menu_id]
         btn.hide()
-        self._client_sizer.remove_cell(btn.sizer_cell)
+        self.sizer.remove_cell(btn.sizer_cell)
 
     def show_menu(self, menu_id, index=None):
 
         btn = self._btns[menu_id]
         btn.show()
-        self._client_sizer.add_cell(btn.sizer_cell, index=index)
+        self.sizer.add_cell(btn.sizer_cell, index=index)
 
     def set_active_button(self, button):
 
@@ -198,5 +196,5 @@ class MenuBar(Widget):
 
     def set_mouse_region_sort(self, sort):
 
-        for btn in self._client_sizer.get_widgets():
+        for btn in self.sizer.get_widgets():
             btn.mouse_region.sort = sort

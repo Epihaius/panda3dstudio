@@ -8,7 +8,7 @@ class Widget:
     _count = 0
 
     def __init__(self, widget_type, parent, gfx_ids, initial_state="", hidden=False,
-                 has_mouse_region=True, is_root_container=False):
+                 has_mouse_region=True, is_root_container=False, sizer_borders=(0, 0, 0, 0)):
 
         self.type = "widget"
         self.widget_type = widget_type
@@ -55,6 +55,8 @@ class Widget:
 
         self._size = self._min_size = self._gfx_size = (w, h)
         self._sizer = None
+        # the borders around the sizer
+        self._sizer_borders = sizer_borders
         # the SizerCell this widget is inside of
         self.sizer_cell = None
         # inner borders are derived from the widget graphics
@@ -196,13 +198,13 @@ class Widget:
         if state in self._gfx_ids:
             self._current_state = state
 
-    def get_pos(self, ref_node=None, from_root=False):
+    def get_pos(self, ref_node=None, net=False):
 
         node = self.node
 
         if ref_node:
             x, y, z = node.get_pos(ref_node)
-        elif from_root:
+        elif net:
             x, y, z = node.get_pos(node.get_top())
         else:
             x, y, z = node.get_pos(self.parent.node)
@@ -230,30 +232,56 @@ class Widget:
         self._sizer = sizer
 
     @property
+    def sizer_borders(self):
+
+        return self._sizer_borders
+
+    @sizer_borders.setter
+    def sizer_borders(self, sizer_borders):
+
+        self._sizer_borders = sizer_borders
+
+        if self._sizer:
+            self._sizer.owner = self
+
+    @property
     def min_size(self):
 
         return self.get_min_size()
 
     def get_min_size(self, ignore_sizer=False):
 
-        if ignore_sizer:
+        if ignore_sizer or not self._sizer:
             return self._min_size
 
-        return self._sizer.min_size if self._sizer else self._min_size
+        l, r, b, t = self._sizer_borders
+        w_min, h_min = self._sizer.min_size
+
+        return (w_min + l + r, h_min + b + t)
 
     @property
     def gfx_size(self):
 
-        return self._gfx_size
+        l, r, b, t = self._sizer_borders
+        w, h = self._gfx_size
+        w = max(w, l + r)
+        h = max(h, b + t)
+
+        return (w, h)
 
     def get_size(self):
 
-        return self._sizer.get_size() if self._sizer else self._size
+        if self._sizer:
+            l, r, b, t = self._sizer_borders
+            w, h = self._sizer.get_size()
+            return (w + l + r, h + b + t)
+
+        return self._size
 
     def set_size(self, size, includes_borders=True, is_min=False):
 
         width, height = size
-        w_gfx, h_gfx = self._gfx_size
+        w_gfx, h_gfx = self.gfx_size
         l, r, b, t = self._gfx_inner_borders
         borders_h = l + r
         borders_v = b + t
@@ -281,7 +309,8 @@ class Widget:
         new_size = (w_new, h_new)
 
         if self._sizer:
-            self._sizer.set_size(new_size)
+            l, r, b, t = self._sizer_borders
+            self._sizer.set_size((w_new - l - r, h_new - b - t))
 
         self._size = new_size
 
@@ -393,7 +422,7 @@ class Widget:
             return
 
         w, h = self.get_size()
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
 
         if exclude:
             l, r, b, t = self.mouse_region.frame
@@ -537,7 +566,7 @@ class Widget:
 
 class WidgetCard:
 
-    def __init__(self, widget_type, parent=None, is_root_container=False):
+    def __init__(self, widget_type, parent=None, is_root_container=False, sizer_borders=(0, 0, 0, 0)):
 
         self.type = "widget"
         self.widget_type = widget_type
@@ -546,6 +575,8 @@ class WidgetCard:
         self.node = self._parent.node.attach_new_node("card")
         self._size = self._min_size = (0, 0)
         self._sizer = None
+        # the borders around the sizer
+        self._sizer_borders = sizer_borders
         self.sizer_cell = None
         self._transparent = False
         self._quad = None
@@ -645,14 +676,14 @@ class WidgetCard:
     def update_quad_pos(self):
 
         if self._quad:
-            x, y = self.get_pos(from_root=True)
+            x, y = self.get_pos(net=True)
             self._quad.set_pos(x, 0, -y)
 
-    def get_pos(self, from_root=False):
+    def get_pos(self, net=False):
 
         node = self.node
 
-        if from_root:
+        if net:
             x, y, z = node.get_pos(node.get_top())
         else:
             x, y, z = node.get_pos(self.parent.node)
@@ -679,18 +710,43 @@ class WidgetCard:
         self._sizer = sizer
 
     @property
+    def sizer_borders(self):
+
+        return self._sizer_borders
+
+    @sizer_borders.setter
+    def sizer_borders(self, sizer_borders):
+
+        self._sizer_borders = sizer_borders
+
+        if self._sizer:
+            self._sizer.owner = self
+
+    @property
     def min_size(self):
 
-        return self._sizer.min_size if self._sizer else self._min_size
+        if self._sizer:
+            l, r, b, t = self._sizer_borders
+            w_min, h_min = self._sizer.min_size
+            return (w_min + l + r, h_min + b + t)
+
+        return self._min_size
 
     @property
     def gfx_size(self):
 
-        return (0, 0)
+        l, r, b, t = self._sizer_borders
+
+        return (l + r, b + t)
 
     def get_size(self):
 
-        return self._sizer.get_size() if self._sizer else self._size
+        if self._sizer:
+            l, r, b, t = self._sizer_borders
+            w, h = self._sizer.get_size()
+            return (w + l + r, h + b + t)
+
+        return self._size
 
     def set_size(self, size, is_min=False):
 
@@ -705,7 +761,8 @@ class WidgetCard:
         new_size = (w_new, h_new)
 
         if self._sizer:
-            self._sizer.set_size(new_size)
+            l, r, b, t = self._sizer_borders
+            self._sizer.set_size((w_new - l - r, h_new - b - t))
 
         self._size = new_size
 
@@ -750,7 +807,7 @@ class WidgetCard:
             return
 
         w, h = self.get_size()
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
 
         if exclude:
             l, r, b, t = self.mouse_region.frame

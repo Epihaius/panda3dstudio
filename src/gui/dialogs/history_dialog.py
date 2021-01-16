@@ -715,7 +715,7 @@ class HistoryPane(DialogScrollPane):
         if layout_stale:
             self.get_dialog().update_layout()
 
-        offset = entry.get_pos(from_root=True)[1]
+        offset = entry.get_pos(net=True)[1]
         self.scrollthumb.set_offset(offset)
 
     def __add_to_menu(self, menu, entry, update=True):
@@ -1471,5 +1471,5 @@ class HistoryDialog(Dialog):
         pane = self._hist_pane
         pane.update_quad_pos()
         pane.update_widget_root_node()
-        x, y = pane.get_pos(from_root=True)
+        x, y = pane.get_pos(net=True)
         TimelineButton.set_ref_node_pos((-x, 0, y))

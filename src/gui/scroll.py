@@ -128,7 +128,7 @@ class ScrollThumb(Widget):
 
     def update_pos(self):
 
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         pane = self._pane
         d = self.direction
         dim = 0 if d == "horizontal" else 1
@@ -741,7 +741,7 @@ class ScrollPane(WidgetCard):
         b = -height if scroll_dir == "horizontal" else -min(height, h_virt)
         t = 0
         quad = self.create_quad((l, r, b, t))
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         quad.set_pos(x, 0, -y)
         quad.set_texture(tex)
         quad.set_bin(self._cull_bin, self.sort)
@@ -779,7 +779,7 @@ class ScrollPane(WidgetCard):
         scroll_dir = sizer.prim_dir
         w_virt, h_virt = self.virtual_size
         w, h = self.get_size()
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         l = x
         r = x + (min(w, w_virt) if scroll_dir == "horizontal" else w)
         b = -y - (h if scroll_dir == "horizontal" else min(h, h_virt))
@@ -800,7 +800,7 @@ class ScrollPane(WidgetCard):
         w_virt, h_virt = self.virtual_size
         w_ref, h_ref = Mgr.get("window_size")
         w, h = self.get_size()
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         l = x / w_ref
         r = (x + (min(w, w_virt) if scroll_dir == "horizontal" else w)) / w_ref
         b = 1. - (y + (h if scroll_dir == "horizontal" else min(h, h_virt))) / h_ref

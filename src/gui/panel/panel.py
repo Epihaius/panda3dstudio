@@ -488,7 +488,7 @@ class ControlPanel(Widget):
 
     def set_pos(self, pos): pass
 
-    def get_pos(self, from_root=False):
+    def get_pos(self, net=False):
 
         node = self.node
         x, y, z = node.get_pos(node.get_top())

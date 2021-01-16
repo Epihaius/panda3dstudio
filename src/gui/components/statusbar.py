@@ -65,7 +65,7 @@ class StatusBarSeparator(Widget):
 
         Widget.set_pos(self, pos)
 
-        self._ghost_image.set_pos(self.get_pos(from_root=True))
+        self._ghost_image.set_pos(self.get_pos(net=True))
 
     def __drag(self, task):
 
@@ -73,7 +73,7 @@ class StatusBarSeparator(Widget):
 
         if self._offset != offset:
             self._offset = offset
-            self._ghost_image.set_x(self.get_pos(from_root=True)[0] + offset)
+            self._ghost_image.set_x(self.get_pos(net=True)[0] + offset)
 
         return task.cont
 

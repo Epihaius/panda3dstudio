@@ -125,7 +125,7 @@ class Dock(WidgetCard):
 
         for widget in sizer.get_widgets(include_children=False):
 
-            x_w, y_w = widget.get_pos(from_root=True)
+            x_w, y_w = widget.get_pos(net=True)
             x_w -= x
             y_w -= y
             widget_img = widget.get_image()

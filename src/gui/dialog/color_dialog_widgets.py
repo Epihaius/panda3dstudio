@@ -82,7 +82,7 @@ class ColorSwatchGroup(Widget):
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         mouse_x = int(mouse_pointer.x)
         mouse_y = int(mouse_pointer.y)
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         x = max(0, min(mouse_x - x, w - 1))
         y = max(0, min(mouse_y - y, h - 1))
         r, g, b = self._swatches.get_xel(x, y)
@@ -442,7 +442,7 @@ class HueSatControl(WidgetCard):
     def update_mouse_region_frames(self, exclude="", recurse=True):
 
         w, h = self.get_size()
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         l = x
         r = x + w
         b = -y - h
@@ -502,7 +502,7 @@ class HueSatControl(WidgetCard):
         mouse_pos = (mouse_x, mouse_y)
 
         if self._prev_mouse_pos != mouse_pos:
-            x, y = self.get_pos(from_root=True)
+            x, y = self.get_pos(net=True)
             x = max(0, min(mouse_x - x, w - 1))
             y = max(0, min(mouse_y - y, h - 1))
             r, g, b = self._gradient.get_xel(x, y)
@@ -527,7 +527,7 @@ class HueSatControl(WidgetCard):
                 self.__set_marker_pos(x, y)
             else:
                 mouse_pointer = Mgr.get("mouse_pointer", 0)
-                x, y = self.get_pos(from_root=True)
+                x, y = self.get_pos(net=True)
                 x = max(0, min(int(mouse_pointer.x - x), w - 1))
                 y = max(0, min(int(mouse_pointer.y - y), h - 1))
 
@@ -734,7 +734,7 @@ class LuminanceControl(WidgetCard):
     def update_mouse_region_frames(self, exclude="", recurse=True):
 
         w, h = self.get_size()
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         l = x
         r = x + w
         b = -y - h
@@ -780,7 +780,7 @@ class LuminanceControl(WidgetCard):
         mouse_pos = (mouse_x, mouse_y)
 
         if self._prev_mouse_pos != mouse_pos:
-            x, y = self.get_pos(from_root=True)
+            x, y = self.get_pos(net=True)
             y = max(0, min(mouse_y - y, h_))
             lum = 1. - y / h_
             self.set_luminance(lum)

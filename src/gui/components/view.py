@@ -289,7 +289,7 @@ class ViewTileCard(WidgetCard):
         b = -h
         t = 0
         quad = self.create_quad((l, r, b, t))
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         quad.set_pos(x, 0, -y)
         quad.set_transparency(TransparencyAttrib.M_alpha)
 
@@ -298,7 +298,7 @@ class ViewTileCard(WidgetCard):
 
         for widget in sizer.get_widgets(include_children=False):
 
-            x_w, y_w = widget.get_pos(from_root=True)
+            x_w, y_w = widget.get_pos(net=True)
             x_w -= x
             y_w -= y
             widget_img = widget.get_image()
@@ -626,7 +626,7 @@ class ViewPane(ScrollPane):
             self._mouse_region_mask.active = False
         else:
             x, y, w, h = GD["viewport"]["aux_region"]
-            x_offset, y_offset = self.get_pos(from_root=True)
+            x_offset, y_offset = self.get_pos(net=True)
             x -= x_offset
             y -= y_offset - self.scrollthumb.get_offset()
             self._mouse_region_mask.frame = (x, x + w, -y - h, -y)

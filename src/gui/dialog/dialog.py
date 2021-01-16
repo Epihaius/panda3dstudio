@@ -425,7 +425,7 @@ class Dialog(WidgetCard):
         self.set_pos(pos)
         self.sizer.update_mouse_region_frames()
 
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         l = x
         r = x + w
         b = -y - h
@@ -456,7 +456,7 @@ class Dialog(WidgetCard):
 
         Mgr.add_task(self.__drag, "drag_dialog")
         self._listener.accept("gui_mouse1-up", self.finalize_dragging)
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         mouse_pointer = Mgr.get("mouse_pointer", 0)
         mouse_x = mouse_pointer.x
         mouse_y = mouse_pointer.y
@@ -467,7 +467,7 @@ class Dialog(WidgetCard):
 
         Mgr.remove_task("drag_dialog")
         self._listener.ignore("gui_mouse1-up")
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         self.quad.set_pos(x, 0, -y)
         w, h = self.get_size()
         l = x
@@ -604,7 +604,7 @@ class Dialog(WidgetCard):
         sizer.set_size(size)
         sizer.update_positions()
         self.update_images()
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         self.quad.set_pos(x, 0, -y)
         w, h = self.get_size()
         l = x

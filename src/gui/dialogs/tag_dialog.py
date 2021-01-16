@@ -236,16 +236,16 @@ class TagDialog(Dialog):
         inset = DialogInset(self)
         key_cell = widgets["placeholders"]["key"]
         key_cell.object = inset
-        inset_sizer = inset.client_sizer
+        inset_sizer = inset.sizer
         text = DialogText(inset, "Key")
-        inset_sizer.add(text, (1., 1.), alignments=("center", "center"))
+        inset_sizer.add(text, alignments=("center", "center"))
 
         inset = DialogInset(self)
         value_cell = widgets["placeholders"]["value"]
         value_cell.object = inset
-        inset_sizer = inset.client_sizer
+        inset_sizer = inset.sizer
         text = DialogText(inset, "Value")
-        inset_sizer.add(text, (1., 1.), alignments=("center", "center"))
+        inset_sizer.add(text, alignments=("center", "center"))
 
         self._tag_pane = pane = TagPane(self, tags)
         frame = pane.frame
@@ -268,5 +268,5 @@ class TagDialog(Dialog):
     def update_widget_positions(self):
 
         self._tag_pane.update_quad_pos()
-        x, y = self._tag_pane.get_pos(from_root=True)
+        x, y = self._tag_pane.get_pos(net=True)
         TagField.set_ref_node_pos((-x, 0, y))

@@ -25,7 +25,7 @@ class ViewportButton(Button):
 
         Button.update_mouse_region_frames(self, exclude, recurse)
 
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         w, h = self.get_size()
         w_ref, h_ref = Mgr.get("window_size")
         l, r, b, t = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
@@ -73,7 +73,7 @@ class ViewportButtonBar(WidgetCard):
 
         for widget in self._sizer.get_widgets(include_children=False):
 
-            x_w, y_w = widget.get_pos(from_root=True)
+            x_w, y_w = widget.get_pos(net=True)
             x_w -= x
             y_w -= y
             widget_img = widget.get_image()
@@ -196,7 +196,7 @@ class ViewportBorder(Widget):
 
         Widget.update_mouse_region_frames(self, exclude, recurse)
 
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         w, h = self.get_size()
         w_ref, h_ref = Mgr.get("window_size")
         l, r, b, t = get_relative_region_frame(x, y, w, h, w_ref, h_ref)
@@ -244,7 +244,7 @@ class ViewportBorder(Widget):
         viz.show()
         self._sequence.loop()
         sizer = self._viewport.sizer
-        x, y = sizer.get_pos(from_root=True)
+        x, y = sizer.get_pos(net=True)
         w, h = sizer.get_size()
         viz.set_pos(x + w, 0., -y - h)
         viz.set_scale(w, 1., h)
@@ -386,7 +386,7 @@ class AuxiliaryViewport:
     def update(self):
 
         sizer = self._display_sizer if self._placement == "overlaid" else self._display_sizer_adj
-        x, y = sizer.get_pos(from_root=True)
+        x, y = sizer.get_pos(net=True)
         w, h = sizer.get_size()
         w_ref, h_ref = Mgr.get("window_size")
         GD["viewport"]["pos_aux"] = (x, y)
@@ -544,9 +544,7 @@ class AuxiliaryViewport:
             viewport_sizer.add_cell(self._sizer_cell_adj)
             viewport_sizer.sizer_cell.proportions = (1., 1.)
 
-        viewport_sizer.update_min_size()
-        viewport_sizer.set_size(viewport_sizer.get_size())
-        viewport_sizer.update_positions(viewport_sizer.get_pos(from_root=True))
+        viewport_sizer.update(viewport_sizer.get_size())
         viewport_sizer.update_images()
         viewport_sizer.update_mouse_region_frames()
         Mgr.do("update_window")
@@ -575,9 +573,7 @@ class AuxiliaryViewport:
                 self._spacer_v_cell.proportions = (0., proportion)
 
             viewport_sizer.set_min_size_stale()
-            viewport_sizer.update_min_size()
-            viewport_sizer.set_size(viewport_sizer.get_size())
-            viewport_sizer.update_positions(viewport_sizer.get_pos(from_root=True))
+            viewport_sizer.update(viewport_sizer.get_size())
             viewport_sizer.update_images()
             viewport_sizer.update_mouse_region_frames()
             self.update()
@@ -594,9 +590,7 @@ class AuxiliaryViewport:
             w2 = min(w1, max(1, w2))
             proportion = max(.0001, (w1 - w2) / w2)
             sizer_cell.proportions = (proportion, 1.)
-            viewport_sizer.update_min_size()
-            viewport_sizer.set_size(viewport_sizer.get_size())
-            viewport_sizer.update_positions(viewport_sizer.get_pos(from_root=True))
+            viewport_sizer.update(viewport_sizer.get_size())
             viewport_sizer.update_images()
             viewport_sizer.update_mouse_region_frames()
             Mgr.do("update_window")
@@ -646,9 +640,7 @@ class AuxiliaryViewport:
             viewport_sizer.add_cell(self._sizer_cell_adj)
             viewport_sizer.sizer_cell.proportions = (1., 1.)
 
-        viewport_sizer.update_min_size()
-        viewport_sizer.set_size(viewport_sizer.get_size())
-        viewport_sizer.update_positions(viewport_sizer.get_pos(from_root=True))
+        viewport_sizer.update(viewport_sizer.get_size())
         viewport_sizer.update_images()
         viewport_sizer.update_mouse_region_frames()
         self.display_region = region = GD.window.make_display_region(0., 1., 0., 1.)

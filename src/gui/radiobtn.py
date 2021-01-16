@@ -281,19 +281,12 @@ class RadioButtonGroup:
         self._default_back_color = self._back_color = back_color
         self._text_offset = text_offset
         self._expand = expand
-        self._prim_dir = prim_dir
-        self._prim_limit = prim_limit
-
-        if prim_limit == 0:
-            prim_dir = "horizontal" if prim_dir == "vertical" else "vertical"
-            prim_limit = 1
-
-        self._sizer = s = Sizer(prim_dir, prim_limit, gaps)
+        self._sizer = Sizer(prim_dir, prim_limit, gaps)
 
         if expand:
-            p_setter = s.set_row_proportion if prim_dir == "vertical" else s.set_column_proportion
-            for i in range(prim_limit):
-                p_setter(i, 1.)
+            kwargs = {("row" if prim_dir == "vertical" else "column") + "_proportion": 1.}
+            self._sizer.set_default_proportions(0., 0.)
+            self._sizer.set_default_proportions(**kwargs)
 
     def destroy(self):
 
@@ -311,35 +304,20 @@ class RadioButtonGroup:
     def __update_proportions(self):
 
         s = self._sizer
-        s.clear_proportions()
-        p_setter = s.set_row_proportion if s.prim_dir == "vertical" else s.set_column_proportion
-
-        for i in range(s.prim_limit):
-            p_setter(i, 1.)
-
-        if not s.cells:
-            return
-
-        p_setter = s.set_column_proportion if s.prim_dir == "vertical" else s.set_row_proportion
-
-        for i in range((len(s.cells) - 1) // s.prim_limit + 1):
-            p_setter(i, 1.)
+        s.set_default_proportions(0., 0.)
+        kwargs = {("row" if s.prim_dir == "vertical" else "column") + "_proportion": 1.}
+        s.set_default_proportions(**kwargs)
 
     @property
     def prim_dir(self):
 
-        return self._prim_dir
+        return self._sizer.prim_dir
 
     @prim_dir.setter
     def prim_dir(self, prim_dir):
 
-        if self._prim_dir == prim_dir:
+        if self._sizer.prim_dir == prim_dir:
             return
-
-        self._prim_dir = prim_dir
-
-        if self._prim_limit == 0:
-            prim_dir = "horizontal" if prim_dir == "vertical" else "vertical"
 
         self._sizer.prim_dir = prim_dir
 
@@ -349,25 +327,15 @@ class RadioButtonGroup:
     @property
     def prim_limit(self):
 
-        return self._prim_limit
+        return self._sizer.prim_limit
 
     @prim_limit.setter
     def prim_limit(self, prim_limit):
 
-        if self._prim_limit == prim_limit:
+        if self._sizer.prim_limit == prim_limit:
             return
 
-        prev_prim_limit, self._prim_limit = self._prim_limit, prim_limit
-        s = self._sizer
-
-        if prim_limit == 0:
-            prim_dir = "horizontal" if self._prim_dir == "vertical" else "vertical"
-            s.prim_dir = prim_dir
-            prim_limit = 1
-        elif prev_prim_limit == 0:
-            s.prim_dir = self._prim_dir
-
-        s.prim_limit = prim_limit
+        self._sizer.prim_limit = prim_limit
 
         if self._expand:
             self.__update_proportions()
@@ -383,13 +351,6 @@ class RadioButtonGroup:
     def add_button(self, btn_id, button, index=None):
 
         self._btns[btn_id] = button
-
-        if self._expand:
-            s = self._sizer
-            i = len(s.cells) // s.prim_limit
-            p_setter = s.set_column_proportion if s.prim_dir == "vertical" else s.set_row_proportion
-            p_setter(i, 1.)
-
         self._sizer.add(button, alignments=("min", "center"), index=index)
 
     def remove_button(self, btn_id):
@@ -478,8 +439,7 @@ class RadioButtonGroup:
         if expand:
             self.__update_proportions()
         else:
-            s = self._sizer
-            s.clear_proportions()
+            self._sizer.set_default_proportions(0., 0.)
 
         self._expand = expand
 

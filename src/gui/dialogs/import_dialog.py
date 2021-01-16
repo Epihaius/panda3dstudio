@@ -193,5 +193,5 @@ class ImportDialog(Dialog):
     def update_widget_positions(self):
 
         self._object_pane.update_quad_pos()
-        x, y = self._object_pane.get_pos(from_root=True)
+        x, y = self._object_pane.get_pos(net=True)
         NameField.set_ref_node_pos((-x, 0, y))

@@ -137,14 +137,14 @@ class MenuItem(Button):
         w, h = parent.get_size()
         w_m, h_m = menu.get_size()
         w_w, h_w = Mgr.get("window_size")
-        x_old, y_old = menu.get_pos(from_root=True)
+        x_old, y_old = menu.get_pos(net=True)
         x_new = x_old + w_m
         y_new = y_old + h_m
         quad = menu.quad
 
         if x_new > w_w or y_new > h_w:
 
-            x, y = parent.get_pos(from_root=True)
+            x, y = parent.get_pos(net=True)
             x_m, y_m = menu.get_pos()
 
             if x_new > w_w:
@@ -162,7 +162,7 @@ class MenuItem(Button):
             menu.set_pos((x_m, y_m))
             menu.update_mouse_region_frames()
 
-        x, y = menu.get_pos(from_root=True)
+        x, y = menu.get_pos(net=True)
         quad_pos = Point3(x, 0, -y)
 
         if quad.get_pos() != quad_pos:
@@ -719,7 +719,7 @@ class Menu(WidgetCard):
 
         w, h = self.get_size()
         w_w, h_w = Mgr.get("window_size")
-        x_old, y_old = self.get_pos(from_root=True)
+        x_old, y_old = self.get_pos(net=True)
         x = max(0, min(x_old, w_w - w))
         y = max(0, min(y_old, h_w - h))
 
@@ -727,7 +727,7 @@ class Menu(WidgetCard):
             return ""
 
         self.set_pos((x, y))
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         self.quad.set_pos(x, 0, -y)
         self.update_mouse_region_frames()
 
@@ -927,7 +927,7 @@ class Menu(WidgetCard):
         t = h_tl
         quad = self.create_quad((l, r, b, t))
         quad.set_texture(tex)
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         quad.set_transparency(TransparencyAttrib.M_alpha)
         quad.set_pos(x, 0., -y)
         quad.set_bin("menu", self.sort)
@@ -943,7 +943,7 @@ class Menu(WidgetCard):
     def update_mouse_region_frames(self):
 
         w, h = self.get_size()
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         l = x
         r = x + w
         b = -y - h

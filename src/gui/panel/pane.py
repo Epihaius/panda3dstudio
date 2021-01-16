@@ -98,7 +98,7 @@ class ControlPane(ScrollPane):
     def _copy_widget_images(self, pane_image): 
 
         for panel in self._panels:
-            x_ref, y_ref = panel.get_pos(from_root=True)
+            x_ref, y_ref = panel.get_pos(net=True)
             pane_image.copy_sub_image(panel.get_image(), x_ref, y_ref, 0, 0)
 
     def _can_scroll(self):
@@ -112,7 +112,7 @@ class ControlPane(ScrollPane):
 
     def __scroll_to_panel(self, panel):
 
-        offset = panel.get_pos(from_root=True)[1]
+        offset = panel.get_pos(net=True)[1]
         self.scrollthumb.set_offset(offset)
 
     def finalize(self):
@@ -159,7 +159,7 @@ class ControlPane(ScrollPane):
 
         WidgetCard.set_pos(self, pos)
 
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         self.widget_root_node.set_pos(x, 0, -y + self.scrollthumb.get_offset())
 
     def add_panel(self, panel):
@@ -231,7 +231,7 @@ class ControlPane(ScrollPane):
             img_new.copy_sub_image(img, 0, y_dest, 0, y_src, w, dh)
 
         for panel in self._panels_to_resize:
-            img_new.copy_sub_image(panel.get_image(), 0, panel.get_pos(from_root=True)[1], 0, 0)
+            img_new.copy_sub_image(panel.get_image(), 0, panel.get_pos(net=True)[1], 0, 0)
 
         tex = self.texture
         tex.load(img_new)
@@ -242,7 +242,7 @@ class ControlPane(ScrollPane):
 
         width, height = self.get_size()
         tex_scale = (1., min(1., height / h_virt_new))
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         l = x
         r = x + width
         b = -(y + min(height, h_virt_new))
@@ -336,7 +336,7 @@ class ControlPane(ScrollPane):
             img_new.copy_sub_image(img, 0, y_dest, 0, y_src, w, dh)
 
         for panel in self._panels_to_show:
-            img_new.copy_sub_image(panel.get_image(), 0, panel.get_pos(from_root=True)[1], 0, 0)
+            img_new.copy_sub_image(panel.get_image(), 0, panel.get_pos(net=True)[1], 0, 0)
 
         tex = self.texture
         tex.load(img_new)
@@ -348,7 +348,7 @@ class ControlPane(ScrollPane):
 
         width, height = self.get_size()
         tex_scale = (1., min(1., height / h_virt_new))
-        x, y = self.get_pos(from_root=True)
+        x, y = self.get_pos(net=True)
         l = x
         r = x + width
         b = -(y + min(height, h_virt_new))

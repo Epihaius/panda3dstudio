@@ -71,7 +71,7 @@ class ProgressBar(Widget):
             sizer.set_min_size_stale()
             sizer.update_min_size()
             sizer.set_size(sizer.get_size())
-            sizer.update_positions(sizer.get_pos())
+            sizer.update_positions()
             sizer.update_images()
             self.__update_card_image()
 

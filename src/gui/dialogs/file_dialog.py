@@ -902,5 +902,5 @@ class FileDialog(Dialog):
     def update_widget_positions(self):
 
         self._file_pane.update_quad_pos()
-        x, y = self._file_pane.get_pos(from_root=True)
+        x, y = self._file_pane.get_pos(net=True)
         FileButtonInputField.set_ref_node_pos((-x, 0, y))

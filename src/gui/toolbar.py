@@ -566,11 +566,9 @@ class Toolbar(Widget, HotkeyManager):
         sizer = Sizer("horizontal")
         self.sizer = sizer
         sizer.set_row_proportion(0, 1.)
-        self._client_sizer = client_sizer = Sizer("horizontal")
-        client_sizer.set_row_proportion(0, 1.)
         l, r, b, t = self.gfx_inner_borders
         borders = (l + Skin.options["toolbar_margin"], r, b, t)
-        sizer.add(client_sizer, borders=borders)
+        self.sizer_borders = borders
         region_name = f"toolbar_grip_{self.widget_id}"
         self._grip_mouse_region = MouseWatcherRegion(region_name, 0., 0., 0., 0.)
         self.mouse_watcher.add_region(self._grip_mouse_region)
@@ -600,7 +598,7 @@ class Toolbar(Widget, HotkeyManager):
     @property
     def client_sizer(self):
 
-        return self._client_sizer
+        return self.sizer
 
     def set_size(self, size, includes_borders=True, is_min=False):
 
@@ -766,7 +764,7 @@ class Toolbar(Widget, HotkeyManager):
                 if hotkey in registry:
                     del registry[hotkey]
 
-        for widget in self._client_sizer.get_widgets():
+        for widget in self.sizer.get_widgets():
             if widget.widget_type == "toolbar_button":
                 widget.enable_hotkey(enable)
 
@@ -990,9 +988,7 @@ class ToolbarBundle:
 
         for other_row in other_rows:
             add_toolbar_row(row_sizer, other_row)
-            row_sizer.update_min_size()
-            row_sizer.set_size(size)
-            row_sizer.update_positions(row_sizer.get_pos())
+            row_sizer.update(size)
             row_sizer.update_images()
             row_sizer.update_mouse_region_frames()
             remove_toolbar_row(row_sizer, other_row)
